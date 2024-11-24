@@ -6,6 +6,36 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
 
+function handleCommandFailure(
+  output: Deno.CommandOutput,
+  context: string,
+) {
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+
+  console.error(
+    "%cError: Failed to %s",
+    "font-weight: bold; color: red",
+    context,
+  );
+  console.log(`Exit code: ${output.code}`);
+
+  if (stdout) {
+    console.log("\n%cStandard output:", "font-weight: bold");
+    console.log(stdout);
+  }
+
+  if (stderr) {
+    console.error("\n%cError output:", "font-weight: bold");
+    console.error("%c" + stderr, "color: red");
+  }
+
+  console.log("\n%cTroubleshooting:", "font-weight: bold");
+  console.log("- Make sure you have gh CLI installed and configured");
+  console.log("- Check your GitHub authentication");
+  Deno.exit(1);
+}
+
 async function getCurrentBranch(): Promise<string> {
   const process = new Deno.Command("git", {
     args: ["symbolic-ref", "--short", "HEAD"],
@@ -59,8 +89,9 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
 
 async function fetchIssueDetails(
   issueId: string,
-): Promise<{ title: string; description: string | null }> {
-  const query = `query($id: String!) { issue(id: $id) { title, description } }`;
+): Promise<{ title: string; description: string | null; url: string }> {
+  const query =
+    `query($id: String!) { issue(id: $id) { title, description, url } }`;
   const data = await fetchGraphQL(query, { id: issueId });
   return data.data.issue;
 }
@@ -121,6 +152,40 @@ const teamCommand = new Command()
       console.error("Could not determine team id from directory name.");
       Deno.exit(1);
     }
+  })
+  .command(
+    "autolinks",
+    "Configure GitHub repository autolinks for Linear issues",
+  )
+  .action(async () => {
+    const teamId = await getTeamId();
+    if (!teamId) {
+      console.error("Could not determine team id from directory name.");
+      Deno.exit(1);
+    }
+
+    const workspace = Deno.env.get("LINEAR_WORKSPACE");
+    if (!workspace) {
+      console.error("LINEAR_WORKSPACE environment variable is not set.");
+      Deno.exit(1);
+    }
+
+    const process = new Deno.Command("gh", {
+      args: [
+        "api",
+        "repos/{owner}/{repo}/autolinks",
+        "-f",
+        `key_prefix=${teamId}-`,
+        "-f",
+        `url_template=https://linear.app/${workspace}/issue/${teamId}-<num>`,
+      ],
+    });
+
+    const output = await process.output();
+    if (!output.success) {
+      await handleCommandFailure(output, "configure autolinks");
+    }
+    console.log(`Successfully configured autolinks for team ${teamId}`);
   });
 
 const issueCommand = new Command()
@@ -158,6 +223,59 @@ const issueCommand = new Command()
       );
       Deno.exit(1);
     }
+  })
+  .command("title", "Print the issue title")
+  .action(async () => {
+    const issueId = await getIssueId();
+    if (!issueId) {
+      console.error(
+        "The current branch does not contain a valid linear issue id.",
+      );
+      Deno.exit(1);
+    }
+    const { title } = await fetchIssueDetails(issueId);
+    console.log(title);
+  })
+  .command("url", "Print the issue URL")
+  .action(async () => {
+    const issueId = await getIssueId();
+    if (!issueId) {
+      console.error(
+        "The current branch does not contain a valid linear issue id.",
+      );
+      Deno.exit(1);
+    }
+    const { url } = await fetchIssueDetails(issueId);
+    console.log(url);
+  })
+  .command("pull-request", "Create a GitHub pull request with issue details")
+  .alias("pr")
+  .action(async () => {
+    const issueId = await getIssueId();
+    if (!issueId) {
+      console.error(
+        "The current branch does not contain a valid linear issue id.",
+      );
+      Deno.exit(1);
+    }
+    const { title, url } = await fetchIssueDetails(issueId);
+
+    const process = new Deno.Command("gh", {
+      args: [
+        "pr",
+        "create",
+        "--title",
+        `${issueId} ${title}`,
+        "--body",
+        url,
+        "--web",
+      ],
+    });
+
+    const output = await process.output();
+    if (!output.success) {
+      await handleCommandFailure(output, "create pull request");
+    }
   });
 
 await new Command()
@@ -168,6 +286,8 @@ await new Command()
     console.log("Use --help to see available commands");
   })
   .command("issue", issueCommand)
+  .alias("i")
   .command("team", teamCommand)
+  .alias("t")
   .command("completions", new CompletionsCommand())
   .parse(Deno.args);
