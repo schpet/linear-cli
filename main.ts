@@ -6,7 +6,7 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
 
-async function handleCommandFailure(
+function handleCommandFailure(
   output: Deno.CommandOutput,
   context: string,
 ) {
