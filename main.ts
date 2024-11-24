@@ -201,9 +201,14 @@ const issueCommand = new Command()
       ],
     });
     
-    const { success } = await process.output();
-    if (!success) {
-      console.error("Failed to create pull request. Make sure you have gh CLI installed and configured.");
+    const output = await process.output();
+    if (!output.success) {
+      const stderr = new TextDecoder().decode(output.stderr);
+      console.error("Failed to create pull request:");
+      console.error(`Exit code: ${output.code}`);
+      console.error("Error output:");
+      console.error(stderr);
+      console.error("\nMake sure you have gh CLI installed and configured.");
       Deno.exit(1);
     }
   });
