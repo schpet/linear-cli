@@ -216,6 +216,8 @@ await new Command()
     console.log("Use --help to see available commands");
   })
   .command("issue", issueCommand)
+  .alias("i")
   .command("team", teamCommand)
+  .alias("t")
   .command("completions", new CompletionsCommand())
   .parse(Deno.args);
