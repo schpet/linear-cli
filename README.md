@@ -1,6 +1,7 @@
 # linear cli
 
-cli tool for linear.app that uses git branch names and directory names to open issues and team pages.
+cli tool for linear.app that uses git branch names and directory names to open
+issues and team pages.
 
 ## install
 
@@ -23,6 +24,7 @@ deno task install
 ### environment variables
 
 first create an api key:
+
 1. go to https://linear.app/settings/api
 2. click "create key"
 3. name it something like "cli"
@@ -55,7 +57,9 @@ linear issue # opens eng-123 in linear
 linear issue print # prints issue title and description
 ```
 
-note that [linear's github integration](https://linear.app/docs/github#branch-format) will suggest these branch names.
+note that
+[linear's github integration](https://linear.app/docs/github#branch-format) will
+suggest these branch names.
 
 ## commands
 
