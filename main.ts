@@ -5,26 +5,28 @@ import denoConfig from "./deno.json" with { type: "json" };
 import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
-import { red } from "https://deno.land/std/fmt/colors.ts";
+import { bold, red, white } from "https://deno.land/std/fmt/colors.ts";
 
 async function handleCommandFailure(output: Deno.CommandOutput, context: string) {
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
   
-  console.error(red(`Failed to ${context}:`));
-  console.error(red(`Exit code: ${output.code}`));
+  console.error(red(bold(`Error: Failed to ${context}`)));
+  console.error(white(`Exit code: ${output.code}`));
   
   if (stdout) {
-    console.error(red("Standard output:"));
-    console.error(red(stdout));
+    console.error(bold("\nStandard output:"));
+    console.error(white(stdout));
   }
   
   if (stderr) {
-    console.error(red("Error output:"));
+    console.error(bold("\nError output:"));
     console.error(red(stderr));
   }
   
-  console.error(red("\nMake sure you have gh CLI installed and configured."));
+  console.error(bold("\nTroubleshooting:"));
+  console.error(white("- Make sure you have gh CLI installed and configured"));
+  console.error(white("- Check your GitHub authentication"));
   Deno.exit(1);
 }
 
