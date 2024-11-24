@@ -59,8 +59,8 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
 
 async function fetchIssueDetails(
   issueId: string,
-): Promise<{ title: string; description: string | null }> {
-  const query = `query($id: String!) { issue(id: $id) { title, description } }`;
+): Promise<{ title: string; description: string | null; url: string }> {
+  const query = `query($id: String!) { issue(id: $id) { title, description, url } }`;
   const data = await fetchGraphQL(query, { id: issueId });
   return data.data.issue;
 }
@@ -156,6 +156,54 @@ const issueCommand = new Command()
       console.error(
         "The current branch does not contain a valid linear issue id.",
       );
+      Deno.exit(1);
+    }
+  })
+  .command("title", "Print the issue title")
+  .action(async () => {
+    const issueId = await getIssueId();
+    if (!issueId) {
+      console.error("The current branch does not contain a valid linear issue id.");
+      Deno.exit(1);
+    }
+    const { title } = await fetchIssueDetails(issueId);
+    console.log(title);
+  })
+  .command("url", "Print the issue URL")
+  .action(async () => {
+    const issueId = await getIssueId();
+    if (!issueId) {
+      console.error("The current branch does not contain a valid linear issue id.");
+      Deno.exit(1);
+    }
+    const { url } = await fetchIssueDetails(issueId);
+    console.log(url);
+  })
+  .command("pull-request", "Create a GitHub pull request with issue details")
+  .alias("pr")
+  .action(async () => {
+    const issueId = await getIssueId();
+    if (!issueId) {
+      console.error("The current branch does not contain a valid linear issue id.");
+      Deno.exit(1);
+    }
+    const { title, url } = await fetchIssueDetails(issueId);
+    
+    const process = new Deno.Command("gh", {
+      args: [
+        "pr",
+        "create",
+        "--title",
+        `${issueId} ${title}`,
+        "--body",
+        url,
+        "--web"
+      ],
+    });
+    
+    const { success } = await process.output();
+    if (!success) {
+      console.error("Failed to create pull request");
       Deno.exit(1);
     }
   });
