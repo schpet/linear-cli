@@ -40,24 +40,11 @@ export LINEAR_WORKSPACE="your-company" # your linear.app workspace url slug
 
 ## repo setup
 
--  name your repos with your linear team prefix:
-  ```bash
-  mv ~/code/cool-project ~/code/eng-cool-project
-  ```
+- name your repos with your linear team prefix, i.e. `mv ~/code/cool-project ~/code/eng-cool-project`
 - use branch names prefixed with a linear issue id, note that
 [linear's github integration](https://linear.app/docs/github#branch-format) will
 suggest these branch names
 
-
-### issues
-
-create branches that include linear issue ids:
-
-```bash
-git switch -c eng-123-do-something
-linear issue # opens eng-123 in linear
-linear issue print # prints issue title and description
-```
 
 ## commands
 
