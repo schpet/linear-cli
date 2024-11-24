@@ -72,7 +72,7 @@ linear team autolinks   # configures GitHub repository autolinks for Linear issu
 ```
 
 
-### other Commands
+### other commands
 
 ```bash
 linear --help          # show all commands
