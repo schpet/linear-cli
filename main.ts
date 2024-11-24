@@ -6,23 +6,30 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
 
-async function handleCommandFailure(output: Deno.CommandOutput, context: string) {
+async function handleCommandFailure(
+  output: Deno.CommandOutput,
+  context: string,
+) {
   const stdout = new TextDecoder().decode(output.stdout);
   const stderr = new TextDecoder().decode(output.stderr);
-  
-  console.error("%cError: Failed to %s", "font-weight: bold; color: red", context);
+
+  console.error(
+    "%cError: Failed to %s",
+    "font-weight: bold; color: red",
+    context,
+  );
   console.log(`Exit code: ${output.code}`);
-  
+
   if (stdout) {
     console.log("\n%cStandard output:", "font-weight: bold");
     console.log(stdout);
   }
-  
+
   if (stderr) {
     console.error("\n%cError output:", "font-weight: bold");
     console.error("%c" + stderr, "color: red");
   }
-  
+
   console.log("\n%cTroubleshooting:", "font-weight: bold");
   console.log("- Make sure you have gh CLI installed and configured");
   console.log("- Check your GitHub authentication");
@@ -83,7 +90,8 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
 async function fetchIssueDetails(
   issueId: string,
 ): Promise<{ title: string; description: string | null; url: string }> {
-  const query = `query($id: String!) { issue(id: $id) { title, description, url } }`;
+  const query =
+    `query($id: String!) { issue(id: $id) { title, description, url } }`;
   const data = await fetchGraphQL(query, { id: issueId });
   return data.data.issue;
 }
@@ -145,7 +153,10 @@ const teamCommand = new Command()
       Deno.exit(1);
     }
   })
-  .command("autolinks", "Configure GitHub repository autolinks for Linear issues")
+  .command(
+    "autolinks",
+    "Configure GitHub repository autolinks for Linear issues",
+  )
   .action(async () => {
     const teamId = await getTeamId();
     if (!teamId) {
@@ -217,7 +228,9 @@ const issueCommand = new Command()
   .action(async () => {
     const issueId = await getIssueId();
     if (!issueId) {
-      console.error("The current branch does not contain a valid linear issue id.");
+      console.error(
+        "The current branch does not contain a valid linear issue id.",
+      );
       Deno.exit(1);
     }
     const { title } = await fetchIssueDetails(issueId);
@@ -227,7 +240,9 @@ const issueCommand = new Command()
   .action(async () => {
     const issueId = await getIssueId();
     if (!issueId) {
-      console.error("The current branch does not contain a valid linear issue id.");
+      console.error(
+        "The current branch does not contain a valid linear issue id.",
+      );
       Deno.exit(1);
     }
     const { url } = await fetchIssueDetails(issueId);
@@ -238,11 +253,13 @@ const issueCommand = new Command()
   .action(async () => {
     const issueId = await getIssueId();
     if (!issueId) {
-      console.error("The current branch does not contain a valid linear issue id.");
+      console.error(
+        "The current branch does not contain a valid linear issue id.",
+      );
       Deno.exit(1);
     }
     const { title, url } = await fetchIssueDetails(issueId);
-    
+
     const process = new Deno.Command("gh", {
       args: [
         "pr",
@@ -251,10 +268,10 @@ const issueCommand = new Command()
         `${issueId} ${title}`,
         "--body",
         url,
-        "--web"
+        "--web",
       ],
     });
-    
+
     const output = await process.output();
     if (!output.success) {
       await handleCommandFailure(output, "create pull request");

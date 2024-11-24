@@ -1,8 +1,8 @@
 # linear cli
 
 cli tool for linear.app that uses git branch names and directory names to open
-issues and team pages. offers handy commands like `linear issue pr` to create pull
-requests and `linear issue view` to open issues in linear.app.
+issues and team pages. offers handy commands like `linear issue pr` to create
+pull requests and `linear issue view` to open issues in linear.app.
 
 ## install
 
@@ -40,11 +40,11 @@ export LINEAR_WORKSPACE="your-company" # your linear.app workspace url slug
 
 ## repo setup
 
-- name your repos with your linear team prefix, i.e. `mv ~/code/cool-project ~/code/eng-cool-project`
+- name your repos with your linear team prefix, i.e.
+  `mv ~/code/cool-project ~/code/eng-cool-project`
 - use branch names prefixed with a linear issue id, note that
-[linear's github integration](https://linear.app/docs/github#branch-format) will
-suggest these branch names
-
+  [linear's github integration](https://linear.app/docs/github#branch-format)
+  will suggest these branch names
 
 ## commands
 
@@ -70,7 +70,6 @@ linear team open        # same as above
 linear team id          # prints the team id (e.g., "ENG")
 linear team autolinks   # configures GitHub repository autolinks for Linear issues
 ```
-
 
 ### other commands
 
