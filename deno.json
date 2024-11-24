@@ -1,5 +1,8 @@
 {
+  "$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
+  "name": "@schpet/linear-cli",
   "version": "0.0.1",
+  "exports": "./main.ts",
   "license": "MIT",
   "tasks": {
     "dev": "deno run --allow-env --allow-sys --allow-run --allow-read --allow-net main.ts",
