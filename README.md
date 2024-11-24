@@ -62,7 +62,7 @@ linear issue pr        # creates a GitHub PR with issue details via `gh pr creat
 linear issue pull-request  # same as above
 ```
 
-### team Commands
+### team commands
 
 ```bash
 linear team              # opens team page in Linear.app
