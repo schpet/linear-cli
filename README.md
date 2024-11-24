@@ -50,10 +50,12 @@ linear team # opens eng team page
 create branches that include linear issue ids:
 
 ```bash
-git checkout -b eng-123-do-something
+git switch -c eng-123-do-something
 linear issue # opens eng-123 in linear
 linear issue print # prints issue title and description
 ```
+
+note that [linear's github integration](https://linear.app/docs/github#branch-format) will suggest these branch names.
 
 ## commands
 
