@@ -22,8 +22,16 @@ deno task install
 
 ### environment variables
 
+first create an api key:
+1. go to https://linear.app/settings/api
+2. click "create key"
+3. name it something like "cli"
+4. copy the key
+
+then export these environment variables:
+
 ```bash
-export LINEAR_API_KEY="lin_api_..." # get this from linear.app settings
+export LINEAR_API_KEY="lin_api_..." # paste your api key here
 export LINEAR_WORKSPACE="your-company" # your linear.app workspace url slug
 ```
 
