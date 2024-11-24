@@ -203,7 +203,7 @@ const issueCommand = new Command()
     
     const { success } = await process.output();
     if (!success) {
-      console.error("Failed to create pull request");
+      console.error("Failed to create pull request. Make sure you have gh CLI installed and configured.");
       Deno.exit(1);
     }
   });
