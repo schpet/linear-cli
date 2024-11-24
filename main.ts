@@ -121,6 +121,43 @@ const teamCommand = new Command()
       console.error("Could not determine team id from directory name.");
       Deno.exit(1);
     }
+  })
+  .command("autolinks", "Configure GitHub repository autolinks for Linear issues")
+  .action(async () => {
+    const teamId = await getTeamId();
+    if (!teamId) {
+      console.error("Could not determine team id from directory name.");
+      Deno.exit(1);
+    }
+
+    const workspace = Deno.env.get("LINEAR_WORKSPACE");
+    if (!workspace) {
+      console.error("LINEAR_WORKSPACE environment variable is not set.");
+      Deno.exit(1);
+    }
+
+    const process = new Deno.Command("gh", {
+      args: [
+        "api",
+        "repos/{owner}/{repo}/autolinks",
+        "-f",
+        `key_prefix=${teamId}-`,
+        "-f",
+        `url_template=https://linear.app/${workspace}/issue/${teamId}-<num>`,
+      ],
+    });
+
+    const output = await process.output();
+    if (!output.success) {
+      const stderr = new TextDecoder().decode(output.stderr);
+      console.error("Failed to configure autolinks:");
+      console.error(`Exit code: ${output.code}`);
+      console.error("Error output:");
+      console.error(stderr);
+      console.error("\nMake sure you have gh CLI installed and configured.");
+      Deno.exit(1);
+    }
+    console.log(`Successfully configured autolinks for team ${teamId}`);
   });
 
 const issueCommand = new Command()
