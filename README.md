@@ -13,7 +13,7 @@ deno install jsr:@schpet/linear
 ### local install
 
 ```bash
-git clone https://github.com/schpet/linear
+git clone https://github.com/schpet/linear-cli
 cd linear
 deno task install
 ```
@@ -24,7 +24,7 @@ deno task install
 
 ```bash
 export LINEAR_API_KEY="lin_api_..." # get this from linear.app settings
-export LINEAR_WORKSPACE="your-workspace" # your linear.app workspace name
+export LINEAR_WORKSPACE="your-company" # your linear.app workspace url slug
 ```
 
 ### team pages
