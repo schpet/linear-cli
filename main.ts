@@ -5,6 +5,28 @@ import denoConfig from "./deno.json" with { type: "json" };
 import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
+import { red } from "https://deno.land/std/fmt/colors.ts";
+
+async function handleCommandFailure(output: Deno.CommandOutput, context: string) {
+  const stdout = new TextDecoder().decode(output.stdout);
+  const stderr = new TextDecoder().decode(output.stderr);
+  
+  console.error(red(`Failed to ${context}:`));
+  console.error(red(`Exit code: ${output.code}`));
+  
+  if (stdout) {
+    console.error(red("Standard output:"));
+    console.error(red(stdout));
+  }
+  
+  if (stderr) {
+    console.error(red("Error output:"));
+    console.error(red(stderr));
+  }
+  
+  console.error(red("\nMake sure you have gh CLI installed and configured."));
+  Deno.exit(1);
+}
 
 async function getCurrentBranch(): Promise<string> {
   const process = new Deno.Command("git", {
@@ -149,13 +171,7 @@ const teamCommand = new Command()
 
     const output = await process.output();
     if (!output.success) {
-      const stderr = new TextDecoder().decode(output.stderr);
-      console.error("Failed to configure autolinks:");
-      console.error(`Exit code: ${output.code}`);
-      console.error("Error output:");
-      console.error(stderr);
-      console.error("\nMake sure you have gh CLI installed and configured.");
-      Deno.exit(1);
+      await handleCommandFailure(output, "configure autolinks");
     }
     console.log(`Successfully configured autolinks for team ${teamId}`);
   });
@@ -240,13 +256,7 @@ const issueCommand = new Command()
     
     const output = await process.output();
     if (!output.success) {
-      const stderr = new TextDecoder().decode(output.stderr);
-      console.error("Failed to create pull request:");
-      console.error(`Exit code: ${output.code}`);
-      console.error("Error output:");
-      console.error(stderr);
-      console.error("\nMake sure you have gh CLI installed and configured.");
-      Deno.exit(1);
+      await handleCommandFailure(output, "create pull request");
     }
   });
 
