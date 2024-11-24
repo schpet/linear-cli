@@ -8,7 +8,7 @@ issues and team pages.
 ### from jsr
 
 ```bash
-deno install jsr:@schpet/linear
+deno install -g -n linear jsr:@schpet/linear-cli
 ```
 
 ### local install
