@@ -21,7 +21,7 @@ deno task install
 
 ## usage
 
-### environment variables
+### setup environment variables
 
 first create an api key:
 
