@@ -1,7 +1,8 @@
 # linear cli
 
 cli tool for linear.app that uses git branch names and directory names to open
-issues and team pages.
+issues and team pages. offers handy commands like `linear issue pr` to create pull
+requests and `linear issue view` to open issues in linear.app.
 
 ## install
 
