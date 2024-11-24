@@ -65,7 +65,7 @@ suggest these branch names.
 
 Here are all available commands and their usage:
 
-### Team Commands
+### team Commands
 
 ```bash
 linear team              # opens team page in Linear.app
@@ -74,21 +74,21 @@ linear team id          # prints the team id (e.g., "ENG")
 linear team autolinks   # configures GitHub repository autolinks for Linear issues
 ```
 
-### Issue Commands
+### issue Commands
 
 ```bash
-linear issue            # opens current branch's issue in Linear.app
+linear issue           # opens current branch's issue in Linear.app
 linear issue open      # same as above
 linear issue print     # prints issue title and description (with markdown formatting)
 linear issue print --no-color  # prints issue without color/formatting
 linear issue id        # prints the issue id from current branch (e.g., "ENG-123")
 linear issue title     # prints just the issue title
 linear issue url       # prints the Linear.app URL for the issue
-linear issue pr        # creates a GitHub PR with issue details
+linear issue pr        # creates a GitHub PR with issue details via `gh pr create`
 linear issue pull-request  # same as above
 ```
 
-### Other Commands
+### other Commands
 
 ```bash
 linear --help          # show all commands
