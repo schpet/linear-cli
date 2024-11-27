@@ -10,6 +10,7 @@
     "jsr:@opensrc/deno-open@1": "1.0.0",
     "jsr:@std/assert@1": "1.0.8",
     "jsr:@std/assert@~0.218.2": "0.218.2",
+    "jsr:@std/cli@^1.0.7": "1.0.7",
     "jsr:@std/encoding@^1.0.5": "1.0.5",
     "jsr:@std/fmt@0.223.0": "0.223.0",
     "jsr:@std/fmt@~1.0.2": "1.0.3",
@@ -65,6 +66,9 @@
         "jsr:@std/internal"
       ]
     },
+    "@std/cli@1.0.7": {
+      "integrity": "98359df9df586a69015ba570305183b0cb9e7d53c05ea2016ef9a3e77e82c7cd"
+    },
     "@std/encoding@1.0.5": {
       "integrity": "ecf363d4fc25bd85bd915ff6733a7e79b67e0e7806334af15f4645c569fefc04"
     },
@@ -96,6 +100,7 @@
       "jsr:@littletof/charmd@~0.1.2",
       "jsr:@opensrc/deno-open@1",
       "jsr:@std/assert@1",
+      "jsr:@std/cli@^1.0.7",
       "jsr:@std/encoding@^1.0.5",
       "jsr:@std/path@^1.0.8"
     ]

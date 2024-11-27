@@ -6,13 +6,14 @@
   "license": "MIT",
   "tasks": {
     "dev": "deno run --allow-env --allow-sys --allow-run --allow-read --allow-net main.ts",
-    "install": "deno install --allow-env --allow-sys --allow-run --allow-read --allow-net -c deno.json -g -n linear main.ts"
+    "install": "deno install --allow-env --allow-sys --allow-run --allow-read --allow-net -c ./deno.json -g -n linear main.ts"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
     "@littletof/charmd": "jsr:@littletof/charmd@^0.1.2",
     "@opensrc/deno-open": "jsr:@opensrc/deno-open@^1.0.0",
     "@std/assert": "jsr:@std/assert@1",
+    "@std/cli": "jsr:@std/cli@^1.0.7",
     "@std/encoding": "jsr:@std/encoding@^1.0.5",
     "@std/path": "jsr:@std/path@^1.0.8"
   },

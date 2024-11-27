@@ -1,54 +1,52 @@
 # linear cli
 
 cli tool for linear.app that uses git branch names and directory names to open
-issues and team pages. offers handy commands like `linear issue pr` to create
-pull requests and `linear issue view` to open issues in linear.app.
+issues and team pages. offers handy commands:
+
+- `linear issue` open the issue in linear.app, based on the current git branch
+- `linear issue print` print it to stdout
+- `linear issue pr` create a nicely named pull request with [gh](https://cli.github.com/)
+- `linear team` view active issues assigned to you in the team
+
+see [the full list of commands](#commands) below.
 
 ## install
 
-### from jsr
+### homebrew
+
+todo
+
+### deno via jsr
 
 ```bash
 deno install --allow-env --allow-sys --allow-run --allow-read --allow-net -g -n linear jsr:@schpet/linear-cli
 ```
 
-### local install
+### deno via local git clone
 
 ```bash
 git clone https://github.com/schpet/linear-cli
-cd linear
+cd linear-cli
 deno task install
 ```
 
 ## setup
 
-### setup environment variables
-
-first create an api key:
-
-1. go to https://linear.app/settings/api
-2. click "create key"
-3. name it something like "cli"
-4. copy the key
-
-then export these environment variables:
+### required environment variables
 
 ```bash
-export LINEAR_API_KEY="lin_api_..." # paste your api key here
+export LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api
 export LINEAR_WORKSPACE="your-company" # your linear.app workspace url slug
 ```
-
-## repo setup
-
-- name your repos with your linear team prefix, i.e.
-  `mv ~/code/cool-project ~/code/eng-cool-project`
-- use branch names prefixed with a linear issue id, note that
-  [linear's github integration](https://linear.app/docs/github#branch-format)
-  will suggest these branch names
 
 ## commands
 
 ### issue commands
+
+the current issue is determined by the issue id in the current git branch name.
+note that
+[linear's github integration](https://linear.app/docs/github#branch-format) will
+suggest these branch names.
 
 ```bash
 linear issue           # opens current branch's issue in Linear.app
@@ -63,6 +61,10 @@ linear issue pull-request  # same as above
 ```
 
 ### team commands
+
+name your repo directories with your project's linear team prefix for these to
+work. i.e. if your linear team prefix is 'ENG'
+`mv ~/code/cool-project ~/code/eng-cool-project`
 
 ```bash
 linear team              # opens team page in Linear.app

@@ -1,4 +1,5 @@
 import { Command } from "@cliffy/command";
+import { Spinner } from "@std/cli/unstable-spinner";
 import { open } from "@opensrc/deno-open";
 import { CompletionsCommand } from "@cliffy/command/completions";
 import denoConfig from "./deno.json" with { type: "json" };
@@ -6,35 +7,6 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
 
-function handleCommandFailure(
-  output: Deno.CommandOutput,
-  context: string,
-) {
-  const stdout = new TextDecoder().decode(output.stdout);
-  const stderr = new TextDecoder().decode(output.stderr);
-
-  console.error(
-    "%cError: Failed to %s",
-    "font-weight: bold; color: red",
-    context,
-  );
-  console.log(`Exit code: ${output.code}`);
-
-  if (stdout) {
-    console.log("\n%cStandard output:", "font-weight: bold");
-    console.log(stdout);
-  }
-
-  if (stderr) {
-    console.error("\n%cError output:", "font-weight: bold");
-    console.error("%c" + stderr, "color: red");
-  }
-
-  console.log("\n%cTroubleshooting:", "font-weight: bold");
-  console.log("- Make sure you have gh CLI installed and configured");
-  console.log("- Check your GitHub authentication");
-  Deno.exit(1);
-}
 
 async function getCurrentBranch(): Promise<string> {
   const process = new Deno.Command("git", {
@@ -89,11 +61,21 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
 
 async function fetchIssueDetails(
   issueId: string,
+  showSpinner = false,
 ): Promise<{ title: string; description: string | null; url: string }> {
-  const query =
-    `query($id: String!) { issue(id: $id) { title, description, url } }`;
-  const data = await fetchGraphQL(query, { id: issueId });
-  return data.data.issue;
+  const spinner = showSpinner ? new Spinner() : null;
+  spinner?.start();
+  try {
+    const query =
+      `query($id: String!) { issue(id: $id) { title, description, url } }`;
+    const data = await fetchGraphQL(query, { id: issueId });
+    spinner?.stop();
+    return data.data.issue;
+  } catch (error) {
+    spinner?.stop();
+    console.error("✗ Failed to fetch issue details");
+    throw error;
+  }
 }
 
 async function openTeamPage() {
@@ -142,6 +124,7 @@ const teamCommand = new Command()
   .description("Manage Linear teams")
   .action(openTeamPage)
   .command("open", "Open the team page in Linear.app")
+  .alias("o")
   .action(openTeamPage)
   .command("id", "Print the team id derived from the repository name")
   .action(async () => {
@@ -179,21 +162,26 @@ const teamCommand = new Command()
         "-f",
         `url_template=https://linear.app/${workspace}/issue/${teamId}-<num>`,
       ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
     });
 
-    const output = await process.output();
-    if (!output.success) {
-      await handleCommandFailure(output, "configure autolinks");
+    const status = await process.spawn().status;
+    if (!status.success) {
+      console.error("Failed to configure autolinks");
+      Deno.exit(1);
     }
-    console.log(`Successfully configured autolinks for team ${teamId}`);
   });
 
 const issueCommand = new Command()
   .description("Manage Linear issues")
   .action(openIssuePage)
   .command("open", "Open the issue in Linear.app")
+  .alias("o")
   .action(openIssuePage)
   .command("print", "Print the issue details")
+  .alias("p")
   .option("--no-color", "Disable colored output")
   .action(async ({ color }) => {
     const issueId = await getIssueId();
@@ -204,9 +192,10 @@ const issueCommand = new Command()
       Deno.exit(1);
     }
 
-    const { title, description } = await fetchIssueDetails(issueId);
+    const showSpinner = color && Deno.stdout.isTerminal();
+    const { title, description } = await fetchIssueDetails(issueId, showSpinner);
     const markdown = `# ${title}${description ? "\n\n" + description : ""}`;
-    if (color && Deno.stderr.isTerminal()) {
+    if (color && Deno.stdout.isTerminal()) {
       console.log(renderMarkdown(markdown));
     } else {
       console.log(markdown);
@@ -233,7 +222,7 @@ const issueCommand = new Command()
       );
       Deno.exit(1);
     }
-    const { title } = await fetchIssueDetails(issueId);
+    const { title } = await fetchIssueDetails(issueId, false);
     console.log(title);
   })
   .command("url", "Print the issue URL")
@@ -245,7 +234,7 @@ const issueCommand = new Command()
       );
       Deno.exit(1);
     }
-    const { url } = await fetchIssueDetails(issueId);
+    const { url } = await fetchIssueDetails(issueId, false);
     console.log(url);
   })
   .command("pull-request", "Create a GitHub pull request with issue details")
@@ -258,7 +247,7 @@ const issueCommand = new Command()
       );
       Deno.exit(1);
     }
-    const { title, url } = await fetchIssueDetails(issueId);
+    const { title, url } = await fetchIssueDetails(issueId, Deno.stdout.isTerminal());
 
     const process = new Deno.Command("gh", {
       args: [
@@ -270,11 +259,15 @@ const issueCommand = new Command()
         url,
         "--web",
       ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
     });
 
-    const output = await process.output();
-    if (!output.success) {
-      await handleCommandFailure(output, "create pull request");
+    const status = await process.spawn().status;
+    if (!status.success) {
+      console.error("Failed to create pull request");
+      Deno.exit(1);
     }
   });
 
