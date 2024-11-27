@@ -239,7 +239,8 @@ const issueCommand = new Command()
   })
   .command("pull-request", "Create a GitHub pull request with issue details")
   .alias("pr")
-  .action(async () => {
+  .option("--base <branch:string>", "The branch into which you want your code merged")
+  .action(async ({ base }) => {
     const issueId = await getIssueId();
     if (!issueId) {
       console.error(
@@ -258,6 +259,7 @@ const issueCommand = new Command()
         "--body",
         url,
         "--web",
+        ...(base ? ["--base", base] : []),
       ],
       stdin: "inherit",
       stdout: "inherit",
