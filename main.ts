@@ -7,7 +7,6 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
 
-
 async function getCurrentBranch(): Promise<string> {
   const process = new Deno.Command("git", {
     args: ["symbolic-ref", "--short", "HEAD"],
@@ -193,7 +192,10 @@ const issueCommand = new Command()
     }
 
     const showSpinner = color && Deno.stdout.isTerminal();
-    const { title, description } = await fetchIssueDetails(issueId, showSpinner);
+    const { title, description } = await fetchIssueDetails(
+      issueId,
+      showSpinner,
+    );
     const markdown = `# ${title}${description ? "\n\n" + description : ""}`;
     if (color && Deno.stdout.isTerminal()) {
       console.log(renderMarkdown(markdown));
@@ -239,7 +241,11 @@ const issueCommand = new Command()
   })
   .command("pull-request", "Create a GitHub pull request with issue details")
   .alias("pr")
-  .action(async () => {
+  .option(
+    "--base <branch:string>",
+    "The branch into which you want your code merged",
+  )
+  .action(async ({ base }) => {
     const issueId = await getIssueId();
     if (!issueId) {
       console.error(
@@ -247,7 +253,10 @@ const issueCommand = new Command()
       );
       Deno.exit(1);
     }
-    const { title, url } = await fetchIssueDetails(issueId, Deno.stdout.isTerminal());
+    const { title, url } = await fetchIssueDetails(
+      issueId,
+      Deno.stdout.isTerminal(),
+    );
 
     const process = new Deno.Command("gh", {
       args: [
@@ -258,6 +267,7 @@ const issueCommand = new Command()
         "--body",
         url,
         "--web",
+        ...(base ? ["--base", base] : []),
       ],
       stdin: "inherit",
       stdout: "inherit",
