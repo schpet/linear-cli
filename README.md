@@ -23,7 +23,7 @@ todo
 deno install --allow-env --allow-sys --allow-run --allow-read --allow-net -g -n linear jsr:@schpet/linear-cli
 ```
 
-### deno via local git clone
+### deno via local
 
 ```bash
 git clone https://github.com/schpet/linear-cli
@@ -35,10 +35,46 @@ deno task install
 
 ### required environment variables
 
-```bash
-export LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api
-export LINEAR_WORKSPACE="your-company" # your linear.app workspace url slug
+```sh
+LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api
+LINEAR_WORKSPACE="your-company" # your linear.app workspace url slug
 ```
+
+<details>
+<summary>bash</summary>
+
+add to ~/.bashrc:
+
+```sh
+export LINEAR_API_KEY="lin_api_..."
+export LINEAR_WORKSPACE="your-company"
+```
+
+</details>
+
+<details>
+<summary>zsh</summary>
+
+add to ~/.zshrc:
+
+```sh
+export LINEAR_API_KEY="lin_api_..."
+export LINEAR_WORKSPACE="your-company"
+```
+
+</details>
+
+<details>
+<summary>fish</summary>
+
+run in terminal:
+
+```sh
+set -Ux LINEAR_API_KEY "lin_api_..."
+set -Ux LINEAR_WORKSPACE "your-company"
+```
+
+</details>
 
 ## commands
 
@@ -53,12 +89,10 @@ suggest these branch names.
 linear issue           # opens current branch's issue in Linear.app
 linear issue open      # same as above
 linear issue print     # prints issue title and description (with markdown formatting)
-linear issue print --no-color  # prints issue without color/formatting
 linear issue id        # prints the issue id from current branch (e.g., "ENG-123")
 linear issue title     # prints just the issue title
 linear issue url       # prints the Linear.app URL for the issue
 linear issue pr        # creates a GitHub PR with issue details via `gh pr create`
-linear issue pull-request  # same as above
 ```
 
 ### team commands
@@ -68,7 +102,7 @@ work. i.e. if your linear team prefix is 'ENG'
 `mv ~/code/cool-project ~/code/eng-cool-project`
 
 ```bash
-linear team              # opens team page in Linear.app
+linear team             # opens team page in Linear.app
 linear team open        # same as above
 linear team id          # prints the team id (e.g., "ENG")
 linear team autolinks   # configures GitHub repository autolinks for Linear issues
