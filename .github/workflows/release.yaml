@@ -30,7 +30,7 @@ jobs:
           deno compile --allow-env --allow-net --allow-run --target ${{ matrix.target }} -o linear-${{ matrix.target }} main.ts
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linear-${{ matrix.target }}
           path: linear-${{ matrix.target }}
@@ -45,7 +45,7 @@ jobs:
       contents: write
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
