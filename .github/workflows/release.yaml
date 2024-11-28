@@ -27,13 +27,17 @@ jobs:
 
       - name: Build binary
         run: |
-          deno compile --allow-env --allow-net --allow-run --target ${{ matrix.target }} -o linear-${{ matrix.target }} main.ts
+          deno compile --allow-env --allow-net --allow-run --target ${{ matrix.target }} -o linear main.ts
+          mkdir linear-${{ matrix.target }}
+          mv linear linear-${{ matrix.target }}/
+          cp README.md linear-${{ matrix.target }}/
+          tar -cJf linear-${{ matrix.target }}.tar.xz linear-${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linear-${{ matrix.target }}
-          path: linear-${{ matrix.target }}
+          path: linear-${{ matrix.target }}.tar.xz
           if-no-files-found: error
 
   release:
@@ -55,4 +59,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG=${GITHUB_REF#refs/tags/}
-          gh release create "$TAG" artifacts/linear-*/linear-* --generate-notes
+          gh release create "$TAG" artifacts/linear-*.tar.xz --generate-notes
