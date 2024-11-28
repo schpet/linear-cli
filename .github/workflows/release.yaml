@@ -27,7 +27,7 @@ jobs:
 
       - name: Build binary
         run: |
-          deno compile --allow-env --allow-net --allow-run --target ${{ matrix.target }} -o linear-${{ matrix.target }} main.ts
+          deno compile --allow-env --allow-net --allow-run --target ${{ matrix.target }} -o linear main.ts
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
