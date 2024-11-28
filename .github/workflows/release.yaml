@@ -27,9 +27,8 @@ jobs:
 
       - name: Build binary
         run: |
-          deno compile --allow-env --allow-net --allow-run --target ${{ matrix.target }} -o linear main.ts
           mkdir linear-${{ matrix.target }}
-          mv linear linear-${{ matrix.target }}/
+          deno compile --allow-env --allow-net --allow-run --target ${{ matrix.target }} -o linear-${{ matrix.target }}/linear main.ts
           cp README.md linear-${{ matrix.target }}/
           tar -cJf linear-${{ matrix.target }}.tar.xz linear-${{ matrix.target }}
 
