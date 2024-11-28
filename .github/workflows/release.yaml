@@ -14,17 +14,16 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-linux-gnu
-          - x86_64-apple-darwin
           - aarch64-apple-darwin
-          - x86_64-pc-windows-msvc
+          # - x86_64-apple-darwin
+          # - x86_64-pc-windows-msvc
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@v1
+      - uses: denoland/setup-deno@v2
         with:
-          deno-version: v1.x
+          deno-version: v2.x
 
       - name: Build binary
         run: |
