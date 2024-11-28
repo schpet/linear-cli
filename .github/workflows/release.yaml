@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "**[0-9]+.[0-9]+.[0-9]+*"
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-apple-darwin
+          # - x86_64-apple-darwin
+          # - x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Build binary
+        run: |
+          mkdir linear-${{ matrix.target }}
+          deno compile --allow-env --allow-net --allow-run --target ${{ matrix.target }} -o linear-${{ matrix.target }}/linear main.ts
+          cp README.md linear-${{ matrix.target }}/
+          tar -cJf linear-${{ matrix.target }}.tar.xz linear-${{ matrix.target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linear-${{ matrix.target }}
+          path: linear-${{ matrix.target }}.tar.xz
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          gh release create "$TAG" artifacts/linear-*.tar.xz --generate-notes
