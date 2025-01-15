@@ -55,6 +55,7 @@ LINEAR_WORKSPACE="your-company" # your linear.app workspace url slug
 add to ~/.bashrc:
 
 ```sh
+# secrets! make sure this file isn't shared online
 export LINEAR_API_KEY="lin_api_..."
 export LINEAR_WORKSPACE="your-company"
 ```
@@ -67,6 +68,7 @@ export LINEAR_WORKSPACE="your-company"
 add to ~/.zshrc:
 
 ```sh
+# secrets! make sure this file isn't shared online
 export LINEAR_API_KEY="lin_api_..."
 export LINEAR_WORKSPACE="your-company"
 ```
@@ -79,6 +81,7 @@ export LINEAR_WORKSPACE="your-company"
 run in terminal:
 
 ```sh
+# secrets! make sure ~/.config/fish/fish_variables isn't shared online
 set -Ux LINEAR_API_KEY "lin_api_..."
 set -Ux LINEAR_WORKSPACE "your-company"
 ```
