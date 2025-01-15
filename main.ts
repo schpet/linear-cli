@@ -245,7 +245,11 @@ const issueCommand = new Command()
     "--base <branch:string>",
     "The branch into which you want your code merged",
   )
-  .action(async ({ base }) => {
+  .option(
+    "--draft",
+    "Create the pull request as a draft",
+  )
+  .action(async ({ base, draft }) => {
     const issueId = await getIssueId();
     if (!issueId) {
       console.error(
@@ -266,8 +270,8 @@ const issueCommand = new Command()
         `${issueId} ${title}`,
         "--body",
         url,
-        "--web",
         ...(base ? ["--base", base] : []),
+        ...(draft ? ["--draft"] : ["--web"]),
       ],
       stdin: "inherit",
       stdout: "inherit",
