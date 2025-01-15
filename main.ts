@@ -241,6 +241,7 @@ const issueCommand = new Command()
   })
   .command("pull-request", "Create a GitHub pull request with issue details")
   .alias("pr")
+  // in addition to --base, support forwarding a --draft flag to gh ai!
   .option(
     "--base <branch:string>",
     "The branch into which you want your code merged",
