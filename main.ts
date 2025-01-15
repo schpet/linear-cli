@@ -249,7 +249,7 @@ const issueCommand = new Command()
     "--draft",
     "Create the pull request as a draft",
   )
-  .action(async ({ base }) => {
+  .action(async ({ base, draft }) => {
     const issueId = await getIssueId();
     if (!issueId) {
       console.error(
@@ -272,7 +272,7 @@ const issueCommand = new Command()
         url,
         "--web",
         ...(base ? ["--base", base] : []),
-        ...(options.draft ? ["--draft"] : []),
+        ...(draft ? ["--draft"] : []),
       ],
       stdin: "inherit",
       stdout: "inherit",
