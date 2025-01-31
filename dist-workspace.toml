@@ -30,3 +30,6 @@ pr-run-mode = "upload"
 
 [dist.dependencies.homebrew]
 deno = '*'
+
+[dist.dependencies.chocolatey]
+deno = '*'
