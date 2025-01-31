@@ -1,8 +1,6 @@
 [workspace]
 members = ["dist:."]
 
-[workspace.metadata.dist]
-github-build-setup = "build-setup.yml"
 
 [package]
 name = "linear"
@@ -41,6 +39,7 @@ targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-da
 publish-jobs = ["homebrew"]
 # Which actions to run on pull requests
 pr-run-mode = "upload"
+github-build-setup = "build-setup.yml"
 
 [dist.dependencies.homebrew]
 deno = '*'
