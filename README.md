@@ -127,3 +127,12 @@ linear --help          # show all commands
 linear --version       # show version
 linear completions     # generate shell completions
 ```
+
+## development
+
+### releasing a new version
+
+1. bump the version in deno.json to $version
+2. `git commit deno.json -m "chore: Release linear-cli version $version"`
+3. `git tag v$version`
+4. `git push origin HEAD --tags`

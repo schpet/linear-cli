@@ -1,0 +1,42 @@
+[workspace]
+members = ["dist:."]
+
+
+[package]
+name = "linear"
+description = "cli tool for linear.app that uses git branch names and directory names to open issues and team pages"
+version = "0.0.6"
+license = "MIT"
+repository = "https://github.com/schpet/linear-cli"
+homepage = "https://github.com/schpet/linear-cli"
+binaries = ["linear"]
+build-command = [
+    "deno",
+    "compile",
+    "-o",
+    "linear",
+    "--allow-env",
+    "--allow-sys",
+    "--allow-run",
+    "--allow-read",
+    "--allow-net",
+    "main.ts",
+]
+
+# Config for 'dist'
+[dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.28.0"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["homebrew"]
+# A GitHub repo to push Homebrew formulas to
+tap = "schpet/homebrew-tap"
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+# Publish jobs to run in CI
+publish-jobs = ["homebrew"]
+# Which actions to run on pull requests
+pr-run-mode = "upload"
+github-build-setup = "build-setup.yml"
