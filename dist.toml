@@ -5,4 +5,4 @@ version = "0.0.6"
 license = "MIT"
 repository = "https://github.com/schpet/linear-cli"
 binaries = ["linear"]
-build-command = ["deno compile main.ts"]
+build-command = ["deno", "compile", "main.ts"]
