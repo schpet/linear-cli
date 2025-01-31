@@ -7,6 +7,7 @@ description = "cli tool for linear.app that uses git branch names and directory 
 version = "0.0.6"
 license = "MIT"
 repository = "https://github.com/schpet/linear-cli"
+homepage = "https://github.com/schpet/linear-cli"
 binaries = ["linear"]
 build-command = ["deno", "compile", "-o", "linear", "--allow-env", "--allow-sys", "--allow-run", "--allow-read", "--allow-net", "main.ts"]
 
@@ -25,4 +26,5 @@ targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-da
 # Publish jobs to run in CI
 publish-jobs = ["homebrew"]
 
+# https://opensource.axo.dev/cargo-dist/book/reference/config.html#pr-run-mode
 pr-run-mode = "upload" # TODO
