@@ -38,5 +38,6 @@ targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-da
 # Publish jobs to run in CI
 publish-jobs = ["homebrew"]
 # Which actions to run on pull requests
-pr-run-mode = "upload"
+# pr-run-mode = "upload"
+# https://opensource.axo.dev/cargo-dist/book/ci/customizing.html#customizing-build-setup
 github-build-setup = "build-setup.yml"
