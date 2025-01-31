@@ -135,7 +135,8 @@ linear completions     # generate shell completions
 
 ### releasing a new version
 
-1. bump the version in deno.json to $version
-2. `git commit deno.json -m "chore: Release linear-cli version $version"`
-3. `git tag v$version`
-4. `git push origin HEAD --tags`
+1. bump the version in deno.json
+1. bump the version in dist-workspace.toml
+1. `git commit deno.json -m "chore: Release linear-cli version $version"`
+1. `git tag v$version`
+1. `git push origin HEAD --tags`
