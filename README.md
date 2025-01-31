@@ -15,7 +15,9 @@ see [the full list of commands](#commands) below.
 
 ### homebrew
 
-todo
+```
+brew install schpet/tap/linear
+```
 
 ### deno via jsr
 
