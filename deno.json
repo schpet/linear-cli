@@ -19,5 +19,8 @@
   },
   "publish": {
     "include": ["main.ts", "README.md"]
+  },
+  "fmt": {
+    "exclude": [".github/workflows/release.yml"]
   }
 }
