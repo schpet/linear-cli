@@ -40,9 +40,3 @@ publish-jobs = ["homebrew"]
 # Which actions to run on pull requests
 pr-run-mode = "upload"
 github-build-setup = "build-setup.yml"
-
-[dist.dependencies.homebrew]
-deno = '*'
-
-[dist.dependencies.chocolatey]
-deno = '*'
