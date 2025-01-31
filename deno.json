@@ -21,6 +21,9 @@
     "include": ["main.ts", "README.md"]
   },
   "fmt": {
-    "exclude": [".github/workflows/release.yml"]
+    "exclude": [
+      ".github/workflows/release.yml",
+      ".github/workflows/build-setup.yml"
+    ]
   }
 }

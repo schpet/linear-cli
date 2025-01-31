@@ -33,3 +33,6 @@ deno = '*'
 
 [dist.dependencies.chocolatey]
 deno = '*'
+
+[workspace.metadata.dist]
+github-build-setup = "build-setup.yml"
