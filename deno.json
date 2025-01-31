@@ -5,8 +5,8 @@
   "exports": "./main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno run --allow-env --allow-sys --allow-run --allow-read --allow-net main.ts",
-    "install": "deno install --allow-env --allow-sys --allow-run --allow-read --allow-net -c ./deno.json -g -n linear ./main.ts"
+    "dev": "deno run main.ts --allow-env --allow-sys --allow-run --allow-read --allow-net",
+    "install": "deno install -g -f -n linear ./main.ts -c ./deno.json  --allow-env --allow-sys --allow-run --allow-read --allow-net "
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
