@@ -261,6 +261,7 @@ const issueCommand = new Command()
   .option(
     "--title <title:string>",
     "Optional title for the pull request (Linear issue ID will be prefixed)",
+    { short: "t" },
   )
   .arguments("[issueId:string]")
   .action(async ({ base, draft, title: customTitle }, issueId) => {
