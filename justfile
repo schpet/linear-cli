@@ -1,6 +1,7 @@
 dev *args:
     deno run main.ts {{ args }}
 
+# release a major, minor or patch version
 release level:
     svbump {{ level }} version deno.json
     svbump "$(svbump read version deno.json)" package.version dist-workspace.toml
