@@ -238,7 +238,7 @@ const issueCommand = new Command()
 
     const query = `
       query($teamId: String!) {
-        team(key: $teamId) {
+        team(id: $teamId) {
           issues(
             filter: {
               assignee: { isMe: { eq: true } }
