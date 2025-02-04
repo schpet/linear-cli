@@ -7,6 +7,19 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
 
+function getTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins} minutes ago`;
+  if (diffHours < 24) return `about ${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+}
+
 async function getCurrentBranch(): Promise<string> {
   const process = new Deno.Command("git", {
     args: ["symbolic-ref", "--short", "HEAD"],
@@ -212,6 +225,68 @@ const issueCommand = new Command()
       console.error(
         "The current branch does not contain a valid linear issue id.",
       );
+      Deno.exit(1);
+    }
+  })
+  .command("list", "List your active unstarted issues")
+  .action(async () => {
+    const teamId = await getTeamId();
+    if (!teamId) {
+      console.error("Could not determine team id from directory name.");
+      Deno.exit(1);
+    }
+
+    const query = `
+      query($teamId: String!) {
+        issues(
+          filter: {
+            team: { id: { eq: $teamId } }
+            assignee: { isMe: { eq: true } }
+            state: { type: { in: ["unstarted", "backlog"] } }
+          }
+        ) {
+          nodes {
+            id
+            identifier
+            title
+            labels { nodes { name } }
+            updatedAt
+          }
+        }
+      }
+    `;
+
+    try {
+      const data = await fetchGraphQL(query, { teamId });
+      const issues = data.data.issues.nodes;
+
+      if (issues.length === 0) {
+        console.log("No unstarted issues found.");
+        return;
+      }
+
+      // Calculate column widths
+      const idWidth = Math.max(...issues.map((i: any) => i.identifier.length));
+      const titleWidth = Math.min(80, Math.max(...issues.map((i: any) => i.title.length)));
+      const labelsWidth = 10;
+
+      // Print header
+      console.log(
+        `${"ID".padEnd(idWidth)}  ${"TITLE".padEnd(titleWidth)}  ${"LABELS".padEnd(labelsWidth)}  UPDATED`
+      );
+
+      // Print each issue
+      for (const issue of issues) {
+        const labels = issue.labels.nodes.map((l: any) => l.name).join(",");
+        const updatedAt = new Date(issue.updatedAt);
+        const timeAgo = getTimeAgo(updatedAt);
+
+        console.log(
+          `${issue.identifier.padEnd(idWidth)}  ${issue.title.slice(0, titleWidth).padEnd(titleWidth)}  ${labels.slice(0, labelsWidth).padEnd(labelsWidth)}  ${timeAgo}`
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch issues:", error);
       Deno.exit(1);
     }
   })
