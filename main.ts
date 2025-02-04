@@ -237,12 +237,12 @@ const issueCommand = new Command()
     }
 
     const query = `
-      query($teamId: ID!) {
+      query($teamId: String!) {
         issues(
           filter: {
             team: { key: { eq: $teamId } }
             assignee: { isMe: { eq: true } }
-            state: { type: { in: ["unstarted", "backlog"] } }
+            state: { type: { in: ["unstarted"] } }
           }
         ) {
           nodes {
