@@ -238,19 +238,20 @@ const issueCommand = new Command()
 
     const query = `
       query($teamId: String!) {
-        issues(
-          filter: {
-            team: { key: { eq: $teamId } }
-            assignee: { isMe: { eq: true } }
-            state: { type: { in: ["unstarted"] } }
-          }
-        ) {
-          nodes {
-            id
-            identifier
-            title
-            labels { nodes { name } }
-            updatedAt
+        team(key: $teamId) {
+          issues(
+            filter: {
+              assignee: { isMe: { eq: true } }
+              state: { type: { in: ["unstarted"] } }
+            }
+          ) {
+            nodes {
+              id
+              identifier
+              title
+              labels { nodes { name } }
+              updatedAt
+            }
           }
         }
       }
@@ -258,7 +259,7 @@ const issueCommand = new Command()
 
     try {
       const data = await fetchGraphQL(query, { teamId });
-      const issues = data.data.issues.nodes;
+      const issues = data.data.team.issues.nodes;
 
       if (issues.length === 0) {
         console.log("No unstarted issues found.");
