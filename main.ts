@@ -259,9 +259,8 @@ const issueCommand = new Command()
     "Create the pull request as a draft",
   )
   .option(
-    "--title <title:string>",
+    "-t, --title <title:string>",
     "Optional title for the pull request (Linear issue ID will be prefixed)",
-    { short: "t" },
   )
   .arguments("[issueId:string]")
   .action(async ({ base, draft, title: customTitle }, issueId) => {
