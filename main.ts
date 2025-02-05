@@ -281,7 +281,7 @@ const issueCommand = new Command()
         "pr",
         "create",
         "--title",
-        `${resolvedId} ${customTitle || title}`,
+        `${resolvedId} ${customTitle ?? title}`,
         "--body",
         url,
         ...(base ? ["--base", base] : []),
