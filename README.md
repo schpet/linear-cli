@@ -3,12 +3,12 @@
 cli tool for linear.app that uses git branch names and directory names to open
 issues and team pages. offers handy commands:
 
-| Command            | Description                                                           |
+| command            | description                                                           |
 | ------------------ | --------------------------------------------------------------------- |
-| linear issue       | Open the issue in linear.app, based on the current git branch         |
-| linear issue print | Print the issue to stdout                                             |
-| linear issue pr    | Create a nicely named pull request with [gh](https://cli.github.com/) |
-| linear team        | View active issues assigned to you in the team                        |
+| linear issue       | open the issue in linear.app, based on the current git branch         |
+| linear issue print | print the issue to stdout                                             |
+| linear issue pr    | create a nicely named pull request with [gh](https://cli.github.com/) |
+| linear team        | view active issues assigned to you in the team                        |
 
 see [the full list of commands](#commands) below.
 
