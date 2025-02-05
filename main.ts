@@ -258,8 +258,12 @@ const issueCommand = new Command()
     "--draft",
     "Create the pull request as a draft",
   )
+  .option(
+    "-t, --title <title:string>",
+    "Optional title for the pull request (Linear issue ID will be prefixed)",
+  )
   .arguments("[issueId:string]")
-  .action(async ({ base, draft }, issueId) => {
+  .action(async ({ base, draft, title: customTitle }, issueId) => {
     const resolvedId = await getIssueId(issueId);
     if (!resolvedId) {
       console.error(
@@ -277,7 +281,7 @@ const issueCommand = new Command()
         "pr",
         "create",
         "--title",
-        `${resolvedId} ${title}`,
+        `${resolvedId} ${customTitle ?? title}`,
         "--body",
         url,
         ...(base ? ["--base", base] : []),
