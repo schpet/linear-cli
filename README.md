@@ -38,8 +38,7 @@ deno task install
 
 this cli needs three things to work:
 
-1. a linear api key, found at
-   [https://linear.app/settings/api](https://linear.app/settings/api)
+1. a couple environment variables, see below
 2. your current git branch to start with a linear issue id, e.g.
    `eng-123-my-feature`, this complements linear's 'copy git branch name' button
    and its
