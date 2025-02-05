@@ -209,10 +209,9 @@ const issueCommand = new Command()
       console.log(markdown);
     }
   })
-  .command("id", "Print the issue id in the current git branch")
-  .arguments("[issueId:string]")
-  .action(async (_, issueId) => {
-    const resolvedId = await getIssueId(issueId);
+  .command("id", "Print the issue based on the current git branch")
+  .action(async (_) => {
+    const resolvedId = await getIssueId();
     if (resolvedId) {
       console.log(resolvedId);
     } else {
