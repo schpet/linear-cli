@@ -26,7 +26,11 @@ brew install schpet/tap/linear
 deno install --allow-env --allow-sys --allow-run --allow-read --allow-net -g -n linear jsr:@schpet/linear-cli
 ```
 
-### deno via local
+### binaries
+
+https://github.com/schpet/linear-cli/releases/latest
+
+### local dev
 
 ```bash
 git clone https://github.com/schpet/linear-cli
