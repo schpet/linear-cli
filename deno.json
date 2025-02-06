@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
   "name": "@schpet/linear-cli",
-  "version": "0.0.8",
+  "version": "0.1.0",
   "exports": "./main.ts",
   "license": "MIT",
   "tasks": {
@@ -18,7 +18,10 @@
     "@std/path": "jsr:@std/path@^1.0.8"
   },
   "publish": {
-    "include": ["main.ts", "README.md"]
+    "include": [
+      "main.ts",
+      "README.md"
+    ]
   },
   "fmt": {
     "exclude": [

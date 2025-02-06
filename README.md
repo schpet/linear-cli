@@ -3,12 +3,12 @@
 cli tool for linear.app that uses git branch names and directory names to open
 issues and team pages. offers handy commands:
 
-| Command            | Description                                                           |
+| command            | description                                                           |
 | ------------------ | --------------------------------------------------------------------- |
-| linear issue       | Open the issue in linear.app, based on the current git branch         |
-| linear issue print | Print the issue to stdout                                             |
-| linear issue pr    | Create a nicely named pull request with [gh](https://cli.github.com/) |
-| linear team        | View active issues assigned to you in the team                        |
+| linear issue       | open the issue in linear.app, based on the current git branch         |
+| linear issue print | print the issue to stdout                                             |
+| linear issue pr    | create a nicely named pull request with [gh](https://cli.github.com/) |
+| linear team        | view active issues assigned to you in the team                        |
 
 see [the full list of commands](#commands) below.
 
@@ -26,7 +26,11 @@ brew install schpet/tap/linear
 deno install --allow-env --allow-sys --allow-run --allow-read --allow-net -g -n linear jsr:@schpet/linear-cli
 ```
 
-### deno via local
+### binaries
+
+https://github.com/schpet/linear-cli/releases/latest
+
+### local dev
 
 ```bash
 git clone https://github.com/schpet/linear-cli
@@ -38,18 +42,23 @@ deno task install
 
 this cli needs three things to work:
 
-1. a linear api key, found at
-   [https://linear.app/settings/api](https://linear.app/settings/api)
+1. a couple environment variables, see below
 2. your current git branch to start with a linear issue id, e.g.
-   `eng-123-my-feature`
-3. the directory of your repo to start with a linear team id, e.g.
-   `eng-my-project`
+   `eng-123-my-feature`, this complements linear's 'copy git branch name' button
+   and its
+   [related automations](https://linear.app/docs/account-preferences#git-related-automations)
+3. the directory of your repo to start with a linear team id\
+   e.g. if your team's identifier is `ENG` and your repo is at
+   `~/code/cool-proj` you'll need to
+   ```sh
+   mv ~/code/cool-proj ~/code/eng-cool-proj
+   ```
 
 ### required environment variables
 
 ```sh
 LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api
-LINEAR_WORKSPACE="your-company" # your linear.app workspace url slug
+LINEAR_WORKSPACE="your-company" # your linear workspace url slug
 ```
 
 <details>
@@ -130,13 +139,3 @@ linear --help          # show all commands
 linear --version       # show version
 linear completions     # generate shell completions
 ```
-
-## development
-
-### releasing a new version
-
-1. bump the version in deno.json
-1. bump the version in dist-workspace.toml
-1. `git commit deno.json -m "chore: Release linear-cli version $version"`
-1. `git tag v$version`
-1. `git push origin HEAD --tags`

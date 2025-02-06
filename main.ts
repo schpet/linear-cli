@@ -37,7 +37,10 @@ async function getRepoDir(): Promise<string> {
   return basename(fullPath);
 }
 
-async function getIssueId(): Promise<string | null> {
+async function getIssueId(providedId?: string): Promise<string | null> {
+  if (providedId) {
+    return providedId.toUpperCase();
+  }
   const branch = await getCurrentBranch();
   const match = branch.match(/[a-zA-Z]{2,5}-[1-9][0-9]*/i);
   return match ? match[0].toUpperCase() : null;
@@ -112,8 +115,8 @@ async function openTeamPage() {
   await open(url, { app: { name: "Linear" } });
 }
 
-async function openIssuePage() {
-  const issueId = await getIssueId();
+async function openIssuePage(providedId?: string) {
+  const issueId = await getIssueId(providedId);
   if (!issueId) {
     console.error(
       "The current branch does not contain a valid linear issue id.",
@@ -188,16 +191,19 @@ const teamCommand = new Command()
 
 const issueCommand = new Command()
   .description("Manage Linear issues")
-  .action(openIssuePage)
+  .arguments("[issueId:string]")
+  .action((_, issueId) => openIssuePage(issueId))
   .command("open", "Open the issue in Linear.app")
   .alias("o")
-  .action(openIssuePage)
+  .arguments("[issueId:string]")
+  .action((_, issueId) => openIssuePage(issueId))
   .command("print", "Print the issue details")
   .alias("p")
+  .arguments("[issueId:string]")
   .option("--no-color", "Disable colored output")
-  .action(async ({ color }) => {
-    const issueId = await getIssueId();
-    if (!issueId) {
+  .action(async ({ color }, issueId) => {
+    const resolvedId = await getIssueId(issueId);
+    if (!resolvedId) {
       console.error(
         "The current branch does not contain a valid linear issue id.",
       );
@@ -206,7 +212,7 @@ const issueCommand = new Command()
 
     const showSpinner = color && Deno.stdout.isTerminal();
     const { title, description } = await fetchIssueDetails(
-      issueId,
+      resolvedId,
       showSpinner,
     );
     const markdown = `# ${title}${description ? "\n\n" + description : ""}`;
@@ -216,11 +222,11 @@ const issueCommand = new Command()
       console.log(markdown);
     }
   })
-  .command("id", "Print the issue id in the current git branch")
-  .action(async () => {
-    const issueId = await getIssueId();
-    if (issueId) {
-      console.log(issueId);
+  .command("id", "Print the issue based on the current git branch")
+  .action(async (_) => {
+    const resolvedId = await getIssueId();
+    if (resolvedId) {
+      console.log(resolvedId);
     } else {
       console.error(
         "The current branch does not contain a valid linear issue id.",
@@ -292,27 +298,29 @@ const issueCommand = new Command()
     }
   })
   .command("title", "Print the issue title")
-  .action(async () => {
-    const issueId = await getIssueId();
-    if (!issueId) {
+  .arguments("[issueId:string]")
+  .action(async (_, issueId) => {
+    const resolvedId = await getIssueId(issueId);
+    if (!resolvedId) {
       console.error(
         "The current branch does not contain a valid linear issue id.",
       );
       Deno.exit(1);
     }
-    const { title } = await fetchIssueDetails(issueId, false);
+    const { title } = await fetchIssueDetails(resolvedId, false);
     console.log(title);
   })
   .command("url", "Print the issue URL")
-  .action(async () => {
-    const issueId = await getIssueId();
-    if (!issueId) {
+  .arguments("[issueId:string]")
+  .action(async (_, issueId) => {
+    const resolvedId = await getIssueId(issueId);
+    if (!resolvedId) {
       console.error(
         "The current branch does not contain a valid linear issue id.",
       );
       Deno.exit(1);
     }
-    const { url } = await fetchIssueDetails(issueId, false);
+    const { url } = await fetchIssueDetails(resolvedId, false);
     console.log(url);
   })
   .command("pull-request", "Create a GitHub pull request with issue details")
@@ -325,16 +333,21 @@ const issueCommand = new Command()
     "--draft",
     "Create the pull request as a draft",
   )
-  .action(async ({ base, draft }) => {
-    const issueId = await getIssueId();
-    if (!issueId) {
+  .option(
+    "-t, --title <title:string>",
+    "Optional title for the pull request (Linear issue ID will be prefixed)",
+  )
+  .arguments("[issueId:string]")
+  .action(async ({ base, draft, title: customTitle }, issueId) => {
+    const resolvedId = await getIssueId(issueId);
+    if (!resolvedId) {
       console.error(
         "The current branch does not contain a valid linear issue id.",
       );
       Deno.exit(1);
     }
     const { title, url } = await fetchIssueDetails(
-      issueId,
+      resolvedId,
       Deno.stdout.isTerminal(),
     );
 
@@ -343,7 +356,7 @@ const issueCommand = new Command()
         "pr",
         "create",
         "--title",
-        `${issueId} ${title}`,
+        `${resolvedId} ${customTitle ?? title}`,
         "--body",
         url,
         ...(base ? ["--base", base] : []),
