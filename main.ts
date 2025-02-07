@@ -1,8 +1,7 @@
 import { load } from "@std/dotenv";
 
 // Try loading .env from current directory first, then from git root if not found
-const localEnvPath = ".env";
-if (await Deno.stat(localEnvPath).catch(() => null)) {
+if (await Deno.stat(".env").catch(() => null)) {
   await load({ export: true });
 } else {
   try {
@@ -14,7 +13,6 @@ if (await Deno.stat(localEnvPath).catch(() => null)) {
 
     const gitRootEnvPath = join(gitRoot, ".env");
     if (await Deno.stat(gitRootEnvPath).catch(() => null)) {
-      console.log("Loading .env from git root:", gitRoot);
       await load({ envPath: gitRootEnvPath, export: true });
     }
   } catch {
