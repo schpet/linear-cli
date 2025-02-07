@@ -410,7 +410,7 @@ const issueCommand = new Command()
           : padDisplay(title, titleWidth);
   
         console.log(
-          `${padDisplay(priority, 4)} ${padDisplay(identifier, 8)} ${truncTitle} ${labelsFormat} ${timeAgo}`,
+          `${padDisplay(priority, 4)} ${padDisplay(identifier, 8)} ${truncTitle} ${labelsFormat} ${padDisplay(timeAgo, UPDATED_WIDTH)}`,
           ...labelsStyles
         );
       }
