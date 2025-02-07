@@ -11,7 +11,7 @@ try {
       }).output().then((output) => output.stdout),
     ).trim();
 
-    await load({ envPath: `${gitRoot}/.env`, export: true });
+    await load({ envPath: join(gitRoot, ".env"), export: true });
   } catch {
     // Silently continue if no .env file found
   }
@@ -33,7 +33,7 @@ import { CompletionsCommand } from "@cliffy/command/completions";
 import denoConfig from "./deno.json" with { type: "json" };
 import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
-import { basename } from "@std/path";
+import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
 
 interface Label {
