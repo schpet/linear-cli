@@ -272,14 +272,17 @@ const issueCommand = new Command()
   })
   .command("list", "List your issues")
   .type("sort", new EnumType(["manual", "priority"]))
-  .type("state", new EnumType([
-    "triage",
-    "backlog",
-    "unstarted",
-    "started",
-    "completed",
-    "canceled"
-  ]))
+  .type(
+    "state",
+    new EnumType([
+      "triage",
+      "backlog",
+      "unstarted",
+      "started",
+      "completed",
+      "canceled",
+    ]),
+  )
   .option(
     "--sort <sort:sort>",
     "Sort order: 'manual' or 'priority' (can also be set via LINEAR_ISSUE_SORT)",
@@ -297,7 +300,9 @@ const issueCommand = new Command()
   .action(async ({ sort: sortFlag, state }) => {
     const sort = sortFlag || Deno.env.get("LINEAR_ISSUE_SORT");
     if (!sort) {
-      console.error("Sort must be provided either via --sort flag or LINEAR_ISSUE_SORT environment variable");
+      console.error(
+        "Sort must be provided either via --sort flag or LINEAR_ISSUE_SORT environment variable",
+      );
       Deno.exit(1);
     }
     if (!["manual", "priority"].includes(sort)) {
@@ -364,7 +369,7 @@ const issueCommand = new Command()
       const { columns } = Deno.consoleSize();
       const PRIORITY_WIDTH = 4;
       const ID_WIDTH = 8;
-      const LABEL_WIDTH = columns <= 100 ? 15 : 25; // adjust label width based on terminal size
+      const LABEL_WIDTH = columns <= 100 ? 12 : 24; // adjust label width based on terminal size
       const STATE_WIDTH = 12; // fixed width for state
       const SPACE_WIDTH = 4;
       const updatedHeader = "UPDATED";
@@ -498,9 +503,7 @@ const issueCommand = new Command()
             padDisplay(identifier, 8)
           } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
             padDisplayFormatted(state, STATE_WIDTH)
-          } %c${
-            padDisplay(timeAgo, UPDATED_WIDTH)
-          }%c`,
+          } %c${padDisplay(timeAgo, UPDATED_WIDTH)}%c`,
           ...priorityStyles,
           ...labelsStyles,
           ...stateStyles,
