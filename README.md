@@ -48,18 +48,24 @@ this cli needs three things to work:
    `eng-123-my-feature`, this complements linear's 'copy git branch name' button
    and its
    [related automations](https://linear.app/docs/account-preferences#git-related-automations)
-3. the directory of your repo to start with a linear team id\
-   e.g. if your team's identifier is `ENG` and your repo is at
-   `~/code/cool-proj` you'll need to
-   ```sh
-   mv ~/code/cool-proj ~/code/eng-cool-proj
-   ```
+3. either:
+   - the directory of your repo to start with a linear team id\
+     e.g. if your team's identifier is `ENG` and your repo is at
+     `~/code/cool-proj` you'll need to
+     ```sh
+     mv ~/code/cool-proj ~/code/eng-cool-proj
+     ```
+   - or set LINEAR_TEAM_ID environment variable (useful with tools like direnv)\
+     ```sh
+     LINEAR_TEAM_ID=ENG
+     ```
 
 ### required environment variables
 
 ```sh
 LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api (requires member access, not available for guest accounts)
 LINEAR_WORKSPACE="your-company" # your linear workspace url slug
+LINEAR_TEAM_ID="ENG" # optional: set team id instead of using directory name
 ```
 
 <details>
