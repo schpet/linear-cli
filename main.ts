@@ -422,7 +422,9 @@ const issueCommand = new Command()
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
         LABEL_WIDTH; // sum of fixed columns
       const PADDING = 1;
-      const titleWidth = Math.max(columns - PADDING - fixed, 0); // use remaining space for title
+      const maxTitleWidth = Math.max(...tableData.map((row) => unicodeWidth(row.title)));
+      const availableWidth = Math.max(columns - PADDING - fixed, 0);
+      const titleWidth = Math.min(maxTitleWidth, availableWidth); // use smaller of max title width or available space
       const headerCells = [
         padDisplay("◌", PRIORITY_WIDTH),
         padDisplay("ID", ID_WIDTH),
