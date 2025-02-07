@@ -55,7 +55,7 @@ this cli needs three things to work:
      ```sh
      mv ~/code/cool-proj ~/code/eng-cool-proj
      ```
-   - or set LINEAR_TEAM_ID environment variable (useful with tools like direnv)\
+   - or set LINEAR_TEAM_ID environment variable (useful with tools like direnv)
      ```sh
      LINEAR_TEAM_ID=ENG
      ```
