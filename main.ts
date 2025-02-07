@@ -274,7 +274,7 @@ const issueCommand = new Command()
   .type("sort", new EnumType(["manual", "priority"]))
   .type("state", new EnumType([
     "triage",
-    "backlog", 
+    "backlog",
     "unstarted",
     "started",
     "completed",
@@ -325,6 +325,10 @@ const issueCommand = new Command()
             identifier
             title
             priority
+            state {
+              id
+              name
+            }
             labels {
               nodes {
                 id
