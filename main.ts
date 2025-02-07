@@ -1,3 +1,24 @@
+import { load } from "@std/dotenv";
+
+// Try loading .env from current directory first, then from git root if not found
+if (await Deno.stat(".env").catch(() => null)) {
+  await load({ export: true });
+} else {
+  try {
+    const gitRoot = new TextDecoder().decode(
+      await new Deno.Command("git", {
+        args: ["rev-parse", "--show-toplevel"],
+      }).output().then((output) => output.stdout),
+    ).trim();
+
+    const gitRootEnvPath = join(gitRoot, ".env");
+    if (await Deno.stat(gitRootEnvPath).catch(() => null)) {
+      await load({ envPath: gitRootEnvPath, export: true });
+    }
+  } catch {
+    // Silently continue if not in a git repo
+  }
+}
 import { Command, EnumType } from "@cliffy/command";
 
 const SortType = new EnumType(["manual", "priority"]);
@@ -15,7 +36,7 @@ import { CompletionsCommand } from "@cliffy/command/completions";
 import denoConfig from "./deno.json" with { type: "json" };
 import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
-import { basename } from "@std/path";
+import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
 
 interface Label {
