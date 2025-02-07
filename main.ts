@@ -26,6 +26,16 @@ function padDisplay(s: string, width: number): string {
   return s + " ".repeat(Math.max(0, width - w));
 }
 
+function stripConsoleFormat(s: string): string {
+  return s.replace(/%c/g, '');
+}
+
+function padDisplayFormatted(s: string, width: number): string {
+  const plain = stripConsoleFormat(s);
+  const w = unicodeWidth(plain);
+  return s + " ".repeat(Math.max(0, width - w));
+}
+
 function underline(text: string): string {
   return `\x1b[4m${text}\x1b[24m`;
 }
