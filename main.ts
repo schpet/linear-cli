@@ -376,7 +376,7 @@ const issueCommand = new Command()
       const updatedHeader = "UPDATED";
       const UPDATED_WIDTH = Math.max(
         unicodeWidth(updatedHeader),
-        ...issues.map((issue) =>
+        ...issues.map((issue: Issue) =>
           unicodeWidth(getTimeAgo(new Date(issue.updatedAt)))
         ),
       );
