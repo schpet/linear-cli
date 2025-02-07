@@ -1,3 +1,4 @@
+import "@std/dotenv/load";
 import { Command, EnumType } from "@cliffy/command";
 
 const SortType = new EnumType(["manual", "priority"]);
