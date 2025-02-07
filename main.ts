@@ -11,6 +11,7 @@ try {
       }).output().then((output) => output.stdout),
     ).trim();
 
+    console.log("Loading .env from git root:", gitRoot);
     await load({ envPath: join(gitRoot, ".env"), export: true });
   } catch {
     // Silently continue if no .env file found
