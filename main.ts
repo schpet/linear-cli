@@ -1,4 +1,4 @@
-import { Command } from "@cliffy/command";
+import { Command, EnumType } from "@cliffy/command";
 import { Spinner } from "@std/cli/unstable-spinner";
 import { open } from "@opensrc/deno-open";
 import { CompletionsCommand } from "@cliffy/command/completions";
@@ -271,38 +271,27 @@ const issueCommand = new Command()
     }
   })
   .command("list", "List your issues")
+  .type("sort", new EnumType(["manual", "priority"]))
+  .type("state", new EnumType([
+    "triage",
+    "backlog", 
+    "unstarted",
+    "started",
+    "completed",
+    "canceled"
+  ]))
   .option(
-    "--sort <sort:string>",
+    "--sort <sort:sort>",
     "Sort order: 'manual' or 'priority' (can also be set via LINEAR_ISSUE_SORT)",
     {
       required: false,
-      value: (value: string) => {
-        if (!["manual", "priority"].includes(value)) {
-          throw new Error("Sort must be either 'manual' or 'priority'");
-        }
-        return value;
-      },
     },
   )
   .option(
-    "--state <state:string>",
+    "--state <state:state>",
     "Issue state: 'triage', 'backlog', 'unstarted', 'started', 'completed', or 'canceled'",
     {
       default: "unstarted",
-      value: (value: string) => {
-        const validStates = [
-          "triage",
-          "backlog",
-          "unstarted",
-          "started",
-          "completed",
-          "canceled",
-        ];
-        if (!validStates.includes(value)) {
-          throw new Error(`State must be one of: ${validStates.join(", ")}`);
-        }
-        return value;
-      },
     },
   )
   .action(async ({ sort: sortFlag, state }) => {
