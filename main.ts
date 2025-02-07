@@ -388,10 +388,10 @@ const issueCommand = new Command()
         if (issue.labels.nodes.length === 0) {
           labelsFormat = "";
         } else {
-          const truncatedLabels = plainLabels.length > LABEL_WIDTH 
+          const truncatedLabels = plainLabels.length > LABEL_WIDTH
             ? plainLabels.slice(0, LABEL_WIDTH - 3) + "..."
             : plainLabels;
-          
+
           // Then format the truncated version with colors
           labelsFormat = truncatedLabels
             .split(", ")
