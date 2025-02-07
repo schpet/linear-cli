@@ -8,6 +8,19 @@ import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
 import { stringWidth } from "@std/cli/unicode-width";
 
+interface Label {
+  name: string;
+}
+
+interface Issue {
+  id: string;
+  identifier: string;
+  title: string;
+  priority: number;
+  labels: { nodes: Label[] };
+  updatedAt: string;
+}
+
 function padDisplay(s: string, width: number): string {
   const w = stringWidth(s);
   return s + " ".repeat(Math.max(0, width - w));
