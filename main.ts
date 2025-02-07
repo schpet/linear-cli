@@ -368,12 +368,20 @@ const issueCommand = new Command()
       }
 
       const tableData = issues.map((issue: Issue) => {
-        const labelsFormat = issue.labels.nodes.map((l: Label) =>
-          `%c${l.name}%c`
-        ).join(", ");
-        const labelsStyles = issue.labels.nodes.flatMap((
-          l: Label,
-        ) => [`color: ${l.color}`, ""]);
+        // First build the plain text version to measure length
+        const plainLabels = issue.labels.nodes.map((l: Label) => l.name).join(", ");
+        const truncatedLabels = plainLabels.length > LABEL_WIDTH 
+          ? plainLabels.slice(0, LABEL_WIDTH - 3) + "..."
+          : plainLabels;
+        
+        // Then format the truncated version with colors
+        const labelsFormat = truncatedLabels
+          .split(", ")
+          .map((name) => `%c${name}%c`)
+          .join(", ");
+        const labelsStyles = issue.labels.nodes
+          .filter((_, i) => i < truncatedLabels.split(", ").length)
+          .flatMap((l: Label) => [`color: ${l.color}`, ""]);
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
 
