@@ -241,7 +241,16 @@ const issueCommand = new Command()
     }
   })
   .command("list", "List your active unstarted issues")
-  .action(async () => {
+  .option("--sort <sort:string>", "Sort order: 'manual' or 'priority'", {
+    required: true,
+    value: (value: string) => {
+      if (!["manual", "priority"].includes(value)) {
+        throw new Error("Sort must be either 'manual' or 'priority'");
+      }
+      return value;
+    },
+  })
+  .action(async ({ sort }) => {
     const teamId = await getTeamId();
     if (!teamId) {
       console.error("Could not determine team id from directory name.");
@@ -288,7 +297,9 @@ const issueCommand = new Command()
     `;
 
     try {
-      const sort = [{ manual: { nulls: "last", order: "Ascending" } }];
+      const sort = sort === "manual" 
+        ? [{ manual: { nulls: "last", order: "Ascending" } }]
+        : [{ priority: { nulls: "last", order: "Descending" } }];
 
       const result = await fetchGraphQL(query, {
         teamId,
