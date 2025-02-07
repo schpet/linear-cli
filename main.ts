@@ -383,6 +383,7 @@ const issueCommand = new Command()
         labelsFormat: string;
         labelsStyles: string[];
         state: string;
+        stateStyles: string[];
         timeAgo: string;
       };
 
@@ -440,7 +441,8 @@ const issueCommand = new Command()
           title: issue.title,
           labelsFormat,
           labelsStyles,
-          state: issue.state.name,
+          state: `%c${issue.state.name}%c`,
+          stateStyles: [`color: ${issue.state.color}`, ""],
           timeAgo,
         };
       });
@@ -494,12 +496,13 @@ const issueCommand = new Command()
           `${padDisplayFormatted(priorityStr, 4)} ${
             padDisplay(identifier, 8)
           } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
-            padDisplay(state, STATE_WIDTH)
+            padDisplayFormatted(state, STATE_WIDTH)
           } %c${
             padDisplay(timeAgo, UPDATED_WIDTH)
           }%c`,
           ...priorityStyles,
           ...labelsStyles,
+          ...stateStyles,
           "color: gray",
           "",
         );
