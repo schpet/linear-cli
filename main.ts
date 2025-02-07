@@ -382,18 +382,25 @@ const issueCommand = new Command()
       const tableData = issues.map((issue: Issue) => {
         // First build the plain text version to measure length
         const plainLabels = issue.labels.nodes.map((l: Label) => l.name).join(", ");
-        const truncatedLabels = plainLabels.length > LABEL_WIDTH 
-          ? plainLabels.slice(0, LABEL_WIDTH - 3) + "..."
-          : plainLabels;
-        
-        // Then format the truncated version with colors
-        const labelsFormat = truncatedLabels
-          .split(", ")
-          .map((name) => `%c${name}%c`)
-          .join(", ");
-        const labelsStyles = issue.labels.nodes
-          .filter((_, i) => i < truncatedLabels.split(", ").length)
-          .flatMap((l: Label) => [`color: ${l.color}`, ""]);
+        let labelsFormat: string;
+        let labelsStyles: string[] = [];
+
+        if (issue.labels.nodes.length === 0) {
+          labelsFormat = "";
+        } else {
+          const truncatedLabels = plainLabels.length > LABEL_WIDTH 
+            ? plainLabels.slice(0, LABEL_WIDTH - 3) + "..."
+            : plainLabels;
+          
+          // Then format the truncated version with colors
+          labelsFormat = truncatedLabels
+            .split(", ")
+            .map((name) => `%c${name}%c`)
+            .join(", ");
+          labelsStyles = issue.labels.nodes
+            .filter((_, i) => i < truncatedLabels.split(", ").length)
+            .flatMap((l: Label) => [`color: ${l.color}`, ""]);
+        }
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
 
