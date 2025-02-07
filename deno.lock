@@ -5,12 +5,13 @@
     "jsr:@cliffy/flags@1.0.0-rc.7": "1.0.0-rc.7",
     "jsr:@cliffy/internal@1.0.0-rc.7": "1.0.0-rc.7",
     "jsr:@cliffy/table@1.0.0-rc.7": "1.0.0-rc.7",
+    "jsr:@cliffy/table@^1.0.0-rc.7": "1.0.0-rc.7",
     "jsr:@littletof/charmd@*": "0.1.2",
     "jsr:@littletof/charmd@~0.1.2": "0.1.2",
     "jsr:@opensrc/deno-open@1": "1.0.0",
     "jsr:@std/assert@1": "1.0.8",
     "jsr:@std/assert@~0.218.2": "0.218.2",
-    "jsr:@std/cli@^1.0.7": "1.0.7",
+    "jsr:@std/cli@^1.0.12": "1.0.12",
     "jsr:@std/encoding@^1.0.5": "1.0.5",
     "jsr:@std/fmt@0.223.0": "0.223.0",
     "jsr:@std/fmt@~1.0.2": "1.0.3",
@@ -25,7 +26,7 @@
       "dependencies": [
         "jsr:@cliffy/flags",
         "jsr:@cliffy/internal",
-        "jsr:@cliffy/table",
+        "jsr:@cliffy/table@1.0.0-rc.7",
         "jsr:@std/fmt@~1.0.2",
         "jsr:@std/text"
       ]
@@ -66,8 +67,8 @@
         "jsr:@std/internal"
       ]
     },
-    "@std/cli@1.0.7": {
-      "integrity": "98359df9df586a69015ba570305183b0cb9e7d53c05ea2016ef9a3e77e82c7cd"
+    "@std/cli@1.0.12": {
+      "integrity": "e5cfb7814d189da174ecd7a34fbbd63f3513e24a1b307feb2fcd5da47a070d90"
     },
     "@std/encoding@1.0.5": {
       "integrity": "ecf363d4fc25bd85bd915ff6733a7e79b67e0e7806334af15f4645c569fefc04"
@@ -97,10 +98,11 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/command@^1.0.0-rc.7",
+      "jsr:@cliffy/table@^1.0.0-rc.7",
       "jsr:@littletof/charmd@~0.1.2",
       "jsr:@opensrc/deno-open@1",
       "jsr:@std/assert@1",
-      "jsr:@std/cli@^1.0.7",
+      "jsr:@std/cli@^1.0.12",
       "jsr:@std/encoding@^1.0.5",
       "jsr:@std/path@^1.0.8"
     ]

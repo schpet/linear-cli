@@ -5,15 +5,16 @@
   "exports": "./main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno run main.ts --allow-env --allow-sys --allow-run --allow-read --allow-net",
-    "install": "deno install -g -f -n linear ./main.ts -c ./deno.json  --allow-env --allow-sys --allow-run --allow-read --allow-net "
+    "dev": "deno run --allow-env --allow-sys --allow-run --allow-read --allow-net main.ts ",
+    "install": "deno install -c ./deno.json  --allow-env --allow-sys --allow-run --allow-read --allow-net -g -f -n linear ./main.ts"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
+    "@cliffy/table": "jsr:@cliffy/table@^1.0.0-rc.7",
     "@littletof/charmd": "jsr:@littletof/charmd@^0.1.2",
     "@opensrc/deno-open": "jsr:@opensrc/deno-open@^1.0.0",
     "@std/assert": "jsr:@std/assert@1",
-    "@std/cli": "jsr:@std/cli@^1.0.7",
+    "@std/cli": "jsr:@std/cli@^1.0.12",
     "@std/encoding": "jsr:@std/encoding@^1.0.5",
     "@std/path": "jsr:@std/path@^1.0.8"
   },

@@ -4,6 +4,8 @@
 
 ### added
 
+- `linear issue list` command
+
 ### changed
 
 ### removed

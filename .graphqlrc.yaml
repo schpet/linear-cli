@@ -1,0 +1,3 @@
+# vscode extension: GraphQL.vscode-graphql
+schema: "linear/schema.graphql"
+documents: "**/*.{ts,graphql}"
