@@ -271,8 +271,8 @@ const issueCommand = new Command()
     }
   })
   .command("list", "List your issues")
-  .option("--sort <sort:string>", "Sort order: 'manual' or 'priority'", {
-    required: true,
+  .option("--sort <sort:string>", "Sort order: 'manual' or 'priority' (can also be set via LINEAR_ISSUE_SORT)", {
+    required: false,
     value: (value: string) => {
       if (!["manual", "priority"].includes(value)) {
         throw new Error("Sort must be either 'manual' or 'priority'");
@@ -301,7 +301,12 @@ const issueCommand = new Command()
       },
     },
   )
-  .action(async ({ sort, state }) => {
+  .action(async ({ sort: sortFlag, state }) => {
+    const sort = sortFlag || Deno.env.get("LINEAR_ISSUE_SORT") || "priority";
+    if (!["manual", "priority"].includes(sort)) {
+      console.error("Sort must be either 'manual' or 'priority'");
+      Deno.exit(1);
+    }
     const teamId = await getTeamId();
     if (!teamId) {
       console.error("Could not determine team id from directory name.");
