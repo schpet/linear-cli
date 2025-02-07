@@ -26,6 +26,10 @@ function padDisplay(s: string, width: number): string {
   return s + " ".repeat(Math.max(0, width - w));
 }
 
+function underline(text: string): string {
+  return `\x1b[4m${text}\x1b[24m`;
+}
+
 function getTimeAgo(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -391,7 +395,7 @@ const issueCommand = new Command()
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH + LABEL_WIDTH; // sum of fixed columns
       const PADDING = 1
       const titleWidth = Math.max(columns - PADDING - fixed, 0); // use remaining space for title
-      const header = `${padDisplay("P", PRIORITY_WIDTH)} ${padDisplay("ID", ID_WIDTH)} ${padDisplay("TITLE", titleWidth)} ${padDisplay("LABELS", LABEL_WIDTH)} ${padDisplay(updatedHeader, UPDATED_WIDTH)}`;
+      const header = `${underline(padDisplay("P", PRIORITY_WIDTH))} ${underline(padDisplay("ID", ID_WIDTH))} ${underline(padDisplay("TITLE", titleWidth))} ${underline(padDisplay("LABELS", LABEL_WIDTH))} ${underline(padDisplay(updatedHeader, UPDATED_WIDTH))}`;
       console.log(header);
       console.log("─".repeat(header.length));
 
