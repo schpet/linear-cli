@@ -390,9 +390,7 @@ const issueCommand = new Command()
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
         LABEL_WIDTH; // sum of fixed columns
       const titleWidth = Math.max(columns - fixed, 0); // use remaining space for title
-      const header = `${"P".padEnd(PRIORITY_WIDTH)} ${"ID".padEnd(ID_WIDTH)} ${
-        "TITLE".padEnd(titleWidth)
-      } ${"LABELS".padEnd(LABEL_WIDTH)} ${"UPDATED"}`;
+      const header = `${padDisplay("P", PRIORITY_WIDTH)} ${padDisplay("ID", ID_WIDTH)} ${padDisplay("TITLE", titleWidth)} ${padDisplay("LABELS", LABEL_WIDTH)} ${"UPDATED"}`;
       console.log(header);
       console.log("─".repeat(header.length));
 
@@ -403,15 +401,13 @@ const issueCommand = new Command()
         // Truncate fields to reasonable lengths with dynamic widths
         const truncTitle = title.length > titleWidth
           ? title.slice(0, titleWidth - 3) + "..."
-          : title.padEnd(titleWidth);
+          : padDisplay(title, titleWidth);
         const truncLabels = labels.length > LABEL_WIDTH
           ? labels.slice(0, LABEL_WIDTH - 3) + "..."
-          : labels.padEnd(LABEL_WIDTH);
+          : padDisplay(labels, LABEL_WIDTH);
 
         console.log(
-          `${padDisplay(priority, 4)} ${
-            id.padEnd(8)
-          } ${truncTitle} ${truncLabels} ${timeAgo}`,
+          `${padDisplay(priority, 4)} ${padDisplay(id, 8)} ${truncTitle} ${truncLabels} ${timeAgo}`,
         );
       }
     } catch (error) {
