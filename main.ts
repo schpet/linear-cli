@@ -374,20 +374,27 @@ const issueCommand = new Command()
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
 
-        const priority = issue.priority === 0
-          ? ""
-          : issue.priority === 1
-          ? "⚠️⚠️⚠️"
-          : issue.priority === 2
-          ? "███"
-          : issue.priority === 3
-          ? "██ "
-          : issue.priority === 4
-          ? "█  "
-          : issue.priority.toString();
+        let priorityStr = "";
+        let priorityStyles: string[] = [];
+        if (issue.priority === 0) {
+          priorityStr = "";
+        } else if (issue.priority === 1 || issue.priority === 2) {
+          priorityStr = "%c█%c█%c█";
+          priorityStyles = ["color: black", "color: black", "color: black"];
+        } else if (issue.priority === 3) {
+          priorityStr = "%c█%c█%c█";
+          priorityStyles = ["color: black", "color: black", "color: white"];
+        } else if (issue.priority === 4) {
+          priorityStr = "%c█%c█%c█";
+          priorityStyles = ["color: black", "color: white", "color: white"];
+        } else {
+          priorityStr = issue.priority.toString();
+          priorityStyles = [];
+        }
 
         return {
-          priority,
+          priorityStr,
+          priorityStyles,
           identifier: issue.identifier,
           title: issue.title,
           labelsFormat,
@@ -422,13 +429,14 @@ const issueCommand = new Command()
 
       // Print each issue
       for (const row of tableData) {
-        const { priority, identifier, title, labelsFormat, labelsStyles, timeAgo } = row;
+        const { priorityStr, priorityStyles, identifier, title, labelsFormat, labelsStyles, timeAgo } = row;
         const truncTitle = title.length > titleWidth
           ? title.slice(0, titleWidth - 3) + "..."
           : padDisplay(title, titleWidth);
-
+  
         console.log(
-          `${padDisplay(priority, 4)} ${padDisplay(identifier, 8)} ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${padDisplay(timeAgo, UPDATED_WIDTH)}`,
+          `${padDisplayFormatted(priorityStr, 4)} ${padDisplay(identifier, 8)} ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${padDisplay(timeAgo, UPDATED_WIDTH)}`,
+          ...priorityStyles,
           ...labelsStyles
         );
       }
