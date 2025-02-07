@@ -1,9 +1,10 @@
 import { load } from "@std/dotenv";
 
 // Try loading .env from current directory first, then from git root if not found
-try {
+const localEnvPath = ".env";
+if (await Deno.stat(localEnvPath).catch(() => null)) {
   await load({ export: true });
-} catch {
+} else {
   try {
     const gitRoot = new TextDecoder().decode(
       await new Deno.Command("git", {
@@ -11,10 +12,13 @@ try {
       }).output().then((output) => output.stdout),
     ).trim();
 
-    console.log("Loading .env from git root:", gitRoot);
-    await load({ envPath: join(gitRoot, ".env"), export: true });
+    const gitRootEnvPath = join(gitRoot, ".env");
+    if (await Deno.stat(gitRootEnvPath).catch(() => null)) {
+      console.log("Loading .env from git root:", gitRoot);
+      await load({ envPath: gitRootEnvPath, export: true });
+    }
   } catch {
-    // Silently continue if no .env file found
+    // Silently continue if not in a git repo
   }
 }
 import { Command, EnumType } from "@cliffy/command";
