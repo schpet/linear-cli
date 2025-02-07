@@ -380,13 +380,13 @@ const issueCommand = new Command()
           priorityStr = "";
         } else if (issue.priority === 1 || issue.priority === 2) {
           priorityStr = "%c█%c█%c█";
-          priorityStyles = ["color: black", "color: black", "color: black"];
+          priorityStyles = ["color: purple", "color: purple", "color: purple"];
         } else if (issue.priority === 3) {
           priorityStr = "%c█%c█%c█";
-          priorityStyles = ["color: black", "color: black", "color: white"];
+          priorityStyles = ["color: purple", "color: purple", "color: silver"];
         } else if (issue.priority === 4) {
           priorityStr = "%c█%c█%c█";
-          priorityStyles = ["color: black", "color: white", "color: white"];
+          priorityStyles = ["color: purple", "color: silver", "color: silver"];
         } else {
           priorityStr = issue.priority.toString();
           priorityStyles = [];
@@ -433,7 +433,7 @@ const issueCommand = new Command()
         const truncTitle = title.length > titleWidth
           ? title.slice(0, titleWidth - 3) + "..."
           : padDisplay(title, titleWidth);
-  
+
         console.log(
           `${padDisplayFormatted(priorityStr, 4)} ${padDisplay(identifier, 8)} ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${padDisplay(timeAgo, UPDATED_WIDTH)}`,
           ...priorityStyles,
