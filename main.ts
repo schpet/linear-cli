@@ -290,14 +290,14 @@ const issueCommand = new Command()
   .type("state", StateType)
   .option(
     "--sort <sort:sort>",
-    "Sort order: 'manual' or 'priority' (can also be set via LINEAR_ISSUE_SORT)",
+    "Sort order (can also be set via LINEAR_ISSUE_SORT)",
     {
       required: false,
     },
   )
   .option(
     "--state <state:state>",
-    "Issue state: 'triage', 'backlog', 'unstarted', 'started', 'completed', or 'canceled'",
+    "Filter by issue state",
     {
       default: "unstarted",
     },
