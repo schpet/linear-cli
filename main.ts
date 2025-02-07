@@ -271,15 +271,19 @@ const issueCommand = new Command()
     }
   })
   .command("list", "List your issues")
-  .option("--sort <sort:string>", "Sort order: 'manual' or 'priority' (can also be set via LINEAR_ISSUE_SORT)", {
-    required: false,
-    value: (value: string) => {
-      if (!["manual", "priority"].includes(value)) {
-        throw new Error("Sort must be either 'manual' or 'priority'");
-      }
-      return value;
+  .option(
+    "--sort <sort:string>",
+    "Sort order: 'manual' or 'priority' (can also be set via LINEAR_ISSUE_SORT)",
+    {
+      required: false,
+      value: (value: string) => {
+        if (!["manual", "priority"].includes(value)) {
+          throw new Error("Sort must be either 'manual' or 'priority'");
+        }
+        return value;
+      },
     },
-  })
+  )
   .option(
     "--state <state:string>",
     "Issue state: 'triage', 'backlog', 'unstarted', 'started', 'completed', or 'canceled'",
@@ -312,20 +316,6 @@ const issueCommand = new Command()
       console.error("Could not determine team id from directory name.");
       Deno.exit(1);
     }
-
-    // LINEAR PRESETS FOR SORTING:
-    //
-    // {
-    //   priority_desc: {
-    //     "viewOrdering": "priority",
-    //     "viewOrderingDirection": "desc",
-    //   },
-    //   priority_asc: {
-    //     "viewOrdering": "priority",
-    //     "viewOrderingDirection": "asc",
-    //   },
-    //   manual: { "viewOrdering": "manual", "viewOrderingDirection": "asc" },
-    // };
 
     const query = /* GraphQL */ `
       query issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
@@ -386,7 +376,7 @@ const issueCommand = new Command()
         ),
       );
 
-      interface TableRow {
+      type TableRow = {
         priorityStr: string;
         priorityStyles: string[];
         identifier: string;
@@ -394,7 +384,7 @@ const issueCommand = new Command()
         labelsFormat: string;
         labelsStyles: string[];
         timeAgo: string;
-      }
+      };
 
       const tableData: Array<TableRow> = issues.map((issue: Issue) => {
         // First build the plain text version to measure length
