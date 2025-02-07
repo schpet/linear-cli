@@ -28,7 +28,7 @@ function padDisplay(s: string, width: number): string {
 }
 
 function stripConsoleFormat(s: string): string {
-  return s.replace(/%c/g, '');
+  return s.replace(/%c/g, "");
 }
 
 function padDisplayFormatted(s: string, width: number): string {
@@ -36,7 +36,6 @@ function padDisplayFormatted(s: string, width: number): string {
   const w = unicodeWidth(plain);
   return s + " ".repeat(Math.max(0, width - w));
 }
-
 
 function getTimeAgo(date: Date): string {
   const now = new Date();
@@ -369,23 +368,29 @@ const issueCommand = new Command()
       }
 
       const tableData = issues.map((issue: Issue) => {
-        const labelsFormat = issue.labels.nodes.map((l: Label) => `%c${l.name}%c`).join(", ");
-        const labelsStyles = issue.labels.nodes.flatMap((l: Label) => [`color: ${l.color}`, ""]);
+        const labelsFormat = issue.labels.nodes.map((l: Label) =>
+          `%c${l.name}%c`
+        ).join(", ");
+        const labelsStyles = issue.labels.nodes.flatMap((
+          l: Label,
+        ) => [`color: ${l.color}`, ""]);
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
 
         let priorityStr = "";
         let priorityStyles: string[] = [];
         if (issue.priority === 0) {
-          priorityStr = "";
+          priorityStr = "%c---";
+          priorityStyles = ["color: silver"];
         } else if (issue.priority === 1 || issue.priority === 2) {
-          priorityStr = "%c█%c█%c█";
+          // ▄▆█
+          priorityStr = "%c▄%c▆%c█";
           priorityStyles = ["", "", ""];
         } else if (issue.priority === 3) {
-          priorityStr = "%c█%c█%c█";
+          priorityStr = "%c▄%c▆%c█";
           priorityStyles = ["", "", "color: silver"];
         } else if (issue.priority === 4) {
-          priorityStr = "%c█%c█%c█";
+          priorityStr = "%c▄%c▆%c█";
           priorityStyles = ["", "color: silver", "color: silver"];
         } else {
           priorityStr = issue.priority.toString();
@@ -410,12 +415,16 @@ const issueCommand = new Command()
       const LABEL_WIDTH = 25; // fixed width for labels
       const SPACE_WIDTH = 4;
       const updatedHeader = "UPDATED";
-      const UPDATED_WIDTH = Math.max(unicodeWidth(updatedHeader), ...tableData.map((row) => unicodeWidth(row.timeAgo)));
-      const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH + LABEL_WIDTH; // sum of fixed columns
-      const PADDING = 1
+      const UPDATED_WIDTH = Math.max(
+        unicodeWidth(updatedHeader),
+        ...tableData.map((row) => unicodeWidth(row.timeAgo)),
+      );
+      const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
+        LABEL_WIDTH; // sum of fixed columns
+      const PADDING = 1;
       const titleWidth = Math.max(columns - PADDING - fixed, 0); // use remaining space for title
       const headerCells = [
-        padDisplay("P", PRIORITY_WIDTH),
+        padDisplay("", PRIORITY_WIDTH),
         padDisplay("ID", ID_WIDTH),
         padDisplay("TITLE", titleWidth),
         padDisplay("LABELS", LABEL_WIDTH),
@@ -424,20 +433,32 @@ const issueCommand = new Command()
       const headerStr = headerCells.join(" ");
       console.log(
         "%c" + headerCells.join(" %c"),
-        ...headerCells.map(() => "text-decoration: underline")
+        ...headerCells.map(() => "text-decoration: underline"),
       );
 
       // Print each issue
       for (const row of tableData) {
-        const { priorityStr, priorityStyles, identifier, title, labelsFormat, labelsStyles, timeAgo } = row;
+        const {
+          priorityStr,
+          priorityStyles,
+          identifier,
+          title,
+          labelsFormat,
+          labelsStyles,
+          timeAgo,
+        } = row;
         const truncTitle = title.length > titleWidth
           ? title.slice(0, titleWidth - 3) + "..."
           : padDisplay(title, titleWidth);
 
         console.log(
-          `${padDisplayFormatted(priorityStr, 4)} ${padDisplay(identifier, 8)} ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${padDisplay(timeAgo, UPDATED_WIDTH)}`,
+          `${padDisplayFormatted(priorityStr, 4)} ${
+            padDisplay(identifier, 8)
+          } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
+            padDisplay(timeAgo, UPDATED_WIDTH)
+          }`,
           ...priorityStyles,
-          ...labelsStyles
+          ...labelsStyles,
         );
       }
     } catch (error) {
