@@ -6,7 +6,6 @@ import denoConfig from "./deno.json" with { type: "json" };
 import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
-import * as ct from "@cliffy/table";
 
 function getTimeAgo(date: Date): string {
   const now = new Date();
@@ -362,27 +361,22 @@ const issueCommand = new Command()
         ];
       });
 
-      // Calculate available width
-      const consoleSize = Deno.consoleSize();
-      const totalWidth = consoleSize.columns;
+      // Print header
+      console.log("P    ID       TITLE                    LABELS          UPDATED");
+      console.log("─".repeat(80));
 
-      // Fixed width columns: P(5), ID(8), UPDATED(19)
-      const fixedWidth = 5 + 8 + 19;
-      const availableWidth = totalWidth - fixedWidth;
-
-      // Title gets 50% of remaining space, labels 25%
-      const titleMaxWidth = Math.floor(availableWidth * 0.5);
-      const labelsMaxWidth = Math.floor(availableWidth * 0.25);
-
-      // Create and render table
-      const table = new ct.Table(
-        ["P", "ID", "TITLE", "LABELS", "UPDATED"],
-        ...tableData,
-      )
-        .maxColWidth([5, 8, titleMaxWidth, labelsMaxWidth, 19])
-        .minColWidth([3, 6, 20, 10, 10]);
-
-      console.log(table.toString());
+      // Print each issue
+      for (const row of tableData) {
+        const [priority, id, title, labels, timeAgo] = row;
+        
+        // Truncate fields to reasonable lengths
+        const truncTitle = title.length > 30 ? title.slice(0, 27) + "..." : title.padEnd(30);
+        const truncLabels = labels.length > 15 ? labels.slice(0, 12) + "..." : labels.padEnd(15);
+        
+        console.log(
+          `${priority.padEnd(4)} ${id.padEnd(8)} ${truncTitle} ${truncLabels} ${timeAgo}`
+        );
+      }
     } catch (error) {
       console.error("Failed to fetch issues:", error);
       Deno.exit(1);
