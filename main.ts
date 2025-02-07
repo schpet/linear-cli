@@ -424,7 +424,7 @@ const issueCommand = new Command()
       const PADDING = 1;
       const titleWidth = Math.max(columns - PADDING - fixed, 0); // use remaining space for title
       const headerCells = [
-        padDisplay("", PRIORITY_WIDTH),
+        padDisplay("◌", PRIORITY_WIDTH),
         padDisplay("ID", ID_WIDTH),
         padDisplay("TITLE", titleWidth),
         padDisplay("LABELS", LABEL_WIDTH),
