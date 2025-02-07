@@ -384,7 +384,7 @@ const issueCommand = new Command()
       const { columns } = Deno.consoleSize();
       const PRIORITY_WIDTH = 4;
       const ID_WIDTH = 8;
-      const LABEL_WIDTH = 15; // fixed width for labels
+      const LABEL_WIDTH = 25; // fixed width for labels
       const SPACE_WIDTH = 4;
       const updatedHeader = "UPDATED";
       const UPDATED_WIDTH = Math.max(unicodeWidth(updatedHeader), ...tableData.map((row) => unicodeWidth(row[4])));
