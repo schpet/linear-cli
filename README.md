@@ -58,7 +58,7 @@ this cli needs three things to work:
 ### required environment variables
 
 ```sh
-LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api
+LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api (requires member access, not available for guest accounts)
 LINEAR_WORKSPACE="your-company" # your linear workspace url slug
 ```
 
