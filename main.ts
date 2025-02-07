@@ -380,7 +380,7 @@ const issueCommand = new Command()
         
         // Truncate fields to reasonable lengths with dynamic widths
         const truncTitle = title.length > titleWidth ? title.slice(0, titleWidth - 3) + "..." : title.padEnd(titleWidth);
-        const truncLabels = labels.length > labelWidth ? labels.slice(0, labelWidth - 3) + "..." : labels.padEnd(labelWidth);
+        const truncLabels = labels.length > LABEL_WIDTH ? labels.slice(0, LABEL_WIDTH - 3) + "..." : labels.padEnd(LABEL_WIDTH);
         
         console.log(
           `${priority.padEnd(4)} ${id.padEnd(8)} ${truncTitle} ${truncLabels} ${timeAgo}`
