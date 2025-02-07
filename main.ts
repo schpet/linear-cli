@@ -376,12 +376,16 @@ const issueCommand = new Command()
       const updatedHeader = "UPDATED";
       const UPDATED_WIDTH = Math.max(
         unicodeWidth(updatedHeader),
-        ...issues.map((issue) => unicodeWidth(getTimeAgo(new Date(issue.updatedAt)))),
+        ...issues.map((issue) =>
+          unicodeWidth(getTimeAgo(new Date(issue.updatedAt)))
+        ),
       );
 
       const tableData = issues.map((issue: Issue) => {
         // First build the plain text version to measure length
-        const plainLabels = issue.labels.nodes.map((l: Label) => l.name).join(", ");
+        const plainLabels = issue.labels.nodes.map((l: Label) => l.name).join(
+          ", ",
+        );
         let labelsFormat: string;
         let labelsStyles: string[] = [];
 
@@ -438,7 +442,9 @@ const issueCommand = new Command()
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
         LABEL_WIDTH; // sum of fixed columns
       const PADDING = 1;
-      const maxTitleWidth = Math.max(...tableData.map((row) => unicodeWidth(row.title)));
+      const maxTitleWidth = Math.max(
+        ...tableData.map((row) => unicodeWidth(row.title)),
+      );
       const availableWidth = Math.max(columns - PADDING - fixed, 0);
       const titleWidth = Math.min(maxTitleWidth, availableWidth); // use smaller of max title width or available space
       const headerCells = [
@@ -449,7 +455,7 @@ const issueCommand = new Command()
         padDisplay(updatedHeader, UPDATED_WIDTH),
       ];
       let headerMsg = "";
-      const headerStyles = [];
+      const headerStyles: Array<string> = [];
       headerCells.forEach((cell, index) => {
         headerMsg += `%c${cell}`;
         headerStyles.push("text-decoration: underline");
