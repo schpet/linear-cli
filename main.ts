@@ -241,7 +241,7 @@ const issueCommand = new Command()
       Deno.exit(1);
     }
   })
-  .command("list", "List your active unstarted issues")
+  .command("list", "List your issues")
   .option("--sort <sort:string>", "Sort order: 'manual' or 'priority'", {
     required: true,
     value: (value: string) => {
@@ -251,7 +251,17 @@ const issueCommand = new Command()
       return value;
     },
   })
-  .action(async ({ sort }) => {
+  .option("--state <state:string>", "Issue state: 'triage', 'backlog', 'unstarted', 'started', 'completed', or 'canceled'", {
+    default: "unstarted",
+    value: (value: string) => {
+      const validStates = ["triage", "backlog", "unstarted", "started", "completed", "canceled"];
+      if (!validStates.includes(value)) {
+        throw new Error(`State must be one of: ${validStates.join(", ")}`);
+      }
+      return value;
+    },
+  })
+  .action(async ({ sort, state }) => {
     const teamId = await getTeamId();
     if (!teamId) {
       console.error("Could not determine team id from directory name.");
@@ -278,7 +288,7 @@ const issueCommand = new Command()
           filter: {
             team: { key: { eq: $teamId } }
             assignee: { isMe: { eq: true } }
-            state: { type: { in: ["unstarted"] } }
+            state: { type: { in: [state] } }
           }
           sort: $sort
         ) {
