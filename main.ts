@@ -306,7 +306,11 @@ const issueCommand = new Command()
     },
   )
   .action(async ({ sort: sortFlag, state }) => {
-    const sort = sortFlag || Deno.env.get("LINEAR_ISSUE_SORT") || "priority";
+    const sort = sortFlag || Deno.env.get("LINEAR_ISSUE_SORT");
+    if (!sort) {
+      console.error("Sort must be provided either via --sort flag or LINEAR_ISSUE_SORT environment variable");
+      Deno.exit(1);
+    }
     if (!["manual", "priority"].includes(sort)) {
       console.error("Sort must be either 'manual' or 'priority'");
       Deno.exit(1);
