@@ -328,6 +328,7 @@ const issueCommand = new Command()
             state {
               id
               name
+              color
             }
             labels {
               nodes {
