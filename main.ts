@@ -365,7 +365,7 @@ const issueCommand = new Command()
       const { columns } = Deno.consoleSize();
       const labelWidth = 15; // fixed width for labels
       const fixed = 4 + 8 + 7 + 4 + labelWidth; // priority, id, UPDATED, spaces, LABELS
-      const titleWidth = columns > fixed ? columns - fixed : 20; // use remaining space for title, minimum 20
+      const titleWidth = Math.max(columns - fixed, 0); // use remaining space for title
       const header = `${"P".padEnd(4)} ${"ID".padEnd(8)} ${"TITLE".padEnd(titleWidth)} ${"LABELS".padEnd(labelWidth)} ${"UPDATED"}`;
       console.log(header);
       console.log("─".repeat(header.length));
