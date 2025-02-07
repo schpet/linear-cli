@@ -10,6 +10,7 @@ import { unicodeWidth } from "@std/cli";
 
 interface Label {
   name: string;
+  color: string;
 }
 
 interface Issue {
@@ -372,7 +373,7 @@ const issueCommand = new Command()
         const labelsStyles = issue.labels.nodes.flatMap((l: Label) => [`color: ${l.color}`, ""]);
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
-  
+
         const priority = issue.priority === 0
           ? ""
           : issue.priority === 1
@@ -384,7 +385,7 @@ const issueCommand = new Command()
           : issue.priority === 4
           ? "█  "
           : issue.priority.toString();
-  
+
         return {
           priority,
           identifier: issue.identifier,
@@ -425,7 +426,7 @@ const issueCommand = new Command()
         const truncTitle = title.length > titleWidth
           ? title.slice(0, titleWidth - 3) + "..."
           : padDisplay(title, titleWidth);
-  
+
         console.log(
           `${padDisplay(priority, 4)} ${padDisplay(identifier, 8)} ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${padDisplay(timeAgo, UPDATED_WIDTH)}`,
           ...labelsStyles
