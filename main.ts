@@ -248,15 +248,29 @@ const issueCommand = new Command()
       Deno.exit(1);
     }
 
+    // LINEAR PRESETS FOR SORTING:
+    //
+    // {
+    //   priority_desc: {
+    //     "viewOrdering": "priority",
+    //     "viewOrderingDirection": "desc",
+    //   },
+    //   priority_asc: {
+    //     "viewOrdering": "priority",
+    //     "viewOrderingDirection": "asc",
+    //   },
+    //   manual: { "viewOrdering": "manual", "viewOrderingDirection": "asc" },
+    // };
+
     const query = /* GraphQL */ `
-      query issues($teamId: String!) {
+      query issues($teamId: String!, $sort: [IssueSortInput!]) {
         issues(
           filter: {
             team: { key: { eq: $teamId } }
             assignee: { isMe: { eq: true } }
             state: { type: { in: ["unstarted"] } }
           }
-          sort: [{ manual: { nulls: last, order: Ascending } }]
+          sort: $sort
         ) {
           nodes {
             id
@@ -274,7 +288,12 @@ const issueCommand = new Command()
     `;
 
     try {
-      const result = await fetchGraphQL(query, { teamId });
+      const sort = [{ manual: { nulls: "last", order: "Ascending" } }];
+
+      const result = await fetchGraphQL(query, {
+        teamId,
+        sort,
+      });
       const issues = result.data.issues.nodes;
 
       if (issues.length === 0) {
