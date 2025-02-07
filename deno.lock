@@ -12,6 +12,7 @@
     "jsr:@std/assert@1": "1.0.8",
     "jsr:@std/assert@~0.218.2": "0.218.2",
     "jsr:@std/cli@^1.0.12": "1.0.12",
+    "jsr:@std/dotenv@~0.225.3": "0.225.3",
     "jsr:@std/encoding@^1.0.5": "1.0.5",
     "jsr:@std/fmt@0.223.0": "0.223.0",
     "jsr:@std/fmt@~1.0.2": "1.0.3",
@@ -70,6 +71,9 @@
     "@std/cli@1.0.12": {
       "integrity": "e5cfb7814d189da174ecd7a34fbbd63f3513e24a1b307feb2fcd5da47a070d90"
     },
+    "@std/dotenv@0.225.3": {
+      "integrity": "a95e5b812c27b0854c52acbae215856d9cce9d4bbf774d938c51d212711e8d4a"
+    },
     "@std/encoding@1.0.5": {
       "integrity": "ecf363d4fc25bd85bd915ff6733a7e79b67e0e7806334af15f4645c569fefc04"
     },
@@ -102,6 +106,7 @@
       "jsr:@opensrc/deno-open@1",
       "jsr:@std/assert@1",
       "jsr:@std/cli@^1.0.12",
+      "jsr:@std/dotenv@~0.225.3",
       "jsr:@std/encoding@^1.0.5",
       "jsr:@std/path@^1.0.8"
     ]
