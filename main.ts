@@ -364,7 +364,7 @@ const issueCommand = new Command()
       const { columns } = Deno.consoleSize();
       const PRIORITY_WIDTH = 4;
       const ID_WIDTH = 8;
-      const LABEL_WIDTH = 25; // fixed width for labels
+      const LABEL_WIDTH = columns <= 100 ? 15 : 25; // adjust label width based on terminal size
       const STATE_WIDTH = 12; // fixed width for state
       const SPACE_WIDTH = 4;
       const updatedHeader = "UPDATED";
