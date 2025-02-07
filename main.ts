@@ -479,11 +479,13 @@ const issueCommand = new Command()
         console.log(
           `${padDisplayFormatted(priorityStr, 4)} ${
             padDisplay(identifier, 8)
-          } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
+          } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} %c${
             padDisplay(timeAgo, UPDATED_WIDTH)
-          }`,
+          }%c`,
           ...priorityStyles,
           ...labelsStyles,
+          "color: gray",
+          "",
         );
       }
     } catch (error) {
