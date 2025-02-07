@@ -430,7 +430,6 @@ const issueCommand = new Command()
         padDisplay("LABELS", LABEL_WIDTH),
         padDisplay(updatedHeader, UPDATED_WIDTH),
       ];
-      const headerStr = headerCells.join(" ");
       console.log(
         "%c" + headerCells.join(" %c"),
         ...headerCells.map(() => "text-decoration: underline"),
