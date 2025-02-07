@@ -49,6 +49,10 @@ async function getIssueId(providedId?: string): Promise<string | null> {
 }
 
 async function getTeamId(): Promise<string | null> {
+  const envTeamId = Deno.env.get("LINEAR_TEAM_ID");
+  if (envTeamId) {
+    return envTeamId.toUpperCase();
+  }
   const dir = await getRepoDir();
   const match = dir.match(/^[a-zA-Z]{2,5}/);
   return match ? match[0].toUpperCase() : null;
