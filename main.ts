@@ -344,8 +344,8 @@ const issueCommand = new Command()
       const consoleSize = Deno.consoleSize();
       const totalWidth = consoleSize.columns;
       
-      // Fixed width columns: P(5), ID(8), UPDATED(15)
-      const fixedWidth = 5 + 8 + 15;
+      // Fixed width columns: P(5), ID(8), UPDATED(19)
+      const fixedWidth = 5 + 8 + 19;
       const availableWidth = totalWidth - fixedWidth;
       
       // Title gets 50% of remaining space, labels 25%
@@ -357,7 +357,7 @@ const issueCommand = new Command()
         ["P", "ID", "TITLE", "LABELS", "UPDATED"],
         ...tableData,
       )
-      .maxColWidth([5, 8, titleMaxWidth, labelsMaxWidth, 15])
+      .maxColWidth([5, 8, titleMaxWidth, labelsMaxWidth, 19])
       .minColWidth([3, 6, 20, 10, 10]);
 
       console.log(table.toString());
