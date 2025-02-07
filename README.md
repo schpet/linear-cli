@@ -72,6 +72,7 @@ Example `.env` file:
 LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api (requires member access, not available for guest accounts)
 LINEAR_WORKSPACE="your-company" # your linear workspace url slug
 LINEAR_TEAM_ID="ENG" # optional: set team id instead of using directory name
+LINEAR_ISSUE_SORT="priority" # optional: default sort order for issue list (priority|manual)
 ```
 
 <details>
