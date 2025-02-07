@@ -336,7 +336,7 @@ const issueCommand = new Command()
           issue.identifier,
           issue.title,
           labels,
-          timeAgo,
+          new ct.Cell(timeAgo).dim(),
         ];
       });
 
