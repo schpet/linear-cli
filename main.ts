@@ -324,7 +324,7 @@ const issueCommand = new Command()
 
       // Print header
       console.log(
-        `${"ID".padEnd(idWidth)}  ${"P".padEnd(priorityWidth)}  ${"TITLE".padEnd(titleWidth)}  ${
+        `${"P".padEnd(priorityWidth)}  ${"ID".padEnd(idWidth)}  ${"TITLE".padEnd(titleWidth)}  ${
           "LABELS".padEnd(labelsWidth)
         }  UPDATED`,
       );
@@ -342,8 +342,8 @@ const issueCommand = new Command()
                         issue.priority === 4 ? "█  " : 
                         issue.priority.toString();
         console.log(
-          `${issue.identifier.padEnd(idWidth)}  ${
-            priority.padEnd(priorityWidth)
+          `${priority.padEnd(priorityWidth)}  ${
+            issue.identifier.padEnd(idWidth)
           }  ${
             issue.title.slice(0, titleWidth).padEnd(titleWidth)
           }  ${labels.slice(0, labelsWidth).padEnd(labelsWidth)}  ${timeAgo}`,
