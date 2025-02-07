@@ -332,7 +332,9 @@ const issueCommand = new Command()
             priority
             labels {
               nodes {
+                id
                 name
+                color
               }
             }
             updatedAt
@@ -397,7 +399,6 @@ const issueCommand = new Command()
       const titleWidth = Math.max(columns - PADDING - fixed, 0); // use remaining space for title
       const header = `${underline(padDisplay("P", PRIORITY_WIDTH))} ${underline(padDisplay("ID", ID_WIDTH))} ${underline(padDisplay("TITLE", titleWidth))} ${underline(padDisplay("LABELS", LABEL_WIDTH))} ${underline(padDisplay(updatedHeader, UPDATED_WIDTH))}`;
       console.log(header);
-      console.log("─".repeat(header.length));
 
       // Print each issue
       for (const row of tableData) {
