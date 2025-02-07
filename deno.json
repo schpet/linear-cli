@@ -6,7 +6,8 @@
   "license": "MIT",
   "tasks": {
     "dev": "deno run --allow-env --allow-sys --allow-run --allow-read --allow-net main.ts ",
-    "install": "deno install -c ./deno.json  --allow-env --allow-sys --allow-run --allow-read --allow-net -g -f -n linear ./main.ts"
+    "install": "deno install -c ./deno.json  --allow-env --allow-sys --allow-run --allow-read --allow-net -g -f -n linear ./main.ts",
+    "uninstall": "deno uninstall -g linear"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
