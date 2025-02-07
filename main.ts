@@ -285,6 +285,7 @@ const issueCommand = new Command()
             id
             identifier
             title
+            priority
             labels {
               nodes {
                 name
@@ -319,10 +320,11 @@ const issueCommand = new Command()
         Math.max(...issues.map((i: any) => i.title.length)),
       );
       const labelsWidth = 10;
+      const priorityWidth = 3;
 
       // Print header
       console.log(
-        `${"ID".padEnd(idWidth)}  ${"TITLE".padEnd(titleWidth)}  ${
+        `${"ID".padEnd(idWidth)}  ${"P".padEnd(priorityWidth)}  ${"TITLE".padEnd(titleWidth)}  ${
           "LABELS".padEnd(labelsWidth)
         }  UPDATED`,
       );
@@ -333,8 +335,11 @@ const issueCommand = new Command()
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
 
+        const priority = issue.priority === 0 ? "—" : issue.priority.toString();
         console.log(
           `${issue.identifier.padEnd(idWidth)}  ${
+            priority.padEnd(priorityWidth)
+          }  ${
             issue.title.slice(0, titleWidth).padEnd(titleWidth)
           }  ${labels.slice(0, labelsWidth).padEnd(labelsWidth)}  ${timeAgo}`,
         );
