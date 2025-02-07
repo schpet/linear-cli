@@ -395,7 +395,7 @@ const issueCommand = new Command()
       const LABEL_WIDTH = 25; // fixed width for labels
       const SPACE_WIDTH = 4;
       const updatedHeader = "UPDATED";
-      const UPDATED_WIDTH = Math.max(unicodeWidth(updatedHeader), ...tableData.map((row) => unicodeWidth(row[4])));
+      const UPDATED_WIDTH = Math.max(unicodeWidth(updatedHeader), ...tableData.map((row) => unicodeWidth(row.timeAgo)));
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH + LABEL_WIDTH; // sum of fixed columns
       const PADDING = 1
       const titleWidth = Math.max(columns - PADDING - fixed, 0); // use remaining space for title
