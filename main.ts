@@ -1,4 +1,21 @@
-import "@std/dotenv/load";
+import { load } from "@std/dotenv";
+
+// Try loading .env from current directory first, then from git root if not found
+try {
+  await load();
+} catch {
+  try {
+    const gitRoot = new TextDecoder().decode(
+      await new Deno.Command("git", {
+        args: ["rev-parse", "--show-toplevel"],
+      }).output().then(output => output.stdout)
+    ).trim();
+    
+    await load({ envPath: `${gitRoot}/.env` });
+  } catch {
+    // Silently continue if no .env file found
+  }
+}
 import { Command, EnumType } from "@cliffy/command";
 
 const SortType = new EnumType(["manual", "priority"]);
