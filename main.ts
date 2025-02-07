@@ -436,7 +436,9 @@ const issueCommand = new Command()
         headerMsg += `%c${cell}`;
         headerStyles.push("text-decoration: underline");
         if (index < headerCells.length - 1) {
-          headerMsg += " "; // non-underlined space between cells
+          headerMsg += "%c %c"; // non-underlined space between cells
+          headerStyles.push("text-decoration: none");
+          headerStyles.push("text-decoration: underline");
         }
       });
       console.log(headerMsg, ...headerStyles);
