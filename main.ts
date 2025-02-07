@@ -19,6 +19,11 @@ interface Issue {
   title: string;
   priority: number;
   labels: { nodes: Label[] };
+  state: {
+    id: string;
+    name: string;
+    color: string;
+  };
   updatedAt: string;
 }
 
