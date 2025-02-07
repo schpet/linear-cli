@@ -335,7 +335,12 @@ const issueCommand = new Command()
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
 
-        const priority = issue.priority === 0 ? "—" : issue.priority.toString();
+        const priority = issue.priority === 0 ? "—" : 
+                        issue.priority === 1 ? "🚨" :
+                        issue.priority === 2 ? "↑" :
+                        issue.priority === 3 ? "→" :
+                        issue.priority === 4 ? "↓" : 
+                        issue.priority.toString();
         console.log(
           `${issue.identifier.padEnd(idWidth)}  ${
             priority.padEnd(priorityWidth)
