@@ -4,6 +4,8 @@
 
 ### added
 
+- support for .env files
+
 ### changed
 
 ### removed
