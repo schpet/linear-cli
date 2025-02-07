@@ -363,11 +363,9 @@ const issueCommand = new Command()
 
       // Print header with dynamic widths
       const { columns } = Deno.consoleSize();
-      const fixedWidth = 4 + 8 + 7 + 4; // priority, id, UPDATED, spaces
-      const sumDynamic = 30 + 15;
-      const availableDynamicWidth = columns - fixedWidth;
-      const titleWidth = availableDynamicWidth < sumDynamic ? Math.floor(30 / sumDynamic * availableDynamicWidth) : 30;
-      const labelWidth = availableDynamicWidth < sumDynamic ? Math.floor(15 / sumDynamic * availableDynamicWidth) : 15;
+      const labelWidth = 15; // fixed width for labels
+      const fixed = 4 + 8 + 7 + 4 + labelWidth; // priority, id, UPDATED, spaces, LABELS
+      const titleWidth = columns > fixed ? columns - fixed : 20; // use remaining space for title, minimum 20
       const header = `${"P".padEnd(4)} ${"ID".padEnd(8)} ${"TITLE".padEnd(titleWidth)} ${"LABELS".padEnd(labelWidth)} ${"UPDATED"}`;
       console.log(header);
       console.log("─".repeat(header.length));
