@@ -62,7 +62,9 @@ this cli needs three things to work:
 
 ### required environment variables
 
-Environment variables can be set in your shell or in a `.env` file. The CLI will look for a `.env` file in:
+Environment variables can be set in your shell or in a `.env` file. The CLI will
+look for a `.env` file in:
+
 1. Your current working directory
 2. The root of your git repository (if you're in a git repo)
 
