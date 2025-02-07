@@ -335,7 +335,7 @@ const issueCommand = new Command()
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
 
-        const priority = issue.priority === 0 ? "—" : 
+        const priority = issue.priority === 0 ? "" : 
                         issue.priority === 1 ? "⚠️⚠️⚠️" :
                         issue.priority === 2 ? "███" :
                         issue.priority === 3 ? "██ " :
