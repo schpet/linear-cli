@@ -380,18 +380,18 @@ const issueCommand = new Command()
         let priorityStr = "";
         let priorityStyles: string[] = [];
         if (issue.priority === 0) {
-          priorityStr = "%c---";
-          priorityStyles = ["color: silver"];
+          priorityStr = "%c---%c";
+          priorityStyles = ["color: silver", ""];
         } else if (issue.priority === 1 || issue.priority === 2) {
           // ▄▆█
-          priorityStr = "%c▄%c▆%c█";
-          priorityStyles = ["", "", ""];
+          priorityStr = "%c▄%c▆%c█%c";
+          priorityStyles = ["", "", "", ""];
         } else if (issue.priority === 3) {
-          priorityStr = "%c▄%c▆%c█";
-          priorityStyles = ["", "", "color: silver"];
+          priorityStr = "%c▄%c▆%c█%c";
+          priorityStyles = ["", "", "color: silver", ""];
         } else if (issue.priority === 4) {
-          priorityStr = "%c▄%c▆%c█";
-          priorityStyles = ["", "color: silver", "color: silver"];
+          priorityStr = "%c▄%c▆%c█%c";
+          priorityStyles = ["", "color: silver", "color: silver", ""];
         } else {
           priorityStr = issue.priority.toString();
           priorityStyles = [];
