@@ -251,16 +251,27 @@ const issueCommand = new Command()
       return value;
     },
   })
-  .option("--state <state:string>", "Issue state: 'triage', 'backlog', 'unstarted', 'started', 'completed', or 'canceled'", {
-    default: "unstarted",
-    value: (value: string) => {
-      const validStates = ["triage", "backlog", "unstarted", "started", "completed", "canceled"];
-      if (!validStates.includes(value)) {
-        throw new Error(`State must be one of: ${validStates.join(", ")}`);
-      }
-      return value;
+  .option(
+    "--state <state:string>",
+    "Issue state: 'triage', 'backlog', 'unstarted', 'started', 'completed', or 'canceled'",
+    {
+      default: "unstarted",
+      value: (value: string) => {
+        const validStates = [
+          "triage",
+          "backlog",
+          "unstarted",
+          "started",
+          "completed",
+          "canceled",
+        ];
+        if (!validStates.includes(value)) {
+          throw new Error(`State must be one of: ${validStates.join(", ")}`);
+        }
+        return value;
+      },
     },
-  })
+  )
   .action(async ({ sort, state }) => {
     const teamId = await getTeamId();
     if (!teamId) {
@@ -283,12 +294,12 @@ const issueCommand = new Command()
     // };
 
     const query = /* GraphQL */ `
-      query issues($teamId: String!, $sort: [IssueSortInput!]) {
+      query issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
         issues(
           filter: {
             team: { key: { eq: $teamId } }
             assignee: { isMe: { eq: true } }
-            state: { type: { in: [state] } }
+            state: { type: { in: $states } }
           }
           sort: $sort
         ) {
@@ -316,6 +327,7 @@ const issueCommand = new Command()
       const result = await fetchGraphQL(query, {
         teamId,
         sort: sortPayload,
+        states: [state],
       });
       const issues = result.data.issues.nodes;
 
@@ -353,11 +365,11 @@ const issueCommand = new Command()
       // Calculate available width
       const consoleSize = Deno.consoleSize();
       const totalWidth = consoleSize.columns;
-      
+
       // Fixed width columns: P(5), ID(8), UPDATED(19)
       const fixedWidth = 5 + 8 + 19;
       const availableWidth = totalWidth - fixedWidth;
-      
+
       // Title gets 50% of remaining space, labels 25%
       const titleMaxWidth = Math.floor(availableWidth * 0.5);
       const labelsMaxWidth = Math.floor(availableWidth * 0.25);
@@ -367,8 +379,8 @@ const issueCommand = new Command()
         ["P", "ID", "TITLE", "LABELS", "UPDATED"],
         ...tableData,
       )
-      .maxColWidth([5, 8, titleMaxWidth, labelsMaxWidth, 19])
-      .minColWidth([3, 6, 20, 10, 10]);
+        .maxColWidth([5, 8, titleMaxWidth, labelsMaxWidth, 19])
+        .minColWidth([3, 6, 20, 10, 10]);
 
       console.log(table.toString());
     } catch (error) {
