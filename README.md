@@ -62,8 +62,11 @@ this cli needs three things to work:
 
 ### required environment variables
 
-Environment variables can be set in your shell or in a `.env` file in your
-project directory:
+Environment variables can be set in your shell or in a `.env` file. The CLI will look for a `.env` file in:
+1. Your current working directory
+2. The root of your git repository (if you're in a git repo)
+
+Example `.env` file:
 
 ```sh
 LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api (requires member access, not available for guest accounts)
