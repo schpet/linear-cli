@@ -11,7 +11,6 @@
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
-    "@cliffy/table": "jsr:@cliffy/table@^1.0.0-rc.7",
     "@littletof/charmd": "jsr:@littletof/charmd@^0.1.2",
     "@opensrc/deno-open": "jsr:@opensrc/deno-open@^1.0.0",
     "@std/assert": "jsr:@std/assert@1",
