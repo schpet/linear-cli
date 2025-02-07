@@ -337,9 +337,9 @@ const issueCommand = new Command()
 
         const priority = issue.priority === 0 ? "—" : 
                         issue.priority === 1 ? "🚨" :
-                        issue.priority === 2 ? "↑" :
-                        issue.priority === 3 ? "→" :
-                        issue.priority === 4 ? "↓" : 
+                        issue.priority === 2 ? "⚡️" :
+                        issue.priority === 3 ? "◆◇" :
+                        issue.priority === 4 ? "▽▿" : 
                         issue.priority.toString();
         console.log(
           `${issue.identifier.padEnd(idWidth)}  ${
