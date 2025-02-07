@@ -8,6 +8,7 @@ issues and team pages. offers handy commands:
 | linear issue       | open the issue in linear.app, based on the current git branch         |
 | linear issue print | print the issue to stdout                                             |
 | linear issue pr    | create a nicely named pull request with [gh](https://cli.github.com/) |
+| linear issue list  | list your issues in a table view with sorting and filtering           |
 | linear team        | view active issues assigned to you in the team                        |
 
 see [the full list of commands](#commands) below.
