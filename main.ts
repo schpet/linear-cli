@@ -6,6 +6,12 @@ import denoConfig from "./deno.json" with { type: "json" };
 import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
+import { stringWidth } from "https://deno.land/x/string_width/mod.ts";
+
+function padDisplay(s: string, width: number): string {
+  const w = stringWidth(s);
+  return s + " ".repeat(Math.max(0, width - w));
+}
 
 function getTimeAgo(date: Date): string {
   const now = new Date();
@@ -383,7 +389,7 @@ const issueCommand = new Command()
         const truncLabels = labels.length > LABEL_WIDTH ? labels.slice(0, LABEL_WIDTH - 3) + "..." : labels.padEnd(LABEL_WIDTH);
         
         console.log(
-          `${priority.padEnd(4)} ${id.padEnd(8)} ${truncTitle} ${truncLabels} ${timeAgo}`
+          `${padDisplay(priority, 4)} ${id.padEnd(8)} ${truncTitle} ${truncLabels} ${timeAgo}`
         );
       }
     } catch (error) {
