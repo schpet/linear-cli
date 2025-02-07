@@ -340,11 +340,25 @@ const issueCommand = new Command()
         ];
       });
 
+      // Calculate available width
+      const consoleSize = Deno.consoleSize();
+      const totalWidth = consoleSize.columns;
+      
+      // Fixed width columns: P(5), ID(8), UPDATED(15)
+      const fixedWidth = 5 + 8 + 15;
+      const availableWidth = totalWidth - fixedWidth;
+      
+      // Title gets 50% of remaining space, labels 25%
+      const titleMaxWidth = Math.floor(availableWidth * 0.5);
+      const labelsMaxWidth = Math.floor(availableWidth * 0.25);
+
       // Create and render table
       const table = new ct.Table(
         ["P", "ID", "TITLE", "LABELS", "UPDATED"],
         ...tableData,
-      );
+      )
+      .maxColWidth([5, 8, titleMaxWidth, labelsMaxWidth, 15])
+      .minColWidth([3, 6, 20, 10, 10]);
 
       console.log(table.toString());
     } catch (error) {
