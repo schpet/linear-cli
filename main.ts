@@ -6,7 +6,7 @@ import denoConfig from "./deno.json" with { type: "json" };
 import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
-import { stringWidth } from "@std/cli/unicode-width";
+import { unicodeWidth } from "@std/cli";
 
 interface Label {
   name: string;
@@ -22,7 +22,7 @@ interface Issue {
 }
 
 function padDisplay(s: string, width: number): string {
-  const w = stringWidth(s);
+  const w = unicodeWidth(s);
   return s + " ".repeat(Math.max(0, width - w));
 }
 
@@ -387,22 +387,31 @@ const issueCommand = new Command()
       const UPDATED_WIDTH = 7;
       const LABEL_WIDTH = 15; // fixed width for labels
       const SPACE_WIDTH = 4;
-      const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH + LABEL_WIDTH; // sum of fixed columns
+      const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
+        LABEL_WIDTH; // sum of fixed columns
       const titleWidth = Math.max(columns - fixed, 0); // use remaining space for title
-      const header = `${"P".padEnd(PRIORITY_WIDTH)} ${"ID".padEnd(ID_WIDTH)} ${"TITLE".padEnd(titleWidth)} ${"LABELS".padEnd(LABEL_WIDTH)} ${"UPDATED"}`;
+      const header = `${"P".padEnd(PRIORITY_WIDTH)} ${"ID".padEnd(ID_WIDTH)} ${
+        "TITLE".padEnd(titleWidth)
+      } ${"LABELS".padEnd(LABEL_WIDTH)} ${"UPDATED"}`;
       console.log(header);
       console.log("─".repeat(header.length));
 
       // Print each issue
       for (const row of tableData) {
         const [priority, id, title, labels, timeAgo] = row;
-        
+
         // Truncate fields to reasonable lengths with dynamic widths
-        const truncTitle = title.length > titleWidth ? title.slice(0, titleWidth - 3) + "..." : title.padEnd(titleWidth);
-        const truncLabels = labels.length > LABEL_WIDTH ? labels.slice(0, LABEL_WIDTH - 3) + "..." : labels.padEnd(LABEL_WIDTH);
-        
+        const truncTitle = title.length > titleWidth
+          ? title.slice(0, titleWidth - 3) + "..."
+          : title.padEnd(titleWidth);
+        const truncLabels = labels.length > LABEL_WIDTH
+          ? labels.slice(0, LABEL_WIDTH - 3) + "..."
+          : labels.padEnd(LABEL_WIDTH);
+
         console.log(
-          `${padDisplay(priority, 4)} ${id.padEnd(8)} ${truncTitle} ${truncLabels} ${timeAgo}`
+          `${padDisplay(priority, 4)} ${
+            id.padEnd(8)
+          } ${truncTitle} ${truncLabels} ${timeAgo}`,
         );
       }
     } catch (error) {
