@@ -36,9 +36,6 @@ function padDisplayFormatted(s: string, width: number): string {
   return s + " ".repeat(Math.max(0, width - w));
 }
 
-function underline(text: string): string {
-  return `\x1b[4m${text}\x1b[24m`;
-}
 
 function getTimeAgo(date: Date): string {
   const now = new Date();
