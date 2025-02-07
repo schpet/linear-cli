@@ -314,24 +314,7 @@ const issueCommand = new Command()
         return;
       }
 
-      // Calculate column widths
-      const idWidth = Math.max(...issues.map((i: any) => i.identifier.length));
-      const titleWidth = Math.min(
-        80,
-        Math.max(...issues.map((i: any) => i.title.length)),
-      );
-      const labelsWidth = 10;
-      const priorityWidth = 3;
-
-      // Print header
-      console.log(
-        `${"P".padEnd(priorityWidth)}  ${"ID".padEnd(idWidth)}  ${"TITLE".padEnd(titleWidth)}  ${
-          "LABELS".padEnd(labelsWidth)
-        }  UPDATED`,
-      );
-
-      // Print each issue
-      for (const issue of issues) {
+      const tableData = issues.map((issue: any) => {
         const labels = issue.labels.nodes.map((l: any) => l.name).join(",");
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
@@ -342,14 +325,25 @@ const issueCommand = new Command()
                         issue.priority === 3 ? "██ " :
                         issue.priority === 4 ? "█  " :
                         issue.priority.toString();
-        console.log(
-          `${priority.padEnd(priorityWidth)}  ${
-            issue.identifier.padEnd(idWidth)
-          }  ${
-            issue.title.slice(0, titleWidth).padEnd(titleWidth)
-          }  ${labels.slice(0, labelsWidth).padEnd(labelsWidth)}  ${timeAgo}`,
-        );
-      }
+
+        return [
+          priority,
+          issue.identifier,
+          issue.title,
+          labels,
+          timeAgo,
+        ];
+      });
+
+      // Create and render table
+      const table = new table.Table(
+        ["P", "ID", "TITLE", "LABELS", "UPDATED"],
+        ...tableData
+      )
+        .border(true)
+        .padding(1);
+
+      console.log(table.toString());
     } catch (error) {
       console.error("Failed to fetch issues:", error);
       Deno.exit(1);
