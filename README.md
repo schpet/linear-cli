@@ -117,6 +117,7 @@ linear issue id        # prints the issue id from current branch (e.g., "ENG-123
 linear issue title     # prints just the issue title
 linear issue url       # prints the Linear.app URL for the issue
 linear issue pr        # creates a GitHub PR with issue details via `gh pr create`
+linear issue list      # list your issues in a table view (supports --sort and --state)
 ```
 
 ### team commands
