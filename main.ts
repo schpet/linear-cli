@@ -6,7 +6,7 @@ import denoConfig from "./deno.json" with { type: "json" };
 import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
-import { stringWidth } from "https://deno.land/x/string_width/mod.ts";
+import { stringWidth } from "@std/cli/unicode-width";
 
 function padDisplay(s: string, width: number): string {
   const w = stringWidth(s);
