@@ -361,17 +361,24 @@ const issueCommand = new Command()
         ];
       });
 
-      // Print header
-      console.log("P    ID       TITLE                    LABELS          UPDATED");
-      console.log("─".repeat(80));
+      // Print header with dynamic widths
+      const { columns } = Deno.consoleSize();
+      const fixedWidth = 4 + 8 + 7 + 4; // priority, id, UPDATED, spaces
+      const sumDynamic = 30 + 15;
+      const availableDynamicWidth = columns - fixedWidth;
+      const titleWidth = availableDynamicWidth < sumDynamic ? Math.floor(30 / sumDynamic * availableDynamicWidth) : 30;
+      const labelWidth = availableDynamicWidth < sumDynamic ? Math.floor(15 / sumDynamic * availableDynamicWidth) : 15;
+      const header = `${"P".padEnd(4)} ${"ID".padEnd(8)} ${"TITLE".padEnd(titleWidth)} ${"LABELS".padEnd(labelWidth)} ${"UPDATED"}`;
+      console.log(header);
+      console.log("─".repeat(header.length));
 
       // Print each issue
       for (const row of tableData) {
         const [priority, id, title, labels, timeAgo] = row;
         
-        // Truncate fields to reasonable lengths
-        const truncTitle = title.length > 30 ? title.slice(0, 27) + "..." : title.padEnd(30);
-        const truncLabels = labels.length > 15 ? labels.slice(0, 12) + "..." : labels.padEnd(15);
+        // Truncate fields to reasonable lengths with dynamic widths
+        const truncTitle = title.length > titleWidth ? title.slice(0, titleWidth - 3) + "..." : title.padEnd(titleWidth);
+        const truncLabels = labels.length > labelWidth ? labels.slice(0, labelWidth - 3) + "..." : labels.padEnd(labelWidth);
         
         console.log(
           `${priority.padEnd(4)} ${id.padEnd(8)} ${truncTitle} ${truncLabels} ${timeAgo}`
