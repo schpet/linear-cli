@@ -4,11 +4,15 @@
 
 ### added
 
-- `linear issue list` command
-
 ### changed
 
 ### removed
+
+## [0.2.0]
+
+### added
+
+- `linear issue list` command
 
 ## [0.1.0]
 
