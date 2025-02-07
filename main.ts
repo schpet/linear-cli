@@ -361,10 +361,11 @@ const issueCommand = new Command()
       }
 
       const tableData = issues.map((issue: Issue) => {
-        const labels = issue.labels.nodes.map((l: Label) => l.name).join(", ");
+        const labelsFormat = issue.labels.nodes.map((l: Label) => `%c${l.name}%c`).join(", ");
+        const labelsStyles = issue.labels.nodes.flatMap((l: Label) => [`color: ${l.color}`, ""]);
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
-
+  
         const priority = issue.priority === 0
           ? ""
           : issue.priority === 1
@@ -376,14 +377,15 @@ const issueCommand = new Command()
           : issue.priority === 4
           ? "█  "
           : issue.priority.toString();
-
-        return [
+  
+        return {
           priority,
-          issue.identifier,
-          issue.title,
-          labels,
+          identifier: issue.identifier,
+          title: issue.title,
+          labelsFormat,
+          labelsStyles,
           timeAgo,
-        ];
+        };
       });
 
       // Print header with dynamic widths using defined constants
@@ -402,18 +404,14 @@ const issueCommand = new Command()
 
       // Print each issue
       for (const row of tableData) {
-        const [priority, id, title, labels, timeAgo] = row;
-
-        // Truncate fields to reasonable lengths with dynamic widths
+        const { priority, identifier, title, labelsFormat, labelsStyles, timeAgo } = row;
         const truncTitle = title.length > titleWidth
           ? title.slice(0, titleWidth - 3) + "..."
           : padDisplay(title, titleWidth);
-        const truncLabels = labels.length > LABEL_WIDTH
-          ? labels.slice(0, LABEL_WIDTH - 3) + "..."
-          : padDisplay(labels, LABEL_WIDTH);
-
+  
         console.log(
-          `${padDisplay(priority, 4)} ${padDisplay(id, 8)} ${truncTitle} ${truncLabels} ${timeAgo}`,
+          `${padDisplay(priority, 4)} ${padDisplay(identifier, 8)} ${truncTitle} ${labelsFormat} ${timeAgo}`,
+          ...labelsStyles
         );
       }
     } catch (error) {
