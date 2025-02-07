@@ -341,8 +341,8 @@ const issueCommand = new Command()
         return;
       }
 
-      const tableData = issues.map((issue: any) => {
-        const labels = issue.labels.nodes.map((l: any) => l.name).join(",");
+      const tableData = issues.map((issue: Issue) => {
+        const labels = issue.labels.nodes.map((l: Label) => l.name).join(",");
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
 
