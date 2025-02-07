@@ -8,6 +8,12 @@
 
 ### removed
 
+## [0.2.1]
+
+### Fixed
+
+- renamed directories to fix the release builds
+
 ## [0.2.0]
 
 ### added
