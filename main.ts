@@ -6,7 +6,7 @@ import denoConfig from "./deno.json" with { type: "json" };
 import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename } from "@std/path";
-import * as table from "@cliffy/table";
+import * as ct from "@cliffy/table";
 
 function getTimeAgo(date: Date): string {
   const now = new Date();
@@ -319,12 +319,17 @@ const issueCommand = new Command()
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
 
-        const priority = issue.priority === 0 ? "" :
-                        issue.priority === 1 ? "⚠️⚠️⚠️" :
-                        issue.priority === 2 ? "███" :
-                        issue.priority === 3 ? "██ " :
-                        issue.priority === 4 ? "█  " :
-                        issue.priority.toString();
+        const priority = issue.priority === 0
+          ? ""
+          : issue.priority === 1
+          ? "⚠️⚠️⚠️"
+          : issue.priority === 2
+          ? "███"
+          : issue.priority === 3
+          ? "██ "
+          : issue.priority === 4
+          ? "█  "
+          : issue.priority.toString();
 
         return [
           priority,
@@ -336,12 +341,10 @@ const issueCommand = new Command()
       });
 
       // Create and render table
-      const table = new table.Table(
+      const table = new ct.Table(
         ["P", "ID", "TITLE", "LABELS", "UPDATED"],
-        ...tableData
-      )
-        .border(true)
-        .padding(1);
+        ...tableData,
+      );
 
       console.log(table.toString());
     } catch (error) {
