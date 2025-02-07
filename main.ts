@@ -297,13 +297,13 @@ const issueCommand = new Command()
     `;
 
     try {
-      const sort = sort === "manual" 
+      const sortPayload = sort === "manual"
         ? [{ manual: { nulls: "last", order: "Ascending" } }]
         : [{ priority: { nulls: "last", order: "Descending" } }];
 
       const result = await fetchGraphQL(query, {
         teamId,
-        sort,
+        sort: sortPayload,
       });
       const issues = result.data.issues.nodes;
 
