@@ -486,6 +486,7 @@ const issueCommand = new Command()
           labelsFormat,
           labelsStyles,
           state,
+          stateStyles,
           timeAgo,
         } = row;
         const truncTitle = title.length > titleWidth
