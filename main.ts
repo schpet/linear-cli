@@ -409,8 +409,18 @@ const issueCommand = new Command()
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH + LABEL_WIDTH; // sum of fixed columns
       const PADDING = 1
       const titleWidth = Math.max(columns - PADDING - fixed, 0); // use remaining space for title
-      const header = `${underline(padDisplay("P", PRIORITY_WIDTH))} ${underline(padDisplay("ID", ID_WIDTH))} ${underline(padDisplay("TITLE", titleWidth))} ${underline(padDisplay("LABELS", LABEL_WIDTH))} ${underline(padDisplay(updatedHeader, UPDATED_WIDTH))}`;
-      console.log(header);
+      const headerCells = [
+        padDisplay("P", PRIORITY_WIDTH),
+        padDisplay("ID", ID_WIDTH),
+        padDisplay("TITLE", titleWidth),
+        padDisplay("LABELS", LABEL_WIDTH),
+        padDisplay(updatedHeader, UPDATED_WIDTH),
+      ];
+      const headerStr = headerCells.join(" ");
+      console.log(
+        "%c" + headerCells.join(" %c"),
+        ...headerCells.map(() => "text-decoration: underline")
+      );
 
       // Print each issue
       for (const row of tableData) {
