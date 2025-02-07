@@ -389,7 +389,8 @@ const issueCommand = new Command()
       const updatedHeader = "UPDATED";
       const UPDATED_WIDTH = Math.max(unicodeWidth(updatedHeader), ...tableData.map((row) => unicodeWidth(row[4])));
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH + LABEL_WIDTH; // sum of fixed columns
-      const titleWidth = Math.max(columns - fixed, 0); // use remaining space for title
+      const PADDING = 1
+      const titleWidth = Math.max(columns - PADDING - fixed, 0); // use remaining space for title
       const header = `${padDisplay("P", PRIORITY_WIDTH)} ${padDisplay("ID", ID_WIDTH)} ${padDisplay("TITLE", titleWidth)} ${padDisplay("LABELS", LABEL_WIDTH)} ${padDisplay(updatedHeader, UPDATED_WIDTH)}`;
       console.log(header);
       console.log("─".repeat(header.length));
