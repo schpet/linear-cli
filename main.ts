@@ -16,7 +16,9 @@ function getTimeAgo(date: Date): string {
 
   if (diffMins < 1) return "just now";
   if (diffMins < 60) return `${diffMins} minutes ago`;
-  if (diffHours < 24) return `about ${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  if (diffHours < 24) {
+    return `about ${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  }
   return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
@@ -242,22 +244,26 @@ const issueCommand = new Command()
       Deno.exit(1);
     }
 
-    const query = `
-      query($teamId: String!) {
-        team(id: $teamId) {
-          issues(
-            filter: {
-              assignee: { isMe: { eq: true } }
-              state: { type: { in: ["unstarted"] } }
+    const query = /* GraphQL */ `
+      query issues($teamId: ID!) {
+        issues(
+          filter: {
+            team: { id: { eq: $teamId } }
+            assignee: { isMe: { eq: true } }
+            state: { type: { in: ["unstarted"] } }
+          }
+          sort: [{ manual: { nulls: last, order: Ascending } }]
+        ) {
+          nodes {
+            id
+            identifier
+            title
+            labels {
+              nodes {
+                name
+              }
             }
-          ) {
-            nodes {
-              id
-              identifier
-              title
-              labels { nodes { name } }
-              updatedAt
-            }
+            updatedAt
           }
         }
       }
@@ -265,7 +271,7 @@ const issueCommand = new Command()
 
     try {
       const data = await fetchGraphQL(query, { teamId });
-      const issues = data.data.team.issues.nodes;
+      const issues = data.data.issues.issues.nodes;
 
       if (issues.length === 0) {
         console.log("No unstarted issues found.");
@@ -274,12 +280,17 @@ const issueCommand = new Command()
 
       // Calculate column widths
       const idWidth = Math.max(...issues.map((i: any) => i.identifier.length));
-      const titleWidth = Math.min(80, Math.max(...issues.map((i: any) => i.title.length)));
+      const titleWidth = Math.min(
+        80,
+        Math.max(...issues.map((i: any) => i.title.length)),
+      );
       const labelsWidth = 10;
 
       // Print header
       console.log(
-        `${"ID".padEnd(idWidth)}  ${"TITLE".padEnd(titleWidth)}  ${"LABELS".padEnd(labelsWidth)}  UPDATED`
+        `${"ID".padEnd(idWidth)}  ${"TITLE".padEnd(titleWidth)}  ${
+          "LABELS".padEnd(labelsWidth)
+        }  UPDATED`,
       );
 
       // Print each issue
@@ -289,7 +300,9 @@ const issueCommand = new Command()
         const timeAgo = getTimeAgo(updatedAt);
 
         console.log(
-          `${issue.identifier.padEnd(idWidth)}  ${issue.title.slice(0, titleWidth).padEnd(titleWidth)}  ${labels.slice(0, labelsWidth).padEnd(labelsWidth)}  ${timeAgo}`
+          `${issue.identifier.padEnd(idWidth)}  ${
+            issue.title.slice(0, titleWidth).padEnd(titleWidth)
+          }  ${labels.slice(0, labelsWidth).padEnd(labelsWidth)}  ${timeAgo}`,
         );
       }
     } catch (error) {
