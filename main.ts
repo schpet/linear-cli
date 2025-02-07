@@ -381,6 +381,7 @@ const issueCommand = new Command()
         title: string;
         labelsFormat: string;
         labelsStyles: string[];
+        state: string;
         timeAgo: string;
       };
 
