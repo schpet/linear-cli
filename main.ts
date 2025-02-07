@@ -381,7 +381,17 @@ const issueCommand = new Command()
         ),
       );
 
-      const tableData = issues.map((issue: Issue) => {
+      interface TableRow {
+        priorityStr: string;
+        priorityStyles: string[];
+        identifier: string;
+        title: string;
+        labelsFormat: string;
+        labelsStyles: string[];
+        timeAgo: string;
+      }
+
+      const tableData: Array<TableRow> = issues.map((issue: Issue) => {
         // First build the plain text version to measure length
         const plainLabels = issue.labels.nodes.map((l: Label) => l.name).join(
           ", ",
