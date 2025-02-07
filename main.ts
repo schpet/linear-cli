@@ -430,10 +430,16 @@ const issueCommand = new Command()
         padDisplay("LABELS", LABEL_WIDTH),
         padDisplay(updatedHeader, UPDATED_WIDTH),
       ];
-      console.log(
-        "%c" + headerCells.join(" %c"),
-        ...headerCells.map(() => "text-decoration: underline"),
-      );
+      let headerMsg = "";
+      const headerStyles = [];
+      headerCells.forEach((cell, index) => {
+        headerMsg += `%c${cell}`;
+        headerStyles.push("text-decoration: underline");
+        if (index < headerCells.length - 1) {
+          headerMsg += " "; // non-underlined space between cells
+        }
+      });
+      console.log(headerMsg, ...headerStyles);
 
       // Print each issue
       for (const row of tableData) {
