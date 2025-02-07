@@ -361,12 +361,16 @@ const issueCommand = new Command()
         ];
       });
 
-      // Print header with dynamic widths
+      // Print header with dynamic widths using defined constants
       const { columns } = Deno.consoleSize();
-      const labelWidth = 15; // fixed width for labels
-      const fixed = 4 + 8 + 7 + 4 + labelWidth; // priority, id, UPDATED, spaces, LABELS
+      const PRIORITY_WIDTH = 4;
+      const ID_WIDTH = 8;
+      const UPDATED_WIDTH = 7;
+      const LABEL_WIDTH = 15; // fixed width for labels
+      const SPACE_WIDTH = 4;
+      const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH + LABEL_WIDTH; // sum of fixed columns
       const titleWidth = Math.max(columns - fixed, 0); // use remaining space for title
-      const header = `${"P".padEnd(4)} ${"ID".padEnd(8)} ${"TITLE".padEnd(titleWidth)} ${"LABELS".padEnd(labelWidth)} ${"UPDATED"}`;
+      const header = `${"P".padEnd(PRIORITY_WIDTH)} ${"ID".padEnd(ID_WIDTH)} ${"TITLE".padEnd(titleWidth)} ${"LABELS".padEnd(LABEL_WIDTH)} ${"UPDATED"}`;
       console.log(header);
       console.log("─".repeat(header.length));
 
