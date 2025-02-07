@@ -367,6 +367,18 @@ const issueCommand = new Command()
         return;
       }
 
+      // Define column widths first
+      const { columns } = Deno.consoleSize();
+      const PRIORITY_WIDTH = 4;
+      const ID_WIDTH = 8;
+      const LABEL_WIDTH = 25; // fixed width for labels
+      const SPACE_WIDTH = 4;
+      const updatedHeader = "UPDATED";
+      const UPDATED_WIDTH = Math.max(
+        unicodeWidth(updatedHeader),
+        ...issues.map((issue) => unicodeWidth(getTimeAgo(new Date(issue.updatedAt)))),
+      );
+
       const tableData = issues.map((issue: Issue) => {
         // First build the plain text version to measure length
         const plainLabels = issue.labels.nodes.map((l: Label) => l.name).join(", ");
@@ -416,17 +428,6 @@ const issueCommand = new Command()
         };
       });
 
-      // Print header with dynamic widths using defined constants
-      const { columns } = Deno.consoleSize();
-      const PRIORITY_WIDTH = 4;
-      const ID_WIDTH = 8;
-      const LABEL_WIDTH = 25; // fixed width for labels
-      const SPACE_WIDTH = 4;
-      const updatedHeader = "UPDATED";
-      const UPDATED_WIDTH = Math.max(
-        unicodeWidth(updatedHeader),
-        ...tableData.map((row) => unicodeWidth(row.timeAgo)),
-      );
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
         LABEL_WIDTH; // sum of fixed columns
       const PADDING = 1;
