@@ -1,4 +1,14 @@
 import { Command, EnumType } from "@cliffy/command";
+
+const SortType = new EnumType(["manual", "priority"]);
+const StateType = new EnumType([
+  "triage",
+  "backlog",
+  "unstarted",
+  "started",
+  "completed",
+  "canceled",
+]);
 import { Spinner } from "@std/cli/unstable-spinner";
 import { open } from "@opensrc/deno-open";
 import { CompletionsCommand } from "@cliffy/command/completions";
@@ -276,18 +286,8 @@ const issueCommand = new Command()
     }
   })
   .command("list", "List your issues")
-  .type("sort", new EnumType(["manual", "priority"]))
-  .type(
-    "state",
-    new EnumType([
-      "triage",
-      "backlog",
-      "unstarted",
-      "started",
-      "completed",
-      "canceled",
-    ]),
-  )
+  .type("sort", SortType)
+  .type("state", StateType)
   .option(
     "--sort <sort:sort>",
     "Sort order: 'manual' or 'priority' (can also be set via LINEAR_ISSUE_SORT)",
@@ -310,8 +310,8 @@ const issueCommand = new Command()
       );
       Deno.exit(1);
     }
-    if (!["manual", "priority"].includes(sort)) {
-      console.error("Sort must be either 'manual' or 'priority'");
+    if (!SortType.values().includes(sort)) {
+      console.error(`Sort must be one of: ${SortType.values().join(", ")}`);
       Deno.exit(1);
     }
     const teamId = await getTeamId();
