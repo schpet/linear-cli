@@ -647,7 +647,7 @@ await new Command()
       query {
         viewer {
           organization {
-            slug
+            urlKey
           }
         }
         teams {
