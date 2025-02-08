@@ -30,11 +30,11 @@ async function loadConfig() {
 
 await loadConfig();
 
-export type OptionName = "LINEAR_TEAM_ID" | "LINEAR_API_KEY" | "LINEAR_WORKSPACE" | "LINEAR_ISSUE_SORT";
+export type OptionName = "team_id" | "api_key" | "workspace" | "issue_sort";
 
 export function getOption(optionName: OptionName, cliValue?: string): string | undefined {
   if (cliValue !== undefined) return cliValue;
-  const fromConfig = config[optionName.toLowerCase()];
+  const fromConfig = config[optionName];
   if (typeof fromConfig === "string") return fromConfig;
-  return Deno.env.get(optionName);
+  return Deno.env.get("LINEAR_" + optionName.toUpperCase());
 }
