@@ -30,11 +30,18 @@ async function loadConfig() {
 
 await loadConfig();
 
-export type OptionName = "team_id" | "api_key" | "workspace" | "issue_sort";
+export type OptionValueMapping = {
+  team_id: string;
+  api_key: string;
+  workspace: string;
+  issue_sort: "manual" | "priority";
+};
 
-export function getOption(optionName: OptionName, cliValue?: string): string | undefined {
-  if (cliValue !== undefined) return cliValue;
+export type OptionName = keyof OptionValueMapping;
+
+export function getOption<T extends OptionName>(optionName: T, cliValue?: string): OptionValueMapping[T] | undefined {
+  if (cliValue !== undefined) return cliValue as OptionValueMapping[T];
   const fromConfig = config[optionName];
-  if (typeof fromConfig === "string") return fromConfig;
-  return Deno.env.get("LINEAR_" + optionName.toUpperCase());
+  if (typeof fromConfig === "string") return fromConfig as OptionValueMapping[T];
+  return Deno.env.get("LINEAR_" + optionName.toUpperCase()) as OptionValueMapping[T] | undefined;
 }
