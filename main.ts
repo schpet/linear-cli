@@ -117,7 +117,7 @@ async function getIssueId(providedId?: string): Promise<string | null> {
 }
 
 async function getTeamId(): Promise<string | null> {
-  const teamId = getOption("LINEAR_TEAM_ID");
+  const teamId = getOption("team_id");
   if (teamId) {
     return teamId.toUpperCase();
   }
@@ -127,9 +127,9 @@ async function getTeamId(): Promise<string | null> {
 }
 
 async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
-  const apiKey = getOption("LINEAR_API_KEY");
+  const apiKey = getOption("api_key");
   if (!apiKey) {
-    throw new Error("LINEAR_API_KEY is not set via command line, configuration file, or environment.");
+    throw new Error("api_key is not set via command line, configuration file, or environment.");
   }
 
   const response = await fetch("https://api.linear.app/graphql", {
@@ -174,9 +174,9 @@ async function openTeamPage() {
     Deno.exit(1);
   }
 
-  const workspace = getOption("LINEAR_WORKSPACE");
+  const workspace = getOption("workspace");
   if (!workspace) {
-    console.error("LINEAR_WORKSPACE is not set via command line, configuration file, or environment.");
+    console.error("workspace is not set via command line, configuration file, or environment.");
     Deno.exit(1);
   }
 
@@ -198,9 +198,9 @@ async function openIssuePage(providedId?: string) {
     Deno.exit(1);
   }
 
-  const workspace = getOption("LINEAR_WORKSPACE");
+  const workspace = getOption("workspace");
   if (!workspace) {
-    console.error("LINEAR_WORKSPACE is not set via command line, configuration file, or environment.");
+    console.error("workspace is not set via command line, configuration file, or environment.");
     Deno.exit(1);
   }
 
@@ -236,9 +236,9 @@ const teamCommand = new Command()
       Deno.exit(1);
     }
 
-    const workspace = getOption("LINEAR_WORKSPACE");
+    const workspace = getOption("workspace");
     if (!workspace) {
-      console.error("LINEAR_WORKSPACE is not set via command line, configuration file, or environment.");
+      console.error("workspace is not set via command line, configuration file, or environment.");
       Deno.exit(1);
     }
 
@@ -326,7 +326,7 @@ const issueCommand = new Command()
     },
   )
   .action(async ({ sort: sortFlag, state }) => {
-    const sort = sortFlag || getOption("LINEAR_ISSUE_SORT") as "manual" | "priority" | undefined;
+    const sort = sortFlag || getOption("issue_sort") as "manual" | "priority" | undefined;
     if (!sort) {
       console.error(
         "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
