@@ -716,8 +716,7 @@ await new Command()
       filePath = "./.linear.toml";
     }
 
-    const tomlContent = `api_key = "${apiKey}"
-workspace = "${workspace}"
+    const tomlContent = `workspace = "${workspace}"
 team_id = "${teamKey}"
 issue_sort = "${sortChoice}"
 `;
