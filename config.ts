@@ -30,7 +30,9 @@ async function loadConfig() {
 
 await loadConfig();
 
-export function getOption(optionName: string, cliValue?: string): string | undefined {
+export type OptionName = "LINEAR_TEAM_ID" | "LINEAR_API_KEY" | "LINEAR_WORKSPACE" | "LINEAR_ISSUE_SORT";
+
+export function getOption(optionName: OptionName, cliValue?: string): string | undefined {
   if (cliValue !== undefined) return cliValue;
   const fromConfig = config[optionName.toLowerCase()];
   if (typeof fromConfig === "string") return fromConfig;
