@@ -1,5 +1,6 @@
 import { load } from "@std/dotenv";
 import { getOption } from "./config.ts";
+import { select } from "@cliffy/prompt";
 
 // Try loading .env from current directory first, then from git root if not found
 if (await Deno.stat(".env").catch(() => null)) {
@@ -632,4 +633,77 @@ await new Command()
   .command("team", teamCommand)
   .alias("t")
   .command("completions", new CompletionsCommand())
+  .command("config", "Interactively generate .linear.toml configuration")
+  .action(async () => {
+    const apiKey = Deno.env.get("LINEAR_API_KEY");
+    if (!apiKey) {
+      console.error("The LINEAR_API_KEY environment variable is required.");
+      console.error("For bash/zsh, run: export LINEAR_API_KEY=your_key");
+      console.error("For fish, run: set -gx LINEAR_API_KEY your_key");
+      Deno.exit(1);
+    }
+
+    const query = `
+      query {
+        viewer {
+          organization {
+            slug
+          }
+        }
+        teams {
+          nodes {
+            id
+            key
+            name
+          }
+        }
+      }
+    `;
+    const response = await fetch("https://api.linear.app/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": apiKey,
+      },
+      body: JSON.stringify({ query }),
+    });
+    const result = await response.json();
+    if (result.errors) {
+      console.error("Error fetching data from Linear GraphQL API:", result.errors);
+      Deno.exit(1);
+    }
+    const workspace = result.data.viewer.organization.slug;
+    const teams = result.data.teams.nodes;
+
+    const teamChoices = teams.map((team: any) => ({
+      name: `${team.name} (${team.key})`,
+      value: team.key,
+    }));
+
+    const teamKey = await select("Select a team:", teamChoices);
+
+    // Determine file path for .linear.toml: prefer git root .config dir, then git root, then cwd.
+    let filePath: string;
+    try {
+      const gitRootProcess = await new Deno.Command("git", { args: ["rev-parse", "--show-toplevel"] }).output();
+      const gitRoot = new TextDecoder().decode(gitRootProcess.stdout).trim();
+      const { join } = await import("@std/path");
+      try {
+        await Deno.stat(join(gitRoot, ".config"));
+        filePath = join(gitRoot, ".config", ".linear.toml");
+      } catch {
+        filePath = join(gitRoot, ".linear.toml");
+      }
+    } catch {
+      filePath = "./.linear.toml";
+    }
+
+    const tomlContent = `api_key = "${apiKey}"
+workspace = "${workspace}"
+team_id = "${teamKey}"
+`;
+
+    await Deno.writeTextFile(filePath, tomlContent);
+    console.log("Configuration written to", filePath);
+  })
   .parse(Deno.args);
