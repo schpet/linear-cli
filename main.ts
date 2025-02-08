@@ -672,7 +672,7 @@ await new Command()
       console.error("Error fetching data from Linear GraphQL API:", result.errors);
       Deno.exit(1);
     }
-    const workspace = result.data.viewer.organization.slug;
+    const workspace = result.data.viewer.organization.urlKey;
     const teams = result.data.teams.nodes;
 
     const teamChoices = teams.map((team: any) => ({
