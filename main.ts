@@ -1,4 +1,5 @@
 import { load } from "@std/dotenv";
+import { getOption } from "./config.ts";
 
 // Try loading .env from current directory first, then from git root if not found
 if (await Deno.stat(".env").catch(() => null)) {
@@ -115,9 +116,9 @@ async function getIssueId(providedId?: string): Promise<string | null> {
 }
 
 async function getTeamId(): Promise<string | null> {
-  const envTeamId = Deno.env.get("LINEAR_TEAM_ID");
-  if (envTeamId) {
-    return envTeamId.toUpperCase();
+  const teamId = getOption("LINEAR_TEAM_ID");
+  if (teamId) {
+    return teamId.toUpperCase();
   }
   const dir = await getRepoDir();
   const match = dir.match(/^[a-zA-Z]{2,5}/);
@@ -125,9 +126,9 @@ async function getTeamId(): Promise<string | null> {
 }
 
 async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
-  const apiKey = Deno.env.get("LINEAR_API_KEY");
+  const apiKey = getOption("LINEAR_API_KEY");
   if (!apiKey) {
-    throw new Error("LINEAR_API_KEY environment variable is not set.");
+    throw new Error("LINEAR_API_KEY is not set via command line, configuration file, or environment.");
   }
 
   const response = await fetch("https://api.linear.app/graphql", {
@@ -168,13 +169,13 @@ async function fetchIssueDetails(
 async function openTeamPage() {
   const teamId = await getTeamId();
   if (!teamId) {
-    console.error("Could not determine team id from directory name.");
+    console.error("Could not determine team id from configuration or directory name.");
     Deno.exit(1);
   }
 
-  const workspace = Deno.env.get("LINEAR_WORKSPACE");
+  const workspace = getOption("LINEAR_WORKSPACE");
   if (!workspace) {
-    console.error("LINEAR_WORKSPACE environment variable is not set.");
+    console.error("LINEAR_WORKSPACE is not set via command line, configuration file, or environment.");
     Deno.exit(1);
   }
 
@@ -196,9 +197,9 @@ async function openIssuePage(providedId?: string) {
     Deno.exit(1);
   }
 
-  const workspace = Deno.env.get("LINEAR_WORKSPACE");
+  const workspace = getOption("LINEAR_WORKSPACE");
   if (!workspace) {
-    console.error("LINEAR_WORKSPACE environment variable is not set.");
+    console.error("LINEAR_WORKSPACE is not set via command line, configuration file, or environment.");
     Deno.exit(1);
   }
 
@@ -234,9 +235,9 @@ const teamCommand = new Command()
       Deno.exit(1);
     }
 
-    const workspace = Deno.env.get("LINEAR_WORKSPACE");
+    const workspace = getOption("LINEAR_WORKSPACE");
     if (!workspace) {
-      console.error("LINEAR_WORKSPACE environment variable is not set.");
+      console.error("LINEAR_WORKSPACE is not set via command line, configuration file, or environment.");
       Deno.exit(1);
     }
 
@@ -324,11 +325,10 @@ const issueCommand = new Command()
     },
   )
   .action(async ({ sort: sortFlag, state }) => {
-    const envSort = Deno.env.get("LINEAR_ISSUE_SORT");
-    const sort = sortFlag || (envSort as "manual" | "priority" | undefined);
+    const sort = sortFlag || getOption("LINEAR_ISSUE_SORT") as "manual" | "priority" | undefined;
     if (!sort) {
       console.error(
-        "Sort must be provided either via --sort flag or LINEAR_ISSUE_SORT environment variable",
+        "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
       );
       Deno.exit(1);
     }
