@@ -675,8 +675,9 @@ await new Command()
     const workspace = result.data.viewer.organization.urlKey;
     const teams = result.data.teams.nodes;
 
+    teams.sort((a: any, b: any) => a.key.localeCompare(b.key));
     const teamChoices = teams.map((team: any) => ({
-      name: `${team.name} (${team.key})`,
+      name: `(${team.key}) ${team.name}`,
       value: team.key,
     }));
 
