@@ -5,8 +5,8 @@
   "exports": "./main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno run --allow-env --allow-sys --allow-run --allow-read --allow-net main.ts ",
-    "install": "deno install -c ./deno.json  --allow-env --allow-sys --allow-run --allow-read --allow-net -g -f -n linear ./main.ts",
+    "dev": "deno run --allow-env --allow-sys --allow-run --allow-read --allow-net --allow-write main.ts ",
+    "install": "deno install -c ./deno.json  --allow-env --allow-sys --allow-run --allow-read --allow-net --allow-write -g -f -n linear ./main.ts",
     "uninstall": "deno uninstall -g linear"
   },
   "imports": {
