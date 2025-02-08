@@ -1,6 +1,6 @@
 import { load } from "@std/dotenv";
 import { getOption } from "./config.ts";
-import { select } from "@cliffy/prompt";
+import { prompt, Select } from "@cliffy/prompt";
 
 // Try loading .env from current directory first, then from git root if not found
 if (await Deno.stat(".env").catch(() => null)) {
@@ -680,7 +680,25 @@ await new Command()
       value: team.key,
     }));
 
-    const teamKey = await select("Select a team:", teamChoices);
+    const responses = await prompt([
+      {
+        name: "team_id",
+        message: "Select a team:",
+        type: Select,
+        options: teamChoices,
+      },
+      {
+        name: "sort",
+        message: "Select sort order:",
+        type: Select,
+        options: [
+          { name: "manual", value: "manual" },
+          { name: "priority", value: "priority" },
+        ],
+      },
+    ]);
+    const teamKey = responses.team_id;
+    const sortChoice = responses.sort;
 
     // Determine file path for .linear.toml: prefer git root .config dir, then git root, then cwd.
     let filePath: string;
@@ -701,6 +719,7 @@ await new Command()
     const tomlContent = `api_key = "${apiKey}"
 workspace = "${workspace}"
 team_id = "${teamKey}"
+issue_sort = "${sortChoice}"
 `;
 
     await Deno.writeTextFile(filePath, tomlContent);
