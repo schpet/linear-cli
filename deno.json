@@ -17,7 +17,8 @@
     "@std/cli": "jsr:@std/cli@^1.0.12",
     "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
     "@std/encoding": "jsr:@std/encoding@^1.0.5",
-    "@std/path": "jsr:@std/path@^1.0.8"
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@std/toml": "jsr:@std/toml@^1.0.2"
   },
   "publish": {
     "include": [
