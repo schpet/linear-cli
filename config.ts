@@ -32,7 +32,7 @@ await loadConfig();
 
 export function getOption(optionName: string, cliValue?: string): string | undefined {
   if (cliValue !== undefined) return cliValue;
-  const fromConfig = config[optionName];
+  const fromConfig = config[optionName.toLowerCase()];
   if (typeof fromConfig === "string") return fromConfig;
   return Deno.env.get(optionName);
 }
