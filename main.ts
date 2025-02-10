@@ -120,7 +120,7 @@ async function branchExists(branch: string): Promise<boolean> {
   }
 }
 
-async function getStartedStateId(teamId: string): Promise<string> {
+async function getStartedState(teamId: string): Promise<{id: string, name: string}> {
   const query = /* GraphQL */ `
     query($teamId: String!) {
       team(id: $teamId) {
@@ -150,7 +150,7 @@ async function getStartedStateId(teamId: string): Promise<string> {
 
   const startedState = startedStates[0];
 
-  return startedState.id;
+  return {id: startedState.id, name: startedState.name};
 }
 
 async function updateIssueState(
@@ -692,9 +692,9 @@ const issueCommand = new Command()
 
     // Update issue state
     try {
-      const stateId = await getStartedStateId(teamId);
-      await updateIssueState(resolvedId, stateId);
-      console.log("✓ Issue state updated to 'started'");
+      const state = await getStartedState(teamId);
+      await updateIssueState(resolvedId, state.id);
+      console.log(`✓ Issue state updated to '${state.name}'`);
     } catch (error) {
       console.error("Failed to update issue state:", error);
     }
