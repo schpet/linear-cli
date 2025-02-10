@@ -121,7 +121,7 @@ async function branchExists(branch: string): Promise<boolean> {
 }
 
 async function getStartedStateId(teamId: string): Promise<string> {
-  const query = `
+  const query = /* GraphQL */ `
     query($teamId: String!) {
       team(id: $teamId) {
         states {
@@ -129,6 +129,7 @@ async function getStartedStateId(teamId: string): Promise<string> {
             id
             name
             type
+            position
           }
         }
       }
@@ -137,13 +138,15 @@ async function getStartedStateId(teamId: string): Promise<string> {
 
   const result = await fetchGraphQL(query, { teamId });
   const states = result.data.team.states.nodes;
-  const startedState = states.find((s: { type: string }) =>
-    s.type === "started"
-  );
+  const startedStates = states
+    .filter((s: { type: string }) => s.type === "started")
+    .sort((a: { position: number }, b: { position: number }) => a.position - b.position);
 
-  if (!startedState) {
+  if (!startedStates.length) {
     throw new Error("No 'started' state found in workflow");
   }
+
+  const startedState = startedStates[0];
 
   return startedState.id;
 }
