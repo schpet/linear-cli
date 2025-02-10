@@ -31,7 +31,7 @@ cargo-dist-version = "0.28.0"
 # CI backends to support
 ci = "github"
 # The installers to generate for each app
-installers = ["homebrew"]
+installers = ["shell", "homebrew"]
 # A GitHub repo to push Homebrew formulas to
 tap = "schpet/homebrew-tap"
 # Target platforms to build apps for (Rust target-triple syntax)
@@ -42,3 +42,7 @@ publish-jobs = ["homebrew"]
 # pr-run-mode = "upload"
 # https://opensource.axo.dev/cargo-dist/book/ci/customizing.html#customizing-build-setup
 github-build-setup = "build-setup.yml"
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
+# Whether to install an updater program
+install-updater = true
