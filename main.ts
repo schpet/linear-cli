@@ -611,7 +611,6 @@ const issueCommand = new Command()
     const { title } = await fetchIssueDetails(resolvedId, false);
     console.log(title);
   })
-  .command("url", "Print the issue URL")
   .command("start", "Start working on an issue")
   .arguments("[issueId:string]")
   .action(async (_, issueId) => {
