@@ -137,16 +137,21 @@ async function getStartedStateId(teamId: string): Promise<string> {
 
   const result = await fetchGraphQL(query, { teamId });
   const states = result.data.team.states.nodes;
-  const startedState = states.find((s: { type: string }) => s.type === "started");
-  
+  const startedState = states.find((s: { type: string }) =>
+    s.type === "started"
+  );
+
   if (!startedState) {
     throw new Error("No 'started' state found in workflow");
   }
-  
+
   return startedState.id;
 }
 
-async function updateIssueState(issueId: string, stateId: string): Promise<void> {
+async function updateIssueState(
+  issueId: string,
+  stateId: string,
+): Promise<void> {
   const mutation = `
     mutation($issueId: String!, $stateId: String!) {
       issueUpdate(
@@ -184,7 +189,9 @@ async function getTeamId(): Promise<string | null> {
 async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
   const apiKey = getOption("api_key");
   if (!apiKey) {
-    throw new Error("api_key is not set via command line, configuration file, or environment.");
+    throw new Error(
+      "api_key is not set via command line, configuration file, or environment.",
+    );
   }
 
   const response = await fetch("https://api.linear.app/graphql", {
@@ -206,7 +213,9 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
 async function fetchIssueDetails(
   issueId: string,
   showSpinner = false,
-): Promise<{ title: string; description: string | null; url: string; branchName: string }> {
+): Promise<
+  { title: string; description: string | null; url: string; branchName: string }
+> {
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
   try {
@@ -225,13 +234,17 @@ async function fetchIssueDetails(
 async function openTeamPage() {
   const teamId = await getTeamId();
   if (!teamId) {
-    console.error("Could not determine team id from configuration or directory name.");
+    console.error(
+      "Could not determine team id from configuration or directory name.",
+    );
     Deno.exit(1);
   }
 
   const workspace = getOption("workspace");
   if (!workspace) {
-    console.error("workspace is not set via command line, configuration file, or environment.");
+    console.error(
+      "workspace is not set via command line, configuration file, or environment.",
+    );
     Deno.exit(1);
   }
 
@@ -255,7 +268,9 @@ async function openIssuePage(providedId?: string) {
 
   const workspace = getOption("workspace");
   if (!workspace) {
-    console.error("workspace is not set via command line, configuration file, or environment.");
+    console.error(
+      "workspace is not set via command line, configuration file, or environment.",
+    );
     Deno.exit(1);
   }
 
@@ -293,7 +308,9 @@ const teamCommand = new Command()
 
     const workspace = getOption("workspace");
     if (!workspace) {
-      console.error("workspace is not set via command line, configuration file, or environment.");
+      console.error(
+        "workspace is not set via command line, configuration file, or environment.",
+      );
       Deno.exit(1);
     }
 
@@ -381,7 +398,8 @@ const issueCommand = new Command()
     },
   )
   .action(async ({ sort: sortFlag, state }) => {
-    const sort = sortFlag || getOption("issue_sort") as "manual" | "priority" | undefined;
+    const sort = sortFlag ||
+      getOption("issue_sort") as "manual" | "priority" | undefined;
     if (!sort) {
       console.error(
         "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
@@ -628,11 +646,12 @@ const issueCommand = new Command()
     }
 
     const { branchName } = await fetchIssueDetails(resolvedId, true);
-    
+
     // Check if branch exists
     if (await branchExists(branchName)) {
       const answer = await Select.prompt({
-        message: `Branch ${branchName} already exists. What would you like to do?`,
+        message:
+          `Branch ${branchName} already exists. What would you like to do?`,
         options: [
           { name: "Switch to existing branch", value: "switch" },
           { name: "Create new branch with suffix", value: "create" },
@@ -787,7 +806,10 @@ await new Command()
     });
     const result = await response.json();
     if (result.errors) {
-      console.error("Error fetching data from Linear GraphQL API:", result.errors);
+      console.error(
+        "Error fetching data from Linear GraphQL API:",
+        result.errors,
+      );
       Deno.exit(1);
     }
     const workspace = result.data.viewer.organization.urlKey;
@@ -822,7 +844,9 @@ await new Command()
     // Determine file path for .linear.toml: prefer git root .config dir, then git root, then cwd.
     let filePath: string;
     try {
-      const gitRootProcess = await new Deno.Command("git", { args: ["rev-parse", "--show-toplevel"] }).output();
+      const gitRootProcess = await new Deno.Command("git", {
+        args: ["rev-parse", "--show-toplevel"],
+      }).output();
       const gitRoot = new TextDecoder().decode(gitRootProcess.stdout).trim();
       const { join } = await import("@std/path");
       const configDir = join(gitRoot, ".config");

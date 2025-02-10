@@ -6,7 +6,7 @@ let config: Record<string, unknown> = {};
 async function loadConfig() {
   const configPaths = [
     "./linear.toml",
-    "./.linear.toml"
+    "./.linear.toml",
   ];
   try {
     const gitProcess = await new Deno.Command("git", {
@@ -43,9 +43,16 @@ export type OptionValueMapping = {
 
 export type OptionName = keyof OptionValueMapping;
 
-export function getOption<T extends OptionName>(optionName: T, cliValue?: string): OptionValueMapping[T] | undefined {
+export function getOption<T extends OptionName>(
+  optionName: T,
+  cliValue?: string,
+): OptionValueMapping[T] | undefined {
   if (cliValue !== undefined) return cliValue as OptionValueMapping[T];
   const fromConfig = config[optionName];
-  if (typeof fromConfig === "string") return fromConfig as OptionValueMapping[T];
-  return Deno.env.get("LINEAR_" + optionName.toUpperCase()) as OptionValueMapping[T] | undefined;
+  if (typeof fromConfig === "string") {
+    return fromConfig as OptionValueMapping[T];
+  }
+  return Deno.env.get("LINEAR_" + optionName.toUpperCase()) as
+    | OptionValueMapping[T]
+    | undefined;
 }
