@@ -24,6 +24,7 @@
   "publish": {
     "include": [
       "main.ts",
+      "config.ts",
       "README.md"
     ]
   },
