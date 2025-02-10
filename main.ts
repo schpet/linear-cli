@@ -1,4 +1,6 @@
 import { load } from "@std/dotenv";
+import { getOption } from "./config.ts";
+import { prompt, Select } from "@cliffy/prompt";
 
 // Try loading .env from current directory first, then from git root if not found
 if (await Deno.stat(".env").catch(() => null)) {
@@ -115,9 +117,9 @@ async function getIssueId(providedId?: string): Promise<string | null> {
 }
 
 async function getTeamId(): Promise<string | null> {
-  const envTeamId = Deno.env.get("LINEAR_TEAM_ID");
-  if (envTeamId) {
-    return envTeamId.toUpperCase();
+  const teamId = getOption("team_id");
+  if (teamId) {
+    return teamId.toUpperCase();
   }
   const dir = await getRepoDir();
   const match = dir.match(/^[a-zA-Z]{2,5}/);
@@ -125,9 +127,9 @@ async function getTeamId(): Promise<string | null> {
 }
 
 async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
-  const apiKey = Deno.env.get("LINEAR_API_KEY");
+  const apiKey = getOption("api_key");
   if (!apiKey) {
-    throw new Error("LINEAR_API_KEY environment variable is not set.");
+    throw new Error("api_key is not set via command line, configuration file, or environment.");
   }
 
   const response = await fetch("https://api.linear.app/graphql", {
@@ -168,13 +170,13 @@ async function fetchIssueDetails(
 async function openTeamPage() {
   const teamId = await getTeamId();
   if (!teamId) {
-    console.error("Could not determine team id from directory name.");
+    console.error("Could not determine team id from configuration or directory name.");
     Deno.exit(1);
   }
 
-  const workspace = Deno.env.get("LINEAR_WORKSPACE");
+  const workspace = getOption("workspace");
   if (!workspace) {
-    console.error("LINEAR_WORKSPACE environment variable is not set.");
+    console.error("workspace is not set via command line, configuration file, or environment.");
     Deno.exit(1);
   }
 
@@ -196,9 +198,9 @@ async function openIssuePage(providedId?: string) {
     Deno.exit(1);
   }
 
-  const workspace = Deno.env.get("LINEAR_WORKSPACE");
+  const workspace = getOption("workspace");
   if (!workspace) {
-    console.error("LINEAR_WORKSPACE environment variable is not set.");
+    console.error("workspace is not set via command line, configuration file, or environment.");
     Deno.exit(1);
   }
 
@@ -234,9 +236,9 @@ const teamCommand = new Command()
       Deno.exit(1);
     }
 
-    const workspace = Deno.env.get("LINEAR_WORKSPACE");
+    const workspace = getOption("workspace");
     if (!workspace) {
-      console.error("LINEAR_WORKSPACE environment variable is not set.");
+      console.error("workspace is not set via command line, configuration file, or environment.");
       Deno.exit(1);
     }
 
@@ -324,11 +326,10 @@ const issueCommand = new Command()
     },
   )
   .action(async ({ sort: sortFlag, state }) => {
-    const envSort = Deno.env.get("LINEAR_ISSUE_SORT");
-    const sort = sortFlag || (envSort as "manual" | "priority" | undefined);
+    const sort = sortFlag || getOption("issue_sort") as "manual" | "priority" | undefined;
     if (!sort) {
       console.error(
-        "Sort must be provided either via --sort flag or LINEAR_ISSUE_SORT environment variable",
+        "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
       );
       Deno.exit(1);
     }
@@ -632,4 +633,97 @@ await new Command()
   .command("team", teamCommand)
   .alias("t")
   .command("completions", new CompletionsCommand())
+  .command("config", "Interactively generate .linear.toml configuration")
+  .action(async () => {
+    const apiKey = Deno.env.get("LINEAR_API_KEY");
+    if (!apiKey) {
+      console.error("The LINEAR_API_KEY environment variable is required.");
+      console.error("For bash/zsh, run: export LINEAR_API_KEY=your_key");
+      console.error("For fish, run: set -gx LINEAR_API_KEY your_key");
+      Deno.exit(1);
+    }
+
+    const query = `
+      query {
+        viewer {
+          organization {
+            urlKey
+          }
+        }
+        teams {
+          nodes {
+            id
+            key
+            name
+          }
+        }
+      }
+    `;
+    const response = await fetch("https://api.linear.app/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": apiKey,
+      },
+      body: JSON.stringify({ query }),
+    });
+    const result = await response.json();
+    if (result.errors) {
+      console.error("Error fetching data from Linear GraphQL API:", result.errors);
+      Deno.exit(1);
+    }
+    const workspace = result.data.viewer.organization.urlKey;
+    const teams = result.data.teams.nodes;
+
+    teams.sort((a: any, b: any) => a.name.localeCompare(b.name));
+    const teamChoices = teams.map((team: any) => ({
+      name: `${team.name} (${team.key})`,
+      value: team.key,
+    }));
+
+    const responses = await prompt([
+      {
+        name: "team_id",
+        message: "Select a team:",
+        type: Select,
+        options: teamChoices,
+      },
+      {
+        name: "sort",
+        message: "Select sort order:",
+        type: Select,
+        options: [
+          { name: "manual", value: "manual" },
+          { name: "priority", value: "priority" },
+        ],
+      },
+    ]);
+    const teamKey = responses.team_id;
+    const sortChoice = responses.sort;
+
+    // Determine file path for .linear.toml: prefer git root .config dir, then git root, then cwd.
+    let filePath: string;
+    try {
+      const gitRootProcess = await new Deno.Command("git", { args: ["rev-parse", "--show-toplevel"] }).output();
+      const gitRoot = new TextDecoder().decode(gitRootProcess.stdout).trim();
+      const { join } = await import("@std/path");
+      const configDir = join(gitRoot, ".config");
+      try {
+        await Deno.stat(configDir);
+        filePath = join(configDir, "linear.toml");
+      } catch {
+        filePath = join(gitRoot, ".linear.toml");
+      }
+    } catch {
+      filePath = "./.linear.toml";
+    }
+
+    const tomlContent = `workspace = "${workspace}"
+team_id = "${teamKey}"
+issue_sort = "${sortChoice}"
+`;
+
+    await Deno.writeTextFile(filePath, tomlContent);
+    console.log("Configuration written to", filePath);
+  })
   .parse(Deno.args);
