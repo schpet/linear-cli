@@ -8,6 +8,12 @@
 
 ### removed
 
+## [0.3.1]
+
+### fixed
+
+- added necessary file for jsr publish
+
 ## [0.3.0]
 
 ### added
