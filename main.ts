@@ -820,7 +820,7 @@ await new Command()
       key: string;
       name: string;
     }
-    
+
     teams.sort((a: Team, b: Team) => a.name.localeCompare(b.name));
     const teamChoices = teams.map((team: Team) => ({
       name: `${team.name} (${team.key})`,
