@@ -1,4 +1,6 @@
 import { load } from "@std/dotenv";
+import { getOption } from "./config.ts";
+import { prompt, Select } from "@cliffy/prompt";
 
 // Try loading .env from current directory first, then from git root if not found
 if (await Deno.stat(".env").catch(() => null)) {
@@ -88,12 +90,13 @@ function getTimeAgo(date: Date): string {
   return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
-async function getCurrentBranch(): Promise<string> {
+async function getCurrentBranch(): Promise<string | null> {
   const process = new Deno.Command("git", {
     args: ["symbolic-ref", "--short", "HEAD"],
   });
   const { stdout } = await process.output();
-  return new TextDecoder().decode(stdout).trim();
+  const branch = new TextDecoder().decode(stdout).trim();
+  return branch || null;
 }
 
 async function getRepoDir(): Promise<string> {
@@ -105,19 +108,78 @@ async function getRepoDir(): Promise<string> {
   return basename(fullPath);
 }
 
+async function branchExists(branch: string): Promise<boolean> {
+  try {
+    const process = new Deno.Command("git", {
+      args: ["rev-parse", "--verify", branch],
+    });
+    const { success } = await process.output();
+    return success;
+  } catch {
+    return false;
+  }
+}
+
+async function getStartedStateId(teamId: string): Promise<string> {
+  const query = `
+    query($teamId: String!) {
+      team(id: $teamId) {
+        states {
+          nodes {
+            id
+            name
+            type
+          }
+        }
+      }
+    }
+  `;
+
+  const result = await fetchGraphQL(query, { teamId });
+  const states = result.data.team.states.nodes;
+  const startedState = states.find((s: { type: string }) =>
+    s.type === "started"
+  );
+
+  if (!startedState) {
+    throw new Error("No 'started' state found in workflow");
+  }
+
+  return startedState.id;
+}
+
+async function updateIssueState(
+  issueId: string,
+  stateId: string,
+): Promise<void> {
+  const mutation = `
+    mutation($issueId: String!, $stateId: String!) {
+      issueUpdate(
+        id: $issueId,
+        input: { stateId: $stateId }
+      ) {
+        success
+      }
+    }
+  `;
+
+  await fetchGraphQL(mutation, { issueId, stateId });
+}
+
 async function getIssueId(providedId?: string): Promise<string | null> {
   if (providedId) {
     return providedId.toUpperCase();
   }
   const branch = await getCurrentBranch();
+  if (!branch) return null;
   const match = branch.match(/[a-zA-Z]{2,5}-[1-9][0-9]*/i);
   return match ? match[0].toUpperCase() : null;
 }
 
 async function getTeamId(): Promise<string | null> {
-  const envTeamId = Deno.env.get("LINEAR_TEAM_ID");
-  if (envTeamId) {
-    return envTeamId.toUpperCase();
+  const teamId = getOption("team_id");
+  if (teamId) {
+    return teamId.toUpperCase();
   }
   const dir = await getRepoDir();
   const match = dir.match(/^[a-zA-Z]{2,5}/);
@@ -125,9 +187,11 @@ async function getTeamId(): Promise<string | null> {
 }
 
 async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
-  const apiKey = Deno.env.get("LINEAR_API_KEY");
+  const apiKey = getOption("api_key");
   if (!apiKey) {
-    throw new Error("LINEAR_API_KEY environment variable is not set.");
+    throw new Error(
+      "api_key is not set via command line, configuration file, or environment.",
+    );
   }
 
   const response = await fetch("https://api.linear.app/graphql", {
@@ -149,12 +213,14 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
 async function fetchIssueDetails(
   issueId: string,
   showSpinner = false,
-): Promise<{ title: string; description: string | null; url: string }> {
+): Promise<
+  { title: string; description: string | null; url: string; branchName: string }
+> {
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
   try {
     const query =
-      `query($id: String!) { issue(id: $id) { title, description, url } }`;
+      `query($id: String!) { issue(id: $id) { title, description, url, branchName } }`;
     const data = await fetchGraphQL(query, { id: issueId });
     spinner?.stop();
     return data.data.issue;
@@ -168,13 +234,17 @@ async function fetchIssueDetails(
 async function openTeamPage() {
   const teamId = await getTeamId();
   if (!teamId) {
-    console.error("Could not determine team id from directory name.");
+    console.error(
+      "Could not determine team id from configuration or directory name.",
+    );
     Deno.exit(1);
   }
 
-  const workspace = Deno.env.get("LINEAR_WORKSPACE");
+  const workspace = getOption("workspace");
   if (!workspace) {
-    console.error("LINEAR_WORKSPACE environment variable is not set.");
+    console.error(
+      "workspace is not set via command line, configuration file, or environment.",
+    );
     Deno.exit(1);
   }
 
@@ -196,9 +266,11 @@ async function openIssuePage(providedId?: string) {
     Deno.exit(1);
   }
 
-  const workspace = Deno.env.get("LINEAR_WORKSPACE");
+  const workspace = getOption("workspace");
   if (!workspace) {
-    console.error("LINEAR_WORKSPACE environment variable is not set.");
+    console.error(
+      "workspace is not set via command line, configuration file, or environment.",
+    );
     Deno.exit(1);
   }
 
@@ -234,9 +306,11 @@ const teamCommand = new Command()
       Deno.exit(1);
     }
 
-    const workspace = Deno.env.get("LINEAR_WORKSPACE");
+    const workspace = getOption("workspace");
     if (!workspace) {
-      console.error("LINEAR_WORKSPACE environment variable is not set.");
+      console.error(
+        "workspace is not set via command line, configuration file, or environment.",
+      );
       Deno.exit(1);
     }
 
@@ -324,11 +398,11 @@ const issueCommand = new Command()
     },
   )
   .action(async ({ sort: sortFlag, state }) => {
-    const envSort = Deno.env.get("LINEAR_ISSUE_SORT");
-    const sort = sortFlag || (envSort as "manual" | "priority" | undefined);
+    const sort = sortFlag ||
+      getOption("issue_sort") as "manual" | "priority" | undefined;
     if (!sort) {
       console.error(
-        "Sort must be provided either via --sort flag or LINEAR_ISSUE_SORT environment variable",
+        "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
       );
       Deno.exit(1);
     }
@@ -556,6 +630,70 @@ const issueCommand = new Command()
     const { title } = await fetchIssueDetails(resolvedId, false);
     console.log(title);
   })
+  .command("start", "Start working on an issue")
+  .arguments("[issueId:string]")
+  .action(async (_, issueId) => {
+    const resolvedId = await getIssueId(issueId);
+    if (!resolvedId) {
+      console.error("Could not determine issue ID");
+      Deno.exit(1);
+    }
+
+    const teamId = await getTeamId();
+    if (!teamId) {
+      console.error("Could not determine team ID");
+      Deno.exit(1);
+    }
+
+    const { branchName } = await fetchIssueDetails(resolvedId, true);
+
+    // Check if branch exists
+    if (await branchExists(branchName)) {
+      const answer = await Select.prompt({
+        message:
+          `Branch ${branchName} already exists. What would you like to do?`,
+        options: [
+          { name: "Switch to existing branch", value: "switch" },
+          { name: "Create new branch with suffix", value: "create" },
+        ],
+      });
+
+      if (answer === "switch") {
+        const process = new Deno.Command("git", {
+          args: ["checkout", branchName],
+        });
+        await process.output();
+      } else {
+        // Find next available suffix
+        let suffix = 1;
+        let newBranch = `${branchName}-${suffix}`;
+        while (await branchExists(newBranch)) {
+          suffix++;
+          newBranch = `${branchName}-${suffix}`;
+        }
+
+        const process = new Deno.Command("git", {
+          args: ["checkout", "-b", newBranch],
+        });
+        await process.output();
+      }
+    } else {
+      // Create and checkout the branch
+      const process = new Deno.Command("git", {
+        args: ["checkout", "-b", branchName],
+      });
+      await process.output();
+    }
+
+    // Update issue state
+    try {
+      const stateId = await getStartedStateId(teamId);
+      await updateIssueState(resolvedId, stateId);
+      console.log("✓ Issue state updated to 'started'");
+    } catch (error) {
+      console.error("Failed to update issue state:", error);
+    }
+  })
   .command("url", "Print the issue URL")
   .arguments("[issueId:string]")
   .action(async (_, issueId) => {
@@ -632,4 +770,108 @@ await new Command()
   .command("team", teamCommand)
   .alias("t")
   .command("completions", new CompletionsCommand())
+  .command("config", "Interactively generate .linear.toml configuration")
+  .action(async () => {
+    const apiKey = Deno.env.get("LINEAR_API_KEY");
+    if (!apiKey) {
+      console.error("The LINEAR_API_KEY environment variable is required.");
+      console.error("For bash/zsh, run: export LINEAR_API_KEY=your_key");
+      console.error("For fish, run: set -gx LINEAR_API_KEY your_key");
+      Deno.exit(1);
+    }
+
+    const query = `
+      query {
+        viewer {
+          organization {
+            urlKey
+          }
+        }
+        teams {
+          nodes {
+            id
+            key
+            name
+          }
+        }
+      }
+    `;
+    const response = await fetch("https://api.linear.app/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": apiKey,
+      },
+      body: JSON.stringify({ query }),
+    });
+    const result = await response.json();
+    if (result.errors) {
+      console.error(
+        "Error fetching data from Linear GraphQL API:",
+        result.errors,
+      );
+      Deno.exit(1);
+    }
+    const workspace = result.data.viewer.organization.urlKey;
+    const teams = result.data.teams.nodes;
+
+    interface Team {
+      id: string;
+      key: string;
+      name: string;
+    }
+
+    teams.sort((a: Team, b: Team) => a.name.localeCompare(b.name));
+    const teamChoices = teams.map((team: Team) => ({
+      name: `${team.name} (${team.key})`,
+      value: team.key,
+    }));
+
+    const responses = await prompt([
+      {
+        name: "team_id",
+        message: "Select a team:",
+        type: Select,
+        options: teamChoices,
+      },
+      {
+        name: "sort",
+        message: "Select sort order:",
+        type: Select,
+        options: [
+          { name: "manual", value: "manual" },
+          { name: "priority", value: "priority" },
+        ],
+      },
+    ]);
+    const teamKey = responses.team_id;
+    const sortChoice = responses.sort;
+
+    // Determine file path for .linear.toml: prefer git root .config dir, then git root, then cwd.
+    let filePath: string;
+    try {
+      const gitRootProcess = await new Deno.Command("git", {
+        args: ["rev-parse", "--show-toplevel"],
+      }).output();
+      const gitRoot = new TextDecoder().decode(gitRootProcess.stdout).trim();
+      const { join } = await import("@std/path");
+      const configDir = join(gitRoot, ".config");
+      try {
+        await Deno.stat(configDir);
+        filePath = join(configDir, "linear.toml");
+      } catch {
+        filePath = join(gitRoot, ".linear.toml");
+      }
+    } catch {
+      filePath = "./.linear.toml";
+    }
+
+    const tomlContent = `workspace = "${workspace}"
+team_id = "${teamKey}"
+issue_sort = "${sortChoice}"
+`;
+
+    await Deno.writeTextFile(filePath, tomlContent);
+    console.log("Configuration written to", filePath);
+  })
   .parse(Deno.args);
