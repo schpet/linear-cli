@@ -5,6 +5,9 @@
 ### added
 
 - support for .env files
+- support for a toml based configuration file
+- `linear config` command to generate a config file
+- `linear issue start` command to start an issue
 
 ### changed
 
