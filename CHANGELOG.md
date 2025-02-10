@@ -4,14 +4,18 @@
 
 ### added
 
+### changed
+
+### removed
+
+## [0.3.0]
+
+### added
+
 - support for .env files
 - support for a toml based configuration file
 - `linear config` command to generate a config file
 - `linear issue start` command to start an issue
-
-### changed
-
-### removed
 
 ## [0.2.1]
 
