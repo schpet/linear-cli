@@ -8,6 +8,12 @@
 
 ### removed
 
+## [0.3.2]
+
+### fixed
+
+- use first 'started' state when starting an issue
+
 ## [0.3.1]
 
 ### fixed
