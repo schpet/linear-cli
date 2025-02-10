@@ -6,6 +6,8 @@
 
 ### changed
 
+- improved output of linear issue start to use the actual workflow name
+
 ### removed
 
 ## [0.3.2]
