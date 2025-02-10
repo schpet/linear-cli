@@ -166,6 +166,7 @@ async function getIssueId(providedId?: string): Promise<string | null> {
     return providedId.toUpperCase();
   }
   const branch = await getCurrentBranch();
+  if (!branch) return null;
   const match = branch.match(/[a-zA-Z]{2,5}-[1-9][0-9]*/i);
   return match ? match[0].toUpperCase() : null;
 }
