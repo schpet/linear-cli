@@ -140,7 +140,9 @@ async function getStartedStateId(teamId: string): Promise<string> {
   const states = result.data.team.states.nodes;
   const startedStates = states
     .filter((s: { type: string }) => s.type === "started")
-    .sort((a: { position: number }, b: { position: number }) => a.position - b.position);
+    .sort((a: { position: number }, b: { position: number }) =>
+      a.position - b.position
+    );
 
   if (!startedStates.length) {
     throw new Error("No 'started' state found in workflow");
