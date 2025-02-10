@@ -707,9 +707,10 @@ await new Command()
       const gitRootProcess = await new Deno.Command("git", { args: ["rev-parse", "--show-toplevel"] }).output();
       const gitRoot = new TextDecoder().decode(gitRootProcess.stdout).trim();
       const { join } = await import("@std/path");
+      const configDir = join(gitRoot, ".config");
       try {
-        await Deno.stat(join(gitRoot, ".config"));
-        filePath = join(gitRoot, ".config", ".linear.toml");
+        await Deno.stat(configDir);
+        filePath = join(configDir, "linear.toml");
       } catch {
         filePath = join(gitRoot, ".linear.toml");
       }

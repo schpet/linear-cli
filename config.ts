@@ -4,14 +4,18 @@ import { join } from "@std/path";
 let config: Record<string, unknown> = {};
 
 async function loadConfig() {
-  const configPaths = ["./.linear.toml"];
+  const configPaths = [
+    "./linear.toml",
+    "./.linear.toml"
+  ];
   try {
     const gitProcess = await new Deno.Command("git", {
       args: ["rev-parse", "--show-toplevel"],
     }).output();
     const gitRoot = new TextDecoder().decode(gitProcess.stdout).trim();
+    configPaths.push(join(gitRoot, "linear.toml"));
     configPaths.push(join(gitRoot, ".linear.toml"));
-    configPaths.push(join(gitRoot, ".config", ".linear.toml"));
+    configPaths.push(join(gitRoot, ".config", "linear.toml"));
   } catch {
     // Not in a git repository; ignore additional paths.
   }
