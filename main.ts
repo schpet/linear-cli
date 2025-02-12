@@ -291,8 +291,6 @@ const teamCommand = new Command()
   .action(openTeamPage)
   .command("open", "Open the team page in Linear.app")
   .alias("o")
-  .alias("view") // todo: use view / v and flags for app or web `l i v -a / -w`
-  .alias("v")
   .action(openTeamPage)
   .command("id", "Print the team id derived from the repository name")
   .action(async () => {
@@ -350,6 +348,8 @@ const issueCommand = new Command()
   .action((_, issueId) => openIssuePage(issueId))
   .command("open", "Open the issue in Linear.app")
   .alias("o")
+  .alias("view") // todo: use view / v and flags for app or web `l i v -a / -w`
+  .alias("v")
   .arguments("[issueId:string]")
   .action((_, issueId) => openIssuePage(issueId))
   .command("print", "Print the issue details")
