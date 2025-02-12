@@ -9,7 +9,10 @@
 ### changed
 
 - improved output of linear issue start to use the actual workflow name
-- deprecated `linear team` (replaced by `linear issue list --app`)
+- deprecated commands (all will be removed in a future version):
+  - `linear team` (replaced by `linear issue list --app`)
+  - `linear issue open` (replaced by `linear issue view --app`)
+  - `linear issue print` (replaced by `linear issue view`)
 
 ### removed
 
