@@ -8,6 +8,13 @@
 
 ### removed
 
+## [0.4.1]
+
+### changed
+
+- fixed api key links
+- config includes a comment pointing at the repo
+
 ## [0.4.0]
 
 ### added
