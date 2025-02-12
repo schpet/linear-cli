@@ -2,5 +2,6 @@
 read: CONVENTIONS.md
 watch-files: true
 test-cmd: deno check main.ts
-lint-cmd: deno lint
-auto-lint: false
+
+lint-cmd: deno fmt && deno lint
+auto-lint: true
