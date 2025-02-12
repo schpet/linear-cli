@@ -418,7 +418,7 @@ const issueCommand = new Command()
     },
   )
   .option(
-    "--state <state:state>",
+    "-s, --state <state:state>",
     "Filter by issue state",
     {
       default: "unstarted",
