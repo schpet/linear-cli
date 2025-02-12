@@ -4,6 +4,14 @@
 
 ### added
 
+### changed
+
+### removed
+
+## [0.4.0]
+
+### added
+
 - linear issue view to print the issue, with --web and --app flags to open them instead, similar to gh's view commands
 
 ### changed
