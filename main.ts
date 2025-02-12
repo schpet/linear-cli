@@ -291,8 +291,9 @@ async function openIssuePage(providedId?: string, options: { app?: boolean; web?
   }
 
   const url = `https://linear.app/${workspace}/issue/${issueId}`;
-  console.log(`Opening ${url} in Linear.app`);
-  await open(url, { app: { name: "Linear" } });
+  const destination = options.app ? "Linear.app" : "web browser";
+  console.log(`Opening ${url} in ${destination}`);
+  await open(url, options.app ? { app: { name: "Linear" } } : undefined);
 }
 
 const teamCommand = new Command()
