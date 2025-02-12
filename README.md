@@ -11,8 +11,6 @@ this cli solves this: it knows what you're working on, does the work of managing
 
 see [the full list of commands](#commands) below.
 
-see [the full list of commands](#commands) below.
-
 ## install
 
 ### homebrew
