@@ -1,13 +1,13 @@
 # linear cli
 
-linear's UI is incredibly good but it can't take advantage of me already being in my project, on the command line. e.g. 
+a command line interface for Linear that integrates with your development workflow.
 
-- linear makes me switch context from where i'm working to their app or website
-- linear doesn't know what team i'm currently acting on, so i have to navigate to it
-- linear can suggest a git branch, but it makes me do the work of creating or switching to that branch
-- linear's suggested git branch doesn't account for it already existing and having a merged pull request
+Linear's UI is great, but sometimes switching context to the web/desktop app breaks your flow. this cli helps by:
 
-this cli solves this: it knows what you're working on, does the work of managing branches, and will write your pull request details for you.
+- keeping you in your terminal where you're already working
+- knowing which team you're working with based on your project
+- managing git branches automatically
+- handling existing branches and merged pull requests
 
 see [the full list of commands](#commands) below.
 
@@ -66,9 +66,7 @@ The CLI works best when your git branches include Linear issue IDs (e.g. `eng-12
 ### issue commands
 
 the current issue is determined by the issue id in the current git branch name.
-note that
-[linear's github integration](https://linear.app/docs/github#branch-format) will
-suggest these branch names.
+note that [Linear's GitHub integration](https://linear.app/docs/github#branch-format) will suggest these branch names.
 
 ```bash
 linear issue           # opens current branch's issue in Linear.app
@@ -83,8 +81,8 @@ linear issue list      # list your issues in a table view (supports --sort and -
 
 ### team commands
 
-name your repo directories with your project's linear team prefix for these to
-work. i.e. if your linear team prefix is 'ENG'
+name your repo directories with your project's Linear team prefix for these to
+work. i.e. if your team prefix is 'ENG':
 `mv ~/code/cool-project ~/code/eng-cool-project`
 
 ```bash
