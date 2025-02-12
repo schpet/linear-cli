@@ -44,8 +44,8 @@ deno task install
 
 ## setup
 
-1. create an API key at https://linear.app/settings/account/security (requires member access,
-   not available for guest accounts)
+1. create an API key at https://linear.app/settings/account/security (requires
+   member access, not available for guest accounts)
 
 2. add the API key to your shell environment:
 
