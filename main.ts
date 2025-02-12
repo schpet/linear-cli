@@ -950,7 +950,10 @@ await new Command()
       filePath = "./.linear.toml";
     }
 
-    const tomlContent = `workspace = "${workspace}"
+    const tomlContent = `# linear cli
+# https://github.com/schpet/linear-cli
+
+workspace = "${workspace}"
 team_id = "${teamKey}"
 issue_sort = "${sortChoice}"
 `;
