@@ -414,7 +414,13 @@ const issueCommand = new Command()
       default: "unstarted",
     },
   )
-  .action(async ({ sort: sortFlag, state }) => {
+  .option("-w, --web", "Open in web browser")
+  .option("-a, --app", "Open in Linear.app")
+  .action(async ({ sort: sortFlag, state, web, app }) => {
+    if (web || app) {
+      await openTeamPage({ app });
+      return;
+    }
     const sort = sortFlag ||
       getOption("issue_sort") as "manual" | "priority" | undefined;
     if (!sort) {
