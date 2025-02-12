@@ -69,25 +69,16 @@ the current issue is determined by the issue id in the current git branch name.
 note that [Linear's GitHub integration](https://linear.app/docs/github#branch-format) will suggest these branch names.
 
 ```bash
-linear issue           # opens current branch's issue in Linear.app
-linear issue open      # same as above (deprecated: use `linear issue view --app` instead)
-linear issue print     # prints issue title and description (deprecated: use `linear issue view` instead)
+linear issue view      # view issue details in terminal
+linear issue view -w   # open issue in web browser
+linear issue view -a   # open issue in Linear.app
 linear issue id        # prints the issue id from current branch (e.g., "ENG-123")
 linear issue title     # prints just the issue title
 linear issue url       # prints the Linear.app URL for the issue
 linear issue pr        # creates a GitHub PR with issue details via `gh pr create`
-linear issue list      # list your issues in a table view (supports --sort and --state)
-```
-
-### team commands (deprecated)
-
-these commands are deprecated in favor of `linear issue list --app`. the following commands still work but may be removed in a future version:
-
-```bash
-linear team             # opens team page in Linear.app (use `linear issue list --app` instead)
-linear team open        # same as above
-linear team id          # prints the team id (e.g., "ENG")
-linear team autolinks   # configures GitHub repository autolinks for Linear issues
+linear issue list      # list your issues in a table view (supports -s/--state and --sort)
+linear issue list -w   # open issue list in web browser
+linear issue list -a   # open issue list in Linear.app
 ```
 
 ### other commands
