@@ -79,14 +79,12 @@ linear issue pr        # creates a GitHub PR with issue details via `gh pr creat
 linear issue list      # list your issues in a table view (supports --sort and --state)
 ```
 
-### team commands
+### team commands (deprecated)
 
-name your repo directories with your project's Linear team prefix for these to
-work. i.e. if your team prefix is 'ENG':
-`mv ~/code/cool-project ~/code/eng-cool-project`
+these commands are deprecated in favor of `linear issue list --app`. the following commands still work but may be removed in a future version:
 
 ```bash
-linear team             # opens team page in Linear.app
+linear team             # opens team page in Linear.app (use `linear issue list --app` instead)
 linear team open        # same as above
 linear team id          # prints the team id (e.g., "ENG")
 linear team autolinks   # configures GitHub repository autolinks for Linear issues

@@ -297,7 +297,7 @@ async function openIssuePage(providedId?: string, options: { app?: boolean; web?
 }
 
 const teamCommand = new Command()
-  .description("Manage Linear teams")
+  .description("Manage Linear teams (deprecated: use `linear issue list --app` instead)")
   .action(() => openTeamPage({ app: true }))
   .command("open", "Open the team page in Linear.app")
   .alias("o")
