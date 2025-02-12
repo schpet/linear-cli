@@ -1,20 +1,31 @@
 # linear cli
 
 linear's UI is incredibly good but it can't take advantage of me already being
-in my project, on the command line. e.g.
+on the cli in my repo.
 
-- linear makes me switch context from where i'm working to their app or website
-- linear doesn't know what team i'm currently acting on, so i have to navigate
-  to it
-- linear can suggest a git branch, but it makes me do the work of creating or
+i find the following pretty grating to experience frequently:
+
+- switching context from my repo to linear
+- not being on the right view when i open linear
+- linear suggests a git branch, but it makes me do the work of creating or
   switching to that branch
-- linear's suggested git branch doesn't account for it already existing and
+- linear's suggested git branch doesn't account for it already existing or
   having a merged pull request
 
-this cli solves this: it knows what you're working on, does the work of managing
+this cli solves this. it knows what you're working on, does the work of managing
 branches, and will write your pull request details for you.
 
-see [the full list of commands](#commands) below.
+here's how it works:
+
+```bash
+linear config               # setup your repo, it writes a config file
+
+linear issue list           # find something that's unstarted to work on
+linear issue start ABC-123  # start an issue, checks out a branch
+linear issue pr             # makes a PR with title/body preset, leverages `gh`
+```
+
+it's pretty dialed to my own use cases, but i want to support more people than myself with this so [lmk what it can do for you](https://github.com/schpet/linear-cli/issues/).
 
 ## install
 
@@ -63,8 +74,8 @@ deno task install
    linear config
    ```
 
-   This will create a `.linear.toml` config file in your repository with your
-   workspace and team settings.
+   _this will create a `.linear.toml` config file in your repository with your
+   workspace and team settings._
 
 the CLI works best when your git branches include Linear issue IDs (e.g.
 `eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch
@@ -91,7 +102,7 @@ linear issue pr        # creates a GitHub PR with issue details via `gh pr creat
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
 linear issue list -w   # open issue list in web browser
 linear issue list -a   # open issue list in Linear.app
-linear issue start    # create/switch to issue branch and mark as started
+linear issue start     # create/switch to issue branch and mark as started
 ```
 
 ### other commands
