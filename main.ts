@@ -672,6 +672,7 @@ const issueCommand = new Command()
           args: ["checkout", branchName],
         });
         await process.output();
+        console.log(`✓ Switched to branch '${branchName}'`);
       } else {
         // Find next available suffix
         let suffix = 1;
@@ -685,6 +686,7 @@ const issueCommand = new Command()
           args: ["checkout", "-b", newBranch],
         });
         await process.output();
+        console.log(`✓ Created and switched to branch '${newBranch}'`);
       }
     } else {
       // Create and checkout the branch
@@ -692,6 +694,7 @@ const issueCommand = new Command()
         args: ["checkout", "-b", branchName],
       });
       await process.output();
+      console.log(`✓ Created and switched to branch '${branchName}'`);
     }
 
     // Update issue state
