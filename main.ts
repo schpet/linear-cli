@@ -672,7 +672,7 @@ const issueCommand = new Command()
           args: ["checkout", branchName],
         });
         await process.output();
-        console.log(`✓ Switched to branch '${branchName}'`);
+        console.log(`✓ Switched to '${branchName}'`);
       } else {
         // Find next available suffix
         let suffix = 1;
