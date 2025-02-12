@@ -1,3 +1,4 @@
+import { Command, EnumType } from "@cliffy/command";
 import { load } from "@std/dotenv";
 import { getOption } from "./config.ts";
 import { prompt, Select } from "@cliffy/prompt";
@@ -21,7 +22,6 @@ if (await Deno.stat(".env").catch(() => null)) {
     // Silently continue if not in a git repo
   }
 }
-import { Command, EnumType } from "@cliffy/command";
 
 const SortType = new EnumType(["manual", "priority"]);
 const StateType = new EnumType([
@@ -120,7 +120,9 @@ async function branchExists(branch: string): Promise<boolean> {
   }
 }
 
-async function getStartedState(teamId: string): Promise<{id: string, name: string}> {
+async function getStartedState(
+  teamId: string,
+): Promise<{ id: string; name: string }> {
   const query = /* GraphQL */ `
     query($teamId: String!) {
       team(id: $teamId) {
@@ -150,7 +152,7 @@ async function getStartedState(teamId: string): Promise<{id: string, name: strin
 
   const startedState = startedStates[0];
 
-  return {id: startedState.id, name: startedState.name};
+  return { id: startedState.id, name: startedState.name };
 }
 
 async function updateIssueState(
@@ -289,6 +291,8 @@ const teamCommand = new Command()
   .action(openTeamPage)
   .command("open", "Open the team page in Linear.app")
   .alias("o")
+  .alias("view") // todo: use view / v and flags for app or web `l i v -a / -w`
+  .alias("v")
   .action(openTeamPage)
   .command("id", "Print the team id derived from the repository name")
   .action(async () => {
