@@ -22,10 +22,12 @@ linear config               # setup your repo, it writes a config file
 
 linear issue list           # find something that's unstarted to work on
 linear issue start ABC-123  # start an issue, checks out a branch
-linear issue pr             # makes a PR with title/body preset, leverages `gh`
+linear issue pr             # makes a PR with title/body preset, leverages gh (https://cli.github.com/)
 ```
 
-it's pretty dialed to my own use cases, but i want to support more people than myself with this so [lmk what it can do for you](https://github.com/schpet/linear-cli/issues/).
+it's pretty dialed to my own use cases, but i want to support more people than
+myself with this so
+[lmk what it can do for you](https://github.com/schpet/linear-cli/issues/).
 
 ## install
 
