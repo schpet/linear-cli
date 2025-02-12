@@ -270,10 +270,10 @@ async function openTeamPage() {
   const filter = encodeBase64(JSON.stringify(filterObj)).replace(/=/g, "");
   const url =
     `https://linear.app/${workspace}/team/${teamId}/active?filter=${filter}`;
-  await open(url, { app: { name: "Linear" } });
+  await open(url, options.app ? { app: { name: "Linear" } } : undefined);
 }
 
-async function openIssuePage(providedId?: string) {
+async function openIssuePage(providedId?: string, options: { app?: boolean; web?: boolean } = {}) {
   const issueId = await getIssueId(providedId);
   if (!issueId) {
     console.error(
@@ -357,10 +357,8 @@ const issueCommand = new Command()
   .action((_, issueId) => openIssuePage(issueId))
   .command("open", "Open the issue in Linear.app")
   .alias("o")
-  .alias("view") // todo: use view / v and flags for app or web `l i v -a / -w`
-  .alias("v")
   .arguments("[issueId:string]")
-  .action((_, issueId) => openIssuePage(issueId))
+  .action((_, issueId) => openIssuePage(issueId, { app: true }))
   .command("print", "Print the issue details")
   .alias("p")
   .arguments("[issueId:string]")
@@ -713,6 +711,36 @@ const issueCommand = new Command()
       console.log(`✓ Issue state updated to '${state.name}'`);
     } catch (error) {
       console.error("Failed to update issue state:", error);
+    }
+  })
+  .command("view", "View issue details (default) or open in browser/app")
+  .alias("v")
+  .arguments("[issueId:string]")
+  .option("--web", "Open in web browser")
+  .option("--app", "Open in Linear.app")
+  .action(async ({ web, app }, issueId) => {
+    if (web || app) {
+      await openIssuePage(issueId, { app, web: !app });
+      return;
+    }
+    
+    const resolvedId = await getIssueId(issueId);
+    if (!resolvedId) {
+      console.error(
+        "The current branch does not contain a valid linear issue id.",
+      );
+      Deno.exit(1);
+    }
+
+    const { title, description } = await fetchIssueDetails(
+      resolvedId,
+      Deno.stdout.isTerminal(),
+    );
+    const markdown = `# ${title}${description ? "\n\n" + description : ""}`;
+    if (Deno.stdout.isTerminal()) {
+      console.log(renderMarkdown(markdown));
+    } else {
+      console.log(markdown);
     }
   })
   .command("url", "Print the issue URL")
