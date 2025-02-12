@@ -247,7 +247,7 @@ async function fetchIssueDetails(
   }
 }
 
-async function openTeamPage() {
+async function openTeamPage(options: { app?: boolean } = {}) {
   const teamId = await getTeamId();
   if (!teamId) {
     console.error(
@@ -298,10 +298,10 @@ async function openIssuePage(providedId?: string, options: { app?: boolean; web?
 
 const teamCommand = new Command()
   .description("Manage Linear teams")
-  .action(openTeamPage)
+  .action(() => openTeamPage({ app: true }))
   .command("open", "Open the team page in Linear.app")
   .alias("o")
-  .action(openTeamPage)
+  .action(() => openTeamPage({ app: true }))
   .command("id", "Print the team id derived from the repository name")
   .action(async () => {
     const teamId = await getTeamId();
