@@ -717,8 +717,8 @@ const issueCommand = new Command()
   .command("view", "View issue details (default) or open in browser/app")
   .alias("v")
   .arguments("[issueId:string]")
-  .option("--web", "Open in web browser")
-  .option("--app", "Open in Linear.app")
+  .option("-w, --web", "Open in web browser")
+  .option("-a, --app", "Open in Linear.app")
   .action(async ({ web, app }, issueId) => {
     if (web || app) {
       await openIssuePage(issueId, { app, web: !app });
