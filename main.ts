@@ -298,7 +298,11 @@ async function openIssuePage(providedId?: string, options: { app?: boolean; web?
 
 const teamCommand = new Command()
   .description("Manage Linear teams (deprecated: use `linear issue list --app` instead)")
-  .action(() => openTeamPage({ app: true }))
+  .action(() => {
+    console.error("Warning: 'linear team' is deprecated and will be removed in a future release.");
+    console.error("Please use 'linear issue list --app' instead.");
+    return openTeamPage({ app: true });
+  })
   .command("open", "Open the team page in Linear.app")
   .alias("o")
   .action(() => openTeamPage({ app: true }))
@@ -359,12 +363,18 @@ const issueCommand = new Command()
   .command("open", "Open the issue in Linear.app (deprecated: use `linear issue view --app` instead)")
   .alias("o")
   .arguments("[issueId:string]")
-  .action((_, issueId) => openIssuePage(issueId, { app: true }))
+  .action((_, issueId) => {
+    console.error("Warning: 'linear issue open' is deprecated and will be removed in a future release.");
+    console.error("Please use 'linear issue view --app' instead.");
+    return openIssuePage(issueId, { app: true });
+  })
   .command("print", "Print the issue details (deprecated: use `linear issue view` instead)")
   .alias("p")
   .arguments("[issueId:string]")
   .option("--no-color", "Disable colored output")
   .action(async ({ color }, issueId) => {
+    console.error("Warning: 'linear issue print' is deprecated and will be removed in a future release.");
+    console.error("Please use 'linear issue view' instead.");
     const resolvedId = await getIssueId(issueId);
     if (!resolvedId) {
       console.error(
