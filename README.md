@@ -71,7 +71,7 @@ note that [Linear's GitHub integration](https://linear.app/docs/github#branch-fo
 ```bash
 linear issue           # opens current branch's issue in Linear.app
 linear issue open      # same as above
-linear issue print     # prints issue title and description (with markdown formatting)
+linear issue print     # prints issue title and description (deprecated: use `linear issue view` instead)
 linear issue id        # prints the issue id from current branch (e.g., "ENG-123")
 linear issue title     # prints just the issue title
 linear issue url       # prints the Linear.app URL for the issue
