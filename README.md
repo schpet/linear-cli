@@ -1,13 +1,18 @@
 # linear cli
 
-linear's UI is incredibly good but it can't take advantage of me already being in my project, on the command line. e.g.
+linear's UI is incredibly good but it can't take advantage of me already being
+in my project, on the command line. e.g.
 
 - linear makes me switch context from where i'm working to their app or website
-- linear doesn't know what team i'm currently acting on, so i have to navigate to it
-- linear can suggest a git branch, but it makes me do the work of creating or switching to that branch
-- linear's suggested git branch doesn't account for it already existing and having a merged pull request
+- linear doesn't know what team i'm currently acting on, so i have to navigate
+  to it
+- linear can suggest a git branch, but it makes me do the work of creating or
+  switching to that branch
+- linear's suggested git branch doesn't account for it already existing and
+  having a merged pull request
 
-this cli solves this: it knows what you're working on, does the work of managing branches, and will write your pull request details for you.
+this cli solves this: it knows what you're working on, does the work of managing
+branches, and will write your pull request details for you.
 
 see [the full list of commands](#commands) below.
 
@@ -39,14 +44,15 @@ deno task install
 
 ## setup
 
-1. create an API key at https://linear.app/settings/api (requires member access, not available for guest accounts)
+1. create an API key at https://linear.app/settings/api (requires member access,
+   not available for guest accounts)
 
 2. add the API key to your shell environment:
 
    ```sh
    # in ~/.bashrc or ~/.zshrc:
    export LINEAR_API_KEY="lin_api_..."
-   
+
    # or in fish:
    set -Ux LINEAR_API_KEY "lin_api_..."
    ```
@@ -57,16 +63,22 @@ deno task install
    linear config
    ```
 
-   This will create a `.linear.toml` config file in your repository with your workspace and team settings.
+   This will create a `.linear.toml` config file in your repository with your
+   workspace and team settings.
 
-the CLI works best when your git branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
+the CLI works best when your git branches include Linear issue IDs (e.g.
+`eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch
+name' button and
+[related automations](https://linear.app/docs/account-preferences#git-related-automations).
 
 ## commands
 
 ### issue commands
 
 the current issue is determined by the issue id in the current git branch name.
-note that [Linear's GitHub integration](https://linear.app/docs/github#branch-format) will suggest these branch names.
+note that
+[Linear's GitHub integration](https://linear.app/docs/github#branch-format) will
+suggest these branch names.
 
 ```bash
 linear issue view      # view issue details in terminal
