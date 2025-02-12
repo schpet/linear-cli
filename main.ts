@@ -858,6 +858,7 @@ await new Command()
     const apiKey = Deno.env.get("LINEAR_API_KEY");
     if (!apiKey) {
       console.error("The LINEAR_API_KEY environment variable is required.");
+      console.error("Create an API key at https://linear.app/settings/account/security");
       console.error("For bash/zsh, run: export LINEAR_API_KEY=your_key");
       console.error("For fish, run: set -gx LINEAR_API_KEY your_key");
       Deno.exit(1);
