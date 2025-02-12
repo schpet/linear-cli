@@ -173,8 +173,17 @@ async function updateIssueState(
   await fetchGraphQL(mutation, { issueId, stateId });
 }
 
+function isValidLinearId(id: string): boolean {
+  return /^[A-Za-z]{2,5}-[1-9][0-9]*$/.test(id);
+}
+
 async function getIssueId(providedId?: string): Promise<string | null> {
   if (providedId) {
+    if (!isValidLinearId(providedId)) {
+      console.error(`Invalid Linear issue ID format: ${providedId}`);
+      console.error("Issue IDs should look like: ABC-123");
+      Deno.exit(1);
+    }
     return providedId.toUpperCase();
   }
   const branch = await getCurrentBranch();
