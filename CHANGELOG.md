@@ -4,6 +4,8 @@
 
 ### added
 
+- linear issue view to print the issue, with --web and --app flags to open them instead, similar to gh's view commands
+
 ### changed
 
 - improved output of linear issue start to use the actual workflow name

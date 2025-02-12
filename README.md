@@ -1,15 +1,13 @@
 # linear cli
 
-cli tool for linear.app that uses git branch names and directory names to open
-issues and team pages. offers handy commands:
+linear's UI is incredibly good but it can't take advantage of me already being in my project, on the command line. e.g. 
 
-| command            | description                                                           |
-| ------------------ | --------------------------------------------------------------------- |
-| linear issue       | open the issue in linear.app, based on the current git branch         |
-| linear issue print | print the issue to stdout                                             |
-| linear issue pr    | create a nicely named pull request with [gh](https://cli.github.com/) |
-| linear issue list  | list your issues in a table view with sorting and filtering           |
-| linear team        | view active issues assigned to you in the team                        |
+- linear makes me switch context from where i'm working to their app or website
+- linear doesn't know what team i'm currently acting on, so i have to navigate to it
+- linear can suggest a git branch, but it makes me do the work of creating or switching to that branch
+- linear's suggested git branch doesn't account for it already existing and having a merged pull request
+
+this cli solves this: it knows what you're working on, does the work of managing branches, and will write your pull request details for you.
 
 see [the full list of commands](#commands) below.
 
