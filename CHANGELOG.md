@@ -9,6 +9,7 @@
 ### changed
 
 - improved output of linear issue start to use the actual workflow name
+- deprecated `linear team` (replaced by `linear issue list --app`)
 
 ### removed
 
