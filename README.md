@@ -39,80 +39,27 @@ deno task install
 
 ## setup
 
-this cli needs three things to work:
+1. Create an API key at https://linear.app/settings/api (requires member access, not available for guest accounts)
 
-1. a couple environment variables, see below
-2. your current git branch to start with a linear issue id, e.g.
-   `eng-123-my-feature`, this complements linear's 'copy git branch name' button
-   and its
-   [related automations](https://linear.app/docs/account-preferences#git-related-automations)
-3. either:
-   - the directory of your repo to start with a linear team id\
-     e.g. if your team's identifier is `ENG` and your repo is at
-     `~/code/cool-proj` you'll need to
-     ```sh
-     mv ~/code/cool-proj ~/code/eng-cool-proj
-     ```
-   - or set LINEAR_TEAM_ID environment variable (useful with tools like direnv)
-     ```sh
-     LINEAR_TEAM_ID=ENG
-     ```
+2. Add the API key to your shell environment:
 
-### required environment variables
+   ```sh
+   # in ~/.bashrc or ~/.zshrc:
+   export LINEAR_API_KEY="lin_api_..."
+   
+   # or in fish:
+   set -Ux LINEAR_API_KEY "lin_api_..."
+   ```
 
-Environment variables can be set in your shell or in a `.env` file. The CLI will
-look for a `.env` file in:
+3. Run the configuration wizard:
 
-1. Your current working directory
-2. The root of your git repository (if you're in a git repo)
+   ```sh
+   linear config
+   ```
 
-Example `.env` file:
+   This will create a `.linear.toml` config file in your repository with your workspace and team settings.
 
-```sh
-LINEAR_API_KEY="lin_api_..." # create an api key at https://linear.app/settings/api (requires member access, not available for guest accounts)
-LINEAR_WORKSPACE="your-company" # your linear workspace url slug
-LINEAR_TEAM_ID="ENG" # optional: set team id instead of using directory name
-LINEAR_ISSUE_SORT="priority" # optional: default sort order for issue list (priority|manual)
-```
-
-<details>
-<summary>bash</summary>
-
-add to ~/.bashrc:
-
-```sh
-# secrets! make sure this file isn't shared online
-export LINEAR_API_KEY="lin_api_..."
-export LINEAR_WORKSPACE="your-company"
-```
-
-</details>
-
-<details>
-<summary>zsh</summary>
-
-add to ~/.zshrc:
-
-```sh
-# secrets! make sure this file isn't shared online
-export LINEAR_API_KEY="lin_api_..."
-export LINEAR_WORKSPACE="your-company"
-```
-
-</details>
-
-<details>
-<summary>fish</summary>
-
-run in terminal:
-
-```sh
-# secrets! make sure ~/.config/fish/fish_variables isn't shared online
-set -Ux LINEAR_API_KEY "lin_api_..."
-set -Ux LINEAR_WORKSPACE "your-company"
-```
-
-</details>
+The CLI works best when your git branches include Linear issue IDs (e.g. `eng-123-my-feature`). Linear's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations) can help with this.
 
 ## commands
 
