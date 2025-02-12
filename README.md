@@ -79,6 +79,7 @@ linear issue pr        # creates a GitHub PR with issue details via `gh pr creat
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
 linear issue list -w   # open issue list in web browser
 linear issue list -a   # open issue list in Linear.app
+linear issue start    # create/switch to issue branch and mark as started
 ```
 
 ### other commands
