@@ -1,13 +1,15 @@
 # linear cli
 
-a command line interface for Linear that integrates with your development workflow.
+linear's UI is incredibly good but it can't take advantage of me already being in my project, on the command line. e.g.
 
-Linear's UI is great, but sometimes switching context to the web/desktop app breaks your flow. this cli helps by:
+- linear makes me switch context from where i'm working to their app or website
+- linear doesn't know what team i'm currently acting on, so i have to navigate to it
+- linear can suggest a git branch, but it makes me do the work of creating or switching to that branch
+- linear's suggested git branch doesn't account for it already existing and having a merged pull request
 
-- keeping you in your terminal where you're already working
-- knowing which team you're working with based on your project
-- managing git branches automatically
-- handling existing branches and merged pull requests
+this cli solves this: it knows what you're working on, does the work of managing branches, and will write your pull request details for you.
+
+see [the full list of commands](#commands) below.
 
 see [the full list of commands](#commands) below.
 
