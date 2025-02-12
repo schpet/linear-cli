@@ -3,7 +3,7 @@ dev *args:
 
 # release a major, minor or patch version
 release level:
-    svbump {{ level }} version deno.json
+    svbump write {{ level }} version deno.json
     svbump "$(svbump read version deno.json)" package.version dist-workspace.toml
     git commit deno.json dist-workspace.toml -m "chore: Release linear-cli version $(svbump read version deno.json)"
     git tag "v$(svbump read version deno.json)"

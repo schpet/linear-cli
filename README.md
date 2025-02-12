@@ -39,9 +39,9 @@ deno task install
 
 ## setup
 
-1. Create an API key at https://linear.app/settings/api (requires member access, not available for guest accounts)
+1. create an API key at https://linear.app/settings/api (requires member access, not available for guest accounts)
 
-2. Add the API key to your shell environment:
+2. add the API key to your shell environment:
 
    ```sh
    # in ~/.bashrc or ~/.zshrc:
@@ -51,7 +51,7 @@ deno task install
    set -Ux LINEAR_API_KEY "lin_api_..."
    ```
 
-3. Run the configuration wizard:
+3. run the configuration wizard:
 
    ```sh
    linear config
@@ -59,7 +59,7 @@ deno task install
 
    This will create a `.linear.toml` config file in your repository with your workspace and team settings.
 
-The CLI works best when your git branches include Linear issue IDs (e.g. `eng-123-my-feature`). Linear's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations) can help with this.
+the CLI works best when your git branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
 
 ## commands
 
@@ -87,5 +87,6 @@ linear issue start    # create/switch to issue branch and mark as started
 ```bash
 linear --help          # show all commands
 linear --version       # show version
+linear config          # setup the project
 linear completions     # generate shell completions
 ```
