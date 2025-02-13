@@ -1,9 +1,7 @@
 # linear cli
 
-linear's UI is incredibly good but it can't take advantage of me already being
-on the cli in my repo.
-
-i find the following pretty grating to experience frequently:
+linear's UI is incredibly good but it slows me down. i find the following pretty
+grating to experience frequently:
 
 - switching context from my repo to linear
 - not being on the right view when i open linear
