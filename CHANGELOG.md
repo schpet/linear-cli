@@ -1,12 +1,6 @@
-# changelog
+# Changelog
 
 ## [Unreleased]
-
-### added
-
-### changed
-
-### removed
 
 ## [0.4.1]
 
@@ -29,8 +23,6 @@
   - `linear team` (replaced by `linear issue list --app`)
   - `linear issue open` (replaced by `linear issue view --app`)
   - `linear issue print` (replaced by `linear issue view`)
-
-### removed
 
 ## [0.3.2]
 
