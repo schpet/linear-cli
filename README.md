@@ -5,7 +5,7 @@ grating to experience frequently:
 
 - switching context from my repo to linear
 - not being on the right view when i open linear
-- linear suggests a git branch, but it makes me do the work of creating or
+- linear suggests a git branch, but i have to do the work of creating or
   switching to that branch
 - linear's suggested git branch doesn't account for it already existing or
   having a merged pull request
