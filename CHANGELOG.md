@@ -4,14 +4,14 @@
 
 ## [0.4.1]
 
-### changed
+### Changed
 
 - fixed api key links
 - config includes a comment pointing at the repo
 
 ## [0.4.0]
 
-### added
+### Added
 
 - linear issue view to print the issue, with --web and --app flags to open them
   instead, similar to gh's view commands
@@ -26,7 +26,7 @@
 
 ## [0.3.2]
 
-### fixed
+### Fixed
 
 - use first 'started' state when starting an issue
 
@@ -38,7 +38,7 @@
 
 ## [0.3.0]
 
-### added
+### Added
 
 - support for .env files
 - support for a toml based configuration file
@@ -53,7 +53,7 @@
 
 ## [0.2.0]
 
-### added
+### Added
 
 - `linear issue list` command
 
