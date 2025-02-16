@@ -67,12 +67,12 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: //github.com/schpet/linear-cli/compare/v0.4.1...HEAD
-[0.4.1]: //github.com/schpet/linear-cli/compare/v0.4.0...v0.4.1
-[0.4.0]: //github.com/schpet/linear-cli/compare/v0.3.2...v0.4.0
-[0.3.2]: //github.com/schpet/linear-cli/compare/v0.3.1...v0.3.2
-[0.3.1]: //github.com/schpet/linear-cli/compare/v0.3.0...v0.3.1
-[0.3.0]: //github.com/schpet/linear-cli/compare/v0.2.1...v0.3.0
-[0.2.1]: //github.com/schpet/linear-cli/compare/v0.2.0...v0.2.1
-[0.2.0]: //github.com/schpet/linear-cli/compare/v0.1.0...v0.2.0
-[0.1.0]: //github.com/schpet/linear-cli/releases/tag/v0.1.0
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/schpet/linear-cli/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/schpet/linear-cli/compare/v0.3.2...v0.4.0
+[0.3.2]: https://github.com/schpet/linear-cli/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/schpet/linear-cli/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/schpet/linear-cli/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/schpet/linear-cli/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/schpet/linear-cli/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/schpet/linear-cli/releases/tag/v0.1.0
