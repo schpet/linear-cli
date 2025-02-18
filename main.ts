@@ -720,7 +720,9 @@ const issueCommand = new Command()
 
         const answer = await Select.prompt({
           message: "Select an issue to start:",
-          options: issues.map((issue: { identifier: string; title: string }) => ({
+          options: issues.map((
+            issue: { identifier: string; title: string },
+          ) => ({
             name: `${issue.identifier}: ${issue.title}`,
             value: issue.identifier,
           })),
