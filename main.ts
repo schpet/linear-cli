@@ -730,7 +730,8 @@ const issueCommand = new Command()
           options: issues.map((
             issue: { identifier: string; title: string; priority: number },
           ) => ({
-            name: getPriorityDisplay(issue.priority) + ` ${issue.identifier}: ${issue.title}`,
+            name: getPriorityDisplay(issue.priority) +
+              ` ${issue.identifier}: ${issue.title}`,
             value: issue.identifier,
           })),
         });
