@@ -279,6 +279,19 @@ async function fetchIssuesForState(teamId: string, state: string) {
   });
 }
 
+function getPriorityDisplay(priority: number): string {
+  if (priority === 0) {
+    return "---";
+  } else if (priority === 1 || priority === 2) {
+    return "▄▆█";
+  } else if (priority === 3) {
+    return "▄▆ ";
+  } else if (priority === 4) {
+    return "▄  ";
+  }
+  return priority.toString();
+}
+
 async function fetchIssueDetails(
   issueId: string,
   showSpinner = false,
