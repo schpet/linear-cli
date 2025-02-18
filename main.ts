@@ -728,9 +728,9 @@ const issueCommand = new Command()
         const answer = await Select.prompt({
           message: "Select an issue to start:",
           options: issues.map((
-            issue: { identifier: string; title: string },
+            issue: { identifier: string; title: string; priority: number },
           ) => ({
-            name: `${issue.identifier}: ${issue.title}`,
+            name: getPriorityDisplay(issue.priority) + ` ${issue.identifier}: ${issue.title}`,
             value: issue.identifier,
           })),
         });
