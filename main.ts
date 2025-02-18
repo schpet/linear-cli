@@ -692,25 +692,56 @@ const issueCommand = new Command()
       }
 
       const query = /* GraphQL */ `
-        query issues($teamId: String!) {
+        query issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
           issues(
             filter: {
               team: { key: { eq: $teamId } }
               assignee: { isMe: { eq: true } }
-              state: { type: { in: ["unstarted"] } }
+              state: { type: { in: $states } }
             }
+            sort: $sort
           ) {
             nodes {
               id
               identifier
               title
+              priority
+              state {
+                id
+                name
+                color
+              }
+              labels {
+                nodes {
+                  id
+                  name
+                  color
+                }
+              }
+              updatedAt
             }
           }
         }
       `;
 
       try {
-        const result = await fetchGraphQL(query, { teamId });
+        const sort = getOption("issue_sort") as "manual" | "priority" | undefined;
+        if (!sort) {
+          console.error(
+            "Sort must be provided via configuration file or LINEAR_ISSUE_SORT environment variable",
+          );
+          Deno.exit(1);
+        }
+
+        const sortPayload = sort === "manual"
+          ? [{ manual: { nulls: "last", order: "Ascending" } }]
+          : [{ priority: { nulls: "last", order: "Descending" } }];
+
+        const result = await fetchGraphQL(query, {
+          teamId,
+          sort: sortPayload,
+          states: ["unstarted"],
+        });
         const issues = result.data.issues.nodes;
 
         if (issues.length === 0) {
