@@ -725,7 +725,10 @@ const issueCommand = new Command()
       `;
 
       try {
-        const sort = getOption("issue_sort") as "manual" | "priority" | undefined;
+        const sort = getOption("issue_sort") as
+          | "manual"
+          | "priority"
+          | undefined;
         if (!sort) {
           console.error(
             "Sort must be provided via configuration file or LINEAR_ISSUE_SORT environment variable",
