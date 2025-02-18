@@ -683,10 +683,54 @@ const issueCommand = new Command()
   .command("start", "Start working on an issue")
   .arguments("[issueId:string]")
   .action(async (_, issueId) => {
-    const resolvedId = await getIssueId(issueId);
+    let resolvedId = await getIssueId(issueId);
     if (!resolvedId) {
-      console.error("Could not determine issue ID");
-      Deno.exit(1);
+      const teamId = await getTeamId();
+      if (!teamId) {
+        console.error("Could not determine team ID");
+        Deno.exit(1);
+      }
+
+      const query = /* GraphQL */ `
+        query issues($teamId: String!) {
+          issues(
+            filter: {
+              team: { key: { eq: $teamId } }
+              assignee: { isMe: { eq: true } }
+              state: { type: { in: ["unstarted"] } }
+            }
+          ) {
+            nodes {
+              id
+              identifier
+              title
+            }
+          }
+        }
+      `;
+
+      try {
+        const result = await fetchGraphQL(query, { teamId });
+        const issues = result.data.issues.nodes;
+
+        if (issues.length === 0) {
+          console.error("No unstarted issues found.");
+          Deno.exit(1);
+        }
+
+        const answer = await Select.prompt({
+          message: "Select an issue to start:",
+          options: issues.map((issue: { identifier: string; title: string }) => ({
+            name: `${issue.identifier}: ${issue.title}`,
+            value: issue.identifier,
+          })),
+        });
+
+        resolvedId = answer;
+      } catch (error) {
+        console.error("Failed to fetch issues:", error);
+        Deno.exit(1);
+      }
     }
 
     const teamId = await getTeamId();
