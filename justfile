@@ -1,11 +1,16 @@
 dev *args:
     deno run main.ts {{ args }}
 
-# release a major, minor or patch version
-release level:
-    svbump write {{ level }} version deno.json
+# tags the newest release in the changelog
+tag:
+    deno check main.ts
+    deno fmt --check
+
+    svbump write "$(deno run main.ts version latest)" version deno.json
     svbump write "$(svbump read version deno.json)" package.version dist-workspace.toml
-    git commit deno.json dist-workspace.toml -m "chore: Release linear-cli version $(svbump read version deno.json)"
+    deno check
+
+    git commit deno.json dist-workspace.toml CHANGELOG.md -m "chore: Release linear-cli version $(svbump read version deno.json)"
     git tag "v$(svbump read version deno.json)"
 
     @echo "tagged v$(svbump read version deno.json)"
@@ -15,4 +20,4 @@ release level:
     @echo "  git push origin HEAD --tags"
 
 release-preview level:
-  svbump preview {{ level }} version deno.json
+    svbump preview {{ level }} version deno.json
