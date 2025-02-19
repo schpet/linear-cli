@@ -683,8 +683,9 @@ const issueCommand = new Command()
             padDisplay(identifier, 8)
           } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
             padDisplay(issue.estimate?.toString() || "-", ESTIMATE_WIDTH)
-          } ${padDisplayFormatted(state, STATE_WIDTH)
-          } %c${padDisplay(timeAgo, UPDATED_WIDTH)}%c`,
+          } ${padDisplayFormatted(state, STATE_WIDTH)} %c${
+            padDisplay(timeAgo, UPDATED_WIDTH)
+          }%c`,
           ...priorityStyles,
           ...labelsStyles,
           ...stateStyles,
