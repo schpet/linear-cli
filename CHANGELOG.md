@@ -2,9 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Include an estimate column on the table output
+
 ### Added
 
-- running `linear issue start` without any id parameters will list out unstarted issues and let you select one
+- running `linear issue start` without any id parameters will list out unstarted
+  issues and let you select one
 
 ## [0.4.1]
 
