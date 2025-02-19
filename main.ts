@@ -569,6 +569,7 @@ const issueCommand = new Command()
         state: string;
         stateStyles: string[];
         timeAgo: string;
+        estimate: number | null;
       };
 
       const tableData: Array<TableRow> = issues.map((issue: Issue) => {
@@ -628,6 +629,7 @@ const issueCommand = new Command()
           state: `%c${issue.state.name}%c`,
           stateStyles: [`color: ${issue.state.color}`, ""],
           timeAgo,
+          estimate: issue.estimate,
         };
       });
 
@@ -682,7 +684,7 @@ const issueCommand = new Command()
           `${padDisplayFormatted(priorityStr, 4)} ${
             padDisplay(identifier, 8)
           } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
-            padDisplay(issue.estimate?.toString() || "-", ESTIMATE_WIDTH)
+            padDisplay(row.estimate?.toString() || "-", ESTIMATE_WIDTH)
           } ${padDisplayFormatted(state, STATE_WIDTH)} %c${
             padDisplay(timeAgo, UPDATED_WIDTH)
           }%c`,
