@@ -6,7 +6,7 @@ tag:
     deno check main.ts
     deno fmt --check
 
-    svbump write "$(deno run main.ts version latest)" version deno.json
+    svbump write "$(changelog version latest)" version deno.json
     svbump write "$(svbump read version deno.json)" package.version dist-workspace.toml
     deno check
 
@@ -18,6 +18,3 @@ tag:
     @echo "run this to release it:"
     @echo
     @echo "  git push origin HEAD --tags"
-
-release-preview level:
-    svbump preview {{ level }} version deno.json
