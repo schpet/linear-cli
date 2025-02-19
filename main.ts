@@ -744,7 +744,7 @@ const issueCommand = new Command()
           })),
         });
 
-        resolvedId = answer;
+        resolvedId = answer as string;
       } catch (error) {
         console.error("Failed to fetch issues:", error);
         Deno.exit(1);
@@ -757,6 +757,10 @@ const issueCommand = new Command()
       Deno.exit(1);
     }
 
+    if (!resolvedId) {
+      console.error("No issue ID resolved");
+      Deno.exit(1);
+    }
     const { branchName } = await fetchIssueDetails(resolvedId, true);
 
     // Check if branch exists
@@ -803,6 +807,10 @@ const issueCommand = new Command()
     // Update issue state
     try {
       const state = await getStartedState(teamId);
+      if (!resolvedId) {
+        console.error("No issue ID resolved");
+        Deno.exit(1);
+      }
       await updateIssueState(resolvedId, state.id);
       console.log(`✓ Issue state updated to '${state.name}'`);
     } catch (error) {
