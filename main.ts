@@ -634,7 +634,7 @@ const issueCommand = new Command()
       });
 
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
-        LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH; // sum of fixed columns
+        LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH; // sum of fixed columns including spacing for estimate
       const PADDING = 1;
       const maxTitleWidth = Math.max(
         ...tableData.map((row) => unicodeWidth(row.title)),
