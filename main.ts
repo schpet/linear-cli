@@ -51,6 +51,7 @@ interface Issue {
   identifier: string;
   title: string;
   priority: number;
+  estimate: number | null;
   labels: { nodes: Label[] };
   state: {
     id: string;
@@ -250,6 +251,7 @@ async function fetchIssuesForState(teamId: string, state: string) {
           identifier
           title
           priority
+          estimate
           state {
             id
             name
@@ -546,6 +548,7 @@ const issueCommand = new Command()
       const PRIORITY_WIDTH = 4;
       const ID_WIDTH = 8;
       const LABEL_WIDTH = columns <= 100 ? 12 : 24; // adjust label width based on terminal size
+      const ESTIMATE_WIDTH = 2; // fixed width for estimate
       const STATE_WIDTH = 12; // fixed width for state
       const SPACE_WIDTH = 4;
       const updatedHeader = "UPDATED";
@@ -629,7 +632,7 @@ const issueCommand = new Command()
       });
 
       const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
-        LABEL_WIDTH + STATE_WIDTH; // sum of fixed columns
+        LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH; // sum of fixed columns
       const PADDING = 1;
       const maxTitleWidth = Math.max(
         ...tableData.map((row) => unicodeWidth(row.title)),
@@ -641,6 +644,7 @@ const issueCommand = new Command()
         padDisplay("ID", ID_WIDTH),
         padDisplay("TITLE", titleWidth),
         padDisplay("LABELS", LABEL_WIDTH),
+        padDisplay("E", ESTIMATE_WIDTH),
         padDisplay("STATE", STATE_WIDTH),
         padDisplay(updatedHeader, UPDATED_WIDTH),
       ];
@@ -678,7 +682,8 @@ const issueCommand = new Command()
           `${padDisplayFormatted(priorityStr, 4)} ${
             padDisplay(identifier, 8)
           } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
-            padDisplayFormatted(state, STATE_WIDTH)
+            padDisplay(issue.estimate?.toString() || "-", ESTIMATE_WIDTH)
+          } ${padDisplayFormatted(state, STATE_WIDTH)
           } %c${padDisplay(timeAgo, UPDATED_WIDTH)}%c`,
           ...priorityStyles,
           ...labelsStyles,
