@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-02-19
+
+### Fixed
+
+- Update terminal width calculation to include spacing for Estimate column
+
 ## [0.5.0] - 2025-02-19
 
 ### Changed
@@ -78,7 +84,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/schpet/linear-cli/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/schpet/linear-cli/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/schpet/linear-cli/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/schpet/linear-cli/compare/v0.3.2...v0.4.0
