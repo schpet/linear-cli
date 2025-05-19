@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- better errors are printed when the api is down
+
 ## [0.5.1] - 2025-02-19
 
 ### Fixed
