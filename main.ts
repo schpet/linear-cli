@@ -216,13 +216,50 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
     headers: {
       "Content-Type": "application/json",
       "Authorization": apiKey,
+      "Accept": "application/json",
     },
     body: JSON.stringify({ query, variables }),
   });
 
-  const data = await response.json();
+  const responseBodyText = await response.text();
+
+  if (!response.ok) {
+    // HTTP error (e.g., 4xx, 5xx)
+    throw new Error(
+      `GraphQL API request failed with status ${response.status} ${response.statusText}.\nResponse body (first 500 chars): ${
+        responseBodyText.slice(0, 500)
+      }`,
+    );
+  }
+
+  // Response is OK (2xx), now check Content-Type and parse as JSON
+  const contentType = response.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    // This case implies an issue if the API is expected to always return JSON on success.
+    throw new Error(
+      `GraphQL API request succeeded with status ${response.status}, but response Content-Type was not 'application/json'.\nContent-Type: ${contentType}\nResponse body (first 500 chars): ${
+        responseBodyText.slice(0, 500)
+      }`,
+    );
+  }
+
+  let data;
+  try {
+    data = JSON.parse(responseBodyText);
+  } catch (jsonError) {
+    // HTTP 2xx, Content-Type was application/json, but body was not valid JSON
+    throw new Error(
+      `GraphQL API request succeeded with status ${response.status}, but failed to parse JSON response.\nContent-Type: ${contentType}\nError: ${(jsonError as Error).message}\nResponse body (first 500 chars): ${
+        responseBodyText.slice(0, 500)
+      }`,
+    );
+  }
+
   if (data.errors) {
-    throw new Error(JSON.stringify(data.errors, null, 2));
+    // GraphQL level errors (e.g. bad query, auth issue reported in JSON)
+    throw new Error(
+      `GraphQL API request returned errors: ${JSON.stringify(data.errors, null, 2)}`,
+    );
   }
   return data;
 }
