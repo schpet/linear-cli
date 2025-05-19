@@ -249,16 +249,18 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
   } catch (jsonError) {
     // HTTP 2xx, Content-Type was application/json, but body was not valid JSON
     throw new Error(
-      `GraphQL API request succeeded with status ${response.status}, but failed to parse JSON response.\nContent-Type: ${contentType}\nError: ${(jsonError as Error).message}\nResponse body (first 500 chars): ${
-        responseBodyText.slice(0, 500)
-      }`,
+      `GraphQL API request succeeded with status ${response.status}, but failed to parse JSON response.\nContent-Type: ${contentType}\nError: ${
+        (jsonError as Error).message
+      }\nResponse body (first 500 chars): ${responseBodyText.slice(0, 500)}`,
     );
   }
 
   if (data.errors) {
     // GraphQL level errors (e.g. bad query, auth issue reported in JSON)
     throw new Error(
-      `GraphQL API request returned errors: ${JSON.stringify(data.errors, null, 2)}`,
+      `GraphQL API request returned errors: ${
+        JSON.stringify(data.errors, null, 2)
+      }`,
     );
   }
   return data;
