@@ -2,9 +2,12 @@
 
 ## [Unreleased]
 
+## [0.5.2] - 2025-05-20
+
 ### Fixed
 
 - better errors are printed when the api is down
+- support team ids with numbers in them
 
 ## [0.5.1] - 2025-02-19
 
@@ -88,7 +91,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/schpet/linear-cli/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/schpet/linear-cli/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/schpet/linear-cli/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/schpet/linear-cli/compare/v0.4.0...v0.4.1
