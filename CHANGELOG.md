@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.5.7] - 2025-05-22
+
+### Fixed
+
+- use older version of cargo dist (v0.28.3)
+
 ## [0.5.6] - 2025-05-22
 
 ### Fixed
@@ -109,7 +115,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.5.6...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.5.7...HEAD
+[0.5.7]: https://github.com/schpet/linear-cli/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/schpet/linear-cli/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/schpet/linear-cli/compare/v0.5.3...v0.5.5
 [0.5.3]: https://github.com/schpet/linear-cli/compare/v0.5.2...v0.5.3

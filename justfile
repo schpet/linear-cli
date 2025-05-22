@@ -9,7 +9,8 @@ tag:
     svbump write "$(changelog version latest)" version deno.json
     svbump write "$(svbump read version deno.json)" package.version dist-workspace.toml
 
-    git commit deno.json dist-workspace.toml CHANGELOG.md -m "chore: Release linear-cli version $(svbump read version deno.json)"
+    git add deno.json dist-workspace.toml CHANGELOG.md
+    git commit -m "chore: Release linear-cli version $(svbump read version deno.json)"
     git tag "v$(svbump read version deno.json)"
 
     @echo "tagged v$(svbump read version deno.json)"
