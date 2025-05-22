@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.5.5] - 2025-05-21
+
+### Fixed
+
+- use astro-sh fork of cargo-dist
+
 ## [0.5.3] - 2025-05-20
 
 ### Fixed
@@ -97,7 +103,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/schpet/linear-cli/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/schpet/linear-cli/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/schpet/linear-cli/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/schpet/linear-cli/compare/v0.5.0...v0.5.1
