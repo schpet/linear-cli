@@ -225,6 +225,23 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
 
   if (!response.ok) {
     // HTTP error (e.g., 4xx, 5xx)
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      let errorData;
+      try {
+        errorData = JSON.parse(responseBodyText);
+      } catch {
+        // Fall back to original error if JSON parsing fails
+      }
+      if (errorData) {
+        throw new Error(
+          `GraphQL API request rejected:\n\n${
+            JSON.stringify(errorData, null, 2)
+          }`,
+        );
+      }
+    }
+
     throw new Error(
       `GraphQL API request failed with status ${response.status} ${response.statusText}.\nResponse body (first 500 chars): ${
         responseBodyText.slice(0, 500)
