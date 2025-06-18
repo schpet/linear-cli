@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- allow longer team ids
+
 ## [0.5.7] - 2025-05-22
 
 ### Fixed
