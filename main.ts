@@ -2,6 +2,7 @@ import { Command, EnumType } from "@cliffy/command";
 import { load } from "@std/dotenv";
 import { getOption } from "./config.ts";
 import { prompt, Select } from "@cliffy/prompt";
+import { red } from "jsr:@std/fmt@^1.0.0/colors";
 
 // Try loading .env from current directory first, then from git root if not found
 if (await Deno.stat(".env").catch(() => null)) {
@@ -40,6 +41,38 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
+
+function formatError(error: Error): void {
+  const errorMessage = error.message;
+  
+  // Try to extract JSON from various error message patterns
+  const jsonPatterns = [
+    /Response body[^:]*: ({.*})/s,
+    /GraphQL API request returned errors: ({.*})/s,
+    /({.*})/s
+  ];
+  
+  for (const pattern of jsonPatterns) {
+    const jsonMatch = errorMessage.match(pattern);
+    if (jsonMatch) {
+      try {
+        const jsonData = JSON.parse(jsonMatch[1]);
+        // Only format as JSON if it looks like a Linear API error
+        if (jsonData.errors || jsonData.error) {
+          console.error(red("An error occurred"));
+          console.error(JSON.stringify(jsonData, null, 2));
+          return;
+        }
+      } catch {
+        // If JSON parsing fails, continue to next pattern
+        continue;
+      }
+    }
+  }
+  
+  // Default behavior for non-JSON errors
+  console.error(error.message);
+}
 
 interface Label {
   name: string;
@@ -257,10 +290,9 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
 
   if (data.errors) {
     // GraphQL level errors (e.g. bad query, auth issue reported in JSON)
+    const errorObj = { errors: data.errors };
     throw new Error(
-      `GraphQL API request returned errors: ${
-        JSON.stringify(data.errors, null, 2)
-      }`,
+      `GraphQL API request returned errors: ${JSON.stringify(errorObj)}`,
     );
   }
   return data;
@@ -735,7 +767,8 @@ const issueCommand = new Command()
         );
       }
     } catch (error) {
-      console.error("Failed to fetch issues:", error);
+      console.error("Failed to fetch issues:");
+      formatError(error as Error);
       Deno.exit(1);
     }
   })
@@ -785,7 +818,8 @@ const issueCommand = new Command()
 
         resolvedId = answer as string;
       } catch (error) {
-        console.error("Failed to fetch issues:", error);
+        console.error("Failed to fetch issues:");
+        formatError(error as Error);
         Deno.exit(1);
       }
     }
@@ -853,7 +887,8 @@ const issueCommand = new Command()
       await updateIssueState(resolvedId, state.id);
       console.log(`✓ Issue state updated to '${state.name}'`);
     } catch (error) {
-      console.error("Failed to update issue state:", error);
+      console.error("Failed to update issue state:");
+      formatError(error as Error);
     }
   })
   .command("view", "View issue details (default) or open in browser/app")
