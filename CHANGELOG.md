@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- improve error messages when the graphql response has an error
+
 ### Fixed
 
 - allow longer team ids
