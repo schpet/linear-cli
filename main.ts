@@ -203,7 +203,10 @@ async function getTeamId(): Promise<string | null> {
   return match ? match[0].toUpperCase() : null;
 }
 
-export async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
+export async function fetchGraphQL(
+  query: string,
+  variables: Record<string, unknown>,
+) {
   const apiKey = getOption("api_key");
   if (!apiKey) {
     throw new Error(
