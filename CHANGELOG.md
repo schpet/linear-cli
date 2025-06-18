@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Test for JSON and HTML error response formatting
+
 ### Changed
 
 - improve error messages when the graphql response has an error

@@ -20,3 +20,6 @@ jobs:
 
       - name: Type check
         run: deno check main.ts
+
+      - name: Run tests
+        run: deno test
