@@ -1,0 +1,12 @@
+## basics
+
+- this is a deno app
+
+
+## changelog entries
+
+if asked to add a changelog entry use the changelog cli
+
+    changelog add --type <TYPE> <DESCRIPTION>
+
+types: added|changed|deprecated|removed|fixed|security
