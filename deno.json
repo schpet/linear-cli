@@ -7,7 +7,9 @@
   "tasks": {
     "dev": "deno run --allow-env --allow-sys --allow-run --allow-read --allow-net --allow-write main.ts ",
     "install": "deno install -c ./deno.json  --allow-env --allow-sys --allow-run --allow-read --allow-net --allow-write -g -f -n linear ./main.ts",
-    "uninstall": "deno uninstall -g linear"
+    "uninstall": "deno uninstall -g linear",
+    "sync-schema": "deno run -A npm:get-graphql-schema https://api.linear.app/graphql > graphql/schema.graphql",
+    "test": "deno test --allow-env --allow-sys --allow-run --allow-read --allow-net --allow-write"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
@@ -24,6 +26,7 @@
   "publish": {
     "include": [
       "main.ts",
+      "main_test.ts",
       "config.ts",
       "README.md"
     ]

@@ -175,7 +175,7 @@ async function updateIssueState(
 }
 
 function isValidLinearId(id: string): boolean {
-  return /^[A-Za-z0-9]{2,5}-[1-9][0-9]*$/.test(id);
+  return /^[A-Za-z0-9]+-[1-9][0-9]*$/.test(id);
 }
 
 async function getIssueId(providedId?: string): Promise<string | null> {
@@ -189,7 +189,7 @@ async function getIssueId(providedId?: string): Promise<string | null> {
   }
   const branch = await getCurrentBranch();
   if (!branch) return null;
-  const match = branch.match(/[a-zA-Z0-9]{2,5}-[1-9][0-9]*/i);
+  const match = branch.match(/[a-zA-Z0-9]+-[1-9][0-9]*/i);
   return match ? match[0].toUpperCase() : null;
 }
 
@@ -199,11 +199,15 @@ async function getTeamId(): Promise<string | null> {
     return teamId.toUpperCase();
   }
   const dir = await getRepoDir();
-  const match = dir.match(/^[a-zA-Z0-9]{2,5}/);
+  const match = dir.match(/^[a-zA-Z0-9]+/);
   return match ? match[0].toUpperCase() : null;
 }
 
-async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
+export async function fetchGraphQL(
+  query: string,
+  variables: Record<string, unknown>,
+  // deno-lint-ignore no-explicit-any
+): Promise<any> {
   const apiKey = getOption("api_key");
   if (!apiKey) {
     throw new Error(
@@ -225,6 +229,23 @@ async function fetchGraphQL(query: string, variables: Record<string, unknown>) {
 
   if (!response.ok) {
     // HTTP error (e.g., 4xx, 5xx)
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      let errorData;
+      try {
+        errorData = JSON.parse(responseBodyText);
+      } catch {
+        // Fall back to original error if JSON parsing fails
+      }
+      if (errorData) {
+        throw new Error(
+          `GraphQL API request rejected:\n\n${
+            JSON.stringify(errorData, null, 2)
+          }`,
+        );
+      }
+    }
+
     throw new Error(
       `GraphQL API request failed with status ${response.status} ${response.statusText}.\nResponse body (first 500 chars): ${
         responseBodyText.slice(0, 500)

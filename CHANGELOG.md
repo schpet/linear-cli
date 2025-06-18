@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- Test for JSON and HTML error response formatting
+
+### Changed
+
+- improve error messages when the graphql response has an error
+
+### Fixed
+
+- allow longer team ids
+
 ## [0.5.7] - 2025-05-22
 
 ### Fixed
