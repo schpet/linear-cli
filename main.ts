@@ -206,7 +206,8 @@ async function getTeamId(): Promise<string | null> {
 export async function fetchGraphQL(
   query: string,
   variables: Record<string, unknown>,
-) {
+  // deno-lint-ignore no-explicit-any
+): Promise<any> {
   const apiKey = getOption("api_key");
   if (!apiKey) {
     throw new Error(
