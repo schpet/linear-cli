@@ -219,6 +219,199 @@ async function getTeamId(): Promise<string | null> {
   return match ? match[0].toUpperCase() : null;
 }
 
+async function getTeamUid(
+  teamId: string | null = null,
+  spinner: Spinner | null = null,
+): Promise<string | null> {
+  teamId = teamId || await getTeamId();
+  if (teamId === null) return null;
+  return await tryPartialMatch(
+    "team",
+    "key",
+    teamId,
+    true,
+    spinner,
+  ) || await tryPartialMatch(
+    "team",
+    "displayName",
+    teamId,
+    true,
+    spinner,
+  );
+}
+
+async function tryPartialMatch(
+  dataName: string,
+  varName: string,
+  val: string,
+  hasNodes: boolean = true,
+  spinner: Spinner | null = null,
+): Promise<string> {
+  const queryDataName = dataName + "s";
+  const displayDataName = dataName.substring(0, 1).toUpperCase() +
+    dataName.substring(1);
+  let data = await fetchGraphQL(
+    `query match($val: String!) {
+    ${queryDataName}(filter: {${varName}: {eq: $val}}) {nodes{id}}
+  }`,
+    { val },
+  );
+  let results = data.data[queryDataName];
+  if (hasNodes) results = results.nodes;
+  if (results.length > 0) {
+    return results[0].id;
+  }
+  data = await fetchGraphQL(
+    `query match($val: String!) {
+    ${queryDataName}(filter: {${varName}: {containsIgnoreCase: $val}}) {nodes{
+      id
+      ${varName}}}}`,
+    { val },
+  );
+  results = data.data[queryDataName];
+  if (hasNodes) results = results.nodes;
+  if (results.length === 0) {
+    throw new Error(`${displayDataName} ${val} not found`);
+  } else if (results.length === 1) {
+    spinner?.stop();
+    const answer = await Select.prompt({
+      message: `${displayDataName} with ${varName} ${val} does not exist, but ${
+        results[0][varName]
+      } exists. Is this what you meant?`,
+      options: [
+        { name: "yes", value: results[0].id },
+        { name: "no", value: "not_found" },
+      ],
+    });
+    if (answer === "not_found") {
+      throw new Error(`${displayDataName} ${val} not found`);
+    }
+    spinner?.start();
+    return answer;
+  } else {
+    spinner?.stop();
+    const answer = await Select.prompt({
+      message:
+        `${displayDataName} with ${varName} ${val} does not exist, but the following exist. Is any of these what you meant?`,
+      options: [
+        ...results.map((
+          result: Record<string, string>,
+        ) => ({
+          name: result[varName],
+          value: result.id,
+        })),
+        { name: "none of the above", value: "not_found" },
+      ],
+    });
+    if (answer === "not_found") {
+      throw new Error(`${displayDataName} ${val} not found`);
+    }
+    spinner?.start();
+    return answer;
+  }
+}
+
+async function getUserId(
+  username: string | undefined,
+  spinner: Spinner | null = null,
+): Promise<string> {
+  if (username === undefined || username === "self") {
+    const data = await fetchGraphQL(
+      `query viewerId {
+      viewer {id}
+    }`,
+      {},
+    );
+    return data.data.viewer.id;
+  } else {
+    return await tryPartialMatch(
+      "user",
+      "displayName",
+      username,
+      true,
+      spinner,
+    );
+  }
+}
+
+async function getProjectId(
+  projectName: string,
+  spinner: Spinner | null = null,
+): Promise<string> {
+  return await tryPartialMatch(
+    "project",
+    "name",
+    projectName,
+    true,
+    spinner,
+  );
+}
+
+async function getIssueLabelId(
+  issueLabelName: string,
+  spinner: Spinner | null = null,
+): Promise<string> {
+  return tryPartialMatch("issueLabel", "name", issueLabelName, true, spinner);
+}
+
+async function doStartIssue(issueId: string, teamId: string) {
+  const { branchName } = await fetchIssueDetails(issueId, true);
+
+  // Check if branch exists
+  if (await branchExists(branchName)) {
+    const answer = await Select.prompt({
+      message:
+        `Branch ${branchName} already exists. What would you like to do?`,
+      options: [
+        { name: "Switch to existing branch", value: "switch" },
+        { name: "Create new branch with suffix", value: "create" },
+      ],
+    });
+
+    if (answer === "switch") {
+      const process = new Deno.Command("git", {
+        args: ["checkout", branchName],
+      });
+      await process.output();
+      console.log(`✓ Switched to '${branchName}'`);
+    } else {
+      // Find next available suffix
+      let suffix = 1;
+      let newBranch = `${branchName}-${suffix}`;
+      while (await branchExists(newBranch)) {
+        suffix++;
+        newBranch = `${branchName}-${suffix}`;
+      }
+
+      const process = new Deno.Command("git", {
+        args: ["checkout", "-b", newBranch],
+      });
+      await process.output();
+      console.log(`✓ Created and switched to branch '${newBranch}'`);
+    }
+  } else {
+    // Create and checkout the branch
+    const process = new Deno.Command("git", {
+      args: ["checkout", "-b", branchName],
+    });
+    await process.output();
+    console.log(`✓ Created and switched to branch '${branchName}'`);
+  }
+
+  // Update issue state
+  try {
+    const state = await getStartedState(teamId);
+    if (!issueId) {
+      console.error("No issue ID resolved");
+      Deno.exit(1);
+    }
+    await updateIssueState(issueId, state.id);
+    console.log(`✓ Issue state updated to '${state.name}'`);
+  } catch (error) {
+    console.error("Failed to update issue state:", error);
+  }
+}
+
 export async function fetchGraphQL(
   query: string,
   variables: Record<string, unknown>,
@@ -792,14 +985,13 @@ const issueCommand = new Command()
   .command("start", "Start working on an issue")
   .arguments("[issueId:string]")
   .action(async (_, issueId) => {
+    const teamId = await getTeamId();
+    if (!teamId) {
+      console.error("Could not determine team ID");
+      Deno.exit(1);
+    }
     let resolvedId = await getIssueId(issueId);
     if (!resolvedId) {
-      const teamId = await getTeamId();
-      if (!teamId) {
-        console.error("Could not determine team ID");
-        Deno.exit(1);
-      }
-
       try {
         const result = await fetchIssuesForState(teamId, "unstarted");
         const issues = result.data.issues.nodes;
@@ -827,71 +1019,11 @@ const issueCommand = new Command()
       }
     }
 
-    const teamId = await getTeamId();
-    if (!teamId) {
-      console.error("Could not determine team ID");
-      Deno.exit(1);
-    }
-
     if (!resolvedId) {
       console.error("No issue ID resolved");
       Deno.exit(1);
     }
-    const { branchName } = await fetchIssueDetails(resolvedId, true);
-
-    // Check if branch exists
-    if (await branchExists(branchName)) {
-      const answer = await Select.prompt({
-        message:
-          `Branch ${branchName} already exists. What would you like to do?`,
-        options: [
-          { name: "Switch to existing branch", value: "switch" },
-          { name: "Create new branch with suffix", value: "create" },
-        ],
-      });
-
-      if (answer === "switch") {
-        const process = new Deno.Command("git", {
-          args: ["checkout", branchName],
-        });
-        await process.output();
-        console.log(`✓ Switched to '${branchName}'`);
-      } else {
-        // Find next available suffix
-        let suffix = 1;
-        let newBranch = `${branchName}-${suffix}`;
-        while (await branchExists(newBranch)) {
-          suffix++;
-          newBranch = `${branchName}-${suffix}`;
-        }
-
-        const process = new Deno.Command("git", {
-          args: ["checkout", "-b", newBranch],
-        });
-        await process.output();
-        console.log(`✓ Created and switched to branch '${newBranch}'`);
-      }
-    } else {
-      // Create and checkout the branch
-      const process = new Deno.Command("git", {
-        args: ["checkout", "-b", branchName],
-      });
-      await process.output();
-      console.log(`✓ Created and switched to branch '${branchName}'`);
-    }
-
-    // Update issue state
-    try {
-      const state = await getStartedState(teamId);
-      if (!resolvedId) {
-        console.error("No issue ID resolved");
-        Deno.exit(1);
-      }
-      await updateIssueState(resolvedId, state.id);
-      console.log(`✓ Issue state updated to '${state.name}'`);
-    } catch (error) {
-      console.error("Failed to update issue state:", error);
-    }
+    await doStartIssue(resolvedId, teamId);
   })
   .command("view", "View issue details (default) or open in browser/app")
   .alias("v")
@@ -985,7 +1117,186 @@ const issueCommand = new Command()
       console.error("Failed to create pull request");
       Deno.exit(1);
     }
-  });
+  })
+  .command("create", "Create a linear issue")
+  .alias("cr")
+  .option(
+    "-s, --start",
+    "Start the issue after creation",
+  )
+  .option(
+    "-a, --assignee <assignee:string>",
+    "Assign the issue to 'self' or someone (by username or name)",
+  )
+  .option(
+    "-d, --dueDate <dueDate:string>",
+    "Due date of the issue",
+  )
+  .option(
+    "-p, --parent <parent:string>",
+    "Parent issue (if any) as a team_number code",
+  )
+  .option(
+    "--dry-run",
+    "Dry run: do not create the issue, print the mutation",
+  )
+  .option(
+    "--priority <priority:number>",
+    "Priority of the issue (1-4, descending priority)",
+  )
+  .option(
+    "--estimate <estimate:number>",
+    "Points estimate of the issue",
+  )
+  .option(
+    "-l, --labels [labels...:string]",
+    "Issue labels associated with the issue. May be repeated.",
+  )
+  .option(
+    "--team <team:string>",
+    "Team associated with the issue (if not your default team)",
+  )
+  .option(
+    "--project <project:string>",
+    "Name of the project with the issue",
+  )
+  .option(
+    "--no-use-default-template",
+    "Do not use default template for the issue",
+  )
+  .option("--no-color", "Disable colored output")
+  .arguments("[title:string]")
+  .action(
+    async (
+      {
+        start,
+        assignee,
+        dueDate,
+        useDefaultTemplate,
+        parent,
+        priority,
+        estimate,
+        labels,
+        team,
+        project,
+        dryRun,
+        color,
+      },
+      title,
+    ) => {
+      const showSpinner = color && Deno.stdout.isTerminal();
+      const spinner = showSpinner ? new Spinner() : null;
+      spinner?.start();
+      try {
+        const teamId = (team === undefined)
+          ? await getTeamId()
+          : team.toUpperCase();
+        const teamUid = await getTeamUid(teamId, spinner);
+        if (start && assignee === undefined) {
+          assignee = "self";
+        }
+        if (start && assignee !== undefined && assignee !== "self") {
+          console.error("Cannot use --start and a non-self --assignee");
+        }
+        let assigneeId = undefined;
+        if (assignee !== undefined) {
+          try {
+            // try with display name first
+            assigneeId = await getUserId(assignee, spinner);
+          } catch (_) {
+            assigneeId = await tryPartialMatch(
+              "user",
+              "name",
+              assignee,
+              true,
+              spinner,
+            );
+          }
+        }
+        const labelIds: string[] = [];
+        if (labels !== undefined && labels !== true && labels.length > 0) {
+          // sequential in case of questions
+          for (const label of labels) {
+            labelIds.push(await getIssueLabelId(label, spinner));
+          }
+        }
+        const projectId = (project !== undefined)
+          ? await getProjectId(project, spinner)
+          : undefined;
+        const parentId = (parent !== undefined)
+          ? await getIssueId(parent)
+          : undefined;
+        if (dueDate !== undefined) {
+          const parsed = new Date(dueDate);
+          if (isNaN(parsed.getTime())) {
+            console.error("Invalid due date format");
+            Deno.exit(1);
+          }
+          dueDate = parsed.toISOString().substring(0, 10);
+        }
+
+        const query = `
+          mutation createIssue($title: String!, $assigneeId: String, $dueDate: TimelessDate, $parentId: String, $priority: Int, $estimate: Int, $labelIds: [String!], $teamId: String!, $projectId: String, $useDefaultTemplate: Boolean) {
+            issueCreate(input: {
+              title: $title
+              assigneeId: $assigneeId
+              dueDate: $dueDate
+              parentId: $parentId
+              priority: $priority
+              estimate: $estimate
+              labelIds: $labelIds
+              teamId: $teamId
+              projectId: $projectId
+              useDefaultTemplate: $useDefaultTemplate
+            }) {
+              success
+              issue { id, team { key } }
+            }
+          }
+        `;
+        if (dryRun) {
+          spinner?.stop();
+          console.log(query, {
+            title,
+            assigneeId,
+            dueDate,
+            parentId,
+            priority,
+            estimate,
+            labelIds,
+            teamUid,
+            projectId,
+            useDefaultTemplate,
+          });
+          return;
+        }
+        const data = await fetchGraphQL(query, {
+          title,
+          assigneeId,
+          dueDate,
+          parentId,
+          priority,
+          estimate,
+          labelIds,
+          teamId: teamUid,
+          projectId,
+          useDefaultTemplate,
+        });
+        if (!data.data.issueCreate.success) {
+          throw data.data.issueCreate.error;
+        }
+        const issueId = data.data.issueCreate.issue.id;
+        if (start) {
+          await doStartIssue(issueId, data.data.issueCreate.issue.team.key);
+        }
+        spinner?.stop();
+      } catch (error) {
+        spinner?.stop();
+        console.error("✗ Failed to create issue", error);
+        Deno.exit(1);
+      }
+    },
+  );
 
 await new Command()
   .name("linear")
