@@ -29,15 +29,12 @@ if (await Deno.stat(".env").catch(() => null)) {
 }
 
 // apply known environment variables from .env
-Object.entries(envVars)
-  .filter(
-    ([key, _]) => ["LINEAR", "GH", "GITHUB"].indexOf(key.split("_")[0]) >= 0,
-  )
-  .map(([key, value]) => {
-    if (Deno.env.get(key) !== undefined) {
-      Deno.env.set(key, value);
-    }
-  });
+const ALLOWED_ENV_VAR_PREFIXES = ["LINEAR_", "GH_", "GITHUB_"];
+for (const [key, value] of Object.entries(envVars)) {
+  if (ALLOWED_ENV_VAR_PREFIXES.some(prefix => key.startsWith(prefix))) {
+    Deno.env.set(key, value);
+  }
+}
 
 const SortType = new EnumType(["manual", "priority"]);
 const StateType = new EnumType([
