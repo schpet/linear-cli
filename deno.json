@@ -5,11 +5,11 @@
   "exports": "./main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno run --allow-env --allow-sys --allow-run --allow-read --allow-net --allow-write main.ts ",
-    "install": "deno install -c ./deno.json  --allow-env --allow-sys --allow-run --allow-read --allow-net --allow-write -g -f -n linear ./main.ts",
+    "dev": "deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --quiet main.ts ",
+    "install": "deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --quiet -g -f -n linear ./main.ts",
     "uninstall": "deno uninstall -g linear",
     "sync-schema": "deno run -A npm:get-graphql-schema https://api.linear.app/graphql > graphql/schema.graphql",
-    "test": "deno test --allow-env --allow-sys --allow-run --allow-read --allow-net --allow-write"
+    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --quiet"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",

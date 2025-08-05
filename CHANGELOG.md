@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Security
+
+- made deno permissions more specific
+
 ### Added
 
 - Test for JSON and HTML error response formatting
