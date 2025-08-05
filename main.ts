@@ -4,24 +4,40 @@ import { getOption } from "./config.ts";
 import { prompt, Select } from "@cliffy/prompt";
 
 // Try loading .env from current directory first, then from git root if not found
+let envVars: Record<string, string> = {};
 if (await Deno.stat(".env").catch(() => null)) {
-  await load({ export: true });
+  envVars = await load();
 } else {
   try {
-    const gitRoot = new TextDecoder().decode(
-      await new Deno.Command("git", {
-        args: ["rev-parse", "--show-toplevel"],
-      }).output().then((output) => output.stdout),
-    ).trim();
+    const gitRoot = new TextDecoder()
+      .decode(
+        await new Deno.Command("git", {
+          args: ["rev-parse", "--show-toplevel"],
+        })
+          .output()
+          .then((output) => output.stdout),
+      )
+      .trim();
 
     const gitRootEnvPath = join(gitRoot, ".env");
     if (await Deno.stat(gitRootEnvPath).catch(() => null)) {
-      await load({ envPath: gitRootEnvPath, export: true });
+      envVars = await load({ envPath: gitRootEnvPath });
     }
   } catch {
     // Silently continue if not in a git repo
   }
 }
+
+// apply known environment variables from .env
+Object.entries(envVars)
+  .filter(
+    ([key, _]) => ["LINEAR", "GH", "GITHUB"].indexOf(key.split("_")[0]) >= 0,
+  )
+  .map(([key, value]) => {
+    if (Deno.env.get(key) !== undefined) {
+      Deno.env.set(key, value);
+    }
+  });
 
 const SortType = new EnumType(["manual", "priority"]);
 const StateType = new EnumType([
