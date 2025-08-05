@@ -18,7 +18,7 @@ build-command = [
     '--allow-env="GITHUB_*,GH_*,LINEAR_*"',
     "--allow-read",
     "--allow-write",
-    "--allow-run=git,gh",
+    "--allow-run=git,gh,open,cmd,xdg-open,wslview",
     "--allow-net=api.linear.app",
     "main.ts",
 ]
