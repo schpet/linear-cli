@@ -31,7 +31,7 @@ if (await Deno.stat(".env").catch(() => null)) {
 // apply known environment variables from .env
 const ALLOWED_ENV_VAR_PREFIXES = ["LINEAR_", "GH_", "GITHUB_"];
 for (const [key, value] of Object.entries(envVars)) {
-  if (ALLOWED_ENV_VAR_PREFIXES.some(prefix => key.startsWith(prefix))) {
+  if (ALLOWED_ENV_VAR_PREFIXES.some((prefix) => key.startsWith(prefix))) {
     Deno.env.set(key, value);
   }
 }
