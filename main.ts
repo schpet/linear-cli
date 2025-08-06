@@ -32,6 +32,9 @@ if (await Deno.stat(".env").catch(() => null)) {
 const ALLOWED_ENV_VAR_PREFIXES = ["LINEAR_", "GH_", "GITHUB_"];
 for (const [key, value] of Object.entries(envVars)) {
   if (ALLOWED_ENV_VAR_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+    // use same precedence as dotenv
+    // https://jsr.io/@std/dotenv/0.225.5/mod.ts#L221
+    if (Deno.env.get(key) !== undefined) continue;
     Deno.env.set(key, value);
   }
 }
