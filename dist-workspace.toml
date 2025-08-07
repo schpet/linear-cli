@@ -15,7 +15,7 @@ build-command = [
     "compile",
     "-o",
     "linear",
-    '--allow-env="GITHUB_*,GH_*,LINEAR_*"',
+    '--allow-env="GITHUB_*,GH_*,LINEAR_*,NODE_ENV"',
     "--allow-read",
     "--allow-write",
     "--allow-run=git,gh,open,cmd,xdg-open,wslview",
