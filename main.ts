@@ -56,6 +56,9 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
+import { graphql, type DocumentType } from "./generated/index.ts";
+import { GraphQLClient, type Variables } from "npm:graphql-request";
+import type { TypedDocumentNode } from "npm:@graphql-typed-document-node/core";
 
 interface Label {
   name: string;
@@ -67,7 +70,7 @@ interface Issue {
   identifier: string;
   title: string;
   priority: number;
-  estimate: number | null;
+  estimate?: number | null | undefined;
   labels: { nodes: Label[] };
   state: {
     id: string;
@@ -140,8 +143,8 @@ async function branchExists(branch: string): Promise<boolean> {
 async function getStartedState(
   teamId: string,
 ): Promise<{ id: string; name: string }> {
-  const query = /* GraphQL */ `
-    query($teamId: String!) {
+  const query = graphql(/* GraphQL */ `
+    query GetStartedState($teamId: String!) {
       team(id: $teamId) {
         states {
           nodes {
@@ -153,10 +156,10 @@ async function getStartedState(
         }
       }
     }
-  `;
+  `);
 
-  const result = await fetchGraphQL(query, { teamId });
-  const states = result.data.team.states.nodes;
+  const result = await executeGraphQL(query, { teamId });
+  const states = result.team.states.nodes;
   const startedStates = states
     .filter((s: { type: string }) => s.type === "started")
     .sort((a: { position: number }, b: { position: number }) =>
@@ -176,8 +179,8 @@ async function updateIssueState(
   issueId: string,
   stateId: string,
 ): Promise<void> {
-  const mutation = `
-    mutation($issueId: String!, $stateId: String!) {
+  const mutation = graphql(/* GraphQL */ `
+    mutation UpdateIssueState($issueId: String!, $stateId: String!) {
       issueUpdate(
         id: $issueId,
         input: { stateId: $stateId }
@@ -185,9 +188,9 @@ async function updateIssueState(
         success
       }
     }
-  `;
+  `);
 
-  await fetchGraphQL(mutation, { issueId, stateId });
+  await executeGraphQL(mutation, { issueId, stateId });
 }
 
 function isValidLinearId(id: string): boolean {
@@ -219,11 +222,7 @@ async function getTeamId(): Promise<string | null> {
   return match ? match[0].toUpperCase() : null;
 }
 
-export async function fetchGraphQL(
-  query: string,
-  variables: Record<string, unknown>,
-  // deno-lint-ignore no-explicit-any
-): Promise<any> {
+function getGraphQLClient(): GraphQLClient {
   const apiKey = getOption("api_key");
   if (!apiKey) {
     throw new Error(
@@ -231,76 +230,19 @@ export async function fetchGraphQL(
     );
   }
 
-  const response = await fetch("https://api.linear.app/graphql", {
-    method: "POST",
+  return new GraphQLClient("https://api.linear.app/graphql", {
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": apiKey,
-      "Accept": "application/json",
+      Authorization: apiKey,
     },
-    body: JSON.stringify({ query, variables }),
   });
+}
 
-  const responseBodyText = await response.text();
-
-  if (!response.ok) {
-    // HTTP error (e.g., 4xx, 5xx)
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      let errorData;
-      try {
-        errorData = JSON.parse(responseBodyText);
-      } catch {
-        // Fall back to original error if JSON parsing fails
-      }
-      if (errorData) {
-        throw new Error(
-          `GraphQL API request rejected:\n\n${
-            JSON.stringify(errorData, null, 2)
-          }`,
-        );
-      }
-    }
-
-    throw new Error(
-      `GraphQL API request failed with status ${response.status} ${response.statusText}.\nResponse body (first 500 chars): ${
-        responseBodyText.slice(0, 500)
-      }`,
-    );
-  }
-
-  // Response is OK (2xx), now check Content-Type and parse as JSON
-  const contentType = response.headers.get("content-type");
-  if (!contentType || !contentType.includes("application/json")) {
-    // This case implies an issue if the API is expected to always return JSON on success.
-    throw new Error(
-      `GraphQL API request succeeded with status ${response.status}, but response Content-Type was not 'application/json'.\nContent-Type: ${contentType}\nResponse body (first 500 chars): ${
-        responseBodyText.slice(0, 500)
-      }`,
-    );
-  }
-
-  let data;
-  try {
-    data = JSON.parse(responseBodyText);
-  } catch (jsonError) {
-    // HTTP 2xx, Content-Type was application/json, but body was not valid JSON
-    throw new Error(
-      `GraphQL API request succeeded with status ${response.status}, but failed to parse JSON response.\nContent-Type: ${contentType}\nError: ${
-        (jsonError as Error).message
-      }\nResponse body (first 500 chars): ${responseBodyText.slice(0, 500)}`,
-    );
-  }
-
-  if (data.errors) {
-    // GraphQL level errors (e.g. bad query, auth issue reported in JSON)
-    throw new Error(
-      `GraphQL API request returned errors: ${
-        JSON.stringify(data.errors, null, 2)
-      }`,
-    );
-  }
-  return data;
+export async function executeGraphQL<TResult, TVariables>(
+  document: TypedDocumentNode<TResult, TVariables>,
+  variables: TVariables,
+): Promise<TResult> {
+  const client = getGraphQLClient();
+  return await client.request(document, variables as Variables);
 }
 
 async function fetchIssuesForState(teamId: string, state: string) {
@@ -312,8 +254,8 @@ async function fetchIssuesForState(teamId: string, state: string) {
     Deno.exit(1);
   }
 
-  const query = /* GraphQL */ `
-    query issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
+  const query = graphql(/* GraphQL */ `
+    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
       issues(
         filter: {
           team: { key: { eq: $teamId } }
@@ -344,13 +286,13 @@ async function fetchIssuesForState(teamId: string, state: string) {
         }
       }
     }
-  `;
+  `);
 
   const sortPayload = sort === "manual"
-    ? [{ manual: { nulls: "last", order: "Ascending" } }]
-    : [{ priority: { nulls: "last", order: "Descending" } }];
+    ? [{ manual: { nulls: "Last" as any, order: "Asc" as any } }]
+    : [{ priority: { nulls: "Last" as any, order: "Desc" as any } }];
 
-  return await fetchGraphQL(query, {
+  return await executeGraphQL(query, {
     teamId,
     sort: sortPayload,
     states: [state],
@@ -374,16 +316,24 @@ async function fetchIssueDetails(
   issueId: string,
   showSpinner = false,
 ): Promise<
-  { title: string; description: string | null; url: string; branchName: string }
+  { title: string; description?: string | null | undefined; url: string; branchName: string }
 > {
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
   try {
-    const query =
-      `query($id: String!) { issue(id: $id) { title, description, url, branchName } }`;
-    const data = await fetchGraphQL(query, { id: issueId });
+    const query = graphql(/* GraphQL */ `
+      query FetchIssueDetails($id: String!) { 
+        issue(id: $id) { 
+          title
+          description
+          url
+          branchName 
+        } 
+      }
+    `);
+    const data = await executeGraphQL(query, { id: issueId });
     spinner?.stop();
-    return data.data.issue;
+    return data.issue;
   } catch (error) {
     spinner?.stop();
     console.error("✗ Failed to fetch issue details");
@@ -612,7 +562,7 @@ const issueCommand = new Command()
 
     try {
       const result = await fetchIssuesForState(teamId, state);
-      const issues = result.data.issues.nodes;
+      const issues = result.issues.nodes;
 
       if (issues.length === 0) {
         console.log("No unstarted issues found.");
@@ -645,7 +595,7 @@ const issueCommand = new Command()
         state: string;
         stateStyles: string[];
         timeAgo: string;
-        estimate: number | null;
+        estimate: number | null | undefined;
       };
 
       const tableData: Array<TableRow> = issues.map((issue: Issue) => {
@@ -802,7 +752,7 @@ const issueCommand = new Command()
 
       try {
         const result = await fetchIssuesForState(teamId, "unstarted");
-        const issues = result.data.issues.nodes;
+        const issues = result.issues.nodes;
 
         if (issues.length === 0) {
           console.error("No unstarted issues found.");
@@ -1012,8 +962,8 @@ await new Command()
       Deno.exit(1);
     }
 
-    const query = `
-      query {
+    const query = graphql(/* GraphQL */ `
+      query GetViewerAndTeams {
         viewer {
           organization {
             urlKey
@@ -1027,25 +977,11 @@ await new Command()
           }
         }
       }
-    `;
-    const response = await fetch("https://api.linear.app/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": apiKey,
-      },
-      body: JSON.stringify({ query }),
-    });
-    const result = await response.json();
-    if (result.errors) {
-      console.error(
-        "Error fetching data from Linear GraphQL API:",
-        result.errors,
-      );
-      Deno.exit(1);
-    }
-    const workspace = result.data.viewer.organization.urlKey;
-    const teams = result.data.teams.nodes;
+    `);
+    
+    const result = await executeGraphQL(query, {});
+    const workspace = result.viewer.organization.urlKey;
+    const teams = result.teams.nodes;
 
     interface Team {
       id: string;
