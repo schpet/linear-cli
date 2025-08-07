@@ -1,11 +1,11 @@
-import type { CodegenConfig } from '@graphql-codegen/cli';
+import type { CodegenConfig } from "@graphql-codegen/cli";
 
 const config: CodegenConfig = {
-  schema: 'https://api.linear.app/graphql',
-  documents: ['main.ts'],
+  schema: "https://api.linear.app/graphql",
+  documents: ["main.ts"],
   generates: {
-    'generated/': {
-      preset: 'client',
+    "generated/": {
+      preset: "client",
       plugins: [],
     },
   },

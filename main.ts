@@ -56,7 +56,7 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
-import { graphql, type DocumentType } from "./generated/index.ts";
+import { type DocumentType, graphql } from "./generated/index.ts";
 import { GraphQLClient, type Variables } from "npm:graphql-request";
 import type { TypedDocumentNode } from "npm:@graphql-typed-document-node/core";
 
@@ -316,7 +316,12 @@ async function fetchIssueDetails(
   issueId: string,
   showSpinner = false,
 ): Promise<
-  { title: string; description?: string | null | undefined; url: string; branchName: string }
+  {
+    title: string;
+    description?: string | null | undefined;
+    url: string;
+    branchName: string;
+  }
 > {
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
@@ -978,7 +983,7 @@ await new Command()
         }
       }
     `);
-    
+
     const result = await executeGraphQL(query, {});
     const workspace = result.viewer.organization.urlKey;
     const teams = result.teams.nodes;

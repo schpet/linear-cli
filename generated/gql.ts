@@ -1,6 +1,6 @@
 /* eslint-disable */
-import * as types from './graphql.ts';
-import { TypedDocumentNode as DocumentNode } from 'npm:@graphql-typed-document-node/core';
+import * as types from "./graphql.ts";
+import { TypedDocumentNode as DocumentNode } from "npm:@graphql-typed-document-node/core";
 
 /**
  * Map of all GraphQL operations in the project.
@@ -14,23 +14,32 @@ import { TypedDocumentNode as DocumentNode } from 'npm:@graphql-typed-document-n
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
-    "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  ": typeof types.GetStartedStateDocument,
-    "\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  ": typeof types.UpdateIssueStateDocument,
-    "\n    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  ": typeof types.IssuesDocument,
-    "\n      query FetchIssueDetails($id: String!) { \n        issue(id: $id) { \n          title\n          description\n          url\n          branchName \n        } \n      }\n    ": typeof types.FetchIssueDetailsDocument,
-    "\n      query GetViewerAndTeams {\n        viewer {\n          organization {\n            urlKey\n          }\n        }\n        teams {\n          nodes {\n            id\n            key\n            name\n          }\n        }\n      }\n    ": typeof types.GetViewerAndTeamsDocument,
+  "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  ":
+    typeof types.GetStartedStateDocument;
+  "\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  ":
+    typeof types.UpdateIssueStateDocument;
+  "\n    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  ":
+    typeof types.IssuesDocument;
+  "\n      query FetchIssueDetails($id: String!) { \n        issue(id: $id) { \n          title\n          description\n          url\n          branchName \n        } \n      }\n    ":
+    typeof types.FetchIssueDetailsDocument;
+  "\n      query GetViewerAndTeams {\n        viewer {\n          organization {\n            urlKey\n          }\n        }\n        teams {\n          nodes {\n            id\n            key\n            name\n          }\n        }\n      }\n    ":
+    typeof types.GetViewerAndTeamsDocument;
 };
 const documents: Documents = {
-    "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  ": types.GetStartedStateDocument,
-    "\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  ": types.UpdateIssueStateDocument,
-    "\n    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  ": types.IssuesDocument,
-    "\n      query FetchIssueDetails($id: String!) { \n        issue(id: $id) { \n          title\n          description\n          url\n          branchName \n        } \n      }\n    ": types.FetchIssueDetailsDocument,
-    "\n      query GetViewerAndTeams {\n        viewer {\n          organization {\n            urlKey\n          }\n        }\n        teams {\n          nodes {\n            id\n            key\n            name\n          }\n        }\n      }\n    ": types.GetViewerAndTeamsDocument,
+  "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  ":
+    types.GetStartedStateDocument,
+  "\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  ":
+    types.UpdateIssueStateDocument,
+  "\n    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  ":
+    types.IssuesDocument,
+  "\n      query FetchIssueDetails($id: String!) { \n        issue(id: $id) { \n          title\n          description\n          url\n          branchName \n        } \n      }\n    ":
+    types.FetchIssueDetailsDocument,
+  "\n      query GetViewerAndTeams {\n        viewer {\n          organization {\n            urlKey\n          }\n        }\n        teams {\n          nodes {\n            id\n            key\n            name\n          }\n        }\n      }\n    ":
+    types.GetViewerAndTeamsDocument,
 };
 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- *
  *
  * @example
  * ```ts
@@ -45,26 +54,52 @@ export function graphql(source: string): unknown;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  "): (typeof documents)["\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  "];
+export function graphql(
+  source:
+    "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  ",
+): (typeof documents)[
+  "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  "
+];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  "): (typeof documents)["\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  "];
+export function graphql(
+  source:
+    "\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  ",
+): (typeof documents)[
+  "\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  "
+];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  "): (typeof documents)["\n    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  "];
+export function graphql(
+  source:
+    "\n    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  ",
+): (typeof documents)[
+  "\n    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  "
+];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n      query FetchIssueDetails($id: String!) { \n        issue(id: $id) { \n          title\n          description\n          url\n          branchName \n        } \n      }\n    "): (typeof documents)["\n      query FetchIssueDetails($id: String!) { \n        issue(id: $id) { \n          title\n          description\n          url\n          branchName \n        } \n      }\n    "];
+export function graphql(
+  source:
+    "\n      query FetchIssueDetails($id: String!) { \n        issue(id: $id) { \n          title\n          description\n          url\n          branchName \n        } \n      }\n    ",
+): (typeof documents)[
+  "\n      query FetchIssueDetails($id: String!) { \n        issue(id: $id) { \n          title\n          description\n          url\n          branchName \n        } \n      }\n    "
+];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n      query GetViewerAndTeams {\n        viewer {\n          organization {\n            urlKey\n          }\n        }\n        teams {\n          nodes {\n            id\n            key\n            name\n          }\n        }\n      }\n    "): (typeof documents)["\n      query GetViewerAndTeams {\n        viewer {\n          organization {\n            urlKey\n          }\n        }\n        teams {\n          nodes {\n            id\n            key\n            name\n          }\n        }\n      }\n    "];
+export function graphql(
+  source:
+    "\n      query GetViewerAndTeams {\n        viewer {\n          organization {\n            urlKey\n          }\n        }\n        teams {\n          nodes {\n            id\n            key\n            name\n          }\n        }\n      }\n    ",
+): (typeof documents)[
+  "\n      query GetViewerAndTeams {\n        viewer {\n          organization {\n            urlKey\n          }\n        }\n        teams {\n          nodes {\n            id\n            key\n            name\n          }\n        }\n      }\n    "
+];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};
 }
 
-export type DocumentType<TDocumentNode extends DocumentNode<any, any>> = TDocumentNode extends DocumentNode<  infer TType,  any>  ? TType  : never;
+export type DocumentType<TDocumentNode extends DocumentNode<any, any>> =
+  TDocumentNode extends DocumentNode<infer TType, any> ? TType : never;
