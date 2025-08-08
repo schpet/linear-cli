@@ -194,127 +194,252 @@ function isValidLinearId(id: string): boolean {
   return /^[A-Za-z0-9]+-[1-9][0-9]*$/.test(id);
 }
 
-async function getIssueId(providedId?: string): Promise<string | null> {
-  if (providedId) {
-    if (!isValidLinearId(providedId)) {
-      console.error(`Invalid Linear issue ID format: ${providedId}`);
-      console.error("Issue IDs should look like: ABC-123");
-      Deno.exit(1);
-    }
-    return providedId.toUpperCase();
-  }
-  const branch = await getCurrentBranch();
-  if (!branch) return null;
-  const match = branch.match(/[a-zA-Z0-9]+-[1-9][0-9]*/i);
-  return match ? match[0].toUpperCase() : null;
+async function getProjectUidByName(
+  name: string,
+): Promise<string | undefined> {
+  const data = await fetchGraphQL(
+    `query match($name: String!) {
+      projects(filter: {name: {eq: $name}}) {nodes{id}}
+    }`,
+    { name },
+  );
+  return data.data.projects?.nodes[0]?.id;
 }
 
-async function getTeamId(): Promise<string | null> {
+async function getProjectUidOptionsByName(
+  name: string,
+): Promise<Record<string, string>> {
+  const data = await fetchGraphQL(
+    `query match($name: String!) {
+        projects(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
+      }`,
+    { name },
+  );
+  const qResults: { id: string; name: string }[] = data.data.projects?.nodes ||
+    [];
+  return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
+}
+
+async function getIssueIdByTitle(
+  title: string,
+): Promise<string | undefined> {
+  const data = await fetchGraphQL(
+    `query match($title: String!) {
+      issues(filter: {title: {eq: $title}}) {nodes{identifier}}
+    }`,
+    { title },
+  );
+  return data.data.issues?.nodes[0]?.identifier;
+}
+
+async function getIssueUidByIdentifier(
+  identifier: string,
+): Promise<string | undefined> {
+  const data = await fetchGraphQL(
+    `query match($identifier: String!) {
+      issues(filter: {identifier: {eq: $identifier}}) {nodes{id}}
+    }`,
+    { identifier },
+  );
+  return data.data.issues?.nodes[0]?.id;
+}
+
+async function getIssueUidOptionsByTitle(
+  title: string,
+): Promise<Record<string, string>> {
+  const data = await fetchGraphQL(
+    `query match($title: String!) {
+        issues(filter: {title: {containsIgnoreCase: $title}}) {nodes{id, identifier, title}}
+      }`,
+    { title },
+  );
+  const qResults: { id: string; identifier: string; title: string }[] =
+    data.data.issues?.nodes || [];
+  return Object.fromEntries(
+    qResults.map((t) => [t.id, `${t.identifier}: ${t.title}`]),
+  );
+}
+
+async function getIssueId(
+  providedId?: string,
+  allowByTitle = false,
+): Promise<string | undefined> {
+  if (providedId && isValidLinearId(providedId)) {
+    return providedId.toUpperCase();
+  }
+  if (providedId === undefined) {
+    // look in branch
+    const branch = await getCurrentBranch();
+    if (!branch) return undefined;
+    const match = branch.match(/[a-zA-Z0-9]+-[1-9][0-9]*/i);
+    if (match) {
+      return match[0].toUpperCase();
+    }
+  }
+  if (allowByTitle && providedId) {
+    const issueId = await getIssueIdByTitle(providedId);
+    if (issueId) {
+      return issueId;
+    }
+  }
+}
+
+async function getTeamId(): Promise<string | undefined> {
   const teamId = getOption("team_id");
   if (teamId) {
     return teamId.toUpperCase();
   }
   const dir = await getRepoDir();
   const match = dir.match(/^[a-zA-Z0-9]+/);
-  return match ? match[0].toUpperCase() : null;
+  return match ? match[0].toUpperCase() : undefined;
+}
+
+async function getTeamUidByKey(
+  team: string,
+): Promise<string | undefined> {
+  const data = await fetchGraphQL(
+    `query match($team: String!) {
+      teams(filter: {key: {eq: $team}}) {nodes{id}}
+    }`,
+    { team },
+  );
+  return data.data.teams?.nodes[0]?.id;
+}
+
+async function getTeamUidByName(
+  team: string,
+): Promise<string | undefined> {
+  const data = await fetchGraphQL(
+    `query match($team: String!) {
+      teams(filter: {name: {eq: $team}}) {nodes{id}}
+    }`,
+    { team },
+  );
+  return data.data.teams?.nodes[0]?.id;
 }
 
 async function getTeamUid(
-  teamId: string | null = null,
-  spinner: Spinner | null = null,
-): Promise<string | null> {
-  teamId = teamId || await getTeamId();
-  if (teamId === null) return null;
-  return await tryPartialMatch(
-    "team",
-    "key",
-    teamId,
-    true,
-    spinner,
-  ) || await tryPartialMatch(
-    "team",
-    "displayName",
-    teamId,
-    true,
-    spinner,
-  );
+  team: string | undefined = undefined,
+  tryDisplayName: boolean = true,
+  tryKey: boolean = true,
+): Promise<string | undefined> {
+  team = team || await getTeamId() || undefined;
+  if (team === undefined) return undefined;
+  if (tryKey) {
+    const teamId = await getTeamUidByKey(team);
+    if (teamId) return teamId;
+  }
+  if (tryDisplayName) {
+    const teamId = await getTeamUidByName(team);
+    if (teamId) return teamId;
+  }
 }
 
-async function tryPartialMatch(
-  dataName: string,
-  varName: string,
-  val: string,
-  hasNodes: boolean = true,
-  spinner: Spinner | null = null,
-): Promise<string> {
-  const queryDataName = dataName + "s";
-  const displayDataName = dataName.substring(0, 1).toUpperCase() +
-    dataName.substring(1);
-  let data = await fetchGraphQL(
-    `query match($val: String!) {
-    ${queryDataName}(filter: {${varName}: {eq: $val}}) {nodes{id}}
-  }`,
-    { val },
+async function getTeamUidOptionsByKey(
+  team: string,
+): Promise<Record<string, string>> {
+  const data = await fetchGraphQL(
+    `query match($team: String!) {
+        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key}}
+      }`,
+    { team },
   );
-  let results = data.data[queryDataName];
-  if (hasNodes) results = results.nodes;
-  if (results.length > 0) {
-    return results[0].id;
-  }
-  data = await fetchGraphQL(
-    `query match($val: String!) {
-    ${queryDataName}(filter: {${varName}: {containsIgnoreCase: $val}}) {nodes{
-      id
-      ${varName}}}}`,
-    { val },
+  const qResults: { id: string; key: string }[] = data.data.teams?.nodes || [];
+  return Object.fromEntries(qResults.map((t) => [t.id, t.key]));
+}
+
+async function getTeamUidOptionsByName(
+  team: string,
+): Promise<Record<string, string>> {
+  const data = await fetchGraphQL(
+    `query match($team: String!) {
+        teams(filter: {name: {containsIgnoreCase: $team}}) {nodes{id, key, name}}
+      }`,
+    { team },
   );
-  results = data.data[queryDataName];
-  if (hasNodes) results = results.nodes;
-  if (results.length === 0) {
-    throw new Error(`${displayDataName} ${val} not found`);
-  } else if (results.length === 1) {
-    spinner?.stop();
-    const answer = await Select.prompt({
-      message: `${displayDataName} with ${varName} ${val} does not exist, but ${
-        results[0][varName]
-      } exists. Is this what you meant?`,
-      options: [
-        { name: "yes", value: results[0].id },
-        { name: "no", value: "not_found" },
-      ],
-    });
-    if (answer === "not_found") {
-      throw new Error(`${displayDataName} ${val} not found`);
-    }
-    spinner?.start();
-    return answer;
-  } else {
-    spinner?.stop();
-    const answer = await Select.prompt({
-      message:
-        `${displayDataName} with ${varName} ${val} does not exist, but the following exist. Is any of these what you meant?`,
-      options: [
-        ...results.map((
-          result: Record<string, string>,
-        ) => ({
-          name: result[varName],
-          value: result.id,
-        })),
-        { name: "none of the above", value: "not_found" },
-      ],
-    });
-    if (answer === "not_found") {
-      throw new Error(`${displayDataName} ${val} not found`);
-    }
-    spinner?.start();
-    return answer;
+  const qResults: { id: string; name: string; key: string }[] =
+    data.data.teams?.nodes || [];
+  return Object.fromEntries(qResults.map((t) => [t.id, `${t.key}: ${t.name}`]));
+}
+
+async function getTeamUidOptions(
+  team: string,
+  tryName: boolean = true,
+  tryKey: boolean = true,
+): Promise<Record<string, string>> {
+  let results: Record<string, string> = {};
+  if (tryKey) {
+    results = await getTeamUidOptionsByKey(team);
   }
+  if (tryName) {
+    results = {
+      ...results,
+      ...await getTeamUidOptionsByName(team),
+    };
+  }
+  return results;
+}
+
+async function getUserUidByDisplayName(
+  username: string,
+): Promise<string | undefined> {
+  const data = await fetchGraphQL(
+    `query match($username: String!) {
+      users(filter: {displayName: {eq: $username}}) {nodes{id}}
+    }`,
+    { username },
+  );
+  return data.data.users?.nodes[0]?.id;
+}
+
+async function getUserUidOptionsByDisplayName(
+  name: string,
+): Promise<Record<string, string>> {
+  const data = await fetchGraphQL(
+    `query match($name: String!) {
+        users(filter: {displayName: {containsIgnoreCase: $name}}) {nodes{id, displayName}}
+      }`,
+    { name },
+  );
+  const qResults: { id: string; displayName: string }[] =
+    data.data.users?.nodes || [];
+  return Object.fromEntries(qResults.map((t) => [t.id, t.displayName]));
+}
+
+async function getUserUidOptionsByName(
+  name: string,
+): Promise<Record<string, string>> {
+  const data = await fetchGraphQL(
+    `query match($name: String!) {
+        users(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
+      }`,
+    { name },
+  );
+  const qResults: { id: string; name: string }[] = data.data.users?.nodes || [];
+  return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
+}
+
+async function getUserUidOptions(
+  name: string,
+  tryDisplayName: boolean = true,
+  tryName: boolean = true,
+): Promise<Record<string, string>> {
+  let results: Record<string, string> = {};
+  if (tryDisplayName) {
+    results = await getUserUidOptionsByDisplayName(name);
+  }
+  if (tryName) {
+    results = {
+      ...results,
+      ...await getUserUidOptionsByName(name),
+    };
+  }
+  return results;
 }
 
 async function getUserId(
   username: string | undefined,
-  spinner: Spinner | null = null,
-): Promise<string> {
+): Promise<string | undefined> {
   if (username === undefined || username === "self") {
     const data = await fetchGraphQL(
       `query viewerId {
@@ -324,34 +449,71 @@ async function getUserId(
     );
     return data.data.viewer.id;
   } else {
-    return await tryPartialMatch(
-      "user",
-      "displayName",
-      username,
-      true,
-      spinner,
-    );
+    return await getUserUidByDisplayName(username);
   }
 }
 
-async function getProjectId(
-  projectName: string,
-  spinner: Spinner | null = null,
-): Promise<string> {
-  return await tryPartialMatch(
-    "project",
-    "name",
-    projectName,
-    true,
-    spinner,
+async function getIssueLabelUidByName(
+  name: string,
+): Promise<string | undefined> {
+  const data = await fetchGraphQL(
+    `query match($name: String!) {
+      issueLabels(filter: {name: {eq: $name}}) {nodes{id}}
+    }`,
+    { name },
   );
+  return data.data.issueLabels?.nodes[0]?.id;
 }
 
-async function getIssueLabelId(
-  issueLabelName: string,
-  spinner: Spinner | null = null,
-): Promise<string> {
-  return tryPartialMatch("issueLabel", "name", issueLabelName, true, spinner);
+async function getIssueLabelUidOptionsByName(
+  name: string,
+): Promise<Record<string, string>> {
+  const data = await fetchGraphQL(
+    `query match($name: String!) {
+        issueLabels(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
+      }`,
+    { name },
+  );
+  const qResults: { id: string; name: string }[] =
+    data.data.issueLabels?.nodes || [];
+  return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
+}
+
+async function selectOption(
+  dataName: string,
+  originalValue: string,
+  options: Record<string, string>,
+): Promise<string | undefined> {
+  const NO = Object();
+  const keys = Object.keys(options);
+  if (keys.length === 0) {
+    return undefined;
+  } else if (keys.length === 1) {
+    const key = keys[0];
+    const result = await Select.prompt({
+      message: `${dataName} named ${originalValue} does not exist, but ${
+        options[key]
+      } exists. Is this what you meant?`,
+      options: [
+        { name: "yes", value: key },
+        { name: "no", value: NO },
+      ],
+    });
+    return result === NO ? undefined : result;
+  } else {
+    const result = await Select.prompt({
+      message:
+        `${dataName} with ${originalValue} does not exist, but the following exist. Is any of these what you meant?`,
+      options: [
+        ...Object.entries(options).map(([value, name]: [string, string]) => ({
+          name,
+          value,
+        })),
+        { name: "none of the above", value: NO },
+      ],
+    });
+    return result === NO ? undefined : result;
+  }
 }
 
 async function doStartIssue(issueId: string, teamId: string) {
@@ -724,7 +886,8 @@ const issueCommand = new Command()
   .alias("p")
   .arguments("[issueId:string]")
   .option("--no-color", "Disable colored output")
-  .action(async ({ color }, issueId) => {
+  .option("--no-interactive", "Disable interactive prompts")
+  .action(async ({ color, interactive }, issueId) => {
     console.error(
       "Warning: 'linear issue print' is deprecated and will be removed in a future release.",
     );
@@ -737,7 +900,7 @@ const issueCommand = new Command()
       Deno.exit(1);
     }
 
-    const showSpinner = color && Deno.stdout.isTerminal();
+    const showSpinner = color && interactive && Deno.stdout.isTerminal();
     const { title, description } = await fetchIssueDetails(
       resolvedId,
       showSpinner,
@@ -805,7 +968,7 @@ const issueCommand = new Command()
 
     try {
       const result = await fetchIssuesForState(teamId, state);
-      const issues = result.data.issues.nodes;
+      const issues = result.data.issues?.nodes || [];
 
       if (issues.length === 0) {
         console.log("No unstarted issues found.");
@@ -1165,6 +1328,7 @@ const issueCommand = new Command()
     "Do not use default template for the issue",
   )
   .option("--no-color", "Disable colored output")
+  .option("--no-interactive", "Disable interactive prompts")
   .arguments("[title:string]")
   .action(
     async (
@@ -1181,59 +1345,105 @@ const issueCommand = new Command()
         project,
         dryRun,
         color,
+        interactive,
       },
       title,
     ) => {
-      const showSpinner = color && Deno.stdout.isTerminal();
+      interactive = interactive && Deno.stdout.isTerminal();
+      const showSpinner = color && interactive;
       const spinner = showSpinner ? new Spinner() : null;
       spinner?.start();
       try {
-        const teamId = (team === undefined)
-          ? await getTeamId()
+        team = (team === undefined)
+          ? (await getTeamId() || undefined)
           : team.toUpperCase();
-        const teamUid = await getTeamUid(teamId, spinner);
+        let teamUid: string | undefined = undefined;
+        if (team !== undefined) {
+          teamUid = await getTeamUid(team);
+          if (interactive && !teamUid) {
+            const teamUids = await getTeamUidOptions(team);
+            spinner?.stop();
+            teamUid = await selectOption("Team", team, teamUids);
+            spinner?.start();
+          }
+        }
+        if (!teamUid) {
+          console.error(`Could not determine team ID for team ${team}`);
+          Deno.exit(1);
+        }
         if (start && assignee === undefined) {
           assignee = "self";
         }
         if (start && assignee !== undefined && assignee !== "self") {
           console.error("Cannot use --start and a non-self --assignee");
         }
-        let assigneeId = undefined;
-        if (assignee !== undefined) {
-          try {
-            // try with display name first
-            assigneeId = await getUserId(assignee, spinner);
-          } catch (_) {
-            assigneeId = await tryPartialMatch(
-              "user",
-              "name",
-              assignee,
-              true,
-              spinner,
+        let assigneeId = await getUserId(assignee);
+        if (!assigneeId && assignee !== undefined) {
+          if (interactive) {
+            const assigneeIds = await getUserUidOptions(assignee);
+            spinner?.stop();
+            assigneeId = await selectOption("User", assignee, assigneeIds);
+            spinner?.start();
+          }
+          if (!assigneeId) {
+            console.error(
+              `Could not determine user ID for assignee ${assignee}`,
             );
+            Deno.exit(1);
           }
         }
         const labelIds: string[] = [];
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
-            labelIds.push(await getIssueLabelId(label, spinner));
+            let labelId = await getIssueLabelUidByName(label);
+            if (!labelId && interactive) {
+              const labelIds = await getIssueLabelUidOptionsByName(label);
+              spinner?.stop();
+              labelId = await selectOption("Issue label", label, labelIds);
+              spinner?.start();
+            }
+            if (!labelId) {
+              console.error(
+                `Could not determine ID for issue label ${label}`,
+              );
+              Deno.exit(1);
+            }
+            labelIds.push(labelId);
           }
         }
-        const projectId = (project !== undefined)
-          ? await getProjectId(project, spinner)
-          : undefined;
-        const parentId = (parent !== undefined)
-          ? await getIssueId(parent)
-          : undefined;
-        if (dueDate !== undefined) {
-          const parsed = new Date(dueDate);
-          if (isNaN(parsed.getTime())) {
-            console.error("Invalid due date format");
+        let projectId: string | undefined = undefined;
+        if (project !== undefined) {
+          projectId = await getProjectUidByName(project);
+          if (projectId === undefined && interactive) {
+            const projectIds = await getProjectUidOptionsByName(project);
+            spinner?.stop();
+            projectId = await selectOption("Project", project, projectIds);
+            spinner?.start();
+          }
+          if (projectId === undefined) {
+            console.error(`Could not determine ID for project ${project}`);
             Deno.exit(1);
           }
-          dueDate = parsed.toISOString().substring(0, 10);
         }
+        let parentUid: string | undefined = undefined;
+        if (parent !== undefined) {
+          const parentId = await getIssueId(parent, true);
+          if (parentId) {
+            parentUid = await getIssueUidByIdentifier(parentId);
+          }
+          if (parentId === undefined && interactive) {
+            const parentUids = await getIssueUidOptionsByTitle(parent);
+            spinner?.stop();
+            parentUid = await selectOption("Parent issue", parent, parentUids);
+            spinner?.start();
+          }
+          if (parentUid === undefined) {
+            console.error(`Could not determine ID for issue ${parent}`);
+            Deno.exit(1);
+          }
+        }
+        // Date validation done at graphql level
 
         const query = `
           mutation createIssue($title: String!, $assigneeId: String, $dueDate: TimelessDate, $parentId: String, $priority: Int, $estimate: Int, $labelIds: [String!], $teamId: String!, $projectId: String, $useDefaultTemplate: Boolean) {
@@ -1254,36 +1464,33 @@ const issueCommand = new Command()
             }
           }
         `;
-        if (dryRun) {
-          spinner?.stop();
-          console.log(query, {
-            title,
-            assigneeId,
-            dueDate,
-            parentId,
-            priority,
-            estimate,
-            labelIds,
-            teamUid,
-            projectId,
-            useDefaultTemplate,
-          });
-          return;
-        }
-        const data = await fetchGraphQL(query, {
+        const input = {
           title,
           assigneeId,
           dueDate,
-          parentId,
+          parentId: parentUid,
           priority,
           estimate,
           labelIds,
           teamId: teamUid,
           projectId,
           useDefaultTemplate,
-        });
+        };
+        if (dryRun) {
+          spinner?.stop();
+          console.log(input);
+          return;
+        }
+        const data = await fetchGraphQL(
+          `mutation createIssue($input: IssueCreateInput!) {
+            issueCreate(input: $input) {
+              success
+              issue { id, team { key } }
+          }}`,
+          { input },
+        );
         if (!data.data.issueCreate.success) {
-          throw data.data.issueCreate.error;
+          throw "query failed";
         }
         const issueId = data.data.issueCreate.issue.id;
         if (start) {
