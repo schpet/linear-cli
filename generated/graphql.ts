@@ -1,50 +1,39 @@
 /* eslint-disable */
-import { TypedDocumentNode as DocumentNode } from "npm:@graphql-typed-document-node/core";
+import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
-export type Exact<T extends { [key: string]: unknown }> = {
-  [K in keyof T]: T[K];
-};
-export type MakeOptional<T, K extends keyof T> =
-  & Omit<T, K>
-  & { [SubKey in K]?: Maybe<T[SubKey]> };
-export type MakeMaybe<T, K extends keyof T> =
-  & Omit<T, K>
-  & { [SubKey in K]: Maybe<T[SubKey]> };
-export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> =
-  { [_ in K]?: never };
-export type Incremental<T> =
-  | T
-  | {
-    [P in keyof T]?: P extends " $fragmentName" | "__typename" ? T[P] : never;
-  };
+export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
+export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
+export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
+export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
+export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
-  ID: { input: string; output: string };
-  String: { input: string; output: string };
-  Boolean: { input: boolean; output: boolean };
-  Int: { input: number; output: number };
-  Float: { input: number; output: number };
+  ID: { input: string; output: string; }
+  String: { input: string; output: string; }
+  Boolean: { input: boolean; output: boolean; }
+  Int: { input: number; output: number; }
+  Float: { input: number; output: number; }
   /** Represents a date and time in ISO 8601 format. Accepts shortcuts like `2021` to represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings which are added to the current date to create the represented date (e.g '-P2W1D' represents the date that was two weeks and 1 day ago)  */
-  DateTimeOrDuration: { input: any; output: any };
+  DateTimeOrDuration: { input: any; output: any; }
   /** Represents a duration in ISO 8601 format. Accepts ISO 8601 duration strings or integers in milliseconds. */
-  Duration: { input: any; output: any };
+  Duration: { input: any; output: any; }
   /** Represents a date in ISO 8601 format or a duration. Accepts shortcuts like `2021` to represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings (e.g '-P2W1D'), which are not converted to dates. */
-  TimelessDateOrDuration: { input: any; output: any };
+  TimelessDateOrDuration: { input: any; output: any; }
   /** Represents a date and time in ISO 8601 format. Accepts shortcuts like `2021` to represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings which are added to the current date to create the represented date (e.g '-P2W1D' represents the date that was two weeks and 1 day ago)  */
-  DateTime: { input: any; output: any };
+  DateTime: { input: any; output: any; }
   /** The `JSONObject` scalar type represents arbitrary values as *embedded* JSON */
-  JSONObject: { input: any; output: any };
+  JSONObject: { input: any; output: any; }
   /** The `JSON` scalar type represents arbitrary values as *stringified* JSON */
-  JSON: { input: any; output: any };
+  JSON: { input: any; output: any; }
   /** Represents a date in ISO 8601 format. Accepts shortcuts like `2021` to represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings which are added to the current date to create the represented date (e.g '-P2W1D' represents the date that was two weeks and 1 day ago)  */
-  TimelessDate: { input: any; output: any };
+  TimelessDate: { input: any; output: any; }
   /** A universally unique identifier as specified by RFC 4122. */
-  UUID: { input: any; output: any };
+  UUID: { input: any; output: any; }
 };
 
 export type Query = {
-  __typename?: "Query";
+  __typename?: 'Query';
   /** All teams you the user can administrate. Administrable teams are teams whose settings the user can change, but to whose issues the user doesn't necessarily have access to. */
   administrableTeams: TeamConnection;
   /** All agent activities. */
@@ -71,11 +60,13 @@ export type Query = {
   /** [Internal] All archived teams of the organization. */
   archivedTeams: Array<Team>;
   /**
+   *
    * One specific issue attachment.
    * [Deprecated] 'url' can no longer be used as the 'id' parameter. Use 'attachmentsForUrl' instead
    */
   attachment: Attachment;
   /**
+   *
    * Query an issue by its associated attachment, and its id.
    *
    * @deprecated Will be removed in near future, please use `attachmentsForURL` to get attachments and their issues instead.
@@ -214,8 +205,7 @@ export type Query = {
   /** [DEPRECATED] Search issues. This endpoint is deprecated and will be removed in the future – use `searchIssues` instead. */
   issueSearch: IssueConnection;
   /** Suggests issue title based on a customer request. */
-  issueTitleSuggestionFromCustomerRequest:
-    IssueTitleSuggestionFromCustomerRequestPayload;
+  issueTitleSuggestionFromCustomerRequest: IssueTitleSuggestionFromCustomerRequestPayload;
   /** Find issue based on the VCS branch name. */
   issueVcsBranchSearch?: Maybe<Issue>;
   /** One specific notification. */
@@ -227,7 +217,7 @@ export type Query = {
   /** The user's notification subscriptions. */
   notificationSubscriptions: NotificationSubscriptionConnection;
   /** [Internal] A number of unread notifications. */
-  notificationsUnreadCount: Scalars["Int"]["output"];
+  notificationsUnreadCount: Scalars['Int']['output'];
   /** The user's organization. */
   organization: Organization;
   /** [INTERNAL] Checks whether the domain can be claimed. */
@@ -335,8 +325,7 @@ export type Query = {
   /** The user's settings. */
   userSettings: UserSettings;
   /** Verify that we received the correct response from the GitHub Enterprise Server. */
-  verifyGitHubEnterpriseServerInstallation:
-    GitHubEnterpriseServerInstallVerificationPayload;
+  verifyGitHubEnterpriseServerInstallation: GitHubEnterpriseServerInstallVerificationPayload;
   /** The currently authenticated user. */
   viewer: User;
   /** A specific webhook. */
@@ -355,828 +344,953 @@ export type Query = {
    */
   workspaceAuthorizedApplications: Array<WorkspaceAuthorizedApplication>;
   /** [INTERNAL] Get non-internal authorized applications for a workspace, including each application's app user. */
-  workspaceAuthorizedApplicationsWithAppUser: Array<
-    WorkspaceAuthorizedApplicationWithAppUser
-  >;
+  workspaceAuthorizedApplicationsWithAppUser: Array<WorkspaceAuthorizedApplicationWithAppUser>;
 };
+
 
 export type QueryAdministrableTeamsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<TeamFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryAgentActivitiesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<AgentActivityFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryAgentActivityArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryAgentSessionArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryAgentSessionsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryApiKeysArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryApplicationInfoArgs = {
-  clientId: Scalars["String"]["input"];
+  clientId: Scalars['String']['input'];
 };
+
 
 export type QueryApplicationInfoByIdsArgs = {
-  ids: Array<Scalars["String"]["input"]>;
+  ids: Array<Scalars['String']['input']>;
 };
+
 
 export type QueryApplicationInfoWithMembershipsByIdsArgs = {
-  clientIds: Array<Scalars["String"]["input"]>;
+  clientIds: Array<Scalars['String']['input']>;
 };
+
 
 export type QueryApplicationWithAuthorizationArgs = {
-  actor?: InputMaybe<Scalars["String"]["input"]>;
-  clientId: Scalars["String"]["input"];
-  redirectUri?: InputMaybe<Scalars["String"]["input"]>;
-  scope: Array<Scalars["String"]["input"]>;
+  actor?: InputMaybe<Scalars['String']['input']>;
+  clientId: Scalars['String']['input'];
+  redirectUri?: InputMaybe<Scalars['String']['input']>;
+  scope: Array<Scalars['String']['input']>;
 };
+
 
 export type QueryAttachmentArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryAttachmentIssueArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryAttachmentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<AttachmentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryAttachmentsForUrlArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
-  url: Scalars["String"]["input"];
+  url: Scalars['String']['input'];
 };
+
 
 export type QueryAttachmentSourcesArgs = {
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type QueryAuditEntriesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<AuditEntryFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryCommentArgs = {
-  hash?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  hash?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type QueryCommentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryCustomerArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryCustomerNeedArgs = {
-  hash?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  hash?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
 };
 
+
 export type QueryCustomerNeedsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CustomerNeedFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 export type QueryCustomersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CustomerFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sorts?: InputMaybe<Array<CustomerSortInput>>;
 };
 
+
 export type QueryCustomerStatusArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryCustomerStatusesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryCustomerTierArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type QueryCustomerTiersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 export type QueryCustomViewArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryCustomViewDetailsSuggestionArgs = {
-  filter: Scalars["JSONObject"]["input"];
-  modelName?: InputMaybe<Scalars["String"]["input"]>;
+  filter: Scalars['JSONObject']['input'];
+  modelName?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type QueryCustomViewHasSubscribersArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type QueryCustomViewsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CustomViewFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<CustomViewSortInput>>;
 };
 
+
 export type QueryCycleArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryCyclesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CycleFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryDocumentArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryDocumentContentHistoryArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryDocumentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<DocumentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryEmailIntakeAddressArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryEmojiArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryEmojisArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryEntityExternalLinkArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryExternalUserArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryExternalUsersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryFailuresForOauthWebhooksArgs = {
-  oauthClientId: Scalars["String"]["input"];
+  oauthClientId: Scalars['String']['input'];
 };
+
 
 export type QueryFavoriteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryFavoritesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryFetchDataArgs = {
-  query: Scalars["String"]["input"];
+  query: Scalars['String']['input'];
 };
+
 
 export type QueryInitiativeArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryInitiativeRelationArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type QueryInitiativeRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 export type QueryInitiativesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<InitiativeFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<InitiativeSortInput>>;
 };
 
+
 export type QueryInitiativeToProjectArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryInitiativeToProjectsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryInitiativeUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryInitiativeUpdatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<InitiativeUpdateFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryIntegrationArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryIntegrationHasScopesArgs = {
-  integrationId: Scalars["String"]["input"];
-  scopes: Array<Scalars["String"]["input"]>;
+  integrationId: Scalars['String']['input'];
+  scopes: Array<Scalars['String']['input']>;
 };
+
 
 export type QueryIntegrationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryIntegrationsSettingsArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryIntegrationTemplateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryIntegrationTemplatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryIssueArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryIssueFigmaFileKeySearchArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  fileKey: Scalars["String"]["input"];
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  fileKey: Scalars['String']['input'];
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryIssueFilterSuggestionArgs = {
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
-  prompt: Scalars["String"]["input"];
+  projectId?: InputMaybe<Scalars['String']['input']>;
+  prompt: Scalars['String']['input'];
 };
+
 
 export type QueryIssueImportCheckCsvArgs = {
-  csvUrl: Scalars["String"]["input"];
-  service: Scalars["String"]["input"];
+  csvUrl: Scalars['String']['input'];
+  service: Scalars['String']['input'];
 };
+
 
 export type QueryIssueImportCheckSyncArgs = {
-  issueImportId: Scalars["String"]["input"];
+  issueImportId: Scalars['String']['input'];
 };
+
 
 export type QueryIssueImportJqlCheckArgs = {
-  jiraEmail: Scalars["String"]["input"];
-  jiraHostname: Scalars["String"]["input"];
-  jiraProject: Scalars["String"]["input"];
-  jiraToken: Scalars["String"]["input"];
-  jql: Scalars["String"]["input"];
+  jiraEmail: Scalars['String']['input'];
+  jiraHostname: Scalars['String']['input'];
+  jiraProject: Scalars['String']['input'];
+  jiraToken: Scalars['String']['input'];
+  jql: Scalars['String']['input'];
 };
+
 
 export type QueryIssueLabelArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryIssueLabelsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryIssueRelationArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type QueryIssueRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 export type QueryIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<IssueSortInput>>;
 };
 
+
 export type QueryIssueSearchArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
-  query?: InputMaybe<Scalars["String"]["input"]>;
+  query?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type QueryIssueTitleSuggestionFromCustomerRequestArgs = {
-  request: Scalars["String"]["input"];
+  request: Scalars['String']['input'];
 };
+
 
 export type QueryIssueVcsBranchSearchArgs = {
-  branchName: Scalars["String"]["input"];
+  branchName: Scalars['String']['input'];
 };
+
 
 export type QueryNotificationArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryNotificationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<NotificationFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryNotificationSubscriptionArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryNotificationSubscriptionsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryOrganizationDomainClaimRequestArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryOrganizationExistsArgs = {
-  urlKey: Scalars["String"]["input"];
+  urlKey: Scalars['String']['input'];
 };
+
 
 export type QueryOrganizationInviteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryOrganizationInviteDetailsArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryOrganizationInvitesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryOrganizationMetaArgs = {
-  urlKey: Scalars["String"]["input"];
+  urlKey: Scalars['String']['input'];
 };
+
 
 export type QueryProjectArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryProjectFilterSuggestionArgs = {
-  prompt: Scalars["String"]["input"];
+  prompt: Scalars['String']['input'];
 };
+
 
 export type QueryProjectLabelArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryProjectLabelsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryProjectMilestoneArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryProjectMilestonesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectMilestoneFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryProjectRelationArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type QueryProjectRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 export type QueryProjectsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<ProjectSortInput>>;
 };
 
+
 export type QueryProjectStatusArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryProjectStatusesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryProjectStatusProjectCountArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryProjectUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type QueryProjectUpdatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectUpdateFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryPushSubscriptionTestArgs = {
   sendStrategy?: InputMaybe<SendStrategy>;
-  targetMobile?: InputMaybe<Scalars["Boolean"]["input"]>;
+  targetMobile?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type QueryRoadmapArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryRoadmapsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryRoadmapToProjectArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryRoadmapToProjectsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QuerySearchDocumentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeComments?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeComments?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
-  term: Scalars["String"]["input"];
+  teamId?: InputMaybe<Scalars['String']['input']>;
+  term: Scalars['String']['input'];
 };
+
 
 export type QuerySearchIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeComments?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeComments?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
-  term: Scalars["String"]["input"];
+  teamId?: InputMaybe<Scalars['String']['input']>;
+  term: Scalars['String']['input'];
 };
+
 
 export type QuerySearchProjectsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeComments?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeComments?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
-  term: Scalars["String"]["input"];
+  teamId?: InputMaybe<Scalars['String']['input']>;
+  term: Scalars['String']['input'];
 };
 
+
 export type QuerySemanticSearchArgs = {
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  maxResults?: InputMaybe<Scalars["Int"]["input"]>;
-  query: Scalars["String"]["input"];
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  maxResults?: InputMaybe<Scalars['Int']['input']>;
+  query: Scalars['String']['input'];
   types?: InputMaybe<Array<SemanticSearchResultType>>;
 };
 
+
 export type QuerySsoUrlFromEmailArgs = {
-  email: Scalars["String"]["input"];
-  isDesktop?: InputMaybe<Scalars["Boolean"]["input"]>;
+  email: Scalars['String']['input'];
+  isDesktop?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type QuerySummarizeProjectUpdatesArgs = {
-  ids: Array<Scalars["String"]["input"]>;
+  ids: Array<Scalars['String']['input']>;
 };
+
 
 export type QueryTeamArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryTeamMembershipArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryTeamMembershipsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryTeamsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<TeamFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryTemplateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryTemplatesForIntegrationArgs = {
-  integrationType: Scalars["String"]["input"];
+  integrationType: Scalars['String']['input'];
 };
+
 
 export type QueryTimeScheduleArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryTimeSchedulesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryTriageResponsibilitiesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 export type QueryTriageResponsibilityArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryUserArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type QueryUsersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<UserFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeDisabled?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<UserSortInput>>;
 };
 
+
 export type QueryVerifyGitHubEnterpriseServerInstallationArgs = {
-  integrationId: Scalars["String"]["input"];
+  integrationId: Scalars['String']['input'];
 };
+
 
 export type QueryWebhookArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type QueryWebhooksArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type QueryWorkflowStateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type QueryWorkflowStatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<WorkflowStateFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 export type QueryWorkspaceAuthorizedApplicationArgs = {
-  clientId: Scalars["String"]["input"];
+  clientId: Scalars['String']['input'];
 };
 
+
 export type QueryWorkspaceAuthorizedApplicationsWithAppUserArgs = {
-  clientIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  clientIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 /** Team filtering options. */
@@ -1206,71 +1320,71 @@ export type TeamFilter = {
 /** Comparator for dates. */
 export type DateComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  eq?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Greater-than constraint. Matches any values that are greater than the given value. */
-  gt?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  gt?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Greater-than-or-equal constraint. Matches any values that are greater than or equal to the given value. */
-  gte?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  gte?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["DateTimeOrDuration"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['DateTimeOrDuration']['input']>>;
   /** Less-than constraint. Matches any values that are less than the given value. */
-  lt?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  lt?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Less-than-or-equal constraint. Matches any values that are less than or equal to the given value. */
-  lte?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  lte?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  neq?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["DateTimeOrDuration"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['DateTimeOrDuration']['input']>>;
 };
 
 /** Comparator for optional strings. */
 export type NullableStringComparator = {
   /** Contains constraint. Matches any values that contain the given string. */
-  contains?: InputMaybe<Scalars["String"]["input"]>;
+  contains?: InputMaybe<Scalars['String']['input']>;
   /** Contains case insensitive constraint. Matches any values that contain the given string case insensitive. */
-  containsIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  containsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Contains case and accent insensitive constraint. Matches any values that contain the given string case and accent insensitive. */
-  containsIgnoreCaseAndAccent?: InputMaybe<Scalars["String"]["input"]>;
+  containsIgnoreCaseAndAccent?: InputMaybe<Scalars['String']['input']>;
   /** Ends with constraint. Matches any values that end with the given string. */
-  endsWith?: InputMaybe<Scalars["String"]["input"]>;
+  endsWith?: InputMaybe<Scalars['String']['input']>;
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["String"]["input"]>;
+  eq?: InputMaybe<Scalars['String']['input']>;
   /** Equals case insensitive. Matches any values that matches the given string case insensitive. */
-  eqIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  eqIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["String"]["input"]>;
+  neq?: InputMaybe<Scalars['String']['input']>;
   /** Not-equals case insensitive. Matches any values that don't match the given string case insensitive. */
-  neqIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  neqIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Doesn't contain constraint. Matches any values that don't contain the given string. */
-  notContains?: InputMaybe<Scalars["String"]["input"]>;
+  notContains?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't contain case insensitive constraint. Matches any values that don't contain the given string case insensitive. */
-  notContainsIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  notContainsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't end with constraint. Matches any values that don't end with the given string. */
-  notEndsWith?: InputMaybe<Scalars["String"]["input"]>;
+  notEndsWith?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't start with constraint. Matches any values that don't start with the given string. */
-  notStartsWith?: InputMaybe<Scalars["String"]["input"]>;
+  notStartsWith?: InputMaybe<Scalars['String']['input']>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Starts with constraint. Matches any values that start with the given string. */
-  startsWith?: InputMaybe<Scalars["String"]["input"]>;
+  startsWith?: InputMaybe<Scalars['String']['input']>;
   /** Starts with case insensitive constraint. Matches any values that start with the given string. */
-  startsWithIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  startsWithIgnoreCase?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Comparator for identifiers. */
 export type IdComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["ID"]["input"]>;
+  eq?: InputMaybe<Scalars['ID']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["ID"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['ID']['input']>>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["ID"]["input"]>;
+  neq?: InputMaybe<Scalars['ID']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["ID"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['ID']['input']>>;
 };
 
 /** Issue filtering options. */
@@ -1402,23 +1516,23 @@ export type IssueCollectionFilter = {
 /** Comparator for optional dates. */
 export type NullableDateComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  eq?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Greater-than constraint. Matches any values that are greater than the given value. */
-  gt?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  gt?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Greater-than-or-equal constraint. Matches any values that are greater than or equal to the given value. */
-  gte?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  gte?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["DateTimeOrDuration"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['DateTimeOrDuration']['input']>>;
   /** Less-than constraint. Matches any values that are less than the given value. */
-  lt?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  lt?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Less-than-or-equal constraint. Matches any values that are less than or equal to the given value. */
-  lte?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  lte?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["DateTimeOrDuration"]["input"]>;
+  neq?: InputMaybe<Scalars['DateTimeOrDuration']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["DateTimeOrDuration"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['DateTimeOrDuration']['input']>>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 /** Comparator for period when issue was added to a cycle. */
@@ -1432,35 +1546,34 @@ export type CyclePeriodComparator = {
   /** Not-in-array constraint. */
   nin?: InputMaybe<Array<CyclePeriod>>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
-export enum CyclePeriod {
-  After = "after",
-  Before = "before",
-  During = "during",
-}
+export type CyclePeriod =
+  | 'after'
+  | 'before'
+  | 'during';
 
 /** Nullable comparator for optional durations. */
 export type NullableDurationComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["Duration"]["input"]>;
+  eq?: InputMaybe<Scalars['Duration']['input']>;
   /** Greater-than constraint. Matches any values that are greater than the given value. */
-  gt?: InputMaybe<Scalars["Duration"]["input"]>;
+  gt?: InputMaybe<Scalars['Duration']['input']>;
   /** Greater-than-or-equal constraint. Matches any values that are greater than or equal to the given value. */
-  gte?: InputMaybe<Scalars["Duration"]["input"]>;
+  gte?: InputMaybe<Scalars['Duration']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["Duration"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['Duration']['input']>>;
   /** Less-than constraint. Matches any values that are less than the given value. */
-  lt?: InputMaybe<Scalars["Duration"]["input"]>;
+  lt?: InputMaybe<Scalars['Duration']['input']>;
   /** Less-than-or-equal constraint. Matches any values that are less than or equal to the given value. */
-  lte?: InputMaybe<Scalars["Duration"]["input"]>;
+  lte?: InputMaybe<Scalars['Duration']['input']>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["Duration"]["input"]>;
+  neq?: InputMaybe<Scalars['Duration']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["Duration"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['Duration']['input']>>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 /** User filtering options. */
@@ -1490,7 +1603,7 @@ export type NullableUserFilter = {
   /** Comparator for the user's name. */
   name?: InputMaybe<StringComparator>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the user. */
   or?: InputMaybe<Array<NullableUserFilter>>;
   /** Comparator for the updated at date. */
@@ -1500,45 +1613,45 @@ export type NullableUserFilter = {
 /** Comparator for booleans. */
 export type BooleanComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["Boolean"]["input"]>;
+  eq?: InputMaybe<Scalars['Boolean']['input']>;
   /** Not equals constraint. */
-  neq?: InputMaybe<Scalars["Boolean"]["input"]>;
+  neq?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 /** Comparator for strings. */
 export type StringComparator = {
   /** Contains constraint. Matches any values that contain the given string. */
-  contains?: InputMaybe<Scalars["String"]["input"]>;
+  contains?: InputMaybe<Scalars['String']['input']>;
   /** Contains case insensitive constraint. Matches any values that contain the given string case insensitive. */
-  containsIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  containsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Contains case and accent insensitive constraint. Matches any values that contain the given string case and accent insensitive. */
-  containsIgnoreCaseAndAccent?: InputMaybe<Scalars["String"]["input"]>;
+  containsIgnoreCaseAndAccent?: InputMaybe<Scalars['String']['input']>;
   /** Ends with constraint. Matches any values that end with the given string. */
-  endsWith?: InputMaybe<Scalars["String"]["input"]>;
+  endsWith?: InputMaybe<Scalars['String']['input']>;
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["String"]["input"]>;
+  eq?: InputMaybe<Scalars['String']['input']>;
   /** Equals case insensitive. Matches any values that matches the given string case insensitive. */
-  eqIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  eqIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["String"]["input"]>;
+  neq?: InputMaybe<Scalars['String']['input']>;
   /** Not-equals case insensitive. Matches any values that don't match the given string case insensitive. */
-  neqIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  neqIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Doesn't contain constraint. Matches any values that don't contain the given string. */
-  notContains?: InputMaybe<Scalars["String"]["input"]>;
+  notContains?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't contain case insensitive constraint. Matches any values that don't contain the given string case insensitive. */
-  notContainsIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  notContainsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't end with constraint. Matches any values that don't end with the given string. */
-  notEndsWith?: InputMaybe<Scalars["String"]["input"]>;
+  notEndsWith?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't start with constraint. Matches any values that don't start with the given string. */
-  notStartsWith?: InputMaybe<Scalars["String"]["input"]>;
+  notStartsWith?: InputMaybe<Scalars['String']['input']>;
   /** Starts with constraint. Matches any values that start with the given string. */
-  startsWith?: InputMaybe<Scalars["String"]["input"]>;
+  startsWith?: InputMaybe<Scalars['String']['input']>;
   /** Starts with case insensitive constraint. Matches any values that start with the given string. */
-  startsWithIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  startsWithIgnoreCase?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Attachment collection filtering options. */
@@ -1598,57 +1711,57 @@ export type AttachmentFilter = {
 /** Comparator for `sourceType` field. */
 export type SourceTypeComparator = {
   /** Contains constraint. Matches any values that contain the given string. */
-  contains?: InputMaybe<Scalars["String"]["input"]>;
+  contains?: InputMaybe<Scalars['String']['input']>;
   /** Contains case insensitive constraint. Matches any values that contain the given string case insensitive. */
-  containsIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  containsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Contains case and accent insensitive constraint. Matches any values that contain the given string case and accent insensitive. */
-  containsIgnoreCaseAndAccent?: InputMaybe<Scalars["String"]["input"]>;
+  containsIgnoreCaseAndAccent?: InputMaybe<Scalars['String']['input']>;
   /** Ends with constraint. Matches any values that end with the given string. */
-  endsWith?: InputMaybe<Scalars["String"]["input"]>;
+  endsWith?: InputMaybe<Scalars['String']['input']>;
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["String"]["input"]>;
+  eq?: InputMaybe<Scalars['String']['input']>;
   /** Equals case insensitive. Matches any values that matches the given string case insensitive. */
-  eqIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  eqIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["String"]["input"]>;
+  neq?: InputMaybe<Scalars['String']['input']>;
   /** Not-equals case insensitive. Matches any values that don't match the given string case insensitive. */
-  neqIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  neqIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Doesn't contain constraint. Matches any values that don't contain the given string. */
-  notContains?: InputMaybe<Scalars["String"]["input"]>;
+  notContains?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't contain case insensitive constraint. Matches any values that don't contain the given string case insensitive. */
-  notContainsIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  notContainsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't end with constraint. Matches any values that don't end with the given string. */
-  notEndsWith?: InputMaybe<Scalars["String"]["input"]>;
+  notEndsWith?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't start with constraint. Matches any values that don't start with the given string. */
-  notStartsWith?: InputMaybe<Scalars["String"]["input"]>;
+  notStartsWith?: InputMaybe<Scalars['String']['input']>;
   /** Starts with constraint. Matches any values that start with the given string. */
-  startsWith?: InputMaybe<Scalars["String"]["input"]>;
+  startsWith?: InputMaybe<Scalars['String']['input']>;
   /** Starts with case insensitive constraint. Matches any values that start with the given string. */
-  startsWithIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  startsWithIgnoreCase?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Comparator for numbers. */
 export type NumberComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["Float"]["input"]>;
+  eq?: InputMaybe<Scalars['Float']['input']>;
   /** Greater-than constraint. Matches any values that are greater than the given value. */
-  gt?: InputMaybe<Scalars["Float"]["input"]>;
+  gt?: InputMaybe<Scalars['Float']['input']>;
   /** Greater-than-or-equal constraint. Matches any values that are greater than or equal to the given value. */
-  gte?: InputMaybe<Scalars["Float"]["input"]>;
+  gte?: InputMaybe<Scalars['Float']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["Float"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['Float']['input']>>;
   /** Less-than constraint. Matches any values that are less than the given value. */
-  lt?: InputMaybe<Scalars["Float"]["input"]>;
+  lt?: InputMaybe<Scalars['Float']['input']>;
   /** Less-than-or-equal constraint. Matches any values that are less than or equal to the given value. */
-  lte?: InputMaybe<Scalars["Float"]["input"]>;
+  lte?: InputMaybe<Scalars['Float']['input']>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["Float"]["input"]>;
+  neq?: InputMaybe<Scalars['Float']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["Float"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['Float']['input']>>;
 };
 
 /** Comment filtering options. */
@@ -1698,7 +1811,7 @@ export type NullableDocumentContentFilter = {
   /** Comparator for the identifier. */
   id?: InputMaybe<IdComparator>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the user. */
   or?: InputMaybe<Array<NullableDocumentContentFilter>>;
   /** Filters that the document content project must satisfy. */
@@ -1990,9 +2103,9 @@ export type ProjectMilestoneFilter = {
 /** Comparator for relation existence. */
 export type RelationExistsComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["Boolean"]["input"]>;
+  eq?: InputMaybe<Scalars['Boolean']['input']>;
   /** Not equals constraint. */
-  neq?: InputMaybe<Scalars["Boolean"]["input"]>;
+  neq?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 /** Project label filtering options. */
@@ -2014,7 +2127,7 @@ export type ProjectLabelCollectionFilter = {
   /** Comparator for the name. */
   name?: InputMaybe<StringComparator>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the label. */
   or?: InputMaybe<Array<ProjectLabelCollectionFilter>>;
   /** Filters that the project label's parent label must satisfy. */
@@ -2058,7 +2171,7 @@ export type NullableTemplateFilter = {
   /** Comparator for the template's name. */
   name?: InputMaybe<StringComparator>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the template. */
   or?: InputMaybe<Array<NullableTemplateFilter>>;
   /** Comparator for the template's type. */
@@ -2152,7 +2265,7 @@ export type NullableCommentFilter = {
   /** Filters that the comment's customer needs must satisfy. */
   needs?: InputMaybe<CustomerNeedCollectionFilter>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the comment. */
   or?: InputMaybe<Array<NullableCommentFilter>>;
   /** Filters that the comment parent must satisfy. */
@@ -2244,7 +2357,7 @@ export type NullableIssueFilter = {
   /** Filters that the issue's customer needs must satisfy. */
   needs?: InputMaybe<CustomerNeedCollectionFilter>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Comparator for the issues number. */
   number?: InputMaybe<NumberComparator>;
   /** Compound filters, one of which need to be matched by the issue. */
@@ -2318,7 +2431,7 @@ export type NullableCycleFilter = {
   /** Comparator for the cycle name. */
   name?: InputMaybe<StringComparator>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Comparator for the cycle number. */
   number?: InputMaybe<NumberComparator>;
   /** Compound filters, one of which need to be matched by the cycle. */
@@ -2334,23 +2447,23 @@ export type NullableCycleFilter = {
 /** Comparator for optional timeless dates. */
 export type NullableTimelessDateComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["TimelessDateOrDuration"]["input"]>;
+  eq?: InputMaybe<Scalars['TimelessDateOrDuration']['input']>;
   /** Greater-than constraint. Matches any values that are greater than the given value. */
-  gt?: InputMaybe<Scalars["TimelessDateOrDuration"]["input"]>;
+  gt?: InputMaybe<Scalars['TimelessDateOrDuration']['input']>;
   /** Greater-than-or-equal constraint. Matches any values that are greater than or equal to the given value. */
-  gte?: InputMaybe<Scalars["TimelessDateOrDuration"]["input"]>;
+  gte?: InputMaybe<Scalars['TimelessDateOrDuration']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["TimelessDateOrDuration"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['TimelessDateOrDuration']['input']>>;
   /** Less-than constraint. Matches any values that are less than the given value. */
-  lt?: InputMaybe<Scalars["TimelessDateOrDuration"]["input"]>;
+  lt?: InputMaybe<Scalars['TimelessDateOrDuration']['input']>;
   /** Less-than-or-equal constraint. Matches any values that are less than or equal to the given value. */
-  lte?: InputMaybe<Scalars["TimelessDateOrDuration"]["input"]>;
+  lte?: InputMaybe<Scalars['TimelessDateOrDuration']['input']>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["TimelessDateOrDuration"]["input"]>;
+  neq?: InputMaybe<Scalars['TimelessDateOrDuration']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["TimelessDateOrDuration"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['TimelessDateOrDuration']['input']>>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 /** Comparator for estimates. */
@@ -2358,23 +2471,23 @@ export type EstimateComparator = {
   /** Compound filters, one of which need to be matched by the estimate. */
   and?: InputMaybe<Array<NullableNumberComparator>>;
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["Float"]["input"]>;
+  eq?: InputMaybe<Scalars['Float']['input']>;
   /** Greater-than constraint. Matches any values that are greater than the given value. */
-  gt?: InputMaybe<Scalars["Float"]["input"]>;
+  gt?: InputMaybe<Scalars['Float']['input']>;
   /** Greater-than-or-equal constraint. Matches any values that are greater than or equal to the given value. */
-  gte?: InputMaybe<Scalars["Float"]["input"]>;
+  gte?: InputMaybe<Scalars['Float']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["Float"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['Float']['input']>>;
   /** Less-than constraint. Matches any values that are less than the given value. */
-  lt?: InputMaybe<Scalars["Float"]["input"]>;
+  lt?: InputMaybe<Scalars['Float']['input']>;
   /** Less-than-or-equal constraint. Matches any values that are less than or equal to the given value. */
-  lte?: InputMaybe<Scalars["Float"]["input"]>;
+  lte?: InputMaybe<Scalars['Float']['input']>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["Float"]["input"]>;
+  neq?: InputMaybe<Scalars['Float']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["Float"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['Float']['input']>>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, all of which need to be matched by the estimate. */
   or?: InputMaybe<Array<NullableNumberComparator>>;
 };
@@ -2382,23 +2495,23 @@ export type EstimateComparator = {
 /** Comparator for optional numbers. */
 export type NullableNumberComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["Float"]["input"]>;
+  eq?: InputMaybe<Scalars['Float']['input']>;
   /** Greater-than constraint. Matches any values that are greater than the given value. */
-  gt?: InputMaybe<Scalars["Float"]["input"]>;
+  gt?: InputMaybe<Scalars['Float']['input']>;
   /** Greater-than-or-equal constraint. Matches any values that are greater than or equal to the given value. */
-  gte?: InputMaybe<Scalars["Float"]["input"]>;
+  gte?: InputMaybe<Scalars['Float']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["Float"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['Float']['input']>>;
   /** Less-than constraint. Matches any values that are less than the given value. */
-  lt?: InputMaybe<Scalars["Float"]["input"]>;
+  lt?: InputMaybe<Scalars['Float']['input']>;
   /** Less-than-or-equal constraint. Matches any values that are less than or equal to the given value. */
-  lte?: InputMaybe<Scalars["Float"]["input"]>;
+  lte?: InputMaybe<Scalars['Float']['input']>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["Float"]["input"]>;
+  neq?: InputMaybe<Scalars['Float']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["Float"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['Float']['input']>>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 /** Issue label filtering options. */
@@ -2420,7 +2533,7 @@ export type IssueLabelCollectionFilter = {
   /** Comparator for the name. */
   name?: InputMaybe<StringComparator>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the label. */
   or?: InputMaybe<Array<IssueLabelCollectionFilter>>;
   /** Filters that the issue label's parent label must satisfy. */
@@ -2474,7 +2587,7 @@ export type NullableTeamFilter = {
   /** Comparator for the team name. */
   name?: InputMaybe<StringComparator>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the team. */
   or?: InputMaybe<Array<NullableTeamFilter>>;
   /** Filters that the teams parent must satisfy. */
@@ -2542,7 +2655,7 @@ export type NullableProjectFilter = {
   /** Filters that the project's next milestone must satisfy. */
   nextProjectMilestone?: InputMaybe<ProjectMilestoneFilter>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the project. */
   or?: InputMaybe<Array<NullableProjectFilter>>;
   /** Comparator for the projects priority. */
@@ -2656,9 +2769,9 @@ export type RoadmapFilter = {
 /** [Internal] Comparator for content. */
 export type ContentComparator = {
   /** [Internal] Contains constraint. */
-  contains?: InputMaybe<Scalars["String"]["input"]>;
+  contains?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] Not-contains constraint. */
-  notContains?: InputMaybe<Scalars["String"]["input"]>;
+  notContains?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Project status filtering options. */
@@ -2786,7 +2899,7 @@ export type NullableProjectMilestoneFilter = {
   /** Comparator for the project milestone name. */
   name?: InputMaybe<NullableStringComparator>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the project milestone. */
   or?: InputMaybe<Array<NullableProjectMilestoneFilter>>;
   /** Comparator for the project milestone target date. */
@@ -2848,30 +2961,29 @@ export type SlaStatusComparator = {
   /** Not-in-array constraint. */
   nin?: InputMaybe<Array<SlaStatus>>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
-export enum SlaStatus {
-  Breached = "Breached",
-  Completed = "Completed",
-  Failed = "Failed",
-  HighRisk = "HighRisk",
-  LowRisk = "LowRisk",
-  MediumRisk = "MediumRisk",
-}
+export type SlaStatus =
+  | 'Breached'
+  | 'Completed'
+  | 'Failed'
+  | 'HighRisk'
+  | 'LowRisk'
+  | 'MediumRisk';
 
 /** Comparator for issue source type. */
 export type SourceMetadataComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["String"]["input"]>;
+  eq?: InputMaybe<Scalars['String']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["String"]["input"]>;
+  neq?: InputMaybe<Scalars['String']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, all of which need to be matched by the sub type. */
   subType?: InputMaybe<SubTypeComparator>;
 };
@@ -2879,15 +2991,15 @@ export type SourceMetadataComparator = {
 /** Comparator for source type. */
 export type SubTypeComparator = {
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["String"]["input"]>;
+  eq?: InputMaybe<Scalars['String']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["String"]["input"]>;
+  neq?: InputMaybe<Scalars['String']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Null constraint. Matches any non-null values if the given value is false, otherwise it matches null values. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 /** Workflow state filtering options. */
@@ -2925,7 +3037,7 @@ export type NullableProjectUpdateFilter = {
   /** Comparator for the identifier. */
   id?: InputMaybe<IdComparator>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the project update. */
   or?: InputMaybe<Array<NullableProjectUpdateFilter>>;
   /** Filters that the project update project must satisfy. */
@@ -2955,7 +3067,7 @@ export type NullableCustomerFilter = {
   /** Filters that the customer's needs must satisfy. */
   needs?: InputMaybe<CustomerNeedCollectionFilter>;
   /** Filter based on the existence of the relation. */
-  null?: InputMaybe<Scalars["Boolean"]["input"]>;
+  null?: InputMaybe<Scalars['Boolean']['input']>;
   /** Compound filters, one of which need to be matched by the customer. */
   or?: InputMaybe<Array<NullableCustomerFilter>>;
   /** Filters that the customer owner must satisfy. */
@@ -2987,37 +3099,37 @@ export type StringArrayComparator = {
 /** Comparator for strings in arrays. */
 export type StringItemComparator = {
   /** Contains constraint. Matches any values that contain the given string. */
-  contains?: InputMaybe<Scalars["String"]["input"]>;
+  contains?: InputMaybe<Scalars['String']['input']>;
   /** Contains case insensitive constraint. Matches any values that contain the given string case insensitive. */
-  containsIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  containsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Contains case and accent insensitive constraint. Matches any values that contain the given string case and accent insensitive. */
-  containsIgnoreCaseAndAccent?: InputMaybe<Scalars["String"]["input"]>;
+  containsIgnoreCaseAndAccent?: InputMaybe<Scalars['String']['input']>;
   /** Ends with constraint. Matches any values that end with the given string. */
-  endsWith?: InputMaybe<Scalars["String"]["input"]>;
+  endsWith?: InputMaybe<Scalars['String']['input']>;
   /** Equals constraint. */
-  eq?: InputMaybe<Scalars["String"]["input"]>;
+  eq?: InputMaybe<Scalars['String']['input']>;
   /** Equals case insensitive. Matches any values that matches the given string case insensitive. */
-  eqIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  eqIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** In-array constraint. */
-  in?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  in?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Not-equals constraint. */
-  neq?: InputMaybe<Scalars["String"]["input"]>;
+  neq?: InputMaybe<Scalars['String']['input']>;
   /** Not-equals case insensitive. Matches any values that don't match the given string case insensitive. */
-  neqIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  neqIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Not-in-array constraint. */
-  nin?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  nin?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Doesn't contain constraint. Matches any values that don't contain the given string. */
-  notContains?: InputMaybe<Scalars["String"]["input"]>;
+  notContains?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't contain case insensitive constraint. Matches any values that don't contain the given string case insensitive. */
-  notContainsIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  notContainsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't end with constraint. Matches any values that don't end with the given string. */
-  notEndsWith?: InputMaybe<Scalars["String"]["input"]>;
+  notEndsWith?: InputMaybe<Scalars['String']['input']>;
   /** Doesn't start with constraint. Matches any values that don't start with the given string. */
-  notStartsWith?: InputMaybe<Scalars["String"]["input"]>;
+  notStartsWith?: InputMaybe<Scalars['String']['input']>;
   /** Starts with constraint. Matches any values that start with the given string. */
-  startsWith?: InputMaybe<Scalars["String"]["input"]>;
+  startsWith?: InputMaybe<Scalars['String']['input']>;
   /** Starts with case insensitive constraint. Matches any values that start with the given string. */
-  startsWithIgnoreCase?: InputMaybe<Scalars["String"]["input"]>;
+  startsWithIgnoreCase?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Customer status filtering options. */
@@ -3241,72 +3353,71 @@ export type IssueFilter = {
 };
 
 /** By which field should the pagination order by */
-export enum PaginationOrderBy {
-  CreatedAt = "createdAt",
-  UpdatedAt = "updatedAt",
-}
+export type PaginationOrderBy =
+  | 'createdAt'
+  | 'updatedAt';
 
 export type TeamConnection = {
-  __typename?: "TeamConnection";
+  __typename?: 'TeamConnection';
   edges: Array<TeamEdge>;
   nodes: Array<Team>;
   pageInfo: PageInfo;
 };
 
 export type TeamEdge = {
-  __typename?: "TeamEdge";
+  __typename?: 'TeamEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Team;
 };
 
 /** An organizational unit that contains issues. */
 export type Team = Node & {
-  __typename?: "Team";
+  __typename?: 'Team';
   /** Team's currently active cycle. */
   activeCycle?: Maybe<Cycle>;
   /** Whether to enable resolved thread AI summaries. */
-  aiThreadSummariesEnabled: Scalars["Boolean"]["output"];
+  aiThreadSummariesEnabled: Scalars['Boolean']['output'];
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Period after which automatically closed and completed issues are automatically archived in months. */
-  autoArchivePeriod: Scalars["Float"]["output"];
+  autoArchivePeriod: Scalars['Float']['output'];
   /** Whether child issues should automatically close when their parent issue is closed */
-  autoCloseChildIssues?: Maybe<Scalars["Boolean"]["output"]>;
+  autoCloseChildIssues?: Maybe<Scalars['Boolean']['output']>;
   /** Whether parent issues should automatically close when all child issues are closed */
-  autoCloseParentIssues?: Maybe<Scalars["Boolean"]["output"]>;
+  autoCloseParentIssues?: Maybe<Scalars['Boolean']['output']>;
   /** Period after which issues are automatically closed in months. Null/undefined means disabled. */
-  autoClosePeriod?: Maybe<Scalars["Float"]["output"]>;
+  autoClosePeriod?: Maybe<Scalars['Float']['output']>;
   /** The canceled workflow state which auto closed issues will be set to. Defaults to the first canceled state. */
-  autoCloseStateId?: Maybe<Scalars["String"]["output"]>;
+  autoCloseStateId?: Maybe<Scalars['String']['output']>;
   /** [Internal] The team's sub-teams. */
   children: Array<Team>;
   /** The team's color. */
-  color?: Maybe<Scalars["String"]["output"]>;
+  color?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** [Internal] The current progress of the team. */
-  currentProgress: Scalars["JSONObject"]["output"];
+  currentProgress: Scalars['JSONObject']['output'];
   /** Calendar feed URL (iCal) for cycles. */
-  cycleCalenderUrl: Scalars["String"]["output"];
+  cycleCalenderUrl: Scalars['String']['output'];
   /** The cooldown time after each cycle in weeks. */
-  cycleCooldownTime: Scalars["Float"]["output"];
+  cycleCooldownTime: Scalars['Float']['output'];
   /** The duration of a cycle in weeks. */
-  cycleDuration: Scalars["Float"]["output"];
+  cycleDuration: Scalars['Float']['output'];
   /** Auto assign completed issues to current cycle. */
-  cycleIssueAutoAssignCompleted: Scalars["Boolean"]["output"];
+  cycleIssueAutoAssignCompleted: Scalars['Boolean']['output'];
   /** Auto assign started issues to current cycle. */
-  cycleIssueAutoAssignStarted: Scalars["Boolean"]["output"];
+  cycleIssueAutoAssignStarted: Scalars['Boolean']['output'];
   /** Auto assign issues to current cycle if in active status. */
-  cycleLockToActive: Scalars["Boolean"]["output"];
+  cycleLockToActive: Scalars['Boolean']['output'];
   /** Cycles associated with the team. */
   cycles: CycleConnection;
   /** Whether the team uses cycles. */
-  cyclesEnabled: Scalars["Boolean"]["output"];
+  cyclesEnabled: Scalars['Boolean']['output'];
   /** The day of the week that a new cycle starts. */
-  cycleStartDay: Scalars["Float"]["output"];
+  cycleStartDay: Scalars['Float']['output'];
   /** What to use as a default estimate for unestimated issues. */
-  defaultIssueEstimate: Scalars["Float"]["output"];
+  defaultIssueEstimate: Scalars['Float']['output'];
   /** The default workflow state into which issues are set when they are opened by team members. */
   defaultIssueState?: Maybe<WorkflowState>;
   /** The default template to use for new projects created for the team. */
@@ -3317,18 +3428,18 @@ export type Team = Node & {
    * The id of the default template to use for new issues created by members of the team.
    * @deprecated Use defaultTemplateForMembers instead
    */
-  defaultTemplateForMembersId?: Maybe<Scalars["String"]["output"]>;
+  defaultTemplateForMembersId?: Maybe<Scalars['String']['output']>;
   /** The default template to use for new issues created by non-members of the team. */
   defaultTemplateForNonMembers?: Maybe<Template>;
   /**
    * The id of the default template to use for new issues created by non-members of the team.
    * @deprecated Use defaultTemplateForNonMembers instead
    */
-  defaultTemplateForNonMembersId?: Maybe<Scalars["String"]["output"]>;
+  defaultTemplateForNonMembersId?: Maybe<Scalars['String']['output']>;
   /** The team's description. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The name of the team including it's parent team name if it has one. */
-  displayName: Scalars["String"]["output"];
+  displayName: Scalars['String']['output'];
   /**
    * The workflow state into which issues are moved when a PR has been opened as draft.
    * @deprecated Use team.gitAutomationStates instead.
@@ -3339,43 +3450,43 @@ export type Team = Node & {
   /** The Git automation states for the team. */
   gitAutomationStates: GitAutomationStateConnection;
   /** Whether to group recent issue history entries. */
-  groupIssueHistory: Scalars["Boolean"]["output"];
+  groupIssueHistory: Scalars['Boolean']['output'];
   /** The icon of the team. */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Whether the team should inherit its estimation settings from its parent. Only applies to sub-teams. */
-  inheritIssueEstimation: Scalars["Boolean"]["output"];
+  inheritIssueEstimation: Scalars['Boolean']['output'];
   /** Whether the team should inherit its workflow statuses from its parent. Only applies to sub-teams. */
-  inheritWorkflowStatuses: Scalars["Boolean"]["output"];
+  inheritWorkflowStatuses: Scalars['Boolean']['output'];
   /** Settings for all integrations associated with that team. */
   integrationsSettings?: Maybe<IntegrationsSettings>;
   /** Unique hash for the team to be used in invite URLs. */
-  inviteHash: Scalars["String"]["output"];
+  inviteHash: Scalars['String']['output'];
   /** Number of issues in the team. */
-  issueCount: Scalars["Int"]["output"];
+  issueCount: Scalars['Int']['output'];
   /** Whether to allow zeros in issues estimates. */
-  issueEstimationAllowZero: Scalars["Boolean"]["output"];
+  issueEstimationAllowZero: Scalars['Boolean']['output'];
   /** Whether to add additional points to the estimate scale. */
-  issueEstimationExtended: Scalars["Boolean"]["output"];
+  issueEstimationExtended: Scalars['Boolean']['output'];
   /** The issue estimation type to use. Must be one of "notUsed", "exponential", "fibonacci", "linear", "tShirt". */
-  issueEstimationType: Scalars["String"]["output"];
+  issueEstimationType: Scalars['String']['output'];
   /**
    * [DEPRECATED] Whether issues without priority should be sorted first.
    * @deprecated This setting is no longer in use.
    */
-  issueOrderingNoPriorityFirst: Scalars["Boolean"]["output"];
+  issueOrderingNoPriorityFirst: Scalars['Boolean']['output'];
   /** Issues associated with the team. */
   issues: IssueConnection;
   /**
    * [DEPRECATED] Whether to move issues to bottom of the column when changing state.
    * @deprecated Use setIssueSortOrderOnStateChange instead.
    */
-  issueSortOrderDefaultToBottom: Scalars["Boolean"]["output"];
+  issueSortOrderDefaultToBottom: Scalars['Boolean']['output'];
   /** [Internal] Whether new users should join this team by default. */
-  joinByDefault?: Maybe<Scalars["Boolean"]["output"]>;
+  joinByDefault?: Maybe<Scalars['Boolean']['output']>;
   /** The team's unique key. The key is used in URLs. */
-  key: Scalars["String"]["output"];
+  key: Scalars['String']['output'];
   /** Labels associated with the team. */
   labels: IssueLabelConnection;
   /** The workflow state into which issues are moved when they are marked as a duplicate of another issue. Defaults to the first canceled state. */
@@ -3397,7 +3508,7 @@ export type Team = Node & {
    */
   mergeWorkflowState?: Maybe<WorkflowState>;
   /** The team's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The organization that the team is associated with. */
   organization: Organization;
   /** [Internal] The team's parent team. */
@@ -3405,39 +3516,39 @@ export type Team = Node & {
   /** [Internal] Posts associated with the team. */
   posts: Array<Post>;
   /** Whether the team is private or not. */
-  private: Scalars["Boolean"]["output"];
+  private: Scalars['Boolean']['output'];
   /** [Internal] The progress history of the team. */
-  progressHistory: Scalars["JSONObject"]["output"];
+  progressHistory: Scalars['JSONObject']['output'];
   /** Projects associated with the team. */
   projects: ProjectConnection;
   /** Whether an issue needs to have a priority set before leaving triage. */
-  requirePriorityToLeaveTriage: Scalars["Boolean"]["output"];
+  requirePriorityToLeaveTriage: Scalars['Boolean']['output'];
   /**
    * The workflow state into which issues are moved when a review has been requested for the PR.
    * @deprecated Use team.gitAutomationStates instead.
    */
   reviewWorkflowState?: Maybe<WorkflowState>;
   /** The SCIM group name for the team. */
-  scimGroupName?: Maybe<Scalars["String"]["output"]>;
+  scimGroupName?: Maybe<Scalars['String']['output']>;
   /** Whether the team is managed by SCIM integration. */
-  scimManaged: Scalars["Boolean"]["output"];
+  scimManaged: Scalars['Boolean']['output'];
   /** Where to move issues when changing state. */
-  setIssueSortOrderOnStateChange: Scalars["String"]["output"];
+  setIssueSortOrderOnStateChange: Scalars['String']['output'];
   /**
    * Whether to send new issue comment notifications to Slack.
    * @deprecated No longer in use
    */
-  slackIssueComments: Scalars["Boolean"]["output"];
+  slackIssueComments: Scalars['Boolean']['output'];
   /**
    * Whether to send new issue status updates to Slack.
    * @deprecated No longer in use
    */
-  slackIssueStatuses: Scalars["Boolean"]["output"];
+  slackIssueStatuses: Scalars['Boolean']['output'];
   /**
    * Whether to send new issue notifications to Slack.
    * @deprecated No longer is use
    */
-  slackNewIssue: Scalars["Boolean"]["output"];
+  slackNewIssue: Scalars['Boolean']['output'];
   /**
    * The workflow state into which issues are moved when a PR has been opened.
    * @deprecated Use team.gitAutomationStates instead.
@@ -3448,203 +3559,215 @@ export type Team = Node & {
   /** Templates associated with the team. */
   templates: TemplateConnection;
   /** The timezone of the team. Defaults to "America/Los_Angeles" */
-  timezone: Scalars["String"]["output"];
+  timezone: Scalars['String']['output'];
   /** Whether triage mode is enabled for the team or not. */
-  triageEnabled: Scalars["Boolean"]["output"];
+  triageEnabled: Scalars['Boolean']['output'];
   /** The workflow state into which issues are set when they are opened by non-team members or integrations if triage is enabled. */
   triageIssueState?: Maybe<WorkflowState>;
   /** Team's triage responsibility. */
   triageResponsibility?: Maybe<TriageResponsibility>;
   /** How many upcoming cycles to create. */
-  upcomingCycleCount: Scalars["Float"]["output"];
+  upcomingCycleCount: Scalars['Float']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** Webhooks associated with the team. */
   webhooks: WebhookConnection;
 };
 
+
 /** An organizational unit that contains issues. */
 export type TeamCyclesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CycleFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organizational unit that contains issues. */
 export type TeamGitAutomationStatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organizational unit that contains issues. */
 export type TeamIssueCountArgs = {
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 /** An organizational unit that contains issues. */
 export type TeamIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeSubTeams?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeSubTeams?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organizational unit that contains issues. */
 export type TeamLabelsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organizational unit that contains issues. */
 export type TeamMembersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<UserFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeDisabled?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organizational unit that contains issues. */
 export type TeamMembershipArgs = {
-  userId: Scalars["String"]["input"];
+  userId: Scalars['String']['input'];
 };
+
 
 /** An organizational unit that contains issues. */
 export type TeamMembershipsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** An organizational unit that contains issues. */
 export type TeamProjectsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeSubTeams?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeSubTeams?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<ProjectSortInput>>;
 };
 
+
 /** An organizational unit that contains issues. */
 export type TeamStatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<WorkflowStateFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organizational unit that contains issues. */
 export type TeamTemplatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<NullableTemplateFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** An organizational unit that contains issues. */
 export type TeamWebhooksArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type Node = {
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
 };
 
 /** A set of issues to be resolved in a specified amount of time. */
 export type Cycle = Node & {
-  __typename?: "Cycle";
+  __typename?: 'Cycle';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the cycle was automatically archived by the auto pruning process. */
-  autoArchivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  autoArchivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The completion time of the cycle. If null, the cycle hasn't been completed. */
-  completedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  completedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The number of completed issues in the cycle after each day. */
-  completedIssueCountHistory: Array<Scalars["Float"]["output"]>;
+  completedIssueCountHistory: Array<Scalars['Float']['output']>;
   /** The number of completed estimation points after each day. */
-  completedScopeHistory: Array<Scalars["Float"]["output"]>;
+  completedScopeHistory: Array<Scalars['Float']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** [Internal] The current progress of the cycle. */
-  currentProgress: Scalars["JSONObject"]["output"];
+  currentProgress: Scalars['JSONObject']['output'];
   /** The cycle's description. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The end time of the cycle. */
-  endsAt: Scalars["DateTime"]["output"];
+  endsAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The cycle inherited from. */
   inheritedFrom?: Maybe<Cycle>;
   /** The number of in progress estimation points after each day. */
-  inProgressScopeHistory: Array<Scalars["Float"]["output"]>;
+  inProgressScopeHistory: Array<Scalars['Float']['output']>;
   /** Whether the cycle is currently active. */
-  isActive: Scalars["Boolean"]["output"];
+  isActive: Scalars['Boolean']['output'];
   /** Whether the cycle is in the future. */
-  isFuture: Scalars["Boolean"]["output"];
+  isFuture: Scalars['Boolean']['output'];
   /** Whether the cycle is the next cycle for the team. */
-  isNext: Scalars["Boolean"]["output"];
+  isNext: Scalars['Boolean']['output'];
   /** Whether the cycle is in the past. */
-  isPast: Scalars["Boolean"]["output"];
+  isPast: Scalars['Boolean']['output'];
   /** Whether the cycle is the previous cycle for the team. */
-  isPrevious: Scalars["Boolean"]["output"];
+  isPrevious: Scalars['Boolean']['output'];
   /** The total number of issues in the cycle after each day. */
-  issueCountHistory: Array<Scalars["Float"]["output"]>;
+  issueCountHistory: Array<Scalars['Float']['output']>;
   /** Issues associated with the cycle. */
   issues: IssueConnection;
   /** The custom name of the cycle. */
-  name?: Maybe<Scalars["String"]["output"]>;
+  name?: Maybe<Scalars['String']['output']>;
   /** The number of the cycle. */
-  number: Scalars["Float"]["output"];
+  number: Scalars['Float']['output'];
   /** The overall progress of the cycle. This is the (completed estimate points + 0.25 * in progress estimate points) / total estimate points. */
-  progress: Scalars["Float"]["output"];
+  progress: Scalars['Float']['output'];
   /** [Internal] The progress history of the cycle. */
-  progressHistory: Scalars["JSONObject"]["output"];
+  progressHistory: Scalars['JSONObject']['output'];
   /** The total number of estimation points after each day. */
-  scopeHistory: Array<Scalars["Float"]["output"]>;
+  scopeHistory: Array<Scalars['Float']['output']>;
   /** The start time of the cycle. */
-  startsAt: Scalars["DateTime"]["output"];
+  startsAt: Scalars['DateTime']['output'];
   /** The team that the cycle is associated with. */
   team: Team;
   /** Issues that weren't completed when the cycle was closed. */
@@ -3653,103 +3776,105 @@ export type Cycle = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
+
 
 /** A set of issues to be resolved in a specified amount of time. */
 export type CycleIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** A set of issues to be resolved in a specified amount of time. */
 export type CycleUncompletedIssuesUponCloseArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type IssueConnection = {
-  __typename?: "IssueConnection";
+  __typename?: 'IssueConnection';
   edges: Array<IssueEdge>;
   nodes: Array<Issue>;
   pageInfo: PageInfo;
 };
 
 export type IssueEdge = {
-  __typename?: "IssueEdge";
+  __typename?: 'IssueEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Issue;
 };
 
 /** An issue. */
 export type Issue = Node & {
-  __typename?: "Issue";
+  __typename?: 'Issue';
   /** [Internal] The activity summary information for this issue. */
-  activitySummary?: Maybe<Scalars["JSONObject"]["output"]>;
+  activitySummary?: Maybe<Scalars['JSONObject']['output']>;
   /** The time at which the issue was added to a cycle. */
-  addedToCycleAt?: Maybe<Scalars["DateTime"]["output"]>;
+  addedToCycleAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue was added to a project. */
-  addedToProjectAt?: Maybe<Scalars["DateTime"]["output"]>;
+  addedToProjectAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue was added to a team. */
-  addedToTeamAt?: Maybe<Scalars["DateTime"]["output"]>;
+  addedToTeamAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The user to whom the issue is assigned to. */
   assignee?: Maybe<User>;
   /** Attachments associated with the issue. */
   attachments: AttachmentConnection;
   /** The time at which the issue was automatically archived by the auto pruning process. */
-  autoArchivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  autoArchivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue was automatically closed by the auto pruning process. */
-  autoClosedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  autoClosedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The order of the item in its column on the board.
    * @deprecated Will be removed in near future, please use `sortOrder` instead
    */
-  boardOrder: Scalars["Float"]["output"];
+  boardOrder: Scalars['Float']['output'];
   /** The bot that created the issue, if applicable. */
   botActor?: Maybe<ActorBot>;
   /** Suggested branch name for the issue. */
-  branchName: Scalars["String"]["output"];
+  branchName: Scalars['String']['output'];
   /** The time at which the issue was moved into canceled state. */
-  canceledAt?: Maybe<Scalars["DateTime"]["output"]>;
+  canceledAt?: Maybe<Scalars['DateTime']['output']>;
   /** Children of the issue. */
   children: IssueConnection;
   /** Comments associated with the issue. */
   comments: CommentConnection;
   /** The time at which the issue was moved into completed state. */
-  completedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  completedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the issue. */
   creator?: Maybe<User>;
   /** Returns the number of Attachment resources which are created by customer support ticketing systems (e.g. Zendesk). */
-  customerTicketCount: Scalars["Int"]["output"];
+  customerTicketCount: Scalars['Int']['output'];
   /** The cycle that the issue is associated with. */
   cycle?: Maybe<Cycle>;
   /** The agent user that is delegated to work on this issue. */
   delegate?: Maybe<User>;
   /** The issue's description in markdown format. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** [Internal] The issue's description content as YJS state. */
-  descriptionState?: Maybe<Scalars["String"]["output"]>;
+  descriptionState?: Maybe<Scalars['String']['output']>;
   /** [ALPHA] The document content representing this issue description. */
   documentContent?: Maybe<DocumentContent>;
   /** The date at which the issue is due. */
-  dueDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  dueDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** The estimate of the complexity of the issue.. */
-  estimate?: Maybe<Scalars["Float"]["output"]>;
+  estimate?: Maybe<Scalars['Float']['output']>;
   /** The external user who created the issue. */
   externalUserCreator?: Maybe<ExternalUser>;
   /** The users favorite associated with this issue. */
@@ -3761,9 +3886,9 @@ export type Issue = Node & {
   /** History entries associated with the issue. */
   history: IssueHistoryConnection;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Issue's human readable identifier (e.g. ENG-123). */
-  identifier: Scalars["String"]["output"];
+  identifier: Scalars['String']['output'];
   /** [Internal] Incoming product intelligence relation suggestions for the issue. */
   incomingSuggestions: IssueSuggestionConnection;
   /** Integration type that created this issue, if applicable. */
@@ -3771,7 +3896,7 @@ export type Issue = Node & {
   /** Inverse relations associated with this issue. */
   inverseRelations: IssueRelationConnection;
   /** Id of the labels associated with this issue. */
-  labelIds: Array<Scalars["String"]["output"]>;
+  labelIds: Array<Scalars['String']['output']>;
   /** Labels associated with this issue. */
   labels: IssueLabelConnection;
   /** The last template that was applied to this issue. */
@@ -3779,23 +3904,23 @@ export type Issue = Node & {
   /** Customer needs associated with the issue. */
   needs: CustomerNeedConnection;
   /** The issue's unique number. */
-  number: Scalars["Float"]["output"];
+  number: Scalars['Float']['output'];
   /** The parent of the issue. */
   parent?: Maybe<Issue>;
   /** Previous identifiers of the issue if it has been moved between teams. */
-  previousIdentifiers: Array<Scalars["String"]["output"]>;
+  previousIdentifiers: Array<Scalars['String']['output']>;
   /** The priority of the issue. 0 = No priority, 1 = Urgent, 2 = High, 3 = Normal, 4 = Low. */
-  priority: Scalars["Float"]["output"];
+  priority: Scalars['Float']['output'];
   /** Label for the priority. */
-  priorityLabel: Scalars["String"]["output"];
+  priorityLabel: Scalars['String']['output'];
   /** The order of the item in relation to other items in the organization, when ordered by priority. */
-  prioritySortOrder: Scalars["Float"]["output"];
+  prioritySortOrder: Scalars['Float']['output'];
   /** The project that the issue is associated with. */
   project?: Maybe<Project>;
   /** The projectMilestone that the issue is associated with. */
   projectMilestone?: Maybe<ProjectMilestone>;
   /** Emoji reaction summary, grouped by emoji type. */
-  reactionData: Scalars["JSONObject"]["output"];
+  reactionData: Scalars['JSONObject']['output'];
   /** Reactions associated with the issue. */
   reactions: Array<Reaction>;
   /** The recurring issue template that created this issue. */
@@ -3803,37 +3928,37 @@ export type Issue = Node & {
   /** Relations associated with this issue. */
   relations: IssueRelationConnection;
   /** The time at which the issue's SLA will breach. */
-  slaBreachesAt?: Maybe<Scalars["DateTime"]["output"]>;
+  slaBreachesAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue's SLA will enter high risk state. */
-  slaHighRiskAt?: Maybe<Scalars["DateTime"]["output"]>;
+  slaHighRiskAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue's SLA will enter medium risk state. */
-  slaMediumRiskAt?: Maybe<Scalars["DateTime"]["output"]>;
+  slaMediumRiskAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue's SLA began. */
-  slaStartedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  slaStartedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The type of SLA set on the issue. Calendar days or business days. */
-  slaType?: Maybe<Scalars["String"]["output"]>;
+  slaType?: Maybe<Scalars['String']['output']>;
   /** The user who snoozed the issue. */
   snoozedBy?: Maybe<User>;
   /** The time until an issue will be snoozed in Triage view. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** The order of the item in relation to other items in the organization. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** The comment that this issue was created from. */
   sourceComment?: Maybe<Comment>;
   /** The time at which the issue was moved into started state. */
-  startedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue entered triage. */
-  startedTriageAt?: Maybe<Scalars["DateTime"]["output"]>;
+  startedTriageAt?: Maybe<Scalars['DateTime']['output']>;
   /** The workflow state that the issue is associated with. */
   state: WorkflowState;
   /** The order of the item in the sub-issue list. Only set if the issue has a parent. */
-  subIssueSortOrder?: Maybe<Scalars["Float"]["output"]>;
+  subIssueSortOrder?: Maybe<Scalars['Float']['output']>;
   /** Users who are subscribed to the issue. */
   subscribers: UserConnection;
   /** [Internal] Product Intelligence suggestions for the issue. */
   suggestions: IssueSuggestionConnection;
   /** [Internal] The time at which the most recent suggestions for this issue were generated. */
-  suggestionsGeneratedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  suggestionsGeneratedAt?: Maybe<Scalars['DateTime']['output']>;
   /** [DEPRECATED] [Internal] The user who has delegated this issue to be completed by an agent. */
   supervisor?: Maybe<User>;
   /** The external services the issue is synced with. */
@@ -3841,353 +3966,373 @@ export type Issue = Node & {
   /** The team that the issue is associated with. */
   team: Team;
   /** The issue's title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** A flag that indicates whether the issue is in the trash bin. */
-  trashed?: Maybe<Scalars["Boolean"]["output"]>;
+  trashed?: Maybe<Scalars['Boolean']['output']>;
   /** The time at which the issue left triage. */
-  triagedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  triagedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** Issue URL. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
+
 
 /** An issue. */
 export type IssueAttachmentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<AttachmentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueChildrenArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueCommentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueFormerAttachmentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<AttachmentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueFormerNeedsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CustomerNeedFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueHistoryArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueIncomingSuggestionsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueInverseRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueLabelsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueNeedsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CustomerNeedFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An issue. */
 export type IssueSubscribersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<UserFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeDisabled?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** An issue. */
 export type IssueSuggestionsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 /** A user that has access to the the resources of an organization. */
 export type User = Node & {
-  __typename?: "User";
+  __typename?: 'User';
   /** Whether the user account is active or disabled (suspended). */
-  active: Scalars["Boolean"]["output"];
+  active: Scalars['Boolean']['output'];
   /** Whether the user is an organization administrator. */
-  admin: Scalars["Boolean"]["output"];
+  admin: Scalars['Boolean']['output'];
   /** Whether the user is an app. */
-  app: Scalars["Boolean"]["output"];
+  app: Scalars['Boolean']['output'];
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Issues assigned to the user. */
   assignedIssues: IssueConnection;
   /** The background color of the avatar for users without set avatar. */
-  avatarBackgroundColor: Scalars["String"]["output"];
+  avatarBackgroundColor: Scalars['String']['output'];
   /** An URL to the user's avatar image. */
-  avatarUrl?: Maybe<Scalars["String"]["output"]>;
+  avatarUrl?: Maybe<Scalars['String']['output']>;
   /** [DEPRECATED] Hash for the user to be used in calendar URLs. */
-  calendarHash?: Maybe<Scalars["String"]["output"]>;
+  calendarHash?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Number of issues created. */
-  createdIssueCount: Scalars["Int"]["output"];
+  createdIssueCount: Scalars['Int']['output'];
   /** Issues created by the user. */
   createdIssues: IssueConnection;
   /** Issues delegated to this user. */
   delegatedIssues: IssueConnection;
   /** A short description of the user, either its title or bio. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** Reason why is the account disabled. */
-  disableReason?: Maybe<Scalars["String"]["output"]>;
+  disableReason?: Maybe<Scalars['String']['output']>;
   /** The user's display (nick) name. Unique within each organization. */
-  displayName: Scalars["String"]["output"];
+  displayName: Scalars['String']['output'];
   /** The user's drafts */
   drafts: DraftConnection;
   /** The user's email address. */
-  email: Scalars["String"]["output"];
+  email: Scalars['String']['output'];
   /** The user's GitHub user ID. */
-  gitHubUserId?: Maybe<Scalars["String"]["output"]>;
+  gitHubUserId?: Maybe<Scalars['String']['output']>;
   /** Whether the user is a guest in the workspace and limited to accessing a subset of teams. */
-  guest: Scalars["Boolean"]["output"];
+  guest: Scalars['Boolean']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initials of the user. */
-  initials: Scalars["String"]["output"];
+  initials: Scalars['String']['output'];
   /**
    * [DEPRECATED] Unique hash for the user to be used in invite URLs.
    * @deprecated This hash is not in use anymore, this value will always be empty.
    */
-  inviteHash: Scalars["String"]["output"];
+  inviteHash: Scalars['String']['output'];
   /** Whether the user is assignable. */
-  isAssignable: Scalars["Boolean"]["output"];
+  isAssignable: Scalars['Boolean']['output'];
   /** Whether the user is the currently authenticated user. */
-  isMe: Scalars["Boolean"]["output"];
+  isMe: Scalars['Boolean']['output'];
   /** Whether the user is mentionable. */
-  isMentionable: Scalars["Boolean"]["output"];
+  isMentionable: Scalars['Boolean']['output'];
   /** The user's issue drafts */
   issueDrafts: IssueDraftConnection;
   /** The last time the user was seen online. */
-  lastSeen?: Maybe<Scalars["DateTime"]["output"]>;
+  lastSeen?: Maybe<Scalars['DateTime']['output']>;
   /** The user's full name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Organization the user belongs to. */
   organization: Organization;
   /** The emoji to represent the user current status. */
-  statusEmoji?: Maybe<Scalars["String"]["output"]>;
+  statusEmoji?: Maybe<Scalars['String']['output']>;
   /** The label of the user current status. */
-  statusLabel?: Maybe<Scalars["String"]["output"]>;
+  statusLabel?: Maybe<Scalars['String']['output']>;
   /** A date at which the user current status should be cleared. */
-  statusUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  statusUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** Memberships associated with the user. For easier access of the same data, use `teams` query. */
   teamMemberships: TeamMembershipConnection;
   /** Teams the user is part of. */
   teams: TeamConnection;
   /** The local timezone of the user. */
-  timezone?: Maybe<Scalars["String"]["output"]>;
+  timezone?: Maybe<Scalars['String']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** User's profile URL. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
+
 
 /** A user that has access to the the resources of an organization. */
 export type UserAssignedIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A user that has access to the the resources of an organization. */
 export type UserCreatedIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A user that has access to the the resources of an organization. */
 export type UserDelegatedIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A user that has access to the the resources of an organization. */
 export type UserDraftsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A user that has access to the the resources of an organization. */
 export type UserIssueDraftsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A user that has access to the the resources of an organization. */
 export type UserTeamMembershipsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** A user that has access to the the resources of an organization. */
 export type UserTeamsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<TeamFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type DraftConnection = {
-  __typename?: "DraftConnection";
+  __typename?: 'DraftConnection';
   edges: Array<DraftEdge>;
   nodes: Array<Draft>;
   pageInfo: PageInfo;
 };
 
 export type DraftEdge = {
-  __typename?: "DraftEdge";
+  __typename?: 'DraftEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Draft;
 };
 
 /** A general purpose draft. Used for comments, project updates, etc. */
 export type Draft = Node & {
-  __typename?: "Draft";
+  __typename?: 'Draft';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The text content as a Prosemirror document. */
-  bodyData: Scalars["JSON"]["output"];
+  bodyData: Scalars['JSON']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The customer need that this draft is referencing. */
   customerNeed?: Maybe<CustomerNeed>;
   /** Additional properties for the draft. */
-  data?: Maybe<Scalars["JSONObject"]["output"]>;
+  data?: Maybe<Scalars['JSONObject']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative for which this is a draft initiative update. */
   initiative?: Maybe<Initiative>;
   /** The initiative update for which this is a draft comment. */
   initiativeUpdate?: Maybe<InitiativeUpdate>;
   /** Whether the draft was autogenerated for the user. */
-  isAutogenerated: Scalars["Boolean"]["output"];
+  isAutogenerated: Scalars['Boolean']['output'];
   /** The issue for which this is a draft comment. */
   issue?: Maybe<Issue>;
   /** The comment for which this is a draft comment reply. */
@@ -4204,40 +4349,40 @@ export type Draft = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user who created the draft. */
   user: User;
   /** [INTERNAL] Whether the draft was ported from a local draft. */
-  wasLocalDraft: Scalars["Boolean"]["output"];
+  wasLocalDraft: Scalars['Boolean']['output'];
 };
 
 /** A customer need, expressed through a reference to an issue, project, or comment. */
 export type CustomerNeed = Node & {
-  __typename?: "CustomerNeed";
+  __typename?: 'CustomerNeed';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The attachment this need is referencing. */
   attachment?: Maybe<Attachment>;
   /** The need content in markdown format. */
-  body?: Maybe<Scalars["String"]["output"]>;
+  body?: Maybe<Scalars['String']['output']>;
   /** [Internal] The content of the need as a Prosemirror document. */
-  bodyData?: Maybe<Scalars["String"]["output"]>;
+  bodyData?: Maybe<Scalars['String']['output']>;
   /** The comment this need is referencing. */
   comment?: Maybe<Comment>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The creator of the customer need. */
   creator?: Maybe<User>;
   /** The customer that this need is attached to. */
   customer?: Maybe<Customer>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The issue this need is referencing. */
   issue?: Maybe<Issue>;
   /** The issue this customer need was originally created on. Will be undefined if the customer need hasn't been moved. */
   originalIssue?: Maybe<Issue>;
   /** Whether the customer need is important or not. 0 = Not important, 1 = Important. */
-  priority: Scalars["Float"]["output"];
+  priority: Scalars['Float']['output'];
   /** The project this need is referencing. */
   project?: Maybe<Project>;
   /** The project attachment this need is referencing. */
@@ -4246,124 +4391,124 @@ export type CustomerNeed = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The URL of the underlying attachment, if any */
-  url?: Maybe<Scalars["String"]["output"]>;
+  url?: Maybe<Scalars['String']['output']>;
 };
 
 /** Issue attachment (e.g. support ticket, pull request). */
 export type Attachment = Node & {
-  __typename?: "Attachment";
+  __typename?: 'Attachment';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The body data of the attachment, if any. */
-  bodyData?: Maybe<Scalars["String"]["output"]>;
+  bodyData?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The creator of the attachment. */
   creator?: Maybe<User>;
   /** The non-Linear user who created the attachment. */
   externalUserCreator?: Maybe<ExternalUser>;
   /** Indicates if attachments for the same source application should be grouped in the Linear UI. */
-  groupBySource: Scalars["Boolean"]["output"];
+  groupBySource: Scalars['Boolean']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The issue this attachment belongs to. */
   issue: Issue;
   /** Custom metadata related to the attachment. */
-  metadata: Scalars["JSONObject"]["output"];
+  metadata: Scalars['JSONObject']['output'];
   /** The issue this attachment was originally created on. Will be undefined if the attachment hasn't been moved. */
   originalIssue?: Maybe<Issue>;
   /** Information about the source which created the attachment. */
-  source?: Maybe<Scalars["JSONObject"]["output"]>;
+  source?: Maybe<Scalars['JSONObject']['output']>;
   /** An accessor helper to source.type, defines the source type of the attachment. */
-  sourceType?: Maybe<Scalars["String"]["output"]>;
+  sourceType?: Maybe<Scalars['String']['output']>;
   /** Content for the subtitle line in the Linear attachment widget. */
-  subtitle?: Maybe<Scalars["String"]["output"]>;
+  subtitle?: Maybe<Scalars['String']['output']>;
   /** Content for the title line in the Linear attachment widget. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** Location of the attachment which is also used as an identifier. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
 
 /** An external authenticated (e.g., through Slack) user which doesn't have a Linear account, but can create and update entities in Linear from the external system that authenticated them. */
 export type ExternalUser = Node & {
-  __typename?: "ExternalUser";
+  __typename?: 'ExternalUser';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** An URL to the external user's avatar image. */
-  avatarUrl?: Maybe<Scalars["String"]["output"]>;
+  avatarUrl?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The external user's display name. Unique within each organization. Can match the display name of an actual user. */
-  displayName: Scalars["String"]["output"];
+  displayName: Scalars['String']['output'];
   /** The external user's email address. */
-  email?: Maybe<Scalars["String"]["output"]>;
+  email?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The last time the external user was seen interacting with Linear. */
-  lastSeen?: Maybe<Scalars["DateTime"]["output"]>;
+  lastSeen?: Maybe<Scalars['DateTime']['output']>;
   /** The external user's full name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Organization the external user belongs to. */
   organization: Organization;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** An organization. Organizations are root-level objects that contain user accounts and teams. */
 export type Organization = Node & {
-  __typename?: "Organization";
+  __typename?: 'Organization';
   /** [INTERNAL] Whether the organization has enabled the AI add-on. */
-  aiAddonEnabled: Scalars["Boolean"]["output"];
+  aiAddonEnabled: Scalars['Boolean']['output'];
   /** Allowed authentication providers, empty array means all are allowed. */
-  allowedAuthServices: Array<Scalars["String"]["output"]>;
+  allowedAuthServices: Array<Scalars['String']['output']>;
   /** Whether member users are allowed to send invites. */
-  allowMembersToInvite?: Maybe<Scalars["Boolean"]["output"]>;
+  allowMembersToInvite?: Maybe<Scalars['Boolean']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Number of issues in the organization. */
-  createdIssueCount: Scalars["Int"]["output"];
+  createdIssueCount: Scalars['Int']['output'];
   /** Number of customers in the organization. */
-  customerCount: Scalars["Int"]["output"];
+  customerCount: Scalars['Int']['output'];
   /** Configuration settings for the Customers feature. */
-  customersConfiguration: Scalars["JSONObject"]["output"];
+  customersConfiguration: Scalars['JSONObject']['output'];
   /** Whether the organization is using Customers. */
-  customersEnabled: Scalars["Boolean"]["output"];
+  customersEnabled: Scalars['Boolean']['output'];
   /** Default schedule for how often feed summaries are generated. */
   defaultFeedSummarySchedule?: Maybe<FeedSummarySchedule>;
   /** The time at which deletion of the organization was requested. */
-  deletionRequestedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  deletionRequestedAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Facets associated with the organization. */
   facets: Array<Facet>;
   /** Whether the organization has enabled the feed feature. */
-  feedEnabled: Scalars["Boolean"]["output"];
+  feedEnabled: Scalars['Boolean']['output'];
   /** The month at which the fiscal year starts. Defaults to January (0). */
-  fiscalYearStartMonth: Scalars["Float"]["output"];
+  fiscalYearStartMonth: Scalars['Float']['output'];
   /** How git branches are formatted. If null, default formatting will be used. */
-  gitBranchFormat?: Maybe<Scalars["String"]["output"]>;
+  gitBranchFormat?: Maybe<Scalars['String']['output']>;
   /** Whether the Git integration linkback messages should be sent to private repositories. */
-  gitLinkbackMessagesEnabled: Scalars["Boolean"]["output"];
+  gitLinkbackMessagesEnabled: Scalars['Boolean']['output'];
   /** Whether the Git integration linkback messages should be sent to public repositories. */
-  gitPublicLinkbackMessagesEnabled: Scalars["Boolean"]["output"];
+  gitPublicLinkbackMessagesEnabled: Scalars['Boolean']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The n-weekly frequency at which to prompt for initiative updates. When not set, reminders are off. */
-  initiativeUpdateReminderFrequencyInWeeks?: Maybe<Scalars["Float"]["output"]>;
+  initiativeUpdateReminderFrequencyInWeeks?: Maybe<Scalars['Float']['output']>;
   /** The day at which to prompt for initiative updates. */
   initiativeUpdateRemindersDay: Day;
   /** The hour at which to prompt for initiative updates. */
-  initiativeUpdateRemindersHour: Scalars["Float"]["output"];
+  initiativeUpdateRemindersHour: Scalars['Float']['output'];
   /** Integrations associated with the organization. */
   integrations: IntegrationConnection;
   /** IP restriction configurations. */
@@ -4371,23 +4516,23 @@ export type Organization = Node & {
   /** Labels associated with the organization. */
   labels: IssueLabelConnection;
   /** The organization's logo URL. */
-  logoUrl?: Maybe<Scalars["String"]["output"]>;
+  logoUrl?: Maybe<Scalars['String']['output']>;
   /** The organization's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Rolling 30-day total upload volume for the organization, in megabytes. */
-  periodUploadVolume: Scalars["Float"]["output"];
+  periodUploadVolume: Scalars['Float']['output'];
   /** Previously used URL keys for the organization (last 3 are kept and redirected). */
-  previousUrlKeys: Array<Scalars["String"]["output"]>;
+  previousUrlKeys: Array<Scalars['String']['output']>;
   /** Project labels associated with the organization. */
   projectLabels: ProjectLabelConnection;
   /** The organization's project statuses. */
   projectStatuses: Array<ProjectStatus>;
   /** The n-weekly frequency at which to prompt for project updates. When not set, reminders are off. */
-  projectUpdateReminderFrequencyInWeeks?: Maybe<Scalars["Float"]["output"]>;
+  projectUpdateReminderFrequencyInWeeks?: Maybe<Scalars['Float']['output']>;
   /** The day at which to prompt for project updates. */
   projectUpdateRemindersDay: Day;
   /** The hour at which to prompt for project updates. */
-  projectUpdateRemindersHour: Scalars["Float"]["output"];
+  projectUpdateRemindersHour: Scalars['Float']['output'];
   /**
    * [DEPRECATED] The frequency at which to prompt for project updates.
    * @deprecated Use organization.projectUpdatesReminderFrequencyInWeeks instead
@@ -4396,19 +4541,19 @@ export type Organization = Node & {
   /** The feature release channel the organization belongs to. */
   releaseChannel: ReleaseChannel;
   /** Whether workspace label creation, update, and deletion is restricted to admins. */
-  restrictLabelManagementToAdmins?: Maybe<Scalars["Boolean"]["output"]>;
+  restrictLabelManagementToAdmins?: Maybe<Scalars['Boolean']['output']>;
   /** Whether team creation is restricted to admins. */
-  restrictTeamCreationToAdmins?: Maybe<Scalars["Boolean"]["output"]>;
+  restrictTeamCreationToAdmins?: Maybe<Scalars['Boolean']['output']>;
   /** Whether the organization is using a roadmap. */
-  roadmapEnabled: Scalars["Boolean"]["output"];
+  roadmapEnabled: Scalars['Boolean']['output'];
   /** Whether SAML authentication is enabled for organization. */
-  samlEnabled: Scalars["Boolean"]["output"];
+  samlEnabled: Scalars['Boolean']['output'];
   /** [INTERNAL] SAML settings. */
-  samlSettings?: Maybe<Scalars["JSONObject"]["output"]>;
+  samlSettings?: Maybe<Scalars['JSONObject']['output']>;
   /** Whether SCIM provisioning is enabled for organization. */
-  scimEnabled: Scalars["Boolean"]["output"];
+  scimEnabled: Scalars['Boolean']['output'];
   /** [INTERNAL] SCIM settings. */
-  scimSettings?: Maybe<Scalars["JSONObject"]["output"]>;
+  scimSettings?: Maybe<Scalars['JSONObject']['output']>;
   /**
    * [DEPRECATED] Which day count to use for SLA calculations.
    * @deprecated No longer in use
@@ -4421,107 +4566,112 @@ export type Organization = Node & {
   /** Templates associated with the organization. */
   templates: TemplateConnection;
   /** [ALPHA] Theme settings for the organization. */
-  themeSettings?: Maybe<Scalars["JSONObject"]["output"]>;
+  themeSettings?: Maybe<Scalars['JSONObject']['output']>;
   /** The time at which the trial will end. */
-  trialEndsAt?: Maybe<Scalars["DateTime"]["output"]>;
+  trialEndsAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The organization's unique URL key. */
-  urlKey: Scalars["String"]["output"];
+  urlKey: Scalars['String']['output'];
   /** Number of active users in the organization. */
-  userCount: Scalars["Int"]["output"];
+  userCount: Scalars['Int']['output'];
   /** Users associated with the organization. */
   users: UserConnection;
   /** [Internal] The list of working days. Sunday is 0, Monday is 1, etc. */
-  workingDays: Array<Scalars["Float"]["output"]>;
+  workingDays: Array<Scalars['Float']['output']>;
 };
+
 
 /** An organization. Organizations are root-level objects that contain user accounts and teams. */
 export type OrganizationIntegrationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organization. Organizations are root-level objects that contain user accounts and teams. */
 export type OrganizationLabelsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organization. Organizations are root-level objects that contain user accounts and teams. */
 export type OrganizationProjectLabelsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organization. Organizations are root-level objects that contain user accounts and teams. */
 export type OrganizationTeamsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<TeamFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An organization. Organizations are root-level objects that contain user accounts and teams. */
 export type OrganizationTemplatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<NullableTemplateFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** An organization. Organizations are root-level objects that contain user accounts and teams. */
 export type OrganizationUsersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeDisabled?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 /** Cadence to generate feed summary */
-export enum FeedSummarySchedule {
-  Daily = "daily",
-  Never = "never",
-  Weekly = "weekly",
-}
+export type FeedSummarySchedule =
+  | 'daily'
+  | 'never'
+  | 'weekly';
 
 /** A facet. Facets are joins between entities. A facet can tie a custom view to a project, or a a project to a roadmap for example. */
 export type Facet = Node & {
-  __typename?: "Facet";
+  __typename?: 'Facet';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The sort order of the facet. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** The owning feed user. */
   sourceFeedUser?: Maybe<User>;
   /** The owning initiative. */
@@ -4540,26 +4690,26 @@ export type Facet = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** An initiative to group projects. */
 export type Initiative = Node & {
-  __typename?: "Initiative";
+  __typename?: 'Initiative';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The initiative's color. */
-  color?: Maybe<Scalars["String"]["output"]>;
+  color?: Maybe<Scalars['String']['output']>;
   /** The time at which the initiative was moved into completed status. */
-  completedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  completedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The initiative's content in markdown format. */
-  content?: Maybe<Scalars["String"]["output"]>;
+  content?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the initiative. */
   creator?: Maybe<User>;
   /** The description of the initiative. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The content of the initiative description. */
   documentContent?: Maybe<DocumentContent>;
   /** Documents associated with the initiative. */
@@ -4571,13 +4721,13 @@ export type Initiative = Node & {
   /** The health of the initiative. */
   health?: Maybe<InitiativeUpdateHealthType>;
   /** The time at which the initiative health was updated. */
-  healthUpdatedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  healthUpdatedAt?: Maybe<Scalars['DateTime']['output']>;
   /** History entries associated with the initiative. */
   history: InitiativeHistoryConnection;
   /** The icon of the initiative. */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Settings for all integrations associated with that initiative. */
   integrationsSettings?: Maybe<IntegrationsSettings>;
   /** The last initiative update posted for this initiative. */
@@ -4585,7 +4735,7 @@ export type Initiative = Node & {
   /** Links associated with the initiative. */
   links: EntityExternalLinkConnection;
   /** The name of the initiative. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The organization of the initiative. */
   organization: Organization;
   /** The user who owns the initiative. */
@@ -4595,109 +4745,114 @@ export type Initiative = Node & {
   /** Projects associated with the initiative. */
   projects: ProjectConnection;
   /** The initiative's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The sort order of the initiative within the organization. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** The time at which the initiative was moved into active status. */
-  startedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The status of the initiative. One of Planned, Active, Completed */
   status: InitiativeStatus;
   /** Sub-initiatives associated with the initiative. */
   subInitiatives: InitiativeConnection;
   /** The estimated completion date of the initiative. */
-  targetDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  targetDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** The resolution of the initiative's estimated completion date. */
   targetDateResolution?: Maybe<DateResolutionType>;
   /** A flag that indicates whether the initiative is in the trash bin. */
-  trashed?: Maybe<Scalars["Boolean"]["output"]>;
+  trashed?: Maybe<Scalars['Boolean']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequency?: Maybe<Scalars["Float"]["output"]>;
+  updateReminderFrequency?: Maybe<Scalars['Float']['output']>;
   /** The n-weekly frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequencyInWeeks?: Maybe<Scalars["Float"]["output"]>;
+  updateReminderFrequencyInWeeks?: Maybe<Scalars['Float']['output']>;
   /** The day at which to prompt for updates. */
   updateRemindersDay?: Maybe<Day>;
   /** The hour at which to prompt for updates. */
-  updateRemindersHour?: Maybe<Scalars["Float"]["output"]>;
+  updateRemindersHour?: Maybe<Scalars['Float']['output']>;
   /** Initiative URL. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
+
 
 /** An initiative to group projects. */
 export type InitiativeDocumentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<DocumentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An initiative to group projects. */
 export type InitiativeHistoryArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** An initiative to group projects. */
 export type InitiativeLinksArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** An initiative to group projects. */
 export type InitiativeProjectsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeSubInitiatives?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeSubInitiatives?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<ProjectSortInput>>;
 };
 
+
 /** An initiative to group projects. */
 export type InitiativeSubInitiativesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<InitiativeFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<InitiativeSortInput>>;
 };
 
 /** A document content for a project. */
 export type DocumentContent = Node & {
-  __typename?: "DocumentContent";
+  __typename?: 'DocumentContent';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The document content in markdown format. */
-  content?: Maybe<Scalars["String"]["output"]>;
+  content?: Maybe<Scalars['String']['output']>;
   /** The document content state as a base64 encoded string. */
-  contentState?: Maybe<Scalars["String"]["output"]>;
+  contentState?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The document that the content is associated with. */
   document?: Maybe<Document>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative that the content is associated with. */
   initiative?: Maybe<Initiative>;
   /** The issue that the content is associated with. */
@@ -4707,39 +4862,39 @@ export type DocumentContent = Node & {
   /** The project milestone that the content is associated with. */
   projectMilestone?: Maybe<ProjectMilestone>;
   /** The time at which the document content was restored from a previous version. */
-  restoredAt?: Maybe<Scalars["DateTime"]["output"]>;
+  restoredAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** A document that can be attached to different entities. */
 export type Document = Node & {
-  __typename?: "Document";
+  __typename?: 'Document';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The color of the icon. */
-  color?: Maybe<Scalars["String"]["output"]>;
+  color?: Maybe<Scalars['String']['output']>;
   /** Comments associated with the document. */
   comments: CommentConnection;
   /** The documents content in markdown format. */
-  content?: Maybe<Scalars["String"]["output"]>;
+  content?: Maybe<Scalars['String']['output']>;
   /** [Internal] The documents content as YJS state. */
-  contentState?: Maybe<Scalars["String"]["output"]>;
+  contentState?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the document. */
   creator?: Maybe<User>;
   /** The ID of the document content associated with the document. */
-  documentContentId?: Maybe<Scalars["String"]["output"]>;
+  documentContentId?: Maybe<Scalars['String']['output']>;
   /** The time at which the document was hidden. Null if the entity has not been hidden. */
-  hiddenAt?: Maybe<Scalars["DateTime"]["output"]>;
+  hiddenAt?: Maybe<Scalars['DateTime']['output']>;
   /** The icon of the document. */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative that the document is associated with. */
   initiative?: Maybe<Initiative>;
   /** The last template that was applied to this document. */
@@ -4747,76 +4902,77 @@ export type Document = Node & {
   /** The project that the document is associated with. */
   project?: Maybe<Project>;
   /** The document's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The order of the item in the resources list. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** [Internal] The team that the document is associated with. */
   team?: Maybe<Team>;
   /** The document title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** A flag that indicates whether the document is in the trash bin. */
-  trashed?: Maybe<Scalars["Boolean"]["output"]>;
+  trashed?: Maybe<Scalars['Boolean']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user who last updated the document. */
   updatedBy?: Maybe<User>;
   /** The canonical url for the document. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
+
 
 /** A document that can be attached to different entities. */
 export type DocumentCommentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type CommentConnection = {
-  __typename?: "CommentConnection";
+  __typename?: 'CommentConnection';
   edges: Array<CommentEdge>;
   nodes: Array<Comment>;
   pageInfo: PageInfo;
 };
 
 export type CommentEdge = {
-  __typename?: "CommentEdge";
+  __typename?: 'CommentEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Comment;
 };
 
 /** A comment associated with an issue. */
 export type Comment = Node & {
-  __typename?: "Comment";
+  __typename?: 'Comment';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The comment content in markdown format. */
-  body: Scalars["String"]["output"];
+  body: Scalars['String']['output'];
   /** [Internal] The comment content as a Prosemirror document. */
-  bodyData: Scalars["String"]["output"];
+  bodyData: Scalars['String']['output'];
   /** The bot that created the comment. */
   botActor?: Maybe<ActorBot>;
   /** The children of the comment. */
   children: CommentConnection;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The document content that the comment is associated with. */
   documentContent?: Maybe<DocumentContent>;
   /** The time user edited the comment. */
-  editedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  editedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external thread that the comment is synced with. */
   externalThread?: Maybe<SyncedExternalThread>;
   /** The external user who wrote the comment. */
   externalUser?: Maybe<ExternalUser>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative update that the comment is associated with. */
   initiativeUpdate?: Maybe<InitiativeUpdate>;
   /** The issue that the comment is associated with. */
@@ -4828,13 +4984,13 @@ export type Comment = Node & {
   /** The project update that the comment is associated with. */
   projectUpdate?: Maybe<ProjectUpdate>;
   /** The text that this comment references. Only defined for inline comments. */
-  quotedText?: Maybe<Scalars["String"]["output"]>;
+  quotedText?: Maybe<Scalars['String']['output']>;
   /** Emoji reaction summary, grouped by emoji type. */
-  reactionData: Scalars["JSONObject"]["output"];
+  reactionData: Scalars['JSONObject']['output'];
   /** Reactions associated with the comment. */
   reactions: Array<Reaction>;
   /** The time the resolvingUser resolved the thread. */
-  resolvedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  resolvedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The comment that resolved the thread. */
   resolvingComment?: Maybe<Comment>;
   /** The user that resolved the thread. */
@@ -4842,148 +4998,149 @@ export type Comment = Node & {
   /** The external services the comment is synced with. */
   syncedWith?: Maybe<Array<ExternalEntityInfo>>;
   /** [Internal] A generated summary of the comment thread. */
-  threadSummary?: Maybe<Scalars["JSONObject"]["output"]>;
+  threadSummary?: Maybe<Scalars['JSONObject']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** Comment's URL. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user who wrote the comment. */
   user?: Maybe<User>;
 };
 
+
 /** A comment associated with an issue. */
 export type CommentChildrenArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 /** A bot actor is an actor that is not a user, but an application or integration. */
 export type ActorBot = {
-  __typename?: "ActorBot";
+  __typename?: 'ActorBot';
   /** A url pointing to the avatar representing this bot. */
-  avatarUrl?: Maybe<Scalars["String"]["output"]>;
-  id?: Maybe<Scalars["ID"]["output"]>;
+  avatarUrl?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['ID']['output']>;
   /** The display name of the bot. */
-  name?: Maybe<Scalars["String"]["output"]>;
+  name?: Maybe<Scalars['String']['output']>;
   /** The sub type of the bot. */
-  subType?: Maybe<Scalars["String"]["output"]>;
+  subType?: Maybe<Scalars['String']['output']>;
   /** The type of bot. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The display name of the external user on behalf of which the bot acted. */
-  userDisplayName?: Maybe<Scalars["String"]["output"]>;
+  userDisplayName?: Maybe<Scalars['String']['output']>;
 };
 
 /** A comment thread that is synced with an external source. */
 export type SyncedExternalThread = {
-  __typename?: "SyncedExternalThread";
+  __typename?: 'SyncedExternalThread';
   /** The display name of the thread. */
-  displayName?: Maybe<Scalars["String"]["output"]>;
-  id?: Maybe<Scalars["ID"]["output"]>;
+  displayName?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['ID']['output']>;
   /** Whether this thread is syncing with the external service. */
-  isConnected: Scalars["Boolean"]["output"];
+  isConnected: Scalars['Boolean']['output'];
   /** Whether the current user has the corresponding personal integration connected for the external service. */
-  isPersonalIntegrationConnected: Scalars["Boolean"]["output"];
+  isPersonalIntegrationConnected: Scalars['Boolean']['output'];
   /** Whether a connected personal integration is required to comment in this thread. */
-  isPersonalIntegrationRequired: Scalars["Boolean"]["output"];
+  isPersonalIntegrationRequired: Scalars['Boolean']['output'];
   /** The display name of the source. */
-  name?: Maybe<Scalars["String"]["output"]>;
+  name?: Maybe<Scalars['String']['output']>;
   /** The sub type of the external source. */
-  subType?: Maybe<Scalars["String"]["output"]>;
+  subType?: Maybe<Scalars['String']['output']>;
   /** The type of the external source. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The external url of the thread. */
-  url?: Maybe<Scalars["String"]["output"]>;
+  url?: Maybe<Scalars['String']['output']>;
 };
 
 /** An initiative update. */
 export type InitiativeUpdate = Node & {
-  __typename?: "InitiativeUpdate";
+  __typename?: 'InitiativeUpdate';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The update content in markdown format. */
-  body: Scalars["String"]["output"];
+  body: Scalars['String']['output'];
   /** [Internal] The content of the update as a Prosemirror document. */
-  bodyData: Scalars["String"]["output"];
+  bodyData: Scalars['String']['output'];
   /** Comments associated with the initiative update. */
   comments: CommentConnection;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The diff between the current update and the previous one. */
-  diff?: Maybe<Scalars["JSONObject"]["output"]>;
+  diff?: Maybe<Scalars['JSONObject']['output']>;
   /** The diff between the current update and the previous one, formatted as markdown. */
-  diffMarkdown?: Maybe<Scalars["String"]["output"]>;
+  diffMarkdown?: Maybe<Scalars['String']['output']>;
   /** The time the update was edited. */
-  editedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  editedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The health at the time of the update. */
   health: InitiativeUpdateHealthType;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Serialized JSON representing current state of the initiative properties when posting the initiative update. */
-  infoSnapshot?: Maybe<Scalars["JSONObject"]["output"]>;
+  infoSnapshot?: Maybe<Scalars['JSONObject']['output']>;
   /** The initiative that the update is associated with. */
   initiative: Initiative;
   /** Whether initiative update diff should be hidden. */
-  isDiffHidden: Scalars["Boolean"]["output"];
+  isDiffHidden: Scalars['Boolean']['output'];
   /** Whether the initiative update is stale. */
-  isStale: Scalars["Boolean"]["output"];
+  isStale: Scalars['Boolean']['output'];
   /** Emoji reaction summary, grouped by emoji type. */
-  reactionData: Scalars["JSONObject"]["output"];
+  reactionData: Scalars['JSONObject']['output'];
   /** Reactions associated with the initiative update. */
   reactions: Array<Reaction>;
   /** The update's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The URL to the initiative update. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user who wrote the update. */
   user: User;
 };
 
+
 /** An initiative update. */
 export type InitiativeUpdateCommentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 /** The health type when the update is created. */
-export enum InitiativeUpdateHealthType {
-  AtRisk = "atRisk",
-  OffTrack = "offTrack",
-  OnTrack = "onTrack",
-}
+export type InitiativeUpdateHealthType =
+  | 'atRisk'
+  | 'offTrack'
+  | 'onTrack';
 
 /** A reaction associated with a comment or a project update. */
 export type Reaction = Node & {
-  __typename?: "Reaction";
+  __typename?: 'Reaction';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The comment that the reaction is associated with. */
   comment?: Maybe<Comment>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Name of the reaction's emoji. */
-  emoji: Scalars["String"]["output"];
+  emoji: Scalars['String']['output'];
   /** The external user that created the reaction. */
   externalUser?: Maybe<ExternalUser>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative update that the reaction is associated with. */
   initiativeUpdate?: Maybe<InitiativeUpdate>;
   /** The issue that the reaction is associated with. */
@@ -4996,162 +5153,161 @@ export type Reaction = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user that created the reaction. */
   user?: Maybe<User>;
 };
 
 /** [Internal] A generic post. */
 export type Post = Node & {
-  __typename?: "Post";
+  __typename?: 'Post';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The update content summarized for audio consumption. */
-  audioSummary?: Maybe<Scalars["String"]["output"]>;
+  audioSummary?: Maybe<Scalars['String']['output']>;
   /** The update content in markdown format. */
-  body: Scalars["String"]["output"];
+  body: Scalars['String']['output'];
   /** [Internal] The content of the post as a Prosemirror document. */
-  bodyData: Scalars["String"]["output"];
+  bodyData: Scalars['String']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who wrote the post. */
   creator?: Maybe<User>;
   /** The time the post was edited. */
-  editedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  editedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The log id of the ai response. */
-  evalLogId?: Maybe<Scalars["String"]["output"]>;
+  evalLogId?: Maybe<Scalars['String']['output']>;
   /** Schedule used to create a post summary. */
   feedSummaryScheduleAtCreate?: Maybe<FeedSummarySchedule>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Emoji reaction summary, grouped by emoji type. */
-  reactionData: Scalars["JSONObject"]["output"];
+  reactionData: Scalars['JSONObject']['output'];
   /** The post's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The team that the post is associated with. */
   team?: Maybe<Team>;
   /** The post's title. */
-  title?: Maybe<Scalars["String"]["output"]>;
+  title?: Maybe<Scalars['String']['output']>;
   /** A URL of the TTL (text-to-language) for the body. */
-  ttlUrl?: Maybe<Scalars["String"]["output"]>;
+  ttlUrl?: Maybe<Scalars['String']['output']>;
   /** The type of the post. */
   type?: Maybe<PostType>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user that the post is associated with. */
   user?: Maybe<User>;
   /** [Internal] The written update data used to compose the written post. */
-  writtenSummaryData?: Maybe<Scalars["JSONObject"]["output"]>;
+  writtenSummaryData?: Maybe<Scalars['JSONObject']['output']>;
 };
 
 /** Type of Post */
-export enum PostType {
-  Summary = "summary",
-  Update = "update",
-}
+export type PostType =
+  | 'summary'
+  | 'update';
 
 /** An update associated with a project. */
 export type ProjectUpdate = Node & {
-  __typename?: "ProjectUpdate";
+  __typename?: 'ProjectUpdate';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The update content in markdown format. */
-  body: Scalars["String"]["output"];
+  body: Scalars['String']['output'];
   /** [Internal] The content of the update as a Prosemirror document. */
-  bodyData: Scalars["String"]["output"];
+  bodyData: Scalars['String']['output'];
   /** Comments associated with the project update. */
   comments: CommentConnection;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The diff between the current update and the previous one. */
-  diff?: Maybe<Scalars["JSONObject"]["output"]>;
+  diff?: Maybe<Scalars['JSONObject']['output']>;
   /** The diff between the current update and the previous one, formatted as markdown. */
-  diffMarkdown?: Maybe<Scalars["String"]["output"]>;
+  diffMarkdown?: Maybe<Scalars['String']['output']>;
   /** The time the update was edited. */
-  editedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  editedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The health of the project at the time of the update. */
   health: ProjectUpdateHealthType;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Serialized JSON representing current state of the project properties when posting the project update. */
-  infoSnapshot?: Maybe<Scalars["JSONObject"]["output"]>;
+  infoSnapshot?: Maybe<Scalars['JSONObject']['output']>;
   /** Whether project update diff should be hidden. */
-  isDiffHidden: Scalars["Boolean"]["output"];
+  isDiffHidden: Scalars['Boolean']['output'];
   /** Whether the project update is stale. */
-  isStale: Scalars["Boolean"]["output"];
+  isStale: Scalars['Boolean']['output'];
   /** The project that the update is associated with. */
   project: Project;
   /** Emoji reaction summary, grouped by emoji type. */
-  reactionData: Scalars["JSONObject"]["output"];
+  reactionData: Scalars['JSONObject']['output'];
   /** Reactions associated with the project update. */
   reactions: Array<Reaction>;
   /** The update's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The URL to the project update. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user who wrote the update. */
   user: User;
 };
 
+
 /** An update associated with a project. */
 export type ProjectUpdateCommentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 /** The health type when the project update is created. */
-export enum ProjectUpdateHealthType {
-  AtRisk = "atRisk",
-  OffTrack = "offTrack",
-  OnTrack = "onTrack",
-}
+export type ProjectUpdateHealthType =
+  | 'atRisk'
+  | 'offTrack'
+  | 'onTrack';
 
 /** A project. */
 export type Project = Node & {
-  __typename?: "Project";
+  __typename?: 'Project';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the project was automatically archived by the auto pruning process. */
-  autoArchivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  autoArchivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the project was moved into canceled state. */
-  canceledAt?: Maybe<Scalars["DateTime"]["output"]>;
+  canceledAt?: Maybe<Scalars['DateTime']['output']>;
   /** The project's color. */
-  color: Scalars["String"]["output"];
+  color: Scalars['String']['output'];
   /** Comments associated with the project overview. */
   comments: CommentConnection;
   /** The time at which the project was moved into completed state. */
-  completedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  completedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The number of completed issues in the project after each week. */
-  completedIssueCountHistory: Array<Scalars["Float"]["output"]>;
+  completedIssueCountHistory: Array<Scalars['Float']['output']>;
   /** The number of completed estimation points after each week. */
-  completedScopeHistory: Array<Scalars["Float"]["output"]>;
+  completedScopeHistory: Array<Scalars['Float']['output']>;
   /** The project's content in markdown format. */
-  content?: Maybe<Scalars["String"]["output"]>;
+  content?: Maybe<Scalars['String']['output']>;
   /** [Internal] The project's content as YJS state. */
-  contentState?: Maybe<Scalars["String"]["output"]>;
+  contentState?: Maybe<Scalars['String']['output']>;
   /** The project was created based on this issue. */
   convertedFromIssue?: Maybe<Issue>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the project. */
   creator?: Maybe<User>;
   /** [INTERNAL] The current progress of the project. */
-  currentProgress: Scalars["JSONObject"]["output"];
+  currentProgress: Scalars['JSONObject']['output'];
   /** The project's description. */
-  description: Scalars["String"]["output"];
+  description: Scalars['String']['output'];
   /** The content of the project description. */
   documentContent?: Maybe<DocumentContent>;
   /** Documents associated with the project. */
@@ -5167,27 +5323,27 @@ export type Project = Node & {
   /** The health of the project. */
   health?: Maybe<ProjectUpdateHealthType>;
   /** The time at which the project health was updated. */
-  healthUpdatedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  healthUpdatedAt?: Maybe<Scalars['DateTime']['output']>;
   /** History entries associated with the project. */
   history: ProjectHistoryConnection;
   /** The icon of the project. */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Initiatives that this project belongs to. */
   initiatives: InitiativeConnection;
   /** The number of in progress estimation points after each week. */
-  inProgressScopeHistory: Array<Scalars["Float"]["output"]>;
+  inProgressScopeHistory: Array<Scalars['Float']['output']>;
   /** Settings for all integrations associated with that project. */
   integrationsSettings?: Maybe<IntegrationsSettings>;
   /** Inverse relations associated with this project. */
   inverseRelations: ProjectRelationConnection;
   /** The total number of issues in the project after each week. */
-  issueCountHistory: Array<Scalars["Float"]["output"]>;
+  issueCountHistory: Array<Scalars['Float']['output']>;
   /** Issues associated with the project. */
   issues: IssueConnection;
   /** Id of the labels associated with this project. */
-  labelIds: Array<Scalars["String"]["output"]>;
+  labelIds: Array<Scalars['String']['output']>;
   /** Labels associated with this project. */
   labels: ProjectLabelConnection;
   /** The last template that was applied to this project. */
@@ -5199,314 +5355,328 @@ export type Project = Node & {
   /** Users that are members of the project. */
   members: UserConnection;
   /** The project's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Customer needs associated with the project. */
   needs: CustomerNeedConnection;
   /** The priority of the project. 0 = No priority, 1 = Urgent, 2 = High, 3 = Normal, 4 = Low. */
-  priority: Scalars["Int"]["output"];
+  priority: Scalars['Int']['output'];
   /** The priority of the project as a label. */
-  priorityLabel: Scalars["String"]["output"];
+  priorityLabel: Scalars['String']['output'];
   /** The sort order for the project within the organization, when ordered by priority. */
-  prioritySortOrder: Scalars["Float"]["output"];
+  prioritySortOrder: Scalars['Float']['output'];
   /** The overall progress of the project. This is the (completed estimate points + 0.25 * in progress estimate points) / total estimate points. */
-  progress: Scalars["Float"]["output"];
+  progress: Scalars['Float']['output'];
   /** [INTERNAL] The progress history of the project. */
-  progressHistory: Scalars["JSONObject"]["output"];
+  progressHistory: Scalars['JSONObject']['output'];
   /** Milestones associated with the project. */
   projectMilestones: ProjectMilestoneConnection;
   /** The time until which project update reminders are paused. */
-  projectUpdateRemindersPausedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  projectUpdateRemindersPausedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** Project updates associated with the project. */
   projectUpdates: ProjectUpdateConnection;
   /** Relations associated with this project. */
   relations: ProjectRelationConnection;
   /** The overall scope (total estimate points) of the project. */
-  scope: Scalars["Float"]["output"];
+  scope: Scalars['Float']['output'];
   /** The total number of estimation points after each week. */
-  scopeHistory: Array<Scalars["Float"]["output"]>;
+  scopeHistory: Array<Scalars['Float']['output']>;
   /**
    * Whether to send new issue comment notifications to Slack.
    * @deprecated No longer in use
    */
-  slackIssueComments: Scalars["Boolean"]["output"];
+  slackIssueComments: Scalars['Boolean']['output'];
   /**
    * Whether to send new issue status updates to Slack.
    * @deprecated No longer is use
    */
-  slackIssueStatuses: Scalars["Boolean"]["output"];
+  slackIssueStatuses: Scalars['Boolean']['output'];
   /**
    * Whether to send new issue notifications to Slack.
    * @deprecated No longer in use
    */
-  slackNewIssue: Scalars["Boolean"]["output"];
+  slackNewIssue: Scalars['Boolean']['output'];
   /** The project's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The sort order for the project within the organization. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** The estimated start date of the project. */
-  startDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  startDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** The resolution of the project's start date. */
   startDateResolution?: Maybe<DateResolutionType>;
   /** The time at which the project was moved into started state. */
-  startedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * [DEPRECATED] The type of the state.
    * @deprecated Use project.status instead
    */
-  state: Scalars["String"]["output"];
+  state: Scalars['String']['output'];
   /** The status that the project is associated with. */
   status: ProjectStatus;
   /** The estimated completion date of the project. */
-  targetDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  targetDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** The resolution of the project's estimated completion date. */
   targetDateResolution?: Maybe<DateResolutionType>;
   /** Teams associated with this project. */
   teams: TeamConnection;
   /** A flag that indicates whether the project is in the trash bin. */
-  trashed?: Maybe<Scalars["Boolean"]["output"]>;
+  trashed?: Maybe<Scalars['Boolean']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequency?: Maybe<Scalars["Float"]["output"]>;
+  updateReminderFrequency?: Maybe<Scalars['Float']['output']>;
   /** The n-weekly frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequencyInWeeks?: Maybe<Scalars["Float"]["output"]>;
+  updateReminderFrequencyInWeeks?: Maybe<Scalars['Float']['output']>;
   /** The day at which to prompt for updates. */
   updateRemindersDay?: Maybe<Day>;
   /** The hour at which to prompt for updates. */
-  updateRemindersHour?: Maybe<Scalars["Float"]["output"]>;
+  updateRemindersHour?: Maybe<Scalars['Float']['output']>;
   /** Project URL. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
+
 
 /** A project. */
 export type ProjectCommentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectDocumentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<DocumentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectExternalLinksArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectHistoryArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectInitiativesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectInverseRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectLabelsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectMembersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<UserFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeDisabled?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectNeedsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CustomerNeedFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectProjectMilestonesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectMilestoneFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectProjectUpdatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 /** A project. */
 export type ProjectRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** A project. */
 export type ProjectTeamsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<TeamFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type DocumentConnection = {
-  __typename?: "DocumentConnection";
+  __typename?: 'DocumentConnection';
   edges: Array<DocumentEdge>;
   nodes: Array<Document>;
   pageInfo: PageInfo;
 };
 
 export type DocumentEdge = {
-  __typename?: "DocumentEdge";
+  __typename?: 'DocumentEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Document;
 };
 
 export type PageInfo = {
-  __typename?: "PageInfo";
+  __typename?: 'PageInfo';
   /** Cursor representing the last result in the paginated results. */
-  endCursor?: Maybe<Scalars["String"]["output"]>;
+  endCursor?: Maybe<Scalars['String']['output']>;
   /** Indicates if there are more results when paginating forward. */
-  hasNextPage: Scalars["Boolean"]["output"];
+  hasNextPage: Scalars['Boolean']['output'];
   /** Indicates if there are more results when paginating backward. */
-  hasPreviousPage: Scalars["Boolean"]["output"];
+  hasPreviousPage: Scalars['Boolean']['output'];
   /** Cursor representing the first result in the paginated results. */
-  startCursor?: Maybe<Scalars["String"]["output"]>;
+  startCursor?: Maybe<Scalars['String']['output']>;
 };
 
 export type EntityExternalLinkConnection = {
-  __typename?: "EntityExternalLinkConnection";
+  __typename?: 'EntityExternalLinkConnection';
   edges: Array<EntityExternalLinkEdge>;
   nodes: Array<EntityExternalLink>;
   pageInfo: PageInfo;
 };
 
 export type EntityExternalLinkEdge = {
-  __typename?: "EntityExternalLinkEdge";
+  __typename?: 'EntityExternalLinkEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: EntityExternalLink;
 };
 
 /** An external link for an entity like initiative, etc... */
 export type EntityExternalLink = Node & {
-  __typename?: "EntityExternalLink";
+  __typename?: 'EntityExternalLink';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the link. */
   creator: User;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative that the link is associated with. */
   initiative?: Maybe<Initiative>;
   /** The link's label. */
-  label: Scalars["String"]["output"];
+  label: Scalars['String']['output'];
   /** The order of the item in the resources list. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The link's URL. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
 
 /** User favorites presented in the sidebar. */
 export type Favorite = Node & {
-  __typename?: "Favorite";
+  __typename?: 'Favorite';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Children of the favorite. Only applies to favorites of type folder. */
   children: FavoriteConnection;
   /** [Internal] Returns the color of the favorite's icon. Unavailable for avatars and views with fixed icons (e.g. cycle). */
-  color?: Maybe<Scalars["String"]["output"]>;
+  color?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The favorited customer. */
   customer?: Maybe<Customer>;
   /** The favorited custom view. */
@@ -5516,17 +5686,17 @@ export type Favorite = Node & {
   /** The favorited dashboard. */
   dashboard?: Maybe<Dashboard>;
   /** [Internal] Detail text for favorite's `title` (e.g. team's name for a project). */
-  detail?: Maybe<Scalars["String"]["output"]>;
+  detail?: Maybe<Scalars['String']['output']>;
   /** The favorited document. */
   document?: Maybe<Document>;
   /** [INTERNAL] The favorited facet. */
   facet?: Maybe<Facet>;
   /** The name of the folder. Only applies to favorites of type folder. */
-  folderName?: Maybe<Scalars["String"]["output"]>;
+  folderName?: Maybe<Scalars['String']['output']>;
   /** [Internal] Name of the favorite's icon. Unavailable for standard views, issues, and avatars */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The favorited initiative. */
   initiative?: Maybe<Initiative>;
   /** The targeted tab of the initiative. */
@@ -5542,7 +5712,7 @@ export type Favorite = Node & {
   /** The team of the favorited predefined view. */
   predefinedViewTeam?: Maybe<Team>;
   /** The type of favorited predefined view. */
-  predefinedViewType?: Maybe<Scalars["String"]["output"]>;
+  predefinedViewType?: Maybe<Scalars['String']['output']>;
   /** The favorited project. */
   project?: Maybe<Project>;
   /** The favorited project label. */
@@ -5554,79 +5724,80 @@ export type Favorite = Node & {
   /** The favorited pull request. */
   pullRequest?: Maybe<PullRequest>;
   /** The order of the item in the favorites list. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** [Internal] Favorite's title text (name of the favorite'd object or folder). */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** The type of the favorite. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** URL of the favorited entity. Folders return 'null' value. */
-  url?: Maybe<Scalars["String"]["output"]>;
+  url?: Maybe<Scalars['String']['output']>;
   /** The favorited user. */
   user?: Maybe<User>;
 };
 
+
 /** User favorites presented in the sidebar. */
 export type FavoriteChildrenArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type FavoriteConnection = {
-  __typename?: "FavoriteConnection";
+  __typename?: 'FavoriteConnection';
   edges: Array<FavoriteEdge>;
   nodes: Array<Favorite>;
   pageInfo: PageInfo;
 };
 
 export type FavoriteEdge = {
-  __typename?: "FavoriteEdge";
+  __typename?: 'FavoriteEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Favorite;
 };
 
 /** A customer whose needs will be tied to issues or projects. */
 export type Customer = Node & {
-  __typename?: "Customer";
+  __typename?: 'Customer';
   /** The approximate number of needs of the customer. */
-  approximateNeedCount: Scalars["Float"]["output"];
+  approximateNeedCount: Scalars['Float']['output'];
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The domains associated with this customer. */
-  domains: Array<Scalars["String"]["output"]>;
+  domains: Array<Scalars['String']['output']>;
   /** The ids of the customers in external systems. */
-  externalIds: Array<Scalars["String"]["output"]>;
+  externalIds: Array<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The integration that manages the Customer. */
   integration?: Maybe<Integration>;
   /** The customer's logo URL. */
-  logoUrl?: Maybe<Scalars["String"]["output"]>;
+  logoUrl?: Maybe<Scalars['String']['output']>;
   /** The ID of the main source, when a customer has multiple sources. Must be one of externalIds. */
-  mainSourceId?: Maybe<Scalars["String"]["output"]>;
+  mainSourceId?: Maybe<Scalars['String']['output']>;
   /** The customer's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The user who owns the customer. */
   owner?: Maybe<User>;
   /** The annual revenue generated by the customer. */
-  revenue?: Maybe<Scalars["Float"]["output"]>;
+  revenue?: Maybe<Scalars['Float']['output']>;
   /** The size of the customer. */
-  size?: Maybe<Scalars["Float"]["output"]>;
+  size?: Maybe<Scalars['Float']['output']>;
   /** The ID of the Slack channel used to interact with the customer. */
-  slackChannelId?: Maybe<Scalars["String"]["output"]>;
+  slackChannelId?: Maybe<Scalars['String']['output']>;
   /** The customer's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The current status of the customer. */
   status: CustomerStatus;
   /** The tier of the customer. */
@@ -5635,52 +5806,52 @@ export type Customer = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** An integration with an external service. */
 export type Integration = Node & {
-  __typename?: "Integration";
+  __typename?: 'Integration';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user that added the integration. */
   creator: User;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The organization that the integration is associated with. */
   organization: Organization;
   /** The integration's type. */
-  service: Scalars["String"]["output"];
+  service: Scalars['String']['output'];
   /** The team that the integration is associated with. */
   team?: Maybe<Team>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** A customer status. */
 export type CustomerStatus = Node & {
-  __typename?: "CustomerStatus";
+  __typename?: 'CustomerStatus';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The UI color of the status as a HEX string. */
-  color: Scalars["String"]["output"];
+  color: Scalars['String']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Description of the status. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The display name of the status. */
-  displayName: Scalars["String"]["output"];
+  displayName: Scalars['String']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The name of the status. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The position of the status in the workspace's customers flow. */
-  position: Scalars["Float"]["output"];
+  position: Scalars['Float']['output'];
   /**
    * The type of the customer status.
    * @deprecated Customer statuses are no longer grouped by type.
@@ -5690,79 +5861,78 @@ export type CustomerStatus = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** [DEPRECATED] A type of customer status. */
-export enum CustomerStatusType {
-  Active = "active",
-  Inactive = "inactive",
-}
+export type CustomerStatusType =
+  | 'active'
+  | 'inactive';
 
 /** A customer tier. */
 export type CustomerTier = Node & {
-  __typename?: "CustomerTier";
+  __typename?: 'CustomerTier';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The UI color of the tier as a HEX string. */
-  color: Scalars["String"]["output"];
+  color: Scalars['String']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Description of the tier. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The display name of the tier. */
-  displayName: Scalars["String"]["output"];
+  displayName: Scalars['String']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The name of the tier. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The position of the tier in the workspace's customers flow. */
-  position: Scalars["Float"]["output"];
+  position: Scalars['Float']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** A custom view that has been saved by a user. */
 export type CustomView = Node & {
-  __typename?: "CustomView";
+  __typename?: 'CustomView';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The color of the icon of the custom view. */
-  color?: Maybe<Scalars["String"]["output"]>;
+  color?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the custom view. */
   creator: User;
   /** The description of the custom view. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** [INTERNAL] The facet associated with the custom view. */
   facet?: Maybe<Facet>;
   /** The filter applied to feed items in the custom view. */
-  feedItemFilterData?: Maybe<Scalars["JSONObject"]["output"]>;
+  feedItemFilterData?: Maybe<Scalars['JSONObject']['output']>;
   /** The filter applied to issues in the custom view. */
-  filterData: Scalars["JSONObject"]["output"];
+  filterData: Scalars['JSONObject']['output'];
   /**
    * The filters applied to issues in the custom view.
    * @deprecated Will be replaced by `filterData` in a future update
    */
-  filters: Scalars["JSONObject"]["output"];
+  filters: Scalars['JSONObject']['output'];
   /** The icon of the custom view. */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The filter applied to initiatives in the custom view. */
-  initiativeFilterData?: Maybe<Scalars["JSONObject"]["output"]>;
+  initiativeFilterData?: Maybe<Scalars['JSONObject']['output']>;
   /** Initiatives associated with the custom view. */
   initiatives: InitiativeConnection;
   /** Issues associated with the custom view. */
   issues: IssueConnection;
   /** The model name of the custom view. */
-  modelName: Scalars["String"]["output"];
+  modelName: Scalars['String']['output'];
   /** The name of the custom view. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The organization of the custom view. */
   organization: Organization;
   /** The organizations default view preferences for this custom view. */
@@ -5770,20 +5940,20 @@ export type CustomView = Node & {
   /** The user who owns the custom view. */
   owner: User;
   /** The filter applied to projects in the custom view. */
-  projectFilterData?: Maybe<Scalars["JSONObject"]["output"]>;
+  projectFilterData?: Maybe<Scalars['JSONObject']['output']>;
   /** Projects associated with the custom view. */
   projects: ProjectConnection;
   /** Whether the custom view is shared with everyone in the organization. */
-  shared: Scalars["Boolean"]["output"];
+  shared: Scalars['Boolean']['output'];
   /** The custom view's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The team associated with the custom view. */
   team?: Maybe<Team>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user who last updated the custom view. */
   updatedBy?: Maybe<User>;
   /** Feed items associated with the custom view. */
@@ -5794,66 +5964,70 @@ export type CustomView = Node & {
   viewPreferencesValues?: Maybe<ViewPreferencesValues>;
 };
 
+
 /** A custom view that has been saved by a user. */
 export type CustomViewInitiativesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<InitiativeFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** A custom view that has been saved by a user. */
 export type CustomViewIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeSubTeams?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeSubTeams?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<IssueSortInput>>;
 };
 
+
 /** A custom view that has been saved by a user. */
 export type CustomViewProjectsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeSubTeams?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeSubTeams?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<ProjectSortInput>>;
 };
 
+
 /** A custom view that has been saved by a user. */
 export type CustomViewUpdatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<FeedItemFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeSubTeams?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeSubTeams?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type InitiativeConnection = {
-  __typename?: "InitiativeConnection";
+  __typename?: 'InitiativeConnection';
   edges: Array<InitiativeEdge>;
   nodes: Array<Initiative>;
   pageInfo: PageInfo;
 };
 
 export type InitiativeEdge = {
-  __typename?: "InitiativeEdge";
+  __typename?: 'InitiativeEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Initiative;
 };
 
@@ -5918,16 +6092,14 @@ export type AssigneeSort = {
 };
 
 /** How to treat NULL values, whether they should appear first or last */
-export enum PaginationNulls {
-  First = "first",
-  Last = "last",
-}
+export type PaginationNulls =
+  | 'first'
+  | 'last';
 
 /** Whether to sort in ascending or descending order */
-export enum PaginationSortOrder {
-  Ascending = "Ascending",
-  Descending = "Descending",
-}
+export type PaginationSortOrder =
+  | 'Ascending'
+  | 'Descending';
 
 /** Issue completion date sorting options. */
 export type CompletedAtSort = {
@@ -5980,7 +6152,7 @@ export type CustomerRevenueSort = {
 /** Issue cycle sorting options. */
 export type CycleSort = {
   /** When set to true, cycles will be ordered with a custom order. Current cycle comes first, followed by upcoming cycles in ASC order, followed by previous cycles in DESC order. */
-  currentCycleFirst?: InputMaybe<Scalars["Boolean"]["input"]>;
+  currentCycleFirst?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether nulls should be sorted first or last */
   nulls?: InputMaybe<PaginationNulls>;
   /** The order for the individual sort */
@@ -6022,7 +6194,7 @@ export type LabelSort = {
 /** Issue label-group sorting options. */
 export type LabelGroupSort = {
   /** The label-group id to sort by */
-  labelGroupId: Scalars["String"]["input"];
+  labelGroupId: Scalars['String']['input'];
   /** Whether nulls should be sorted first or last */
   nulls?: InputMaybe<PaginationNulls>;
   /** The order for the individual sort */
@@ -6056,7 +6228,7 @@ export type MilestoneSort = {
 /** Issue priority sorting options. */
 export type PrioritySort = {
   /** Whether to consider no priority as the highest or lowest priority */
-  noPriorityFirst?: InputMaybe<Scalars["Boolean"]["input"]>;
+  noPriorityFirst?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether nulls should be sorted first or last */
   nulls?: InputMaybe<PaginationNulls>;
   /** The order for the individual sort */
@@ -6116,7 +6288,7 @@ export type UpdatedAtSort = {
 /** Issue workflow state sorting options. */
 export type WorkflowStateSort = {
   /** Whether to sort closed issues by recency */
-  closedIssuesOrderedByRecency?: InputMaybe<Scalars["Boolean"]["input"]>;
+  closedIssuesOrderedByRecency?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether nulls should be sorted first or last */
   nulls?: InputMaybe<PaginationNulls>;
   /** The order for the individual sort */
@@ -6125,34 +6297,34 @@ export type WorkflowStateSort = {
 
 /** View preferences. */
 export type ViewPreferences = Node & {
-  __typename?: "ViewPreferences";
+  __typename?: 'ViewPreferences';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The view preferences */
   preferences: ViewPreferencesValues;
   /** The view preference type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The view type. */
-  viewType: Scalars["String"]["output"];
+  viewType: Scalars['String']['output'];
 };
 
 export type ViewPreferencesValues = {
-  __typename?: "ViewPreferencesValues";
+  __typename?: 'ViewPreferencesValues';
   /** The issue grouping. */
-  issueGrouping?: Maybe<Scalars["String"]["output"]>;
+  issueGrouping?: Maybe<Scalars['String']['output']>;
   /** Whether to show completed issues. */
-  showCompletedIssues?: Maybe<Scalars["String"]["output"]>;
+  showCompletedIssues?: Maybe<Scalars['String']['output']>;
   /** The issue ordering. */
-  viewOrdering?: Maybe<Scalars["String"]["output"]>;
+  viewOrdering?: Maybe<Scalars['String']['output']>;
 };
 
 /** Project sorting options. */
@@ -6222,7 +6394,7 @@ export type ProjectNameSort = {
 /** Project priority sorting options. */
 export type ProjectPrioritySort = {
   /** Whether to consider no priority as the highest or lowest priority */
-  noPriorityFirst?: InputMaybe<Scalars["Boolean"]["input"]>;
+  noPriorityFirst?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether nulls should be sorted first or last */
   nulls?: InputMaybe<PaginationNulls>;
   /** The order for the individual sort */
@@ -6262,16 +6434,16 @@ export type ProjectUpdatedAtSort = {
 };
 
 export type ProjectConnection = {
-  __typename?: "ProjectConnection";
+  __typename?: 'ProjectConnection';
   edges: Array<ProjectEdge>;
   nodes: Array<Project>;
   pageInfo: PageInfo;
 };
 
 export type ProjectEdge = {
-  __typename?: "ProjectEdge";
+  __typename?: 'ProjectEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Project;
 };
 
@@ -6322,28 +6494,28 @@ export type ProjectUpdateFilter = {
 };
 
 export type FeedItemConnection = {
-  __typename?: "FeedItemConnection";
+  __typename?: 'FeedItemConnection';
   edges: Array<FeedItemEdge>;
   nodes: Array<FeedItem>;
   pageInfo: PageInfo;
 };
 
 export type FeedItemEdge = {
-  __typename?: "FeedItemEdge";
+  __typename?: 'FeedItemEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: FeedItem;
 };
 
 /** [Internal] An item in a users feed. */
 export type FeedItem = Node & {
-  __typename?: "FeedItem";
+  __typename?: 'FeedItem';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative update that is in the feed. */
   initiativeUpdate?: Maybe<InitiativeUpdate>;
   /** The organization that will see this feed item. */
@@ -6358,89 +6530,88 @@ export type FeedItem = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user that will see this feed item. */
   user?: Maybe<User>;
 };
 
 /** [Internal] A dashboard, usually a collection of widgets to display several insights at once. */
 export type Dashboard = Node & {
-  __typename?: "Dashboard";
+  __typename?: 'Dashboard';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The color of the icon of the dashboard. */
-  color?: Maybe<Scalars["String"]["output"]>;
+  color?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the dashboard. */
   creator?: Maybe<User>;
   /** The description of the dashboard. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The icon of the dashboard. */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The filter applied to all dashboard widgets showing issues data. */
-  issueFilter?: Maybe<Scalars["JSONObject"]["output"]>;
+  issueFilter?: Maybe<Scalars['JSONObject']['output']>;
   /** The name of the dashboard. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The organization of the dashboard. */
   organization: Organization;
   /** The owner of the dashboard. */
   owner?: Maybe<User>;
   /** The filter applied to all dashboard widgets showing projects data. */
-  projectFilter?: Maybe<Scalars["JSONObject"]["output"]>;
+  projectFilter?: Maybe<Scalars['JSONObject']['output']>;
   /** Whether the dashboard is shared with everyone in the organization. */
-  shared: Scalars["Boolean"]["output"];
+  shared: Scalars['Boolean']['output'];
   /** The dashboard's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The sort order of the dashboard within the organization or its team. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user who last updated the dashboard. */
   updatedBy?: Maybe<User>;
   /** The widgets on the dashboard. */
-  widgets: Scalars["JSONObject"]["output"];
+  widgets: Scalars['JSONObject']['output'];
 };
 
 /** Different tabs available inside an initiative. */
-export enum InitiativeTab {
-  Overview = "overview",
-  Projects = "projects",
-  Updates = "updates",
-}
+export type InitiativeTab =
+  | 'overview'
+  | 'projects'
+  | 'updates';
 
 /** Labels that can be associated with issues. */
 export type IssueLabel = Node & {
-  __typename?: "IssueLabel";
+  __typename?: 'IssueLabel';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Children of the label. */
   children: IssueLabelConnection;
   /** The label's color as a HEX string. */
-  color: Scalars["String"]["output"];
+  color: Scalars['String']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the label. */
   creator?: Maybe<User>;
   /** The label's description. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The original label inherited from. */
   inheritedFrom?: Maybe<IssueLabel>;
   /** Whether the label is a group. */
-  isGroup: Scalars["Boolean"]["output"];
+  isGroup: Scalars['Boolean']['output'];
   /** Issues associated with the label. */
   issues: IssueConnection;
   /** The date when the label was last applied to an issue or project. */
-  lastAppliedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  lastAppliedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The label's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** @deprecated Workspace labels are identified by their team being null. */
   organization: Organization;
   /** The parent label. */
@@ -6451,68 +6622,70 @@ export type IssueLabel = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
+
 
 /** Labels that can be associated with issues. */
 export type IssueLabelChildrenArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** Labels that can be associated with issues. */
 export type IssueLabelIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type IssueLabelConnection = {
-  __typename?: "IssueLabelConnection";
+  __typename?: 'IssueLabelConnection';
   edges: Array<IssueLabelEdge>;
   nodes: Array<IssueLabel>;
   pageInfo: PageInfo;
 };
 
 export type IssueLabelEdge = {
-  __typename?: "IssueLabelEdge";
+  __typename?: 'IssueLabelEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: IssueLabel;
 };
 
 /** Labels that can be associated with projects. */
 export type ProjectLabel = Node & {
-  __typename?: "ProjectLabel";
+  __typename?: 'ProjectLabel';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Children of the label. */
   children: ProjectLabelConnection;
   /** The label's color as a HEX string. */
-  color: Scalars["String"]["output"];
+  color: Scalars['String']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the label. */
   creator?: Maybe<User>;
   /** The label's description. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Whether the label is a group. */
-  isGroup: Scalars["Boolean"]["output"];
+  isGroup: Scalars['Boolean']['output'];
   /** The date when the label was last applied to an issue or project. */
-  lastAppliedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  lastAppliedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The label's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   organization: Organization;
   /** The parent label. */
   parent?: Maybe<ProjectLabel>;
@@ -6522,559 +6695,559 @@ export type ProjectLabel = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
+
 
 /** Labels that can be associated with projects. */
 export type ProjectLabelChildrenArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 /** Labels that can be associated with projects. */
 export type ProjectLabelProjectsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
   sort?: InputMaybe<Array<ProjectSortInput>>;
 };
 
 export type ProjectLabelConnection = {
-  __typename?: "ProjectLabelConnection";
+  __typename?: 'ProjectLabelConnection';
   edges: Array<ProjectLabelEdge>;
   nodes: Array<ProjectLabel>;
   pageInfo: PageInfo;
 };
 
 export type ProjectLabelEdge = {
-  __typename?: "ProjectLabelEdge";
+  __typename?: 'ProjectLabelEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: ProjectLabel;
 };
 
 /** Different tabs available inside a project. */
-export enum ProjectTab {
-  Customers = "customers",
-  Documents = "documents",
-  Issues = "issues",
-  Updates = "updates",
-}
+export type ProjectTab =
+  | 'customers'
+  | 'documents'
+  | 'issues'
+  | 'updates';
 
 /** [Internal] A pull request in a version control system. */
 export type PullRequest = Node & {
-  __typename?: "PullRequest";
+  __typename?: 'PullRequest';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Merge settings for this pull request. */
   mergeSettings?: Maybe<PullRequestMergeSettings>;
   /** The number of the pull request in the version control system. */
-  number: Scalars["Float"]["output"];
+  number: Scalars['Float']['output'];
   /** The source branch of the pull request. */
-  sourceBranch: Scalars["String"]["output"];
+  sourceBranch: Scalars['String']['output'];
   /** The status of the pull request. */
   status: PullRequestStatus;
   /** The target branch of the pull request. */
-  targetBranch: Scalars["String"]["output"];
+  targetBranch: Scalars['String']['output'];
   /** The title of the pull request. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The URL of the pull request in the version control system. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
 
-/** Merge settings for a pull request */
+/** [Internal] Merge settings for a pull request */
 export type PullRequestMergeSettings = {
-  __typename?: "PullRequestMergeSettings";
+  __typename?: 'PullRequestMergeSettings';
   /** Whether auto-merge is allowed for the PR's repository. */
-  autoMergeAllowed: Scalars["Boolean"]["output"];
+  autoMergeAllowed: Scalars['Boolean']['output'];
+  /** Whether the branch will be deleted when the pull request is merged. */
+  deleteBranchOnMerge: Scalars['Boolean']['output'];
   /** Whether merge queue is enabled for this repository. */
-  isMergeQueueEnabled: Scalars["Boolean"]["output"];
+  isMergeQueueEnabled: Scalars['Boolean']['output'];
   /** Whether merge commits are allowed for pull requests PR's repository. */
-  mergeCommitAllowed: Scalars["Boolean"]["output"];
+  mergeCommitAllowed: Scalars['Boolean']['output'];
+  /** The method used to merge a pull request. */
+  mergeQueueMergeMethod?: Maybe<PullRequestMergeMethod>;
   /** Whether rebase merge is allowed for pull requests PR's repository. */
-  rebaseMergeAllowed: Scalars["Boolean"]["output"];
+  rebaseMergeAllowed: Scalars['Boolean']['output'];
   /** Whether squash merge is allowed for this pull request's repository. */
-  squashMergeAllowed: Scalars["Boolean"]["output"];
+  squashMergeAllowed: Scalars['Boolean']['output'];
 };
+
+/** The method used to merge a pull request. */
+export type PullRequestMergeMethod =
+  | 'MERGE'
+  | 'REBASE'
+  | 'SQUASH';
 
 /** The status of a pull request. */
-export enum PullRequestStatus {
-  Approved = "approved",
-  Closed = "closed",
-  Draft = "draft",
-  InReview = "inReview",
-  Merged = "merged",
-  Open = "open",
-}
+export type PullRequestStatus =
+  | 'approved'
+  | 'closed'
+  | 'draft'
+  | 'inReview'
+  | 'merged'
+  | 'open';
 
 /** By which resolution is frequency defined. */
-export enum FrequencyResolutionType {
-  Daily = "daily",
-  Weekly = "weekly",
-}
+export type FrequencyResolutionType =
+  | 'daily'
+  | 'weekly';
 
 export type ProjectHistoryConnection = {
-  __typename?: "ProjectHistoryConnection";
+  __typename?: 'ProjectHistoryConnection';
   edges: Array<ProjectHistoryEdge>;
   nodes: Array<ProjectHistory>;
   pageInfo: PageInfo;
 };
 
 export type ProjectHistoryEdge = {
-  __typename?: "ProjectHistoryEdge";
+  __typename?: 'ProjectHistoryEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: ProjectHistory;
 };
 
 /** An history associated with a project. */
 export type ProjectHistory = Node & {
-  __typename?: "ProjectHistory";
+  __typename?: 'ProjectHistory';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The events that happened while recording that history. */
-  entries: Scalars["JSONObject"]["output"];
+  entries: Scalars['JSONObject']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The project that the history is associated with. */
   project: Project;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** The configuration of all integrations for different entities. */
 export type IntegrationsSettings = Node & {
-  __typename?: "IntegrationsSettings";
+  __typename?: 'IntegrationsSettings';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The type of view to which the integration settings context is associated with. */
   contextViewType?: Maybe<ContextViewType>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Initiative which those settings apply to. */
   initiative?: Maybe<Initiative>;
   /** Project which those settings apply to. */
   project?: Maybe<Project>;
   /** Whether to send a Slack message when a initiate update is created. */
-  slackInitiativeUpdateCreated?: Maybe<Scalars["Boolean"]["output"]>;
+  slackInitiativeUpdateCreated?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a Slack message when a new issue is added to triage. */
-  slackIssueAddedToTriage?: Maybe<Scalars["Boolean"]["output"]>;
+  slackIssueAddedToTriage?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a Slack message when an issue is added to the custom view. */
-  slackIssueAddedToView?: Maybe<Scalars["Boolean"]["output"]>;
+  slackIssueAddedToView?: Maybe<Scalars['Boolean']['output']>;
   /**
    * Whether to send a Slack message when a new issue is created for the project or the team.
    * @deprecated No longer in use. Use `slackIssueAddedToView` instead.
    */
-  slackIssueCreated?: Maybe<Scalars["Boolean"]["output"]>;
+  slackIssueCreated?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a Slack message when a comment is created on any of the project or team's issues. */
-  slackIssueNewComment?: Maybe<Scalars["Boolean"]["output"]>;
+  slackIssueNewComment?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a Slack message when an SLA is breached. */
-  slackIssueSlaBreached?: Maybe<Scalars["Boolean"]["output"]>;
+  slackIssueSlaBreached?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a Slack message when an SLA is at high risk. */
-  slackIssueSlaHighRisk?: Maybe<Scalars["Boolean"]["output"]>;
+  slackIssueSlaHighRisk?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a Slack message when any of the project or team's issues has a change in status. */
-  slackIssueStatusChangedAll?: Maybe<Scalars["Boolean"]["output"]>;
+  slackIssueStatusChangedAll?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a Slack message when any of the project or team's issues change to completed or cancelled. */
-  slackIssueStatusChangedDone?: Maybe<Scalars["Boolean"]["output"]>;
+  slackIssueStatusChangedDone?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a Slack message when a project update is created. */
-  slackProjectUpdateCreated?: Maybe<Scalars["Boolean"]["output"]>;
+  slackProjectUpdateCreated?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a new project update to team Slack channels. */
-  slackProjectUpdateCreatedToTeam?: Maybe<Scalars["Boolean"]["output"]>;
+  slackProjectUpdateCreatedToTeam?: Maybe<Scalars['Boolean']['output']>;
   /** Whether to send a new project update to workspace Slack channel. */
-  slackProjectUpdateCreatedToWorkspace?: Maybe<Scalars["Boolean"]["output"]>;
+  slackProjectUpdateCreatedToWorkspace?: Maybe<Scalars['Boolean']['output']>;
   /** Team which those settings apply to. */
   team?: Maybe<Team>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
-export enum ContextViewType {
-  ActiveCycle = "activeCycle",
-  ActiveIssues = "activeIssues",
-  Backlog = "backlog",
-  Triage = "triage",
-  UpcomingCycle = "upcomingCycle",
-}
+export type ContextViewType =
+  | 'activeCycle'
+  | 'activeIssues'
+  | 'backlog'
+  | 'triage'
+  | 'upcomingCycle';
 
 export type ProjectRelationConnection = {
-  __typename?: "ProjectRelationConnection";
+  __typename?: 'ProjectRelationConnection';
   edges: Array<ProjectRelationEdge>;
   nodes: Array<ProjectRelation>;
   pageInfo: PageInfo;
 };
 
 export type ProjectRelationEdge = {
-  __typename?: "ProjectRelationEdge";
+  __typename?: 'ProjectRelationEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: ProjectRelation;
 };
 
 /** A relation between two projects. */
 export type ProjectRelation = Node & {
-  __typename?: "ProjectRelation";
+  __typename?: 'ProjectRelation';
   /** The type of anchor on the project end of the relation. */
-  anchorType: Scalars["String"]["output"];
+  anchorType: Scalars['String']['output'];
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The project whose relationship is being described. */
   project: Project;
   /** The milestone within the project whose relationship is being described. */
   projectMilestone?: Maybe<ProjectMilestone>;
   /** The type of anchor on the relatedProject end of the relation. */
-  relatedAnchorType: Scalars["String"]["output"];
+  relatedAnchorType: Scalars['String']['output'];
   /** The related project. */
   relatedProject: Project;
   /** The milestone within the related project whose relationship is being described. */
   relatedProjectMilestone?: Maybe<ProjectMilestone>;
   /** The relationship of the project with the related project. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The last user who created or modified the relation. */
   user?: Maybe<User>;
 };
 
 /** A milestone for a project. */
 export type ProjectMilestone = Node & {
-  __typename?: "ProjectMilestone";
+  __typename?: 'ProjectMilestone';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** [Internal] The current progress of the project milestone. */
-  currentProgress: Scalars["JSONObject"]["output"];
+  currentProgress: Scalars['JSONObject']['output'];
   /** The project milestone's description in markdown format. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** [Internal] The project milestone's description as YJS state. */
-  descriptionState?: Maybe<Scalars["String"]["output"]>;
+  descriptionState?: Maybe<Scalars['String']['output']>;
   /** The content of the project milestone description. */
   documentContent?: Maybe<DocumentContent>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Issues associated with the project milestone. */
   issues: IssueConnection;
   /** The name of the project milestone. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The progress % of the project milestone. */
-  progress: Scalars["Float"]["output"];
+  progress: Scalars['Float']['output'];
   /** [Internal] The progress history of the project milestone. */
-  progressHistory: Scalars["JSONObject"]["output"];
+  progressHistory: Scalars['JSONObject']['output'];
   /** The project of the milestone. */
   project: Project;
   /** The order of the milestone in relation to other milestones within a project. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** The status of the project milestone. */
   status: ProjectMilestoneStatus;
   /** The planned completion date of the milestone. */
-  targetDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  targetDate?: Maybe<Scalars['TimelessDate']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
+
 
 /** A milestone for a project. */
 export type ProjectMilestoneIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 /** The status of a project milestone. */
-export enum ProjectMilestoneStatus {
-  Done = "done",
-  Next = "next",
-  Overdue = "overdue",
-  Unstarted = "unstarted",
-}
+export type ProjectMilestoneStatus =
+  | 'done'
+  | 'next'
+  | 'overdue'
+  | 'unstarted';
 
 /** A template object used for creating entities faster. */
 export type Template = Node & {
-  __typename?: "Template";
+  __typename?: 'Template';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the template. */
   creator?: Maybe<User>;
   /** Template description. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The original template inherited from. */
   inheritedFrom?: Maybe<Template>;
   /** The user who last updated the template. */
   lastUpdatedBy?: Maybe<User>;
   /** The name of the template. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The organization that the template is associated with. If null, the template is associated with a particular team. */
   organization: Organization;
   /** The sort order of the template. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** The team that the template is associated with. If null, the template is global to the workspace. */
   team?: Maybe<Team>;
   /** Template data. */
-  templateData: Scalars["JSON"]["output"];
+  templateData: Scalars['JSON']['output'];
   /** The entity type this template is for. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type UserConnection = {
-  __typename?: "UserConnection";
+  __typename?: 'UserConnection';
   edges: Array<UserEdge>;
   nodes: Array<User>;
   pageInfo: PageInfo;
 };
 
 export type UserEdge = {
-  __typename?: "UserEdge";
+  __typename?: 'UserEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: User;
 };
 
 export type CustomerNeedConnection = {
-  __typename?: "CustomerNeedConnection";
+  __typename?: 'CustomerNeedConnection';
   edges: Array<CustomerNeedEdge>;
   nodes: Array<CustomerNeed>;
   pageInfo: PageInfo;
 };
 
 export type CustomerNeedEdge = {
-  __typename?: "CustomerNeedEdge";
+  __typename?: 'CustomerNeedEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: CustomerNeed;
 };
 
 export type ProjectMilestoneConnection = {
-  __typename?: "ProjectMilestoneConnection";
+  __typename?: 'ProjectMilestoneConnection';
   edges: Array<ProjectMilestoneEdge>;
   nodes: Array<ProjectMilestone>;
   pageInfo: PageInfo;
 };
 
 export type ProjectMilestoneEdge = {
-  __typename?: "ProjectMilestoneEdge";
+  __typename?: 'ProjectMilestoneEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: ProjectMilestone;
 };
 
 export type ProjectUpdateConnection = {
-  __typename?: "ProjectUpdateConnection";
+  __typename?: 'ProjectUpdateConnection';
   edges: Array<ProjectUpdateEdge>;
   nodes: Array<ProjectUpdate>;
   pageInfo: PageInfo;
 };
 
 export type ProjectUpdateEdge = {
-  __typename?: "ProjectUpdateEdge";
+  __typename?: 'ProjectUpdateEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: ProjectUpdate;
 };
 
 /** By which resolution is a date defined. */
-export enum DateResolutionType {
-  HalfYear = "halfYear",
-  Month = "month",
-  Quarter = "quarter",
-  Year = "year",
-}
+export type DateResolutionType =
+  | 'halfYear'
+  | 'month'
+  | 'quarter'
+  | 'year';
 
 /** A project status. */
 export type ProjectStatus = Node & {
-  __typename?: "ProjectStatus";
+  __typename?: 'ProjectStatus';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The UI color of the status as a HEX string. */
-  color: Scalars["String"]["output"];
+  color: Scalars['String']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Description of the status. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Whether or not a project can be in this status indefinitely. */
-  indefinite: Scalars["Boolean"]["output"];
+  indefinite: Scalars['Boolean']['output'];
   /** The name of the status. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The position of the status in the workspace's project flow. */
-  position: Scalars["Float"]["output"];
+  position: Scalars['Float']['output'];
   /** The type of the project status. */
   type: ProjectStatusType;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** A type of project status. */
-export enum ProjectStatusType {
-  Backlog = "backlog",
-  Canceled = "canceled",
-  Completed = "completed",
-  Paused = "paused",
-  Planned = "planned",
-  Started = "started",
-}
+export type ProjectStatusType =
+  | 'backlog'
+  | 'canceled'
+  | 'completed'
+  | 'paused'
+  | 'planned'
+  | 'started';
 
 /** The day of the week. */
-export enum Day {
-  Friday = "Friday",
-  Monday = "Monday",
-  Saturday = "Saturday",
-  Sunday = "Sunday",
-  Thursday = "Thursday",
-  Tuesday = "Tuesday",
-  Wednesday = "Wednesday",
-}
+export type Day =
+  | 'Friday'
+  | 'Monday'
+  | 'Saturday'
+  | 'Sunday'
+  | 'Thursday'
+  | 'Tuesday'
+  | 'Wednesday';
 
 /** Information about an external entity. */
 export type ExternalEntityInfo = {
-  __typename?: "ExternalEntityInfo";
+  __typename?: 'ExternalEntityInfo';
   /** The id of the external entity. */
-  id: Scalars["String"]["output"];
+  id: Scalars['String']['output'];
   /** Metadata about the external entity. */
   metadata?: Maybe<ExternalEntityInfoMetadata>;
   /** The name of the service this entity is synced with. */
   service: ExternalSyncService;
 };
 
-export type ExternalEntityInfoMetadata =
-  | ExternalEntityInfoGithubMetadata
-  | ExternalEntityInfoJiraMetadata
-  | ExternalEntitySlackMetadata;
+export type ExternalEntityInfoMetadata = ExternalEntityInfoGithubMetadata | ExternalEntityInfoJiraMetadata | ExternalEntitySlackMetadata;
 
 /** Metadata about the external GitHub entity. */
 export type ExternalEntityInfoGithubMetadata = {
-  __typename?: "ExternalEntityInfoGithubMetadata";
+  __typename?: 'ExternalEntityInfoGithubMetadata';
   /** The number of the issue. */
-  number?: Maybe<Scalars["Float"]["output"]>;
+  number?: Maybe<Scalars['Float']['output']>;
   /** The owner of the repository. */
-  owner?: Maybe<Scalars["String"]["output"]>;
+  owner?: Maybe<Scalars['String']['output']>;
   /** The repository name. */
-  repo?: Maybe<Scalars["String"]["output"]>;
+  repo?: Maybe<Scalars['String']['output']>;
 };
 
 /** Metadata about the external Jira entity. */
 export type ExternalEntityInfoJiraMetadata = {
-  __typename?: "ExternalEntityInfoJiraMetadata";
+  __typename?: 'ExternalEntityInfoJiraMetadata';
   /** The key of the Jira issue. */
-  issueKey?: Maybe<Scalars["String"]["output"]>;
+  issueKey?: Maybe<Scalars['String']['output']>;
   /** The id of the Jira issue type. */
-  issueTypeId?: Maybe<Scalars["String"]["output"]>;
+  issueTypeId?: Maybe<Scalars['String']['output']>;
   /** The id of the Jira project. */
-  projectId?: Maybe<Scalars["String"]["output"]>;
+  projectId?: Maybe<Scalars['String']['output']>;
 };
 
 /** Metadata about the external Slack entity. */
 export type ExternalEntitySlackMetadata = {
-  __typename?: "ExternalEntitySlackMetadata";
+  __typename?: 'ExternalEntitySlackMetadata';
   /** The id of the Slack channel. */
-  channelId?: Maybe<Scalars["String"]["output"]>;
+  channelId?: Maybe<Scalars['String']['output']>;
   /** The name of the Slack channel. */
-  channelName?: Maybe<Scalars["String"]["output"]>;
+  channelName?: Maybe<Scalars['String']['output']>;
   /** Whether the entity originated from Slack (not Linear). */
-  isFromSlack: Scalars["Boolean"]["output"];
+  isFromSlack: Scalars['Boolean']['output'];
   /** The URL of the Slack message. */
-  messageUrl?: Maybe<Scalars["String"]["output"]>;
+  messageUrl?: Maybe<Scalars['String']['output']>;
 };
 
 /** The service that syncs an external entity to Linear. */
-export enum ExternalSyncService {
-  Github = "github",
-  Jira = "jira",
-  Slack = "slack",
-}
+export type ExternalSyncService =
+  | 'github'
+  | 'jira'
+  | 'slack';
 
 export type InitiativeHistoryConnection = {
-  __typename?: "InitiativeHistoryConnection";
+  __typename?: 'InitiativeHistoryConnection';
   edges: Array<InitiativeHistoryEdge>;
   nodes: Array<InitiativeHistory>;
   pageInfo: PageInfo;
 };
 
 export type InitiativeHistoryEdge = {
-  __typename?: "InitiativeHistoryEdge";
+  __typename?: 'InitiativeHistoryEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: InitiativeHistory;
 };
 
 /** A initiative history containing relevant change events. */
 export type InitiativeHistory = Node & {
-  __typename?: "InitiativeHistory";
+  __typename?: 'InitiativeHistory';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The events that happened while recording that history. */
-  entries: Scalars["JSONObject"]["output"];
+  entries: Scalars['JSONObject']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative that the history is associated with. */
   initiative: Initiative;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
-export enum InitiativeStatus {
-  Active = "Active",
-  Completed = "Completed",
-  Planned = "Planned",
-}
+export type InitiativeStatus =
+  | 'Active'
+  | 'Completed'
+  | 'Planned';
 
 /** Initiative sorting options. */
 export type InitiativeSortInput = {
@@ -7160,362 +7333,358 @@ export type InitiativeUpdatedAtSort = {
   order?: InputMaybe<PaginationSortOrder>;
 };
 
-export enum FacetPageSource {
-  Feed = "feed",
-  Projects = "projects",
-  TeamIssues = "teamIssues",
-}
+export type FacetPageSource =
+  | 'feed'
+  | 'projects'
+  | 'teamIssues';
 
 export type IntegrationConnection = {
-  __typename?: "IntegrationConnection";
+  __typename?: 'IntegrationConnection';
   edges: Array<IntegrationEdge>;
   nodes: Array<Integration>;
   pageInfo: PageInfo;
 };
 
 export type IntegrationEdge = {
-  __typename?: "IntegrationEdge";
+  __typename?: 'IntegrationEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Integration;
 };
 
 export type OrganizationIpRestriction = {
-  __typename?: "OrganizationIpRestriction";
+  __typename?: 'OrganizationIpRestriction';
   /** Optional restriction description. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** Whether the restriction is enabled. */
-  enabled: Scalars["Boolean"]["output"];
+  enabled: Scalars['Boolean']['output'];
   /** IP range in CIDR format. */
-  range: Scalars["String"]["output"];
+  range: Scalars['String']['output'];
   /** Restriction type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
 };
 
 /** The frequency at which to send project update reminders. */
-export enum ProjectUpdateReminderFrequency {
-  Month = "month",
-  Never = "never",
-  TwoWeeks = "twoWeeks",
-  Week = "week",
-}
+export type ProjectUpdateReminderFrequency =
+  | 'month'
+  | 'never'
+  | 'twoWeeks'
+  | 'week';
 
 /** Features release channel. */
-export enum ReleaseChannel {
-  Beta = "beta",
-  Development = "development",
-  Internal = "internal",
-  PreRelease = "preRelease",
-  Public = "public",
-}
+export type ReleaseChannel =
+  | 'beta'
+  | 'development'
+  | 'internal'
+  | 'preRelease'
+  | 'public';
 
-export enum SlaDayCountType {
-  All = "all",
-  OnlyBusinessDays = "onlyBusinessDays",
-}
+export type SlaDayCountType =
+  | 'all'
+  | 'onlyBusinessDays';
 
 /** The paid subscription of an organization. */
 export type PaidSubscription = Node & {
-  __typename?: "PaidSubscription";
+  __typename?: 'PaidSubscription';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The date the subscription is scheduled to be canceled, if any. */
-  cancelAt?: Maybe<Scalars["DateTime"]["output"]>;
+  cancelAt?: Maybe<Scalars['DateTime']['output']>;
   /** The date the subscription was canceled, if any. */
-  canceledAt?: Maybe<Scalars["DateTime"]["output"]>;
+  canceledAt?: Maybe<Scalars['DateTime']['output']>;
   /** The collection method for this subscription, either automatically charged or invoiced. */
-  collectionMethod: Scalars["String"]["output"];
+  collectionMethod: Scalars['String']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The creator of the subscription. */
   creator?: Maybe<User>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The date the subscription will be billed next. */
-  nextBillingAt?: Maybe<Scalars["DateTime"]["output"]>;
+  nextBillingAt?: Maybe<Scalars['DateTime']['output']>;
   /** The organization that the subscription is associated with. */
   organization: Organization;
   /** The subscription type of a pending change. Null if no change pending. */
-  pendingChangeType?: Maybe<Scalars["String"]["output"]>;
+  pendingChangeType?: Maybe<Scalars['String']['output']>;
   /** The number of seats in the subscription. */
-  seats: Scalars["Float"]["output"];
+  seats: Scalars['Float']['output'];
   /** The maximum number of seats that will be billed in the subscription. */
-  seatsMaximum?: Maybe<Scalars["Float"]["output"]>;
+  seatsMaximum?: Maybe<Scalars['Float']['output']>;
   /** The minimum number of seats that will be billed in the subscription. */
-  seatsMinimum?: Maybe<Scalars["Float"]["output"]>;
+  seatsMinimum?: Maybe<Scalars['Float']['output']>;
   /** The subscription type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type TemplateConnection = {
-  __typename?: "TemplateConnection";
+  __typename?: 'TemplateConnection';
   edges: Array<TemplateEdge>;
   nodes: Array<Template>;
   pageInfo: PageInfo;
 };
 
 export type TemplateEdge = {
-  __typename?: "TemplateEdge";
+  __typename?: 'TemplateEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Template;
 };
 
 /** Project attachment */
 export type ProjectAttachment = Node & {
-  __typename?: "ProjectAttachment";
+  __typename?: 'ProjectAttachment';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The creator of the attachment. */
   creator?: Maybe<User>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Custom metadata related to the attachment. */
-  metadata: Scalars["JSONObject"]["output"];
+  metadata: Scalars['JSONObject']['output'];
   /** Information about the external source which created the attachment. */
-  source?: Maybe<Scalars["JSONObject"]["output"]>;
+  source?: Maybe<Scalars['JSONObject']['output']>;
   /** An accessor helper to source.type, defines the source type of the attachment. */
-  sourceType?: Maybe<Scalars["String"]["output"]>;
+  sourceType?: Maybe<Scalars['String']['output']>;
   /** Optional subtitle of the attachment */
-  subtitle?: Maybe<Scalars["String"]["output"]>;
+  subtitle?: Maybe<Scalars['String']['output']>;
   /** Title of the attachment. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** URL of the attachment. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
 
 export type IssueDraftConnection = {
-  __typename?: "IssueDraftConnection";
+  __typename?: 'IssueDraftConnection';
   edges: Array<IssueDraftEdge>;
   nodes: Array<IssueDraft>;
   pageInfo: PageInfo;
 };
 
 export type IssueDraftEdge = {
-  __typename?: "IssueDraftEdge";
+  __typename?: 'IssueDraftEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: IssueDraft;
 };
 
 /** [Internal] A draft issue. */
 export type IssueDraft = Node & {
-  __typename?: "IssueDraft";
+  __typename?: 'IssueDraft';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The user assigned to the draft. */
-  assigneeId?: Maybe<Scalars["String"]["output"]>;
+  assigneeId?: Maybe<Scalars['String']['output']>;
   /** Serialized array of JSONs representing attachments. */
-  attachments?: Maybe<Scalars["JSONObject"]["output"]>;
+  attachments?: Maybe<Scalars['JSONObject']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the draft. */
   creator: User;
   /** The cycle associated with the draft. */
-  cycleId?: Maybe<Scalars["String"]["output"]>;
+  cycleId?: Maybe<Scalars['String']['output']>;
   /** The agent user delegated to work on the issue being drafted. */
-  delegateId?: Maybe<Scalars["String"]["output"]>;
+  delegateId?: Maybe<Scalars['String']['output']>;
   /** The draft's description in markdown format. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** [Internal] The draft's description as a Prosemirror document. */
-  descriptionData?: Maybe<Scalars["JSON"]["output"]>;
+  descriptionData?: Maybe<Scalars['JSON']['output']>;
   /** The date at which the issue would be due. */
-  dueDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  dueDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** The estimate of the complexity of the draft. */
-  estimate?: Maybe<Scalars["Float"]["output"]>;
+  estimate?: Maybe<Scalars['Float']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The IDs of labels added to the draft. */
-  labelIds: Array<Scalars["String"]["output"]>;
+  labelIds: Array<Scalars['String']['output']>;
   /** Serialized array of JSONs representing customer needs. */
-  needs?: Maybe<Scalars["JSONObject"]["output"]>;
+  needs?: Maybe<Scalars['JSONObject']['output']>;
   /** The parent draft of the draft. */
   parent?: Maybe<IssueDraft>;
   /** The ID of the parent issue draft, if any. */
-  parentId?: Maybe<Scalars["String"]["output"]>;
+  parentId?: Maybe<Scalars['String']['output']>;
   /** The parent issue of the draft. */
   parentIssue?: Maybe<Issue>;
   /** The ID of the parent issue, if any. */
-  parentIssueId?: Maybe<Scalars["String"]["output"]>;
+  parentIssueId?: Maybe<Scalars['String']['output']>;
   /** The priority of the draft. */
-  priority: Scalars["Float"]["output"];
+  priority: Scalars['Float']['output'];
   /** Label for the priority. */
-  priorityLabel: Scalars["String"]["output"];
+  priorityLabel: Scalars['String']['output'];
   /** The project associated with the draft. */
-  projectId?: Maybe<Scalars["String"]["output"]>;
+  projectId?: Maybe<Scalars['String']['output']>;
   /** The project milestone associated with the draft. */
-  projectMilestoneId?: Maybe<Scalars["String"]["output"]>;
+  projectMilestoneId?: Maybe<Scalars['String']['output']>;
   /** Serialized array of JSONs representing the recurring issue's schedule. */
-  schedule?: Maybe<Scalars["JSONObject"]["output"]>;
+  schedule?: Maybe<Scalars['JSONObject']['output']>;
   /** The ID of the comment that the draft was created from. */
-  sourceCommentId?: Maybe<Scalars["String"]["output"]>;
+  sourceCommentId?: Maybe<Scalars['String']['output']>;
   /** The workflow state associated with the draft. */
-  stateId: Scalars["String"]["output"];
+  stateId: Scalars['String']['output'];
   /** The order of items in the sub-draft list. Only set if the draft has `parent` set. */
-  subIssueSortOrder?: Maybe<Scalars["Float"]["output"]>;
+  subIssueSortOrder?: Maybe<Scalars['Float']['output']>;
   /** The team associated with the draft. */
-  teamId: Scalars["String"]["output"];
+  teamId: Scalars['String']['output'];
   /** The draft's title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type TeamMembershipConnection = {
-  __typename?: "TeamMembershipConnection";
+  __typename?: 'TeamMembershipConnection';
   edges: Array<TeamMembershipEdge>;
   nodes: Array<TeamMembership>;
   pageInfo: PageInfo;
 };
 
 export type TeamMembershipEdge = {
-  __typename?: "TeamMembershipEdge";
+  __typename?: 'TeamMembershipEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: TeamMembership;
 };
 
 /** Defines the membership of a user to a team. */
 export type TeamMembership = Node & {
-  __typename?: "TeamMembership";
+  __typename?: 'TeamMembership';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Whether the user is the owner of the team. */
-  owner: Scalars["Boolean"]["output"];
+  owner: Scalars['Boolean']['output'];
   /** The order of the item in the users team list. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** The team that the membership is associated with. */
   team: Team;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user that the membership is associated with. */
   user: User;
 };
 
 export type AttachmentConnection = {
-  __typename?: "AttachmentConnection";
+  __typename?: 'AttachmentConnection';
   edges: Array<AttachmentEdge>;
   nodes: Array<Attachment>;
   pageInfo: PageInfo;
 };
 
 export type AttachmentEdge = {
-  __typename?: "AttachmentEdge";
+  __typename?: 'AttachmentEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Attachment;
 };
 
 export type IssueHistoryConnection = {
-  __typename?: "IssueHistoryConnection";
+  __typename?: 'IssueHistoryConnection';
   edges: Array<IssueHistoryEdge>;
   nodes: Array<IssueHistory>;
   pageInfo: PageInfo;
 };
 
 export type IssueHistoryEdge = {
-  __typename?: "IssueHistoryEdge";
+  __typename?: 'IssueHistoryEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: IssueHistory;
 };
 
 /** A record of changes to an issue. */
 export type IssueHistory = Node & {
-  __typename?: "IssueHistory";
+  __typename?: 'IssueHistory';
   /** The actor that performed the actions. This field may be empty in the case of integrations or automations. */
   actor?: Maybe<User>;
   /** The id of user who made these changes. If null, possibly means that the change made by an integration. */
-  actorId?: Maybe<Scalars["String"]["output"]>;
+  actorId?: Maybe<Scalars['String']['output']>;
   /**
    * The actors that performed the actions. This field may be empty in the case of integrations or automations.
    * @deprecated Use `actor` and `descriptionUpdatedBy` instead.
    */
   actors?: Maybe<Array<User>>;
   /** ID's of labels that were added. */
-  addedLabelIds?: Maybe<Array<Scalars["String"]["output"]>>;
+  addedLabelIds?: Maybe<Array<Scalars['String']['output']>>;
   /** The labels that were added to the issue. */
   addedLabels?: Maybe<Array<IssueLabel>>;
   /** Whether the issue is archived at the time of this history entry. */
-  archived?: Maybe<Scalars["Boolean"]["output"]>;
+  archived?: Maybe<Scalars['Boolean']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The linked attachment. */
   attachment?: Maybe<Attachment>;
   /** The id of linked attachment. */
-  attachmentId?: Maybe<Scalars["String"]["output"]>;
+  attachmentId?: Maybe<Scalars['String']['output']>;
   /** Whether the issue was auto-archived. */
-  autoArchived?: Maybe<Scalars["Boolean"]["output"]>;
+  autoArchived?: Maybe<Scalars['Boolean']['output']>;
   /** Whether the issue was auto-closed. */
-  autoClosed?: Maybe<Scalars["Boolean"]["output"]>;
+  autoClosed?: Maybe<Scalars['Boolean']['output']>;
   /** The bot that performed the action. */
   botActor?: Maybe<ActorBot>;
   /** [Internal] Serialized JSON representing changes for certain non-relational properties. */
-  changes?: Maybe<Scalars["JSONObject"]["output"]>;
+  changes?: Maybe<Scalars['JSONObject']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The id of linked customer need. */
-  customerNeedId?: Maybe<Scalars["String"]["output"]>;
+  customerNeedId?: Maybe<Scalars['String']['output']>;
   /** The actors that edited the description of the issue, if any. */
   descriptionUpdatedBy?: Maybe<Array<User>>;
   /** The user that was unassigned from the issue. */
   fromAssignee?: Maybe<User>;
   /** The id of user from whom the issue was re-assigned from. */
-  fromAssigneeId?: Maybe<Scalars["String"]["output"]>;
+  fromAssigneeId?: Maybe<Scalars['String']['output']>;
   /** The cycle that the issue was moved from. */
   fromCycle?: Maybe<Cycle>;
   /** The id of previous cycle of the issue. */
-  fromCycleId?: Maybe<Scalars["String"]["output"]>;
+  fromCycleId?: Maybe<Scalars['String']['output']>;
   /** The app user from whom the issue delegation was transferred. */
   fromDelegate?: Maybe<User>;
   /** What the due date was changed from. */
-  fromDueDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  fromDueDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** What the estimate was changed from. */
-  fromEstimate?: Maybe<Scalars["Float"]["output"]>;
+  fromEstimate?: Maybe<Scalars['Float']['output']>;
   /** The parent issue that the issue was moved from. */
   fromParent?: Maybe<Issue>;
   /** The id of previous parent of the issue. */
-  fromParentId?: Maybe<Scalars["String"]["output"]>;
+  fromParentId?: Maybe<Scalars['String']['output']>;
   /** What the priority was changed from. */
-  fromPriority?: Maybe<Scalars["Float"]["output"]>;
+  fromPriority?: Maybe<Scalars['Float']['output']>;
   /** The project that the issue was moved from. */
   fromProject?: Maybe<Project>;
   /** The id of previous project of the issue. */
-  fromProjectId?: Maybe<Scalars["String"]["output"]>;
+  fromProjectId?: Maybe<Scalars['String']['output']>;
   /** The state that the issue was moved from. */
   fromState?: Maybe<WorkflowState>;
   /** The id of previous workflow state of the issue. */
-  fromStateId?: Maybe<Scalars["String"]["output"]>;
+  fromStateId?: Maybe<Scalars['String']['output']>;
   /** The team that the issue was moved from. */
   fromTeam?: Maybe<Team>;
   /** The id of team from which the issue was moved from. */
-  fromTeamId?: Maybe<Scalars["String"]["output"]>;
+  fromTeamId?: Maybe<Scalars['String']['output']>;
   /** What the title was changed from. */
-  fromTitle?: Maybe<Scalars["String"]["output"]>;
+  fromTitle?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The issue that was changed. */
   issue: Issue;
   /** The import record. */
@@ -7523,293 +7692,291 @@ export type IssueHistory = Node & {
   /** Changed issue relationships. */
   relationChanges?: Maybe<Array<IssueRelationHistoryPayload>>;
   /** ID's of labels that were removed. */
-  removedLabelIds?: Maybe<Array<Scalars["String"]["output"]>>;
+  removedLabelIds?: Maybe<Array<Scalars['String']['output']>>;
   /** The labels that were removed from the issue. */
   removedLabels?: Maybe<Array<IssueLabel>>;
   /** The user that was assigned to the issue. */
   toAssignee?: Maybe<User>;
   /** The id of user to whom the issue was assigned to. */
-  toAssigneeId?: Maybe<Scalars["String"]["output"]>;
+  toAssigneeId?: Maybe<Scalars['String']['output']>;
   /** The new project created from the issue. */
   toConvertedProject?: Maybe<Project>;
   /** The id of new project created from the issue. */
-  toConvertedProjectId?: Maybe<Scalars["String"]["output"]>;
+  toConvertedProjectId?: Maybe<Scalars['String']['output']>;
   /** The cycle that the issue was moved to. */
   toCycle?: Maybe<Cycle>;
   /** The id of new cycle of the issue. */
-  toCycleId?: Maybe<Scalars["String"]["output"]>;
+  toCycleId?: Maybe<Scalars['String']['output']>;
   /** The app user to whom the issue delegation was transferred. */
   toDelegate?: Maybe<User>;
   /** What the due date was changed to. */
-  toDueDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  toDueDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** What the estimate was changed to. */
-  toEstimate?: Maybe<Scalars["Float"]["output"]>;
+  toEstimate?: Maybe<Scalars['Float']['output']>;
   /** The parent issue that the issue was moved to. */
   toParent?: Maybe<Issue>;
   /** The id of new parent of the issue. */
-  toParentId?: Maybe<Scalars["String"]["output"]>;
+  toParentId?: Maybe<Scalars['String']['output']>;
   /** What the priority was changed to. */
-  toPriority?: Maybe<Scalars["Float"]["output"]>;
+  toPriority?: Maybe<Scalars['Float']['output']>;
   /** The project that the issue was moved to. */
   toProject?: Maybe<Project>;
   /** The id of new project of the issue. */
-  toProjectId?: Maybe<Scalars["String"]["output"]>;
+  toProjectId?: Maybe<Scalars['String']['output']>;
   /** The state that the issue was moved to. */
   toState?: Maybe<WorkflowState>;
   /** The id of new workflow state of the issue. */
-  toStateId?: Maybe<Scalars["String"]["output"]>;
+  toStateId?: Maybe<Scalars['String']['output']>;
   /** The team that the issue was moved to. */
   toTeam?: Maybe<Team>;
   /** The id of team to which the issue was moved to. */
-  toTeamId?: Maybe<Scalars["String"]["output"]>;
+  toTeamId?: Maybe<Scalars['String']['output']>;
   /** What the title was changed to. */
-  toTitle?: Maybe<Scalars["String"]["output"]>;
+  toTitle?: Maybe<Scalars['String']['output']>;
   /** Whether the issue was trashed or un-trashed. */
-  trashed?: Maybe<Scalars["Boolean"]["output"]>;
+  trashed?: Maybe<Scalars['Boolean']['output']>;
   /** The users that were notified of the issue. */
   triageResponsibilityNotifiedUsers?: Maybe<Array<User>>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** Whether the issue's description was updated. */
-  updatedDescription?: Maybe<Scalars["Boolean"]["output"]>;
+  updatedDescription?: Maybe<Scalars['Boolean']['output']>;
 };
 
 /** A state in a team workflow. */
 export type WorkflowState = Node & {
-  __typename?: "WorkflowState";
+  __typename?: 'WorkflowState';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The state's UI color as a HEX string. */
-  color: Scalars["String"]["output"];
+  color: Scalars['String']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Description of the state. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The state inherited from */
   inheritedFrom?: Maybe<WorkflowState>;
   /** Issues belonging in this state. */
   issues: IssueConnection;
   /** The state's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The position of the state in the team flow. */
-  position: Scalars["Float"]["output"];
+  position: Scalars['Float']['output'];
   /** The team to which this state belongs to. */
   team: Team;
   /** The type of the state. One of "triage", "backlog", "unstarted", "started", "completed", "canceled". */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
+
 
 /** A state in a team workflow. */
 export type WorkflowStateIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 /** An import job for data from an external service. */
 export type IssueImport = Node & {
-  __typename?: "IssueImport";
+  __typename?: 'IssueImport';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The id for the user that started the job. */
-  creatorId?: Maybe<Scalars["String"]["output"]>;
+  creatorId?: Maybe<Scalars['String']['output']>;
   /** File URL for the uploaded CSV for the import, if there is one. */
-  csvFileUrl?: Maybe<Scalars["String"]["output"]>;
+  csvFileUrl?: Maybe<Scalars['String']['output']>;
   /** The display name of the import service. */
-  displayName: Scalars["String"]["output"];
+  displayName: Scalars['String']['output'];
   /** User readable error message, if one has occurred during the import. */
-  error?: Maybe<Scalars["String"]["output"]>;
+  error?: Maybe<Scalars['String']['output']>;
   /** Error code and metadata, if one has occurred during the import. */
-  errorMetadata?: Maybe<Scalars["JSONObject"]["output"]>;
+  errorMetadata?: Maybe<Scalars['JSONObject']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The data mapping configuration for the import job. */
-  mapping?: Maybe<Scalars["JSONObject"]["output"]>;
+  mapping?: Maybe<Scalars['JSONObject']['output']>;
   /** Current step progress in % (0-100). */
-  progress?: Maybe<Scalars["Float"]["output"]>;
+  progress?: Maybe<Scalars['Float']['output']>;
   /** The service from which data will be imported. */
-  service: Scalars["String"]["output"];
+  service: Scalars['String']['output'];
   /** Metadata related to import service. */
-  serviceMetadata?: Maybe<Scalars["JSONObject"]["output"]>;
+  serviceMetadata?: Maybe<Scalars['JSONObject']['output']>;
   /** The status for the import job. */
-  status: Scalars["String"]["output"];
+  status: Scalars['String']['output'];
   /** New team's name in cases when teamId not set. */
-  teamName?: Maybe<Scalars["String"]["output"]>;
+  teamName?: Maybe<Scalars['String']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** Issue relation history's payload. */
 export type IssueRelationHistoryPayload = {
-  __typename?: "IssueRelationHistoryPayload";
+  __typename?: 'IssueRelationHistoryPayload';
   /** The identifier of the related issue. */
-  identifier: Scalars["String"]["output"];
+  identifier: Scalars['String']['output'];
   /** The type of the change. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
 };
 
 export type IssueSuggestionConnection = {
-  __typename?: "IssueSuggestionConnection";
+  __typename?: 'IssueSuggestionConnection';
   edges: Array<IssueSuggestionEdge>;
   nodes: Array<IssueSuggestion>;
   pageInfo: PageInfo;
 };
 
 export type IssueSuggestionEdge = {
-  __typename?: "IssueSuggestionEdge";
+  __typename?: 'IssueSuggestionEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: IssueSuggestion;
 };
 
 export type IssueSuggestion = Node & {
-  __typename?: "IssueSuggestion";
+  __typename?: 'IssueSuggestion';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   issue: Issue;
-  issueId: Scalars["String"]["output"];
+  issueId: Scalars['String']['output'];
   metadata?: Maybe<IssueSuggestionMetadata>;
   state: IssueSuggestionState;
-  stateChangedAt: Scalars["DateTime"]["output"];
+  stateChangedAt: Scalars['DateTime']['output'];
   suggestedIssue?: Maybe<Issue>;
-  suggestedIssueId?: Maybe<Scalars["String"]["output"]>;
+  suggestedIssueId?: Maybe<Scalars['String']['output']>;
   suggestedLabel?: Maybe<IssueLabel>;
-  suggestedLabelId?: Maybe<Scalars["String"]["output"]>;
+  suggestedLabelId?: Maybe<Scalars['String']['output']>;
   suggestedProject?: Maybe<Project>;
   suggestedTeam?: Maybe<Team>;
   suggestedUser?: Maybe<User>;
-  suggestedUserId?: Maybe<Scalars["String"]["output"]>;
+  suggestedUserId?: Maybe<Scalars['String']['output']>;
   type: IssueSuggestionType;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type IssueSuggestionMetadata = {
-  __typename?: "IssueSuggestionMetadata";
-  classification?: Maybe<Scalars["String"]["output"]>;
-  evalLogId?: Maybe<Scalars["String"]["output"]>;
-  rank?: Maybe<Scalars["Float"]["output"]>;
-  reasons?: Maybe<Array<Scalars["String"]["output"]>>;
-  score?: Maybe<Scalars["Float"]["output"]>;
+  __typename?: 'IssueSuggestionMetadata';
+  classification?: Maybe<Scalars['String']['output']>;
+  evalLogId?: Maybe<Scalars['String']['output']>;
+  rank?: Maybe<Scalars['Float']['output']>;
+  reasons?: Maybe<Array<Scalars['String']['output']>>;
+  score?: Maybe<Scalars['Float']['output']>;
 };
 
-export enum IssueSuggestionState {
-  Accepted = "accepted",
-  Active = "active",
-  Dismissed = "dismissed",
-  Stale = "stale",
-}
+export type IssueSuggestionState =
+  | 'accepted'
+  | 'active'
+  | 'dismissed'
+  | 'stale';
 
-export enum IssueSuggestionType {
-  Assignee = "assignee",
-  Label = "label",
-  Project = "project",
-  RelatedIssue = "relatedIssue",
-  SimilarIssue = "similarIssue",
-  Team = "team",
-}
+export type IssueSuggestionType =
+  | 'assignee'
+  | 'label'
+  | 'project'
+  | 'relatedIssue'
+  | 'similarIssue'
+  | 'team';
 
 /** Linear supported integration services. */
-export enum IntegrationService {
-  Airbyte = "airbyte",
-  Discord = "discord",
-  Email = "email",
-  Figma = "figma",
-  FigmaPlugin = "figmaPlugin",
-  Front = "front",
-  Github = "github",
-  GithubCodeAccessPersonal = "githubCodeAccessPersonal",
-  GithubCommit = "githubCommit",
-  GithubEnterpriseServer = "githubEnterpriseServer",
-  GithubImport = "githubImport",
-  GithubPersonal = "githubPersonal",
-  Gitlab = "gitlab",
-  GoogleCalendarPersonal = "googleCalendarPersonal",
-  GoogleSheets = "googleSheets",
-  Intercom = "intercom",
-  Jira = "jira",
-  JiraPersonal = "jiraPersonal",
-  LaunchDarkly = "launchDarkly",
-  LaunchDarklyPersonal = "launchDarklyPersonal",
-  Loom = "loom",
-  Notion = "notion",
-  Opsgenie = "opsgenie",
-  PagerDuty = "pagerDuty",
-  Salesforce = "salesforce",
-  Sentry = "sentry",
-  Slack = "slack",
-  SlackAsks = "slackAsks",
-  SlackCustomViewNotifications = "slackCustomViewNotifications",
-  SlackInitiativePost = "slackInitiativePost",
-  SlackOrgInitiativeUpdatesPost = "slackOrgInitiativeUpdatesPost",
-  SlackOrgProjectUpdatesPost = "slackOrgProjectUpdatesPost",
-  SlackPersonal = "slackPersonal",
-  SlackPost = "slackPost",
-  SlackProjectPost = "slackProjectPost",
-  SlackProjectUpdatesPost = "slackProjectUpdatesPost",
-  Zendesk = "zendesk",
-}
+export type IntegrationService =
+  | 'airbyte'
+  | 'discord'
+  | 'email'
+  | 'figma'
+  | 'figmaPlugin'
+  | 'front'
+  | 'github'
+  | 'githubCodeAccessPersonal'
+  | 'githubCommit'
+  | 'githubEnterpriseServer'
+  | 'githubImport'
+  | 'githubPersonal'
+  | 'gitlab'
+  | 'googleCalendarPersonal'
+  | 'googleSheets'
+  | 'intercom'
+  | 'jira'
+  | 'jiraPersonal'
+  | 'launchDarkly'
+  | 'launchDarklyPersonal'
+  | 'loom'
+  | 'notion'
+  | 'opsgenie'
+  | 'pagerDuty'
+  | 'salesforce'
+  | 'sentry'
+  | 'slack'
+  | 'slackAsks'
+  | 'slackCustomViewNotifications'
+  | 'slackInitiativePost'
+  | 'slackOrgInitiativeUpdatesPost'
+  | 'slackOrgProjectUpdatesPost'
+  | 'slackPersonal'
+  | 'slackPost'
+  | 'slackProjectPost'
+  | 'slackProjectUpdatesPost'
+  | 'zendesk';
 
 export type IssueRelationConnection = {
-  __typename?: "IssueRelationConnection";
+  __typename?: 'IssueRelationConnection';
   edges: Array<IssueRelationEdge>;
   nodes: Array<IssueRelation>;
   pageInfo: PageInfo;
 };
 
 export type IssueRelationEdge = {
-  __typename?: "IssueRelationEdge";
+  __typename?: 'IssueRelationEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: IssueRelation;
 };
 
 /** A relation between two issues. */
 export type IssueRelation = Node & {
-  __typename?: "IssueRelation";
+  __typename?: 'IssueRelation';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The issue whose relationship is being described. */
   issue: Issue;
   /** The related issue. */
   relatedIssue: Issue;
   /** The relationship of the issue with the related issue. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** Cycle filtering options. */
@@ -7853,49 +8020,49 @@ export type CycleFilter = {
 };
 
 export type CycleConnection = {
-  __typename?: "CycleConnection";
+  __typename?: 'CycleConnection';
   edges: Array<CycleEdge>;
   nodes: Array<Cycle>;
   pageInfo: PageInfo;
 };
 
 export type CycleEdge = {
-  __typename?: "CycleEdge";
+  __typename?: 'CycleEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Cycle;
 };
 
 export type GitAutomationStateConnection = {
-  __typename?: "GitAutomationStateConnection";
+  __typename?: 'GitAutomationStateConnection';
   edges: Array<GitAutomationStateEdge>;
   nodes: Array<GitAutomationState>;
   pageInfo: PageInfo;
 };
 
 export type GitAutomationStateEdge = {
-  __typename?: "GitAutomationStateEdge";
+  __typename?: 'GitAutomationStateEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: GitAutomationState;
 };
 
 /** A trigger that updates the issue status according to Git automations. */
 export type GitAutomationState = Node & {
-  __typename?: "GitAutomationState";
+  __typename?: 'GitAutomationState';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * [DEPRECATED] The target branch, if null, the automation will be triggered on any branch.
    * @deprecated Use targetBranch instead.
    */
-  branchPattern?: Maybe<Scalars["String"]["output"]>;
+  branchPattern?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The event that triggers the automation. */
   event: GitAutomationStates;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The associated workflow state. */
   state?: Maybe<WorkflowState>;
   /** The target branch associated to this automation state. */
@@ -7906,79 +8073,79 @@ export type GitAutomationState = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** The various states of a pull/merge request. */
-export enum GitAutomationStates {
-  Draft = "draft",
-  Merge = "merge",
-  Mergeable = "mergeable",
-  Review = "review",
-  Start = "start",
-}
+export type GitAutomationStates =
+  | 'draft'
+  | 'merge'
+  | 'mergeable'
+  | 'review'
+  | 'start';
 
 /** A Git target branch for which there are automations (GitAutomationState). */
 export type GitAutomationTargetBranch = Node & {
-  __typename?: "GitAutomationTargetBranch";
+  __typename?: 'GitAutomationTargetBranch';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Automation states associated with the target branch. */
   automationStates: GitAutomationStateConnection;
   /** The target branch pattern. */
-  branchPattern: Scalars["String"]["output"];
+  branchPattern: Scalars['String']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Whether the branch pattern is a regular expression. */
-  isRegex: Scalars["Boolean"]["output"];
+  isRegex: Scalars['Boolean']['output'];
   /** The team to which this Git target branch automation belongs. */
   team: Team;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
+
 
 /** A Git target branch for which there are automations (GitAutomationState). */
 export type GitAutomationTargetBranchAutomationStatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type WorkflowStateConnection = {
-  __typename?: "WorkflowStateConnection";
+  __typename?: 'WorkflowStateConnection';
   edges: Array<WorkflowStateEdge>;
   nodes: Array<WorkflowState>;
   pageInfo: PageInfo;
 };
 
 export type WorkflowStateEdge = {
-  __typename?: "WorkflowStateEdge";
+  __typename?: 'WorkflowStateEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: WorkflowState;
 };
 
 /** A team's triage responsibility. */
 export type TriageResponsibility = Node & {
-  __typename?: "TriageResponsibility";
+  __typename?: 'TriageResponsibility';
   /** The action to take when an issue is added to triage. */
   action: TriageResponsibilityAction;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user currently responsible for triage. */
   currentUser?: Maybe<User>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Set of users used for triage responsibility. */
   manualSelection?: Maybe<TriageResponsibilityManualSelection>;
   /** The team to which the triage responsibility belongs to. */
@@ -7989,128 +8156,127 @@ export type TriageResponsibility = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** Which action should be taken after an issue is added to triage. */
-export enum TriageResponsibilityAction {
-  Assign = "assign",
-  Notify = "notify",
-}
+export type TriageResponsibilityAction =
+  | 'assign'
+  | 'notify';
 
 export type TriageResponsibilityManualSelection = {
-  __typename?: "TriageResponsibilityManualSelection";
+  __typename?: 'TriageResponsibilityManualSelection';
   /** [Internal] The index of the current userId used for the assign action when having more than one user. */
-  assignmentIndex?: Maybe<Scalars["Int"]["output"]>;
+  assignmentIndex?: Maybe<Scalars['Int']['output']>;
   /** The set of users responsible for triage. */
-  userIds: Array<Scalars["String"]["output"]>;
+  userIds: Array<Scalars['String']['output']>;
 };
 
 /** A time schedule. */
 export type TimeSchedule = Node & {
-  __typename?: "TimeSchedule";
+  __typename?: 'TimeSchedule';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The schedule entries. */
   entries?: Maybe<Array<TimeScheduleEntry>>;
   /** The identifier of the external schedule. */
-  externalId?: Maybe<Scalars["String"]["output"]>;
+  externalId?: Maybe<Scalars['String']['output']>;
   /** The URL to the external schedule. */
-  externalUrl?: Maybe<Scalars["String"]["output"]>;
+  externalUrl?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The identifier of the Linear integration populating the schedule. */
   integration?: Maybe<Integration>;
   /** The name of the schedule. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The organization of the schedule. */
   organization: Organization;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type TimeScheduleEntry = {
-  __typename?: "TimeScheduleEntry";
+  __typename?: 'TimeScheduleEntry';
   /** The end date of the schedule in ISO 8601 date-time format. */
-  endsAt: Scalars["DateTime"]["output"];
+  endsAt: Scalars['DateTime']['output'];
   /** The start date of the schedule in ISO 8601 date-time format. */
-  startsAt: Scalars["DateTime"]["output"];
+  startsAt: Scalars['DateTime']['output'];
   /** The email, name or reference to the user on schedule. This is used in case the external user could not be mapped to a Linear user id. */
-  userEmail?: Maybe<Scalars["String"]["output"]>;
+  userEmail?: Maybe<Scalars['String']['output']>;
   /** The Linear user id of the user on schedule. If the user cannot be mapped to a Linear user then `userEmail` can be used as a reference. */
-  userId?: Maybe<Scalars["String"]["output"]>;
+  userId?: Maybe<Scalars['String']['output']>;
 };
 
 export type WebhookConnection = {
-  __typename?: "WebhookConnection";
+  __typename?: 'WebhookConnection';
   edges: Array<WebhookEdge>;
   nodes: Array<Webhook>;
   pageInfo: PageInfo;
 };
 
 export type WebhookEdge = {
-  __typename?: "WebhookEdge";
+  __typename?: 'WebhookEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Webhook;
 };
 
 /** A webhook used to send HTTP notifications over data updates. */
 export type Webhook = Node & {
-  __typename?: "Webhook";
+  __typename?: 'Webhook';
   /** Whether the Webhook is enabled for all public teams, including teams created after the webhook was created. */
-  allPublicTeams: Scalars["Boolean"]["output"];
+  allPublicTeams: Scalars['Boolean']['output'];
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the webhook. */
   creator?: Maybe<User>;
   /** Whether the Webhook is enabled. */
-  enabled: Scalars["Boolean"]["output"];
+  enabled: Scalars['Boolean']['output'];
   /** [INTERNAL] Webhook failure events associated with the webhook (last 50). */
   failures: Array<WebhookFailureEvent>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Webhook label. */
-  label?: Maybe<Scalars["String"]["output"]>;
+  label?: Maybe<Scalars['String']['output']>;
   /** The resource types this webhook is subscribed to. */
-  resourceTypes: Array<Scalars["String"]["output"]>;
+  resourceTypes: Array<Scalars['String']['output']>;
   /** Secret token for verifying the origin on the recipient side. */
-  secret?: Maybe<Scalars["String"]["output"]>;
+  secret?: Maybe<Scalars['String']['output']>;
   /** The team that the webhook is associated with. If null, the webhook is associated with all public teams of the organization or multiple teams. */
   team?: Maybe<Team>;
   /** [INTERNAL] The teams that the webhook is associated with. Used to represent a webhook that targets multiple teams, potentially in addition to all public teams of the organization. */
-  teamIds?: Maybe<Array<Scalars["String"]["output"]>>;
+  teamIds?: Maybe<Array<Scalars['String']['output']>>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** Webhook URL. */
-  url?: Maybe<Scalars["String"]["output"]>;
+  url?: Maybe<Scalars['String']['output']>;
 };
 
 /** Entity representing a webhook execution failure. */
 export type WebhookFailureEvent = {
-  __typename?: "WebhookFailureEvent";
+  __typename?: 'WebhookFailureEvent';
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique execution ID of the webhook push. This is retained between retries of the same push. */
-  executionId: Scalars["String"]["output"];
+  executionId: Scalars['String']['output'];
   /** The HTTP status code returned by the recipient. */
-  httpStatus?: Maybe<Scalars["Float"]["output"]>;
+  httpStatus?: Maybe<Scalars['Float']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The HTTP response body returned by the recipient or error occured. */
-  responseOrError?: Maybe<Scalars["String"]["output"]>;
+  responseOrError?: Maybe<Scalars['String']['output']>;
   /** The URL that the webhook was trying to push to. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The webhook that this failure event is associated with. */
   webhook: Webhook;
 };
@@ -8136,359 +8302,350 @@ export type AgentActivityFilter = {
 };
 
 export type AgentActivityConnection = {
-  __typename?: "AgentActivityConnection";
+  __typename?: 'AgentActivityConnection';
   edges: Array<AgentActivityEdge>;
   nodes: Array<AgentActivity>;
   pageInfo: PageInfo;
 };
 
 export type AgentActivityEdge = {
-  __typename?: "AgentActivityEdge";
+  __typename?: 'AgentActivityEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: AgentActivity;
 };
 
 /** An activity within an agent context. */
 export type AgentActivity = Node & {
-  __typename?: "AgentActivity";
+  __typename?: 'AgentActivity';
   /** The agent session this activity belongs to. */
   agentSession: AgentSession;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The content of the activity */
   content: AgentActivityContent;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** An optional modifier that provides additional instructions on how the activity should be interpreted. */
   signal?: Maybe<AgentActivitySignal>;
   /** The comment this activity is linked to. */
   sourceComment?: Maybe<Comment>;
   /** Metadata about the external source that created this agent activity. */
-  sourceMetadata?: Maybe<Scalars["JSON"]["output"]>;
+  sourceMetadata?: Maybe<Scalars['JSON']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user who created this agent activity. */
   user: User;
 };
 
 /** A session for agent activities and state management. */
 export type AgentSession = Node & {
-  __typename?: "AgentSession";
+  __typename?: 'AgentSession';
   /** Activities associated with this agent session. */
   activities: AgentActivityConnection;
   /** The agent user that is associated with this agent session. */
   appUser: User;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The comment this agent session is associated with. */
   comment?: Maybe<Comment>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user that created this agent session. */
   creator?: Maybe<User>;
   /** The time the agent session ended. */
-  endedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  endedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The URL of an external agent-hosted page associated with this session. */
-  externalLink?: Maybe<Scalars["String"]["output"]>;
+  externalLink?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The issue this agent session is associated with. */
   issue?: Maybe<Issue>;
   /** Metadata about the external source that created this agent session. */
-  sourceMetadata?: Maybe<Scalars["JSON"]["output"]>;
+  sourceMetadata?: Maybe<Scalars['JSON']['output']>;
   /** The time the agent session started. */
-  startedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The current status of the agent session. */
   status: AgentSessionStatus;
   /** A summary of the activities in this session. */
-  summary?: Maybe<Scalars["String"]["output"]>;
+  summary?: Maybe<Scalars['String']['output']>;
   /** The type of the agent session. */
   type: AgentSessionType;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
+
 
 /** A session for agent activities and state management. */
 export type AgentSessionActivitiesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<AgentActivityFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 /** The status of an agent session. */
-export enum AgentSessionStatus {
-  Active = "active",
-  AwaitingInput = "awaitingInput",
-  Complete = "complete",
-  Error = "error",
-  Pending = "pending",
-  Stale = "stale",
-}
+export type AgentSessionStatus =
+  | 'active'
+  | 'awaitingInput'
+  | 'complete'
+  | 'error'
+  | 'pending'
+  | 'stale';
 
 /** The type of an agent session. */
-export enum AgentSessionType {
-  CommentThread = "commentThread",
-}
+export type AgentSessionType =
+  | 'commentThread';
 
 /** Content for different types of agent activities. */
-export type AgentActivityContent =
-  | AgentActivityActionContent
-  | AgentActivityElicitationContent
-  | AgentActivityErrorContent
-  | AgentActivityPromptContent
-  | AgentActivityResponseContent
-  | AgentActivityThoughtContent;
+export type AgentActivityContent = AgentActivityActionContent | AgentActivityElicitationContent | AgentActivityErrorContent | AgentActivityPromptContent | AgentActivityResponseContent | AgentActivityThoughtContent;
 
 /** Content for an action activity (tool call or action). */
 export type AgentActivityActionContent = {
-  __typename?: "AgentActivityActionContent";
+  __typename?: 'AgentActivityActionContent';
   /** The action being performed. */
-  action: Scalars["String"]["output"];
+  action: Scalars['String']['output'];
   /** The parameters for the action, e.g. a file path, a keyword, etc. */
-  parameter: Scalars["String"]["output"];
+  parameter: Scalars['String']['output'];
   /** The result of the action in Markdown format. */
-  result?: Maybe<Scalars["String"]["output"]>;
+  result?: Maybe<Scalars['String']['output']>;
   /** The type of activity. */
   type: AgentActivityType;
 };
 
 /** The type of an agent activity. */
-export enum AgentActivityType {
-  Action = "action",
-  Elicitation = "elicitation",
-  Error = "error",
-  Prompt = "prompt",
-  Response = "response",
-  Thought = "thought",
-}
+export type AgentActivityType =
+  | 'action'
+  | 'elicitation'
+  | 'error'
+  | 'prompt'
+  | 'response'
+  | 'thought';
 
 /** Content for an elicitation activity. */
 export type AgentActivityElicitationContent = {
-  __typename?: "AgentActivityElicitationContent";
+  __typename?: 'AgentActivityElicitationContent';
   /** The elicitation message in Markdown format. */
-  body: Scalars["String"]["output"];
+  body: Scalars['String']['output'];
   /** The type of activity. */
   type: AgentActivityType;
 };
 
 /** Content for an error activity. */
 export type AgentActivityErrorContent = {
-  __typename?: "AgentActivityErrorContent";
+  __typename?: 'AgentActivityErrorContent';
   /** The error message in Markdown format. */
-  body: Scalars["String"]["output"];
+  body: Scalars['String']['output'];
   /** The type of activity. */
   type: AgentActivityType;
 };
 
 /** Content for a prompt activity. */
 export type AgentActivityPromptContent = {
-  __typename?: "AgentActivityPromptContent";
+  __typename?: 'AgentActivityPromptContent';
   /** A message requesting additional information or action from user. */
-  body: Scalars["String"]["output"];
+  body: Scalars['String']['output'];
   /** The type of activity. */
   type: AgentActivityType;
 };
 
 /** Content for a response activity. */
 export type AgentActivityResponseContent = {
-  __typename?: "AgentActivityResponseContent";
+  __typename?: 'AgentActivityResponseContent';
   /** The response content in Markdown format. */
-  body: Scalars["String"]["output"];
+  body: Scalars['String']['output'];
   /** The type of activity. */
   type: AgentActivityType;
 };
 
 /** Content for a thought activity. */
 export type AgentActivityThoughtContent = {
-  __typename?: "AgentActivityThoughtContent";
+  __typename?: 'AgentActivityThoughtContent';
   /** The thought content in Markdown format. */
-  body: Scalars["String"]["output"];
+  body: Scalars['String']['output'];
   /** The type of activity. */
   type: AgentActivityType;
 };
 
 /** A modifier that provides additional instructions on how the activity should be interpreted. */
-export enum AgentActivitySignal {
-  Stop = "stop",
-}
+export type AgentActivitySignal =
+  | 'stop';
 
 export type AgentSessionConnection = {
-  __typename?: "AgentSessionConnection";
+  __typename?: 'AgentSessionConnection';
   edges: Array<AgentSessionEdge>;
   nodes: Array<AgentSession>;
   pageInfo: PageInfo;
 };
 
 export type AgentSessionEdge = {
-  __typename?: "AgentSessionEdge";
+  __typename?: 'AgentSessionEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: AgentSession;
 };
 
 export type ApiKeyConnection = {
-  __typename?: "ApiKeyConnection";
+  __typename?: 'ApiKeyConnection';
   edges: Array<ApiKeyEdge>;
   nodes: Array<ApiKey>;
   pageInfo: PageInfo;
 };
 
 export type ApiKeyEdge = {
-  __typename?: "ApiKeyEdge";
+  __typename?: 'ApiKeyEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: ApiKey;
 };
 
 /** An API key. Grants access to the user's resources. */
 export type ApiKey = Node & {
-  __typename?: "ApiKey";
+  __typename?: 'ApiKey';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The label of the API key. */
-  label: Scalars["String"]["output"];
+  label: Scalars['String']['output'];
   /** Organization the API key belongs to. */
   organization: Organization;
   /** The sync groups that this API key requests access to. If null, the API key has access to all sync groups the user has access to. The final set of sync groups is computed as the intersection of these requested groups with the user's base sync groups. */
-  requestedSyncGroups?: Maybe<Array<Scalars["String"]["output"]>>;
+  requestedSyncGroups?: Maybe<Array<Scalars['String']['output']>>;
   /** Scopes associated with the API key. */
-  scope?: Maybe<Array<Scalars["String"]["output"]>>;
+  scope?: Maybe<Array<Scalars['String']['output']>>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** Public information of the OAuth application. */
 export type Application = {
-  __typename?: "Application";
+  __typename?: 'Application';
   /** OAuth application's client ID. */
-  clientId: Scalars["String"]["output"];
+  clientId: Scalars['String']['output'];
   /** Information about the application. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** Name of the developer. */
-  developer: Scalars["String"]["output"];
+  developer: Scalars['String']['output'];
   /** Url of the developer (homepage or docs). */
-  developerUrl: Scalars["String"]["output"];
+  developerUrl: Scalars['String']['output'];
   /** OAuth application's ID. */
-  id: Scalars["String"]["output"];
+  id: Scalars['String']['output'];
   /** Image of the application. */
-  imageUrl?: Maybe<Scalars["String"]["output"]>;
+  imageUrl?: Maybe<Scalars['String']['output']>;
   /** Application name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
 };
 
 /** [INTERNAL] Public information of the OAuth application, plus the userIds and scopes for those users. */
 export type WorkspaceAuthorizedApplication = {
-  __typename?: "WorkspaceAuthorizedApplication";
+  __typename?: 'WorkspaceAuthorizedApplication';
   /** OAuth application's ID. */
-  appId: Scalars["String"]["output"];
+  appId: Scalars['String']['output'];
   /** OAuth application's client ID. */
-  clientId: Scalars["String"]["output"];
+  clientId: Scalars['String']['output'];
   /** Description of the application. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** Developer of the application. */
-  developer?: Maybe<Scalars["String"]["output"]>;
+  developer?: Maybe<Scalars['String']['output']>;
   /** Developer URL of the application. */
-  developerUrl?: Maybe<Scalars["String"]["output"]>;
+  developerUrl?: Maybe<Scalars['String']['output']>;
   /** Image of the application. */
-  imageUrl?: Maybe<Scalars["String"]["output"]>;
+  imageUrl?: Maybe<Scalars['String']['output']>;
   /** UserIds and membership dates of everyone who has authorized the application with the set of scopes. */
   memberships: Array<AuthMembership>;
   /** Application name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Scopes that are authorized for this application for a given user. */
-  scope: Array<Scalars["String"]["output"]>;
+  scope: Array<Scalars['String']['output']>;
   /** Total number of members that authorized the application. */
-  totalMembers: Scalars["Float"]["output"];
+  totalMembers: Scalars['Float']['output'];
   /** Whether or not webhooks are enabled for the application. */
-  webhooksEnabled: Scalars["Boolean"]["output"];
+  webhooksEnabled: Scalars['Boolean']['output'];
 };
 
 /** [INTERNAL] An OAuth userId/createdDate tuple */
 export type AuthMembership = {
-  __typename?: "AuthMembership";
+  __typename?: 'AuthMembership';
   /** The user ID associated with the authorization */
-  authorizingUserId?: Maybe<Scalars["String"]["output"]>;
+  authorizingUserId?: Maybe<Scalars['String']['output']>;
   /** The date of the authorization */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user ID the authorization was done for */
-  userId: Scalars["String"]["output"];
+  userId: Scalars['String']['output'];
 };
 
 /** Public information of the OAuth application, plus whether the application has been authorized for the given scopes. */
 export type UserAuthorizedApplication = {
-  __typename?: "UserAuthorizedApplication";
+  __typename?: 'UserAuthorizedApplication';
   /** Error associated with the application needing to be requested for approval in the workspace. */
-  approvalErrorCode?: Maybe<Scalars["String"]["output"]>;
+  approvalErrorCode?: Maybe<Scalars['String']['output']>;
   /** Details of the app user's existing token, if any. */
   appUserAuthentication?: Maybe<AppUserAuthentication>;
   /** OAuth application's client ID. */
-  clientId: Scalars["String"]["output"];
+  clientId: Scalars['String']['output'];
   /** Whether the application was created by Linear. */
-  createdByLinear: Scalars["Boolean"]["output"];
+  createdByLinear: Scalars['Boolean']['output'];
   /** Information about the application. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** Name of the developer. */
-  developer: Scalars["String"]["output"];
+  developer: Scalars['String']['output'];
   /** Url of the developer (homepage or docs). */
-  developerUrl: Scalars["String"]["output"];
+  developerUrl: Scalars['String']['output'];
   /** OAuth application's ID. */
-  id: Scalars["String"]["output"];
+  id: Scalars['String']['output'];
   /** Image of the application. */
-  imageUrl?: Maybe<Scalars["String"]["output"]>;
+  imageUrl?: Maybe<Scalars['String']['output']>;
   /** Whether the user has authorized the application for the given scopes. */
-  isAuthorized: Scalars["Boolean"]["output"];
+  isAuthorized: Scalars['Boolean']['output'];
   /** Application name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Whether or not webhooks are enabled for the application. */
-  webhooksEnabled: Scalars["Boolean"]["output"];
+  webhooksEnabled: Scalars['Boolean']['output'];
 };
 
 /** [INTERNAL] Details of the app user's existing token. */
 export type AppUserAuthentication = {
-  __typename?: "AppUserAuthentication";
+  __typename?: 'AppUserAuthentication';
   /** The user that authorized the application, if known. */
   authorizingUser?: Maybe<AuthorizingUser>;
   /** The timestamp at which the token was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Whether the application has requested custom sync groups. */
-  requestedSyncGroups: Scalars["Boolean"]["output"];
+  requestedSyncGroups: Scalars['Boolean']['output'];
   /** The scopes that the token has. */
-  scope: Array<Scalars["String"]["output"]>;
+  scope: Array<Scalars['String']['output']>;
 };
 
 /** Details of the app user's authorizing user. */
 export type AuthorizingUser = {
-  __typename?: "AuthorizingUser";
+  __typename?: 'AuthorizingUser';
   /** The user's display name. */
-  displayName: Scalars["String"]["output"];
+  displayName: Scalars['String']['output'];
   /** The user's full name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
 };
 
 export type AttachmentSourcesPayload = {
-  __typename?: "AttachmentSourcesPayload";
+  __typename?: 'AttachmentSourcesPayload';
   /** A unique list of all source types used in this workspace. */
-  sources: Scalars["JSONObject"]["output"];
+  sources: Scalars['JSONObject']['output'];
 };
 
 /** Audit entry filtering options. */
@@ -8514,142 +8671,141 @@ export type AuditEntryFilter = {
 };
 
 export type AuditEntryConnection = {
-  __typename?: "AuditEntryConnection";
+  __typename?: 'AuditEntryConnection';
   edges: Array<AuditEntryEdge>;
   nodes: Array<AuditEntry>;
   pageInfo: PageInfo;
 };
 
 export type AuditEntryEdge = {
-  __typename?: "AuditEntryEdge";
+  __typename?: 'AuditEntryEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: AuditEntry;
 };
 
 /** Workspace audit log entry object. */
 export type AuditEntry = Node & {
-  __typename?: "AuditEntry";
+  __typename?: 'AuditEntry';
   /** The user that caused the audit entry to be created. */
   actor?: Maybe<User>;
   /** The ID of the user that caused the audit entry to be created. */
-  actorId?: Maybe<Scalars["String"]["output"]>;
+  actorId?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Country code of request resulting to audit entry. */
-  countryCode?: Maybe<Scalars["String"]["output"]>;
+  countryCode?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** IP from actor when entry was recorded. */
-  ip?: Maybe<Scalars["String"]["output"]>;
+  ip?: Maybe<Scalars['String']['output']>;
   /** Additional metadata related to the audit entry. */
-  metadata?: Maybe<Scalars["JSONObject"]["output"]>;
+  metadata?: Maybe<Scalars['JSONObject']['output']>;
   /** The organization the audit log belongs to. */
   organization?: Maybe<Organization>;
   /** Additional information related to the request which performed the action. */
-  requestInformation?: Maybe<Scalars["JSONObject"]["output"]>;
-  type: Scalars["String"]["output"];
+  requestInformation?: Maybe<Scalars['JSONObject']['output']>;
+  type: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type AuditEntryType = {
-  __typename?: "AuditEntryType";
+  __typename?: 'AuditEntryType';
   /** Description of the audit entry type. */
-  description: Scalars["String"]["output"];
+  description: Scalars['String']['output'];
   /** The audit entry type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
 };
 
 /** Authentication session information. */
 export type AuthenticationSessionResponse = {
-  __typename?: "AuthenticationSessionResponse";
+  __typename?: 'AuthenticationSessionResponse';
   /** Used web browser. */
-  browserType?: Maybe<Scalars["String"]["output"]>;
+  browserType?: Maybe<Scalars['String']['output']>;
   /** Client used for the session */
-  client?: Maybe<Scalars["String"]["output"]>;
+  client?: Maybe<Scalars['String']['output']>;
   /** Country codes of all seen locations. */
-  countryCodes: Array<Scalars["String"]["output"]>;
+  countryCodes: Array<Scalars['String']['output']>;
   /** Date when the session was created. */
-  createdAt: Scalars["DateTime"]["output"];
-  id: Scalars["String"]["output"];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['String']['output'];
   /** IP address. */
-  ip?: Maybe<Scalars["String"]["output"]>;
+  ip?: Maybe<Scalars['String']['output']>;
   /** Identifies the session used to make the request. */
-  isCurrentSession: Scalars["Boolean"]["output"];
+  isCurrentSession: Scalars['Boolean']['output'];
   /** When was the session last seen */
-  lastActiveAt?: Maybe<Scalars["DateTime"]["output"]>;
+  lastActiveAt?: Maybe<Scalars['DateTime']['output']>;
   /** Human readable location */
-  location?: Maybe<Scalars["String"]["output"]>;
+  location?: Maybe<Scalars['String']['output']>;
   /** Location city name. */
-  locationCity?: Maybe<Scalars["String"]["output"]>;
+  locationCity?: Maybe<Scalars['String']['output']>;
   /** Location country name. */
-  locationCountry?: Maybe<Scalars["String"]["output"]>;
+  locationCountry?: Maybe<Scalars['String']['output']>;
   /** Location country code. */
-  locationCountryCode?: Maybe<Scalars["String"]["output"]>;
+  locationCountryCode?: Maybe<Scalars['String']['output']>;
   /** Location region code. */
-  locationRegionCode?: Maybe<Scalars["String"]["output"]>;
+  locationRegionCode?: Maybe<Scalars['String']['output']>;
   /** Name of the session, derived from the client and operating system */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Operating system used for the session */
-  operatingSystem?: Maybe<Scalars["String"]["output"]>;
+  operatingSystem?: Maybe<Scalars['String']['output']>;
   /** Service used for logging in. */
-  service?: Maybe<Scalars["String"]["output"]>;
+  service?: Maybe<Scalars['String']['output']>;
   /** Type of application used to authenticate. */
   type: AuthenticationSessionType;
   /** Date when the session was last updated. */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** Session's user-agent. */
-  userAgent?: Maybe<Scalars["String"]["output"]>;
+  userAgent?: Maybe<Scalars['String']['output']>;
 };
 
-export enum AuthenticationSessionType {
-  Android = "android",
-  Desktop = "desktop",
-  Ios = "ios",
-  Web = "web",
-}
+export type AuthenticationSessionType =
+  | 'android'
+  | 'desktop'
+  | 'ios'
+  | 'web';
 
 /** [INTERNAL] Public information of the OAuth application, plus the authorized scopes for a given user. */
 export type AuthorizedApplication = {
-  __typename?: "AuthorizedApplication";
+  __typename?: 'AuthorizedApplication';
   /** OAuth application's ID. */
-  appId: Scalars["String"]["output"];
+  appId: Scalars['String']['output'];
   /** OAuth application's client ID. */
-  clientId: Scalars["String"]["output"];
+  clientId: Scalars['String']['output'];
   /** Description of the application. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** Developer of the application. */
-  developer?: Maybe<Scalars["String"]["output"]>;
+  developer?: Maybe<Scalars['String']['output']>;
   /** Developer URL of the application. */
-  developerUrl?: Maybe<Scalars["String"]["output"]>;
+  developerUrl?: Maybe<Scalars['String']['output']>;
   /** Image of the application. */
-  imageUrl?: Maybe<Scalars["String"]["output"]>;
+  imageUrl?: Maybe<Scalars['String']['output']>;
   /** Application name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Scopes that are authorized for this application for a given user. */
-  scope: Array<Scalars["String"]["output"]>;
+  scope: Array<Scalars['String']['output']>;
   /** Whether or not webhooks are enabled for the application. */
-  webhooksEnabled: Scalars["Boolean"]["output"];
+  webhooksEnabled: Scalars['Boolean']['output'];
 };
 
 export type AuthResolverResponse = {
-  __typename?: "AuthResolverResponse";
+  __typename?: 'AuthResolverResponse';
   /** Should the signup flow allow access for the domain. */
-  allowDomainAccess?: Maybe<Scalars["Boolean"]["output"]>;
+  allowDomainAccess?: Maybe<Scalars['Boolean']['output']>;
   /** List of organizations allowing this user account to join automatically. */
   availableOrganizations?: Maybe<Array<AuthOrganization>>;
   /** Email for the authenticated account. */
-  email: Scalars["String"]["output"];
+  email: Scalars['String']['output'];
   /** User account ID. */
-  id: Scalars["String"]["output"];
+  id: Scalars['String']['output'];
   /** ID of the organization last accessed by the user. */
-  lastUsedOrganizationId?: Maybe<Scalars["String"]["output"]>;
+  lastUsedOrganizationId?: Maybe<Scalars['String']['output']>;
   /** List of organization available to this user account but locked due to the current auth method. */
   lockedOrganizations?: Maybe<Array<AuthOrganization>>;
   /** List of locked users that are locked by login restrictions */
@@ -8658,74 +8814,73 @@ export type AuthResolverResponse = {
    * Application token.
    * @deprecated Deprecated and not used anymore. Never populated.
    */
-  token?: Maybe<Scalars["String"]["output"]>;
+  token?: Maybe<Scalars['String']['output']>;
   /** List of active users that belong to the user account. */
   users: Array<AuthUser>;
 };
 
 /** An organization. Organizations are root-level objects that contain users and teams. */
 export type AuthOrganization = {
-  __typename?: "AuthOrganization";
+  __typename?: 'AuthOrganization';
   /** Allowed authentication providers, empty array means all are allowed */
-  allowedAuthServices: Array<Scalars["String"]["output"]>;
+  allowedAuthServices: Array<Scalars['String']['output']>;
   /** The time at which deletion of the organization was requested. */
-  deletionRequestedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  deletionRequestedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Whether the organization is enabled. Used as a superuser tool to lock down the org. */
-  enabled: Scalars["Boolean"]["output"];
+  enabled: Scalars['Boolean']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The organization's logo URL. */
-  logoUrl?: Maybe<Scalars["String"]["output"]>;
+  logoUrl?: Maybe<Scalars['String']['output']>;
   /** The organization's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Previously used URL keys for the organization (last 3 are kept and redirected). */
-  previousUrlKeys: Array<Scalars["String"]["output"]>;
+  previousUrlKeys: Array<Scalars['String']['output']>;
   /** The region the organization is hosted in. */
-  region: Scalars["String"]["output"];
+  region: Scalars['String']['output'];
   /** The feature release channel the organization belongs to. */
   releaseChannel: ReleaseChannel;
   /** Whether SAML authentication is enabled for organization. */
-  samlEnabled: Scalars["Boolean"]["output"];
+  samlEnabled: Scalars['Boolean']['output'];
   /** [INTERNAL] SAML settings */
-  samlSettings?: Maybe<Scalars["JSONObject"]["output"]>;
+  samlSettings?: Maybe<Scalars['JSONObject']['output']>;
   /** Whether SCIM provisioning is enabled for organization. */
-  scimEnabled: Scalars["Boolean"]["output"];
+  scimEnabled: Scalars['Boolean']['output'];
   /** The email domain or URL key for the organization. */
-  serviceId: Scalars["String"]["output"];
+  serviceId: Scalars['String']['output'];
   /** The organization's unique URL key. */
-  urlKey: Scalars["String"]["output"];
-  userCount: Scalars["Float"]["output"];
+  urlKey: Scalars['String']['output'];
+  userCount: Scalars['Float']['output'];
 };
 
 /** A user that has access to the the resources of an organization. */
 export type AuthUser = {
-  __typename?: "AuthUser";
+  __typename?: 'AuthUser';
   /** Whether the user is active. */
-  active: Scalars["Boolean"]["output"];
+  active: Scalars['Boolean']['output'];
   /** An URL to the user's avatar image. */
-  avatarUrl?: Maybe<Scalars["String"]["output"]>;
+  avatarUrl?: Maybe<Scalars['String']['output']>;
   /** The user's display (nick) name. Unique within each organization. */
-  displayName: Scalars["String"]["output"];
+  displayName: Scalars['String']['output'];
   /** The user's email address. */
-  email: Scalars["String"]["output"];
-  id: Scalars["ID"]["output"];
+  email: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
   /** The user's full name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Organization the user belongs to. */
   organization: AuthOrganization;
   /** Whether the user is an organization admin or guest on a database level. */
   role: UserRoleType;
   /** User account ID the user belongs to. */
-  userAccountId: Scalars["String"]["output"];
+  userAccountId: Scalars['String']['output'];
 };
 
 /** The different permission roles available to users on an organization. */
-export enum UserRoleType {
-  Admin = "admin",
-  App = "app",
-  Guest = "guest",
-  User = "user",
-}
+export type UserRoleType =
+  | 'admin'
+  | 'app'
+  | 'guest'
+  | 'user';
 
 /** Customer filtering options. */
 export type CustomerFilter = {
@@ -8846,61 +9001,61 @@ export type TierSort = {
 };
 
 export type CustomerConnection = {
-  __typename?: "CustomerConnection";
+  __typename?: 'CustomerConnection';
   edges: Array<CustomerEdge>;
   nodes: Array<Customer>;
   pageInfo: PageInfo;
 };
 
 export type CustomerEdge = {
-  __typename?: "CustomerEdge";
+  __typename?: 'CustomerEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Customer;
 };
 
 export type CustomerStatusConnection = {
-  __typename?: "CustomerStatusConnection";
+  __typename?: 'CustomerStatusConnection';
   edges: Array<CustomerStatusEdge>;
   nodes: Array<CustomerStatus>;
   pageInfo: PageInfo;
 };
 
 export type CustomerStatusEdge = {
-  __typename?: "CustomerStatusEdge";
+  __typename?: 'CustomerStatusEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: CustomerStatus;
 };
 
 export type CustomerTierConnection = {
-  __typename?: "CustomerTierConnection";
+  __typename?: 'CustomerTierConnection';
   edges: Array<CustomerTierEdge>;
   nodes: Array<CustomerTier>;
   pageInfo: PageInfo;
 };
 
 export type CustomerTierEdge = {
-  __typename?: "CustomerTierEdge";
+  __typename?: 'CustomerTierEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: CustomerTier;
 };
 
 export type CustomViewSuggestionPayload = {
-  __typename?: "CustomViewSuggestionPayload";
+  __typename?: 'CustomViewSuggestionPayload';
   /** The suggested view description. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The suggested view icon. */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The suggested view name. */
-  name?: Maybe<Scalars["String"]["output"]>;
+  name?: Maybe<Scalars['String']['output']>;
 };
 
 export type CustomViewHasSubscribersPayload = {
-  __typename?: "CustomViewHasSubscribersPayload";
+  __typename?: 'CustomViewHasSubscribersPayload';
   /** Whether the custom view has subscribers. */
-  hasSubscribers: Scalars["Boolean"]["output"];
+  hasSubscribers: Scalars['Boolean']['output'];
 };
 
 /** Custom view filtering options. */
@@ -8912,7 +9067,7 @@ export type CustomViewFilter = {
   /** Filters that the custom view creator must satisfy. */
   creator?: InputMaybe<UserFilter>;
   /** [INTERNAL] Filter based on whether the custom view has a facet. */
-  hasFacet?: InputMaybe<Scalars["Boolean"]["input"]>;
+  hasFacet?: InputMaybe<Scalars['Boolean']['input']>;
   /** Comparator for the identifier. */
   id?: InputMaybe<IdComparator>;
   /** Comparator for the custom view model name. */
@@ -8973,76 +9128,76 @@ export type CustomViewUpdatedAtSort = {
 };
 
 export type CustomViewConnection = {
-  __typename?: "CustomViewConnection";
+  __typename?: 'CustomViewConnection';
   edges: Array<CustomViewEdge>;
   nodes: Array<CustomView>;
   pageInfo: PageInfo;
 };
 
 export type CustomViewEdge = {
-  __typename?: "CustomViewEdge";
+  __typename?: 'CustomViewEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: CustomView;
 };
 
 export type DocumentContentHistoryPayload = {
-  __typename?: "DocumentContentHistoryPayload";
+  __typename?: 'DocumentContentHistoryPayload';
   /** The document content history entries. */
   history: Array<DocumentContentHistoryType>;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type DocumentContentHistoryType = {
-  __typename?: "DocumentContentHistoryType";
+  __typename?: 'DocumentContentHistoryType';
   /** The ID of the author of the change. */
-  actorIds?: Maybe<Array<Scalars["String"]["output"]>>;
+  actorIds?: Maybe<Array<Scalars['String']['output']>>;
   /** [Internal] The document content as Prosemirror document. */
-  contentData?: Maybe<Scalars["JSON"]["output"]>;
+  contentData?: Maybe<Scalars['JSON']['output']>;
   /** The date when the document content history snapshot was taken. This can be different than createdAt since the content is captured from its state at the previously known updatedAt timestamp in the case of an update. On document create, these timestamps can be the same. */
-  contentDataSnapshotAt: Scalars["DateTime"]["output"];
+  contentDataSnapshotAt: Scalars['DateTime']['output'];
   /** The date when the document content history entry was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The UUID of the document content history entry. */
-  id: Scalars["String"]["output"];
+  id: Scalars['String']['output'];
 };
 
 /** An email address that can be used for submitting issues. */
 export type EmailIntakeAddress = Node & {
-  __typename?: "EmailIntakeAddress";
+  __typename?: 'EmailIntakeAddress';
   /** Unique email address user name (before @) used for incoming email. */
-  address: Scalars["String"]["output"];
+  address: Scalars['String']['output'];
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the email intake address. */
   creator?: Maybe<User>;
   /** Whether issues created from that email address will be turned into customer requests. */
-  customerRequestsEnabled: Scalars["Boolean"]["output"];
+  customerRequestsEnabled: Scalars['Boolean']['output'];
   /** Whether the email address is enabled. */
-  enabled: Scalars["Boolean"]["output"];
+  enabled: Scalars['Boolean']['output'];
   /** The email address used to forward emails to the intake address. */
-  forwardingEmailAddress?: Maybe<Scalars["String"]["output"]>;
+  forwardingEmailAddress?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The auto-reply message for issue canceled. If not set, the default reply will be used. */
-  issueCanceledAutoReply?: Maybe<Scalars["String"]["output"]>;
+  issueCanceledAutoReply?: Maybe<Scalars['String']['output']>;
   /** Whether the auto-reply for issue canceled is enabled. */
-  issueCanceledAutoReplyEnabled: Scalars["Boolean"]["output"];
+  issueCanceledAutoReplyEnabled: Scalars['Boolean']['output'];
   /** The auto-reply message for issue completed. If not set, the default reply will be used. */
-  issueCompletedAutoReply?: Maybe<Scalars["String"]["output"]>;
+  issueCompletedAutoReply?: Maybe<Scalars['String']['output']>;
   /** Whether the auto-reply for issue completed is enabled. */
-  issueCompletedAutoReplyEnabled: Scalars["Boolean"]["output"];
+  issueCompletedAutoReplyEnabled: Scalars['Boolean']['output'];
   /** The auto-reply message for issue created. If not set, the default reply will be used. */
-  issueCreatedAutoReply?: Maybe<Scalars["String"]["output"]>;
+  issueCreatedAutoReply?: Maybe<Scalars['String']['output']>;
   /** The organization that the email address is associated with. */
   organization: Organization;
   /** Whether email replies are enabled. */
-  repliesEnabled: Scalars["Boolean"]["output"];
+  repliesEnabled: Scalars['Boolean']['output'];
   /** The name to be used for outgoing emails. */
-  senderName?: Maybe<Scalars["String"]["output"]>;
+  senderName?: Maybe<Scalars['String']['output']>;
   /** The SES domain identity that the email address is associated with. */
   sesDomainIdentity?: Maybe<SesDomainIdentity>;
   /** The team that the email address is associated with. */
@@ -9055,192 +9210,191 @@ export type EmailIntakeAddress = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** Whether the commenter's name is included in the email replies. */
-  useUserNamesInReplies: Scalars["Boolean"]["output"];
+  useUserNamesInReplies: Scalars['Boolean']['output'];
 };
 
 /** SES domain identity used for sending emails from a custom domain. */
 export type SesDomainIdentity = Node & {
-  __typename?: "SesDomainIdentity";
+  __typename?: 'SesDomainIdentity';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Whether the domain is fully verified and can be used for sending emails. */
-  canSendFromCustomDomain: Scalars["Boolean"]["output"];
+  canSendFromCustomDomain: Scalars['Boolean']['output'];
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the SES domain identity. */
   creator?: Maybe<User>;
   /** The DNS records for the SES domain identity. */
   dnsRecords: Array<SesDomainIdentityDnsRecord>;
   /** The domain of the SES domain identity. */
-  domain: Scalars["String"]["output"];
+  domain: Scalars['String']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The organization of the SES domain identity. */
   organization: Organization;
   /** The AWS region of the SES domain identity. */
-  region: Scalars["String"]["output"];
+  region: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** A DNS record for a SES domain identity. */
 export type SesDomainIdentityDnsRecord = {
-  __typename?: "SesDomainIdentityDnsRecord";
+  __typename?: 'SesDomainIdentityDnsRecord';
   /** The content of the DNS record. */
-  content: Scalars["String"]["output"];
+  content: Scalars['String']['output'];
   /** Whether the DNS record is verified in the domain's DNS configuration. */
-  isVerified: Scalars["Boolean"]["output"];
+  isVerified: Scalars['Boolean']['output'];
   /** The name of the DNS record. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The type of the DNS record. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
 };
 
 /** The type of the email address. */
-export enum EmailIntakeAddressType {
-  Asks = "asks",
-  Team = "team",
-  Template = "template",
-}
+export type EmailIntakeAddressType =
+  | 'asks'
+  | 'team'
+  | 'template';
 
 /** A custom emoji. */
 export type Emoji = Node & {
-  __typename?: "Emoji";
+  __typename?: 'Emoji';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the emoji. */
   creator?: Maybe<User>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The emoji's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The organization that the emoji belongs to. */
   organization: Organization;
   /** The source of the emoji. */
-  source: Scalars["String"]["output"];
+  source: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The emoji image URL. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
 
 export type EmojiConnection = {
-  __typename?: "EmojiConnection";
+  __typename?: 'EmojiConnection';
   edges: Array<EmojiEdge>;
   nodes: Array<Emoji>;
   pageInfo: PageInfo;
 };
 
 export type EmojiEdge = {
-  __typename?: "EmojiEdge";
+  __typename?: 'EmojiEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Emoji;
 };
 
 export type ExternalUserConnection = {
-  __typename?: "ExternalUserConnection";
+  __typename?: 'ExternalUserConnection';
   edges: Array<ExternalUserEdge>;
   nodes: Array<ExternalUser>;
   pageInfo: PageInfo;
 };
 
 export type ExternalUserEdge = {
-  __typename?: "ExternalUserEdge";
+  __typename?: 'ExternalUserEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: ExternalUser;
 };
 
 export type FetchDataPayload = {
-  __typename?: "FetchDataPayload";
+  __typename?: 'FetchDataPayload';
   /** The fetched data based on the natural language query. */
-  data?: Maybe<Scalars["JSONObject"]["output"]>;
+  data?: Maybe<Scalars['JSONObject']['output']>;
   /** Whether the fetch operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type InitiativeRelationConnection = {
-  __typename?: "InitiativeRelationConnection";
+  __typename?: 'InitiativeRelationConnection';
   edges: Array<InitiativeRelationEdge>;
   nodes: Array<InitiativeRelation>;
   pageInfo: PageInfo;
 };
 
 export type InitiativeRelationEdge = {
-  __typename?: "InitiativeRelationEdge";
+  __typename?: 'InitiativeRelationEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: InitiativeRelation;
 };
 
 /** A relation representing the dependency between two initiatives. */
 export type InitiativeRelation = Node & {
-  __typename?: "InitiativeRelation";
+  __typename?: 'InitiativeRelation';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The parent initiative. */
   initiative: Initiative;
   /** The child initiative. */
   relatedInitiative: Initiative;
   /** The sort order of the relation within the initiative. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The last user who created or modified the relation. */
   user?: Maybe<User>;
 };
 
 /** Join table between projects and initiatives. */
 export type InitiativeToProject = Node & {
-  __typename?: "InitiativeToProject";
+  __typename?: 'InitiativeToProject';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative that the project is associated with. */
   initiative: Initiative;
   /** The project that the initiative is associated with. */
   project: Project;
   /** The sort order of the project within the initiative. */
-  sortOrder: Scalars["String"]["output"];
+  sortOrder: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type InitiativeToProjectConnection = {
-  __typename?: "InitiativeToProjectConnection";
+  __typename?: 'InitiativeToProjectConnection';
   edges: Array<InitiativeToProjectEdge>;
   nodes: Array<InitiativeToProject>;
   pageInfo: PageInfo;
 };
 
 export type InitiativeToProjectEdge = {
-  __typename?: "InitiativeToProjectEdge";
+  __typename?: 'InitiativeToProjectEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: InitiativeToProject;
 };
 
@@ -9265,38 +9419,38 @@ export type InitiativeUpdateFilter = {
 };
 
 export type InitiativeUpdateConnection = {
-  __typename?: "InitiativeUpdateConnection";
+  __typename?: 'InitiativeUpdateConnection';
   edges: Array<InitiativeUpdateEdge>;
   nodes: Array<InitiativeUpdate>;
   pageInfo: PageInfo;
 };
 
 export type InitiativeUpdateEdge = {
-  __typename?: "InitiativeUpdateEdge";
+  __typename?: 'InitiativeUpdateEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: InitiativeUpdate;
 };
 
 export type IntegrationHasScopesPayload = {
-  __typename?: "IntegrationHasScopesPayload";
+  __typename?: 'IntegrationHasScopesPayload';
   /** Whether the integration has the required scopes. */
-  hasAllScopes: Scalars["Boolean"]["output"];
+  hasAllScopes: Scalars['Boolean']['output'];
   /** The missing scopes. */
-  missingScopes?: Maybe<Array<Scalars["String"]["output"]>>;
+  missingScopes?: Maybe<Array<Scalars['String']['output']>>;
 };
 
 /** Join table between templates and integrations. */
 export type IntegrationTemplate = Node & {
-  __typename?: "IntegrationTemplate";
+  __typename?: 'IntegrationTemplate';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** ID of the foreign entity in the external integration this template is for, e.g., Slack channel ID. */
-  foreignEntityId?: Maybe<Scalars["String"]["output"]>;
+  foreignEntityId?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The integration that the template is associated with. */
   integration: Integration;
   /** The template that the integration is associated with. */
@@ -9305,73 +9459,73 @@ export type IntegrationTemplate = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type IntegrationTemplateConnection = {
-  __typename?: "IntegrationTemplateConnection";
+  __typename?: 'IntegrationTemplateConnection';
   edges: Array<IntegrationTemplateEdge>;
   nodes: Array<IntegrationTemplate>;
   pageInfo: PageInfo;
 };
 
 export type IntegrationTemplateEdge = {
-  __typename?: "IntegrationTemplateEdge";
+  __typename?: 'IntegrationTemplateEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: IntegrationTemplate;
 };
 
 export type IssueFilterSuggestionPayload = {
-  __typename?: "IssueFilterSuggestionPayload";
+  __typename?: 'IssueFilterSuggestionPayload';
   /** The json filter that is suggested. */
-  filter?: Maybe<Scalars["JSONObject"]["output"]>;
+  filter?: Maybe<Scalars['JSONObject']['output']>;
   /** The log id of the prompt, that created this filter. */
-  logId?: Maybe<Scalars["String"]["output"]>;
+  logId?: Maybe<Scalars['String']['output']>;
 };
 
 export type IssueImportCheckPayload = {
-  __typename?: "IssueImportCheckPayload";
+  __typename?: 'IssueImportCheckPayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** Whether an issue import can be synced at the end of an import or not */
 export type IssueImportSyncCheckPayload = {
-  __typename?: "IssueImportSyncCheckPayload";
+  __typename?: 'IssueImportSyncCheckPayload';
   /** Returns true if the import can be synced, false otherwise */
-  canSync: Scalars["Boolean"]["output"];
+  canSync: Scalars['Boolean']['output'];
   /** An error message with a root cause of why the import cannot be synced */
-  error?: Maybe<Scalars["String"]["output"]>;
+  error?: Maybe<Scalars['String']['output']>;
 };
 
 /** Whether a custom JQL query is valid or not */
 export type IssueImportJqlCheckPayload = {
-  __typename?: "IssueImportJqlCheckPayload";
+  __typename?: 'IssueImportJqlCheckPayload';
   /** Returns an approximate number of issues matching the JQL query, if available */
-  count?: Maybe<Scalars["Float"]["output"]>;
+  count?: Maybe<Scalars['Float']['output']>;
   /** An error message returned by Jira when validating the JQL query. */
-  error?: Maybe<Scalars["String"]["output"]>;
+  error?: Maybe<Scalars['String']['output']>;
   /** Returns true if the JQL query has been validated successfully, false otherwise */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IssuePriorityValue = {
-  __typename?: "IssuePriorityValue";
+  __typename?: 'IssuePriorityValue';
   /** Priority's label. */
-  label: Scalars["String"]["output"];
+  label: Scalars['String']['output'];
   /** Priority's number value. */
-  priority: Scalars["Int"]["output"];
+  priority: Scalars['Int']['output'];
 };
 
 export type IssueTitleSuggestionFromCustomerRequestPayload = {
-  __typename?: "IssueTitleSuggestionFromCustomerRequestPayload";
+  __typename?: 'IssueTitleSuggestionFromCustomerRequestPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** [Internal] The log id of the ai response. */
-  logId?: Maybe<Scalars["String"]["output"]>;
+  logId?: Maybe<Scalars['String']['output']>;
   /** The suggested issue title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
 };
 
 /** A notification sent to a user. */
@@ -9379,81 +9533,80 @@ export type Notification = {
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
   category: NotificationCategory;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
 
 /** The categories of notifications a user can subscribe to. */
-export enum NotificationCategory {
-  AppsAndIntegrations = "appsAndIntegrations",
-  Assignments = "assignments",
-  CommentsAndReplies = "commentsAndReplies",
-  Customers = "customers",
-  DocumentChanges = "documentChanges",
-  Feed = "feed",
-  Mentions = "mentions",
-  PostsAndUpdates = "postsAndUpdates",
-  Reactions = "reactions",
-  Reminders = "reminders",
-  Reviews = "reviews",
-  StatusChanges = "statusChanges",
-  Subscriptions = "subscriptions",
-  System = "system",
-  Triage = "triage",
-}
+export type NotificationCategory =
+  | 'appsAndIntegrations'
+  | 'assignments'
+  | 'commentsAndReplies'
+  | 'customers'
+  | 'documentChanges'
+  | 'feed'
+  | 'mentions'
+  | 'postsAndUpdates'
+  | 'reactions'
+  | 'reminders'
+  | 'reviews'
+  | 'statusChanges'
+  | 'subscriptions'
+  | 'system'
+  | 'triage';
 
 /** Notification filtering options. */
 export type NotificationFilter = {
@@ -9474,29 +9627,29 @@ export type NotificationFilter = {
 };
 
 export type NotificationConnection = {
-  __typename?: "NotificationConnection";
+  __typename?: 'NotificationConnection';
   edges: Array<NotificationEdge>;
   nodes: Array<Notification>;
   pageInfo: PageInfo;
 };
 
 export type NotificationEdge = {
-  __typename?: "NotificationEdge";
+  __typename?: 'NotificationEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Notification;
 };
 
 /** Notification subscriptions for models. */
 export type NotificationSubscription = {
   /** Whether the subscription is active or not. */
-  active: Scalars["Boolean"]["output"];
+  active: Scalars['Boolean']['output'];
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The type of view to which the notification subscription context is associated with. */
   contextViewType?: Maybe<ContextViewType>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The customer associated with the notification subscription. */
   customer?: Maybe<Customer>;
   /** The contextual custom view associated with the notification subscription. */
@@ -9504,7 +9657,7 @@ export type NotificationSubscription = {
   /** The contextual cycle view associated with the notification subscription. */
   cycle?: Maybe<Cycle>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The contextual initiative view associated with the notification subscription. */
   initiative?: Maybe<Initiative>;
   /** The contextual label view associated with the notification subscription. */
@@ -9519,69 +9672,68 @@ export type NotificationSubscription = {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user view associated with the notification subscription. */
   user?: Maybe<User>;
   /** The type of user view to which the notification subscription context is associated with. */
   userContextViewType?: Maybe<UserContextViewType>;
 };
 
-export enum UserContextViewType {
-  Assigned = "assigned",
-}
+export type UserContextViewType =
+  | 'assigned';
 
 export type NotificationSubscriptionConnection = {
-  __typename?: "NotificationSubscriptionConnection";
+  __typename?: 'NotificationSubscriptionConnection';
   edges: Array<NotificationSubscriptionEdge>;
   nodes: Array<NotificationSubscription>;
   pageInfo: PageInfo;
 };
 
 export type NotificationSubscriptionEdge = {
-  __typename?: "NotificationSubscriptionEdge";
+  __typename?: 'NotificationSubscriptionEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: NotificationSubscription;
 };
 
 /** [INTERNAL] Domain claim request response. */
 export type OrganizationDomainClaimPayload = {
-  __typename?: "OrganizationDomainClaimPayload";
+  __typename?: 'OrganizationDomainClaimPayload';
   /** String to put into DNS for verification. */
-  verificationString: Scalars["String"]["output"];
+  verificationString: Scalars['String']['output'];
 };
 
 export type OrganizationExistsPayload = {
-  __typename?: "OrganizationExistsPayload";
+  __typename?: 'OrganizationExistsPayload';
   /** Whether the organization exists. */
-  exists: Scalars["Boolean"]["output"];
+  exists: Scalars['Boolean']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** An invitation to the organization that has been sent via email. */
 export type OrganizationInvite = Node & {
-  __typename?: "OrganizationInvite";
+  __typename?: 'OrganizationInvite';
   /** The time at which the invite was accepted. Null, if the invite hasn't been accepted. */
-  acceptedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  acceptedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The invitees email address. */
-  email: Scalars["String"]["output"];
+  email: Scalars['String']['output'];
   /** The time at which the invite will be expiring. Null, if the invite shouldn't expire. */
-  expiresAt?: Maybe<Scalars["DateTime"]["output"]>;
+  expiresAt?: Maybe<Scalars['DateTime']['output']>;
   /** The invite was sent to external address. */
-  external: Scalars["Boolean"]["output"];
+  external: Scalars['Boolean']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The user who has accepted the invite. Null, if the invite hasn't been accepted. */
   invitee?: Maybe<User>;
   /** The user who created the invitation. */
   inviter: User;
   /** Extra metadata associated with the organization invite. */
-  metadata?: Maybe<Scalars["JSONObject"]["output"]>;
+  metadata?: Maybe<Scalars['JSONObject']['output']>;
   /** The organization that the invite is associated with. */
   organization: Organization;
   /** The user role that the invitee will receive upon accepting the invite. */
@@ -9590,46 +9742,43 @@ export type OrganizationInvite = Node & {
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
-export type OrganizationInviteDetailsPayload =
-  | OrganizationAcceptedOrExpiredInviteDetailsPayload
-  | OrganizationInviteFullDetailsPayload;
+export type OrganizationInviteDetailsPayload = OrganizationAcceptedOrExpiredInviteDetailsPayload | OrganizationInviteFullDetailsPayload;
 
 export type OrganizationAcceptedOrExpiredInviteDetailsPayload = {
-  __typename?: "OrganizationAcceptedOrExpiredInviteDetailsPayload";
+  __typename?: 'OrganizationAcceptedOrExpiredInviteDetailsPayload';
   /** The status of the invite. */
   status: OrganizationInviteStatus;
 };
 
 /** The different statuses possible for an organization invite. */
-export enum OrganizationInviteStatus {
-  Accepted = "accepted",
-  Expired = "expired",
-  Pending = "pending",
-}
+export type OrganizationInviteStatus =
+  | 'accepted'
+  | 'expired'
+  | 'pending';
 
 export type OrganizationInviteFullDetailsPayload = {
-  __typename?: "OrganizationInviteFullDetailsPayload";
+  __typename?: 'OrganizationInviteFullDetailsPayload';
   /** Whether the invite has already been accepted. */
-  accepted: Scalars["Boolean"]["output"];
+  accepted: Scalars['Boolean']['output'];
   /** Allowed authentication providers, empty array means all are allowed. */
-  allowedAuthServices: Array<Scalars["String"]["output"]>;
+  allowedAuthServices: Array<Scalars['String']['output']>;
   /** When the invite was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The email of the invitee. */
-  email: Scalars["String"]["output"];
+  email: Scalars['String']['output'];
   /** Whether the invite has expired. */
-  expired: Scalars["Boolean"]["output"];
+  expired: Scalars['Boolean']['output'];
   /** The name of the inviter. */
-  inviter: Scalars["String"]["output"];
+  inviter: Scalars['String']['output'];
   /** ID of the workspace the invite is for. */
-  organizationId: Scalars["String"]["output"];
+  organizationId: Scalars['String']['output'];
   /** URL of the workspace logo the invite is for. */
-  organizationLogoUrl?: Maybe<Scalars["String"]["output"]>;
+  organizationLogoUrl?: Maybe<Scalars['String']['output']>;
   /** Name of the workspace the invite is for. */
-  organizationName: Scalars["String"]["output"];
+  organizationName: Scalars['String']['output'];
   /** What user role the invite should grant. */
   role: UserRoleType;
   /** The status of the invite. */
@@ -9637,115 +9786,114 @@ export type OrganizationInviteFullDetailsPayload = {
 };
 
 export type OrganizationInviteConnection = {
-  __typename?: "OrganizationInviteConnection";
+  __typename?: 'OrganizationInviteConnection';
   edges: Array<OrganizationInviteEdge>;
   nodes: Array<OrganizationInvite>;
   pageInfo: PageInfo;
 };
 
 export type OrganizationInviteEdge = {
-  __typename?: "OrganizationInviteEdge";
+  __typename?: 'OrganizationInviteEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: OrganizationInvite;
 };
 
 export type OrganizationMeta = {
-  __typename?: "OrganizationMeta";
+  __typename?: 'OrganizationMeta';
   /** Allowed authentication providers, empty array means all are allowed. */
-  allowedAuthServices: Array<Scalars["String"]["output"]>;
+  allowedAuthServices: Array<Scalars['String']['output']>;
   /** The region the organization is hosted in. */
-  region: Scalars["String"]["output"];
+  region: Scalars['String']['output'];
 };
 
 export type ProjectFilterSuggestionPayload = {
-  __typename?: "ProjectFilterSuggestionPayload";
+  __typename?: 'ProjectFilterSuggestionPayload';
   /** The json filter that is suggested. */
-  filter?: Maybe<Scalars["JSONObject"]["output"]>;
+  filter?: Maybe<Scalars['JSONObject']['output']>;
   /** The log id of the prompt, that created this filter. */
-  logId?: Maybe<Scalars["String"]["output"]>;
+  logId?: Maybe<Scalars['String']['output']>;
 };
 
 export type ProjectStatusConnection = {
-  __typename?: "ProjectStatusConnection";
+  __typename?: 'ProjectStatusConnection';
   edges: Array<ProjectStatusEdge>;
   nodes: Array<ProjectStatus>;
   pageInfo: PageInfo;
 };
 
 export type ProjectStatusEdge = {
-  __typename?: "ProjectStatusEdge";
+  __typename?: 'ProjectStatusEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: ProjectStatus;
 };
 
 export type ProjectStatusCountPayload = {
-  __typename?: "ProjectStatusCountPayload";
+  __typename?: 'ProjectStatusCountPayload';
   /** Total number of projects using this project status that are not visible to the user because they are in an archived team. */
-  archivedTeamCount: Scalars["Float"]["output"];
+  archivedTeamCount: Scalars['Float']['output'];
   /** Total number of projects using this project status. */
-  count: Scalars["Float"]["output"];
+  count: Scalars['Float']['output'];
   /** Total number of projects using this project status that are not visible to the user because they are in a private team. */
-  privateCount: Scalars["Float"]["output"];
+  privateCount: Scalars['Float']['output'];
 };
 
-export enum SendStrategy {
-  Desktop = "desktop",
-  DesktopAndPush = "desktopAndPush",
-  DesktopThenPush = "desktopThenPush",
-  Push = "push",
-}
+export type SendStrategy =
+  | 'desktop'
+  | 'desktopAndPush'
+  | 'desktopThenPush'
+  | 'push';
 
 export type PushSubscriptionTestPayload = {
-  __typename?: "PushSubscriptionTestPayload";
+  __typename?: 'PushSubscriptionTestPayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type RateLimitPayload = {
-  __typename?: "RateLimitPayload";
+  __typename?: 'RateLimitPayload';
   /** The identifier we rate limit on. */
-  identifier?: Maybe<Scalars["String"]["output"]>;
+  identifier?: Maybe<Scalars['String']['output']>;
   /** The kind of rate limit selected for this request. */
-  kind: Scalars["String"]["output"];
+  kind: Scalars['String']['output'];
   /** The state of the rate limit. */
   limits: Array<RateLimitResultPayload>;
 };
 
 export type RateLimitResultPayload = {
-  __typename?: "RateLimitResultPayload";
+  __typename?: 'RateLimitResultPayload';
   /** The total allowed quantity for this type of limit. */
-  allowedAmount: Scalars["Float"]["output"];
+  allowedAmount: Scalars['Float']['output'];
   /** The period in which the rate limit is fully replenished in ms. */
-  period: Scalars["Float"]["output"];
+  period: Scalars['Float']['output'];
   /** The remaining quantity for this type of limit after this request. */
-  remainingAmount: Scalars["Float"]["output"];
+  remainingAmount: Scalars['Float']['output'];
   /** The requested quantity for this type of limit. */
-  requestedAmount: Scalars["Float"]["output"];
+  requestedAmount: Scalars['Float']['output'];
   /** The timestamp after the rate limit is fully replenished as a UNIX timestamp. */
-  reset: Scalars["Float"]["output"];
+  reset: Scalars['Float']['output'];
   /** What is being rate limited. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
 };
 
 /** [Deprecated] A roadmap for projects. */
 export type Roadmap = Node & {
-  __typename?: "Roadmap";
+  __typename?: 'Roadmap';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The roadmap's color. */
-  color?: Maybe<Scalars["String"]["output"]>;
+  color?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the roadmap. */
   creator: User;
   /** The description of the roadmap. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The name of the roadmap. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** The organization of the roadmap. */
   organization: Organization;
   /** The user who owns the roadmap. */
@@ -9753,248 +9901,250 @@ export type Roadmap = Node & {
   /** Projects associated with the roadmap. */
   projects: ProjectConnection;
   /** The roadmap's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The sort order of the roadmap within the organization. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The canonical url for the roadmap. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
+
 
 /** [Deprecated] A roadmap for projects. */
 export type RoadmapProjectsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type RoadmapConnection = {
-  __typename?: "RoadmapConnection";
+  __typename?: 'RoadmapConnection';
   edges: Array<RoadmapEdge>;
   nodes: Array<Roadmap>;
   pageInfo: PageInfo;
 };
 
 export type RoadmapEdge = {
-  __typename?: "RoadmapEdge";
+  __typename?: 'RoadmapEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: Roadmap;
 };
 
 /** [Deprecated] Join table between projects and roadmaps. */
 export type RoadmapToProject = Node & {
-  __typename?: "RoadmapToProject";
+  __typename?: 'RoadmapToProject';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The project that the roadmap is associated with. */
   project: Project;
   /** The roadmap that the project is associated with. */
   roadmap: Roadmap;
   /** The sort order of the project within the roadmap. */
-  sortOrder: Scalars["String"]["output"];
+  sortOrder: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type RoadmapToProjectConnection = {
-  __typename?: "RoadmapToProjectConnection";
+  __typename?: 'RoadmapToProjectConnection';
   edges: Array<RoadmapToProjectEdge>;
   nodes: Array<RoadmapToProject>;
   pageInfo: PageInfo;
 };
 
 export type RoadmapToProjectEdge = {
-  __typename?: "RoadmapToProjectEdge";
+  __typename?: 'RoadmapToProjectEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: RoadmapToProject;
 };
 
 export type DocumentSearchPayload = {
-  __typename?: "DocumentSearchPayload";
+  __typename?: 'DocumentSearchPayload';
   /** Archived entities matching the search term along with all their dependencies. */
   archivePayload: ArchiveResponse;
   edges: Array<DocumentSearchResultEdge>;
   nodes: Array<DocumentSearchResult>;
   pageInfo: PageInfo;
   /** Total number of results for query without filters applied. */
-  totalCount: Scalars["Float"]["output"];
+  totalCount: Scalars['Float']['output'];
 };
 
 /** Contains requested archived model objects. */
 export type ArchiveResponse = {
-  __typename?: "ArchiveResponse";
+  __typename?: 'ArchiveResponse';
   /** A JSON serialized collection of model objects loaded from the archive */
-  archive: Scalars["String"]["output"];
+  archive: Scalars['String']['output'];
   /** The version of the remote database. Incremented by 1 for each migration run on the database. */
-  databaseVersion: Scalars["Float"]["output"];
+  databaseVersion: Scalars['Float']['output'];
   /** Whether the dependencies for the model objects are included in the archive. */
-  includesDependencies: Array<Scalars["String"]["output"]>;
+  includesDependencies: Array<Scalars['String']['output']>;
   /** The total number of entities in the archive. */
-  totalCount: Scalars["Float"]["output"];
+  totalCount: Scalars['Float']['output'];
 };
 
 export type DocumentSearchResultEdge = {
-  __typename?: "DocumentSearchResultEdge";
+  __typename?: 'DocumentSearchResultEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: DocumentSearchResult;
 };
 
 export type DocumentSearchResult = Node & {
-  __typename?: "DocumentSearchResult";
+  __typename?: 'DocumentSearchResult';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The color of the icon. */
-  color?: Maybe<Scalars["String"]["output"]>;
+  color?: Maybe<Scalars['String']['output']>;
   /** Comments associated with the document. */
   comments: CommentConnection;
   /** The documents content in markdown format. */
-  content?: Maybe<Scalars["String"]["output"]>;
+  content?: Maybe<Scalars['String']['output']>;
   /** [Internal] The documents content as YJS state. */
-  contentState?: Maybe<Scalars["String"]["output"]>;
+  contentState?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the document. */
   creator?: Maybe<User>;
   /** The ID of the document content associated with the document. */
-  documentContentId?: Maybe<Scalars["String"]["output"]>;
+  documentContentId?: Maybe<Scalars['String']['output']>;
   /** The time at which the document was hidden. Null if the entity has not been hidden. */
-  hiddenAt?: Maybe<Scalars["DateTime"]["output"]>;
+  hiddenAt?: Maybe<Scalars['DateTime']['output']>;
   /** The icon of the document. */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative that the document is associated with. */
   initiative?: Maybe<Initiative>;
   /** The last template that was applied to this document. */
   lastAppliedTemplate?: Maybe<Template>;
   /** Metadata related to search result. */
-  metadata: Scalars["JSONObject"]["output"];
+  metadata: Scalars['JSONObject']['output'];
   /** The project that the document is associated with. */
   project?: Maybe<Project>;
   /** The document's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The order of the item in the resources list. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** [Internal] The team that the document is associated with. */
   team?: Maybe<Team>;
   /** The document title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** A flag that indicates whether the document is in the trash bin. */
-  trashed?: Maybe<Scalars["Boolean"]["output"]>;
+  trashed?: Maybe<Scalars['Boolean']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user who last updated the document. */
   updatedBy?: Maybe<User>;
   /** The canonical url for the document. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
 
+
 export type DocumentSearchResultCommentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type IssueSearchPayload = {
-  __typename?: "IssueSearchPayload";
+  __typename?: 'IssueSearchPayload';
   /** Archived entities matching the search term along with all their dependencies. */
   archivePayload: ArchiveResponse;
   edges: Array<IssueSearchResultEdge>;
   nodes: Array<IssueSearchResult>;
   pageInfo: PageInfo;
   /** Total number of results for query without filters applied. */
-  totalCount: Scalars["Float"]["output"];
+  totalCount: Scalars['Float']['output'];
 };
 
 export type IssueSearchResultEdge = {
-  __typename?: "IssueSearchResultEdge";
+  __typename?: 'IssueSearchResultEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: IssueSearchResult;
 };
 
 export type IssueSearchResult = Node & {
-  __typename?: "IssueSearchResult";
+  __typename?: 'IssueSearchResult';
   /** [Internal] The activity summary information for this issue. */
-  activitySummary?: Maybe<Scalars["JSONObject"]["output"]>;
+  activitySummary?: Maybe<Scalars['JSONObject']['output']>;
   /** The time at which the issue was added to a cycle. */
-  addedToCycleAt?: Maybe<Scalars["DateTime"]["output"]>;
+  addedToCycleAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue was added to a project. */
-  addedToProjectAt?: Maybe<Scalars["DateTime"]["output"]>;
+  addedToProjectAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue was added to a team. */
-  addedToTeamAt?: Maybe<Scalars["DateTime"]["output"]>;
+  addedToTeamAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The user to whom the issue is assigned to. */
   assignee?: Maybe<User>;
   /** Attachments associated with the issue. */
   attachments: AttachmentConnection;
   /** The time at which the issue was automatically archived by the auto pruning process. */
-  autoArchivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  autoArchivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue was automatically closed by the auto pruning process. */
-  autoClosedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  autoClosedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The order of the item in its column on the board.
    * @deprecated Will be removed in near future, please use `sortOrder` instead
    */
-  boardOrder: Scalars["Float"]["output"];
+  boardOrder: Scalars['Float']['output'];
   /** The bot that created the issue, if applicable. */
   botActor?: Maybe<ActorBot>;
   /** Suggested branch name for the issue. */
-  branchName: Scalars["String"]["output"];
+  branchName: Scalars['String']['output'];
   /** The time at which the issue was moved into canceled state. */
-  canceledAt?: Maybe<Scalars["DateTime"]["output"]>;
+  canceledAt?: Maybe<Scalars['DateTime']['output']>;
   /** Children of the issue. */
   children: IssueConnection;
   /** Comments associated with the issue. */
   comments: CommentConnection;
   /** The time at which the issue was moved into completed state. */
-  completedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  completedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the issue. */
   creator?: Maybe<User>;
   /** Returns the number of Attachment resources which are created by customer support ticketing systems (e.g. Zendesk). */
-  customerTicketCount: Scalars["Int"]["output"];
+  customerTicketCount: Scalars['Int']['output'];
   /** The cycle that the issue is associated with. */
   cycle?: Maybe<Cycle>;
   /** The agent user that is delegated to work on this issue. */
   delegate?: Maybe<User>;
   /** The issue's description in markdown format. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** [Internal] The issue's description content as YJS state. */
-  descriptionState?: Maybe<Scalars["String"]["output"]>;
+  descriptionState?: Maybe<Scalars['String']['output']>;
   /** [ALPHA] The document content representing this issue description. */
   documentContent?: Maybe<DocumentContent>;
   /** The date at which the issue is due. */
-  dueDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  dueDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** The estimate of the complexity of the issue.. */
-  estimate?: Maybe<Scalars["Float"]["output"]>;
+  estimate?: Maybe<Scalars['Float']['output']>;
   /** The external user who created the issue. */
   externalUserCreator?: Maybe<ExternalUser>;
   /** The users favorite associated with this issue. */
@@ -10006,9 +10156,9 @@ export type IssueSearchResult = Node & {
   /** History entries associated with the issue. */
   history: IssueHistoryConnection;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Issue's human readable identifier (e.g. ENG-123). */
-  identifier: Scalars["String"]["output"];
+  identifier: Scalars['String']['output'];
   /** [Internal] Incoming product intelligence relation suggestions for the issue. */
   incomingSuggestions: IssueSuggestionConnection;
   /** Integration type that created this issue, if applicable. */
@@ -10016,33 +10166,33 @@ export type IssueSearchResult = Node & {
   /** Inverse relations associated with this issue. */
   inverseRelations: IssueRelationConnection;
   /** Id of the labels associated with this issue. */
-  labelIds: Array<Scalars["String"]["output"]>;
+  labelIds: Array<Scalars['String']['output']>;
   /** Labels associated with this issue. */
   labels: IssueLabelConnection;
   /** The last template that was applied to this issue. */
   lastAppliedTemplate?: Maybe<Template>;
   /** Metadata related to search result. */
-  metadata: Scalars["JSONObject"]["output"];
+  metadata: Scalars['JSONObject']['output'];
   /** Customer needs associated with the issue. */
   needs: CustomerNeedConnection;
   /** The issue's unique number. */
-  number: Scalars["Float"]["output"];
+  number: Scalars['Float']['output'];
   /** The parent of the issue. */
   parent?: Maybe<Issue>;
   /** Previous identifiers of the issue if it has been moved between teams. */
-  previousIdentifiers: Array<Scalars["String"]["output"]>;
+  previousIdentifiers: Array<Scalars['String']['output']>;
   /** The priority of the issue. 0 = No priority, 1 = Urgent, 2 = High, 3 = Normal, 4 = Low. */
-  priority: Scalars["Float"]["output"];
+  priority: Scalars['Float']['output'];
   /** Label for the priority. */
-  priorityLabel: Scalars["String"]["output"];
+  priorityLabel: Scalars['String']['output'];
   /** The order of the item in relation to other items in the organization, when ordered by priority. */
-  prioritySortOrder: Scalars["Float"]["output"];
+  prioritySortOrder: Scalars['Float']['output'];
   /** The project that the issue is associated with. */
   project?: Maybe<Project>;
   /** The projectMilestone that the issue is associated with. */
   projectMilestone?: Maybe<ProjectMilestone>;
   /** Emoji reaction summary, grouped by emoji type. */
-  reactionData: Scalars["JSONObject"]["output"];
+  reactionData: Scalars['JSONObject']['output'];
   /** Reactions associated with the issue. */
   reactions: Array<Reaction>;
   /** The recurring issue template that created this issue. */
@@ -10050,37 +10200,37 @@ export type IssueSearchResult = Node & {
   /** Relations associated with this issue. */
   relations: IssueRelationConnection;
   /** The time at which the issue's SLA will breach. */
-  slaBreachesAt?: Maybe<Scalars["DateTime"]["output"]>;
+  slaBreachesAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue's SLA will enter high risk state. */
-  slaHighRiskAt?: Maybe<Scalars["DateTime"]["output"]>;
+  slaHighRiskAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue's SLA will enter medium risk state. */
-  slaMediumRiskAt?: Maybe<Scalars["DateTime"]["output"]>;
+  slaMediumRiskAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue's SLA began. */
-  slaStartedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  slaStartedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The type of SLA set on the issue. Calendar days or business days. */
-  slaType?: Maybe<Scalars["String"]["output"]>;
+  slaType?: Maybe<Scalars['String']['output']>;
   /** The user who snoozed the issue. */
   snoozedBy?: Maybe<User>;
   /** The time until an issue will be snoozed in Triage view. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** The order of the item in relation to other items in the organization. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** The comment that this issue was created from. */
   sourceComment?: Maybe<Comment>;
   /** The time at which the issue was moved into started state. */
-  startedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the issue entered triage. */
-  startedTriageAt?: Maybe<Scalars["DateTime"]["output"]>;
+  startedTriageAt?: Maybe<Scalars['DateTime']['output']>;
   /** The workflow state that the issue is associated with. */
   state: WorkflowState;
   /** The order of the item in the sub-issue list. Only set if the issue has a parent. */
-  subIssueSortOrder?: Maybe<Scalars["Float"]["output"]>;
+  subIssueSortOrder?: Maybe<Scalars['Float']['output']>;
   /** Users who are subscribed to the issue. */
   subscribers: UserConnection;
   /** [Internal] Product Intelligence suggestions for the issue. */
   suggestions: IssueSuggestionConnection;
   /** [Internal] The time at which the most recent suggestions for this issue were generated. */
-  suggestionsGeneratedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  suggestionsGeneratedAt?: Maybe<Scalars['DateTime']['output']>;
   /** [DEPRECATED] [Internal] The user who has delegated this issue to be completed by an agent. */
   supervisor?: Maybe<User>;
   /** The external services the issue is synced with. */
@@ -10088,196 +10238,209 @@ export type IssueSearchResult = Node & {
   /** The team that the issue is associated with. */
   team: Team;
   /** The issue's title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** A flag that indicates whether the issue is in the trash bin. */
-  trashed?: Maybe<Scalars["Boolean"]["output"]>;
+  trashed?: Maybe<Scalars['Boolean']['output']>;
   /** The time at which the issue left triage. */
-  triagedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  triagedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** Issue URL. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
+
 
 export type IssueSearchResultAttachmentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<AttachmentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultChildrenArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultCommentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultFormerAttachmentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<AttachmentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultFormerNeedsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CustomerNeedFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultHistoryArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultIncomingSuggestionsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultInverseRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultLabelsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultNeedsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CustomerNeedFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type IssueSearchResultSubscribersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<UserFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeDisabled?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 export type IssueSearchResultSuggestionsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 export type ProjectSearchPayload = {
-  __typename?: "ProjectSearchPayload";
+  __typename?: 'ProjectSearchPayload';
   /** Archived entities matching the search term along with all their dependencies. */
   archivePayload: ArchiveResponse;
   edges: Array<ProjectSearchResultEdge>;
   nodes: Array<ProjectSearchResult>;
   pageInfo: PageInfo;
   /** Total number of results for query without filters applied. */
-  totalCount: Scalars["Float"]["output"];
+  totalCount: Scalars['Float']['output'];
 };
 
 export type ProjectSearchResultEdge = {
-  __typename?: "ProjectSearchResultEdge";
+  __typename?: 'ProjectSearchResultEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: ProjectSearchResult;
 };
 
 export type ProjectSearchResult = Node & {
-  __typename?: "ProjectSearchResult";
+  __typename?: 'ProjectSearchResult';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the project was automatically archived by the auto pruning process. */
-  autoArchivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  autoArchivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the project was moved into canceled state. */
-  canceledAt?: Maybe<Scalars["DateTime"]["output"]>;
+  canceledAt?: Maybe<Scalars['DateTime']['output']>;
   /** The project's color. */
-  color: Scalars["String"]["output"];
+  color: Scalars['String']['output'];
   /** Comments associated with the project overview. */
   comments: CommentConnection;
   /** The time at which the project was moved into completed state. */
-  completedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  completedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The number of completed issues in the project after each week. */
-  completedIssueCountHistory: Array<Scalars["Float"]["output"]>;
+  completedIssueCountHistory: Array<Scalars['Float']['output']>;
   /** The number of completed estimation points after each week. */
-  completedScopeHistory: Array<Scalars["Float"]["output"]>;
+  completedScopeHistory: Array<Scalars['Float']['output']>;
   /** The project's content in markdown format. */
-  content?: Maybe<Scalars["String"]["output"]>;
+  content?: Maybe<Scalars['String']['output']>;
   /** [Internal] The project's content as YJS state. */
-  contentState?: Maybe<Scalars["String"]["output"]>;
+  contentState?: Maybe<Scalars['String']['output']>;
   /** The project was created based on this issue. */
   convertedFromIssue?: Maybe<Issue>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who created the project. */
   creator?: Maybe<User>;
   /** [INTERNAL] The current progress of the project. */
-  currentProgress: Scalars["JSONObject"]["output"];
+  currentProgress: Scalars['JSONObject']['output'];
   /** The project's description. */
-  description: Scalars["String"]["output"];
+  description: Scalars['String']['output'];
   /** The content of the project description. */
   documentContent?: Maybe<DocumentContent>;
   /** Documents associated with the project. */
@@ -10293,27 +10456,27 @@ export type ProjectSearchResult = Node & {
   /** The health of the project. */
   health?: Maybe<ProjectUpdateHealthType>;
   /** The time at which the project health was updated. */
-  healthUpdatedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  healthUpdatedAt?: Maybe<Scalars['DateTime']['output']>;
   /** History entries associated with the project. */
   history: ProjectHistoryConnection;
   /** The icon of the project. */
-  icon?: Maybe<Scalars["String"]["output"]>;
+  icon?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** Initiatives that this project belongs to. */
   initiatives: InitiativeConnection;
   /** The number of in progress estimation points after each week. */
-  inProgressScopeHistory: Array<Scalars["Float"]["output"]>;
+  inProgressScopeHistory: Array<Scalars['Float']['output']>;
   /** Settings for all integrations associated with that project. */
   integrationsSettings?: Maybe<IntegrationsSettings>;
   /** Inverse relations associated with this project. */
   inverseRelations: ProjectRelationConnection;
   /** The total number of issues in the project after each week. */
-  issueCountHistory: Array<Scalars["Float"]["output"]>;
+  issueCountHistory: Array<Scalars['Float']['output']>;
   /** Issues associated with the project. */
   issues: IssueConnection;
   /** Id of the labels associated with this project. */
-  labelIds: Array<Scalars["String"]["output"]>;
+  labelIds: Array<Scalars['String']['output']>;
   /** Labels associated with this project. */
   labels: ProjectLabelConnection;
   /** The last template that was applied to this project. */
@@ -10325,247 +10488,260 @@ export type ProjectSearchResult = Node & {
   /** Users that are members of the project. */
   members: UserConnection;
   /** Metadata related to search result. */
-  metadata: Scalars["JSONObject"]["output"];
+  metadata: Scalars['JSONObject']['output'];
   /** The project's name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Customer needs associated with the project. */
   needs: CustomerNeedConnection;
   /** The priority of the project. 0 = No priority, 1 = Urgent, 2 = High, 3 = Normal, 4 = Low. */
-  priority: Scalars["Int"]["output"];
+  priority: Scalars['Int']['output'];
   /** The priority of the project as a label. */
-  priorityLabel: Scalars["String"]["output"];
+  priorityLabel: Scalars['String']['output'];
   /** The sort order for the project within the organization, when ordered by priority. */
-  prioritySortOrder: Scalars["Float"]["output"];
+  prioritySortOrder: Scalars['Float']['output'];
   /** The overall progress of the project. This is the (completed estimate points + 0.25 * in progress estimate points) / total estimate points. */
-  progress: Scalars["Float"]["output"];
+  progress: Scalars['Float']['output'];
   /** [INTERNAL] The progress history of the project. */
-  progressHistory: Scalars["JSONObject"]["output"];
+  progressHistory: Scalars['JSONObject']['output'];
   /** Milestones associated with the project. */
   projectMilestones: ProjectMilestoneConnection;
   /** The time until which project update reminders are paused. */
-  projectUpdateRemindersPausedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  projectUpdateRemindersPausedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** Project updates associated with the project. */
   projectUpdates: ProjectUpdateConnection;
   /** Relations associated with this project. */
   relations: ProjectRelationConnection;
   /** The overall scope (total estimate points) of the project. */
-  scope: Scalars["Float"]["output"];
+  scope: Scalars['Float']['output'];
   /** The total number of estimation points after each week. */
-  scopeHistory: Array<Scalars["Float"]["output"]>;
+  scopeHistory: Array<Scalars['Float']['output']>;
   /**
    * Whether to send new issue comment notifications to Slack.
    * @deprecated No longer in use
    */
-  slackIssueComments: Scalars["Boolean"]["output"];
+  slackIssueComments: Scalars['Boolean']['output'];
   /**
    * Whether to send new issue status updates to Slack.
    * @deprecated No longer is use
    */
-  slackIssueStatuses: Scalars["Boolean"]["output"];
+  slackIssueStatuses: Scalars['Boolean']['output'];
   /**
    * Whether to send new issue notifications to Slack.
    * @deprecated No longer in use
    */
-  slackNewIssue: Scalars["Boolean"]["output"];
+  slackNewIssue: Scalars['Boolean']['output'];
   /** The project's unique URL slug. */
-  slugId: Scalars["String"]["output"];
+  slugId: Scalars['String']['output'];
   /** The sort order for the project within the organization. */
-  sortOrder: Scalars["Float"]["output"];
+  sortOrder: Scalars['Float']['output'];
   /** The estimated start date of the project. */
-  startDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  startDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** The resolution of the project's start date. */
   startDateResolution?: Maybe<DateResolutionType>;
   /** The time at which the project was moved into started state. */
-  startedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * [DEPRECATED] The type of the state.
    * @deprecated Use project.status instead
    */
-  state: Scalars["String"]["output"];
+  state: Scalars['String']['output'];
   /** The status that the project is associated with. */
   status: ProjectStatus;
   /** The estimated completion date of the project. */
-  targetDate?: Maybe<Scalars["TimelessDate"]["output"]>;
+  targetDate?: Maybe<Scalars['TimelessDate']['output']>;
   /** The resolution of the project's estimated completion date. */
   targetDateResolution?: Maybe<DateResolutionType>;
   /** Teams associated with this project. */
   teams: TeamConnection;
   /** A flag that indicates whether the project is in the trash bin. */
-  trashed?: Maybe<Scalars["Boolean"]["output"]>;
+  trashed?: Maybe<Scalars['Boolean']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequency?: Maybe<Scalars["Float"]["output"]>;
+  updateReminderFrequency?: Maybe<Scalars['Float']['output']>;
   /** The n-weekly frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequencyInWeeks?: Maybe<Scalars["Float"]["output"]>;
+  updateReminderFrequencyInWeeks?: Maybe<Scalars['Float']['output']>;
   /** The day at which to prompt for updates. */
   updateRemindersDay?: Maybe<Day>;
   /** The hour at which to prompt for updates. */
-  updateRemindersHour?: Maybe<Scalars["Float"]["output"]>;
+  updateRemindersHour?: Maybe<Scalars['Float']['output']>;
   /** Project URL. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
 };
+
 
 export type ProjectSearchResultCommentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CommentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultDocumentsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<DocumentFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultExternalLinksArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultHistoryArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultInitiativesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultInverseRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultIssuesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<IssueFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultLabelsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectLabelFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultMembersArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<UserFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  includeDisabled?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  includeDisabled?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultNeedsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<CustomerNeedFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultProjectMilestonesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<ProjectMilestoneFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultProjectUpdatesArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
+
 
 export type ProjectSearchResultRelationsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
+
 export type ProjectSearchResultTeamsArgs = {
-  after?: InputMaybe<Scalars["String"]["input"]>;
-  before?: InputMaybe<Scalars["String"]["input"]>;
+  after?: InputMaybe<Scalars['String']['input']>;
+  before?: InputMaybe<Scalars['String']['input']>;
   filter?: InputMaybe<TeamFilter>;
-  first?: InputMaybe<Scalars["Int"]["input"]>;
-  includeArchived?: InputMaybe<Scalars["Boolean"]["input"]>;
-  last?: InputMaybe<Scalars["Int"]["input"]>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  last?: InputMaybe<Scalars['Int']['input']>;
   orderBy?: InputMaybe<PaginationOrderBy>;
 };
 
 /** [INTERNAL] The type of the semantic search result. */
-export enum SemanticSearchResultType {
-  Document = "document",
-  Initiative = "initiative",
-  Issue = "issue",
-  Project = "project",
-}
+export type SemanticSearchResultType =
+  | 'document'
+  | 'initiative'
+  | 'issue'
+  | 'project';
 
 /** [INTERNAL] Payload returned by semantic search. */
 export type SemanticSearchPayload = {
-  __typename?: "SemanticSearchPayload";
-  enabled: Scalars["Boolean"]["output"];
+  __typename?: 'SemanticSearchPayload';
+  enabled: Scalars['Boolean']['output'];
   results: Array<SemanticSearchResult>;
 };
 
 /** [INTERNAL] A semantic search result reference. */
 export type SemanticSearchResult = Node & {
-  __typename?: "SemanticSearchResult";
+  __typename?: 'SemanticSearchResult';
   /** The document related to the semantic search result. */
   document?: Maybe<Document>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The initiative related to the semantic search result. */
   initiative?: Maybe<Initiative>;
   /** The issue related to the semantic search result. */
@@ -10577,44 +10753,44 @@ export type SemanticSearchResult = Node & {
 };
 
 export type SsoUrlFromEmailResponse = {
-  __typename?: "SsoUrlFromEmailResponse";
+  __typename?: 'SsoUrlFromEmailResponse';
   /** SAML SSO sign-in URL. */
-  samlSsoUrl: Scalars["String"]["output"];
+  samlSsoUrl: Scalars['String']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type SummaryPayload = {
-  __typename?: "SummaryPayload";
+  __typename?: 'SummaryPayload';
   /** Summary for project updates. */
-  summary: Scalars["String"]["output"];
+  summary: Scalars['String']['output'];
 };
 
 export type TimeScheduleConnection = {
-  __typename?: "TimeScheduleConnection";
+  __typename?: 'TimeScheduleConnection';
   edges: Array<TimeScheduleEdge>;
   nodes: Array<TimeSchedule>;
   pageInfo: PageInfo;
 };
 
 export type TimeScheduleEdge = {
-  __typename?: "TimeScheduleEdge";
+  __typename?: 'TimeScheduleEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: TimeSchedule;
 };
 
 export type TriageResponsibilityConnection = {
-  __typename?: "TriageResponsibilityConnection";
+  __typename?: 'TriageResponsibilityConnection';
   edges: Array<TriageResponsibilityEdge>;
   nodes: Array<TriageResponsibility>;
   pageInfo: PageInfo;
 };
 
 export type TriageResponsibilityEdge = {
-  __typename?: "TriageResponsibilityEdge";
+  __typename?: 'TriageResponsibilityEdge';
   /** Used in `before` and `after` args */
-  cursor: Scalars["String"]["output"];
+  cursor: Scalars['String']['output'];
   node: TriageResponsibility;
 };
 
@@ -10644,17 +10820,17 @@ export type UserNameSort = {
 
 /** The settings of a user as a JSON object. */
 export type UserSettings = Node & {
-  __typename?: "UserSettings";
+  __typename?: 'UserSettings';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** Whether to auto-assign newly created issues to the current user by default. */
-  autoAssignToSelf: Scalars["Boolean"]["output"];
+  autoAssignToSelf: Scalars['Boolean']['output'];
   /** Hash for the user to be used in calendar URLs. */
-  calendarHash?: Maybe<Scalars["String"]["output"]>;
+  calendarHash?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The user's notification category preferences. */
   notificationCategoryPreferences: NotificationCategoryPreferences;
   /** The user's notification channel preferences. */
@@ -10662,32 +10838,32 @@ export type UserSettings = Node & {
   /** The notification delivery preferences for the user. Note: notificationDisabled field is deprecated in favor of notificationChannelPreferences. */
   notificationDeliveryPreferences: NotificationDeliveryPreferences;
   /** Whether to show full user names instead of display names. */
-  showFullUserNames: Scalars["Boolean"]["output"];
+  showFullUserNames: Scalars['Boolean']['output'];
   /** Whether this user is subscribed to changelog email or not. */
-  subscribedToChangelog: Scalars["Boolean"]["output"];
+  subscribedToChangelog: Scalars['Boolean']['output'];
   /** Whether this user is subscribed to DPA emails or not. */
-  subscribedToDPA: Scalars["Boolean"]["output"];
+  subscribedToDPA: Scalars['Boolean']['output'];
   /** Whether this user is subscribed to invite accepted emails or not. */
-  subscribedToInviteAccepted: Scalars["Boolean"]["output"];
+  subscribedToInviteAccepted: Scalars['Boolean']['output'];
   /** Whether this user is subscribed to privacy and legal update emails or not. */
-  subscribedToPrivacyLegalUpdates: Scalars["Boolean"]["output"];
+  subscribedToPrivacyLegalUpdates: Scalars['Boolean']['output'];
   /**
    * The email types the user has unsubscribed from.
    * @deprecated Use individual subscription fields instead. This field's value is now outdated.
    */
-  unsubscribedFrom: Array<Scalars["String"]["output"]>;
+  unsubscribedFrom: Array<Scalars['String']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** The user associated with these settings. */
   user: User;
 };
 
 /** A user's notification category preferences. */
 export type NotificationCategoryPreferences = {
-  __typename?: "NotificationCategoryPreferences";
+  __typename?: 'NotificationCategoryPreferences';
   /** The preferences for notifications about apps and integrations. */
   appsAndIntegrations: NotificationChannelPreferences;
   /** The preferences for notifications about assignments. */
@@ -10722,41 +10898,41 @@ export type NotificationCategoryPreferences = {
 
 /** A user's notification channel preferences, indicating if a channel is enabled or not */
 export type NotificationChannelPreferences = {
-  __typename?: "NotificationChannelPreferences";
+  __typename?: 'NotificationChannelPreferences';
   /** Whether notifications are currently enabled for desktop. */
-  desktop: Scalars["Boolean"]["output"];
+  desktop: Scalars['Boolean']['output'];
   /** Whether notifications are currently enabled for email. */
-  email: Scalars["Boolean"]["output"];
+  email: Scalars['Boolean']['output'];
   /** Whether notifications are currently enabled for mobile. */
-  mobile: Scalars["Boolean"]["output"];
+  mobile: Scalars['Boolean']['output'];
   /** Whether notifications are currently enabled for Slack. */
-  slack: Scalars["Boolean"]["output"];
+  slack: Scalars['Boolean']['output'];
 };
 
 /** A user's notification delivery preferences. */
 export type NotificationDeliveryPreferences = {
-  __typename?: "NotificationDeliveryPreferences";
+  __typename?: 'NotificationDeliveryPreferences';
   /** The delivery preferences for the mobile channel. */
   mobile?: Maybe<NotificationDeliveryPreferencesChannel>;
 };
 
 /** A user's notification delivery preferences. */
 export type NotificationDeliveryPreferencesChannel = {
-  __typename?: "NotificationDeliveryPreferencesChannel";
+  __typename?: 'NotificationDeliveryPreferencesChannel';
   /**
    * [DEPRECATED] Whether notifications are enabled for this channel. Use notificationChannelPreferences instead.
    * @deprecated This field has been replaced by notificationChannelPreferences
    */
-  notificationsDisabled?: Maybe<Scalars["Boolean"]["output"]>;
+  notificationsDisabled?: Maybe<Scalars['Boolean']['output']>;
   /** The schedule for notifications on this channel. */
   schedule?: Maybe<NotificationDeliveryPreferencesSchedule>;
 };
 
 /** A user's notification delivery schedule for a particular day. */
 export type NotificationDeliveryPreferencesSchedule = {
-  __typename?: "NotificationDeliveryPreferencesSchedule";
+  __typename?: 'NotificationDeliveryPreferencesSchedule';
   /** Whether the schedule is disabled. */
-  disabled?: Maybe<Scalars["Boolean"]["output"]>;
+  disabled?: Maybe<Scalars['Boolean']['output']>;
   /** Delivery preferences for Friday. */
   friday: NotificationDeliveryPreferencesDay;
   /** Delivery preferences for Monday. */
@@ -10775,59 +10951,59 @@ export type NotificationDeliveryPreferencesSchedule = {
 
 /** A user's notification delivery schedule for a particular day. */
 export type NotificationDeliveryPreferencesDay = {
-  __typename?: "NotificationDeliveryPreferencesDay";
+  __typename?: 'NotificationDeliveryPreferencesDay';
   /** The time notifications end. */
-  end?: Maybe<Scalars["String"]["output"]>;
+  end?: Maybe<Scalars['String']['output']>;
   /** The time notifications start. */
-  start?: Maybe<Scalars["String"]["output"]>;
+  start?: Maybe<Scalars['String']['output']>;
 };
 
 export type GitHubEnterpriseServerInstallVerificationPayload = {
-  __typename?: "GitHubEnterpriseServerInstallVerificationPayload";
+  __typename?: 'GitHubEnterpriseServerInstallVerificationPayload';
   /** Has the install been successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** [INTERNAL] Public information of the OAuth application with its memberships */
 export type WorkspaceAuthorizedApplicationWithMemberships = {
-  __typename?: "WorkspaceAuthorizedApplicationWithMemberships";
+  __typename?: 'WorkspaceAuthorizedApplicationWithMemberships';
   /** Details of the OAuth application */
   client: AuthorizedApplication;
   /** UserIds and membership dates of everyone who has authorized the application */
   memberships: Array<AuthMembership>;
   /** Total number of members that authorized the application. */
-  totalMembers: Scalars["Float"]["output"];
+  totalMembers: Scalars['Float']['output'];
 };
 
 /** [INTERNAL] Public information of the OAuth application, plus the app user and aggregate membership count. */
 export type WorkspaceAuthorizedApplicationWithAppUser = {
-  __typename?: "WorkspaceAuthorizedApplicationWithAppUser";
+  __typename?: 'WorkspaceAuthorizedApplicationWithAppUser';
   /** OAuth application's ID. */
-  appId: Scalars["String"]["output"];
+  appId: Scalars['String']['output'];
   /** The app user associated with this client, if one exists. */
   appUser?: Maybe<AuthMembership>;
   /** OAuth application's client ID. */
-  clientId: Scalars["String"]["output"];
+  clientId: Scalars['String']['output'];
   /** Description of the application. */
-  description?: Maybe<Scalars["String"]["output"]>;
+  description?: Maybe<Scalars['String']['output']>;
   /** Developer of the application. */
-  developer?: Maybe<Scalars["String"]["output"]>;
+  developer?: Maybe<Scalars['String']['output']>;
   /** Developer URL of the application. */
-  developerUrl?: Maybe<Scalars["String"]["output"]>;
+  developerUrl?: Maybe<Scalars['String']['output']>;
   /** Image of the application. */
-  imageUrl?: Maybe<Scalars["String"]["output"]>;
+  imageUrl?: Maybe<Scalars['String']['output']>;
   /** Application name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Scopes that are authorized for this application for a given user. */
-  scope: Array<Scalars["String"]["output"]>;
+  scope: Array<Scalars['String']['output']>;
   /** Total number of members (including the app user, if it exists) that authorized the application. */
-  totalMembers: Scalars["Float"]["output"];
+  totalMembers: Scalars['Float']['output'];
   /** Whether or not webhooks are enabled for the application. */
-  webhooksEnabled: Scalars["Boolean"]["output"];
+  webhooksEnabled: Scalars['Boolean']['output'];
 };
 
 export type Mutation = {
-  __typename?: "Mutation";
+  __typename?: 'Mutation';
   /** Creates an agent activity. */
   agentActivityCreate: AgentActivityPayload;
   /** Creates a prompt agent activity from Linear user input. */
@@ -11120,8 +11296,7 @@ export type Mutation = {
   /** [Internal] Slack integration for initiative notifications. */
   integrationSlackInitiativePost: SlackChannelConnectPayload;
   /** Updates the Slack team's name in Linear for an existing Slack or Asks integration. */
-  integrationSlackOrAsksUpdateSlackTeamName:
-    IntegrationSlackWorkspaceNamePayload;
+  integrationSlackOrAsksUpdateSlackTeamName: IntegrationSlackWorkspaceNamePayload;
   /** [Internal] Slack integration for organization level initiative update notifications. */
   integrationSlackOrgInitiativeUpdatesPost: SlackChannelConnectPayload;
   /** Slack integration for organization level project update notifications. */
@@ -11477,2910 +11652,3200 @@ export type Mutation = {
   workflowStateUpdate: WorkflowStatePayload;
 };
 
+
 export type MutationAgentActivityCreateArgs = {
   input: AgentActivityCreateInput;
 };
+
 
 export type MutationAgentActivityCreatePromptArgs = {
   input: AgentActivityCreatePromptInput;
 };
 
+
 export type MutationAgentSessionUpdateExternalUrlArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: AgentSessionUpdateExternalUrlInput;
 };
+
 
 export type MutationAirbyteIntegrationConnectArgs = {
   input: AirbyteConfigurationInput;
 };
 
+
 export type MutationApiKeyCreateArgs = {
   input: ApiKeyCreateInput;
 };
 
+
 export type MutationApiKeyDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationApiKeyUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: ApiKeyUpdateInput;
 };
+
 
 export type MutationAttachmentCreateArgs = {
   input: AttachmentCreateInput;
 };
 
+
 export type MutationAttachmentDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationAttachmentLinkDiscordArgs = {
-  channelId: Scalars["String"]["input"];
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  messageId: Scalars["String"]["input"];
-  title?: InputMaybe<Scalars["String"]["input"]>;
-  url: Scalars["String"]["input"];
+  channelId: Scalars['String']['input'];
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  messageId: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
+
 
 export type MutationAttachmentLinkFrontArgs = {
-  conversationId: Scalars["String"]["input"];
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  title?: InputMaybe<Scalars["String"]["input"]>;
+  conversationId: Scalars['String']['input'];
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationAttachmentLinkGitHubIssueArgs = {
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  title?: InputMaybe<Scalars["String"]["input"]>;
-  url: Scalars["String"]["input"];
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
+
 
 export type MutationAttachmentLinkGitHubPrArgs = {
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
   linkKind?: InputMaybe<GitLinkKind>;
-  title?: InputMaybe<Scalars["String"]["input"]>;
-  url: Scalars["String"]["input"];
+  title?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
+
 
 export type MutationAttachmentLinkGitLabMrArgs = {
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  number: Scalars["Float"]["input"];
-  projectPathWithNamespace: Scalars["String"]["input"];
-  title?: InputMaybe<Scalars["String"]["input"]>;
-  url: Scalars["String"]["input"];
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  number: Scalars['Float']['input'];
+  projectPathWithNamespace: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
+
 
 export type MutationAttachmentLinkIntercomArgs = {
-  conversationId: Scalars["String"]["input"];
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  partId?: InputMaybe<Scalars["String"]["input"]>;
-  title?: InputMaybe<Scalars["String"]["input"]>;
+  conversationId: Scalars['String']['input'];
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  partId?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationAttachmentLinkJiraIssueArgs = {
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  jiraIssueId: Scalars["String"]["input"];
-  title?: InputMaybe<Scalars["String"]["input"]>;
-  url?: InputMaybe<Scalars["String"]["input"]>;
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  jiraIssueId: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  url?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationAttachmentLinkSalesforceArgs = {
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  title?: InputMaybe<Scalars["String"]["input"]>;
-  url: Scalars["String"]["input"];
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
+
 
 export type MutationAttachmentLinkSlackArgs = {
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  syncToCommentThread?: InputMaybe<Scalars["Boolean"]["input"]>;
-  title?: InputMaybe<Scalars["String"]["input"]>;
-  url: Scalars["String"]["input"];
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  syncToCommentThread?: InputMaybe<Scalars['Boolean']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
+
 
 export type MutationAttachmentLinkUrlArgs = {
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  title?: InputMaybe<Scalars["String"]["input"]>;
-  url: Scalars["String"]["input"];
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 };
+
 
 export type MutationAttachmentLinkZendeskArgs = {
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  issueId: Scalars["String"]["input"];
-  ticketId: Scalars["String"]["input"];
-  title?: InputMaybe<Scalars["String"]["input"]>;
-  url?: InputMaybe<Scalars["String"]["input"]>;
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  issueId: Scalars['String']['input'];
+  ticketId: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  url?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationAttachmentSyncToSlackArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationAttachmentUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: AttachmentUpdateInput;
 };
+
 
 export type MutationCommentCreateArgs = {
   input: CommentCreateInput;
 };
 
+
 export type MutationCommentDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationCommentResolveArgs = {
-  id: Scalars["String"]["input"];
-  resolvingCommentId?: InputMaybe<Scalars["String"]["input"]>;
+  id: Scalars['String']['input'];
+  resolvingCommentId?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationCommentUnresolveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationCommentUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: CommentUpdateInput;
 };
+
 
 export type MutationContactCreateArgs = {
   input: ContactCreateInput;
 };
 
+
 export type MutationContactSalesCreateArgs = {
   input: ContactSalesCreateInput;
 };
 
+
 export type MutationCreateCsvExportReportArgs = {
-  includePrivateTeamIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  includePrivateTeamIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
+
 export type MutationCreateInitiativeUpdateReminderArgs = {
-  initiativeId: Scalars["String"]["input"];
-  userId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId: Scalars['String']['input'];
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationCreateOrganizationFromOnboardingArgs = {
   input: CreateOrganizationInput;
   survey?: InputMaybe<OnboardingCustomerSurvey>;
 };
 
+
 export type MutationCreateProjectUpdateReminderArgs = {
-  projectId: Scalars["String"]["input"];
-  userId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId: Scalars['String']['input'];
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationCustomerCreateArgs = {
   input: CustomerCreateInput;
 };
 
+
 export type MutationCustomerDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationCustomerMergeArgs = {
-  sourceCustomerId: Scalars["String"]["input"];
-  targetCustomerId: Scalars["String"]["input"];
+  sourceCustomerId: Scalars['String']['input'];
+  targetCustomerId: Scalars['String']['input'];
 };
 
+
 export type MutationCustomerNeedArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationCustomerNeedCreateArgs = {
   input: CustomerNeedCreateInput;
 };
 
+
 export type MutationCustomerNeedCreateFromAttachmentArgs = {
   input: CustomerNeedCreateFromAttachmentInput;
 };
 
+
 export type MutationCustomerNeedDeleteArgs = {
-  id: Scalars["String"]["input"];
-  keepAttachment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  id: Scalars['String']['input'];
+  keepAttachment?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type MutationCustomerNeedUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationCustomerNeedUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: CustomerNeedUpdateInput;
 };
+
 
 export type MutationCustomerStatusCreateArgs = {
   input: CustomerStatusCreateInput;
 };
 
+
 export type MutationCustomerStatusDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationCustomerStatusUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: CustomerStatusUpdateInput;
 };
+
 
 export type MutationCustomerTierCreateArgs = {
   input: CustomerTierCreateInput;
 };
 
+
 export type MutationCustomerTierDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationCustomerTierUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: CustomerTierUpdateInput;
 };
 
+
 export type MutationCustomerUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: CustomerUpdateInput;
 };
+
 
 export type MutationCustomerUpsertArgs = {
   input: CustomerUpsertInput;
 };
 
+
 export type MutationCustomViewCreateArgs = {
   input: CustomViewCreateInput;
 };
 
+
 export type MutationCustomViewDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationCustomViewUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: CustomViewUpdateInput;
 };
 
+
 export type MutationCycleArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationCycleCreateArgs = {
   input: CycleCreateInput;
 };
 
+
 export type MutationCycleShiftAllArgs = {
   input: CycleShiftAllInput;
 };
 
+
 export type MutationCycleStartUpcomingCycleTodayArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationCycleUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: CycleUpdateInput;
 };
+
 
 export type MutationDocumentCreateArgs = {
   input: DocumentCreateInput;
 };
 
+
 export type MutationDocumentDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationDocumentUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationDocumentUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: DocumentUpdateInput;
 };
+
 
 export type MutationEmailIntakeAddressCreateArgs = {
   input: EmailIntakeAddressCreateInput;
 };
 
+
 export type MutationEmailIntakeAddressDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationEmailIntakeAddressRotateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationEmailIntakeAddressUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: EmailIntakeAddressUpdateInput;
 };
+
 
 export type MutationEmailTokenUserAccountAuthArgs = {
   input: TokenUserAccountAuthInput;
 };
 
+
 export type MutationEmailUnsubscribeArgs = {
   input: EmailUnsubscribeInput;
 };
+
 
 export type MutationEmailUserAccountAuthChallengeArgs = {
   input: EmailUserAccountAuthChallengeInput;
 };
 
+
 export type MutationEmojiCreateArgs = {
   input: EmojiCreateInput;
 };
 
+
 export type MutationEmojiDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationEntityExternalLinkCreateArgs = {
   input: EntityExternalLinkCreateInput;
 };
 
+
 export type MutationEntityExternalLinkDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationEntityExternalLinkUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: EntityExternalLinkUpdateInput;
 };
+
 
 export type MutationFavoriteCreateArgs = {
   input: FavoriteCreateInput;
 };
 
+
 export type MutationFavoriteDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationFavoriteUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: FavoriteUpdateInput;
 };
 
+
 export type MutationFileUploadArgs = {
-  contentType: Scalars["String"]["input"];
-  filename: Scalars["String"]["input"];
-  makePublic?: InputMaybe<Scalars["Boolean"]["input"]>;
-  metaData?: InputMaybe<Scalars["JSON"]["input"]>;
-  size: Scalars["Int"]["input"];
+  contentType: Scalars['String']['input'];
+  filename: Scalars['String']['input'];
+  makePublic?: InputMaybe<Scalars['Boolean']['input']>;
+  metaData?: InputMaybe<Scalars['JSON']['input']>;
+  size: Scalars['Int']['input'];
 };
+
 
 export type MutationGitAutomationStateCreateArgs = {
   input: GitAutomationStateCreateInput;
 };
 
+
 export type MutationGitAutomationStateDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationGitAutomationStateUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: GitAutomationStateUpdateInput;
 };
+
 
 export type MutationGitAutomationTargetBranchCreateArgs = {
   input: GitAutomationTargetBranchCreateInput;
 };
 
+
 export type MutationGitAutomationTargetBranchDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationGitAutomationTargetBranchUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: GitAutomationTargetBranchUpdateInput;
 };
+
 
 export type MutationGoogleUserAccountAuthArgs = {
   input: GoogleUserAccountAuthInput;
 };
 
+
 export type MutationImageUploadFromUrlArgs = {
-  url: Scalars["String"]["input"];
+  url: Scalars['String']['input'];
 };
+
 
 export type MutationImportFileUploadArgs = {
-  contentType: Scalars["String"]["input"];
-  filename: Scalars["String"]["input"];
-  metaData?: InputMaybe<Scalars["JSON"]["input"]>;
-  size: Scalars["Int"]["input"];
+  contentType: Scalars['String']['input'];
+  filename: Scalars['String']['input'];
+  metaData?: InputMaybe<Scalars['JSON']['input']>;
+  size: Scalars['Int']['input'];
 };
 
+
 export type MutationInitiativeArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationInitiativeCreateArgs = {
   input: InitiativeCreateInput;
 };
 
+
 export type MutationInitiativeDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationInitiativeRelationCreateArgs = {
   input: InitiativeRelationCreateInput;
 };
 
+
 export type MutationInitiativeRelationDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationInitiativeRelationUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: InitiativeRelationUpdateInput;
 };
+
 
 export type MutationInitiativeToProjectCreateArgs = {
   input: InitiativeToProjectCreateInput;
 };
 
+
 export type MutationInitiativeToProjectDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationInitiativeToProjectUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: InitiativeToProjectUpdateInput;
 };
 
+
 export type MutationInitiativeUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationInitiativeUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: InitiativeUpdateInput;
 };
 
+
 export type MutationInitiativeUpdateArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationInitiativeUpdateCreateArgs = {
   input: InitiativeUpdateCreateInput;
 };
 
+
 export type MutationInitiativeUpdateUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationInitiativeUpdateUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: InitiativeUpdateUpdateInput;
 };
 
+
 export type MutationIntegrationArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationIntegrationAsksConnectChannelArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationCustomerDataAttributesRefreshArgs = {
   input: IntegrationCustomerDataAttributesRefreshInput;
 };
 
+
 export type MutationIntegrationDeleteArgs = {
-  id: Scalars["String"]["input"];
-  skipInstallationDeletion?: InputMaybe<Scalars["Boolean"]["input"]>;
+  id: Scalars['String']['input'];
+  skipInstallationDeletion?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type MutationIntegrationDiscordArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationFigmaArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationFrontArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationGithubConnectArgs = {
-  code: Scalars["String"]["input"];
-  codeAccess?: InputMaybe<Scalars["Boolean"]["input"]>;
-  installationId: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  codeAccess?: InputMaybe<Scalars['Boolean']['input']>;
+  installationId: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationGitHubEnterpriseServerConnectArgs = {
-  githubUrl: Scalars["String"]["input"];
-  organizationName: Scalars["String"]["input"];
+  githubUrl: Scalars['String']['input'];
+  organizationName: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationGithubImportConnectArgs = {
-  code: Scalars["String"]["input"];
-  installationId: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  installationId: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationGithubImportRefreshArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationGitHubPersonalArgs = {
-  code: Scalars["String"]["input"];
-  codeAccess?: InputMaybe<Scalars["Boolean"]["input"]>;
+  code: Scalars['String']['input'];
+  codeAccess?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type MutationIntegrationGitlabConnectArgs = {
-  accessToken: Scalars["String"]["input"];
-  gitlabUrl: Scalars["String"]["input"];
+  accessToken: Scalars['String']['input'];
+  gitlabUrl: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationGoogleCalendarPersonalConnectArgs = {
-  code: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationGoogleSheetsArgs = {
-  code: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
 };
 
+
 export type MutationIntegrationIntercomArgs = {
-  code: Scalars["String"]["input"];
-  domainUrl?: InputMaybe<Scalars["String"]["input"]>;
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  domainUrl?: InputMaybe<Scalars['String']['input']>;
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationIntercomSettingsUpdateArgs = {
   input: IntercomSettingsInput;
 };
 
+
 export type MutationIntegrationJiraPersonalArgs = {
-  accessToken?: InputMaybe<Scalars["String"]["input"]>;
-  code?: InputMaybe<Scalars["String"]["input"]>;
+  accessToken?: InputMaybe<Scalars['String']['input']>;
+  code?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationIntegrationJiraUpdateArgs = {
   input: JiraUpdateInput;
 };
 
+
 export type MutationIntegrationLaunchDarklyConnectArgs = {
-  code: Scalars["String"]["input"];
-  environment: Scalars["String"]["input"];
-  projectKey: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  environment: Scalars['String']['input'];
+  projectKey: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationLaunchDarklyPersonalConnectArgs = {
-  code: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationOpsgenieConnectArgs = {
-  apiKey: Scalars["String"]["input"];
+  apiKey: Scalars['String']['input'];
 };
 
+
 export type MutationIntegrationPagerDutyConnectArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationRequestArgs = {
   input: IntegrationRequestInput;
 };
 
+
 export type MutationIntegrationSalesforceArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
-  subdomain: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
+  subdomain: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSalesforceMetadataRefreshArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSentryConnectArgs = {
-  code: Scalars["String"]["input"];
-  installationId: Scalars["String"]["input"];
-  organizationSlug: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  installationId: Scalars['String']['input'];
+  organizationSlug: Scalars['String']['input'];
 };
 
+
 export type MutationIntegrationSettingsUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: IntegrationSettingsInput;
 };
 
+
 export type MutationIntegrationSlackArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
-  shouldUseV2Auth?: InputMaybe<Scalars["Boolean"]["input"]>;
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
+  shouldUseV2Auth?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type MutationIntegrationSlackAsksArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSlackCustomerChannelLinkArgs = {
-  code: Scalars["String"]["input"];
-  customerId: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  customerId: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSlackCustomViewNotificationsArgs = {
-  code: Scalars["String"]["input"];
-  customViewId: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  customViewId: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSlackImportEmojisArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSlackInitiativePostArgs = {
-  code: Scalars["String"]["input"];
-  initiativeId: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  initiativeId: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSlackOrAsksUpdateSlackTeamNameArgs = {
-  integrationId: Scalars["String"]["input"];
+  integrationId: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSlackOrgInitiativeUpdatesPostArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSlackOrgProjectUpdatesPostArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSlackPersonalArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationSlackPostArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
-  shouldUseV2Auth?: InputMaybe<Scalars["Boolean"]["input"]>;
-  teamId: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
+  shouldUseV2Auth?: InputMaybe<Scalars['Boolean']['input']>;
+  teamId: Scalars['String']['input'];
 };
 
+
 export type MutationIntegrationSlackProjectPostArgs = {
-  code: Scalars["String"]["input"];
-  projectId: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
-  service: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  projectId: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
+  service: Scalars['String']['input'];
 };
+
 
 export type MutationIntegrationsSettingsCreateArgs = {
   input: IntegrationsSettingsCreateInput;
 };
 
+
 export type MutationIntegrationsSettingsUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: IntegrationsSettingsUpdateInput;
 };
+
 
 export type MutationIntegrationTemplateCreateArgs = {
   input: IntegrationTemplateCreateInput;
 };
 
+
 export type MutationIntegrationTemplateDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationIntegrationUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: IntegrationUpdateInput;
 };
 
+
 export type MutationIntegrationZendeskArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
-  scope: Scalars["String"]["input"];
-  subdomain: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
+  scope: Scalars['String']['input'];
+  subdomain: Scalars['String']['input'];
 };
+
 
 export type MutationIssueAddLabelArgs = {
-  id: Scalars["String"]["input"];
-  labelId: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
+  labelId: Scalars['String']['input'];
 };
 
+
 export type MutationIssueArchiveArgs = {
-  id: Scalars["String"]["input"];
-  trash?: InputMaybe<Scalars["Boolean"]["input"]>;
+  id: Scalars['String']['input'];
+  trash?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type MutationIssueBatchCreateArgs = {
   input: IssueBatchCreateInput;
 };
 
+
 export type MutationIssueBatchUpdateArgs = {
-  ids: Array<Scalars["UUID"]["input"]>;
+  ids: Array<Scalars['UUID']['input']>;
   input: IssueUpdateInput;
 };
+
 
 export type MutationIssueCreateArgs = {
   input: IssueCreateInput;
 };
 
+
 export type MutationIssueDeleteArgs = {
-  id: Scalars["String"]["input"];
-  permanentlyDelete?: InputMaybe<Scalars["Boolean"]["input"]>;
+  id: Scalars['String']['input'];
+  permanentlyDelete?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type MutationIssueDescriptionUpdateFromFrontArgs = {
-  description: Scalars["String"]["input"];
-  id: Scalars["String"]["input"];
+  description: Scalars['String']['input'];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationIssueImportCreateAsanaArgs = {
-  asanaTeamName: Scalars["String"]["input"];
-  asanaToken: Scalars["String"]["input"];
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  includeClosedIssues?: InputMaybe<Scalars["Boolean"]["input"]>;
-  instantProcess?: InputMaybe<Scalars["Boolean"]["input"]>;
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
-  teamName?: InputMaybe<Scalars["String"]["input"]>;
+  asanaTeamName: Scalars['String']['input'];
+  asanaToken: Scalars['String']['input'];
+  id?: InputMaybe<Scalars['String']['input']>;
+  includeClosedIssues?: InputMaybe<Scalars['Boolean']['input']>;
+  instantProcess?: InputMaybe<Scalars['Boolean']['input']>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
+  teamName?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationIssueImportCreateClubhouseArgs = {
-  clubhouseGroupName: Scalars["String"]["input"];
-  clubhouseToken: Scalars["String"]["input"];
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  includeClosedIssues?: InputMaybe<Scalars["Boolean"]["input"]>;
-  instantProcess?: InputMaybe<Scalars["Boolean"]["input"]>;
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
-  teamName?: InputMaybe<Scalars["String"]["input"]>;
+  clubhouseGroupName: Scalars['String']['input'];
+  clubhouseToken: Scalars['String']['input'];
+  id?: InputMaybe<Scalars['String']['input']>;
+  includeClosedIssues?: InputMaybe<Scalars['Boolean']['input']>;
+  instantProcess?: InputMaybe<Scalars['Boolean']['input']>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
+  teamName?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationIssueImportCreateCsvJiraArgs = {
-  csvUrl: Scalars["String"]["input"];
-  jiraEmail?: InputMaybe<Scalars["String"]["input"]>;
-  jiraHostname?: InputMaybe<Scalars["String"]["input"]>;
-  jiraToken?: InputMaybe<Scalars["String"]["input"]>;
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
-  teamName?: InputMaybe<Scalars["String"]["input"]>;
+  csvUrl: Scalars['String']['input'];
+  jiraEmail?: InputMaybe<Scalars['String']['input']>;
+  jiraHostname?: InputMaybe<Scalars['String']['input']>;
+  jiraToken?: InputMaybe<Scalars['String']['input']>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
+  teamName?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationIssueImportCreateGithubArgs = {
-  githubLabels?: InputMaybe<Array<Scalars["String"]["input"]>>;
-  githubRepoIds?: InputMaybe<Array<Scalars["Int"]["input"]>>;
-  includeClosedIssues?: InputMaybe<Scalars["Boolean"]["input"]>;
-  instantProcess?: InputMaybe<Scalars["Boolean"]["input"]>;
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
-  teamName?: InputMaybe<Scalars["String"]["input"]>;
+  githubLabels?: InputMaybe<Array<Scalars['String']['input']>>;
+  githubRepoIds?: InputMaybe<Array<Scalars['Int']['input']>>;
+  includeClosedIssues?: InputMaybe<Scalars['Boolean']['input']>;
+  instantProcess?: InputMaybe<Scalars['Boolean']['input']>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
+  teamName?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationIssueImportCreateJiraArgs = {
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  includeClosedIssues?: InputMaybe<Scalars["Boolean"]["input"]>;
-  instantProcess?: InputMaybe<Scalars["Boolean"]["input"]>;
-  jiraEmail: Scalars["String"]["input"];
-  jiraHostname: Scalars["String"]["input"];
-  jiraProject: Scalars["String"]["input"];
-  jiraToken: Scalars["String"]["input"];
-  jql?: InputMaybe<Scalars["String"]["input"]>;
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
-  teamName?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  includeClosedIssues?: InputMaybe<Scalars['Boolean']['input']>;
+  instantProcess?: InputMaybe<Scalars['Boolean']['input']>;
+  jiraEmail: Scalars['String']['input'];
+  jiraHostname: Scalars['String']['input'];
+  jiraProject: Scalars['String']['input'];
+  jiraToken: Scalars['String']['input'];
+  jql?: InputMaybe<Scalars['String']['input']>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
+  teamName?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationIssueImportCreateLinearV2Args = {
-  id?: InputMaybe<Scalars["String"]["input"]>;
-  linearSourceOrganizationId: Scalars["String"]["input"];
+  id?: InputMaybe<Scalars['String']['input']>;
+  linearSourceOrganizationId: Scalars['String']['input'];
 };
+
 
 export type MutationIssueImportDeleteArgs = {
-  issueImportId: Scalars["String"]["input"];
+  issueImportId: Scalars['String']['input'];
 };
+
 
 export type MutationIssueImportProcessArgs = {
-  issueImportId: Scalars["String"]["input"];
-  mapping: Scalars["JSONObject"]["input"];
+  issueImportId: Scalars['String']['input'];
+  mapping: Scalars['JSONObject']['input'];
 };
 
+
 export type MutationIssueImportUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: IssueImportUpdateInput;
 };
 
+
 export type MutationIssueLabelCreateArgs = {
   input: IssueLabelCreateInput;
-  replaceTeamLabels?: InputMaybe<Scalars["Boolean"]["input"]>;
+  replaceTeamLabels?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+
 export type MutationIssueLabelDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationIssueLabelMoveToTeamLabelsArgs = {
   input: IssueLabelMoveToTeamLabelsInput;
 };
 
+
 export type MutationIssueLabelsMergeArgs = {
   input: LabelsMergeInput;
 };
 
+
 export type MutationIssueLabelUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: IssueLabelUpdateInput;
-  replaceTeamLabels?: InputMaybe<Scalars["Boolean"]["input"]>;
+  replaceTeamLabels?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type MutationIssueRelationCreateArgs = {
   input: IssueRelationCreateInput;
-  overrideCreatedAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  overrideCreatedAt?: InputMaybe<Scalars['DateTime']['input']>;
 };
+
 
 export type MutationIssueRelationDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationIssueRelationUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: IssueRelationUpdateInput;
 };
 
+
 export type MutationIssueReminderArgs = {
-  id: Scalars["String"]["input"];
-  reminderAt: Scalars["DateTime"]["input"];
+  id: Scalars['String']['input'];
+  reminderAt: Scalars['DateTime']['input'];
 };
+
 
 export type MutationIssueRemoveLabelArgs = {
-  id: Scalars["String"]["input"];
-  labelId: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
+  labelId: Scalars['String']['input'];
 };
+
 
 export type MutationIssueSubscribeArgs = {
-  id: Scalars["String"]["input"];
-  userId?: InputMaybe<Scalars["String"]["input"]>;
+  id: Scalars['String']['input'];
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationIssueUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationIssueUnsubscribeArgs = {
-  id: Scalars["String"]["input"];
-  userId?: InputMaybe<Scalars["String"]["input"]>;
+  id: Scalars['String']['input'];
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
 
+
 export type MutationIssueUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: IssueUpdateInput;
 };
+
 
 export type MutationJiraIntegrationConnectArgs = {
   input: JiraConfigurationInput;
 };
 
+
 export type MutationJoinOrganizationFromOnboardingArgs = {
   input: JoinOrganizationInput;
 };
 
+
 export type MutationLeaveOrganizationArgs = {
-  organizationId: Scalars["String"]["input"];
+  organizationId: Scalars['String']['input'];
 };
+
 
 export type MutationLogoutArgs = {
-  reason?: InputMaybe<Scalars["String"]["input"]>;
+  reason?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationLogoutAllSessionsArgs = {
-  reason?: InputMaybe<Scalars["String"]["input"]>;
+  reason?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationLogoutOtherSessionsArgs = {
-  reason?: InputMaybe<Scalars["String"]["input"]>;
+  reason?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationLogoutSessionArgs = {
-  sessionId: Scalars["String"]["input"];
+  sessionId: Scalars['String']['input'];
 };
 
+
 export type MutationNotificationArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationNotificationArchiveAllArgs = {
   input: NotificationEntityInput;
 };
 
+
 export type MutationNotificationCategoryChannelSubscriptionUpdateArgs = {
   category: NotificationCategory;
   channel: NotificationChannel;
-  subscribe: Scalars["Boolean"]["input"];
+  subscribe: Scalars['Boolean']['input'];
 };
+
 
 export type MutationNotificationMarkReadAllArgs = {
   input: NotificationEntityInput;
-  readAt: Scalars["DateTime"]["input"];
+  readAt: Scalars['DateTime']['input'];
 };
+
 
 export type MutationNotificationMarkUnreadAllArgs = {
   input: NotificationEntityInput;
 };
 
+
 export type MutationNotificationSnoozeAllArgs = {
   input: NotificationEntityInput;
-  snoozedUntilAt: Scalars["DateTime"]["input"];
+  snoozedUntilAt: Scalars['DateTime']['input'];
 };
+
 
 export type MutationNotificationSubscriptionCreateArgs = {
   input: NotificationSubscriptionCreateInput;
 };
 
+
 export type MutationNotificationSubscriptionDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationNotificationSubscriptionUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: NotificationSubscriptionUpdateInput;
 };
 
+
 export type MutationNotificationUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationNotificationUnsnoozeAllArgs = {
   input: NotificationEntityInput;
-  unsnoozedAt: Scalars["DateTime"]["input"];
+  unsnoozedAt: Scalars['DateTime']['input'];
 };
 
+
 export type MutationNotificationUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: NotificationUpdateInput;
 };
+
 
 export type MutationOrganizationDeleteArgs = {
   input: DeleteOrganizationInput;
 };
 
+
 export type MutationOrganizationDomainClaimArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationOrganizationDomainCreateArgs = {
   input: OrganizationDomainCreateInput;
-  triggerEmailVerification?: InputMaybe<Scalars["Boolean"]["input"]>;
+  triggerEmailVerification?: InputMaybe<Scalars['Boolean']['input']>;
 };
+
 
 export type MutationOrganizationDomainDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationOrganizationDomainUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: OrganizationDomainUpdateInput;
 };
+
 
 export type MutationOrganizationDomainVerifyArgs = {
   input: OrganizationDomainVerificationInput;
 };
 
+
 export type MutationOrganizationInviteCreateArgs = {
   input: OrganizationInviteCreateInput;
 };
 
+
 export type MutationOrganizationInviteDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationOrganizationInviteUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: OrganizationInviteUpdateInput;
 };
+
 
 export type MutationOrganizationStartTrialForPlanArgs = {
   input: OrganizationStartTrialInput;
 };
 
+
 export type MutationOrganizationUpdateArgs = {
   input: OrganizationUpdateInput;
 };
 
+
 export type MutationPasskeyLoginFinishArgs = {
-  authId: Scalars["String"]["input"];
-  response: Scalars["JSONObject"]["input"];
+  authId: Scalars['String']['input'];
+  response: Scalars['JSONObject']['input'];
 };
+
 
 export type MutationPasskeyLoginStartArgs = {
-  authId: Scalars["String"]["input"];
+  authId: Scalars['String']['input'];
 };
+
 
 export type MutationProjectAddLabelArgs = {
-  id: Scalars["String"]["input"];
-  labelId: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
+  labelId: Scalars['String']['input'];
 };
+
 
 export type MutationProjectArchiveArgs = {
-  id: Scalars["String"]["input"];
-  trash?: InputMaybe<Scalars["Boolean"]["input"]>;
+  id: Scalars['String']['input'];
+  trash?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
+
 export type MutationProjectCreateArgs = {
-  connectSlackChannel?: InputMaybe<Scalars["Boolean"]["input"]>;
+  connectSlackChannel?: InputMaybe<Scalars['Boolean']['input']>;
   input: ProjectCreateInput;
 };
 
+
 export type MutationProjectDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationProjectLabelCreateArgs = {
   input: ProjectLabelCreateInput;
 };
 
+
 export type MutationProjectLabelDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationProjectLabelsMergeArgs = {
   input: LabelsMergeInput;
 };
 
+
 export type MutationProjectLabelUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: ProjectLabelUpdateInput;
 };
+
 
 export type MutationProjectMilestoneCreateArgs = {
   input: ProjectMilestoneCreateInput;
 };
 
+
 export type MutationProjectMilestoneDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationProjectMilestoneMoveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: ProjectMilestoneMoveInput;
 };
 
+
 export type MutationProjectMilestoneUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: ProjectMilestoneUpdateInput;
 };
 
+
 export type MutationProjectReassignStatusArgs = {
-  newProjectStatusId: Scalars["String"]["input"];
-  originalProjectStatusId: Scalars["String"]["input"];
+  newProjectStatusId: Scalars['String']['input'];
+  originalProjectStatusId: Scalars['String']['input'];
 };
+
 
 export type MutationProjectRelationCreateArgs = {
   input: ProjectRelationCreateInput;
 };
 
+
 export type MutationProjectRelationDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationProjectRelationUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: ProjectRelationUpdateInput;
 };
 
+
 export type MutationProjectRemoveLabelArgs = {
-  id: Scalars["String"]["input"];
-  labelId: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
+  labelId: Scalars['String']['input'];
 };
 
+
 export type MutationProjectStatusArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationProjectStatusCreateArgs = {
   input: ProjectStatusCreateInput;
 };
 
+
 export type MutationProjectStatusUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationProjectStatusUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: ProjectStatusUpdateInput;
 };
 
+
 export type MutationProjectUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationProjectUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: ProjectUpdateInput;
 };
 
+
 export type MutationProjectUpdateArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationProjectUpdateCreateArgs = {
   input: ProjectUpdateCreateInput;
 };
 
+
 export type MutationProjectUpdateDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationProjectUpdateUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationProjectUpdateUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: ProjectUpdateUpdateInput;
 };
+
 
 export type MutationPushSubscriptionCreateArgs = {
   input: PushSubscriptionCreateInput;
 };
 
+
 export type MutationPushSubscriptionDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationReactionCreateArgs = {
   input: ReactionCreateInput;
 };
 
+
 export type MutationReactionDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationRefreshGoogleSheetsDataArgs = {
-  id: Scalars["String"]["input"];
-  type?: InputMaybe<Scalars["String"]["input"]>;
+  id: Scalars['String']['input'];
+  type?: InputMaybe<Scalars['String']['input']>;
 };
+
 
 export type MutationResendOrganizationInviteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationResendOrganizationInviteByEmailArgs = {
-  email: Scalars["String"]["input"];
+  email: Scalars['String']['input'];
 };
 
+
 export type MutationRoadmapArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationRoadmapCreateArgs = {
   input: RoadmapCreateInput;
 };
 
+
 export type MutationRoadmapDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationRoadmapToProjectCreateArgs = {
   input: RoadmapToProjectCreateInput;
 };
 
+
 export type MutationRoadmapToProjectDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationRoadmapToProjectUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: RoadmapToProjectUpdateInput;
 };
 
+
 export type MutationRoadmapUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationRoadmapUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: RoadmapUpdateInput;
 };
+
 
 export type MutationSamlTokenUserAccountAuthArgs = {
   input: TokenUserAccountAuthInput;
 };
 
+
 export type MutationTeamCreateArgs = {
-  copySettingsFromTeamId?: InputMaybe<Scalars["String"]["input"]>;
+  copySettingsFromTeamId?: InputMaybe<Scalars['String']['input']>;
   input: TeamCreateInput;
 };
 
+
 export type MutationTeamCyclesDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationTeamDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationTeamKeyDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationTeamMembershipCreateArgs = {
   input: TeamMembershipCreateInput;
 };
 
+
 export type MutationTeamMembershipDeleteArgs = {
-  alsoLeaveParentTeams?: InputMaybe<Scalars["Boolean"]["input"]>;
-  id: Scalars["String"]["input"];
+  alsoLeaveParentTeams?: InputMaybe<Scalars['Boolean']['input']>;
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationTeamMembershipUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: TeamMembershipUpdateInput;
 };
 
+
 export type MutationTeamUnarchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationTeamUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: TeamUpdateInput;
   mapping?: InputMaybe<InheritanceEntityMapping>;
 };
+
 
 export type MutationTemplateCreateArgs = {
   input: TemplateCreateInput;
 };
 
+
 export type MutationTemplateDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationTemplateUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: TemplateUpdateInput;
 };
+
 
 export type MutationTimeScheduleCreateArgs = {
   input: TimeScheduleCreateInput;
 };
 
+
 export type MutationTimeScheduleDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationTimeScheduleRefreshIntegrationScheduleArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationTimeScheduleUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: TimeScheduleUpdateInput;
 };
 
+
 export type MutationTimeScheduleUpsertExternalArgs = {
-  externalId: Scalars["String"]["input"];
+  externalId: Scalars['String']['input'];
   input: TimeScheduleUpdateInput;
 };
+
 
 export type MutationTriageResponsibilityCreateArgs = {
   input: TriageResponsibilityCreateInput;
 };
 
+
 export type MutationTriageResponsibilityDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationTriageResponsibilityUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: TriageResponsibilityUpdateInput;
 };
 
+
 export type MutationUpdateIntegrationSlackScopesArgs = {
-  code: Scalars["String"]["input"];
-  integrationId: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  integrationId: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
+
 
 export type MutationUpdateIssueSummaryArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationUserDemoteAdminArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationUserDemoteMemberArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationUserDiscordConnectArgs = {
-  code: Scalars["String"]["input"];
-  redirectUri: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
+  redirectUri: Scalars['String']['input'];
 };
 
+
 export type MutationUserExternalUserDisconnectArgs = {
-  service: Scalars["String"]["input"];
+  service: Scalars['String']['input'];
 };
+
 
 export type MutationUserFlagUpdateArgs = {
   flag: UserFlagType;
   operation: UserFlagUpdateOperation;
 };
 
+
 export type MutationUserPromoteAdminArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationUserPromoteMemberArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationUserSettingsFlagsResetArgs = {
   flags?: InputMaybe<Array<UserFlagType>>;
 };
 
+
 export type MutationUserSettingsUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: UserSettingsUpdateInput;
 };
 
+
 export type MutationUserSuspendArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationUserUnsuspendArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationUserUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: UserUpdateInput;
 };
+
 
 export type MutationViewPreferencesCreateArgs = {
   input: ViewPreferencesCreateInput;
 };
 
+
 export type MutationViewPreferencesDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationViewPreferencesUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: ViewPreferencesUpdateInput;
 };
+
 
 export type MutationWebhookCreateArgs = {
   input: WebhookCreateInput;
 };
 
+
 export type MutationWebhookDeleteArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
+
 export type MutationWebhookUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: WebhookUpdateInput;
 };
 
+
 export type MutationWorkflowStateArchiveArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
+
 
 export type MutationWorkflowStateCreateArgs = {
   input: WorkflowStateCreateInput;
 };
 
+
 export type MutationWorkflowStateUpdateArgs = {
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   input: WorkflowStateUpdateInput;
 };
 
 export type AgentActivityCreateInput = {
   /** The agent session this activity belongs to. */
-  agentSessionId: Scalars["String"]["input"];
+  agentSessionId: Scalars['String']['input'];
   /**
    * The content payload of the agent activity. This object is not strictly typed.
    * See https://linear.app/developers/agents for typing details.
    */
-  content: Scalars["JSONObject"]["input"];
+  content: Scalars['JSONObject']['input'];
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type AgentActivityPayload = {
-  __typename?: "AgentActivityPayload";
+  __typename?: 'AgentActivityPayload';
   /** The agent activity that was created or updated. */
   agentActivity: AgentActivity;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type AgentActivityCreatePromptInput = {
   /** The agent session this activity belongs to. */
-  agentSessionId: Scalars["String"]["input"];
+  agentSessionId: Scalars['String']['input'];
   /** The content payload of the prompt agent activity. */
-  content: Scalars["JSONObject"]["input"];
+  content: Scalars['JSONObject']['input'];
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The comment that contains the content of this activity. */
-  sourceCommentId: Scalars["String"]["input"];
+  sourceCommentId: Scalars['String']['input'];
 };
 
 export type AgentSessionUpdateExternalUrlInput = {
   /** The URL of an external agent-hosted page associated with this session. */
-  externalLink?: InputMaybe<Scalars["String"]["input"]>;
+  externalLink?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type AgentSessionPayload = {
-  __typename?: "AgentSessionPayload";
+  __typename?: 'AgentSessionPayload';
   /** The agent session that was created or updated. */
   agentSession: AgentSession;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type AirbyteConfigurationInput = {
   /** Linear export API key. */
-  apiKey: Scalars["String"]["input"];
+  apiKey: Scalars['String']['input'];
 };
 
 export type IntegrationPayload = {
-  __typename?: "IntegrationPayload";
+  __typename?: 'IntegrationPayload';
   /** The integration that was created or updated. */
   integration?: Maybe<Integration>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ApiKeyCreateInput = {
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The API key value. */
-  key: Scalars["String"]["input"];
+  key: Scalars['String']['input'];
   /** The label for the API key. */
-  label: Scalars["String"]["input"];
+  label: Scalars['String']['input'];
   /** Scopes the API key has access to. Default is all scopes. */
-  scope?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  scope?: InputMaybe<Array<Scalars['String']['input']>>;
   /** List of team IDs to restrict this API key to. Default is all teams the user has access to. */
-  teamIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  teamIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export type ApiKeyPayload = {
-  __typename?: "ApiKeyPayload";
+  __typename?: 'ApiKeyPayload';
   /** The API key that was created. */
   apiKey: ApiKey;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** A generic payload return from entity deletion mutations. */
 export type DeletePayload = ArchivePayload & {
-  __typename?: "DeletePayload";
+  __typename?: 'DeletePayload';
   /** The identifier of the deleted entity. */
-  entityId: Scalars["String"]["output"];
+  entityId: Scalars['String']['output'];
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** A generic payload return from entity archive or deletion mutations. */
 export type ArchivePayload = {
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ApiKeyUpdateInput = {
   /** The new label for the API key. */
-  label?: InputMaybe<Scalars["String"]["input"]>;
+  label?: InputMaybe<Scalars['String']['input']>;
   /** Scopes the API key has access to. Default is all scopes. */
-  scope?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  scope?: InputMaybe<Array<Scalars['String']['input']>>;
   /** List of team IDs to restrict this API key to. Default is all teams the user has access to. */
-  teamIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  teamIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export type AttachmentCreateInput = {
   /** Create a linked comment with markdown body. */
-  commentBody?: InputMaybe<Scalars["String"]["input"]>;
+  commentBody?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] Create a linked comment with Prosemirror body. Please use `commentBody` instead. */
-  commentBodyData?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  commentBodyData?: InputMaybe<Scalars['JSONObject']['input']>;
   /** Create attachment as a user with the provided name. This option is only available to OAuth applications creating attachments in `actor=application` mode. */
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
   /** Indicates if attachments for the same source application should be grouped in the Linear UI. */
-  groupBySource?: InputMaybe<Scalars["Boolean"]["input"]>;
+  groupBySource?: InputMaybe<Scalars['Boolean']['input']>;
   /** An icon url to display with the attachment. Should be of jpg or png format. Maximum of 1MB in size. Dimensions should be 20x20px for optimal display quality. */
-  iconUrl?: InputMaybe<Scalars["String"]["input"]>;
+  iconUrl?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The issue to associate the attachment with. */
-  issueId: Scalars["String"]["input"];
+  issueId: Scalars['String']['input'];
   /** Attachment metadata object with string and number values. */
-  metadata?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  metadata?: InputMaybe<Scalars['JSONObject']['input']>;
   /** The attachment subtitle. */
-  subtitle?: InputMaybe<Scalars["String"]["input"]>;
+  subtitle?: InputMaybe<Scalars['String']['input']>;
   /** The attachment title. */
-  title: Scalars["String"]["input"];
+  title: Scalars['String']['input'];
   /** Attachment location which is also used as an unique identifier for the attachment. If another attachment is created with the same `url` value, existing record is updated instead. */
-  url: Scalars["String"]["input"];
+  url: Scalars['String']['input'];
 };
 
 export type AttachmentPayload = {
-  __typename?: "AttachmentPayload";
+  __typename?: 'AttachmentPayload';
   /** The issue attachment that was created. */
   attachment: Attachment;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type FrontAttachmentPayload = {
-  __typename?: "FrontAttachmentPayload";
+  __typename?: 'FrontAttachmentPayload';
   /** The issue attachment that was created. */
   attachment: Attachment;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** [Internal] The kind of link between an issue and a pull request. */
-export enum GitLinkKind {
-  Closes = "closes",
-  Contributes = "contributes",
-  Links = "links",
-}
+export type GitLinkKind =
+  | 'closes'
+  | 'contributes'
+  | 'links';
 
 export type AttachmentUpdateInput = {
   /** An icon url to display with the attachment. Should be of jpg or png format. Maximum of 1MB in size. Dimensions should be 20x20px for optimal display quality. */
-  iconUrl?: InputMaybe<Scalars["String"]["input"]>;
+  iconUrl?: InputMaybe<Scalars['String']['input']>;
   /** Attachment metadata object with string and number values. */
-  metadata?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  metadata?: InputMaybe<Scalars['JSONObject']['input']>;
   /** The attachment subtitle. */
-  subtitle?: InputMaybe<Scalars["String"]["input"]>;
+  subtitle?: InputMaybe<Scalars['String']['input']>;
   /** The attachment title. */
-  title: Scalars["String"]["input"];
+  title: Scalars['String']['input'];
 };
 
 export type CommentCreateInput = {
   /** The comment content in markdown format. */
-  body?: InputMaybe<Scalars["String"]["input"]>;
+  body?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The comment content as a Prosemirror document. */
-  bodyData?: InputMaybe<Scalars["JSON"]["input"]>;
+  bodyData?: InputMaybe<Scalars['JSON']['input']>;
   /** Create comment as a user with the provided name. This option is only available to OAuth applications creating comments in `actor=app` mode. */
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
   /** The date when the comment was created (e.g. if importing from another system). Must be a date in the past. If none is provided, the backend will generate the time as now. */
-  createdAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  createdAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** Flag to indicate this comment should be created on the issue's synced Slack comment thread. If no synced Slack comment thread exists, the mutation will fail. */
-  createOnSyncedSlackThread?: InputMaybe<Scalars["Boolean"]["input"]>;
+  createOnSyncedSlackThread?: InputMaybe<Scalars['Boolean']['input']>;
   /** Provide an external user avatar URL. Can only be used in conjunction with the `createAsUser` options. This option is only available to OAuth applications creating comments in `actor=app` mode. */
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
   /** The document content to associate the comment with. */
-  documentContentId?: InputMaybe<Scalars["String"]["input"]>;
+  documentContentId?: InputMaybe<Scalars['String']['input']>;
   /** Flag to prevent auto subscription to the issue the comment is created on. */
-  doNotSubscribeToIssue?: InputMaybe<Scalars["Boolean"]["input"]>;
+  doNotSubscribeToIssue?: InputMaybe<Scalars['Boolean']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The initiative update to associate the comment with. */
-  initiativeUpdateId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeUpdateId?: InputMaybe<Scalars['String']['input']>;
   /** The issue to associate the comment with. */
-  issueId?: InputMaybe<Scalars["String"]["input"]>;
+  issueId?: InputMaybe<Scalars['String']['input']>;
   /** The parent comment under which to nest a current comment. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
   /** The post to associate the comment with. */
-  postId?: InputMaybe<Scalars["String"]["input"]>;
+  postId?: InputMaybe<Scalars['String']['input']>;
   /** The project update to associate the comment with. */
-  projectUpdateId?: InputMaybe<Scalars["String"]["input"]>;
+  projectUpdateId?: InputMaybe<Scalars['String']['input']>;
   /** The text that this comment references. Only defined for inline comments. */
-  quotedText?: InputMaybe<Scalars["String"]["input"]>;
+  quotedText?: InputMaybe<Scalars['String']['input']>;
   /** [INTERNAL] The identifiers of the users subscribing to this comment thread. */
-  subscriberIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  subscriberIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export type CommentPayload = {
-  __typename?: "CommentPayload";
+  __typename?: 'CommentPayload';
   /** The comment that was created or updated. */
   comment: Comment;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CommentUpdateInput = {
   /** The comment content. */
-  body?: InputMaybe<Scalars["String"]["input"]>;
+  body?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The comment content as a Prosemirror document. */
-  bodyData?: InputMaybe<Scalars["JSON"]["input"]>;
+  bodyData?: InputMaybe<Scalars['JSON']['input']>;
   /** [INTERNAL] Flag to prevent auto subscription to the issue the comment is updated on. */
-  doNotSubscribeToIssue?: InputMaybe<Scalars["Boolean"]["input"]>;
+  doNotSubscribeToIssue?: InputMaybe<Scalars['Boolean']['input']>;
   /** The text that this comment references. Only defined for inline comments. */
-  quotedText?: InputMaybe<Scalars["String"]["input"]>;
+  quotedText?: InputMaybe<Scalars['String']['input']>;
   /** [INTERNAL] The child comment that resolves this thread. */
-  resolvingCommentId?: InputMaybe<Scalars["String"]["input"]>;
+  resolvingCommentId?: InputMaybe<Scalars['String']['input']>;
   /** [INTERNAL] The user who resolved this thread. */
-  resolvingUserId?: InputMaybe<Scalars["String"]["input"]>;
+  resolvingUserId?: InputMaybe<Scalars['String']['input']>;
   /** [INTERNAL] The identifiers of the users subscribing to this comment. */
-  subscriberIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  subscriberIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export type ContactCreateInput = {
   /** User's browser information. */
-  browser?: InputMaybe<Scalars["String"]["input"]>;
+  browser?: InputMaybe<Scalars['String']['input']>;
   /** User's Linear client information. */
-  clientVersion?: InputMaybe<Scalars["String"]["input"]>;
+  clientVersion?: InputMaybe<Scalars['String']['input']>;
   /** User's device information. */
-  device?: InputMaybe<Scalars["String"]["input"]>;
+  device?: InputMaybe<Scalars['String']['input']>;
   /** How disappointed the user would be if they could no longer use Linear. */
-  disappointmentRating?: InputMaybe<Scalars["Int"]["input"]>;
+  disappointmentRating?: InputMaybe<Scalars['Int']['input']>;
   /** The message the user sent. */
-  message: Scalars["String"]["input"];
+  message: Scalars['String']['input'];
   /** User's operating system. */
-  operatingSystem?: InputMaybe<Scalars["String"]["input"]>;
+  operatingSystem?: InputMaybe<Scalars['String']['input']>;
   /** The type of support contact. */
-  type: Scalars["String"]["input"];
+  type: Scalars['String']['input'];
 };
 
 export type ContactPayload = {
-  __typename?: "ContactPayload";
+  __typename?: 'ContactPayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** [INTERNAL] Input for sending a message to the Linear Sales team. */
 export type ContactSalesCreateInput = {
   /** Size of the company. */
-  companySize?: InputMaybe<Scalars["String"]["input"]>;
+  companySize?: InputMaybe<Scalars['String']['input']>;
   /** Work email of the person requesting information. */
-  email: Scalars["String"]["input"];
+  email: Scalars['String']['input'];
   /** The message the user sent. */
-  message?: InputMaybe<Scalars["String"]["input"]>;
+  message?: InputMaybe<Scalars['String']['input']>;
   /** Name of the person requesting information. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
 };
 
 export type CreateCsvExportReportPayload = {
-  __typename?: "CreateCsvExportReportPayload";
+  __typename?: 'CreateCsvExportReportPayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type InitiativeUpdateReminderPayload = {
-  __typename?: "InitiativeUpdateReminderPayload";
+  __typename?: 'InitiativeUpdateReminderPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CreateOrganizationInput = {
   /** Whether the organization should allow email domain access. */
-  domainAccess?: InputMaybe<Scalars["Boolean"]["input"]>;
+  domainAccess?: InputMaybe<Scalars['Boolean']['input']>;
   /** The name of the organization. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The timezone of the organization, passed in by client. */
-  timezone?: InputMaybe<Scalars["String"]["input"]>;
+  timezone?: InputMaybe<Scalars['String']['input']>;
   /** The URL key of the organization. */
-  urlKey: Scalars["String"]["input"];
+  urlKey: Scalars['String']['input'];
   /** JSON serialized UTM parameters associated with the creation of the workspace. */
-  utm?: InputMaybe<Scalars["String"]["input"]>;
+  utm?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type OnboardingCustomerSurvey = {
-  companyRole?: InputMaybe<Scalars["String"]["input"]>;
-  companySize?: InputMaybe<Scalars["String"]["input"]>;
+  companyRole?: InputMaybe<Scalars['String']['input']>;
+  companySize?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CreateOrJoinOrganizationResponse = {
-  __typename?: "CreateOrJoinOrganizationResponse";
+  __typename?: 'CreateOrJoinOrganizationResponse';
   organization: AuthOrganization;
   user: AuthUser;
 };
 
 export type ProjectUpdateReminderPayload = {
-  __typename?: "ProjectUpdateReminderPayload";
+  __typename?: 'ProjectUpdateReminderPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CustomerCreateInput = {
   /** The domains associated with this customer. */
-  domains?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  domains?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The ids of the customers in external systems. */
-  externalIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  externalIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The URL of the customer's logo. */
-  logoUrl?: InputMaybe<Scalars["String"]["input"]>;
+  logoUrl?: InputMaybe<Scalars['String']['input']>;
   /** The main source of the customer, for customers with multiple sources. Must be one of externalIds. */
-  mainSourceId?: InputMaybe<Scalars["String"]["input"]>;
+  mainSourceId?: InputMaybe<Scalars['String']['input']>;
   /** The name of the customer. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The user who owns the customer. */
-  ownerId?: InputMaybe<Scalars["String"]["input"]>;
+  ownerId?: InputMaybe<Scalars['String']['input']>;
   /** The annual revenue generated by the customer. */
-  revenue?: InputMaybe<Scalars["Int"]["input"]>;
+  revenue?: InputMaybe<Scalars['Int']['input']>;
   /** The size of the customer. */
-  size?: InputMaybe<Scalars["Int"]["input"]>;
+  size?: InputMaybe<Scalars['Int']['input']>;
   /** The ID of the Slack channel used to interact with the customer. */
-  slackChannelId?: InputMaybe<Scalars["String"]["input"]>;
+  slackChannelId?: InputMaybe<Scalars['String']['input']>;
   /** The status of the customer. */
-  statusId?: InputMaybe<Scalars["String"]["input"]>;
+  statusId?: InputMaybe<Scalars['String']['input']>;
   /** The tier of the customer customer. */
-  tierId?: InputMaybe<Scalars["String"]["input"]>;
+  tierId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CustomerPayload = {
-  __typename?: "CustomerPayload";
+  __typename?: 'CustomerPayload';
   /** The customer that was created or updated. */
   customer: Customer;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** A generic payload return from entity archive mutations. */
 export type CustomerNeedArchivePayload = ArchivePayload & {
-  __typename?: "CustomerNeedArchivePayload";
+  __typename?: 'CustomerNeedArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<CustomerNeed>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CustomerNeedCreateInput = {
   /** The attachment this need is referencing. */
-  attachmentId?: InputMaybe<Scalars["String"]["input"]>;
+  attachmentId?: InputMaybe<Scalars['String']['input']>;
   /** Optional URL for the attachment associated with the customer need. */
-  attachmentUrl?: InputMaybe<Scalars["String"]["input"]>;
+  attachmentUrl?: InputMaybe<Scalars['String']['input']>;
   /** The content of the need in markdown format. */
-  body?: InputMaybe<Scalars["String"]["input"]>;
+  body?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The content of the need as a Prosemirror document. */
-  bodyData?: InputMaybe<Scalars["JSON"]["input"]>;
+  bodyData?: InputMaybe<Scalars['JSON']['input']>;
   /** The comment this need is referencing. */
-  commentId?: InputMaybe<Scalars["String"]["input"]>;
+  commentId?: InputMaybe<Scalars['String']['input']>;
   /** Create need as a user with the provided name. This option is only available to OAuth applications creating needs in `actor=app` mode. */
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
   /** The external ID of the customer the need belongs to. */
-  customerExternalId?: InputMaybe<Scalars["String"]["input"]>;
+  customerExternalId?: InputMaybe<Scalars['String']['input']>;
   /** The uuid of the customer the need belongs to. */
-  customerId?: InputMaybe<Scalars["String"]["input"]>;
+  customerId?: InputMaybe<Scalars['String']['input']>;
   /** Provide an external user avatar URL. Can only be used in conjunction with the `createAsUser` options. This option is only available to OAuth applications creating needs in `actor=app` mode. */
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The issue this need is referencing. */
-  issueId?: InputMaybe<Scalars["String"]["input"]>;
+  issueId?: InputMaybe<Scalars['String']['input']>;
   /** Whether the customer need is important or not. 0 = Not important, 1 = Important. */
-  priority?: InputMaybe<Scalars["Float"]["input"]>;
+  priority?: InputMaybe<Scalars['Float']['input']>;
   /** [INTERNAL] The project this need is referencing. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CustomerNeedPayload = {
-  __typename?: "CustomerNeedPayload";
+  __typename?: 'CustomerNeedPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The customer need that was created or updated. */
   need: CustomerNeed;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CustomerNeedCreateFromAttachmentInput = {
   /** The attachment this need is created from. */
-  attachmentId: Scalars["String"]["input"];
+  attachmentId: Scalars['String']['input'];
 };
 
 export type CustomerNeedUpdateInput = {
   /** Whether to also update the priority of needs from the same customer on the same issue/project. */
-  applyPriorityToRelatedNeeds?: InputMaybe<Scalars["Boolean"]["input"]>;
+  applyPriorityToRelatedNeeds?: InputMaybe<Scalars['Boolean']['input']>;
   /** Optional URL for the attachment associated with the customer need. */
-  attachmentUrl?: InputMaybe<Scalars["String"]["input"]>;
+  attachmentUrl?: InputMaybe<Scalars['String']['input']>;
   /** The content of the need in markdown format. */
-  body?: InputMaybe<Scalars["String"]["input"]>;
+  body?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The content of the need as a Prosemirror document. */
-  bodyData?: InputMaybe<Scalars["JSON"]["input"]>;
+  bodyData?: InputMaybe<Scalars['JSON']['input']>;
   /** The external ID of the customer the need belongs to. */
-  customerExternalId?: InputMaybe<Scalars["String"]["input"]>;
+  customerExternalId?: InputMaybe<Scalars['String']['input']>;
   /** The uuid of the customer the need belongs to. */
-  customerId?: InputMaybe<Scalars["String"]["input"]>;
+  customerId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The issue this need is referencing. */
-  issueId?: InputMaybe<Scalars["String"]["input"]>;
+  issueId?: InputMaybe<Scalars['String']['input']>;
   /** Whether the customer need is important or not. 0 = Not important, 1 = Important. */
-  priority?: InputMaybe<Scalars["Float"]["input"]>;
+  priority?: InputMaybe<Scalars['Float']['input']>;
   /** [INTERNAL] The project this need is referencing. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CustomerNeedUpdatePayload = {
-  __typename?: "CustomerNeedUpdatePayload";
+  __typename?: 'CustomerNeedUpdatePayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The customer need that was created or updated. */
   need: CustomerNeed;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The related customer needs that were updated. */
   updatedRelatedNeeds: Array<CustomerNeed>;
 };
 
 export type CustomerStatusCreateInput = {
   /** The UI color of the status as a HEX string. */
-  color: Scalars["String"]["input"];
+  color: Scalars['String']['input'];
   /** Description of the status. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The display name of the status. */
-  displayName?: InputMaybe<Scalars["String"]["input"]>;
+  displayName?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The name of the status. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The position of the status in the workspace's customer flow. */
-  position?: InputMaybe<Scalars["Float"]["input"]>;
+  position?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type CustomerStatusPayload = {
-  __typename?: "CustomerStatusPayload";
+  __typename?: 'CustomerStatusPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The customer status that was created or updated. */
   status: CustomerStatus;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CustomerStatusUpdateInput = {
   /** The UI color of the status as a HEX string. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** Description of the status. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The display name of the status. */
-  displayName?: InputMaybe<Scalars["String"]["input"]>;
+  displayName?: InputMaybe<Scalars['String']['input']>;
   /** The name of the status. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The position of the status in the workspace's customer flow. */
-  position?: InputMaybe<Scalars["Float"]["input"]>;
+  position?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type CustomerTierCreateInput = {
   /** The UI color of the tier as a HEX string. */
-  color: Scalars["String"]["input"];
+  color: Scalars['String']['input'];
   /** Description of the tier. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The display name of the tier. */
-  displayName?: InputMaybe<Scalars["String"]["input"]>;
+  displayName?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The name of the tier. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The position of the tier in the workspace's customer flow. */
-  position?: InputMaybe<Scalars["Float"]["input"]>;
+  position?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type CustomerTierPayload = {
-  __typename?: "CustomerTierPayload";
+  __typename?: 'CustomerTierPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The customer tier that was created or updated. */
   tier: CustomerTier;
 };
 
 export type CustomerTierUpdateInput = {
   /** The UI color of the tier as a HEX string. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** Description of the tier. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The display name of the tier. */
-  displayName?: InputMaybe<Scalars["String"]["input"]>;
+  displayName?: InputMaybe<Scalars['String']['input']>;
   /** The name of the tier. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The position of the tier in the workspace's customer flow. */
-  position?: InputMaybe<Scalars["Float"]["input"]>;
+  position?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type CustomerUpdateInput = {
   /** The domains associated with this customer. */
-  domains?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  domains?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The ids of the customers in external systems. */
-  externalIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  externalIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The URL of the customer's logo. */
-  logoUrl?: InputMaybe<Scalars["String"]["input"]>;
+  logoUrl?: InputMaybe<Scalars['String']['input']>;
   /** The main source of the customer, for customers with multiple sources. Must be one of externalIds. */
-  mainSourceId?: InputMaybe<Scalars["String"]["input"]>;
+  mainSourceId?: InputMaybe<Scalars['String']['input']>;
   /** The name of the customer. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The user who owns the customer. */
-  ownerId?: InputMaybe<Scalars["String"]["input"]>;
+  ownerId?: InputMaybe<Scalars['String']['input']>;
   /** The annual revenue generated by the customer. */
-  revenue?: InputMaybe<Scalars["Int"]["input"]>;
+  revenue?: InputMaybe<Scalars['Int']['input']>;
   /** The size of the customer. */
-  size?: InputMaybe<Scalars["Int"]["input"]>;
+  size?: InputMaybe<Scalars['Int']['input']>;
   /** The ID of the Slack channel used to interact with the customer. */
-  slackChannelId?: InputMaybe<Scalars["String"]["input"]>;
+  slackChannelId?: InputMaybe<Scalars['String']['input']>;
   /** The status of the customer. */
-  statusId?: InputMaybe<Scalars["String"]["input"]>;
+  statusId?: InputMaybe<Scalars['String']['input']>;
   /** The tier of the customer customer. */
-  tierId?: InputMaybe<Scalars["String"]["input"]>;
+  tierId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CustomerUpsertInput = {
   /** The domains associated with this customer. */
-  domains?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  domains?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The id of the customers in external systems. */
-  externalId?: InputMaybe<Scalars["String"]["input"]>;
+  externalId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The URL of the customer's logo. */
-  logoUrl?: InputMaybe<Scalars["String"]["input"]>;
+  logoUrl?: InputMaybe<Scalars['String']['input']>;
   /** The name of the customer. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The user who owns the customer. */
-  ownerId?: InputMaybe<Scalars["String"]["input"]>;
+  ownerId?: InputMaybe<Scalars['String']['input']>;
   /** The annual revenue generated by the customer. */
-  revenue?: InputMaybe<Scalars["Int"]["input"]>;
+  revenue?: InputMaybe<Scalars['Int']['input']>;
   /** The size of the customer. */
-  size?: InputMaybe<Scalars["Int"]["input"]>;
+  size?: InputMaybe<Scalars['Int']['input']>;
   /** The ID of the Slack channel used to interact with the customer. */
-  slackChannelId?: InputMaybe<Scalars["String"]["input"]>;
+  slackChannelId?: InputMaybe<Scalars['String']['input']>;
   /** The status of the customer. */
-  statusId?: InputMaybe<Scalars["String"]["input"]>;
+  statusId?: InputMaybe<Scalars['String']['input']>;
   /** The tier of the customer. */
-  tierId?: InputMaybe<Scalars["String"]["input"]>;
+  tierId?: InputMaybe<Scalars['String']['input']>;
   /** The name tier of the customer. Will be created if doesn't exist */
-  tierName?: InputMaybe<Scalars["String"]["input"]>;
+  tierName?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CustomViewCreateInput = {
   /** The color of the icon of the custom view. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The description of the custom view. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The feed item filter applied to issues in the custom view. */
   feedItemFilterData?: InputMaybe<FeedItemFilter>;
   /** The filter applied to issues in the custom view. */
   filterData?: InputMaybe<IssueFilter>;
   /** The icon of the custom view. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** [ALPHA] The initiative filter applied to issues in the custom view. */
   initiativeFilterData?: InputMaybe<InitiativeFilter>;
   /** The id of the initiative associated with the custom view. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The name of the custom view. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The owner of the custom view. */
-  ownerId?: InputMaybe<Scalars["String"]["input"]>;
+  ownerId?: InputMaybe<Scalars['String']['input']>;
   /** The project filter applied to issues in the custom view. */
   projectFilterData?: InputMaybe<ProjectFilter>;
   /** The id of the project associated with the custom view. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** Whether the custom view is shared with everyone in the organization. */
-  shared?: InputMaybe<Scalars["Boolean"]["input"]>;
+  shared?: InputMaybe<Scalars['Boolean']['input']>;
   /** The id of the team associated with the custom view. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CustomViewPayload = {
-  __typename?: "CustomViewPayload";
+  __typename?: 'CustomViewPayload';
   /** The custom view that was created or updated. */
   customView: CustomView;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CustomViewUpdateInput = {
   /** The color of the icon of the custom view. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The description of the custom view. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The feed item filter applied to issues in the custom view. */
   feedItemFilterData?: InputMaybe<FeedItemFilter>;
   /** The filter applied to issues in the custom view. */
   filterData?: InputMaybe<IssueFilter>;
   /** The icon of the custom view. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** [ALPHA] The initiative filter applied to issues in the custom view. */
   initiativeFilterData?: InputMaybe<InitiativeFilter>;
   /** [Internal] The id of the initiative associated with the custom view. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The name of the custom view. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The owner of the custom view. */
-  ownerId?: InputMaybe<Scalars["String"]["input"]>;
+  ownerId?: InputMaybe<Scalars['String']['input']>;
   /** The project filter applied to issues in the custom view. */
   projectFilterData?: InputMaybe<ProjectFilter>;
   /** [Internal] The id of the project associated with the custom view. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** Whether the custom view is shared with everyone in the organization. */
-  shared?: InputMaybe<Scalars["Boolean"]["input"]>;
+  shared?: InputMaybe<Scalars['Boolean']['input']>;
   /** The id of the team associated with the custom view. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** A generic payload return from entity archive mutations. */
 export type CycleArchivePayload = ArchivePayload & {
-  __typename?: "CycleArchivePayload";
+  __typename?: 'CycleArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<Cycle>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CycleCreateInput = {
   /** The completion time of the cycle. If null, the cycle hasn't been completed. */
-  completedAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  completedAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The description of the cycle. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The end date of the cycle. */
-  endsAt: Scalars["DateTime"]["input"];
+  endsAt: Scalars['DateTime']['input'];
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The custom name of the cycle. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The start date of the cycle. */
-  startsAt: Scalars["DateTime"]["input"];
+  startsAt: Scalars['DateTime']['input'];
   /** The team to associate the cycle with. */
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
 };
 
 export type CyclePayload = {
-  __typename?: "CyclePayload";
+  __typename?: 'CyclePayload';
   /** The Cycle that was created or updated. */
   cycle?: Maybe<Cycle>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** Input for shifting all cycles from a certain cycle onwards by a certain number of days */
 export type CycleShiftAllInput = {
   /** The number of days to shift the cycles by. */
-  daysToShift: Scalars["Float"]["input"];
+  daysToShift: Scalars['Float']['input'];
   /** The cycle ID at which to start the shift. */
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
 export type CycleUpdateInput = {
   /** The end date of the cycle. */
-  completedAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  completedAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The description of the cycle. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The end date of the cycle. */
-  endsAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  endsAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The custom name of the cycle. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The start date of the cycle. */
-  startsAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  startsAt?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type DocumentCreateInput = {
   /** The color of the icon. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The document content as markdown. */
-  content?: InputMaybe<Scalars["String"]["input"]>;
+  content?: InputMaybe<Scalars['String']['input']>;
   /** The icon of the document. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] Related initiative for the document. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The ID of the last template applied to the document. */
-  lastAppliedTemplateId?: InputMaybe<Scalars["String"]["input"]>;
+  lastAppliedTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** Related project for the document. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The resource folder containing the document. */
-  resourceFolderId?: InputMaybe<Scalars["String"]["input"]>;
+  resourceFolderId?: InputMaybe<Scalars['String']['input']>;
   /** The order of the item in the resources list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** [INTERNAL] The identifiers of the users subscribing to this document. */
-  subscriberIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  subscriberIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** [Internal] Related team for the document. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The title of the document. */
-  title: Scalars["String"]["input"];
+  title: Scalars['String']['input'];
 };
 
 export type DocumentPayload = {
-  __typename?: "DocumentPayload";
+  __typename?: 'DocumentPayload';
   /** The document that was created or updated. */
   document: Document;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** A generic payload return from entity archive mutations. */
 export type DocumentArchivePayload = ArchivePayload & {
-  __typename?: "DocumentArchivePayload";
+  __typename?: 'DocumentArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<Document>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type DocumentUpdateInput = {
   /** The color of the icon. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The document content as markdown. */
-  content?: InputMaybe<Scalars["String"]["input"]>;
+  content?: InputMaybe<Scalars['String']['input']>;
   /** The time at which the document was hidden. */
-  hiddenAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  hiddenAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The icon of the document. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] Related initiative for the document. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The ID of the last template applied to the document. */
-  lastAppliedTemplateId?: InputMaybe<Scalars["String"]["input"]>;
+  lastAppliedTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** Related project for the document. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The resource folder containing the document. */
-  resourceFolderId?: InputMaybe<Scalars["String"]["input"]>;
+  resourceFolderId?: InputMaybe<Scalars['String']['input']>;
   /** The order of the item in the resources list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** [INTERNAL] The identifiers of the users subscribing to this document. */
-  subscriberIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  subscriberIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** [Internal] Related team for the document. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The title of the document. */
-  title?: InputMaybe<Scalars["String"]["input"]>;
+  title?: InputMaybe<Scalars['String']['input']>;
   /** Whether the document has been trashed. */
-  trashed?: InputMaybe<Scalars["Boolean"]["input"]>;
+  trashed?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type EmailIntakeAddressCreateInput = {
   /** Whether customer requests are enabled. */
-  customerRequestsEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  customerRequestsEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The email address used to forward emails to the intake address. */
-  forwardingEmailAddress?: InputMaybe<Scalars["String"]["input"]>;
+  forwardingEmailAddress?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The auto-reply message for issue canceled. */
-  issueCanceledAutoReply?: InputMaybe<Scalars["String"]["input"]>;
+  issueCanceledAutoReply?: InputMaybe<Scalars['String']['input']>;
   /** Whether the issue canceled auto-reply is enabled. */
-  issueCanceledAutoReplyEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  issueCanceledAutoReplyEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The auto-reply message for issue completed. */
-  issueCompletedAutoReply?: InputMaybe<Scalars["String"]["input"]>;
+  issueCompletedAutoReply?: InputMaybe<Scalars['String']['input']>;
   /** Whether the issue completed auto-reply is enabled. */
-  issueCompletedAutoReplyEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  issueCompletedAutoReplyEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The auto-reply message for issue created. */
-  issueCreatedAutoReply?: InputMaybe<Scalars["String"]["input"]>;
+  issueCreatedAutoReply?: InputMaybe<Scalars['String']['input']>;
   /** Whether email replies are enabled. */
-  repliesEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  repliesEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The name to be used for outgoing emails. */
-  senderName?: InputMaybe<Scalars["String"]["input"]>;
+  senderName?: InputMaybe<Scalars['String']['input']>;
   /** The identifier or key of the team this email address will intake issues for. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the template this email address will intake issues for. */
-  templateId?: InputMaybe<Scalars["String"]["input"]>;
+  templateId?: InputMaybe<Scalars['String']['input']>;
   /** The type of the email address. If not provided, the backend will default to team or template. */
   type?: InputMaybe<EmailIntakeAddressType>;
   /** Whether the commenter's name is included in the email replies. */
-  useUserNamesInReplies?: InputMaybe<Scalars["Boolean"]["input"]>;
+  useUserNamesInReplies?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type EmailIntakeAddressPayload = {
-  __typename?: "EmailIntakeAddressPayload";
+  __typename?: 'EmailIntakeAddressPayload';
   /** The email address that was created or updated. */
   emailIntakeAddress: EmailIntakeAddress;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type EmailIntakeAddressUpdateInput = {
   /** Whether customer requests are enabled. */
-  customerRequestsEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  customerRequestsEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether the email address is currently enabled. If set to false, the email address will be disabled and no longer accept incoming emails. */
-  enabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The email address used to forward emails to the intake address. */
-  forwardingEmailAddress?: InputMaybe<Scalars["String"]["input"]>;
+  forwardingEmailAddress?: InputMaybe<Scalars['String']['input']>;
   /** Custom auto-reply message for issue canceled. */
-  issueCanceledAutoReply?: InputMaybe<Scalars["String"]["input"]>;
+  issueCanceledAutoReply?: InputMaybe<Scalars['String']['input']>;
   /** Whether the issue canceled auto-reply is enabled. */
-  issueCanceledAutoReplyEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  issueCanceledAutoReplyEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** Custom auto-reply message for issue completed. */
-  issueCompletedAutoReply?: InputMaybe<Scalars["String"]["input"]>;
+  issueCompletedAutoReply?: InputMaybe<Scalars['String']['input']>;
   /** Whether the issue completed auto-reply is enabled. */
-  issueCompletedAutoReplyEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  issueCompletedAutoReplyEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The auto-reply message for issue created. */
-  issueCreatedAutoReply?: InputMaybe<Scalars["String"]["input"]>;
+  issueCreatedAutoReply?: InputMaybe<Scalars['String']['input']>;
   /** Whether email replies are enabled. */
-  repliesEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  repliesEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The name to be used for outgoing emails. */
-  senderName?: InputMaybe<Scalars["String"]["input"]>;
+  senderName?: InputMaybe<Scalars['String']['input']>;
   /** The identifier or key of the team this email address will intake issues for. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the template this email address will intake issues for. */
-  templateId?: InputMaybe<Scalars["String"]["input"]>;
+  templateId?: InputMaybe<Scalars['String']['input']>;
   /** Whether the commenter's name is included in the email replies. */
-  useUserNamesInReplies?: InputMaybe<Scalars["Boolean"]["input"]>;
+  useUserNamesInReplies?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type TokenUserAccountAuthInput = {
   /** The email which to login via the magic login code. */
-  email: Scalars["String"]["input"];
+  email: Scalars['String']['input'];
   /** An optional invite link for an organization. */
-  inviteLink?: InputMaybe<Scalars["String"]["input"]>;
+  inviteLink?: InputMaybe<Scalars['String']['input']>;
   /** The timezone of the user's browser. */
-  timezone: Scalars["String"]["input"];
+  timezone: Scalars['String']['input'];
   /** The magic login code. */
-  token: Scalars["String"]["input"];
+  token: Scalars['String']['input'];
 };
 
 export type EmailUnsubscribeInput = {
   /** The user's email validation token. */
-  token: Scalars["String"]["input"];
+  token: Scalars['String']['input'];
   /** Email type to unsubscribe from. */
-  type: Scalars["String"]["input"];
+  type: Scalars['String']['input'];
   /** The identifier of the user. */
-  userId: Scalars["String"]["input"];
+  userId: Scalars['String']['input'];
 };
 
 export type EmailUnsubscribePayload = {
-  __typename?: "EmailUnsubscribePayload";
+  __typename?: 'EmailUnsubscribePayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type EmailUserAccountAuthChallengeInput = {
   /** Auth code for the client initiating the sequence. */
-  clientAuthCode?: InputMaybe<Scalars["String"]["input"]>;
+  clientAuthCode?: InputMaybe<Scalars['String']['input']>;
   /** The email for which to generate the magic login code. */
-  email: Scalars["String"]["input"];
+  email: Scalars['String']['input'];
   /** The organization invite link to associate with this authentication. */
-  inviteLink?: InputMaybe<Scalars["String"]["input"]>;
+  inviteLink?: InputMaybe<Scalars['String']['input']>;
   /** Whether the login was requested from the desktop app. */
-  isDesktop?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isDesktop?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to only return the login code. This is used by mobile apps to skip showing the login link. */
-  loginCodeOnly?: InputMaybe<Scalars["Boolean"]["input"]>;
+  loginCodeOnly?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type EmailUserAccountAuthChallengeResponse = {
-  __typename?: "EmailUserAccountAuthChallengeResponse";
+  __typename?: 'EmailUserAccountAuthChallengeResponse';
   /** Supported challenge for this user account. Can be either verificationCode or password. */
-  authType: Scalars["String"]["output"];
+  authType: Scalars['String']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type EmojiCreateInput = {
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The name of the custom emoji. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The URL for the emoji. */
-  url: Scalars["String"]["input"];
+  url: Scalars['String']['input'];
 };
 
 export type EmojiPayload = {
-  __typename?: "EmojiPayload";
+  __typename?: 'EmojiPayload';
   /** The emoji that was created. */
   emoji: Emoji;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type EntityExternalLinkCreateInput = {
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The initiative associated with the link. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The label for the link. */
-  label: Scalars["String"]["input"];
+  label: Scalars['String']['input'];
   /** The project associated with the link. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The resource folder containing the link. */
-  resourceFolderId?: InputMaybe<Scalars["String"]["input"]>;
+  resourceFolderId?: InputMaybe<Scalars['String']['input']>;
   /** The order of the item in the entities resources list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** [Internal] The team associated with the link. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The URL of the link. */
-  url: Scalars["String"]["input"];
+  url: Scalars['String']['input'];
 };
 
 export type EntityExternalLinkPayload = {
-  __typename?: "EntityExternalLinkPayload";
+  __typename?: 'EntityExternalLinkPayload';
   /** The link that was created or updated. */
   entityExternalLink: EntityExternalLink;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type EntityExternalLinkUpdateInput = {
   /** The label for the link. */
-  label?: InputMaybe<Scalars["String"]["input"]>;
+  label?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The resource folder containing the link. */
-  resourceFolderId?: InputMaybe<Scalars["String"]["input"]>;
+  resourceFolderId?: InputMaybe<Scalars['String']['input']>;
   /** The order of the item in the entities resources list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The URL of the link. */
-  url?: InputMaybe<Scalars["String"]["input"]>;
+  url?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type FavoriteCreateInput = {
   /** The identifier of the customer to favorite. */
-  customerId?: InputMaybe<Scalars["String"]["input"]>;
+  customerId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the custom view to favorite. */
-  customViewId?: InputMaybe<Scalars["String"]["input"]>;
+  customViewId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the cycle to favorite. */
-  cycleId?: InputMaybe<Scalars["String"]["input"]>;
+  cycleId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the dashboard to favorite. */
-  dashboardId?: InputMaybe<Scalars["String"]["input"]>;
+  dashboardId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the document to favorite. */
-  documentId?: InputMaybe<Scalars["String"]["input"]>;
+  documentId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the facet to favorite. */
-  facetId?: InputMaybe<Scalars["String"]["input"]>;
+  facetId?: InputMaybe<Scalars['String']['input']>;
   /** The name of the favorite folder. */
-  folderName?: InputMaybe<Scalars["String"]["input"]>;
+  folderName?: InputMaybe<Scalars['String']['input']>;
   /** The identifier. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** [INTERNAL] The identifier of the initiative to favorite. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The tab of the initiative to favorite. */
   initiativeTab?: InputMaybe<InitiativeTab>;
   /** The identifier of the issue to favorite. */
-  issueId?: InputMaybe<Scalars["String"]["input"]>;
+  issueId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the label to favorite. */
-  labelId?: InputMaybe<Scalars["String"]["input"]>;
+  labelId?: InputMaybe<Scalars['String']['input']>;
   /** The parent folder of the favorite. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of team for the predefined view to favorite. */
-  predefinedViewTeamId?: InputMaybe<Scalars["String"]["input"]>;
+  predefinedViewTeamId?: InputMaybe<Scalars['String']['input']>;
   /** The type of the predefined view to favorite. */
-  predefinedViewType?: InputMaybe<Scalars["String"]["input"]>;
+  predefinedViewType?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project to favorite. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the label to favorite. */
-  projectLabelId?: InputMaybe<Scalars["String"]["input"]>;
+  projectLabelId?: InputMaybe<Scalars['String']['input']>;
   /** The tab of the project to favorite. */
   projectTab?: InputMaybe<ProjectTab>;
   /** The identifier of the pull request to favorite. */
-  pullRequestId?: InputMaybe<Scalars["String"]["input"]>;
+  pullRequestId?: InputMaybe<Scalars['String']['input']>;
   /** The position of the item in the favorites list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The identifier of the user to favorite. */
-  userId?: InputMaybe<Scalars["String"]["input"]>;
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type FavoritePayload = {
-  __typename?: "FavoritePayload";
+  __typename?: 'FavoritePayload';
   /** The object that was added as a favorite. */
   favorite: Favorite;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type FavoriteUpdateInput = {
   /** The name of the favorite folder. */
-  folderName?: InputMaybe<Scalars["String"]["input"]>;
+  folderName?: InputMaybe<Scalars['String']['input']>;
   /** The identifier (in UUID v4 format) of the folder to move the favorite under. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
   /** The position of the item in the favorites list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type UploadPayload = {
-  __typename?: "UploadPayload";
+  __typename?: 'UploadPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** Object describing the file to be uploaded. */
   uploadFile?: Maybe<UploadFile>;
 };
 
 /** Object representing Google Cloud upload policy, plus additional data. */
 export type UploadFile = {
-  __typename?: "UploadFile";
+  __typename?: 'UploadFile';
   /** The asset URL for the uploaded file. (assigned automatically). */
-  assetUrl: Scalars["String"]["output"];
+  assetUrl: Scalars['String']['output'];
   /** The content type. */
-  contentType: Scalars["String"]["output"];
+  contentType: Scalars['String']['output'];
   /** The filename. */
-  filename: Scalars["String"]["output"];
+  filename: Scalars['String']['output'];
   headers: Array<UploadFileHeader>;
-  metaData?: Maybe<Scalars["JSONObject"]["output"]>;
+  metaData?: Maybe<Scalars['JSONObject']['output']>;
   /** The size of the uploaded file. */
-  size: Scalars["Int"]["output"];
+  size: Scalars['Int']['output'];
   /** The signed URL the for the uploaded file. (assigned automatically). */
-  uploadUrl: Scalars["String"]["output"];
+  uploadUrl: Scalars['String']['output'];
 };
 
 export type UploadFileHeader = {
-  __typename?: "UploadFileHeader";
+  __typename?: 'UploadFileHeader';
   /** Upload file header key. */
-  key: Scalars["String"]["output"];
+  key: Scalars['String']['output'];
   /** Upload file header value. */
-  value: Scalars["String"]["output"];
+  value: Scalars['String']['output'];
 };
 
 export type GitAutomationStateCreateInput = {
   /** The event that triggers the automation. */
   event: GitAutomationStates;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The associated workflow state. If null, will override default behaviour and take no action. */
-  stateId?: InputMaybe<Scalars["String"]["input"]>;
+  stateId?: InputMaybe<Scalars['String']['input']>;
   /** The associated target branch. If null, all branches are targeted. */
-  targetBranchId?: InputMaybe<Scalars["String"]["input"]>;
+  targetBranchId?: InputMaybe<Scalars['String']['input']>;
   /** The team associated with the automation state. */
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
 };
 
 export type GitAutomationStatePayload = {
-  __typename?: "GitAutomationStatePayload";
+  __typename?: 'GitAutomationStatePayload';
   /** The automation state that was created or updated. */
   gitAutomationState: GitAutomationState;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type GitAutomationStateUpdateInput = {
   /** The event that triggers the automation. */
   event?: InputMaybe<GitAutomationStates>;
   /** The associated workflow state. */
-  stateId?: InputMaybe<Scalars["String"]["input"]>;
+  stateId?: InputMaybe<Scalars['String']['input']>;
   /** The associated target branch. If null, all branches are targeted. */
-  targetBranchId?: InputMaybe<Scalars["String"]["input"]>;
+  targetBranchId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type GitAutomationTargetBranchCreateInput = {
   /** The target branch pattern. */
-  branchPattern: Scalars["String"]["input"];
+  branchPattern: Scalars['String']['input'];
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** Whether the branch pattern is a regular expression. */
-  isRegex?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isRegex?: InputMaybe<Scalars['Boolean']['input']>;
   /** The team associated with the Git target branch automation. */
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
 };
 
 export type GitAutomationTargetBranchPayload = {
-  __typename?: "GitAutomationTargetBranchPayload";
+  __typename?: 'GitAutomationTargetBranchPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The Git target branch automation that was created or updated. */
   targetBranch: GitAutomationTargetBranch;
 };
 
 export type GitAutomationTargetBranchUpdateInput = {
   /** The target branch pattern. */
-  branchPattern?: InputMaybe<Scalars["String"]["input"]>;
+  branchPattern?: InputMaybe<Scalars['String']['input']>;
   /** Whether the branch pattern is a regular expression. */
-  isRegex?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isRegex?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type GoogleUserAccountAuthInput = {
   /** Code returned from Google's OAuth flow. */
-  code: Scalars["String"]["input"];
+  code: Scalars['String']['input'];
   /** An optional parameter to disable new user signup and force login. Default: false. */
-  disallowSignup?: InputMaybe<Scalars["Boolean"]["input"]>;
+  disallowSignup?: InputMaybe<Scalars['Boolean']['input']>;
   /** An optional invite link for an organization used to populate available organizations. */
-  inviteLink?: InputMaybe<Scalars["String"]["input"]>;
+  inviteLink?: InputMaybe<Scalars['String']['input']>;
   /** The URI to redirect the user to. */
-  redirectUri?: InputMaybe<Scalars["String"]["input"]>;
+  redirectUri?: InputMaybe<Scalars['String']['input']>;
   /** The timezone of the user's browser. */
-  timezone: Scalars["String"]["input"];
+  timezone: Scalars['String']['input'];
 };
 
 export type ImageUploadFromUrlPayload = {
-  __typename?: "ImageUploadFromUrlPayload";
+  __typename?: 'ImageUploadFromUrlPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The URL containing the image. */
-  url?: Maybe<Scalars["String"]["output"]>;
+  url?: Maybe<Scalars['String']['output']>;
 };
 
 /** A generic payload return from entity archive mutations. */
 export type InitiativeArchivePayload = ArchivePayload & {
-  __typename?: "InitiativeArchivePayload";
+  __typename?: 'InitiativeArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<Initiative>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** The properties of the initiative to create. */
 export type InitiativeCreateInput = {
   /** The initiative's color. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The initiative's content in markdown format. */
-  content?: InputMaybe<Scalars["String"]["input"]>;
+  content?: InputMaybe<Scalars['String']['input']>;
   /** The description of the initiative. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The initiative's icon. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The name of the initiative. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The owner of the initiative. */
-  ownerId?: InputMaybe<Scalars["String"]["input"]>;
+  ownerId?: InputMaybe<Scalars['String']['input']>;
   /** The sort order of the initiative within the organization. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The initiative's status. */
   status?: InputMaybe<InitiativeStatus>;
   /** The estimated completion date of the initiative. */
-  targetDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  targetDate?: InputMaybe<Scalars['TimelessDate']['input']>;
   /** The resolution of the initiative's estimated completion date. */
   targetDateResolution?: InputMaybe<DateResolutionType>;
 };
 
 /** The payload returned by the initiative mutations. */
 export type InitiativePayload = {
-  __typename?: "InitiativePayload";
+  __typename?: 'InitiativePayload';
   /** The initiative that was created or updated. */
   initiative: Initiative;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type InitiativeRelationCreateInput = {
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the parent initiative. */
-  initiativeId: Scalars["String"]["input"];
+  initiativeId: Scalars['String']['input'];
   /** The identifier of the child initiative. */
-  relatedInitiativeId: Scalars["String"]["input"];
+  relatedInitiativeId: Scalars['String']['input'];
   /** The sort order of the initiative relation. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type InitiativeRelationPayload = {
-  __typename?: "InitiativeRelationPayload";
+  __typename?: 'InitiativeRelationPayload';
   /** The initiative relation that was created or updated. */
   initiativeRelation: InitiativeRelation;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** The properties of the initiativeRelation to update. */
 export type InitiativeRelationUpdateInput = {
   /** The sort order of the initiative relation. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 /** The properties of the initiativeToProject to create. */
 export type InitiativeToProjectCreateInput = {
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the initiative. */
-  initiativeId: Scalars["String"]["input"];
+  initiativeId: Scalars['String']['input'];
   /** The identifier of the project. */
-  projectId: Scalars["String"]["input"];
+  projectId: Scalars['String']['input'];
   /** The sort order for the project within its organization. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 /** The result of a initiativeToProject mutation. */
 export type InitiativeToProjectPayload = {
-  __typename?: "InitiativeToProjectPayload";
+  __typename?: 'InitiativeToProjectPayload';
   /** The initiativeToProject that was created or updated. */
   initiativeToProject: InitiativeToProject;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** The properties of the initiativeToProject to update. */
 export type InitiativeToProjectUpdateInput = {
   /** The sort order for the project within its organization. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 /** The properties of the initiative to update. */
 export type InitiativeUpdateInput = {
   /** The initiative's color. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The initiative's content in markdown format. */
-  content?: InputMaybe<Scalars["String"]["input"]>;
+  content?: InputMaybe<Scalars['String']['input']>;
   /** The description of the initiative. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The frequency resolution. */
   frequencyResolution?: InputMaybe<FrequencyResolutionType>;
   /** The initiative's icon. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** The name of the initiative. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The owner of the initiative. */
-  ownerId?: InputMaybe<Scalars["String"]["input"]>;
+  ownerId?: InputMaybe<Scalars['String']['input']>;
   /** The sort order of the initiative within the organization. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The initiative's status. */
   status?: InputMaybe<InitiativeStatus>;
   /** The estimated completion date of the initiative. */
-  targetDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  targetDate?: InputMaybe<Scalars['TimelessDate']['input']>;
   /** The resolution of the initiative's estimated completion date. */
   targetDateResolution?: InputMaybe<DateResolutionType>;
   /** Whether the initiative has been trashed. */
-  trashed?: InputMaybe<Scalars["Boolean"]["input"]>;
+  trashed?: InputMaybe<Scalars['Boolean']['input']>;
   /** The frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequency?: InputMaybe<Scalars["Float"]["input"]>;
+  updateReminderFrequency?: InputMaybe<Scalars['Float']['input']>;
   /** The n-weekly frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequencyInWeeks?: InputMaybe<Scalars["Float"]["input"]>;
+  updateReminderFrequencyInWeeks?: InputMaybe<Scalars['Float']['input']>;
   /** The day at which to prompt for updates. */
   updateRemindersDay?: InputMaybe<Day>;
   /** The hour at which to prompt for updates. */
-  updateRemindersHour?: InputMaybe<Scalars["Int"]["input"]>;
+  updateRemindersHour?: InputMaybe<Scalars['Int']['input']>;
 };
 
 /** A generic payload return from entity archive mutations. */
 export type InitiativeUpdateArchivePayload = ArchivePayload & {
-  __typename?: "InitiativeUpdateArchivePayload";
+  __typename?: 'InitiativeUpdateArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<InitiativeUpdate>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type InitiativeUpdateCreateInput = {
   /** The content of the update in markdown format. */
-  body?: InputMaybe<Scalars["String"]["input"]>;
+  body?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The content of the update as a Prosemirror document. */
-  bodyData?: InputMaybe<Scalars["JSON"]["input"]>;
+  bodyData?: InputMaybe<Scalars['JSON']['input']>;
   /** The health of the initiative at the time of the update. */
   health?: InputMaybe<InitiativeUpdateHealthType>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The initiative to associate the update with. */
-  initiativeId: Scalars["String"]["input"];
+  initiativeId: Scalars['String']['input'];
   /** Whether the diff between the current update and the previous one should be hidden. */
-  isDiffHidden?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isDiffHidden?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type InitiativeUpdatePayload = {
-  __typename?: "InitiativeUpdatePayload";
+  __typename?: 'InitiativeUpdatePayload';
   /** The initiative update that was created. */
   initiativeUpdate: InitiativeUpdate;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type InitiativeUpdateUpdateInput = {
   /** The content of the update in markdown format. */
-  body?: InputMaybe<Scalars["String"]["input"]>;
+  body?: InputMaybe<Scalars['String']['input']>;
   /** The content of the update as a Prosemirror document. */
-  bodyData?: InputMaybe<Scalars["JSON"]["input"]>;
+  bodyData?: InputMaybe<Scalars['JSON']['input']>;
   /** The health of the initiative at the time of the update. */
   health?: InputMaybe<InitiativeUpdateHealthType>;
   /** Whether the diff between the current update and the previous one should be hidden. */
-  isDiffHidden?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isDiffHidden?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type AsksChannelConnectPayload = {
-  __typename?: "AsksChannelConnectPayload";
+  __typename?: 'AsksChannelConnectPayload';
   /** Whether the bot needs to be manually added to the channel. */
-  addBot: Scalars["Boolean"]["output"];
+  addBot: Scalars['Boolean']['output'];
   /** The integration that was created or updated. */
   integration?: Maybe<Integration>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The new Asks Slack channel mapping for the connected channel. */
   mapping: SlackChannelNameMapping;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** Object for mapping Slack channel IDs to names and other settings. */
 export type SlackChannelNameMapping = {
-  __typename?: "SlackChannelNameMapping";
+  __typename?: 'SlackChannelNameMapping';
   /** Whether or not to use AI to generate titles for Asks created in this channel. */
-  aiTitles?: Maybe<Scalars["Boolean"]["output"]>;
+  aiTitles?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not @-mentioning the bot should automatically create an Ask with the message. */
-  autoCreateOnBotMention?: Maybe<Scalars["Boolean"]["output"]>;
+  autoCreateOnBotMention?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not using the :ticket: emoji in this channel should automatically create Asks. */
-  autoCreateOnEmoji?: Maybe<Scalars["Boolean"]["output"]>;
+  autoCreateOnEmoji?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not top-level messages in this channel should automatically create Asks. */
-  autoCreateOnMessage?: Maybe<Scalars["Boolean"]["output"]>;
+  autoCreateOnMessage?: Maybe<Scalars['Boolean']['output']>;
   /** The optional template ID to use for Asks auto-created in this channel. If not set, auto-created Asks won't use any template. */
-  autoCreateTemplateId?: Maybe<Scalars["String"]["output"]>;
+  autoCreateTemplateId?: Maybe<Scalars['String']['output']>;
   /** Whether or not the Linear Asks bot has been added to this Slack channel. */
-  botAdded?: Maybe<Scalars["Boolean"]["output"]>;
+  botAdded?: Maybe<Scalars['Boolean']['output']>;
   /** The Slack channel ID. */
-  id: Scalars["String"]["output"];
+  id: Scalars['String']['output'];
   /** Whether or not the Slack channel is private. */
-  isPrivate?: Maybe<Scalars["Boolean"]["output"]>;
+  isPrivate?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not the Slack channel is shared with an external org. */
-  isShared?: Maybe<Scalars["Boolean"]["output"]>;
+  isShared?: Maybe<Scalars['Boolean']['output']>;
   /** The Slack channel name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Whether or not synced Slack threads should be updated with a message when their Ask is accepted from triage. */
-  postAcceptedFromTriageUpdates?: Maybe<Scalars["Boolean"]["output"]>;
+  postAcceptedFromTriageUpdates?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not synced Slack threads should be updated with a message and emoji when their Ask is canceled. */
-  postCancellationUpdates?: Maybe<Scalars["Boolean"]["output"]>;
+  postCancellationUpdates?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not synced Slack threads should be updated with a message and emoji when their Ask is completed. */
-  postCompletionUpdates?: Maybe<Scalars["Boolean"]["output"]>;
+  postCompletionUpdates?: Maybe<Scalars['Boolean']['output']>;
   /** Which teams are connected to the channel and settings for those teams. */
   teams: Array<SlackAsksTeamSettings>;
 };
 
 /** Tuple for mapping Slack channel IDs to names. */
 export type SlackAsksTeamSettings = {
-  __typename?: "SlackAsksTeamSettings";
+  __typename?: 'SlackAsksTeamSettings';
   /** Whether the default Asks template is enabled in the given channel for this team. */
-  hasDefaultAsk: Scalars["Boolean"]["output"];
+  hasDefaultAsk: Scalars['Boolean']['output'];
   /** The Linear team ID. */
-  id: Scalars["String"]["output"];
+  id: Scalars['String']['output'];
 };
 
 export type IntegrationCustomerDataAttributesRefreshInput = {
   /** The integration service to refresh customer data attributes from. */
-  service: Scalars["String"]["input"];
+  service: Scalars['String']['input'];
 };
 
 export type GitHubCommitIntegrationPayload = {
-  __typename?: "GitHubCommitIntegrationPayload";
+  __typename?: 'GitHubCommitIntegrationPayload';
   /** The integration that was created or updated. */
   integration?: Maybe<Integration>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The webhook secret to provide to GitHub. */
-  webhookSecret: Scalars["String"]["output"];
+  webhookSecret: Scalars['String']['output'];
 };
 
 export type GitHubEnterpriseServerPayload = {
-  __typename?: "GitHubEnterpriseServerPayload";
+  __typename?: 'GitHubEnterpriseServerPayload';
   /** The app install address. */
-  installUrl: Scalars["String"]["output"];
+  installUrl: Scalars['String']['output'];
   /** The integration that was created or updated. */
   integration?: Maybe<Integration>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The setup address. */
-  setupUrl: Scalars["String"]["output"];
+  setupUrl: Scalars['String']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The webhook secret to provide to GitHub. */
-  webhookSecret: Scalars["String"]["output"];
+  webhookSecret: Scalars['String']['output'];
 };
 
 export type GitLabIntegrationCreatePayload = {
-  __typename?: "GitLabIntegrationCreatePayload";
+  __typename?: 'GitLabIntegrationCreatePayload';
   /** The integration that was created or updated. */
   integration?: Maybe<Integration>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The webhook secret to provide to GitLab. */
-  webhookSecret: Scalars["String"]["output"];
+  webhookSecret: Scalars['String']['output'];
 };
 
 export type IntercomSettingsInput = {
   /** Whether a ticket should be automatically reopened when its linked Linear issue is cancelled. */
-  automateTicketReopeningOnCancellation?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when a comment is posted on its linked Linear issue */
-  automateTicketReopeningOnComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  automateTicketReopeningOnComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear issue is completed. */
-  automateTicketReopeningOnCompletion?: InputMaybe<Scalars["Boolean"]["input"]>;
+  automateTicketReopeningOnCompletion?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is cancelled. */
-  automateTicketReopeningOnProjectCancellation?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnProjectCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is completed. */
-  automateTicketReopeningOnProjectCompletion?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnProjectCompletion?: InputMaybe<Scalars['Boolean']['input']>;
   /** [ALPHA] Whether customer and customer requests should not be automatically created when conversations are linked to a Linear issue. */
-  disableCustomerRequestsAutoCreation?: InputMaybe<Scalars["Boolean"]["input"]>;
+  disableCustomerRequestsAutoCreation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when someone comments on an issue. */
-  sendNoteOnComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  sendNoteOnComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when a Linear issue changes status (for status types except completed or canceled). */
-  sendNoteOnStatusChange?: InputMaybe<Scalars["Boolean"]["input"]>;
+  sendNoteOnStatusChange?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type JiraUpdateInput = {
   /** The Jira personal access token. */
-  accessToken?: InputMaybe<Scalars["String"]["input"]>;
+  accessToken?: InputMaybe<Scalars['String']['input']>;
   /** Whether to delete the current manual webhook configuration. */
-  deleteWebhook?: InputMaybe<Scalars["Boolean"]["input"]>;
+  deleteWebhook?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Jira user email address associated with the personal access token. */
-  email?: InputMaybe<Scalars["String"]["input"]>;
+  email?: InputMaybe<Scalars['String']['input']>;
   /** The id of the integration to update. */
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   /** Whether to refresh Jira metadata for the integration. */
-  updateMetadata?: InputMaybe<Scalars["Boolean"]["input"]>;
+  updateMetadata?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to refresh Jira Projects for the integration. */
-  updateProjects?: InputMaybe<Scalars["Boolean"]["input"]>;
+  updateProjects?: InputMaybe<Scalars['Boolean']['input']>;
   /** Webhook secret for a new manual configuration. */
-  webhookSecret?: InputMaybe<Scalars["String"]["input"]>;
+  webhookSecret?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type IntegrationRequestInput = {
   /** Email associated with the request. */
-  email?: InputMaybe<Scalars["String"]["input"]>;
+  email?: InputMaybe<Scalars['String']['input']>;
   /** Name of the requested integration. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
 };
 
 export type IntegrationRequestPayload = {
-  __typename?: "IntegrationRequestPayload";
+  __typename?: 'IntegrationRequestPayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IntegrationSettingsInput = {
@@ -14412,36 +14877,30 @@ export type IntegrationSettingsInput = {
 
 export type FrontSettingsInput = {
   /** Whether a ticket should be automatically reopened when its linked Linear issue is cancelled. */
-  automateTicketReopeningOnCancellation?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when a comment is posted on its linked Linear issue */
-  automateTicketReopeningOnComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  automateTicketReopeningOnComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear issue is completed. */
-  automateTicketReopeningOnCompletion?: InputMaybe<Scalars["Boolean"]["input"]>;
+  automateTicketReopeningOnCompletion?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is cancelled. */
-  automateTicketReopeningOnProjectCancellation?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnProjectCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is completed. */
-  automateTicketReopeningOnProjectCompletion?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnProjectCompletion?: InputMaybe<Scalars['Boolean']['input']>;
   /** [ALPHA] Whether customer and customer requests should not be automatically created when conversations are linked to a Linear issue. */
-  disableCustomerRequestsAutoCreation?: InputMaybe<Scalars["Boolean"]["input"]>;
+  disableCustomerRequestsAutoCreation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when someone comments on an issue. */
-  sendNoteOnComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  sendNoteOnComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when a Linear issue changes status (for status types except completed or canceled). */
-  sendNoteOnStatusChange?: InputMaybe<Scalars["Boolean"]["input"]>;
+  sendNoteOnStatusChange?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type GitHubSettingsInput = {
   /** Whether the integration has code access */
-  codeAccess?: InputMaybe<Scalars["Boolean"]["input"]>;
+  codeAccess?: InputMaybe<Scalars['Boolean']['input']>;
   /** The avatar URL for the GitHub organization. */
-  orgAvatarUrl?: InputMaybe<Scalars["String"]["input"]>;
+  orgAvatarUrl?: InputMaybe<Scalars['String']['input']>;
   /** The GitHub organization's name. */
-  orgLogin: Scalars["String"]["input"];
+  orgLogin: Scalars['String']['input'];
   /** The type of Github org */
   orgType?: InputMaybe<GithubOrgType>;
   pullRequestReviewTool?: InputMaybe<PullRequestReviewTool>;
@@ -14451,47 +14910,45 @@ export type GitHubSettingsInput = {
   repositoriesMapping?: InputMaybe<Array<GitHubRepoMappingInput>>;
 };
 
-export enum GithubOrgType {
-  Organization = "organization",
-  User = "user",
-}
+export type GithubOrgType =
+  | 'organization'
+  | 'user';
 
-export enum PullRequestReviewTool {
-  Graphite = "graphite",
-  Source = "source",
-}
+export type PullRequestReviewTool =
+  | 'graphite'
+  | 'source';
 
 export type GitHubRepoInput = {
   /** Whether the repository is archived. */
-  archived?: InputMaybe<Scalars["Boolean"]["input"]>;
+  archived?: InputMaybe<Scalars['Boolean']['input']>;
   /** The full name of the repository. */
-  fullName: Scalars["String"]["input"];
+  fullName: Scalars['String']['input'];
   /** The GitHub repo id. */
-  id: Scalars["Float"]["input"];
+  id: Scalars['Float']['input'];
 };
 
 export type GitHubRepoMappingInput = {
   /** Whether the sync for this mapping is bidirectional. */
-  bidirectional?: InputMaybe<Scalars["Boolean"]["input"]>;
+  bidirectional?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether this mapping is the default one for issue creation. */
-  default?: InputMaybe<Scalars["Boolean"]["input"]>;
+  default?: InputMaybe<Scalars['Boolean']['input']>;
   /** Labels to filter incoming GitHub issue creation by. */
-  gitHubLabels?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  gitHubLabels?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The GitHub repo id. */
-  gitHubRepoId: Scalars["Float"]["input"];
+  gitHubRepoId: Scalars['Float']['input'];
   /** The unique identifier for this mapping. */
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   /** The Linear team id to map to the given project. */
-  linearTeamId: Scalars["String"]["input"];
+  linearTeamId: Scalars['String']['input'];
 };
 
 export type GitHubImportSettingsInput = {
   /** A map storing all available issue labels per repository */
-  labels?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  labels?: InputMaybe<Scalars['JSONObject']['input']>;
   /** The avatar URL for the GitHub organization. */
-  orgAvatarUrl: Scalars["String"]["input"];
+  orgAvatarUrl: Scalars['String']['input'];
   /** The GitHub organization's name. */
-  orgLogin: Scalars["String"]["input"];
+  orgLogin: Scalars['String']['input'];
   /** The type of Github org */
   orgType: GithubOrgType;
   /** The names of the repositories connected for the GitHub integration. */
@@ -14500,16 +14957,16 @@ export type GitHubImportSettingsInput = {
 
 export type GitHubPersonalSettingsInput = {
   /** The GitHub user's name. */
-  login: Scalars["String"]["input"];
+  login: Scalars['String']['input'];
 };
 
 export type GitLabSettingsInput = {
   /** The ISO timestamp the GitLab access token expires. */
-  expiresAt?: InputMaybe<Scalars["String"]["input"]>;
+  expiresAt?: InputMaybe<Scalars['String']['input']>;
   /** Whether the token is limited to a read-only scope. */
-  readonly?: InputMaybe<Scalars["Boolean"]["input"]>;
+  readonly?: InputMaybe<Scalars['Boolean']['input']>;
   /** The self-hosted URL of the GitLab instance. */
-  url?: InputMaybe<Scalars["String"]["input"]>;
+  url?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type GoogleSheetsSettingsInput = {
@@ -14520,390 +14977,373 @@ export type GoogleSheetsSettingsInput = {
   /** The export settings for projects. */
   project?: InputMaybe<GoogleSheetsExportSettings>;
   /** [Deprecated] The ID of the target sheet (tab) within the Google Sheet. */
-  sheetId?: InputMaybe<Scalars["Float"]["input"]>;
+  sheetId?: InputMaybe<Scalars['Float']['input']>;
   /** [Deprecated] The ID of the exported Google Sheet. */
-  spreadsheetId?: InputMaybe<Scalars["String"]["input"]>;
+  spreadsheetId?: InputMaybe<Scalars['String']['input']>;
   /** [Deprecated] The URL of the exported Google Sheet. */
-  spreadsheetUrl?: InputMaybe<Scalars["String"]["input"]>;
+  spreadsheetUrl?: InputMaybe<Scalars['String']['input']>;
   /** [Deprecated] The date of the most recent export. */
-  updatedIssuesAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  updatedIssuesAt?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type GoogleSheetsExportSettings = {
   /** Whether the export is enabled. */
-  enabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The ID of the target sheet (tab) within the Google Sheet. */
-  sheetId?: InputMaybe<Scalars["Float"]["input"]>;
+  sheetId?: InputMaybe<Scalars['Float']['input']>;
   /** The ID of the exported Google Sheet. */
-  spreadsheetId?: InputMaybe<Scalars["String"]["input"]>;
+  spreadsheetId?: InputMaybe<Scalars['String']['input']>;
   /** The URL of the exported Google Sheet. */
-  spreadsheetUrl?: InputMaybe<Scalars["String"]["input"]>;
+  spreadsheetUrl?: InputMaybe<Scalars['String']['input']>;
   /** The date of the most recent export. */
-  updatedAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  updatedAt?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type JiraSettingsInput = {
   /** Whether this integration is for Jira Server or not. */
-  isJiraServer?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isJiraServer?: InputMaybe<Scalars['Boolean']['input']>;
   /** The label of the Jira instance, for visual identification purposes only */
-  label?: InputMaybe<Scalars["String"]["input"]>;
+  label?: InputMaybe<Scalars['String']['input']>;
   /** Whether this integration is using a manual setup flow. */
-  manualSetup?: InputMaybe<Scalars["Boolean"]["input"]>;
+  manualSetup?: InputMaybe<Scalars['Boolean']['input']>;
   /** The mapping of Jira project id => Linear team id. */
   projectMapping?: InputMaybe<Array<JiraLinearMappingInput>>;
   /** The Jira projects for the organization. */
   projects: Array<JiraProjectDataInput>;
   /** Whether the user needs to provide setup information about the webhook to complete the integration setup. Only relevant for integrations that use a manual setup flow */
-  setupPending?: InputMaybe<Scalars["Boolean"]["input"]>;
+  setupPending?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type JiraLinearMappingInput = {
   /** Whether the sync for this mapping is bidirectional. */
-  bidirectional?: InputMaybe<Scalars["Boolean"]["input"]>;
+  bidirectional?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether this mapping is the default one for issue creation. */
-  default?: InputMaybe<Scalars["Boolean"]["input"]>;
+  default?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Jira id for this project. */
-  jiraProjectId: Scalars["String"]["input"];
+  jiraProjectId: Scalars['String']['input'];
   /** The Linear team id to map to the given project. */
-  linearTeamId: Scalars["String"]["input"];
+  linearTeamId: Scalars['String']['input'];
 };
 
 export type JiraProjectDataInput = {
   /** The Jira id for this project. */
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   /** The Jira key for this project, such as ENG. */
-  key: Scalars["String"]["input"];
+  key: Scalars['String']['input'];
   /** The Jira name for this project, such as Engineering. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
 };
 
 export type JiraPersonalSettingsInput = {
   /** The name of the Jira site currently authorized through the integration. */
-  siteName?: InputMaybe<Scalars["String"]["input"]>;
+  siteName?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type LaunchDarklySettingsInput = {
   /** The environment of the LaunchDarkly integration. */
-  environment: Scalars["String"]["input"];
+  environment: Scalars['String']['input'];
   /** The project key of the LaunchDarkly integration. */
-  projectKey: Scalars["String"]["input"];
+  projectKey: Scalars['String']['input'];
 };
 
 export type NotionSettingsInput = {
   /** The ID of the Notion workspace being connected. */
-  workspaceId: Scalars["String"]["input"];
+  workspaceId: Scalars['String']['input'];
   /** The name of the Notion workspace being connected. */
-  workspaceName: Scalars["String"]["input"];
+  workspaceName: Scalars['String']['input'];
 };
 
 export type OpsgenieInput = {
   /** The date when the Opsgenie API failed with an unauthorized error. */
-  apiFailedWithUnauthorizedErrorAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  apiFailedWithUnauthorizedErrorAt?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type PagerDutyInput = {
   /** The date when the PagerDuty API failed with an unauthorized error. */
-  apiFailedWithUnauthorizedErrorAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  apiFailedWithUnauthorizedErrorAt?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type SalesforceSettingsInput = {
   /** Whether a ticket should be automatically reopened when its linked Linear issue is cancelled. */
-  automateTicketReopeningOnCancellation?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when a comment is posted on its linked Linear issue */
-  automateTicketReopeningOnComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  automateTicketReopeningOnComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear issue is completed. */
-  automateTicketReopeningOnCompletion?: InputMaybe<Scalars["Boolean"]["input"]>;
+  automateTicketReopeningOnCompletion?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is cancelled. */
-  automateTicketReopeningOnProjectCancellation?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnProjectCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is completed. */
-  automateTicketReopeningOnProjectCompletion?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnProjectCompletion?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Salesforce team to use when a template doesn't specify a team. */
-  defaultTeam?: InputMaybe<Scalars["String"]["input"]>;
+  defaultTeam?: InputMaybe<Scalars['String']['input']>;
   /** [ALPHA] Whether customer and customer requests should not be automatically created when conversations are linked to a Linear issue. */
-  disableCustomerRequestsAutoCreation?: InputMaybe<Scalars["Boolean"]["input"]>;
+  disableCustomerRequestsAutoCreation?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Salesforce case status to use to reopen cases. */
-  reopenCaseStatus?: InputMaybe<Scalars["String"]["input"]>;
+  reopenCaseStatus?: InputMaybe<Scalars['String']['input']>;
   /** Whether to restrict visibility of the integration to issues that have been either created from Salesforce or linked to Salesforce. */
-  restrictVisibility?: InputMaybe<Scalars["Boolean"]["input"]>;
+  restrictVisibility?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when someone comments on an issue. */
-  sendNoteOnComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  sendNoteOnComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when a Linear issue changes status (for status types except completed or canceled). */
-  sendNoteOnStatusChange?: InputMaybe<Scalars["Boolean"]["input"]>;
+  sendNoteOnStatusChange?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Salesforce subdomain. */
-  subdomain?: InputMaybe<Scalars["String"]["input"]>;
+  subdomain?: InputMaybe<Scalars['String']['input']>;
   /** The Salesforce instance URL. */
-  url?: InputMaybe<Scalars["String"]["input"]>;
+  url?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type SentrySettingsInput = {
   /** The ID of the Sentry organization being connected. */
-  organizationId: Scalars["ID"]["input"];
+  organizationId: Scalars['ID']['input'];
   /** The slug of the Sentry organization being connected. */
-  organizationSlug: Scalars["String"]["input"];
+  organizationSlug: Scalars['String']['input'];
   /** Whether Sentry issues resolving completes Linear issues. */
-  resolvingCompletesIssues: Scalars["Boolean"]["input"];
+  resolvingCompletesIssues: Scalars['Boolean']['input'];
   /** Whether Sentry issues unresolving reopens Linear issues. */
-  unresolvingReopensIssues: Scalars["Boolean"]["input"];
+  unresolvingReopensIssues: Scalars['Boolean']['input'];
 };
 
 export type SlackSettingsInput = {
   /** Enterprise id of the connected Slack enterprise */
-  enterpriseId?: InputMaybe<Scalars["String"]["input"]>;
+  enterpriseId?: InputMaybe<Scalars['String']['input']>;
   /** Enterprise name of the connected Slack enterprise */
-  enterpriseName?: InputMaybe<Scalars["String"]["input"]>;
+  enterpriseName?: InputMaybe<Scalars['String']['input']>;
   /** Whether Linear should automatically respond with issue unfurls when an issue identifier is mentioned in a Slack message. */
-  linkOnIssueIdMention: Scalars["Boolean"]["input"];
+  linkOnIssueIdMention: Scalars['Boolean']['input'];
   /** Whether to show unfurl previews in Slack */
-  shouldUnfurl?: InputMaybe<Scalars["Boolean"]["input"]>;
+  shouldUnfurl?: InputMaybe<Scalars['Boolean']['input']>;
   /** Slack workspace id */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** Slack workspace name */
-  teamName?: InputMaybe<Scalars["String"]["input"]>;
+  teamName?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type SlackAsksSettingsInput = {
   /** The user role type that is allowed to manage Asks settings. */
   canAdministrate: UserRoleType;
   /** Enterprise id of the connected Slack enterprise */
-  enterpriseId?: InputMaybe<Scalars["String"]["input"]>;
+  enterpriseId?: InputMaybe<Scalars['String']['input']>;
   /** Enterprise name of the connected Slack enterprise */
-  enterpriseName?: InputMaybe<Scalars["String"]["input"]>;
+  enterpriseName?: InputMaybe<Scalars['String']['input']>;
   /** Whether to show unfurl previews in Slack */
-  shouldUnfurl?: InputMaybe<Scalars["Boolean"]["input"]>;
+  shouldUnfurl?: InputMaybe<Scalars['Boolean']['input']>;
   /** The mapping of Slack channel ID => Slack channel name for connected channels. */
   slackChannelMapping?: InputMaybe<Array<SlackChannelNameMappingInput>>;
   /** Slack workspace id */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** Slack workspace name */
-  teamName?: InputMaybe<Scalars["String"]["input"]>;
+  teamName?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type SlackChannelNameMappingInput = {
   /** Whether or not to use AI to generate titles for Asks created in this channel. */
-  aiTitles?: InputMaybe<Scalars["Boolean"]["input"]>;
+  aiTitles?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether or not @-mentioning the bot should automatically create an Ask with the message. */
-  autoCreateOnBotMention?: InputMaybe<Scalars["Boolean"]["input"]>;
+  autoCreateOnBotMention?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether or not using the :ticket: emoji in this channel should automatically create Asks. */
-  autoCreateOnEmoji?: InputMaybe<Scalars["Boolean"]["input"]>;
+  autoCreateOnEmoji?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether or not top-level messages in this channel should automatically create Asks. */
-  autoCreateOnMessage?: InputMaybe<Scalars["Boolean"]["input"]>;
+  autoCreateOnMessage?: InputMaybe<Scalars['Boolean']['input']>;
   /** The optional template ID to use for Asks auto-created in this channel. If not set, auto-created Asks won't use any template. */
-  autoCreateTemplateId?: InputMaybe<Scalars["String"]["input"]>;
+  autoCreateTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** Whether or not the Linear Asks bot has been added to this Slack channel. */
-  botAdded?: InputMaybe<Scalars["Boolean"]["input"]>;
+  botAdded?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Slack channel ID. */
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
   /** Whether or not the Slack channel is private. */
-  isPrivate?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isPrivate?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether or not the Slack channel is shared with an external org. */
-  isShared?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isShared?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Slack channel name. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** Whether or not synced Slack threads should be updated with a message when their Ask is accepted from triage. */
-  postAcceptedFromTriageUpdates?: InputMaybe<Scalars["Boolean"]["input"]>;
+  postAcceptedFromTriageUpdates?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether or not synced Slack threads should be updated with a message and emoji when their Ask is canceled. */
-  postCancellationUpdates?: InputMaybe<Scalars["Boolean"]["input"]>;
+  postCancellationUpdates?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether or not synced Slack threads should be updated with a message and emoji when their Ask is completed. */
-  postCompletionUpdates?: InputMaybe<Scalars["Boolean"]["input"]>;
+  postCompletionUpdates?: InputMaybe<Scalars['Boolean']['input']>;
   /** Which teams are connected to the channel and settings for those teams. */
   teams: Array<SlackAsksTeamSettingsInput>;
 };
 
 export type SlackAsksTeamSettingsInput = {
   /** Whether the default Asks template is enabled in the given channel for this team. */
-  hasDefaultAsk: Scalars["Boolean"]["input"];
+  hasDefaultAsk: Scalars['Boolean']['input'];
   /** The Linear team ID. */
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
 export type SlackPostSettingsInput = {
-  channel: Scalars["String"]["input"];
-  channelId: Scalars["String"]["input"];
+  channel: Scalars['String']['input'];
+  channelId: Scalars['String']['input'];
   channelType?: InputMaybe<SlackChannelType>;
-  configurationUrl: Scalars["String"]["input"];
+  configurationUrl: Scalars['String']['input'];
   /** Slack workspace id */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
 };
 
-export enum SlackChannelType {
-  DirectMessage = "DirectMessage",
-  MultiPersonDirectMessage = "MultiPersonDirectMessage",
-  Private = "Private",
-  Public = "Public",
-}
+export type SlackChannelType =
+  | 'DirectMessage'
+  | 'MultiPersonDirectMessage'
+  | 'Private'
+  | 'Public';
 
 export type ZendeskSettingsInput = {
   /** Whether a ticket should be automatically reopened when its linked Linear issue is cancelled. */
-  automateTicketReopeningOnCancellation?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when a comment is posted on its linked Linear issue */
-  automateTicketReopeningOnComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  automateTicketReopeningOnComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear issue is completed. */
-  automateTicketReopeningOnCompletion?: InputMaybe<Scalars["Boolean"]["input"]>;
+  automateTicketReopeningOnCompletion?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is cancelled. */
-  automateTicketReopeningOnProjectCancellation?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnProjectCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is completed. */
-  automateTicketReopeningOnProjectCompletion?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  automateTicketReopeningOnProjectCompletion?: InputMaybe<Scalars['Boolean']['input']>;
   /** The ID of the Linear bot user. */
-  botUserId?: InputMaybe<Scalars["String"]["input"]>;
+  botUserId?: InputMaybe<Scalars['String']['input']>;
   /** [INTERNAL] Temporary flag indicating if the integration has the necessary scopes for Customers */
-  canReadCustomers?: InputMaybe<Scalars["Boolean"]["input"]>;
+  canReadCustomers?: InputMaybe<Scalars['Boolean']['input']>;
   /** [ALPHA] Whether customer and customer requests should not be automatically created when conversations are linked to a Linear issue. */
-  disableCustomerRequestsAutoCreation?: InputMaybe<Scalars["Boolean"]["input"]>;
+  disableCustomerRequestsAutoCreation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when someone comments on an issue. */
-  sendNoteOnComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  sendNoteOnComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when a Linear issue changes status (for status types except completed or canceled). */
-  sendNoteOnStatusChange?: InputMaybe<Scalars["Boolean"]["input"]>;
+  sendNoteOnStatusChange?: InputMaybe<Scalars['Boolean']['input']>;
   /** The subdomain of the Zendesk organization being connected. */
-  subdomain: Scalars["String"]["input"];
+  subdomain: Scalars['String']['input'];
   /** [INTERNAL] Flag indicating if the integration supports OAuth refresh tokens */
-  supportsOAuthRefresh?: InputMaybe<Scalars["Boolean"]["input"]>;
+  supportsOAuthRefresh?: InputMaybe<Scalars['Boolean']['input']>;
   /** The URL of the connected Zendesk organization. */
-  url: Scalars["String"]["input"];
+  url: Scalars['String']['input'];
 };
 
 export type SuccessPayload = {
-  __typename?: "SuccessPayload";
+  __typename?: 'SuccessPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type SlackChannelConnectPayload = {
-  __typename?: "SlackChannelConnectPayload";
+  __typename?: 'SlackChannelConnectPayload';
   /** Whether the bot needs to be manually added to the channel. */
-  addBot: Scalars["Boolean"]["output"];
+  addBot: Scalars['Boolean']['output'];
   /** The integration that was created or updated. */
   integration?: Maybe<Integration>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether it's recommended to connect main Slack integration. */
-  nudgeToConnectMainSlackIntegration?: Maybe<Scalars["Boolean"]["output"]>;
+  nudgeToConnectMainSlackIntegration?: Maybe<Scalars['Boolean']['output']>;
   /** Whether it's recommended to update main Slack integration. */
-  nudgeToUpdateMainSlackIntegration?: Maybe<Scalars["Boolean"]["output"]>;
+  nudgeToUpdateMainSlackIntegration?: Maybe<Scalars['Boolean']['output']>;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IntegrationSlackWorkspaceNamePayload = {
-  __typename?: "IntegrationSlackWorkspaceNamePayload";
+  __typename?: 'IntegrationSlackWorkspaceNamePayload';
   /** The current name of the Slack workspace. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IntegrationsSettingsCreateInput = {
   /** The type of view to which the integration settings context is associated with. */
   contextViewType?: InputMaybe<ContextViewType>;
   /** The identifier of the custom view to create settings for. */
-  customViewId?: InputMaybe<Scalars["String"]["input"]>;
+  customViewId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the initiative to create settings for. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project to create settings for. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** Whether to send a Slack message when an initiative update is created. */
-  slackInitiativeUpdateCreated?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackInitiativeUpdateCreated?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a new issue is added to triage. */
-  slackIssueAddedToTriage?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueAddedToTriage?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when an issue is added to a view. */
-  slackIssueAddedToView?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueAddedToView?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a new issue is created for the project or the team. */
-  slackIssueCreated?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueCreated?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a comment is created on any of the project or team's issues. */
-  slackIssueNewComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueNewComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to receive notification when an SLA has breached on Slack. */
-  slackIssueSlaBreached?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueSlaBreached?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when an SLA is at high risk. */
-  slackIssueSlaHighRisk?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueSlaHighRisk?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when any of the project or team's issues has a change in status. */
-  slackIssueStatusChangedAll?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueStatusChangedAll?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when any of the project or team's issues change to completed or cancelled. */
-  slackIssueStatusChangedDone?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueStatusChangedDone?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a project update is created. */
-  slackProjectUpdateCreated?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackProjectUpdateCreated?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a project update is created to team channels. */
-  slackProjectUpdateCreatedToTeam?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackProjectUpdateCreatedToTeam?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a project update is created to workspace channel. */
-  slackProjectUpdateCreatedToWorkspace?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  slackProjectUpdateCreatedToWorkspace?: InputMaybe<Scalars['Boolean']['input']>;
   /** The identifier of the team to create settings for. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type IntegrationsSettingsPayload = {
-  __typename?: "IntegrationsSettingsPayload";
+  __typename?: 'IntegrationsSettingsPayload';
   /** The settings that were created or updated. */
   integrationsSettings: IntegrationsSettings;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IntegrationsSettingsUpdateInput = {
   /** Whether to send a Slack message when an initiative update is created. */
-  slackInitiativeUpdateCreated?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackInitiativeUpdateCreated?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a new issue is added to triage. */
-  slackIssueAddedToTriage?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueAddedToTriage?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when an issue is added to a view. */
-  slackIssueAddedToView?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueAddedToView?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a new issue is created for the project or the team. */
-  slackIssueCreated?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueCreated?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a comment is created on any of the project or team's issues. */
-  slackIssueNewComment?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueNewComment?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to receive notification when an SLA has breached on Slack. */
-  slackIssueSlaBreached?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueSlaBreached?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when an SLA is at high risk. */
-  slackIssueSlaHighRisk?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueSlaHighRisk?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when any of the project or team's issues has a change in status. */
-  slackIssueStatusChangedAll?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueStatusChangedAll?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when any of the project or team's issues change to completed or cancelled. */
-  slackIssueStatusChangedDone?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueStatusChangedDone?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a project update is created. */
-  slackProjectUpdateCreated?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackProjectUpdateCreated?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a project update is created to team channels. */
-  slackProjectUpdateCreatedToTeam?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackProjectUpdateCreatedToTeam?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send a Slack message when a project update is created to workspace channel. */
-  slackProjectUpdateCreatedToWorkspace?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  slackProjectUpdateCreatedToWorkspace?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type IntegrationTemplateCreateInput = {
   /** The foreign identifier in the other service. */
-  foreignEntityId?: InputMaybe<Scalars["String"]["input"]>;
+  foreignEntityId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the integration. */
-  integrationId: Scalars["String"]["input"];
+  integrationId: Scalars['String']['input'];
   /** The identifier of the template. */
-  templateId: Scalars["String"]["input"];
+  templateId: Scalars['String']['input'];
 };
 
 export type IntegrationTemplatePayload = {
-  __typename?: "IntegrationTemplatePayload";
+  __typename?: 'IntegrationTemplatePayload';
   /** The IntegrationTemplate that was created or updated. */
   integrationTemplate: IntegrationTemplate;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IntegrationUpdateInput = {
@@ -14912,24 +15352,24 @@ export type IntegrationUpdateInput = {
 };
 
 export type IssuePayload = {
-  __typename?: "IssuePayload";
+  __typename?: 'IssuePayload';
   /** The issue that was created or updated. */
   issue?: Maybe<Issue>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** A generic payload return from entity archive mutations. */
 export type IssueArchivePayload = ArchivePayload & {
-  __typename?: "IssueArchivePayload";
+  __typename?: 'IssueArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<Issue>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IssueBatchCreateInput = {
@@ -14939,825 +15379,820 @@ export type IssueBatchCreateInput = {
 
 export type IssueCreateInput = {
   /** The identifier of the user to assign the issue to. */
-  assigneeId?: InputMaybe<Scalars["String"]["input"]>;
+  assigneeId?: InputMaybe<Scalars['String']['input']>;
   /** The date when the issue was completed (e.g. if importing from another system). Must be a date in the past and after createdAt date. Cannot be provided with an incompatible workflow state. */
-  completedAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  completedAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** Create issue as a user with the provided name. This option is only available to OAuth applications creating issues in `actor=app` mode. */
-  createAsUser?: InputMaybe<Scalars["String"]["input"]>;
+  createAsUser?: InputMaybe<Scalars['String']['input']>;
   /** The date when the issue was created (e.g. if importing from another system). Must be a date in the past. If none is provided, the backend will generate the time as now. */
-  createdAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  createdAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The cycle associated with the issue. */
-  cycleId?: InputMaybe<Scalars["String"]["input"]>;
+  cycleId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the agent user to delegate the issue to. */
-  delegateId?: InputMaybe<Scalars["String"]["input"]>;
+  delegateId?: InputMaybe<Scalars['String']['input']>;
   /** The issue description in markdown format. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The issue description as a Prosemirror document. */
-  descriptionData?: InputMaybe<Scalars["JSON"]["input"]>;
+  descriptionData?: InputMaybe<Scalars['JSON']['input']>;
   /** Provide an external user avatar URL. Can only be used in conjunction with the `createAsUser` options. This option is only available to OAuth applications creating comments in `actor=app` mode. */
-  displayIconUrl?: InputMaybe<Scalars["String"]["input"]>;
+  displayIconUrl?: InputMaybe<Scalars['String']['input']>;
   /** The date at which the issue is due. */
-  dueDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  dueDate?: InputMaybe<Scalars['TimelessDate']['input']>;
   /** The estimated complexity of the issue. */
-  estimate?: InputMaybe<Scalars["Int"]["input"]>;
+  estimate?: InputMaybe<Scalars['Int']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identifiers of the issue labels associated with this ticket. */
-  labelIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  labelIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The ID of the last template applied to the issue. */
-  lastAppliedTemplateId?: InputMaybe<Scalars["String"]["input"]>;
+  lastAppliedTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the parent issue. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
   /** Whether the passed sort order should be preserved. */
-  preserveSortOrderOnCreate?: InputMaybe<Scalars["Boolean"]["input"]>;
+  preserveSortOrderOnCreate?: InputMaybe<Scalars['Boolean']['input']>;
   /** The priority of the issue. 0 = No priority, 1 = Urgent, 2 = High, 3 = Normal, 4 = Low. */
-  priority?: InputMaybe<Scalars["Int"]["input"]>;
+  priority?: InputMaybe<Scalars['Int']['input']>;
   /** The position of the issue related to other issues, when ordered by priority. */
-  prioritySortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  prioritySortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The project associated with the issue. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** The project milestone associated with the issue. */
-  projectMilestoneId?: InputMaybe<Scalars["String"]["input"]>;
+  projectMilestoneId?: InputMaybe<Scalars['String']['input']>;
   /** The comment the issue is referencing. */
-  referenceCommentId?: InputMaybe<Scalars["String"]["input"]>;
+  referenceCommentId?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The timestamp at which an issue will be considered in breach of SLA. */
-  slaBreachesAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  slaBreachesAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** [Internal] The timestamp at which the issue's SLA was started. */
-  slaStartedAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  slaStartedAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The SLA day count type for the issue. Whether SLA should be business days only or calendar days (default). */
   slaType?: InputMaybe<SlaDayCountType>;
   /** The position of the issue related to other issues. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The comment the issue is created from. */
-  sourceCommentId?: InputMaybe<Scalars["String"]["input"]>;
+  sourceCommentId?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The pull request comment the issue is created from. */
-  sourcePullRequestCommentId?: InputMaybe<Scalars["String"]["input"]>;
+  sourcePullRequestCommentId?: InputMaybe<Scalars['String']['input']>;
   /** The team state of the issue. */
-  stateId?: InputMaybe<Scalars["String"]["input"]>;
+  stateId?: InputMaybe<Scalars['String']['input']>;
   /** The position of the issue in parent's sub-issue list. */
-  subIssueSortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  subIssueSortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The identifiers of the users subscribing to this ticket. */
-  subscriberIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  subscriberIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The identifier of the team associated with the issue. */
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
   /** The identifier of a template the issue should be created from. If other values are provided in the input, they will override template values. */
-  templateId?: InputMaybe<Scalars["String"]["input"]>;
+  templateId?: InputMaybe<Scalars['String']['input']>;
   /** The title of the issue. */
-  title?: InputMaybe<Scalars["String"]["input"]>;
+  title?: InputMaybe<Scalars['String']['input']>;
   /** Whether to use the default template for the team. When set to true, the default template of this team based on user's membership will be applied. */
-  useDefaultTemplate?: InputMaybe<Scalars["Boolean"]["input"]>;
+  useDefaultTemplate?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type IssueBatchPayload = {
-  __typename?: "IssueBatchPayload";
+  __typename?: 'IssueBatchPayload';
   /** The issues that were updated. */
   issues: Array<Issue>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IssueUpdateInput = {
   /** The identifiers of the issue labels to be added to this issue. */
-  addedLabelIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  addedLabelIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The identifier of the user to assign the issue to. */
-  assigneeId?: InputMaybe<Scalars["String"]["input"]>;
+  assigneeId?: InputMaybe<Scalars['String']['input']>;
   /** Whether the issue was automatically closed because its parent issue was closed. */
-  autoClosedByParentClosing?: InputMaybe<Scalars["Boolean"]["input"]>;
+  autoClosedByParentClosing?: InputMaybe<Scalars['Boolean']['input']>;
   /** The cycle associated with the issue. */
-  cycleId?: InputMaybe<Scalars["String"]["input"]>;
+  cycleId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the agent user to delegate the issue to. */
-  delegateId?: InputMaybe<Scalars["String"]["input"]>;
+  delegateId?: InputMaybe<Scalars['String']['input']>;
   /** The issue description in markdown format. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The issue description as a Prosemirror document. */
-  descriptionData?: InputMaybe<Scalars["JSON"]["input"]>;
+  descriptionData?: InputMaybe<Scalars['JSON']['input']>;
   /** The date at which the issue is due. */
-  dueDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  dueDate?: InputMaybe<Scalars['TimelessDate']['input']>;
   /** The estimated complexity of the issue. */
-  estimate?: InputMaybe<Scalars["Int"]["input"]>;
+  estimate?: InputMaybe<Scalars['Int']['input']>;
   /** The identifiers of the issue labels associated with this ticket. */
-  labelIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  labelIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The ID of the last template applied to the issue. */
-  lastAppliedTemplateId?: InputMaybe<Scalars["String"]["input"]>;
+  lastAppliedTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the parent issue. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
   /** The priority of the issue. 0 = No priority, 1 = Urgent, 2 = High, 3 = Normal, 4 = Low. */
-  priority?: InputMaybe<Scalars["Int"]["input"]>;
+  priority?: InputMaybe<Scalars['Int']['input']>;
   /** The position of the issue related to other issues, when ordered by priority. */
-  prioritySortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  prioritySortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The project associated with the issue. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** The project milestone associated with the issue. */
-  projectMilestoneId?: InputMaybe<Scalars["String"]["input"]>;
+  projectMilestoneId?: InputMaybe<Scalars['String']['input']>;
   /** The identifiers of the issue labels to be removed from this issue. */
-  removedLabelIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  removedLabelIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** [Internal] The timestamp at which an issue will be considered in breach of SLA. */
-  slaBreachesAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  slaBreachesAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** [Internal] The timestamp at which the issue's SLA was started. */
-  slaStartedAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  slaStartedAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The SLA day count type for the issue. Whether SLA should be business days only or calendar days (default). */
   slaType?: InputMaybe<SlaDayCountType>;
   /** The identifier of the user who snoozed the issue. */
-  snoozedById?: InputMaybe<Scalars["String"]["input"]>;
+  snoozedById?: InputMaybe<Scalars['String']['input']>;
   /** The time until an issue will be snoozed in Triage view. */
-  snoozedUntilAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  snoozedUntilAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The position of the issue related to other issues. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The team state of the issue. */
-  stateId?: InputMaybe<Scalars["String"]["input"]>;
+  stateId?: InputMaybe<Scalars['String']['input']>;
   /** The position of the issue in parent's sub-issue list. */
-  subIssueSortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  subIssueSortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The identifiers of the users subscribing to this ticket. */
-  subscriberIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  subscriberIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The identifier of the team associated with the issue. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The issue title. */
-  title?: InputMaybe<Scalars["String"]["input"]>;
+  title?: InputMaybe<Scalars['String']['input']>;
   /** Whether the issue has been trashed. */
-  trashed?: InputMaybe<Scalars["Boolean"]["input"]>;
+  trashed?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type IssueImportPayload = {
-  __typename?: "IssueImportPayload";
+  __typename?: 'IssueImportPayload';
   /** The import job that was created or updated. */
   issueImport?: Maybe<IssueImport>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IssueImportDeletePayload = {
-  __typename?: "IssueImportDeletePayload";
+  __typename?: 'IssueImportDeletePayload';
   /** The import job that was deleted. */
   issueImport?: Maybe<IssueImport>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IssueImportUpdateInput = {
   /** The mapping configuration for the import. */
-  mapping: Scalars["JSONObject"]["input"];
+  mapping: Scalars['JSONObject']['input'];
 };
 
 export type IssueLabelCreateInput = {
   /** The color of the label. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The description of the label. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** Whether the label is a group. */
-  isGroup?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isGroup?: InputMaybe<Scalars['Boolean']['input']>;
   /** The name of the label. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The identifier of the parent label. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
   /** The team associated with the label. If not given, the label will be associated with the entire workspace. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type IssueLabelPayload = {
-  __typename?: "IssueLabelPayload";
+  __typename?: 'IssueLabelPayload';
   /** The label that was created or updated. */
   issueLabel: IssueLabel;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IssueLabelMoveToTeamLabelsInput = {
   /** The identifier of the workspace label to convert. */
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 };
 
 export type IssueLabelMoveToTeamLabelsPayload = {
-  __typename?: "IssueLabelMoveToTeamLabelsPayload";
+  __typename?: 'IssueLabelMoveToTeamLabelsPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type LabelsMergeInput = {
   /** The identifiers of the labels to merge. */
-  fromLabelIds: Array<Scalars["String"]["input"]>;
+  fromLabelIds: Array<Scalars['String']['input']>;
   /** The identifier of the target label. */
-  toLabelId: Scalars["String"]["input"];
+  toLabelId: Scalars['String']['input'];
 };
 
 export type IssueLabelUpdateInput = {
   /** The color of the label. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The description of the label. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** Whether the label is a group. */
-  isGroup?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isGroup?: InputMaybe<Scalars['Boolean']['input']>;
   /** The name of the label. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the parent label. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type IssueRelationCreateInput = {
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the issue that is related to another issue. */
-  issueId: Scalars["String"]["input"];
+  issueId: Scalars['String']['input'];
   /** The identifier of the related issue. */
-  relatedIssueId: Scalars["String"]["input"];
+  relatedIssueId: Scalars['String']['input'];
   /** The type of relation of the issue to the related issue. */
   type: IssueRelationType;
 };
 
 /** The type of the issue relation. */
-export enum IssueRelationType {
-  Blocks = "blocks",
-  Duplicate = "duplicate",
-  Related = "related",
-  Similar = "similar",
-}
+export type IssueRelationType =
+  | 'blocks'
+  | 'duplicate'
+  | 'related'
+  | 'similar';
 
 export type IssueRelationPayload = {
-  __typename?: "IssueRelationPayload";
+  __typename?: 'IssueRelationPayload';
   /** The issue relation that was created or updated. */
   issueRelation: IssueRelation;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type IssueRelationUpdateInput = {
   /** The identifier of the issue that is related to another issue. */
-  issueId?: InputMaybe<Scalars["String"]["input"]>;
+  issueId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the related issue. */
-  relatedIssueId?: InputMaybe<Scalars["String"]["input"]>;
+  relatedIssueId?: InputMaybe<Scalars['String']['input']>;
   /** The type of relation of the issue to the related issue. */
-  type?: InputMaybe<Scalars["String"]["input"]>;
+  type?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type JiraConfigurationInput = {
   /** The Jira personal access token. */
-  accessToken: Scalars["String"]["input"];
+  accessToken: Scalars['String']['input'];
   /** The Jira user's email address. */
-  email: Scalars["String"]["input"];
+  email: Scalars['String']['input'];
   /** The Jira installation hostname. */
-  hostname: Scalars["String"]["input"];
+  hostname: Scalars['String']['input'];
   /** Whether this integration will be setup using the manual webhook flow. */
-  manualSetup?: InputMaybe<Scalars["Boolean"]["input"]>;
+  manualSetup?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type JoinOrganizationInput = {
   /** An optional invite link for an organization. */
-  inviteLink?: InputMaybe<Scalars["String"]["input"]>;
+  inviteLink?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the organization. */
-  organizationId: Scalars["String"]["input"];
+  organizationId: Scalars['String']['input'];
 };
 
 export type LogoutResponse = {
-  __typename?: "LogoutResponse";
+  __typename?: 'LogoutResponse';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** A generic payload return from entity archive mutations. */
 export type NotificationArchivePayload = ArchivePayload & {
-  __typename?: "NotificationArchivePayload";
+  __typename?: 'NotificationArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<Notification>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** Describes the type and id of the entity to target for notifications. */
 export type NotificationEntityInput = {
   /** The id of the notification. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The id of the initiative related to the notification. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The id of the initiative update related to the notification. */
-  initiativeUpdateId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeUpdateId?: InputMaybe<Scalars['String']['input']>;
   /** The id of the issue related to the notification. */
-  issueId?: InputMaybe<Scalars["String"]["input"]>;
+  issueId?: InputMaybe<Scalars['String']['input']>;
   /** The id of the OAuth client approval related to the notification. */
-  oauthClientApprovalId?: InputMaybe<Scalars["String"]["input"]>;
+  oauthClientApprovalId?: InputMaybe<Scalars['String']['input']>;
   /** [DEPRECATED] The id of the project related to the notification. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** The id of the project update related to the notification. */
-  projectUpdateId?: InputMaybe<Scalars["String"]["input"]>;
+  projectUpdateId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type NotificationBatchActionPayload = {
-  __typename?: "NotificationBatchActionPayload";
+  __typename?: 'NotificationBatchActionPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The notifications that were updated. */
   notifications: Array<Notification>;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** The delivery channels a user can receive notifications in. */
-export enum NotificationChannel {
-  Desktop = "desktop",
-  Email = "email",
-  Mobile = "mobile",
-  Slack = "slack",
-}
+export type NotificationChannel =
+  | 'desktop'
+  | 'email'
+  | 'mobile'
+  | 'slack';
 
 export type UserSettingsPayload = {
-  __typename?: "UserSettingsPayload";
+  __typename?: 'UserSettingsPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The user's settings. */
   userSettings: UserSettings;
 };
 
 export type NotificationSubscriptionCreateInput = {
   /** Whether the subscription is active. */
-  active?: InputMaybe<Scalars["Boolean"]["input"]>;
+  active?: InputMaybe<Scalars['Boolean']['input']>;
   /** The type of view to which the notification subscription context is associated with. */
   contextViewType?: InputMaybe<ContextViewType>;
   /** The identifier of the customer to subscribe to. */
-  customerId?: InputMaybe<Scalars["String"]["input"]>;
+  customerId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the custom view to subscribe to. */
-  customViewId?: InputMaybe<Scalars["String"]["input"]>;
+  customViewId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the cycle to subscribe to. */
-  cycleId?: InputMaybe<Scalars["String"]["input"]>;
+  cycleId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the initiative to subscribe to. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the label to subscribe to. */
-  labelId?: InputMaybe<Scalars["String"]["input"]>;
+  labelId?: InputMaybe<Scalars['String']['input']>;
   /** The types of notifications of the subscription. */
-  notificationSubscriptionTypes?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  notificationSubscriptionTypes?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The identifier of the project to subscribe to. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the team to subscribe to. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The type of user view to which the notification subscription context is associated with. */
   userContextViewType?: InputMaybe<UserContextViewType>;
   /** The identifier of the user to subscribe to. */
-  userId?: InputMaybe<Scalars["String"]["input"]>;
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type NotificationSubscriptionPayload = {
-  __typename?: "NotificationSubscriptionPayload";
+  __typename?: 'NotificationSubscriptionPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The notification subscription that was created or updated. */
   notificationSubscription: NotificationSubscription;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type NotificationSubscriptionUpdateInput = {
   /** Whether the subscription is active. */
-  active?: InputMaybe<Scalars["Boolean"]["input"]>;
+  active?: InputMaybe<Scalars['Boolean']['input']>;
   /** The types of notifications of the subscription. */
-  notificationSubscriptionTypes?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  notificationSubscriptionTypes?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export type NotificationUpdateInput = {
   /** The id of the project update related to the notification. */
-  initiativeUpdateId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeUpdateId?: InputMaybe<Scalars['String']['input']>;
   /** The id of the project update related to the notification. */
-  projectUpdateId?: InputMaybe<Scalars["String"]["input"]>;
+  projectUpdateId?: InputMaybe<Scalars['String']['input']>;
   /** The time when notification was marked as read. */
-  readAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  readAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  snoozedUntilAt?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type NotificationPayload = {
-  __typename?: "NotificationPayload";
+  __typename?: 'NotificationPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The notification that was created or updated. */
   notification: Notification;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type OrganizationCancelDeletePayload = {
-  __typename?: "OrganizationCancelDeletePayload";
+  __typename?: 'OrganizationCancelDeletePayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type DeleteOrganizationInput = {
   /** The deletion code to confirm operation. */
-  deletionCode: Scalars["String"]["input"];
+  deletionCode: Scalars['String']['input'];
 };
 
 export type OrganizationDeletePayload = {
-  __typename?: "OrganizationDeletePayload";
+  __typename?: 'OrganizationDeletePayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** [INTERNAL] Organization domain operation response. */
 export type OrganizationDomainSimplePayload = {
-  __typename?: "OrganizationDomainSimplePayload";
+  __typename?: 'OrganizationDomainSimplePayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type OrganizationDomainCreateInput = {
   /** The authentication type this domain is for. */
-  authType?: InputMaybe<Scalars["String"]["input"]>;
+  authType?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identity provider to which to add the domain. */
-  identityProviderId?: InputMaybe<Scalars["String"]["input"]>;
+  identityProviderId?: InputMaybe<Scalars['String']['input']>;
   /** The domain name to add. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The email address to which to send the verification code. */
-  verificationEmail?: InputMaybe<Scalars["String"]["input"]>;
+  verificationEmail?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** [INTERNAL] Organization domain operation response. */
 export type OrganizationDomainPayload = {
-  __typename?: "OrganizationDomainPayload";
+  __typename?: 'OrganizationDomainPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The organization domain that was created or updated. */
   organizationDomain: OrganizationDomain;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** Defines the use of a domain by an organization. */
 export type OrganizationDomain = Node & {
-  __typename?: "OrganizationDomain";
+  __typename?: 'OrganizationDomain';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** What type of auth is the domain used for. */
   authType: OrganizationDomainAuthType;
   /** Whether the domains was claimed by the organization through DNS verification. */
-  claimed?: Maybe<Scalars["Boolean"]["output"]>;
+  claimed?: Maybe<Scalars['Boolean']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The user who added the domain. */
   creator?: Maybe<User>;
   /** Prevent users with this domain to create new workspaces. */
-  disableOrganizationCreation?: Maybe<Scalars["Boolean"]["output"]>;
+  disableOrganizationCreation?: Maybe<Scalars['Boolean']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The identity provider the domain belongs to. */
   identityProvider?: Maybe<IdentityProvider>;
   /** Domain name. */
-  name: Scalars["String"]["output"];
+  name: Scalars['String']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** E-mail used to verify this domain. */
-  verificationEmail?: Maybe<Scalars["String"]["output"]>;
+  verificationEmail?: Maybe<Scalars['String']['output']>;
   /** Is this domain verified. */
-  verified: Scalars["Boolean"]["output"];
+  verified: Scalars['Boolean']['output'];
 };
 
 /** What type of auth is the domain used for. */
-export enum OrganizationDomainAuthType {
-  General = "general",
-  Saml = "saml",
-}
+export type OrganizationDomainAuthType =
+  | 'general'
+  | 'saml';
 
 /** An identity provider. */
 export type IdentityProvider = Node & {
-  __typename?: "IdentityProvider";
+  __typename?: 'IdentityProvider';
   /** [INTERNAL] SCIM admins group push settings. */
-  adminsGroupPush?: Maybe<Scalars["JSONObject"]["output"]>;
+  adminsGroupPush?: Maybe<Scalars['JSONObject']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Whether the identity provider is the default identity provider migrated from organization level settings. */
-  defaultMigrated: Scalars["Boolean"]["output"];
+  defaultMigrated: Scalars['Boolean']['output'];
   /** [INTERNAL] SCIM guests group push settings. */
-  guestsGroupPush?: Maybe<Scalars["JSONObject"]["output"]>;
+  guestsGroupPush?: Maybe<Scalars['JSONObject']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The issuer's custom entity ID. */
-  issuerEntityId?: Maybe<Scalars["String"]["output"]>;
+  issuerEntityId?: Maybe<Scalars['String']['output']>;
   /** The SAML priority used to pick default workspace in SAML SP initiated flow, when same domain is claimed for SAML by multiple workspaces. Lower priority value means higher preference. */
-  priority?: Maybe<Scalars["Float"]["output"]>;
+  priority?: Maybe<Scalars['Float']['output']>;
   /** Whether SAML authentication is enabled for organization. */
-  samlEnabled: Scalars["Boolean"]["output"];
+  samlEnabled: Scalars['Boolean']['output'];
   /** Whether SCIM provisioning is enabled for organization. */
-  scimEnabled: Scalars["Boolean"]["output"];
+  scimEnabled: Scalars['Boolean']['output'];
   /** Binding method for authentication call. Can be either `post` (default) or `redirect`. */
-  ssoBinding?: Maybe<Scalars["String"]["output"]>;
+  ssoBinding?: Maybe<Scalars['String']['output']>;
   /** Sign in endpoint URL for the identity provider. */
-  ssoEndpoint?: Maybe<Scalars["String"]["output"]>;
+  ssoEndpoint?: Maybe<Scalars['String']['output']>;
   /** The algorithm of the Signing Certificate. Can be one of `sha1`, `sha256` (default), or `sha512`. */
-  ssoSignAlgo?: Maybe<Scalars["String"]["output"]>;
+  ssoSignAlgo?: Maybe<Scalars['String']['output']>;
   /** X.509 Signing Certificate in string form. */
-  ssoSigningCert?: Maybe<Scalars["String"]["output"]>;
+  ssoSigningCert?: Maybe<Scalars['String']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type OrganizationDomainUpdateInput = {
   /** Prevent users with this domain to create new workspaces. Only allowed to set on claimed domains! */
-  disableOrganizationCreation?: InputMaybe<Scalars["Boolean"]["input"]>;
+  disableOrganizationCreation?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type OrganizationDomainVerificationInput = {
   /** The identifier in UUID v4 format of the domain being verified. */
-  organizationDomainId: Scalars["String"]["input"];
+  organizationDomainId: Scalars['String']['input'];
   /** The verification code sent via email. */
-  verificationCode: Scalars["String"]["input"];
+  verificationCode: Scalars['String']['input'];
 };
 
 export type OrganizationInviteCreateInput = {
   /** The email of the invitee. */
-  email: Scalars["String"]["input"];
+  email: Scalars['String']['input'];
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** [INTERNAL] Optional metadata about the invite. */
-  metadata?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  metadata?: InputMaybe<Scalars['JSONObject']['input']>;
   /** What user role the invite should grant. */
   role?: InputMaybe<UserRoleType>;
   /** The teams that the user has been invited to. */
-  teamIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  teamIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 export type OrganizationInvitePayload = {
-  __typename?: "OrganizationInvitePayload";
+  __typename?: 'OrganizationInvitePayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The organization invite that was created or updated. */
   organizationInvite: OrganizationInvite;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type OrganizationInviteUpdateInput = {
   /** The teams that the user has been invited to. */
-  teamIds: Array<Scalars["String"]["input"]>;
+  teamIds: Array<Scalars['String']['input']>;
 };
 
 export type OrganizationStartTrialPayload = {
-  __typename?: "OrganizationStartTrialPayload";
+  __typename?: 'OrganizationStartTrialPayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type OrganizationStartTrialInput = {
   /** The plan type to trial. */
-  planType: Scalars["String"]["input"];
+  planType: Scalars['String']['input'];
 };
 
 export type OrganizationUpdateInput = {
   /** [INTERNAL] Whether the organization has enabled the AI add-on. */
-  aiAddonEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  aiAddonEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** [INTERNAL] Whether the organization has opted in to AI telemetry. */
-  aiTelemetryEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  aiTelemetryEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** List of services that are allowed to be used for login. */
-  allowedAuthServices?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  allowedAuthServices?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Whether member users are allowed to send invites. */
-  allowMembersToInvite?: InputMaybe<Scalars["Boolean"]["input"]>;
+  allowMembersToInvite?: InputMaybe<Scalars['Boolean']['input']>;
   /** [INTERNAL] Configuration settings for the Customers feature. */
-  customersConfiguration?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  customersConfiguration?: InputMaybe<Scalars['JSONObject']['input']>;
   /** [INTERNAL] Whether the organization is using customers. */
-  customersEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  customersEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** Default schedule for how often feed summaries are generated. */
   defaultFeedSummarySchedule?: InputMaybe<FeedSummarySchedule>;
   /** Whether the organization has enabled the feed feature. */
-  feedEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  feedEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The month at which the fiscal year starts. */
-  fiscalYearStartMonth?: InputMaybe<Scalars["Float"]["input"]>;
+  fiscalYearStartMonth?: InputMaybe<Scalars['Float']['input']>;
   /** How git branches are formatted. If null, default formatting will be used. */
-  gitBranchFormat?: InputMaybe<Scalars["String"]["input"]>;
+  gitBranchFormat?: InputMaybe<Scalars['String']['input']>;
   /** Whether the Git integration linkback messages should be sent for private repositories. */
-  gitLinkbackMessagesEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  gitLinkbackMessagesEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether the Git integration linkback messages should be sent for public repositories. */
-  gitPublicLinkbackMessagesEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  gitPublicLinkbackMessagesEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** [ALPHA] The n-weekly frequency at which to prompt for initiative updates. */
-  initiativeUpdateReminderFrequencyInWeeks?: InputMaybe<
-    Scalars["Float"]["input"]
-  >;
+  initiativeUpdateReminderFrequencyInWeeks?: InputMaybe<Scalars['Float']['input']>;
   /** [ALPHA] The day at which initiative updates are sent. */
   initiativeUpdateRemindersDay?: InputMaybe<Day>;
   /** [ALPHA] The hour at which initiative updates are sent. */
-  initiativeUpdateRemindersHour?: InputMaybe<Scalars["Float"]["input"]>;
+  initiativeUpdateRemindersHour?: InputMaybe<Scalars['Float']['input']>;
   /** IP restriction configurations controlling allowed access the workspace. */
   ipRestrictions?: InputMaybe<Array<OrganizationIpRestrictionInput>>;
   /** The logo of the organization. */
-  logoUrl?: InputMaybe<Scalars["String"]["input"]>;
+  logoUrl?: InputMaybe<Scalars['String']['input']>;
   /** The name of the organization. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** Whether the organization has opted for having to approve all OAuth applications for install. */
-  oauthAppReview?: InputMaybe<Scalars["Boolean"]["input"]>;
+  oauthAppReview?: InputMaybe<Scalars['Boolean']['input']>;
   /** [INTERNAL] Whether the organization has enabled the member API keys. */
-  personalApiKeysEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  personalApiKeysEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The n-weekly frequency at which to prompt for project updates. */
-  projectUpdateReminderFrequencyInWeeks?: InputMaybe<Scalars["Float"]["input"]>;
+  projectUpdateReminderFrequencyInWeeks?: InputMaybe<Scalars['Float']['input']>;
   /** The day at which project updates are sent. */
   projectUpdateRemindersDay?: InputMaybe<Day>;
   /** The hour at which project updates are sent. */
-  projectUpdateRemindersHour?: InputMaybe<Scalars["Float"]["input"]>;
+  projectUpdateRemindersHour?: InputMaybe<Scalars['Float']['input']>;
   /** Whether the organization has opted for reduced customer support attachment information. */
-  reducedPersonalInformation?: InputMaybe<Scalars["Boolean"]["input"]>;
+  reducedPersonalInformation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether agent invocation is restricted to full workspace members. */
-  restrictAgentInvocationToMembers?: InputMaybe<Scalars["Boolean"]["input"]>;
+  restrictAgentInvocationToMembers?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether label creation is restricted to admins. */
-  restrictLabelManagementToAdmins?: InputMaybe<Scalars["Boolean"]["input"]>;
+  restrictLabelManagementToAdmins?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether team creation is restricted to admins. */
-  restrictTeamCreationToAdmins?: InputMaybe<Scalars["Boolean"]["input"]>;
+  restrictTeamCreationToAdmins?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether the organization is using roadmap. */
-  roadmapEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  roadmapEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** Internal. Whether SLAs have been enabled for the organization. */
-  slaEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slaEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** [ALPHA] Theme settings for the organization. */
-  themeSettings?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  themeSettings?: InputMaybe<Scalars['JSONObject']['input']>;
   /** The URL key of the organization. */
-  urlKey?: InputMaybe<Scalars["String"]["input"]>;
+  urlKey?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The list of working days. Sunday is 0, Monday is 1, etc. */
-  workingDays?: InputMaybe<Array<Scalars["Float"]["input"]>>;
+  workingDays?: InputMaybe<Array<Scalars['Float']['input']>>;
 };
 
 /** [INTERNAL] Organization IP restriction configuration. */
 export type OrganizationIpRestrictionInput = {
   /** Optional restriction description. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** Whether the restriction is enabled. */
-  enabled: Scalars["Boolean"]["input"];
+  enabled: Scalars['Boolean']['input'];
   /** IP range in CIDR format. */
-  range: Scalars["String"]["input"];
+  range: Scalars['String']['input'];
   /** Restriction type. */
-  type: Scalars["String"]["input"];
+  type: Scalars['String']['input'];
 };
 
 export type OrganizationPayload = {
-  __typename?: "OrganizationPayload";
+  __typename?: 'OrganizationPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The organization that was created or updated. */
   organization?: Maybe<Organization>;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type PasskeyLoginStartResponse = {
-  __typename?: "PasskeyLoginStartResponse";
-  options: Scalars["JSONObject"]["output"];
-  success: Scalars["Boolean"]["output"];
+  __typename?: 'PasskeyLoginStartResponse';
+  options: Scalars['JSONObject']['output'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectPayload = {
-  __typename?: "ProjectPayload";
+  __typename?: 'ProjectPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The project that was created or updated. */
   project?: Maybe<Project>;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** A generic payload return from entity archive mutations. */
 export type ProjectArchivePayload = ArchivePayload & {
-  __typename?: "ProjectArchivePayload";
+  __typename?: 'ProjectArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<Project>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectCreateInput = {
   /** The color of the project. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The project content as markdown. */
-  content?: InputMaybe<Scalars["String"]["input"]>;
+  content?: InputMaybe<Scalars['String']['input']>;
   /** The ID of the issue from which that project is created. */
-  convertedFromIssueId?: InputMaybe<Scalars["String"]["input"]>;
+  convertedFromIssueId?: InputMaybe<Scalars['String']['input']>;
   /** The description for the project. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The icon of the project. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** [Internal]The identifiers of the project labels associated with this project. */
-  labelIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  labelIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The ID of the last template applied to the project. */
-  lastAppliedTemplateId?: InputMaybe<Scalars["String"]["input"]>;
+  lastAppliedTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project lead. */
-  leadId?: InputMaybe<Scalars["String"]["input"]>;
+  leadId?: InputMaybe<Scalars['String']['input']>;
   /** The identifiers of the members of this project. */
-  memberIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  memberIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The name of the project. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The priority of the project. 0 = No priority, 1 = Urgent, 2 = High, 3 = Normal, 4 = Low. */
-  priority?: InputMaybe<Scalars["Int"]["input"]>;
+  priority?: InputMaybe<Scalars['Int']['input']>;
   /** The sort order for the project within shared views, when ordered by priority. */
-  prioritySortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  prioritySortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The sort order for the project within shared views. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The planned start date of the project. */
-  startDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  startDate?: InputMaybe<Scalars['TimelessDate']['input']>;
   /** The resolution of the project's start date. */
   startDateResolution?: InputMaybe<DateResolutionType>;
   /** The ID of the project status. */
-  statusId?: InputMaybe<Scalars["String"]["input"]>;
+  statusId?: InputMaybe<Scalars['String']['input']>;
   /** The planned target date of the project. */
-  targetDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  targetDate?: InputMaybe<Scalars['TimelessDate']['input']>;
   /** The resolution of the project's estimated completion date. */
   targetDateResolution?: InputMaybe<DateResolutionType>;
   /** The identifiers of the teams this project is associated with. */
-  teamIds: Array<Scalars["String"]["input"]>;
+  teamIds: Array<Scalars['String']['input']>;
 };
 
 export type ProjectLabelCreateInput = {
   /** The color of the label. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The description of the label. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** Whether the label is a group. */
-  isGroup?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isGroup?: InputMaybe<Scalars['Boolean']['input']>;
   /** The name of the label. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The identifier of the parent label. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type ProjectLabelPayload = {
-  __typename?: "ProjectLabelPayload";
+  __typename?: 'ProjectLabelPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The label that was created or updated. */
   projectLabel: ProjectLabel;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectLabelUpdateInput = {
   /** The color of the label. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The description of the label. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** Whether the label is a group. */
-  isGroup?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isGroup?: InputMaybe<Scalars['Boolean']['input']>;
   /** The name of the label. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the parent label. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type ProjectMilestoneCreateInput = {
   /** The description of the project milestone in markdown format. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The description of the project milestone as a Prosemirror document. */
-  descriptionData?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  descriptionData?: InputMaybe<Scalars['JSONObject']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The name of the project milestone. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** Related project for the project milestone. */
-  projectId: Scalars["String"]["input"];
+  projectId: Scalars['String']['input'];
   /** The sort order for the project milestone within a project. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The planned target date of the project milestone. */
-  targetDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  targetDate?: InputMaybe<Scalars['TimelessDate']['input']>;
 };
 
 export type ProjectMilestonePayload = {
-  __typename?: "ProjectMilestonePayload";
+  __typename?: 'ProjectMilestonePayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The project milestone that was created or updated. */
   projectMilestone: ProjectMilestone;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectMilestoneMoveInput = {
   /** Whether to add each milestone issue's team to the project. This is needed when there is a mismatch between a project's teams and the milestone's issues' teams. Either this or newIssueTeamId is required in that situation to resolve constraints. */
-  addIssueTeamToProject?: InputMaybe<Scalars["Boolean"]["input"]>;
+  addIssueTeamToProject?: InputMaybe<Scalars['Boolean']['input']>;
   /** The team id to move the attached issues to. This is needed when there is a mismatch between a project's teams and the milestone's issues' teams. Either this or addIssueTeamToProject is required in that situation to resolve constraints. */
-  newIssueTeamId?: InputMaybe<Scalars["String"]["input"]>;
+  newIssueTeamId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project to move the milestone to. */
-  projectId: Scalars["String"]["input"];
+  projectId: Scalars['String']['input'];
   /** A list of issue id to team ids, used for undoing a previous milestone move where the specified issues were moved from the specified teams. */
   undoIssueTeamIds?: InputMaybe<Array<ProjectMilestoneMoveIssueToTeamInput>>;
   /** A mapping of project id to a previous set of team ids, used for undoing a previous milestone move where the specified teams were added to the project. */
@@ -15767,23 +16202,23 @@ export type ProjectMilestoneMoveInput = {
 /** [Internal] Used for ProjectMilestoneMoveInput to describe a mapping between an issue and its team. */
 export type ProjectMilestoneMoveIssueToTeamInput = {
   /** The issue id in this relationship, you can use * as wildcard if all issues are being moved to the same team */
-  issueId: Scalars["String"]["input"];
+  issueId: Scalars['String']['input'];
   /** The team id in this relationship */
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
 };
 
 /** [Internal] Used for ProjectMilestoneMoveInput to describe a snapshot of a project and its team ids */
 export type ProjectMilestoneMoveProjectTeamsInput = {
   /** The project id */
-  projectId: Scalars["String"]["input"];
+  projectId: Scalars['String']['input'];
   /** The team ids for the project */
-  teamIds: Array<Scalars["String"]["input"]>;
+  teamIds: Array<Scalars['String']['input']>;
 };
 
 export type ProjectMilestoneMovePayload = {
-  __typename?: "ProjectMilestoneMovePayload";
+  __typename?: 'ProjectMilestoneMovePayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** A snapshot of the issues that were moved to new teams, if the user selected to do it, containing an array of mappings between an issue and its previous team. Store on the client to use for undoing a previous milestone move. */
   previousIssueTeamIds?: Maybe<Array<ProjectMilestoneMoveIssueToTeam>>;
   /** A snapshot of the project that had new teams added to it, if the user selected to do it, containing an array of mappings between a project and its previous teams. Store on the client to use for undoing a previous milestone move. */
@@ -15791,704 +16226,700 @@ export type ProjectMilestoneMovePayload = {
   /** The project milestone that was created or updated. */
   projectMilestone: ProjectMilestone;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectMilestoneMoveIssueToTeam = {
-  __typename?: "ProjectMilestoneMoveIssueToTeam";
+  __typename?: 'ProjectMilestoneMoveIssueToTeam';
   /** The issue id in this relationship, you can use * as wildcard if all issues are being moved to the same team */
-  issueId: Scalars["String"]["output"];
+  issueId: Scalars['String']['output'];
   /** The team id in this relationship */
-  teamId: Scalars["String"]["output"];
+  teamId: Scalars['String']['output'];
 };
 
 export type ProjectMilestoneMoveProjectTeams = {
-  __typename?: "ProjectMilestoneMoveProjectTeams";
+  __typename?: 'ProjectMilestoneMoveProjectTeams';
   /** The project id */
-  projectId: Scalars["String"]["output"];
+  projectId: Scalars['String']['output'];
   /** The team ids for the project */
-  teamIds: Array<Scalars["String"]["output"]>;
+  teamIds: Array<Scalars['String']['output']>;
 };
 
 export type ProjectMilestoneUpdateInput = {
   /** The description of the project milestone in markdown format. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The description of the project milestone as a Prosemirror document. */
-  descriptionData?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  descriptionData?: InputMaybe<Scalars['JSONObject']['input']>;
   /** The name of the project milestone. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** Related project for the project milestone. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** The sort order for the project milestone within a project. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The planned target date of the project milestone. */
-  targetDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  targetDate?: InputMaybe<Scalars['TimelessDate']['input']>;
 };
 
 export type ProjectRelationCreateInput = {
   /** The type of the anchor for the project. */
-  anchorType: Scalars["String"]["input"];
+  anchorType: Scalars['String']['input'];
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project that is related to another project. */
-  projectId: Scalars["String"]["input"];
+  projectId: Scalars['String']['input'];
   /** The identifier of the project milestone. */
-  projectMilestoneId?: InputMaybe<Scalars["String"]["input"]>;
+  projectMilestoneId?: InputMaybe<Scalars['String']['input']>;
   /** The type of the anchor for the related project. */
-  relatedAnchorType: Scalars["String"]["input"];
+  relatedAnchorType: Scalars['String']['input'];
   /** The identifier of the related project. */
-  relatedProjectId: Scalars["String"]["input"];
+  relatedProjectId: Scalars['String']['input'];
   /** The identifier of the related project milestone. */
-  relatedProjectMilestoneId?: InputMaybe<Scalars["String"]["input"]>;
+  relatedProjectMilestoneId?: InputMaybe<Scalars['String']['input']>;
   /** The type of relation of the project to the related project. */
-  type: Scalars["String"]["input"];
+  type: Scalars['String']['input'];
 };
 
 export type ProjectRelationPayload = {
-  __typename?: "ProjectRelationPayload";
+  __typename?: 'ProjectRelationPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The project relation that was created or updated. */
   projectRelation: ProjectRelation;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectRelationUpdateInput = {
   /** The type of the anchor for the project. */
-  anchorType?: InputMaybe<Scalars["String"]["input"]>;
+  anchorType?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project that is related to another project. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project milestone. */
-  projectMilestoneId?: InputMaybe<Scalars["String"]["input"]>;
+  projectMilestoneId?: InputMaybe<Scalars['String']['input']>;
   /** The type of the anchor for the related project. */
-  relatedAnchorType?: InputMaybe<Scalars["String"]["input"]>;
+  relatedAnchorType?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the related project. */
-  relatedProjectId?: InputMaybe<Scalars["String"]["input"]>;
+  relatedProjectId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the related project milestone. */
-  relatedProjectMilestoneId?: InputMaybe<Scalars["String"]["input"]>;
+  relatedProjectMilestoneId?: InputMaybe<Scalars['String']['input']>;
   /** The type of relation of the project to the related project. */
-  type?: InputMaybe<Scalars["String"]["input"]>;
+  type?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** A generic payload return from entity archive mutations. */
 export type ProjectStatusArchivePayload = ArchivePayload & {
-  __typename?: "ProjectStatusArchivePayload";
+  __typename?: 'ProjectStatusArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<ProjectStatus>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectStatusCreateInput = {
   /** The UI color of the status as a HEX string. */
-  color: Scalars["String"]["input"];
+  color: Scalars['String']['input'];
   /** Description of the status. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** Whether or not a project can be in this status indefinitely. */
-  indefinite?: InputMaybe<Scalars["Boolean"]["input"]>;
+  indefinite?: InputMaybe<Scalars['Boolean']['input']>;
   /** The name of the status. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The position of the status in the workspace's project flow. */
-  position: Scalars["Float"]["input"];
+  position: Scalars['Float']['input'];
   /** The type of the project status. */
   type: ProjectStatusType;
 };
 
 export type ProjectStatusPayload = {
-  __typename?: "ProjectStatusPayload";
+  __typename?: 'ProjectStatusPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The project status that was created or updated. */
   status: ProjectStatus;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectStatusUpdateInput = {
   /** The UI color of the status as a HEX string. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** Description of the status. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** Whether or not a project can be in this status indefinitely. */
-  indefinite?: InputMaybe<Scalars["Boolean"]["input"]>;
+  indefinite?: InputMaybe<Scalars['Boolean']['input']>;
   /** The name of the status. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The position of the status in the workspace's project flow. */
-  position?: InputMaybe<Scalars["Float"]["input"]>;
+  position?: InputMaybe<Scalars['Float']['input']>;
   /** The type of the project status. */
   type?: InputMaybe<ProjectStatusType>;
 };
 
 export type ProjectUpdateInput = {
   /** The date when the project was canceled. */
-  canceledAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  canceledAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The color of the project. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The date when the project was completed. */
-  completedAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  completedAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The project content as markdown. */
-  content?: InputMaybe<Scalars["String"]["input"]>;
+  content?: InputMaybe<Scalars['String']['input']>;
   /** The ID of the issue from which that project is created. */
-  convertedFromIssueId?: InputMaybe<Scalars["String"]["input"]>;
+  convertedFromIssueId?: InputMaybe<Scalars['String']['input']>;
   /** The description for the project. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The frequency resolution. */
   frequencyResolution?: InputMaybe<FrequencyResolutionType>;
   /** The icon of the project. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** The identifiers of the project labels associated with this project. */
-  labelIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  labelIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The ID of the last template applied to the project. */
-  lastAppliedTemplateId?: InputMaybe<Scalars["String"]["input"]>;
+  lastAppliedTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project lead. */
-  leadId?: InputMaybe<Scalars["String"]["input"]>;
+  leadId?: InputMaybe<Scalars['String']['input']>;
   /** The identifiers of the members of this project. */
-  memberIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  memberIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The name of the project. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The priority of the project. 0 = No priority, 1 = Urgent, 2 = High, 3 = Normal, 4 = Low. */
-  priority?: InputMaybe<Scalars["Int"]["input"]>;
+  priority?: InputMaybe<Scalars['Int']['input']>;
   /** The sort order for the project within shared views, when ordered by priority. */
-  prioritySortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  prioritySortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The time until which project update reminders are paused. */
-  projectUpdateRemindersPausedUntilAt?: InputMaybe<
-    Scalars["DateTime"]["input"]
-  >;
+  projectUpdateRemindersPausedUntilAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** Whether to send new issue comment notifications to Slack. */
-  slackIssueComments?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueComments?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send issue status update notifications to Slack. */
-  slackIssueStatuses?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueStatuses?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send new issue notifications to Slack. */
-  slackNewIssue?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackNewIssue?: InputMaybe<Scalars['Boolean']['input']>;
   /** The sort order for the project in shared views. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The planned start date of the project. */
-  startDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  startDate?: InputMaybe<Scalars['TimelessDate']['input']>;
   /** The resolution of the project's start date. */
   startDateResolution?: InputMaybe<DateResolutionType>;
   /** The ID of the project status. */
-  statusId?: InputMaybe<Scalars["String"]["input"]>;
+  statusId?: InputMaybe<Scalars['String']['input']>;
   /** The planned target date of the project. */
-  targetDate?: InputMaybe<Scalars["TimelessDate"]["input"]>;
+  targetDate?: InputMaybe<Scalars['TimelessDate']['input']>;
   /** The resolution of the project's estimated completion date. */
   targetDateResolution?: InputMaybe<DateResolutionType>;
   /** The identifiers of the teams this project is associated with. */
-  teamIds?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  teamIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** Whether the project has been trashed. */
-  trashed?: InputMaybe<Scalars["Boolean"]["input"]>;
+  trashed?: InputMaybe<Scalars['Boolean']['input']>;
   /** The frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequency?: InputMaybe<Scalars["Float"]["input"]>;
+  updateReminderFrequency?: InputMaybe<Scalars['Float']['input']>;
   /** The n-weekly frequency at which to prompt for updates. When not set, reminders are inherited from workspace. */
-  updateReminderFrequencyInWeeks?: InputMaybe<Scalars["Float"]["input"]>;
+  updateReminderFrequencyInWeeks?: InputMaybe<Scalars['Float']['input']>;
   /** The day at which to prompt for updates. */
   updateRemindersDay?: InputMaybe<Day>;
   /** The hour at which to prompt for updates. */
-  updateRemindersHour?: InputMaybe<Scalars["Int"]["input"]>;
+  updateRemindersHour?: InputMaybe<Scalars['Int']['input']>;
 };
 
 /** A generic payload return from entity archive mutations. */
 export type ProjectUpdateArchivePayload = ArchivePayload & {
-  __typename?: "ProjectUpdateArchivePayload";
+  __typename?: 'ProjectUpdateArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<ProjectUpdate>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectUpdateCreateInput = {
   /** The content of the project update in markdown format. */
-  body?: InputMaybe<Scalars["String"]["input"]>;
+  body?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The content of the project update as a Prosemirror document. */
-  bodyData?: InputMaybe<Scalars["JSON"]["input"]>;
+  bodyData?: InputMaybe<Scalars['JSON']['input']>;
   /** The health of the project at the time of the update. */
   health?: InputMaybe<ProjectUpdateHealthType>;
   /** The identifier. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** Whether the diff between the current update and the previous one should be hidden. */
-  isDiffHidden?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isDiffHidden?: InputMaybe<Scalars['Boolean']['input']>;
   /** The project to associate the project update with. */
-  projectId: Scalars["String"]["input"];
+  projectId: Scalars['String']['input'];
 };
 
 export type ProjectUpdatePayload = {
-  __typename?: "ProjectUpdatePayload";
+  __typename?: 'ProjectUpdatePayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The project update that was created or updated. */
   projectUpdate: ProjectUpdate;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ProjectUpdateUpdateInput = {
   /** The content of the project update in markdown format. */
-  body?: InputMaybe<Scalars["String"]["input"]>;
+  body?: InputMaybe<Scalars['String']['input']>;
   /** The content of the project update as a Prosemirror document. */
-  bodyData?: InputMaybe<Scalars["JSON"]["input"]>;
+  bodyData?: InputMaybe<Scalars['JSON']['input']>;
   /** The health of the project at the time of the update. */
   health?: InputMaybe<ProjectUpdateHealthType>;
   /** Whether the diff between the current update and the previous one should be hidden. */
-  isDiffHidden?: InputMaybe<Scalars["Boolean"]["input"]>;
+  isDiffHidden?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type PushSubscriptionCreateInput = {
   /** The data of the subscription in stringified JSON format. */
-  data: Scalars["String"]["input"];
+  data: Scalars['String']['input'];
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** Whether this is a subscription payload for Google Cloud Messaging or Apple Push Notification service. */
   type?: InputMaybe<PushSubscriptionType>;
 };
 
 /** The different push subscription types. */
-export enum PushSubscriptionType {
-  Apple = "apple",
-  AppleDevelopment = "appleDevelopment",
-  Firebase = "firebase",
-  Web = "web",
-}
+export type PushSubscriptionType =
+  | 'apple'
+  | 'appleDevelopment'
+  | 'firebase'
+  | 'web';
 
 export type PushSubscriptionPayload = {
-  __typename?: "PushSubscriptionPayload";
+  __typename?: 'PushSubscriptionPayload';
   /** The push subscription that was created or updated. */
   entity: PushSubscription;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** A user's web or mobile push notification subscription. */
 export type PushSubscription = Node & {
-  __typename?: "PushSubscription";
+  __typename?: 'PushSubscription';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 export type ReactionCreateInput = {
   /** The comment to associate the reaction with. */
-  commentId?: InputMaybe<Scalars["String"]["input"]>;
+  commentId?: InputMaybe<Scalars['String']['input']>;
   /** The emoji the user reacted with. */
-  emoji: Scalars["String"]["input"];
+  emoji: Scalars['String']['input'];
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The update to associate the reaction with. */
-  initiativeUpdateId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeUpdateId?: InputMaybe<Scalars['String']['input']>;
   /** The issue to associate the reaction with. */
-  issueId?: InputMaybe<Scalars["String"]["input"]>;
+  issueId?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The post to associate the reaction with. */
-  postId?: InputMaybe<Scalars["String"]["input"]>;
+  postId?: InputMaybe<Scalars['String']['input']>;
   /** The project update to associate the reaction with. */
-  projectUpdateId?: InputMaybe<Scalars["String"]["input"]>;
+  projectUpdateId?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The pull request comment to associate the reaction with. */
-  pullRequestCommentId?: InputMaybe<Scalars["String"]["input"]>;
+  pullRequestCommentId?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The pull request to associate the reaction with. */
-  pullRequestId?: InputMaybe<Scalars["String"]["input"]>;
+  pullRequestId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type ReactionPayload = {
-  __typename?: "ReactionPayload";
+  __typename?: 'ReactionPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   reaction: Reaction;
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 /** A generic payload return from entity archive mutations. */
 export type RoadmapArchivePayload = ArchivePayload & {
-  __typename?: "RoadmapArchivePayload";
+  __typename?: 'RoadmapArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<Roadmap>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type RoadmapCreateInput = {
   /** The roadmap's color. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The description of the roadmap. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The name of the roadmap. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The owner of the roadmap. */
-  ownerId?: InputMaybe<Scalars["String"]["input"]>;
+  ownerId?: InputMaybe<Scalars['String']['input']>;
   /** The sort order of the roadmap within the organization. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type RoadmapPayload = {
-  __typename?: "RoadmapPayload";
+  __typename?: 'RoadmapPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The roadmap that was created or updated. */
   roadmap: Roadmap;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type RoadmapToProjectCreateInput = {
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project. */
-  projectId: Scalars["String"]["input"];
+  projectId: Scalars['String']['input'];
   /** The identifier of the roadmap. */
-  roadmapId: Scalars["String"]["input"];
+  roadmapId: Scalars['String']['input'];
   /** The sort order for the project within its organization. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type RoadmapToProjectPayload = {
-  __typename?: "RoadmapToProjectPayload";
+  __typename?: 'RoadmapToProjectPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** The roadmapToProject that was created or updated. */
   roadmapToProject: RoadmapToProject;
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type RoadmapToProjectUpdateInput = {
   /** The sort order for the project within its organization. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type RoadmapUpdateInput = {
   /** The roadmap's color. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The description of the roadmap. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The name of the roadmap. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The owner of the roadmap. */
-  ownerId?: InputMaybe<Scalars["String"]["input"]>;
+  ownerId?: InputMaybe<Scalars['String']['input']>;
   /** The sort order of the roadmap within the organization. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type TeamCreateInput = {
   /** Period after which closed and completed issues are automatically archived, in months. 0 means disabled. */
-  autoArchivePeriod?: InputMaybe<Scalars["Float"]["input"]>;
+  autoArchivePeriod?: InputMaybe<Scalars['Float']['input']>;
   /** Period after which issues are automatically closed, in months. */
-  autoClosePeriod?: InputMaybe<Scalars["Float"]["input"]>;
+  autoClosePeriod?: InputMaybe<Scalars['Float']['input']>;
   /** The canceled workflow state which auto closed issues will be set to. */
-  autoCloseStateId?: InputMaybe<Scalars["String"]["input"]>;
+  autoCloseStateId?: InputMaybe<Scalars['String']['input']>;
   /** The color of the team. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The cooldown time after each cycle in weeks. */
-  cycleCooldownTime?: InputMaybe<Scalars["Int"]["input"]>;
+  cycleCooldownTime?: InputMaybe<Scalars['Int']['input']>;
   /** The duration of each cycle in weeks. */
-  cycleDuration?: InputMaybe<Scalars["Int"]["input"]>;
+  cycleDuration?: InputMaybe<Scalars['Int']['input']>;
   /** Auto assign completed issues to current active cycle setting. */
-  cycleIssueAutoAssignCompleted?: InputMaybe<Scalars["Boolean"]["input"]>;
+  cycleIssueAutoAssignCompleted?: InputMaybe<Scalars['Boolean']['input']>;
   /** Auto assign started issues to current active cycle setting. */
-  cycleIssueAutoAssignStarted?: InputMaybe<Scalars["Boolean"]["input"]>;
+  cycleIssueAutoAssignStarted?: InputMaybe<Scalars['Boolean']['input']>;
   /** Only allow issues issues with cycles in Active Issues. */
-  cycleLockToActive?: InputMaybe<Scalars["Boolean"]["input"]>;
+  cycleLockToActive?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether the team uses cycles. */
-  cyclesEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  cyclesEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The day of the week that a new cycle starts. */
-  cycleStartDay?: InputMaybe<Scalars["Float"]["input"]>;
+  cycleStartDay?: InputMaybe<Scalars['Float']['input']>;
   /** What to use as an default estimate for unestimated issues. */
-  defaultIssueEstimate?: InputMaybe<Scalars["Float"]["input"]>;
+  defaultIssueEstimate?: InputMaybe<Scalars['Float']['input']>;
   /** The identifier of the default project template of this team. */
-  defaultProjectTemplateId?: InputMaybe<Scalars["String"]["input"]>;
+  defaultProjectTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the default template for members of this team. */
-  defaultTemplateForMembersId?: InputMaybe<Scalars["String"]["input"]>;
+  defaultTemplateForMembersId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the default template for non-members of this team. */
-  defaultTemplateForNonMembersId?: InputMaybe<Scalars["String"]["input"]>;
+  defaultTemplateForNonMembersId?: InputMaybe<Scalars['String']['input']>;
   /** The description of the team. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** Whether to group recent issue history entries. */
-  groupIssueHistory?: InputMaybe<Scalars["Boolean"]["input"]>;
+  groupIssueHistory?: InputMaybe<Scalars['Boolean']['input']>;
   /** The icon of the team. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** Whether the team should inherit estimation settings from its parent. Only applies to sub-teams. */
-  inheritIssueEstimation?: InputMaybe<Scalars["Boolean"]["input"]>;
+  inheritIssueEstimation?: InputMaybe<Scalars['Boolean']['input']>;
   /** [Internal] Whether the team should inherit its product intelligence scope from its parent. Only applies to sub-teams. */
-  inheritProductIntelligenceScope?: InputMaybe<Scalars["Boolean"]["input"]>;
+  inheritProductIntelligenceScope?: InputMaybe<Scalars['Boolean']['input']>;
   /** [Internal] Whether the team should inherit workflow statuses from its parent. */
-  inheritWorkflowStatuses?: InputMaybe<Scalars["Boolean"]["input"]>;
+  inheritWorkflowStatuses?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to allow zeros in issues estimates. */
-  issueEstimationAllowZero?: InputMaybe<Scalars["Boolean"]["input"]>;
+  issueEstimationAllowZero?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to add additional points to the estimate scale. */
-  issueEstimationExtended?: InputMaybe<Scalars["Boolean"]["input"]>;
+  issueEstimationExtended?: InputMaybe<Scalars['Boolean']['input']>;
   /** The issue estimation type to use. Must be one of "notUsed", "exponential", "fibonacci", "linear", "tShirt". */
-  issueEstimationType?: InputMaybe<Scalars["String"]["input"]>;
+  issueEstimationType?: InputMaybe<Scalars['String']['input']>;
   /** The key of the team. If not given, the key will be generated based on the name of the team. */
-  key?: InputMaybe<Scalars["String"]["input"]>;
+  key?: InputMaybe<Scalars['String']['input']>;
   /** The workflow state into which issues are moved when they are marked as a duplicate of another issue. */
-  markedAsDuplicateWorkflowStateId?: InputMaybe<Scalars["String"]["input"]>;
+  markedAsDuplicateWorkflowStateId?: InputMaybe<Scalars['String']['input']>;
   /** The name of the team. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The parent team ID. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
   /** Internal. Whether the team is private or not. */
-  private?: InputMaybe<Scalars["Boolean"]["input"]>;
+  private?: InputMaybe<Scalars['Boolean']['input']>;
   /** [Internal] The scope of product intelligence suggestion data for the team. */
   productIntelligenceScope?: InputMaybe<ProductIntelligenceScope>;
   /** Whether an issue needs to have a priority set before leaving triage. */
-  requirePriorityToLeaveTriage?: InputMaybe<Scalars["Boolean"]["input"]>;
+  requirePriorityToLeaveTriage?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to move issues to bottom of the column when changing state. */
-  setIssueSortOrderOnStateChange?: InputMaybe<Scalars["String"]["input"]>;
+  setIssueSortOrderOnStateChange?: InputMaybe<Scalars['String']['input']>;
   /** The timezone of the team. */
-  timezone?: InputMaybe<Scalars["String"]["input"]>;
+  timezone?: InputMaybe<Scalars['String']['input']>;
   /** Whether triage mode is enabled for the team. */
-  triageEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  triageEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** How many upcoming cycles to create. */
-  upcomingCycleCount?: InputMaybe<Scalars["Float"]["input"]>;
+  upcomingCycleCount?: InputMaybe<Scalars['Float']['input']>;
 };
 
 /** [Internal] The scope of product intelligence suggestion data for a team. */
-export enum ProductIntelligenceScope {
-  None = "none",
-  Team = "team",
-  TeamHierarchy = "teamHierarchy",
-  Workspace = "workspace",
-}
+export type ProductIntelligenceScope =
+  | 'none'
+  | 'team'
+  | 'teamHierarchy'
+  | 'workspace';
 
 export type TeamPayload = {
-  __typename?: "TeamPayload";
+  __typename?: 'TeamPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The team that was created or updated. */
   team?: Maybe<Team>;
 };
 
 export type TeamMembershipCreateInput = {
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** Internal. Whether the user is the owner of the team. */
-  owner?: InputMaybe<Scalars["Boolean"]["input"]>;
+  owner?: InputMaybe<Scalars['Boolean']['input']>;
   /** The position of the item in the users list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The identifier of the team associated with the membership. */
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
   /** The identifier of the user associated with the membership. */
-  userId: Scalars["String"]["input"];
+  userId: Scalars['String']['input'];
 };
 
 export type TeamMembershipPayload = {
-  __typename?: "TeamMembershipPayload";
+  __typename?: 'TeamMembershipPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The team membership that was created or updated. */
   teamMembership?: Maybe<TeamMembership>;
 };
 
 export type TeamMembershipUpdateInput = {
   /** Internal. Whether the user is the owner of the team. */
-  owner?: InputMaybe<Scalars["Boolean"]["input"]>;
+  owner?: InputMaybe<Scalars['Boolean']['input']>;
   /** The position of the item in the users list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
 };
 
 /** A generic payload return from entity archive mutations. */
 export type TeamArchivePayload = ArchivePayload & {
-  __typename?: "TeamArchivePayload";
+  __typename?: 'TeamArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<Team>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type TeamUpdateInput = {
   /** Whether to enable resolved thread AI summaries. */
-  aiThreadSummariesEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  aiThreadSummariesEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** Period after which closed and completed issues are automatically archived, in months. */
-  autoArchivePeriod?: InputMaybe<Scalars["Float"]["input"]>;
+  autoArchivePeriod?: InputMaybe<Scalars['Float']['input']>;
   /** [INTERNAL] Whether to automatically close all sub-issues when a parent issue in this team is closed. */
-  autoCloseChildIssues?: InputMaybe<Scalars["Boolean"]["input"]>;
+  autoCloseChildIssues?: InputMaybe<Scalars['Boolean']['input']>;
   /** [INTERNAL] Whether to automatically close a parent issue in this team if all its sub-issues are closed. */
-  autoCloseParentIssues?: InputMaybe<Scalars["Boolean"]["input"]>;
+  autoCloseParentIssues?: InputMaybe<Scalars['Boolean']['input']>;
   /** Period after which issues are automatically closed, in months. */
-  autoClosePeriod?: InputMaybe<Scalars["Float"]["input"]>;
+  autoClosePeriod?: InputMaybe<Scalars['Float']['input']>;
   /** The canceled workflow state which auto closed issues will be set to. */
-  autoCloseStateId?: InputMaybe<Scalars["String"]["input"]>;
+  autoCloseStateId?: InputMaybe<Scalars['String']['input']>;
   /** The color of the team. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The cooldown time after each cycle in weeks. */
-  cycleCooldownTime?: InputMaybe<Scalars["Int"]["input"]>;
+  cycleCooldownTime?: InputMaybe<Scalars['Int']['input']>;
   /** The duration of each cycle in weeks. */
-  cycleDuration?: InputMaybe<Scalars["Int"]["input"]>;
+  cycleDuration?: InputMaybe<Scalars['Int']['input']>;
   /** The date to begin cycles on. */
-  cycleEnabledStartDate?: InputMaybe<Scalars["DateTime"]["input"]>;
+  cycleEnabledStartDate?: InputMaybe<Scalars['DateTime']['input']>;
   /** Auto assign completed issues to current active cycle setting. */
-  cycleIssueAutoAssignCompleted?: InputMaybe<Scalars["Boolean"]["input"]>;
+  cycleIssueAutoAssignCompleted?: InputMaybe<Scalars['Boolean']['input']>;
   /** Auto assign started issues to current active cycle setting. */
-  cycleIssueAutoAssignStarted?: InputMaybe<Scalars["Boolean"]["input"]>;
+  cycleIssueAutoAssignStarted?: InputMaybe<Scalars['Boolean']['input']>;
   /** Only allow issues with cycles in Active Issues. */
-  cycleLockToActive?: InputMaybe<Scalars["Boolean"]["input"]>;
+  cycleLockToActive?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether the team uses cycles. */
-  cyclesEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  cyclesEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The day of the week that a new cycle starts. */
-  cycleStartDay?: InputMaybe<Scalars["Float"]["input"]>;
+  cycleStartDay?: InputMaybe<Scalars['Float']['input']>;
   /** What to use as an default estimate for unestimated issues. */
-  defaultIssueEstimate?: InputMaybe<Scalars["Float"]["input"]>;
+  defaultIssueEstimate?: InputMaybe<Scalars['Float']['input']>;
   /** Default status for newly created issues. */
-  defaultIssueStateId?: InputMaybe<Scalars["String"]["input"]>;
+  defaultIssueStateId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the default project template of this team. */
-  defaultProjectTemplateId?: InputMaybe<Scalars["String"]["input"]>;
+  defaultProjectTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the default template for members of this team. */
-  defaultTemplateForMembersId?: InputMaybe<Scalars["String"]["input"]>;
+  defaultTemplateForMembersId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the default template for non-members of this team. */
-  defaultTemplateForNonMembersId?: InputMaybe<Scalars["String"]["input"]>;
+  defaultTemplateForNonMembersId?: InputMaybe<Scalars['String']['input']>;
   /** The description of the team. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** Whether to group recent issue history entries. */
-  groupIssueHistory?: InputMaybe<Scalars["Boolean"]["input"]>;
+  groupIssueHistory?: InputMaybe<Scalars['Boolean']['input']>;
   /** The icon of the team. */
-  icon?: InputMaybe<Scalars["String"]["input"]>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   /** Whether the team should inherit estimation settings from its parent. Only applies to sub-teams. */
-  inheritIssueEstimation?: InputMaybe<Scalars["Boolean"]["input"]>;
+  inheritIssueEstimation?: InputMaybe<Scalars['Boolean']['input']>;
   /** [Internal] Whether the team should inherit its product intelligence scope from its parent. Only applies to sub-teams. */
-  inheritProductIntelligenceScope?: InputMaybe<Scalars["Boolean"]["input"]>;
+  inheritProductIntelligenceScope?: InputMaybe<Scalars['Boolean']['input']>;
   /** [Internal] Whether the team should inherit workflow statuses from its parent. */
-  inheritWorkflowStatuses?: InputMaybe<Scalars["Boolean"]["input"]>;
+  inheritWorkflowStatuses?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to allow zeros in issues estimates. */
-  issueEstimationAllowZero?: InputMaybe<Scalars["Boolean"]["input"]>;
+  issueEstimationAllowZero?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to add additional points to the estimate scale. */
-  issueEstimationExtended?: InputMaybe<Scalars["Boolean"]["input"]>;
+  issueEstimationExtended?: InputMaybe<Scalars['Boolean']['input']>;
   /** The issue estimation type to use. Must be one of "notUsed", "exponential", "fibonacci", "linear", "tShirt". */
-  issueEstimationType?: InputMaybe<Scalars["String"]["input"]>;
+  issueEstimationType?: InputMaybe<Scalars['String']['input']>;
   /** Whether new users should join this team by default. Mutation restricted to workspace admins! */
-  joinByDefault?: InputMaybe<Scalars["Boolean"]["input"]>;
+  joinByDefault?: InputMaybe<Scalars['Boolean']['input']>;
   /** The key of the team. */
-  key?: InputMaybe<Scalars["String"]["input"]>;
+  key?: InputMaybe<Scalars['String']['input']>;
   /** The workflow state into which issues are moved when they are marked as a duplicate of another issue. */
-  markedAsDuplicateWorkflowStateId?: InputMaybe<Scalars["String"]["input"]>;
+  markedAsDuplicateWorkflowStateId?: InputMaybe<Scalars['String']['input']>;
   /** The name of the team. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The parent team ID. */
-  parentId?: InputMaybe<Scalars["String"]["input"]>;
+  parentId?: InputMaybe<Scalars['String']['input']>;
   /** Whether the team is private or not. */
-  private?: InputMaybe<Scalars["Boolean"]["input"]>;
+  private?: InputMaybe<Scalars['Boolean']['input']>;
   /** [Internal] The scope of product intelligence suggestion data for the team. */
   productIntelligenceScope?: InputMaybe<ProductIntelligenceScope>;
   /** Whether an issue needs to have a priority set before leaving triage. */
-  requirePriorityToLeaveTriage?: InputMaybe<Scalars["Boolean"]["input"]>;
+  requirePriorityToLeaveTriage?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether the team is managed by SCIM integration. Mutation restricted to workspace admins and only unsetting is allowed! */
-  scimManaged?: InputMaybe<Scalars["Boolean"]["input"]>;
+  scimManaged?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to move issues to bottom of the column when changing state. */
-  setIssueSortOrderOnStateChange?: InputMaybe<Scalars["String"]["input"]>;
+  setIssueSortOrderOnStateChange?: InputMaybe<Scalars['String']['input']>;
   /** Whether to send new issue comment notifications to Slack. */
-  slackIssueComments?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueComments?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send issue status update notifications to Slack. */
-  slackIssueStatuses?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackIssueStatuses?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether to send new issue notifications to Slack. */
-  slackNewIssue?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slackNewIssue?: InputMaybe<Scalars['Boolean']['input']>;
   /** The timezone of the team. */
-  timezone?: InputMaybe<Scalars["String"]["input"]>;
+  timezone?: InputMaybe<Scalars['String']['input']>;
   /** Whether triage mode is enabled for the team. */
-  triageEnabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  triageEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** How many upcoming cycles to create. */
-  upcomingCycleCount?: InputMaybe<Scalars["Float"]["input"]>;
+  upcomingCycleCount?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type InheritanceEntityMapping = {
   /** Mapping of the IssueLabel ID to the new IssueLabel name. */
-  issueLabels?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  issueLabels?: InputMaybe<Scalars['JSONObject']['input']>;
   /** Mapping of the WorkflowState ID to the new WorkflowState ID. */
-  workflowStates: Scalars["JSONObject"]["input"];
+  workflowStates: Scalars['JSONObject']['input'];
 };
 
 export type TemplateCreateInput = {
   /** The template description. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The template name. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The position of the template in the templates list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The identifier or key of the team associated with the template. If not given, the template will be shared across all teams. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The template data as JSON encoded attributes of the type of entity, such as an issue. */
-  templateData: Scalars["JSON"]["input"];
+  templateData: Scalars['JSON']['input'];
   /** The template type, e.g. 'issue'. */
-  type: Scalars["String"]["input"];
+  type: Scalars['String']['input'];
 };
 
 export type TemplatePayload = {
-  __typename?: "TemplatePayload";
+  __typename?: 'TemplatePayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The template that was created or updated. */
   template: Template;
 };
 
 export type TemplateUpdateInput = {
   /** The template description. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The template name. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The position of the template in the templates list. */
-  sortOrder?: InputMaybe<Scalars["Float"]["input"]>;
+  sortOrder?: InputMaybe<Scalars['Float']['input']>;
   /** The identifier or key of the team associated with the template. If set to null, the template will be shared across all teams. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The template data as JSON encoded attributes of the type of entity, such as an issue. */
-  templateData?: InputMaybe<Scalars["JSON"]["input"]>;
+  templateData?: InputMaybe<Scalars['JSON']['input']>;
 };
 
 export type TimeScheduleCreateInput = {
   /** The schedule entries. */
   entries: Array<TimeScheduleEntryInput>;
   /** The unique identifier of the external schedule. */
-  externalId?: InputMaybe<Scalars["String"]["input"]>;
+  externalId?: InputMaybe<Scalars['String']['input']>;
   /** The URL to the external schedule. */
-  externalUrl?: InputMaybe<Scalars["String"]["input"]>;
+  externalUrl?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The name of the schedule. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
 };
 
 export type TimeScheduleEntryInput = {
   /** The end date of the schedule in ISO 8601 date-time format. */
-  endsAt: Scalars["DateTime"]["input"];
+  endsAt: Scalars['DateTime']['input'];
   /** The start date of the schedule in ISO 8601 date-time format. */
-  startsAt: Scalars["DateTime"]["input"];
+  startsAt: Scalars['DateTime']['input'];
   /** The email, name or reference to the user on schedule. This is used in case the external user could not be mapped to a Linear user id. */
-  userEmail?: InputMaybe<Scalars["String"]["input"]>;
+  userEmail?: InputMaybe<Scalars['String']['input']>;
   /** The Linear user id of the user on schedule. If the user cannot be mapped to a Linear user then `userEmail` can be used as a reference. */
-  userId?: InputMaybe<Scalars["String"]["input"]>;
+  userId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type TimeSchedulePayload = {
-  __typename?: "TimeSchedulePayload";
+  __typename?: 'TimeSchedulePayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   timeSchedule: TimeSchedule;
 };
 
@@ -16496,179 +16927,167 @@ export type TimeScheduleUpdateInput = {
   /** The schedule entries. */
   entries?: InputMaybe<Array<TimeScheduleEntryInput>>;
   /** The unique identifier of the external schedule. */
-  externalId?: InputMaybe<Scalars["String"]["input"]>;
+  externalId?: InputMaybe<Scalars['String']['input']>;
   /** The URL to the external schedule. */
-  externalUrl?: InputMaybe<Scalars["String"]["input"]>;
+  externalUrl?: InputMaybe<Scalars['String']['input']>;
   /** The name of the schedule. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type TriageResponsibilityCreateInput = {
   /** The action to take when an issue is added to triage. */
-  action: Scalars["String"]["input"];
+  action: Scalars['String']['input'];
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The manual selection of users responsible for triage. */
   manualSelection?: InputMaybe<TriageResponsibilityManualSelectionInput>;
   /** The identifier of the team associated with the triage responsibility. */
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
   /** The identifier of the time schedule used for scheduling triage responsibility */
-  timeScheduleId?: InputMaybe<Scalars["String"]["input"]>;
+  timeScheduleId?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** Manual triage responsibility using a set of users. */
 export type TriageResponsibilityManualSelectionInput = {
   /** [Internal] The index of the current userId used for the assign action when having more than one user. */
-  assignmentIndex?: InputMaybe<Scalars["Int"]["input"]>;
+  assignmentIndex?: InputMaybe<Scalars['Int']['input']>;
   /** The set of users responsible for triage. */
-  userIds: Array<Scalars["String"]["input"]>;
+  userIds: Array<Scalars['String']['input']>;
 };
 
 export type TriageResponsibilityPayload = {
-  __typename?: "TriageResponsibilityPayload";
+  __typename?: 'TriageResponsibilityPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   triageResponsibility: TriageResponsibility;
 };
 
 export type TriageResponsibilityUpdateInput = {
   /** The action to take when an issue is added to triage. */
-  action?: InputMaybe<Scalars["String"]["input"]>;
+  action?: InputMaybe<Scalars['String']['input']>;
   /** The manual selection of users responsible for triage. */
   manualSelection?: InputMaybe<TriageResponsibilityManualSelectionInput>;
   /** The identifier of the time schedule used for scheduling triage responsibility. */
-  timeScheduleId?: InputMaybe<Scalars["String"]["input"]>;
+  timeScheduleId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UserAdminPayload = {
-  __typename?: "UserAdminPayload";
+  __typename?: 'UserAdminPayload';
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type UserPayload = {
-  __typename?: "UserPayload";
+  __typename?: 'UserPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The user that was created or updated. */
   user?: Maybe<User>;
 };
 
 /** The types of flags that the user can have. */
-export enum UserFlagType {
-  All = "all",
-  AnalyticsWelcomeDismissed = "analyticsWelcomeDismissed",
-  CanPlaySnake = "canPlaySnake",
-  CanPlayTetris = "canPlayTetris",
-  CommandMenuClearShortcutTip = "commandMenuClearShortcutTip",
-  CompletedOnboarding = "completedOnboarding",
-  CycleWelcomeDismissed = "cycleWelcomeDismissed",
-  DesktopDownloadToastDismissed = "desktopDownloadToastDismissed",
-  DesktopInstalled = "desktopInstalled",
-  DesktopTabsOnboardingDismissed = "desktopTabsOnboardingDismissed",
-  DueDateShortcutMigration = "dueDateShortcutMigration",
-  EditorSlashCommandUsed = "editorSlashCommandUsed",
-  EmptyActiveIssuesDismissed = "emptyActiveIssuesDismissed",
-  EmptyBacklogDismissed = "emptyBacklogDismissed",
-  EmptyCustomViewsDismissed = "emptyCustomViewsDismissed",
-  EmptyMyIssuesDismissed = "emptyMyIssuesDismissed",
-  EmptyParagraphSlashCommandTip = "emptyParagraphSlashCommandTip",
-  FigmaPluginBannerDismissed = "figmaPluginBannerDismissed",
-  FigmaPromptDismissed = "figmaPromptDismissed",
-  HelpIslandFeatureInsightsDismissed = "helpIslandFeatureInsightsDismissed",
-  ImportBannerDismissed = "importBannerDismissed",
-  InitiativesBannerDismissed = "initiativesBannerDismissed",
-  InsightsHelpDismissed = "insightsHelpDismissed",
-  InsightsWelcomeDismissed = "insightsWelcomeDismissed",
-  IssueLabelSuggestionUsed = "issueLabelSuggestionUsed",
-  IssueMovePromptCompleted = "issueMovePromptCompleted",
-  JoinTeamIntroductionDismissed = "joinTeamIntroductionDismissed",
-  ListSelectionTip = "listSelectionTip",
-  MigrateThemePreference = "migrateThemePreference",
-  MilestoneOnboardingIsSeenAndDismissed =
-    "milestoneOnboardingIsSeenAndDismissed",
-  ProjectBacklogWelcomeDismissed = "projectBacklogWelcomeDismissed",
-  ProjectBoardOnboardingIsSeenAndDismissed =
-    "projectBoardOnboardingIsSeenAndDismissed",
-  ProjectUpdatesWelcomeDismissed = "projectUpdatesWelcomeDismissed",
-  ProjectWelcomeDismissed = "projectWelcomeDismissed",
-  PulseWelcomeDismissed = "pulseWelcomeDismissed",
-  RewindBannerDismissed = "rewindBannerDismissed",
-  SlackCommentReactionTipShown = "slackCommentReactionTipShown",
-  TeamsPageIntroductionDismissed = "teamsPageIntroductionDismissed",
-  ThreadedCommentsNudgeIsSeen = "threadedCommentsNudgeIsSeen",
-  TriageWelcomeDismissed = "triageWelcomeDismissed",
-  TryCyclesDismissed = "tryCyclesDismissed",
-  TryGithubDismissed = "tryGithubDismissed",
-  TryInvitePeopleDismissed = "tryInvitePeopleDismissed",
-  TryRoadmapsDismissed = "tryRoadmapsDismissed",
-  TryTriageDismissed = "tryTriageDismissed",
-  UpdatedSlackThreadSyncIntegration = "updatedSlackThreadSyncIntegration",
-}
+export type UserFlagType =
+  | 'all'
+  | 'analyticsWelcomeDismissed'
+  | 'canPlaySnake'
+  | 'canPlayTetris'
+  | 'commandMenuClearShortcutTip'
+  | 'completedOnboarding'
+  | 'cycleWelcomeDismissed'
+  | 'desktopDownloadToastDismissed'
+  | 'desktopInstalled'
+  | 'desktopTabsOnboardingDismissed'
+  | 'dueDateShortcutMigration'
+  | 'editorSlashCommandUsed'
+  | 'emptyActiveIssuesDismissed'
+  | 'emptyBacklogDismissed'
+  | 'emptyCustomViewsDismissed'
+  | 'emptyMyIssuesDismissed'
+  | 'emptyParagraphSlashCommandTip'
+  | 'figmaPluginBannerDismissed'
+  | 'figmaPromptDismissed'
+  | 'helpIslandFeatureInsightsDismissed'
+  | 'importBannerDismissed'
+  | 'initiativesBannerDismissed'
+  | 'insightsHelpDismissed'
+  | 'insightsWelcomeDismissed'
+  | 'issueLabelSuggestionUsed'
+  | 'issueMovePromptCompleted'
+  | 'joinTeamIntroductionDismissed'
+  | 'listSelectionTip'
+  | 'migrateThemePreference'
+  | 'milestoneOnboardingIsSeenAndDismissed'
+  | 'projectBacklogWelcomeDismissed'
+  | 'projectBoardOnboardingIsSeenAndDismissed'
+  | 'projectUpdatesWelcomeDismissed'
+  | 'projectWelcomeDismissed'
+  | 'pulseWelcomeDismissed'
+  | 'rewindBannerDismissed'
+  | 'slackCommentReactionTipShown'
+  | 'teamsPageIntroductionDismissed'
+  | 'threadedCommentsNudgeIsSeen'
+  | 'triageWelcomeDismissed'
+  | 'tryCyclesDismissed'
+  | 'tryGithubDismissed'
+  | 'tryInvitePeopleDismissed'
+  | 'tryRoadmapsDismissed'
+  | 'tryTriageDismissed'
+  | 'updatedSlackThreadSyncIntegration';
 
 /** Operations that can be applied to UserFlagType. */
-export enum UserFlagUpdateOperation {
-  Clear = "clear",
-  Decr = "decr",
-  Incr = "incr",
-  Lock = "lock",
-}
+export type UserFlagUpdateOperation =
+  | 'clear'
+  | 'decr'
+  | 'incr'
+  | 'lock';
 
 export type UserSettingsFlagPayload = {
-  __typename?: "UserSettingsFlagPayload";
+  __typename?: 'UserSettingsFlagPayload';
   /** The flag key which was updated. */
-  flag?: Maybe<Scalars["String"]["output"]>;
+  flag?: Maybe<Scalars['String']['output']>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The flag value after update. */
-  value?: Maybe<Scalars["Int"]["output"]>;
+  value?: Maybe<Scalars['Int']['output']>;
 };
 
 export type UserSettingsFlagsResetPayload = {
-  __typename?: "UserSettingsFlagsResetPayload";
+  __typename?: 'UserSettingsFlagsResetPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type UserSettingsUpdateInput = {
   /** [Internal] How often to generate a feed summary. */
   feedSummarySchedule?: InputMaybe<FeedSummarySchedule>;
   /** The user's notification category preferences. */
-  notificationCategoryPreferences?: InputMaybe<
-    NotificationCategoryPreferencesInput
-  >;
+  notificationCategoryPreferences?: InputMaybe<NotificationCategoryPreferencesInput>;
   /** The user's notification channel preferences. */
-  notificationChannelPreferences?: InputMaybe<
-    PartialNotificationChannelPreferencesInput
-  >;
+  notificationChannelPreferences?: InputMaybe<PartialNotificationChannelPreferencesInput>;
   /** The user's notification delivery preferences. */
-  notificationDeliveryPreferences?: InputMaybe<
-    NotificationDeliveryPreferencesInput
-  >;
+  notificationDeliveryPreferences?: InputMaybe<NotificationDeliveryPreferencesInput>;
   /** The user's settings. */
-  settings?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  settings?: InputMaybe<Scalars['JSONObject']['input']>;
   /** Whether this user is subscribed to changelog email or not. */
-  subscribedToChangelog?: InputMaybe<Scalars["Boolean"]["input"]>;
+  subscribedToChangelog?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether this user is subscribed to DPA emails or not. */
-  subscribedToDPA?: InputMaybe<Scalars["Boolean"]["input"]>;
+  subscribedToDPA?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether this user is subscribed to general marketing communications or not. */
-  subscribedToGeneralMarketingCommunications?: InputMaybe<
-    Scalars["Boolean"]["input"]
-  >;
+  subscribedToGeneralMarketingCommunications?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether this user is subscribed to invite accepted emails or not. */
-  subscribedToInviteAccepted?: InputMaybe<Scalars["Boolean"]["input"]>;
+  subscribedToInviteAccepted?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether this user is subscribed to privacy and legal update emails or not. */
-  subscribedToPrivacyLegalUpdates?: InputMaybe<Scalars["Boolean"]["input"]>;
+  subscribedToPrivacyLegalUpdates?: InputMaybe<Scalars['Boolean']['input']>;
   /** [Internal] The user's usage warning history. */
-  usageWarningHistory?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  usageWarningHistory?: InputMaybe<Scalars['JSONObject']['input']>;
 };
 
 export type NotificationCategoryPreferencesInput = {
@@ -16704,13 +17123,13 @@ export type NotificationCategoryPreferencesInput = {
 
 export type PartialNotificationChannelPreferencesInput = {
   /** Whether notifications are currently enabled for desktop. */
-  desktop?: InputMaybe<Scalars["Boolean"]["input"]>;
+  desktop?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether notifications are currently enabled for email. */
-  email?: InputMaybe<Scalars["Boolean"]["input"]>;
+  email?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether notifications are currently enabled for mobile. */
-  mobile?: InputMaybe<Scalars["Boolean"]["input"]>;
+  mobile?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether notifications are currently enabled for Slack. */
-  slack?: InputMaybe<Scalars["Boolean"]["input"]>;
+  slack?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type NotificationDeliveryPreferencesInput = {
@@ -16725,7 +17144,7 @@ export type NotificationDeliveryPreferencesChannelInput = {
 
 export type NotificationDeliveryPreferencesScheduleInput = {
   /** Whether the schedule is disabled. */
-  disabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  disabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** Delivery preferences for Friday. */
   friday: NotificationDeliveryPreferencesDayInput;
   /** Delivery preferences for Monday. */
@@ -16744,296 +17163,294 @@ export type NotificationDeliveryPreferencesScheduleInput = {
 
 export type NotificationDeliveryPreferencesDayInput = {
   /** The time notifications end. */
-  end?: InputMaybe<Scalars["String"]["input"]>;
+  end?: InputMaybe<Scalars['String']['input']>;
   /** The time notifications start. */
-  start?: InputMaybe<Scalars["String"]["input"]>;
+  start?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UserUpdateInput = {
   /** The avatar image URL of the user. */
-  avatarUrl?: InputMaybe<Scalars["String"]["input"]>;
+  avatarUrl?: InputMaybe<Scalars['String']['input']>;
   /** The user description or a short bio. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The display name of the user. */
-  displayName?: InputMaybe<Scalars["String"]["input"]>;
+  displayName?: InputMaybe<Scalars['String']['input']>;
   /** The name of the user. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The emoji part of the user status. */
-  statusEmoji?: InputMaybe<Scalars["String"]["input"]>;
+  statusEmoji?: InputMaybe<Scalars['String']['input']>;
   /** The label part of the user status. */
-  statusLabel?: InputMaybe<Scalars["String"]["input"]>;
+  statusLabel?: InputMaybe<Scalars['String']['input']>;
   /** When the user status should be cleared. */
-  statusUntilAt?: InputMaybe<Scalars["DateTime"]["input"]>;
+  statusUntilAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The local timezone of the user. */
-  timezone?: InputMaybe<Scalars["String"]["input"]>;
+  timezone?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type ViewPreferencesCreateInput = {
   /** The custom view these view preferences are associated with. */
-  customViewId?: InputMaybe<Scalars["String"]["input"]>;
+  customViewId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The initiative these view preferences are associated with. */
-  initiativeId?: InputMaybe<Scalars["String"]["input"]>;
+  initiativeId?: InputMaybe<Scalars['String']['input']>;
   /** The default parameters for the insight on that view. */
-  insights?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  insights?: InputMaybe<Scalars['JSONObject']['input']>;
   /** The label these view preferences are associated with. */
-  labelId?: InputMaybe<Scalars["String"]["input"]>;
+  labelId?: InputMaybe<Scalars['String']['input']>;
   /** View preferences object. */
-  preferences: Scalars["JSONObject"]["input"];
+  preferences: Scalars['JSONObject']['input'];
   /** The project these view preferences are associated with. */
-  projectId?: InputMaybe<Scalars["String"]["input"]>;
+  projectId?: InputMaybe<Scalars['String']['input']>;
   /** The project label these view preferences are associated with. */
-  projectLabelId?: InputMaybe<Scalars["String"]["input"]>;
+  projectLabelId?: InputMaybe<Scalars['String']['input']>;
   /** The team these view preferences are associated with. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The type of view preferences (either user or organization level preferences). */
   type: ViewPreferencesType;
   /** The user profile these view preferences are associated with. */
-  userId?: InputMaybe<Scalars["String"]["input"]>;
+  userId?: InputMaybe<Scalars['String']['input']>;
   /** The view type of the view preferences are associated with. */
   viewType: ViewType;
 };
 
 /** The type of view preferences (either user or organization level preferences). */
-export enum ViewPreferencesType {
-  Organization = "organization",
-  User = "user",
-}
+export type ViewPreferencesType =
+  | 'organization'
+  | 'user';
 
 /** The client view this custom view is targeting. */
-export enum ViewType {
-  ActiveIssues = "activeIssues",
-  AllIssues = "allIssues",
-  Archive = "archive",
-  Backlog = "backlog",
-  Board = "board",
-  CompletedCycle = "completedCycle",
-  Customer = "customer",
-  Customers = "customers",
-  CustomView = "customView",
-  CustomViews = "customViews",
-  Cycle = "cycle",
-  Dashboards = "dashboards",
-  EmbeddedCustomerNeeds = "embeddedCustomerNeeds",
-  FeedAll = "feedAll",
-  FeedCreated = "feedCreated",
-  FeedFollowing = "feedFollowing",
-  FeedPopular = "feedPopular",
-  Inbox = "inbox",
-  Initiative = "initiative",
-  InitiativeOverview = "initiativeOverview",
-  InitiativeOverviewSubInitiatives = "initiativeOverviewSubInitiatives",
-  Initiatives = "initiatives",
-  InitiativesCompleted = "initiativesCompleted",
-  InitiativesPlanned = "initiativesPlanned",
-  IssueIdentifiers = "issueIdentifiers",
-  Label = "label",
-  MyIssues = "myIssues",
-  MyIssuesActivity = "myIssuesActivity",
-  MyIssuesCreatedByMe = "myIssuesCreatedByMe",
-  MyIssuesSubscribedTo = "myIssuesSubscribedTo",
-  MyReviews = "myReviews",
-  Project = "project",
-  ProjectCustomerNeeds = "projectCustomerNeeds",
-  ProjectDocuments = "projectDocuments",
-  ProjectLabel = "projectLabel",
-  Projects = "projects",
-  ProjectsAll = "projectsAll",
-  ProjectsBacklog = "projectsBacklog",
-  ProjectsClosed = "projectsClosed",
-  QuickView = "quickView",
-  Reviews = "reviews",
-  Roadmap = "roadmap",
-  RoadmapAll = "roadmapAll",
-  RoadmapBacklog = "roadmapBacklog",
-  RoadmapClosed = "roadmapClosed",
-  Roadmaps = "roadmaps",
-  Search = "search",
-  SplitSearch = "splitSearch",
-  SubIssues = "subIssues",
-  Teams = "teams",
-  Triage = "triage",
-  UserProfile = "userProfile",
-  UserProfileCreatedByUser = "userProfileCreatedByUser",
-  WorkspaceMembers = "workspaceMembers",
-}
+export type ViewType =
+  | 'activeIssues'
+  | 'allIssues'
+  | 'archive'
+  | 'backlog'
+  | 'board'
+  | 'completedCycle'
+  | 'customer'
+  | 'customers'
+  | 'customView'
+  | 'customViews'
+  | 'cycle'
+  | 'dashboards'
+  | 'embeddedCustomerNeeds'
+  | 'feedAll'
+  | 'feedCreated'
+  | 'feedFollowing'
+  | 'feedPopular'
+  | 'inbox'
+  | 'initiative'
+  | 'initiativeOverview'
+  | 'initiativeOverviewSubInitiatives'
+  | 'initiatives'
+  | 'initiativesCompleted'
+  | 'initiativesPlanned'
+  | 'issueIdentifiers'
+  | 'label'
+  | 'myIssues'
+  | 'myIssuesActivity'
+  | 'myIssuesCreatedByMe'
+  | 'myIssuesSubscribedTo'
+  | 'myReviews'
+  | 'project'
+  | 'projectCustomerNeeds'
+  | 'projectDocuments'
+  | 'projectLabel'
+  | 'projects'
+  | 'projectsAll'
+  | 'projectsBacklog'
+  | 'projectsClosed'
+  | 'quickView'
+  | 'reviews'
+  | 'roadmap'
+  | 'roadmapAll'
+  | 'roadmapBacklog'
+  | 'roadmapClosed'
+  | 'roadmaps'
+  | 'search'
+  | 'splitSearch'
+  | 'subIssues'
+  | 'teams'
+  | 'triage'
+  | 'userProfile'
+  | 'userProfileCreatedByUser'
+  | 'workspaceMembers';
 
 export type ViewPreferencesPayload = {
-  __typename?: "ViewPreferencesPayload";
+  __typename?: 'ViewPreferencesPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The view preferences entity being mutated. */
   viewPreferences: ViewPreferences;
 };
 
 export type ViewPreferencesUpdateInput = {
   /** The default parameters for the insight on that view. */
-  insights?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  insights?: InputMaybe<Scalars['JSONObject']['input']>;
   /** View preferences. */
-  preferences?: InputMaybe<Scalars["JSONObject"]["input"]>;
+  preferences?: InputMaybe<Scalars['JSONObject']['input']>;
 };
 
 export type WebhookCreateInput = {
   /** Whether this webhook is enabled for all public teams. */
-  allPublicTeams?: InputMaybe<Scalars["Boolean"]["input"]>;
+  allPublicTeams?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether this webhook is enabled. */
-  enabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** Label for the webhook. */
-  label?: InputMaybe<Scalars["String"]["input"]>;
+  label?: InputMaybe<Scalars['String']['input']>;
   /** List of resources the webhook should subscribe to. */
-  resourceTypes: Array<Scalars["String"]["input"]>;
+  resourceTypes: Array<Scalars['String']['input']>;
   /** A secret token used to sign the webhook payload. */
-  secret?: InputMaybe<Scalars["String"]["input"]>;
+  secret?: InputMaybe<Scalars['String']['input']>;
   /** The identifier or key of the team associated with the Webhook. */
-  teamId?: InputMaybe<Scalars["String"]["input"]>;
+  teamId?: InputMaybe<Scalars['String']['input']>;
   /** The URL that will be called on data changes. */
-  url: Scalars["String"]["input"];
+  url: Scalars['String']['input'];
 };
 
 export type WebhookPayload = {
-  __typename?: "WebhookPayload";
+  __typename?: 'WebhookPayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The webhook entity being mutated. */
   webhook: Webhook;
 };
 
 export type WebhookUpdateInput = {
   /** Whether this webhook is enabled. */
-  enabled?: InputMaybe<Scalars["Boolean"]["input"]>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** Label for the webhook. */
-  label?: InputMaybe<Scalars["String"]["input"]>;
+  label?: InputMaybe<Scalars['String']['input']>;
   /** List of resources the webhook should subscribe to. */
-  resourceTypes?: InputMaybe<Array<Scalars["String"]["input"]>>;
+  resourceTypes?: InputMaybe<Array<Scalars['String']['input']>>;
   /** A secret token used to sign the webhook payload. */
-  secret?: InputMaybe<Scalars["String"]["input"]>;
+  secret?: InputMaybe<Scalars['String']['input']>;
   /** The URL that will be called on data changes. */
-  url?: InputMaybe<Scalars["String"]["input"]>;
+  url?: InputMaybe<Scalars['String']['input']>;
 };
 
 /** A generic payload return from entity archive mutations. */
 export type WorkflowStateArchivePayload = ArchivePayload & {
-  __typename?: "WorkflowStateArchivePayload";
+  __typename?: 'WorkflowStateArchivePayload';
   /** The archived/unarchived entity. Null if entity was deleted. */
   entity?: Maybe<WorkflowState>;
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
 };
 
 export type WorkflowStateCreateInput = {
   /** The color of the state. */
-  color: Scalars["String"]["input"];
+  color: Scalars['String']['input'];
   /** The description of the state. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
-  id?: InputMaybe<Scalars["String"]["input"]>;
+  id?: InputMaybe<Scalars['String']['input']>;
   /** The name of the state. */
-  name: Scalars["String"]["input"];
+  name: Scalars['String']['input'];
   /** The position of the state. */
-  position?: InputMaybe<Scalars["Float"]["input"]>;
+  position?: InputMaybe<Scalars['Float']['input']>;
   /** The team associated with the state. */
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
   /** The workflow type. */
-  type: Scalars["String"]["input"];
+  type: Scalars['String']['input'];
 };
 
 export type WorkflowStatePayload = {
-  __typename?: "WorkflowStatePayload";
+  __typename?: 'WorkflowStatePayload';
   /** The identifier of the last sync operation. */
-  lastSyncId: Scalars["Float"]["output"];
+  lastSyncId: Scalars['Float']['output'];
   /** Whether the operation was successful. */
-  success: Scalars["Boolean"]["output"];
+  success: Scalars['Boolean']['output'];
   /** The state that was created or updated. */
   workflowState: WorkflowState;
 };
 
 export type WorkflowStateUpdateInput = {
   /** The color of the state. */
-  color?: InputMaybe<Scalars["String"]["input"]>;
+  color?: InputMaybe<Scalars['String']['input']>;
   /** The description of the state. */
-  description?: InputMaybe<Scalars["String"]["input"]>;
+  description?: InputMaybe<Scalars['String']['input']>;
   /** The name of the state. */
-  name?: InputMaybe<Scalars["String"]["input"]>;
+  name?: InputMaybe<Scalars['String']['input']>;
   /** The position of the state. */
-  position?: InputMaybe<Scalars["Float"]["input"]>;
+  position?: InputMaybe<Scalars['Float']['input']>;
 };
 
 /** A customer need related notification. */
 export type CustomerNeedNotification = Entity & Node & Notification & {
-  __typename?: "CustomerNeedNotification";
+  __typename?: 'CustomerNeedNotification';
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
   category: NotificationCategory;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The customer need related to the notification. */
   customerNeed: CustomerNeed;
   /** Related customer need. */
-  customerNeedId: Scalars["String"]["output"];
+  customerNeedId: Scalars['String']['output'];
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The issue related to the notification. */
   relatedIssue?: Maybe<Issue>;
   /** The project related to the notification. */
   relatedProject?: Maybe<Project>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
@@ -17041,307 +17458,295 @@ export type CustomerNeedNotification = Entity & Node & Notification & {
 /** A basic entity. */
 export type Entity = {
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** A customer related notification. */
 export type CustomerNotification = Entity & Node & Notification & {
-  __typename?: "CustomerNotification";
+  __typename?: 'CustomerNotification';
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
   category: NotificationCategory;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The customer related to the notification. */
   customer: Customer;
   /** Related customer. */
-  customerId: Scalars["String"]["output"];
+  customerId: Scalars['String']['output'];
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
 
 /** A customer notification subscription. */
-export type CustomerNotificationSubscription =
-  & Entity
-  & Node
-  & NotificationSubscription
-  & {
-    __typename?: "CustomerNotificationSubscription";
-    /** Whether the subscription is active or not. */
-    active: Scalars["Boolean"]["output"];
-    /** The time at which the entity was archived. Null if the entity has not been archived. */
-    archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
-    /** The type of view to which the notification subscription context is associated with. */
-    contextViewType?: Maybe<ContextViewType>;
-    /** The time at which the entity was created. */
-    createdAt: Scalars["DateTime"]["output"];
-    /** The customer subscribed to. */
-    customer: Customer;
-    /** The contextual custom view associated with the notification subscription. */
-    customView?: Maybe<CustomView>;
-    /** The contextual cycle view associated with the notification subscription. */
-    cycle?: Maybe<Cycle>;
-    /** The unique identifier of the entity. */
-    id: Scalars["ID"]["output"];
-    /** The contextual initiative view associated with the notification subscription. */
-    initiative?: Maybe<Initiative>;
-    /** The contextual label view associated with the notification subscription. */
-    label?: Maybe<IssueLabel>;
-    /** The type of subscription. */
-    notificationSubscriptionTypes: Array<Scalars["String"]["output"]>;
-    /** The contextual project view associated with the notification subscription. */
-    project?: Maybe<Project>;
-    /** The user that subscribed to receive notifications. */
-    subscriber: User;
-    /** The team associated with the notification subscription. */
-    team?: Maybe<Team>;
-    /**
-     * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
-     *     been updated after creation.
-     */
-    updatedAt: Scalars["DateTime"]["output"];
-    /** The user view associated with the notification subscription. */
-    user?: Maybe<User>;
-    /** The type of user view to which the notification subscription context is associated with. */
-    userContextViewType?: Maybe<UserContextViewType>;
-  };
+export type CustomerNotificationSubscription = Entity & Node & NotificationSubscription & {
+  __typename?: 'CustomerNotificationSubscription';
+  /** Whether the subscription is active or not. */
+  active: Scalars['Boolean']['output'];
+  /** The time at which the entity was archived. Null if the entity has not been archived. */
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** The type of view to which the notification subscription context is associated with. */
+  contextViewType?: Maybe<ContextViewType>;
+  /** The time at which the entity was created. */
+  createdAt: Scalars['DateTime']['output'];
+  /** The customer subscribed to. */
+  customer: Customer;
+  /** The contextual custom view associated with the notification subscription. */
+  customView?: Maybe<CustomView>;
+  /** The contextual cycle view associated with the notification subscription. */
+  cycle?: Maybe<Cycle>;
+  /** The unique identifier of the entity. */
+  id: Scalars['ID']['output'];
+  /** The contextual initiative view associated with the notification subscription. */
+  initiative?: Maybe<Initiative>;
+  /** The contextual label view associated with the notification subscription. */
+  label?: Maybe<IssueLabel>;
+  /** The type of subscription. */
+  notificationSubscriptionTypes: Array<Scalars['String']['output']>;
+  /** The contextual project view associated with the notification subscription. */
+  project?: Maybe<Project>;
+  /** The user that subscribed to receive notifications. */
+  subscriber: User;
+  /** The team associated with the notification subscription. */
+  team?: Maybe<Team>;
+  /**
+   * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
+   *     been updated after creation.
+   */
+  updatedAt: Scalars['DateTime']['output'];
+  /** The user view associated with the notification subscription. */
+  user?: Maybe<User>;
+  /** The type of user view to which the notification subscription context is associated with. */
+  userContextViewType?: Maybe<UserContextViewType>;
+};
 
 /** A custom view notification subscription. */
-export type CustomViewNotificationSubscription =
-  & Entity
-  & Node
-  & NotificationSubscription
-  & {
-    __typename?: "CustomViewNotificationSubscription";
-    /** Whether the subscription is active or not. */
-    active: Scalars["Boolean"]["output"];
-    /** The time at which the entity was archived. Null if the entity has not been archived. */
-    archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
-    /** The type of view to which the notification subscription context is associated with. */
-    contextViewType?: Maybe<ContextViewType>;
-    /** The time at which the entity was created. */
-    createdAt: Scalars["DateTime"]["output"];
-    /** The customer associated with the notification subscription. */
-    customer?: Maybe<Customer>;
-    /** The custom view subscribed to. */
-    customView: CustomView;
-    /** The contextual cycle view associated with the notification subscription. */
-    cycle?: Maybe<Cycle>;
-    /** The unique identifier of the entity. */
-    id: Scalars["ID"]["output"];
-    /** The contextual initiative view associated with the notification subscription. */
-    initiative?: Maybe<Initiative>;
-    /** The contextual label view associated with the notification subscription. */
-    label?: Maybe<IssueLabel>;
-    /** The type of subscription. */
-    notificationSubscriptionTypes: Array<Scalars["String"]["output"]>;
-    /** The contextual project view associated with the notification subscription. */
-    project?: Maybe<Project>;
-    /** The user that subscribed to receive notifications. */
-    subscriber: User;
-    /** The team associated with the notification subscription. */
-    team?: Maybe<Team>;
-    /**
-     * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
-     *     been updated after creation.
-     */
-    updatedAt: Scalars["DateTime"]["output"];
-    /** The user view associated with the notification subscription. */
-    user?: Maybe<User>;
-    /** The type of user view to which the notification subscription context is associated with. */
-    userContextViewType?: Maybe<UserContextViewType>;
-  };
+export type CustomViewNotificationSubscription = Entity & Node & NotificationSubscription & {
+  __typename?: 'CustomViewNotificationSubscription';
+  /** Whether the subscription is active or not. */
+  active: Scalars['Boolean']['output'];
+  /** The time at which the entity was archived. Null if the entity has not been archived. */
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** The type of view to which the notification subscription context is associated with. */
+  contextViewType?: Maybe<ContextViewType>;
+  /** The time at which the entity was created. */
+  createdAt: Scalars['DateTime']['output'];
+  /** The customer associated with the notification subscription. */
+  customer?: Maybe<Customer>;
+  /** The custom view subscribed to. */
+  customView: CustomView;
+  /** The contextual cycle view associated with the notification subscription. */
+  cycle?: Maybe<Cycle>;
+  /** The unique identifier of the entity. */
+  id: Scalars['ID']['output'];
+  /** The contextual initiative view associated with the notification subscription. */
+  initiative?: Maybe<Initiative>;
+  /** The contextual label view associated with the notification subscription. */
+  label?: Maybe<IssueLabel>;
+  /** The type of subscription. */
+  notificationSubscriptionTypes: Array<Scalars['String']['output']>;
+  /** The contextual project view associated with the notification subscription. */
+  project?: Maybe<Project>;
+  /** The user that subscribed to receive notifications. */
+  subscriber: User;
+  /** The team associated with the notification subscription. */
+  team?: Maybe<Team>;
+  /**
+   * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
+   *     been updated after creation.
+   */
+  updatedAt: Scalars['DateTime']['output'];
+  /** The user view associated with the notification subscription. */
+  user?: Maybe<User>;
+  /** The type of user view to which the notification subscription context is associated with. */
+  userContextViewType?: Maybe<UserContextViewType>;
+};
 
 /** A cycle notification subscription. */
-export type CycleNotificationSubscription =
-  & Entity
-  & Node
-  & NotificationSubscription
-  & {
-    __typename?: "CycleNotificationSubscription";
-    /** Whether the subscription is active or not. */
-    active: Scalars["Boolean"]["output"];
-    /** The time at which the entity was archived. Null if the entity has not been archived. */
-    archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
-    /** The type of view to which the notification subscription context is associated with. */
-    contextViewType?: Maybe<ContextViewType>;
-    /** The time at which the entity was created. */
-    createdAt: Scalars["DateTime"]["output"];
-    /** The customer associated with the notification subscription. */
-    customer?: Maybe<Customer>;
-    /** The contextual custom view associated with the notification subscription. */
-    customView?: Maybe<CustomView>;
-    /** The cycle subscribed to. */
-    cycle: Cycle;
-    /** The unique identifier of the entity. */
-    id: Scalars["ID"]["output"];
-    /** The contextual initiative view associated with the notification subscription. */
-    initiative?: Maybe<Initiative>;
-    /** The contextual label view associated with the notification subscription. */
-    label?: Maybe<IssueLabel>;
-    /** The type of subscription. */
-    notificationSubscriptionTypes: Array<Scalars["String"]["output"]>;
-    /** The contextual project view associated with the notification subscription. */
-    project?: Maybe<Project>;
-    /** The user that subscribed to receive notifications. */
-    subscriber: User;
-    /** The team associated with the notification subscription. */
-    team?: Maybe<Team>;
-    /**
-     * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
-     *     been updated after creation.
-     */
-    updatedAt: Scalars["DateTime"]["output"];
-    /** The user view associated with the notification subscription. */
-    user?: Maybe<User>;
-    /** The type of user view to which the notification subscription context is associated with. */
-    userContextViewType?: Maybe<UserContextViewType>;
-  };
+export type CycleNotificationSubscription = Entity & Node & NotificationSubscription & {
+  __typename?: 'CycleNotificationSubscription';
+  /** Whether the subscription is active or not. */
+  active: Scalars['Boolean']['output'];
+  /** The time at which the entity was archived. Null if the entity has not been archived. */
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** The type of view to which the notification subscription context is associated with. */
+  contextViewType?: Maybe<ContextViewType>;
+  /** The time at which the entity was created. */
+  createdAt: Scalars['DateTime']['output'];
+  /** The customer associated with the notification subscription. */
+  customer?: Maybe<Customer>;
+  /** The contextual custom view associated with the notification subscription. */
+  customView?: Maybe<CustomView>;
+  /** The cycle subscribed to. */
+  cycle: Cycle;
+  /** The unique identifier of the entity. */
+  id: Scalars['ID']['output'];
+  /** The contextual initiative view associated with the notification subscription. */
+  initiative?: Maybe<Initiative>;
+  /** The contextual label view associated with the notification subscription. */
+  label?: Maybe<IssueLabel>;
+  /** The type of subscription. */
+  notificationSubscriptionTypes: Array<Scalars['String']['output']>;
+  /** The contextual project view associated with the notification subscription. */
+  project?: Maybe<Project>;
+  /** The user that subscribed to receive notifications. */
+  subscriber: User;
+  /** The team associated with the notification subscription. */
+  team?: Maybe<Team>;
+  /**
+   * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
+   *     been updated after creation.
+   */
+  updatedAt: Scalars['DateTime']['output'];
+  /** The user view associated with the notification subscription. */
+  user?: Maybe<User>;
+  /** The type of user view to which the notification subscription context is associated with. */
+  userContextViewType?: Maybe<UserContextViewType>;
+};
 
 /** A document related notification. */
 export type DocumentNotification = Entity & Node & Notification & {
-  __typename?: "DocumentNotification";
+  __typename?: 'DocumentNotification';
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
   category: NotificationCategory;
   /** Related comment ID. Null if the notification is not related to a comment. */
-  commentId?: Maybe<Scalars["String"]["output"]>;
+  commentId?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** Related document ID. */
-  documentId: Scalars["String"]["output"];
+  documentId: Scalars['String']['output'];
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** Related parent comment ID. Null if the notification is not related to a comment. */
-  parentCommentId?: Maybe<Scalars["String"]["output"]>;
+  parentCommentId?: Maybe<Scalars['String']['output']>;
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** Name of the reaction emoji related to the notification. */
-  reactionEmoji?: Maybe<Scalars["String"]["output"]>;
+  reactionEmoji?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
 
 /** An initiative related notification. */
 export type InitiativeNotification = Entity & Node & Notification & {
-  __typename?: "InitiativeNotification";
+  __typename?: 'InitiativeNotification';
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
@@ -17349,128 +17754,124 @@ export type InitiativeNotification = Entity & Node & Notification & {
   /** The comment related to the notification. */
   comment?: Maybe<Comment>;
   /** Related comment ID. Null if the notification is not related to a comment. */
-  commentId?: Maybe<Scalars["String"]["output"]>;
+  commentId?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The document related to the notification. */
   document?: Maybe<Document>;
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** The initiative related to the notification. */
   initiative?: Maybe<Initiative>;
   /** Related initiative ID. */
-  initiativeId: Scalars["String"]["output"];
+  initiativeId: Scalars['String']['output'];
   /** The initiative update related to the notification. */
   initiativeUpdate?: Maybe<InitiativeUpdate>;
   /** Related initiative update ID. */
-  initiativeUpdateId?: Maybe<Scalars["String"]["output"]>;
+  initiativeUpdateId?: Maybe<Scalars['String']['output']>;
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** The parent comment related to the notification, if a notification is a reply comment notification. */
   parentComment?: Maybe<Comment>;
   /** Related parent comment ID. Null if the notification is not related to a comment. */
-  parentCommentId?: Maybe<Scalars["String"]["output"]>;
+  parentCommentId?: Maybe<Scalars['String']['output']>;
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** Name of the reaction emoji related to the notification. */
-  reactionEmoji?: Maybe<Scalars["String"]["output"]>;
+  reactionEmoji?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
 
 /** An initiative notification subscription. */
-export type InitiativeNotificationSubscription =
-  & Entity
-  & Node
-  & NotificationSubscription
-  & {
-    __typename?: "InitiativeNotificationSubscription";
-    /** Whether the subscription is active or not. */
-    active: Scalars["Boolean"]["output"];
-    /** The time at which the entity was archived. Null if the entity has not been archived. */
-    archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
-    /** The type of view to which the notification subscription context is associated with. */
-    contextViewType?: Maybe<ContextViewType>;
-    /** The time at which the entity was created. */
-    createdAt: Scalars["DateTime"]["output"];
-    /** The customer associated with the notification subscription. */
-    customer?: Maybe<Customer>;
-    /** The contextual custom view associated with the notification subscription. */
-    customView?: Maybe<CustomView>;
-    /** The contextual cycle view associated with the notification subscription. */
-    cycle?: Maybe<Cycle>;
-    /** The unique identifier of the entity. */
-    id: Scalars["ID"]["output"];
-    /** The initiative subscribed to. */
-    initiative: Initiative;
-    /** The contextual label view associated with the notification subscription. */
-    label?: Maybe<IssueLabel>;
-    /** The type of subscription. */
-    notificationSubscriptionTypes: Array<Scalars["String"]["output"]>;
-    /** The contextual project view associated with the notification subscription. */
-    project?: Maybe<Project>;
-    /** The user that subscribed to receive notifications. */
-    subscriber: User;
-    /** The team associated with the notification subscription. */
-    team?: Maybe<Team>;
-    /**
-     * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
-     *     been updated after creation.
-     */
-    updatedAt: Scalars["DateTime"]["output"];
-    /** The user view associated with the notification subscription. */
-    user?: Maybe<User>;
-    /** The type of user view to which the notification subscription context is associated with. */
-    userContextViewType?: Maybe<UserContextViewType>;
-  };
+export type InitiativeNotificationSubscription = Entity & Node & NotificationSubscription & {
+  __typename?: 'InitiativeNotificationSubscription';
+  /** Whether the subscription is active or not. */
+  active: Scalars['Boolean']['output'];
+  /** The time at which the entity was archived. Null if the entity has not been archived. */
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** The type of view to which the notification subscription context is associated with. */
+  contextViewType?: Maybe<ContextViewType>;
+  /** The time at which the entity was created. */
+  createdAt: Scalars['DateTime']['output'];
+  /** The customer associated with the notification subscription. */
+  customer?: Maybe<Customer>;
+  /** The contextual custom view associated with the notification subscription. */
+  customView?: Maybe<CustomView>;
+  /** The contextual cycle view associated with the notification subscription. */
+  cycle?: Maybe<Cycle>;
+  /** The unique identifier of the entity. */
+  id: Scalars['ID']['output'];
+  /** The initiative subscribed to. */
+  initiative: Initiative;
+  /** The contextual label view associated with the notification subscription. */
+  label?: Maybe<IssueLabel>;
+  /** The type of subscription. */
+  notificationSubscriptionTypes: Array<Scalars['String']['output']>;
+  /** The contextual project view associated with the notification subscription. */
+  project?: Maybe<Project>;
+  /** The user that subscribed to receive notifications. */
+  subscriber: User;
+  /** The team associated with the notification subscription. */
+  team?: Maybe<Team>;
+  /**
+   * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
+   *     been updated after creation.
+   */
+  updatedAt: Scalars['DateTime']['output'];
+  /** The user view associated with the notification subscription. */
+  user?: Maybe<User>;
+  /** The type of user view to which the notification subscription context is associated with. */
+  userContextViewType?: Maybe<UserContextViewType>;
+};
 
 /** An issue related notification. */
 export type IssueNotification = Entity & Node & Notification & {
-  __typename?: "IssueNotification";
+  __typename?: 'IssueNotification';
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
@@ -17478,301 +17879,296 @@ export type IssueNotification = Entity & Node & Notification & {
   /** The comment related to the notification. */
   comment?: Maybe<Comment>;
   /** Related comment ID. Null if the notification is not related to a comment. */
-  commentId?: Maybe<Scalars["String"]["output"]>;
+  commentId?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** The issue related to the notification. */
   issue: Issue;
   /** Related issue ID. */
-  issueId: Scalars["String"]["output"];
+  issueId: Scalars['String']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** The parent comment related to the notification, if a notification is a reply comment notification. */
   parentComment?: Maybe<Comment>;
   /** Related parent comment ID. Null if the notification is not related to a comment. */
-  parentCommentId?: Maybe<Scalars["String"]["output"]>;
+  parentCommentId?: Maybe<Scalars['String']['output']>;
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** Name of the reaction emoji related to the notification. */
-  reactionEmoji?: Maybe<Scalars["String"]["output"]>;
+  reactionEmoji?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** The subscriptions related to the notification. */
   subscriptions?: Maybe<Array<NotificationSubscription>>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** The team related to the issue notification. */
   team: Team;
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
 
 /** A label notification subscription. */
-export type LabelNotificationSubscription =
-  & Entity
-  & Node
-  & NotificationSubscription
-  & {
-    __typename?: "LabelNotificationSubscription";
-    /** Whether the subscription is active or not. */
-    active: Scalars["Boolean"]["output"];
-    /** The time at which the entity was archived. Null if the entity has not been archived. */
-    archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
-    /** The type of view to which the notification subscription context is associated with. */
-    contextViewType?: Maybe<ContextViewType>;
-    /** The time at which the entity was created. */
-    createdAt: Scalars["DateTime"]["output"];
-    /** The customer associated with the notification subscription. */
-    customer?: Maybe<Customer>;
-    /** The contextual custom view associated with the notification subscription. */
-    customView?: Maybe<CustomView>;
-    /** The contextual cycle view associated with the notification subscription. */
-    cycle?: Maybe<Cycle>;
-    /** The unique identifier of the entity. */
-    id: Scalars["ID"]["output"];
-    /** The contextual initiative view associated with the notification subscription. */
-    initiative?: Maybe<Initiative>;
-    /** The label subscribed to. */
-    label: IssueLabel;
-    /** The type of subscription. */
-    notificationSubscriptionTypes: Array<Scalars["String"]["output"]>;
-    /** The contextual project view associated with the notification subscription. */
-    project?: Maybe<Project>;
-    /** The user that subscribed to receive notifications. */
-    subscriber: User;
-    /** The team associated with the notification subscription. */
-    team?: Maybe<Team>;
-    /**
-     * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
-     *     been updated after creation.
-     */
-    updatedAt: Scalars["DateTime"]["output"];
-    /** The user view associated with the notification subscription. */
-    user?: Maybe<User>;
-    /** The type of user view to which the notification subscription context is associated with. */
-    userContextViewType?: Maybe<UserContextViewType>;
-  };
+export type LabelNotificationSubscription = Entity & Node & NotificationSubscription & {
+  __typename?: 'LabelNotificationSubscription';
+  /** Whether the subscription is active or not. */
+  active: Scalars['Boolean']['output'];
+  /** The time at which the entity was archived. Null if the entity has not been archived. */
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** The type of view to which the notification subscription context is associated with. */
+  contextViewType?: Maybe<ContextViewType>;
+  /** The time at which the entity was created. */
+  createdAt: Scalars['DateTime']['output'];
+  /** The customer associated with the notification subscription. */
+  customer?: Maybe<Customer>;
+  /** The contextual custom view associated with the notification subscription. */
+  customView?: Maybe<CustomView>;
+  /** The contextual cycle view associated with the notification subscription. */
+  cycle?: Maybe<Cycle>;
+  /** The unique identifier of the entity. */
+  id: Scalars['ID']['output'];
+  /** The contextual initiative view associated with the notification subscription. */
+  initiative?: Maybe<Initiative>;
+  /** The label subscribed to. */
+  label: IssueLabel;
+  /** The type of subscription. */
+  notificationSubscriptionTypes: Array<Scalars['String']['output']>;
+  /** The contextual project view associated with the notification subscription. */
+  project?: Maybe<Project>;
+  /** The user that subscribed to receive notifications. */
+  subscriber: User;
+  /** The team associated with the notification subscription. */
+  team?: Maybe<Team>;
+  /**
+   * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
+   *     been updated after creation.
+   */
+  updatedAt: Scalars['DateTime']['output'];
+  /** The user view associated with the notification subscription. */
+  user?: Maybe<User>;
+  /** The type of user view to which the notification subscription context is associated with. */
+  userContextViewType?: Maybe<UserContextViewType>;
+};
 
 /** Request to install OAuth clients on organizations and the response to the request. */
 export type OauthClientApproval = Node & {
-  __typename?: "OauthClientApproval";
+  __typename?: 'OauthClientApproval';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The reason the request for the OAuth client approval was denied. */
-  denyReason?: Maybe<Scalars["String"]["output"]>;
+  denyReason?: Maybe<Scalars['String']['output']>;
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** The uuid of the OAuth client being requested for installation. */
-  oauthClientId: Scalars["String"]["output"];
+  oauthClientId: Scalars['String']['output'];
   /** The person who requested installing the OAuth client. */
-  requesterId: Scalars["String"]["output"];
+  requesterId: Scalars['String']['output'];
   /** The reason the person wants to install this OAuth client. */
-  requestReason?: Maybe<Scalars["String"]["output"]>;
+  requestReason?: Maybe<Scalars['String']['output']>;
   /** The person who responded to the request to install the OAuth client. */
-  responderId?: Maybe<Scalars["String"]["output"]>;
+  responderId?: Maybe<Scalars['String']['output']>;
   /** The scopes the app has requested. */
-  scopes: Array<Scalars["String"]["output"]>;
+  scopes: Array<Scalars['String']['output']>;
   /** The status for the OAuth client approval request. */
   status: OAuthClientApprovalStatus;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
 };
 
 /** The different requests statuses possible for an OAuth client approval request. */
-export enum OAuthClientApprovalStatus {
-  Approved = "approved",
-  Denied = "denied",
-  Requested = "requested",
-}
+export type OAuthClientApprovalStatus =
+  | 'approved'
+  | 'denied'
+  | 'requested';
 
 /** An oauth client approval related notification. */
 export type OauthClientApprovalNotification = Entity & Node & Notification & {
-  __typename?: "OauthClientApprovalNotification";
+  __typename?: 'OauthClientApprovalNotification';
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
   category: NotificationCategory;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** The OAuth client approval request related to the notification. */
   oauthClientApproval: OauthClientApproval;
   /** Related OAuth client approval request ID. */
-  oauthClientApprovalId: Scalars["String"]["output"];
+  oauthClientApprovalId: Scalars['String']['output'];
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
 
 /** A post related notification. */
 export type PostNotification = Entity & Node & Notification & {
-  __typename?: "PostNotification";
+  __typename?: 'PostNotification';
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
   category: NotificationCategory;
   /** Related comment ID. Null if the notification is not related to a comment. */
-  commentId?: Maybe<Scalars["String"]["output"]>;
+  commentId?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** Related parent comment ID. Null if the notification is not related to a comment. */
-  parentCommentId?: Maybe<Scalars["String"]["output"]>;
+  parentCommentId?: Maybe<Scalars['String']['output']>;
   /** Related post ID. */
-  postId: Scalars["String"]["output"];
+  postId: Scalars['String']['output'];
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** Name of the reaction emoji related to the notification. */
-  reactionEmoji?: Maybe<Scalars["String"]["output"]>;
+  reactionEmoji?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
 
 /** A project related notification. */
 export type ProjectNotification = Entity & Node & Notification & {
-  __typename?: "ProjectNotification";
+  __typename?: 'ProjectNotification';
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
@@ -17780,844 +18176,309 @@ export type ProjectNotification = Entity & Node & Notification & {
   /** The comment related to the notification. */
   comment?: Maybe<Comment>;
   /** Related comment ID. Null if the notification is not related to a comment. */
-  commentId?: Maybe<Scalars["String"]["output"]>;
+  commentId?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /** The document related to the notification. */
   document?: Maybe<Document>;
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** The parent comment related to the notification, if a notification is a reply comment notification. */
   parentComment?: Maybe<Comment>;
   /** Related parent comment ID. Null if the notification is not related to a comment. */
-  parentCommentId?: Maybe<Scalars["String"]["output"]>;
+  parentCommentId?: Maybe<Scalars['String']['output']>;
   /** The project related to the notification. */
   project: Project;
   /** Related project ID. */
-  projectId: Scalars["String"]["output"];
+  projectId: Scalars['String']['output'];
   /** Related project milestone ID. */
-  projectMilestoneId?: Maybe<Scalars["String"]["output"]>;
+  projectMilestoneId?: Maybe<Scalars['String']['output']>;
   /** The project update related to the notification. */
   projectUpdate?: Maybe<ProjectUpdate>;
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** Related project update ID. */
-  projectUpdateId?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateId?: Maybe<Scalars['String']['output']>;
   /** Name of the reaction emoji related to the notification. */
-  reactionEmoji?: Maybe<Scalars["String"]["output"]>;
+  reactionEmoji?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
 
 /** A project notification subscription. */
-export type ProjectNotificationSubscription =
-  & Entity
-  & Node
-  & NotificationSubscription
-  & {
-    __typename?: "ProjectNotificationSubscription";
-    /** Whether the subscription is active or not. */
-    active: Scalars["Boolean"]["output"];
-    /** The time at which the entity was archived. Null if the entity has not been archived. */
-    archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
-    /** The type of view to which the notification subscription context is associated with. */
-    contextViewType?: Maybe<ContextViewType>;
-    /** The time at which the entity was created. */
-    createdAt: Scalars["DateTime"]["output"];
-    /** The customer associated with the notification subscription. */
-    customer?: Maybe<Customer>;
-    /** The contextual custom view associated with the notification subscription. */
-    customView?: Maybe<CustomView>;
-    /** The contextual cycle view associated with the notification subscription. */
-    cycle?: Maybe<Cycle>;
-    /** The unique identifier of the entity. */
-    id: Scalars["ID"]["output"];
-    /** The contextual initiative view associated with the notification subscription. */
-    initiative?: Maybe<Initiative>;
-    /** The contextual label view associated with the notification subscription. */
-    label?: Maybe<IssueLabel>;
-    /** The type of subscription. */
-    notificationSubscriptionTypes: Array<Scalars["String"]["output"]>;
-    /** The project subscribed to. */
-    project: Project;
-    /** The user that subscribed to receive notifications. */
-    subscriber: User;
-    /** The team associated with the notification subscription. */
-    team?: Maybe<Team>;
-    /**
-     * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
-     *     been updated after creation.
-     */
-    updatedAt: Scalars["DateTime"]["output"];
-    /** The user view associated with the notification subscription. */
-    user?: Maybe<User>;
-    /** The type of user view to which the notification subscription context is associated with. */
-    userContextViewType?: Maybe<UserContextViewType>;
-  };
+export type ProjectNotificationSubscription = Entity & Node & NotificationSubscription & {
+  __typename?: 'ProjectNotificationSubscription';
+  /** Whether the subscription is active or not. */
+  active: Scalars['Boolean']['output'];
+  /** The time at which the entity was archived. Null if the entity has not been archived. */
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** The type of view to which the notification subscription context is associated with. */
+  contextViewType?: Maybe<ContextViewType>;
+  /** The time at which the entity was created. */
+  createdAt: Scalars['DateTime']['output'];
+  /** The customer associated with the notification subscription. */
+  customer?: Maybe<Customer>;
+  /** The contextual custom view associated with the notification subscription. */
+  customView?: Maybe<CustomView>;
+  /** The contextual cycle view associated with the notification subscription. */
+  cycle?: Maybe<Cycle>;
+  /** The unique identifier of the entity. */
+  id: Scalars['ID']['output'];
+  /** The contextual initiative view associated with the notification subscription. */
+  initiative?: Maybe<Initiative>;
+  /** The contextual label view associated with the notification subscription. */
+  label?: Maybe<IssueLabel>;
+  /** The type of subscription. */
+  notificationSubscriptionTypes: Array<Scalars['String']['output']>;
+  /** The project subscribed to. */
+  project: Project;
+  /** The user that subscribed to receive notifications. */
+  subscriber: User;
+  /** The team associated with the notification subscription. */
+  team?: Maybe<Team>;
+  /**
+   * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
+   *     been updated after creation.
+   */
+  updatedAt: Scalars['DateTime']['output'];
+  /** The user view associated with the notification subscription. */
+  user?: Maybe<User>;
+  /** The type of user view to which the notification subscription context is associated with. */
+  userContextViewType?: Maybe<UserContextViewType>;
+};
 
 /** A pull request related notification. */
 export type PullRequestNotification = Entity & Node & Notification & {
-  __typename?: "PullRequestNotification";
+  __typename?: 'PullRequestNotification';
   /** The user that caused the notification. */
   actor?: Maybe<User>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorAvatarColor: Scalars["String"]["output"];
+  actorAvatarColor: Scalars['String']['output'];
   /** [Internal] Notification avatar URL. */
-  actorAvatarUrl?: Maybe<Scalars["String"]["output"]>;
+  actorAvatarUrl?: Maybe<Scalars['String']['output']>;
   /** [Internal] Notification actor initials if avatar is not available. */
-  actorInitials?: Maybe<Scalars["String"]["output"]>;
+  actorInitials?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was archived. Null if the entity has not been archived. */
-  archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The bot that caused the notification. */
   botActor?: Maybe<ActorBot>;
   /** The category of the notification. */
   category: NotificationCategory;
   /** Related comment ID. Null if the notification is not related to a comment. */
-  commentId?: Maybe<Scalars["String"]["output"]>;
+  commentId?: Maybe<Scalars['String']['output']>;
   /** The time at which the entity was created. */
-  createdAt: Scalars["DateTime"]["output"];
+  createdAt: Scalars['DateTime']['output'];
   /**
    * The time at when an email reminder for this notification was sent to the user. Null, if no email
    *     reminder has been sent.
    */
-  emailedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  emailedAt?: Maybe<Scalars['DateTime']['output']>;
   /** The external user that caused the notification. */
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
-  groupingKey: Scalars["String"]["output"];
+  groupingKey: Scalars['String']['output'];
   /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
-  groupingPriority: Scalars["Float"]["output"];
+  groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
-  id: Scalars["ID"]["output"];
+  id: Scalars['ID']['output'];
   /** [Internal] Inbox URL for the notification. */
-  inboxUrl: Scalars["String"]["output"];
+  inboxUrl: Scalars['String']['output'];
   /** [Internal] If notification actor was Linear. */
-  isLinearActor: Scalars["Boolean"]["output"];
+  isLinearActor: Scalars['Boolean']['output'];
   /** [Internal] Issue's status type for issue notifications. */
-  issueStatusType?: Maybe<Scalars["String"]["output"]>;
+  issueStatusType?: Maybe<Scalars['String']['output']>;
   /** Related parent comment ID. Null if the notification is not related to a comment. */
-  parentCommentId?: Maybe<Scalars["String"]["output"]>;
+  parentCommentId?: Maybe<Scalars['String']['output']>;
   /** [Internal] Project update health for new updates. */
-  projectUpdateHealth?: Maybe<Scalars["String"]["output"]>;
+  projectUpdateHealth?: Maybe<Scalars['String']['output']>;
   /** The pull request related to the notification. */
   pullRequest: PullRequest;
   /** Related pull request. */
-  pullRequestId: Scalars["String"]["output"];
+  pullRequestId: Scalars['String']['output'];
   /** Name of the reaction emoji related to the notification. */
-  reactionEmoji?: Maybe<Scalars["String"]["output"]>;
+  reactionEmoji?: Maybe<Scalars['String']['output']>;
   /** The time at when the user marked the notification as read. Null, if the the user hasn't read the notification */
-  readAt?: Maybe<Scalars["DateTime"]["output"]>;
+  readAt?: Maybe<Scalars['DateTime']['output']>;
   /** The time until a notification will be snoozed. After that it will appear in the inbox again. */
-  snoozedUntilAt?: Maybe<Scalars["DateTime"]["output"]>;
+  snoozedUntilAt?: Maybe<Scalars['DateTime']['output']>;
   /** [Internal] Notification subtitle. */
-  subtitle: Scalars["String"]["output"];
+  subtitle: Scalars['String']['output'];
   /** [Internal] Notification title. */
-  title: Scalars["String"]["output"];
+  title: Scalars['String']['output'];
   /** Notification type. */
-  type: Scalars["String"]["output"];
+  type: Scalars['String']['output'];
   /** The time at which a notification was unsnoozed.. */
-  unsnoozedAt?: Maybe<Scalars["DateTime"]["output"]>;
+  unsnoozedAt?: Maybe<Scalars['DateTime']['output']>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
    *     been updated after creation.
    */
-  updatedAt: Scalars["DateTime"]["output"];
+  updatedAt: Scalars['DateTime']['output'];
   /** [Internal] URL to the target of the notification. */
-  url: Scalars["String"]["output"];
+  url: Scalars['String']['output'];
   /** The user that received the notification. */
   user: User;
 };
 
 /** A team notification subscription. */
-export type TeamNotificationSubscription =
-  & Entity
-  & Node
-  & NotificationSubscription
-  & {
-    __typename?: "TeamNotificationSubscription";
-    /** Whether the subscription is active or not. */
-    active: Scalars["Boolean"]["output"];
-    /** The time at which the entity was archived. Null if the entity has not been archived. */
-    archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
-    /** The type of view to which the notification subscription context is associated with. */
-    contextViewType?: Maybe<ContextViewType>;
-    /** The time at which the entity was created. */
-    createdAt: Scalars["DateTime"]["output"];
-    /** The customer associated with the notification subscription. */
-    customer?: Maybe<Customer>;
-    /** The contextual custom view associated with the notification subscription. */
-    customView?: Maybe<CustomView>;
-    /** The contextual cycle view associated with the notification subscription. */
-    cycle?: Maybe<Cycle>;
-    /** The unique identifier of the entity. */
-    id: Scalars["ID"]["output"];
-    /** The contextual initiative view associated with the notification subscription. */
-    initiative?: Maybe<Initiative>;
-    /** The contextual label view associated with the notification subscription. */
-    label?: Maybe<IssueLabel>;
-    /** The type of subscription. */
-    notificationSubscriptionTypes: Array<Scalars["String"]["output"]>;
-    /** The contextual project view associated with the notification subscription. */
-    project?: Maybe<Project>;
-    /** The user that subscribed to receive notifications. */
-    subscriber: User;
-    /** The team subscribed to. */
-    team: Team;
-    /**
-     * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
-     *     been updated after creation.
-     */
-    updatedAt: Scalars["DateTime"]["output"];
-    /** The user view associated with the notification subscription. */
-    user?: Maybe<User>;
-    /** The type of user view to which the notification subscription context is associated with. */
-    userContextViewType?: Maybe<UserContextViewType>;
-  };
+export type TeamNotificationSubscription = Entity & Node & NotificationSubscription & {
+  __typename?: 'TeamNotificationSubscription';
+  /** Whether the subscription is active or not. */
+  active: Scalars['Boolean']['output'];
+  /** The time at which the entity was archived. Null if the entity has not been archived. */
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** The type of view to which the notification subscription context is associated with. */
+  contextViewType?: Maybe<ContextViewType>;
+  /** The time at which the entity was created. */
+  createdAt: Scalars['DateTime']['output'];
+  /** The customer associated with the notification subscription. */
+  customer?: Maybe<Customer>;
+  /** The contextual custom view associated with the notification subscription. */
+  customView?: Maybe<CustomView>;
+  /** The contextual cycle view associated with the notification subscription. */
+  cycle?: Maybe<Cycle>;
+  /** The unique identifier of the entity. */
+  id: Scalars['ID']['output'];
+  /** The contextual initiative view associated with the notification subscription. */
+  initiative?: Maybe<Initiative>;
+  /** The contextual label view associated with the notification subscription. */
+  label?: Maybe<IssueLabel>;
+  /** The type of subscription. */
+  notificationSubscriptionTypes: Array<Scalars['String']['output']>;
+  /** The contextual project view associated with the notification subscription. */
+  project?: Maybe<Project>;
+  /** The user that subscribed to receive notifications. */
+  subscriber: User;
+  /** The team subscribed to. */
+  team: Team;
+  /**
+   * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
+   *     been updated after creation.
+   */
+  updatedAt: Scalars['DateTime']['output'];
+  /** The user view associated with the notification subscription. */
+  user?: Maybe<User>;
+  /** The type of user view to which the notification subscription context is associated with. */
+  userContextViewType?: Maybe<UserContextViewType>;
+};
 
 /** A user notification subscription. */
-export type UserNotificationSubscription =
-  & Entity
-  & Node
-  & NotificationSubscription
-  & {
-    __typename?: "UserNotificationSubscription";
-    /** Whether the subscription is active or not. */
-    active: Scalars["Boolean"]["output"];
-    /** The time at which the entity was archived. Null if the entity has not been archived. */
-    archivedAt?: Maybe<Scalars["DateTime"]["output"]>;
-    /** The type of view to which the notification subscription context is associated with. */
-    contextViewType?: Maybe<ContextViewType>;
-    /** The time at which the entity was created. */
-    createdAt: Scalars["DateTime"]["output"];
-    /** The customer associated with the notification subscription. */
-    customer?: Maybe<Customer>;
-    /** The contextual custom view associated with the notification subscription. */
-    customView?: Maybe<CustomView>;
-    /** The contextual cycle view associated with the notification subscription. */
-    cycle?: Maybe<Cycle>;
-    /** The unique identifier of the entity. */
-    id: Scalars["ID"]["output"];
-    /** The contextual initiative view associated with the notification subscription. */
-    initiative?: Maybe<Initiative>;
-    /** The contextual label view associated with the notification subscription. */
-    label?: Maybe<IssueLabel>;
-    /** The type of subscription. */
-    notificationSubscriptionTypes: Array<Scalars["String"]["output"]>;
-    /** The contextual project view associated with the notification subscription. */
-    project?: Maybe<Project>;
-    /** The user that subscribed to receive notifications. */
-    subscriber: User;
-    /** The team associated with the notification subscription. */
-    team?: Maybe<Team>;
-    /**
-     * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
-     *     been updated after creation.
-     */
-    updatedAt: Scalars["DateTime"]["output"];
-    /** The user subscribed to. */
-    user: User;
-    /** The type of user view to which the notification subscription context is associated with. */
-    userContextViewType?: Maybe<UserContextViewType>;
-  };
+export type UserNotificationSubscription = Entity & Node & NotificationSubscription & {
+  __typename?: 'UserNotificationSubscription';
+  /** Whether the subscription is active or not. */
+  active: Scalars['Boolean']['output'];
+  /** The time at which the entity was archived. Null if the entity has not been archived. */
+  archivedAt?: Maybe<Scalars['DateTime']['output']>;
+  /** The type of view to which the notification subscription context is associated with. */
+  contextViewType?: Maybe<ContextViewType>;
+  /** The time at which the entity was created. */
+  createdAt: Scalars['DateTime']['output'];
+  /** The customer associated with the notification subscription. */
+  customer?: Maybe<Customer>;
+  /** The contextual custom view associated with the notification subscription. */
+  customView?: Maybe<CustomView>;
+  /** The contextual cycle view associated with the notification subscription. */
+  cycle?: Maybe<Cycle>;
+  /** The unique identifier of the entity. */
+  id: Scalars['ID']['output'];
+  /** The contextual initiative view associated with the notification subscription. */
+  initiative?: Maybe<Initiative>;
+  /** The contextual label view associated with the notification subscription. */
+  label?: Maybe<IssueLabel>;
+  /** The type of subscription. */
+  notificationSubscriptionTypes: Array<Scalars['String']['output']>;
+  /** The contextual project view associated with the notification subscription. */
+  project?: Maybe<Project>;
+  /** The user that subscribed to receive notifications. */
+  subscriber: User;
+  /** The team associated with the notification subscription. */
+  team?: Maybe<Team>;
+  /**
+   * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
+   *     been updated after creation.
+   */
+  updatedAt: Scalars['DateTime']['output'];
+  /** The user subscribed to. */
+  user: User;
+  /** The type of user view to which the notification subscription context is associated with. */
+  userContextViewType?: Maybe<UserContextViewType>;
+};
 
 export type GetStartedStateQueryVariables = Exact<{
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
 }>;
 
-export type GetStartedStateQuery = {
-  __typename?: "Query";
-  team: {
-    __typename?: "Team";
-    states: {
-      __typename?: "WorkflowStateConnection";
-      nodes: Array<
-        {
-          __typename?: "WorkflowState";
-          id: string;
-          name: string;
-          type: string;
-          position: number;
-        }
-      >;
-    };
-  };
-};
+
+export type GetStartedStateQuery = { __typename?: 'Query', team: { __typename?: 'Team', states: { __typename?: 'WorkflowStateConnection', nodes: Array<{ __typename?: 'WorkflowState', id: string, name: string, type: string, position: number }> } } };
 
 export type UpdateIssueStateMutationVariables = Exact<{
-  issueId: Scalars["String"]["input"];
-  stateId: Scalars["String"]["input"];
+  issueId: Scalars['String']['input'];
+  stateId: Scalars['String']['input'];
 }>;
 
-export type UpdateIssueStateMutation = {
-  __typename?: "Mutation";
-  issueUpdate: { __typename?: "IssuePayload"; success: boolean };
-};
+
+export type UpdateIssueStateMutation = { __typename?: 'Mutation', issueUpdate: { __typename?: 'IssuePayload', success: boolean } };
 
 export type IssuesQueryVariables = Exact<{
-  teamId: Scalars["String"]["input"];
+  teamId: Scalars['String']['input'];
   sort?: InputMaybe<Array<IssueSortInput> | IssueSortInput>;
-  states?: InputMaybe<
-    Array<Scalars["String"]["input"]> | Scalars["String"]["input"]
-  >;
+  states?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
 }>;
 
-export type IssuesQuery = {
-  __typename?: "Query";
-  issues: {
-    __typename?: "IssueConnection";
-    nodes: Array<
-      {
-        __typename?: "Issue";
-        id: string;
-        identifier: string;
-        title: string;
-        priority: number;
-        estimate?: number | null;
-        updatedAt: any;
-        state: {
-          __typename?: "WorkflowState";
-          id: string;
-          name: string;
-          color: string;
-        };
-        labels: {
-          __typename?: "IssueLabelConnection";
-          nodes: Array<
-            {
-              __typename?: "IssueLabel";
-              id: string;
-              name: string;
-              color: string;
-            }
-          >;
-        };
-      }
-    >;
-  };
-};
+
+export type IssuesQuery = { __typename?: 'Query', issues: { __typename?: 'IssueConnection', nodes: Array<{ __typename?: 'Issue', id: string, identifier: string, title: string, priority: number, estimate?: number | null, updatedAt: any, state: { __typename?: 'WorkflowState', id: string, name: string, color: string }, labels: { __typename?: 'IssueLabelConnection', nodes: Array<{ __typename?: 'IssueLabel', id: string, name: string, color: string }> } }> } };
 
 export type FetchIssueDetailsQueryVariables = Exact<{
-  id: Scalars["String"]["input"];
+  id: Scalars['String']['input'];
 }>;
 
-export type FetchIssueDetailsQuery = {
-  __typename?: "Query";
-  issue: {
-    __typename?: "Issue";
-    title: string;
-    description?: string | null;
-    url: string;
-    branchName: string;
-  };
-};
 
-export type GetViewerAndTeamsQueryVariables = Exact<{ [key: string]: never }>;
+export type FetchIssueDetailsQuery = { __typename?: 'Query', issue: { __typename?: 'Issue', title: string, description?: string | null, url: string, branchName: string } };
 
-export type GetViewerAndTeamsQuery = {
-  __typename?: "Query";
-  viewer: {
-    __typename?: "User";
-    organization: { __typename?: "Organization"; urlKey: string };
-  };
-  teams: {
-    __typename?: "TeamConnection";
-    nodes: Array<
-      { __typename?: "Team"; id: string; key: string; name: string }
-    >;
-  };
-};
+export type GetViewerAndTeamsQueryVariables = Exact<{ [key: string]: never; }>;
 
-export const GetStartedStateDocument = {
-  "kind": "Document",
-  "definitions": [{
-    "kind": "OperationDefinition",
-    "operation": "query",
-    "name": { "kind": "Name", "value": "GetStartedState" },
-    "variableDefinitions": [{
-      "kind": "VariableDefinition",
-      "variable": {
-        "kind": "Variable",
-        "name": { "kind": "Name", "value": "teamId" },
-      },
-      "type": {
-        "kind": "NonNullType",
-        "type": {
-          "kind": "NamedType",
-          "name": { "kind": "Name", "value": "String" },
-        },
-      },
-    }],
-    "selectionSet": {
-      "kind": "SelectionSet",
-      "selections": [{
-        "kind": "Field",
-        "name": { "kind": "Name", "value": "team" },
-        "arguments": [{
-          "kind": "Argument",
-          "name": { "kind": "Name", "value": "id" },
-          "value": {
-            "kind": "Variable",
-            "name": { "kind": "Name", "value": "teamId" },
-          },
-        }],
-        "selectionSet": {
-          "kind": "SelectionSet",
-          "selections": [{
-            "kind": "Field",
-            "name": { "kind": "Name", "value": "states" },
-            "selectionSet": {
-              "kind": "SelectionSet",
-              "selections": [{
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "nodes" },
-                "selectionSet": {
-                  "kind": "SelectionSet",
-                  "selections": [{
-                    "kind": "Field",
-                    "name": { "kind": "Name", "value": "id" },
-                  }, {
-                    "kind": "Field",
-                    "name": { "kind": "Name", "value": "name" },
-                  }, {
-                    "kind": "Field",
-                    "name": { "kind": "Name", "value": "type" },
-                  }, {
-                    "kind": "Field",
-                    "name": { "kind": "Name", "value": "position" },
-                  }],
-                },
-              }],
-            },
-          }],
-        },
-      }],
-    },
-  }],
-} as unknown as DocumentNode<
-  GetStartedStateQuery,
-  GetStartedStateQueryVariables
->;
-export const UpdateIssueStateDocument = {
-  "kind": "Document",
-  "definitions": [{
-    "kind": "OperationDefinition",
-    "operation": "mutation",
-    "name": { "kind": "Name", "value": "UpdateIssueState" },
-    "variableDefinitions": [{
-      "kind": "VariableDefinition",
-      "variable": {
-        "kind": "Variable",
-        "name": { "kind": "Name", "value": "issueId" },
-      },
-      "type": {
-        "kind": "NonNullType",
-        "type": {
-          "kind": "NamedType",
-          "name": { "kind": "Name", "value": "String" },
-        },
-      },
-    }, {
-      "kind": "VariableDefinition",
-      "variable": {
-        "kind": "Variable",
-        "name": { "kind": "Name", "value": "stateId" },
-      },
-      "type": {
-        "kind": "NonNullType",
-        "type": {
-          "kind": "NamedType",
-          "name": { "kind": "Name", "value": "String" },
-        },
-      },
-    }],
-    "selectionSet": {
-      "kind": "SelectionSet",
-      "selections": [{
-        "kind": "Field",
-        "name": { "kind": "Name", "value": "issueUpdate" },
-        "arguments": [{
-          "kind": "Argument",
-          "name": { "kind": "Name", "value": "id" },
-          "value": {
-            "kind": "Variable",
-            "name": { "kind": "Name", "value": "issueId" },
-          },
-        }, {
-          "kind": "Argument",
-          "name": { "kind": "Name", "value": "input" },
-          "value": {
-            "kind": "ObjectValue",
-            "fields": [{
-              "kind": "ObjectField",
-              "name": { "kind": "Name", "value": "stateId" },
-              "value": {
-                "kind": "Variable",
-                "name": { "kind": "Name", "value": "stateId" },
-              },
-            }],
-          },
-        }],
-        "selectionSet": {
-          "kind": "SelectionSet",
-          "selections": [{
-            "kind": "Field",
-            "name": { "kind": "Name", "value": "success" },
-          }],
-        },
-      }],
-    },
-  }],
-} as unknown as DocumentNode<
-  UpdateIssueStateMutation,
-  UpdateIssueStateMutationVariables
->;
-export const IssuesDocument = {
-  "kind": "Document",
-  "definitions": [{
-    "kind": "OperationDefinition",
-    "operation": "query",
-    "name": { "kind": "Name", "value": "Issues" },
-    "variableDefinitions": [{
-      "kind": "VariableDefinition",
-      "variable": {
-        "kind": "Variable",
-        "name": { "kind": "Name", "value": "teamId" },
-      },
-      "type": {
-        "kind": "NonNullType",
-        "type": {
-          "kind": "NamedType",
-          "name": { "kind": "Name", "value": "String" },
-        },
-      },
-    }, {
-      "kind": "VariableDefinition",
-      "variable": {
-        "kind": "Variable",
-        "name": { "kind": "Name", "value": "sort" },
-      },
-      "type": {
-        "kind": "ListType",
-        "type": {
-          "kind": "NonNullType",
-          "type": {
-            "kind": "NamedType",
-            "name": { "kind": "Name", "value": "IssueSortInput" },
-          },
-        },
-      },
-    }, {
-      "kind": "VariableDefinition",
-      "variable": {
-        "kind": "Variable",
-        "name": { "kind": "Name", "value": "states" },
-      },
-      "type": {
-        "kind": "ListType",
-        "type": {
-          "kind": "NonNullType",
-          "type": {
-            "kind": "NamedType",
-            "name": { "kind": "Name", "value": "String" },
-          },
-        },
-      },
-    }],
-    "selectionSet": {
-      "kind": "SelectionSet",
-      "selections": [{
-        "kind": "Field",
-        "name": { "kind": "Name", "value": "issues" },
-        "arguments": [{
-          "kind": "Argument",
-          "name": { "kind": "Name", "value": "filter" },
-          "value": {
-            "kind": "ObjectValue",
-            "fields": [{
-              "kind": "ObjectField",
-              "name": { "kind": "Name", "value": "team" },
-              "value": {
-                "kind": "ObjectValue",
-                "fields": [{
-                  "kind": "ObjectField",
-                  "name": { "kind": "Name", "value": "key" },
-                  "value": {
-                    "kind": "ObjectValue",
-                    "fields": [{
-                      "kind": "ObjectField",
-                      "name": { "kind": "Name", "value": "eq" },
-                      "value": {
-                        "kind": "Variable",
-                        "name": { "kind": "Name", "value": "teamId" },
-                      },
-                    }],
-                  },
-                }],
-              },
-            }, {
-              "kind": "ObjectField",
-              "name": { "kind": "Name", "value": "assignee" },
-              "value": {
-                "kind": "ObjectValue",
-                "fields": [{
-                  "kind": "ObjectField",
-                  "name": { "kind": "Name", "value": "isMe" },
-                  "value": {
-                    "kind": "ObjectValue",
-                    "fields": [{
-                      "kind": "ObjectField",
-                      "name": { "kind": "Name", "value": "eq" },
-                      "value": { "kind": "BooleanValue", "value": true },
-                    }],
-                  },
-                }],
-              },
-            }, {
-              "kind": "ObjectField",
-              "name": { "kind": "Name", "value": "state" },
-              "value": {
-                "kind": "ObjectValue",
-                "fields": [{
-                  "kind": "ObjectField",
-                  "name": { "kind": "Name", "value": "type" },
-                  "value": {
-                    "kind": "ObjectValue",
-                    "fields": [{
-                      "kind": "ObjectField",
-                      "name": { "kind": "Name", "value": "in" },
-                      "value": {
-                        "kind": "Variable",
-                        "name": { "kind": "Name", "value": "states" },
-                      },
-                    }],
-                  },
-                }],
-              },
-            }],
-          },
-        }, {
-          "kind": "Argument",
-          "name": { "kind": "Name", "value": "sort" },
-          "value": {
-            "kind": "Variable",
-            "name": { "kind": "Name", "value": "sort" },
-          },
-        }],
-        "selectionSet": {
-          "kind": "SelectionSet",
-          "selections": [{
-            "kind": "Field",
-            "name": { "kind": "Name", "value": "nodes" },
-            "selectionSet": {
-              "kind": "SelectionSet",
-              "selections": [{
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "id" },
-              }, {
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "identifier" },
-              }, {
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "title" },
-              }, {
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "priority" },
-              }, {
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "estimate" },
-              }, {
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "state" },
-                "selectionSet": {
-                  "kind": "SelectionSet",
-                  "selections": [{
-                    "kind": "Field",
-                    "name": { "kind": "Name", "value": "id" },
-                  }, {
-                    "kind": "Field",
-                    "name": { "kind": "Name", "value": "name" },
-                  }, {
-                    "kind": "Field",
-                    "name": { "kind": "Name", "value": "color" },
-                  }],
-                },
-              }, {
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "labels" },
-                "selectionSet": {
-                  "kind": "SelectionSet",
-                  "selections": [{
-                    "kind": "Field",
-                    "name": { "kind": "Name", "value": "nodes" },
-                    "selectionSet": {
-                      "kind": "SelectionSet",
-                      "selections": [{
-                        "kind": "Field",
-                        "name": { "kind": "Name", "value": "id" },
-                      }, {
-                        "kind": "Field",
-                        "name": { "kind": "Name", "value": "name" },
-                      }, {
-                        "kind": "Field",
-                        "name": { "kind": "Name", "value": "color" },
-                      }],
-                    },
-                  }],
-                },
-              }, {
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "updatedAt" },
-              }],
-            },
-          }],
-        },
-      }],
-    },
-  }],
-} as unknown as DocumentNode<IssuesQuery, IssuesQueryVariables>;
-export const FetchIssueDetailsDocument = {
-  "kind": "Document",
-  "definitions": [{
-    "kind": "OperationDefinition",
-    "operation": "query",
-    "name": { "kind": "Name", "value": "FetchIssueDetails" },
-    "variableDefinitions": [{
-      "kind": "VariableDefinition",
-      "variable": {
-        "kind": "Variable",
-        "name": { "kind": "Name", "value": "id" },
-      },
-      "type": {
-        "kind": "NonNullType",
-        "type": {
-          "kind": "NamedType",
-          "name": { "kind": "Name", "value": "String" },
-        },
-      },
-    }],
-    "selectionSet": {
-      "kind": "SelectionSet",
-      "selections": [{
-        "kind": "Field",
-        "name": { "kind": "Name", "value": "issue" },
-        "arguments": [{
-          "kind": "Argument",
-          "name": { "kind": "Name", "value": "id" },
-          "value": {
-            "kind": "Variable",
-            "name": { "kind": "Name", "value": "id" },
-          },
-        }],
-        "selectionSet": {
-          "kind": "SelectionSet",
-          "selections": [
-            { "kind": "Field", "name": { "kind": "Name", "value": "title" } },
-            {
-              "kind": "Field",
-              "name": { "kind": "Name", "value": "description" },
-            },
-            { "kind": "Field", "name": { "kind": "Name", "value": "url" } },
-            {
-              "kind": "Field",
-              "name": { "kind": "Name", "value": "branchName" },
-            },
-          ],
-        },
-      }],
-    },
-  }],
-} as unknown as DocumentNode<
-  FetchIssueDetailsQuery,
-  FetchIssueDetailsQueryVariables
->;
-export const GetViewerAndTeamsDocument = {
-  "kind": "Document",
-  "definitions": [{
-    "kind": "OperationDefinition",
-    "operation": "query",
-    "name": { "kind": "Name", "value": "GetViewerAndTeams" },
-    "selectionSet": {
-      "kind": "SelectionSet",
-      "selections": [{
-        "kind": "Field",
-        "name": { "kind": "Name", "value": "viewer" },
-        "selectionSet": {
-          "kind": "SelectionSet",
-          "selections": [{
-            "kind": "Field",
-            "name": { "kind": "Name", "value": "organization" },
-            "selectionSet": {
-              "kind": "SelectionSet",
-              "selections": [{
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "urlKey" },
-              }],
-            },
-          }],
-        },
-      }, {
-        "kind": "Field",
-        "name": { "kind": "Name", "value": "teams" },
-        "selectionSet": {
-          "kind": "SelectionSet",
-          "selections": [{
-            "kind": "Field",
-            "name": { "kind": "Name", "value": "nodes" },
-            "selectionSet": {
-              "kind": "SelectionSet",
-              "selections": [{
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "id" },
-              }, {
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "key" },
-              }, {
-                "kind": "Field",
-                "name": { "kind": "Name", "value": "name" },
-              }],
-            },
-          }],
-        },
-      }],
-    },
-  }],
-} as unknown as DocumentNode<
-  GetViewerAndTeamsQuery,
-  GetViewerAndTeamsQueryVariables
->;
+
+export type GetViewerAndTeamsQuery = { __typename?: 'Query', viewer: { __typename?: 'User', organization: { __typename?: 'Organization', urlKey: string } }, teams: { __typename?: 'TeamConnection', nodes: Array<{ __typename?: 'Team', id: string, key: string, name: string }> } };
+
+
+export const GetStartedStateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetStartedState"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"teamId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"team"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"teamId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"states"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"nodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"position"}}]}}]}}]}}]}}]} as unknown as DocumentNode<GetStartedStateQuery, GetStartedStateQueryVariables>;
+export const UpdateIssueStateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateIssueState"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"issueId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"stateId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"issueUpdate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"issueId"}}},{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"stateId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"stateId"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"success"}}]}}]}}]} as unknown as DocumentNode<UpdateIssueStateMutation, UpdateIssueStateMutationVariables>;
+export const IssuesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Issues"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"teamId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"sort"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"IssueSortInput"}}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"states"}},"type":{"kind":"ListType","type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"issues"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filter"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"team"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"key"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"eq"},"value":{"kind":"Variable","name":{"kind":"Name","value":"teamId"}}}]}}]}},{"kind":"ObjectField","name":{"kind":"Name","value":"assignee"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"isMe"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"eq"},"value":{"kind":"BooleanValue","value":true}}]}}]}},{"kind":"ObjectField","name":{"kind":"Name","value":"state"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"type"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"in"},"value":{"kind":"Variable","name":{"kind":"Name","value":"states"}}}]}}]}}]}},{"kind":"Argument","name":{"kind":"Name","value":"sort"},"value":{"kind":"Variable","name":{"kind":"Name","value":"sort"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"nodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"priority"}},{"kind":"Field","name":{"kind":"Name","value":"estimate"}},{"kind":"Field","name":{"kind":"Name","value":"state"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"color"}}]}},{"kind":"Field","name":{"kind":"Name","value":"labels"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"nodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"color"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}}]}}]}}]}}]} as unknown as DocumentNode<IssuesQuery, IssuesQueryVariables>;
+export const FetchIssueDetailsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"FetchIssueDetails"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"issue"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"branchName"}}]}}]}}]} as unknown as DocumentNode<FetchIssueDetailsQuery, FetchIssueDetailsQueryVariables>;
+export const GetViewerAndTeamsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetViewerAndTeams"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"viewer"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"organization"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"urlKey"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"teams"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"nodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]} as unknown as DocumentNode<GetViewerAndTeamsQuery, GetViewerAndTeamsQueryVariables>;

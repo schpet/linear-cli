@@ -33,10 +33,12 @@
     "npm:@graphql-codegen/cli@*": "5.0.3_graphql@14.7.0_@types+node@22.15.15",
     "npm:@graphql-codegen/cli@5.0.3": "5.0.3_graphql@14.7.0_@types+node@22.15.15",
     "npm:@graphql-typed-document-node/core@*": "3.2.0_graphql@14.7.0",
+    "npm:@graphql-typed-document-node/core@^3.2.0": "3.2.0_graphql@14.7.0",
     "npm:@types/node@*": "22.15.15",
     "npm:get-graphql-schema@*": "2.1.2",
     "npm:graphql-request@*": "6.1.0_graphql@14.7.0",
-    "npm:graphql@*": "14.7.0"
+    "npm:graphql@*": "14.7.0",
+    "npm:graphql@^16.8.1": "16.11.0"
   },
   "jsr": {
     "@cliffy/ansi@1.0.0-rc.7": {
@@ -168,7 +170,7 @@
         "@babel/runtime",
         "chalk@4.1.2",
         "fb-watchman",
-        "graphql",
+        "graphql@14.7.0",
         "immutable",
         "invariant",
         "nullthrows",
@@ -337,7 +339,7 @@
       "integrity": "sha512-SxXPmramkth8XtBlAHu4H4jYcYXM/o3p01+psU+0NADQowA8jtYkK6MW5rV6T+CxkEaNZItfSmZRPgIuypcqnA==",
       "dependencies": [
         "@graphql-codegen/plugin-helpers",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.6.3"
       ]
     },
@@ -365,7 +367,7 @@
         "cosmiconfig",
         "debounce",
         "detect-indent",
-        "graphql",
+        "graphql@14.7.0",
         "graphql-config",
         "inquirer",
         "is-glob",
@@ -398,7 +400,7 @@
         "@graphql-tools/documents",
         "@graphql-tools/utils",
         "@graphql-typed-document-node/core",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.6.3"
       ]
     },
@@ -408,7 +410,7 @@
         "@graphql-codegen/plugin-helpers",
         "@graphql-tools/schema",
         "@graphql-tools/utils",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.6.3"
       ]
     },
@@ -419,7 +421,7 @@
         "@graphql-codegen/visitor-plugin-common",
         "@graphql-tools/utils",
         "auto-bind",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.6.3"
       ]
     },
@@ -429,7 +431,7 @@
         "@graphql-tools/utils",
         "change-case-all",
         "common-tags",
-        "graphql",
+        "graphql@14.7.0",
         "import-from",
         "lodash",
         "tslib@2.6.3"
@@ -440,7 +442,7 @@
       "dependencies": [
         "@graphql-codegen/plugin-helpers",
         "@graphql-tools/utils",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.6.3"
       ]
     },
@@ -451,7 +453,7 @@
         "@graphql-codegen/visitor-plugin-common",
         "auto-bind",
         "change-case-all",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.6.3"
       ]
     },
@@ -462,7 +464,7 @@
         "@graphql-codegen/typescript",
         "@graphql-codegen/visitor-plugin-common",
         "auto-bind",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.6.3"
       ]
     },
@@ -473,7 +475,7 @@
         "@graphql-codegen/schema-ast",
         "@graphql-codegen/visitor-plugin-common",
         "auto-bind",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.6.3"
       ]
     },
@@ -487,7 +489,7 @@
         "auto-bind",
         "change-case-all",
         "dependency-graph",
-        "graphql",
+        "graphql@14.7.0",
         "graphql-tag",
         "parse-filepath",
         "tslib@2.6.3"
@@ -501,7 +503,7 @@
       "dependencies": [
         "@graphql-tools/utils",
         "@whatwg-node/fetch@0.10.8",
-        "graphql",
+        "graphql@14.7.0",
         "sync-fetch",
         "tslib@2.8.1"
       ]
@@ -512,7 +514,7 @@
         "@graphql-tools/utils",
         "@whatwg-node/promise-helpers",
         "dataloader",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
@@ -522,7 +524,7 @@
         "@graphql-tools/graphql-tag-pluck",
         "@graphql-tools/utils",
         "globby",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1",
         "unixify"
       ]
@@ -538,14 +540,14 @@
         "@whatwg-node/promise-helpers",
         "dataloader",
         "dset",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
     "@graphql-tools/documents@1.0.1_graphql@14.7.0": {
       "integrity": "sha512-aweoMH15wNJ8g7b2r4C4WRuJxZ0ca8HtNO54rkye/3duxTkW4fGBEutCx03jCIr5+a1l+4vFJNP859QnAVBVCA==",
       "dependencies": [
-        "graphql",
+        "graphql@14.7.0",
         "lodash.sortby",
         "tslib@2.8.1"
       ]
@@ -555,7 +557,7 @@
       "dependencies": [
         "@envelop/core",
         "@graphql-tools/utils",
-        "graphql"
+        "graphql@14.7.0"
       ]
     },
     "@graphql-tools/executor-graphql-ws@2.0.5_graphql@14.7.0_ws@8.18.2": {
@@ -564,7 +566,7 @@
         "@graphql-tools/executor-common",
         "@graphql-tools/utils",
         "@whatwg-node/disposablestack",
-        "graphql",
+        "graphql@14.7.0",
         "graphql-ws",
         "isomorphic-ws",
         "tslib@2.8.1",
@@ -581,7 +583,7 @@
         "@whatwg-node/disposablestack",
         "@whatwg-node/fetch@0.10.8",
         "@whatwg-node/promise-helpers",
-        "graphql",
+        "graphql@14.7.0",
         "meros",
         "tslib@2.8.1"
       ]
@@ -591,7 +593,7 @@
       "dependencies": [
         "@graphql-tools/utils",
         "@types/ws",
-        "graphql",
+        "graphql@14.7.0",
         "isomorphic-ws",
         "tslib@2.8.1",
         "ws"
@@ -605,7 +607,7 @@
         "@repeaterjs/repeater",
         "@whatwg-node/disposablestack",
         "@whatwg-node/promise-helpers",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
@@ -614,7 +616,7 @@
       "dependencies": [
         "@graphql-tools/graphql-tag-pluck",
         "@graphql-tools/utils",
-        "graphql",
+        "graphql@14.7.0",
         "is-glob",
         "micromatch",
         "tslib@2.8.1",
@@ -629,7 +631,7 @@
         "@graphql-tools/utils",
         "@whatwg-node/fetch@0.10.8",
         "@whatwg-node/promise-helpers",
-        "graphql",
+        "graphql@14.7.0",
         "sync-fetch",
         "tslib@2.8.1"
       ]
@@ -640,7 +642,7 @@
         "@graphql-tools/import",
         "@graphql-tools/utils",
         "globby",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1",
         "unixify"
       ]
@@ -654,7 +656,7 @@
         "@babel/traverse",
         "@babel/types",
         "@graphql-tools/utils",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
@@ -662,7 +664,7 @@
       "integrity": "sha512-Xtku8G4bxnrr6I3hVf8RrBFGYIbQ1OYVjl7jgcy092aBkNZvy1T6EDmXmYXn5F+oLd9Bks3K3WaMm8gma/nM/Q==",
       "dependencies": [
         "@graphql-tools/utils",
-        "graphql",
+        "graphql@14.7.0",
         "resolve-from@5.0.0",
         "tslib@2.8.1"
       ]
@@ -672,7 +674,7 @@
       "dependencies": [
         "@graphql-tools/utils",
         "globby",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1",
         "unixify"
       ]
@@ -682,7 +684,7 @@
       "dependencies": [
         "@graphql-tools/schema",
         "@graphql-tools/utils",
-        "graphql",
+        "graphql@14.7.0",
         "p-limit",
         "tslib@2.8.1"
       ]
@@ -691,14 +693,14 @@
       "integrity": "sha512-NzWx/Afl/1qHT3Nm1bghGG2l4jub28AdvtG11PoUlmjcIjnFBJMv4vqL0qnxWe8A82peWo4/TkVdjJRLXwgGEw==",
       "dependencies": [
         "@graphql-tools/utils",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
     "@graphql-tools/optimize@2.0.0_graphql@14.7.0": {
       "integrity": "sha512-nhdT+CRGDZ+bk68ic+Jw1OZ99YCDIKYA5AlVAnBHJvMawSx9YQqQAIj4refNc1/LRieGiuWvhbG3jvPVYho0Dg==",
       "dependencies": [
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
@@ -712,7 +714,7 @@
         "chalk@4.1.2",
         "debug",
         "dotenv",
-        "graphql",
+        "graphql@14.7.0",
         "graphql-request",
         "http-proxy-agent",
         "https-proxy-agent",
@@ -729,7 +731,7 @@
       "dependencies": [
         "@ardatan/relay-compiler",
         "@graphql-tools/utils",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
@@ -738,7 +740,7 @@
       "dependencies": [
         "@graphql-tools/merge",
         "@graphql-tools/utils",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
@@ -753,7 +755,7 @@
         "@types/ws",
         "@whatwg-node/fetch@0.10.8",
         "@whatwg-node/promise-helpers",
-        "graphql",
+        "graphql@14.7.0",
         "isomorphic-ws",
         "sync-fetch",
         "tslib@2.8.1",
@@ -767,7 +769,7 @@
         "@whatwg-node/promise-helpers",
         "cross-inspect",
         "dset",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
@@ -778,14 +780,14 @@
         "@graphql-tools/schema",
         "@graphql-tools/utils",
         "@whatwg-node/promise-helpers",
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
     "@graphql-typed-document-node/core@3.2.0_graphql@14.7.0": {
       "integrity": "sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==",
       "dependencies": [
-        "graphql"
+        "graphql@14.7.0"
       ]
     },
     "@jridgewell/gen-mapping@0.3.8": {
@@ -1309,7 +1311,7 @@
       "integrity": "sha512-1z5Hw91VrE3GrpCZE6lE8Dy+jz4kXWesLS7rCSjwOxf5BOcIedAZeTUJRIeIzmmR+PA9CKOkPTYFRJbdgUtrxA==",
       "dependencies": [
         "chalk@2.4.2",
-        "graphql",
+        "graphql@14.7.0",
         "minimist",
         "node-fetch@2.7.0"
       ],
@@ -1345,7 +1347,7 @@
         "@graphql-tools/url-loader",
         "@graphql-tools/utils",
         "cosmiconfig",
-        "graphql",
+        "graphql@14.7.0",
         "jiti@2.4.2",
         "minimatch",
         "string-env-interpolation",
@@ -1357,20 +1359,20 @@
       "dependencies": [
         "@graphql-typed-document-node/core",
         "cross-fetch",
-        "graphql"
+        "graphql@14.7.0"
       ]
     },
     "graphql-tag@2.12.6_graphql@14.7.0": {
       "integrity": "sha512-FdSNcu2QQcWnM2VNvSCCDCVS5PpPqpzgFT8+GXzqJuoDd0CBncxCY278u4mhRO7tMgo2JjgJA5aZ+nWSQ/Z+xg==",
       "dependencies": [
-        "graphql",
+        "graphql@14.7.0",
         "tslib@2.8.1"
       ]
     },
     "graphql-ws@6.0.5_graphql@14.7.0_ws@8.18.2": {
       "integrity": "sha512-HzYw057ch0hx2gZjkbgk1pur4kAtgljlWRP+Gccudqm3BRrTpExjWCQ9OHdIsq47Y6lHL++1lTvuQHhgRRcevw==",
       "dependencies": [
-        "graphql",
+        "graphql@14.7.0",
         "ws"
       ],
       "optionalPeers": [
@@ -1383,6 +1385,9 @@
         "iterall"
       ],
       "deprecated": true
+    },
+    "graphql@16.11.0": {
+      "integrity": "sha512-mS1lbMsxgQj6hge1XZ6p7GPhbrtFwUFYi3wRzXAC/FmYnyXMTvvI3td3rjmQ2u8ewXueaSvRPWaEcgVVOT9Jnw=="
     },
     "has-flag@3.0.0": {
       "integrity": "sha512-sKJf1+ceQBr4SMkvQnBDNDtf4TXpVhVGateu0t918bl30FnbE2m4vNLX+VWe/dpjlb+HugGYzW7uQXH98HPEYw=="
@@ -2171,7 +2176,9 @@
       "jsr:@std/dotenv@~0.225.3",
       "jsr:@std/encoding@^1.0.5",
       "jsr:@std/path@^1.0.8",
-      "jsr:@std/toml@^1.0.2"
+      "jsr:@std/toml@^1.0.2",
+      "npm:@graphql-typed-document-node/core@^3.2.0",
+      "npm:graphql@^16.8.1"
     ]
   }
 }

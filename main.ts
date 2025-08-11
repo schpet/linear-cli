@@ -56,7 +56,14 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
-import { type DocumentType, graphql } from "./generated/index.ts";
+import { type DocumentType } from "./generated/index.ts";
+import { 
+  GetStartedStateDocument,
+  UpdateIssueStateDocument,
+  IssuesDocument,
+  FetchIssueDetailsDocument,
+  GetViewerAndTeamsDocument
+} from "./generated/graphql.ts";
 import { GraphQLClient, type Variables } from "npm:graphql-request";
 import type { TypedDocumentNode } from "npm:@graphql-typed-document-node/core";
 
@@ -143,22 +150,7 @@ async function branchExists(branch: string): Promise<boolean> {
 async function getStartedState(
   teamId: string,
 ): Promise<{ id: string; name: string }> {
-  const query = graphql(/* GraphQL */ `
-    query GetStartedState($teamId: String!) {
-      team(id: $teamId) {
-        states {
-          nodes {
-            id
-            name
-            type
-            position
-          }
-        }
-      }
-    }
-  `);
-
-  const result = await executeGraphQL(query, { teamId });
+  const result = await executeGraphQL(GetStartedStateDocument, { teamId });
   const states = result.team.states.nodes;
   const startedStates = states
     .filter((s: { type: string }) => s.type === "started")
@@ -179,18 +171,7 @@ async function updateIssueState(
   issueId: string,
   stateId: string,
 ): Promise<void> {
-  const mutation = graphql(/* GraphQL */ `
-    mutation UpdateIssueState($issueId: String!, $stateId: String!) {
-      issueUpdate(
-        id: $issueId,
-        input: { stateId: $stateId }
-      ) {
-        success
-      }
-    }
-  `);
-
-  await executeGraphQL(mutation, { issueId, stateId });
+  await executeGraphQL(UpdateIssueStateDocument, { issueId, stateId });
 }
 
 function isValidLinearId(id: string): boolean {
@@ -254,45 +235,11 @@ async function fetchIssuesForState(teamId: string, state: string) {
     Deno.exit(1);
   }
 
-  const query = graphql(/* GraphQL */ `
-    query Issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
-      issues(
-        filter: {
-          team: { key: { eq: $teamId } }
-          assignee: { isMe: { eq: true } }
-          state: { type: { in: $states } }
-        }
-        sort: $sort
-      ) {
-        nodes {
-          id
-          identifier
-          title
-          priority
-          estimate
-          state {
-            id
-            name
-            color
-          }
-          labels {
-            nodes {
-              id
-              name
-              color
-            }
-          }
-          updatedAt
-        }
-      }
-    }
-  `);
-
   const sortPayload = sort === "manual"
-    ? [{ manual: { nulls: "Last" as any, order: "Asc" as any } }]
-    : [{ priority: { nulls: "Last" as any, order: "Desc" as any } }];
+    ? [{ manual: { nulls: "last", order: "Ascending" } }]
+    : [{ priority: { nulls: "last", order: "Descending" } }];
 
-  return await executeGraphQL(query, {
+  return await executeGraphQL(IssuesDocument, {
     teamId,
     sort: sortPayload,
     states: [state],
@@ -326,17 +273,7 @@ async function fetchIssueDetails(
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
   try {
-    const query = graphql(/* GraphQL */ `
-      query FetchIssueDetails($id: String!) { 
-        issue(id: $id) { 
-          title
-          description
-          url
-          branchName 
-        } 
-      }
-    `);
-    const data = await executeGraphQL(query, { id: issueId });
+    const data = await executeGraphQL(FetchIssueDetailsDocument, { id: issueId });
     spinner?.stop();
     return data.issue;
   } catch (error) {
@@ -967,24 +904,7 @@ await new Command()
       Deno.exit(1);
     }
 
-    const query = graphql(/* GraphQL */ `
-      query GetViewerAndTeams {
-        viewer {
-          organization {
-            urlKey
-          }
-        }
-        teams {
-          nodes {
-            id
-            key
-            name
-          }
-        }
-      }
-    `);
-
-    const result = await executeGraphQL(query, {});
+    const result = await executeGraphQL(GetViewerAndTeamsDocument, {});
     const workspace = result.viewer.organization.urlKey;
     const teams = result.teams.nodes;
 

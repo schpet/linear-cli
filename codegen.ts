@@ -7,6 +7,9 @@ const config: CodegenConfig = {
     "generated/": {
       preset: "client",
       plugins: [],
+      config: {
+        enumsAsTypes: true,
+      },
     },
   },
 };
