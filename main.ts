@@ -56,7 +56,7 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
-import { graphql } from "./__generated__/gql.ts";
+import { gql, graphql } from "./__generated__/gql.ts";
 
 interface Label {
   name: string;
@@ -141,8 +141,8 @@ async function branchExists(branch: string): Promise<boolean> {
 async function getStartedState(
   teamId: string,
 ): Promise<{ id: string; name: string }> {
-  const query = /* GraphQL */ `
-    query($teamId: String!) {
+  const query = gql(/* GraphQL */ `
+    query GetStartedState($teamId: String!) {
       team(id: $teamId) {
         states {
           nodes {
@@ -154,7 +154,7 @@ async function getStartedState(
         }
       }
     }
-  `;
+  `);
 
   const result = await fetchGraphQL(query, { teamId });
   const states = result.data.team.states.nodes;
@@ -1506,6 +1506,23 @@ const issueCommand = new Command()
     },
   );
 
+const configQuery = gql(`
+  query Config {
+    viewer {
+      organization {
+        urlKey
+      }
+    }
+    teams {
+      nodes {
+        id
+        key
+        name
+      }
+    }
+  }
+`);
+
 await new Command()
   .name("linear")
   .version(denoConfig.version)
@@ -1531,30 +1548,13 @@ await new Command()
       Deno.exit(1);
     }
 
-    const query = graphql(`
-      query {
-        viewer {
-          organization {
-            urlKey
-          }
-        }
-        teams {
-          nodes {
-            id
-            key
-            name
-          }
-        }
-      }
-    `);
-
     const response = await fetch("https://api.linear.app/graphql", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": apiKey,
       },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query: configQuery }),
     });
     const result = await response.json();
     if (result.errors) {
