@@ -1,17 +1,7 @@
 # linear cli
 
-linear's UI is incredibly good but it slows me down. i find the following pretty
-grating to experience frequently:
-
-- switching context from my repo to linear
-- not being on the right view when i open linear
-- linear suggests a git branch, but i have to do the work of creating or
-  switching to that branch
-- linear's suggested git branch doesn't account for it already existing or
-  having a merged pull request
-
-this cli solves this. it knows what you're working on, does the work of managing
-branches, and will write your pull request details for you.
+a cli to list, start and create issues. git aware to keep you in the right views
+in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
 here's how it works:
 
@@ -119,3 +109,18 @@ linear --version       # show version
 linear config          # setup the project
 linear completions     # generate shell completions
 ```
+
+## why
+
+linear's UI is incredibly good but it slows me down. i find the following pretty
+grating to experience frequently:
+
+- switching context from my repo to linear
+- not being on the right view when i open linear
+- linear suggests a git branch, but i have to do the work of creating or
+  switching to that branch
+- linear's suggested git branch doesn't account for it already existing or
+  having a merged pull request
+
+this cli solves this. it knows what you're working on, does the work of managing
+branches, and will write your pull request details for you.
