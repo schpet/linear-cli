@@ -1265,7 +1265,7 @@ const issueCommand = new Command()
   )
   .option("--no-color", "Disable colored output")
   .option("--no-interactive", "Disable interactive prompts")
-  .arguments("[title:string]")
+  .option("-t, --title <title:string>", "Title of the issue", { required: true })
   .action(
     async (
       {
@@ -1282,8 +1282,8 @@ const issueCommand = new Command()
         dryRun,
         color,
         interactive,
+        title,
       },
-      title,
     ) => {
       interactive = interactive && Deno.stdout.isTerminal();
       const showSpinner = color && interactive;
