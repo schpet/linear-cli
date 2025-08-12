@@ -506,19 +506,42 @@ async function getAllTeams(): Promise<
   Array<{ id: string; key: string; name: string }>
 > {
   const client = getGraphQLClient();
-  const query = gql(`
-    query GetAllTeams {
-      teams {
-        nodes {
-          id
-          key
-          name
+  const allTeams: Array<{ id: string; key: string; name: string }> = [];
+  let hasNextPage = true;
+  let endCursor: string | undefined;
+
+  while (hasNextPage) {
+    const query = gql(`
+      query GetAllTeams($after: String, $first: Int) {
+        teams(after: $after, first: $first) {
+          nodes {
+            id
+            key
+            name
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
         }
       }
+    `);
+    
+    const data = await client.request(query, {
+      after: endCursor,
+      first: 100, // Request 100 teams per page
+    });
+
+    if (data.teams?.nodes) {
+      allTeams.push(...data.teams.nodes);
     }
-  `);
-  const data = await client.request(query);
-  return data.teams?.nodes || [];
+
+    hasNextPage = data.teams?.pageInfo?.hasNextPage || false;
+    endCursor = data.teams?.pageInfo?.endCursor || undefined;
+  }
+
+  // Sort teams alphabetically by name
+  return allTeams.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function getAllLabels(): Promise<
@@ -1299,11 +1322,6 @@ async function promptInteractiveIssueCreation(
   stateId?: string;
   start: boolean;
 }> {
-  const title = await Input.prompt({
-    message: "What's the title of your issue?",
-    minLength: 1,
-  });
-
   // Determine team automatically if possible
   const defaultTeamId = await getTeamId();
   let teamId: string;
@@ -1320,29 +1338,64 @@ async function promptInteractiveIssueCreation(
     } else {
       // Fallback to team selection if we can't resolve the team
       const teams = await getAllTeams();
-      teamId = await Select.prompt({
+      const teamSuggestions = teams.map((team) => `${team.name} (${team.key})`);
+      
+      const selectedTeam = await Input.prompt({
         message: "Which team should this issue belong to?",
-        options: teams.map((team) => ({
-          name: `${team.name} (${team.key})`,
-          value: team.id,
-        })),
+        suggestions: teamSuggestions,
+        list: true,
+        info: true,
       });
+      
+      // Find the team by key, name, or the full suggestion format
+      const team = teams.find((t) => 
+        t.key.toLowerCase() === selectedTeam.toLowerCase() ||
+        t.name.toLowerCase() === selectedTeam.toLowerCase() ||
+        `${t.name} (${t.key})` === selectedTeam
+      );
+      
+      if (!team) {
+        console.error(`Could not find team: ${selectedTeam}`);
+        Deno.exit(1);
+      }
+      
+      teamId = team.id;
       // Start fetching workflow states after team selection (can't use pre-started promise for different team)
       statesPromise = getWorkflowStates(teamId);
     }
   } else {
     // No default team, prompt for selection
     const teams = await getAllTeams();
-    teamId = await Select.prompt({
+    const teamSuggestions = teams.map((team) => `${team.name} (${team.key})`);
+    
+    const selectedTeam = await Input.prompt({
       message: "Which team should this issue belong to?",
-      options: teams.map((team) => ({
-        name: `${team.name} (${team.key})`,
-        value: team.id,
-      })),
+      suggestions: teamSuggestions,
+      list: true,
+      info: true,
     });
+    
+    // Find the team by key, name, or the full suggestion format
+    const team = teams.find((t) => 
+      t.key.toLowerCase() === selectedTeam.toLowerCase() ||
+      t.name.toLowerCase() === selectedTeam.toLowerCase() ||
+      `${t.name} (${t.key})` === selectedTeam
+    );
+    
+    if (!team) {
+      console.error(`Could not find team: ${selectedTeam}`);
+      Deno.exit(1);
+    }
+    
+    teamId = team.id;
     // Start fetching workflow states after team selection (can't use pre-started promise for different team)
     statesPromise = getWorkflowStates(teamId);
   }
+
+  const title = await Input.prompt({
+    message: "What's the title of your issue?",
+    minLength: 1,
+  });
 
   // Select workflow state - await the promise we started earlier
   const states = await statesPromise;
@@ -1840,19 +1893,27 @@ await new Command()
       name: string;
     }
 
-    teams.sort((a, b) => a.name.localeCompare(b.name));
-    const teamChoices = teams.map((team) => ({
-      name: `${team.name} (${team.key})`,
-      value: team.key,
-    }));
+    const teamSuggestions = teams.map((team) => `${team.name} (${team.key})`);
+
+    const selectedTeam = await Input.prompt({
+      message: "Select a team:",
+      suggestions: teamSuggestions,
+      list: true,
+      info: true,
+    });
+
+    const team = teams.find((t) => 
+      t.key.toLowerCase() === selectedTeam.toLowerCase() ||
+      t.name.toLowerCase() === selectedTeam.toLowerCase() ||
+      `${t.name} (${t.key})` === selectedTeam
+    );
+
+    if (!team) {
+      console.error(`Could not find team: ${selectedTeam}`);
+      Deno.exit(1);
+    }
 
     const responses = await prompt([
-      {
-        name: "team_id",
-        message: "Select a team:",
-        type: Select,
-        options: teamChoices,
-      },
       {
         name: "sort",
         message: "Select sort order:",
@@ -1863,7 +1924,7 @@ await new Command()
         ],
       },
     ]);
-    const teamKey = responses.team_id;
+    const teamKey = team.key;
     const sortChoice = responses.sort;
 
     // Determine file path for .linear.toml: prefer git root .config dir, then git root, then cwd.
