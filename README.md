@@ -21,6 +21,7 @@ linear config               # setup your repo, it writes a config file
 linear issue list           # list issues assigned to you
 linear issue start ABC-123  # update an issue status, checks out a branch
 linear issue pr             # makes a PR with title/body preset, leverages gh (https://cli.github.com/)
+linear issue create         # create a new issue
 ```
 
 it's pretty dialed to my own use cases, but i want to support more people than
@@ -103,6 +104,8 @@ linear issue list      # list your issues in a table view (supports -s/--state a
 linear issue list -w   # open issue list in web browser
 linear issue list -a   # open issue list in Linear.app
 linear issue start     # create/switch to issue branch and mark as started
+linear issue create    # create a new issue (interactive prompts)
+linear issue create -t "title" -d "description"  # create with flags
 
 linear team id         # print out the team id (e.g. for scripts)
 linear autolinks       # use gh to setup autolinked references from github to linear
