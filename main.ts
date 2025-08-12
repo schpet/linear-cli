@@ -1228,16 +1228,12 @@ const issueCommand = new Command()
     "Assign the issue to 'self' or someone (by username or name)",
   )
   .option(
-    "-d, --due-date <dueDate:string>",
+    "--due-date <dueDate:string>",
     "Due date of the issue",
   )
   .option(
     "-p, --parent <parent:string>",
     "Parent issue (if any) as a team_number code",
-  )
-  .option(
-    "--dry-run",
-    "Dry run: do not create the issue, print the mutation",
   )
   .option(
     "--priority <priority:number>",
@@ -1281,7 +1277,6 @@ const issueCommand = new Command()
         label: labels,
         team,
         project,
-        dryRun,
         color,
         interactive,
         title,
@@ -1395,11 +1390,6 @@ const issueCommand = new Command()
           projectId,
           useDefaultTemplate,
         };
-        if (dryRun) {
-          spinner?.stop();
-          console.log(input);
-          return;
-        }
         spinner?.stop();
         console.log(`Creating issue in ${team}`);
         console.log();
