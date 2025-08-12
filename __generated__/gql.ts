@@ -14,7 +14,7 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
-    "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  ": typeof types.GetStartedStateDocument,
+    "\n    query GetWorkflowStates($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  ": typeof types.GetWorkflowStatesDocument,
     "\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  ": typeof types.UpdateIssueStateDocument,
     "\n    query GetProjectUidByName($name: String!) {\n      projects(filter: {name: {eq: $name}}) {nodes{id}}\n    }\n  ": typeof types.GetProjectUidByNameDocument,
     "\n    query GetProjectUidOptionsByName($name: String!) {\n        projects(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}\n      }\n  ": typeof types.GetProjectUidOptionsByNameDocument,
@@ -40,7 +40,7 @@ type Documents = {
     "\n  query Config {\n    viewer {\n      organization {\n        urlKey\n      }\n    }\n    teams {\n      nodes {\n        id\n        key\n        name\n      }\n    }\n  }\n": typeof types.ConfigDocument,
 };
 const documents: Documents = {
-    "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  ": types.GetStartedStateDocument,
+    "\n    query GetWorkflowStates($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  ": types.GetWorkflowStatesDocument,
     "\n    mutation UpdateIssueState($issueId: String!, $stateId: String!) {\n      issueUpdate(\n        id: $issueId,\n        input: { stateId: $stateId }\n      ) {\n        success\n      }\n    }\n  ": types.UpdateIssueStateDocument,
     "\n    query GetProjectUidByName($name: String!) {\n      projects(filter: {name: {eq: $name}}) {nodes{id}}\n    }\n  ": types.GetProjectUidByNameDocument,
     "\n    query GetProjectUidOptionsByName($name: String!) {\n        projects(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}\n      }\n  ": types.GetProjectUidOptionsByNameDocument,
@@ -83,7 +83,7 @@ export function gql(source: string): unknown;
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  "): (typeof documents)["\n    query GetStartedState($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  "];
+export function gql(source: "\n    query GetWorkflowStates($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  "): (typeof documents)["\n    query GetWorkflowStates($teamId: String!) {\n      team(id: $teamId) {\n        states {\n          nodes {\n            id\n            name\n            type\n            position\n          }\n        }\n      }\n    }\n  "];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
