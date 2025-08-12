@@ -182,8 +182,8 @@ async function updateIssueState(
   issueId: string,
   stateId: string,
 ): Promise<void> {
-  const mutation = `
-    mutation($issueId: String!, $stateId: String!) {
+  const mutation = gql(`
+    mutation UpdateIssueState($issueId: String!, $stateId: String!) {
       issueUpdate(
         id: $issueId,
         input: { stateId: $stateId }
@@ -191,7 +191,7 @@ async function updateIssueState(
         success
       }
     }
-  `;
+  `);
 
   const client = getGraphQLClient();
   await client.request(mutation, { issueId, stateId });
@@ -205,12 +205,12 @@ async function getProjectUidByName(
   name: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
-  const data = await client.request(
-    `query match($name: String!) {
+  const query = gql(`
+    query GetProjectUidByName($name: String!) {
       projects(filter: {name: {eq: $name}}) {nodes{id}}
-    }`,
-    { name },
-  ) as any;
+    }
+  `);
+  const data = await client.request(query, { name });
   return data.projects?.nodes[0]?.id;
 }
 
@@ -218,12 +218,12 @@ async function getProjectUidOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
-  const data = await client.request(
-    `query match($name: String!) {
+  const query = gql(`
+    query GetProjectUidOptionsByName($name: String!) {
         projects(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
-      }`,
-    { name },
-  ) as any;
+      }
+  `);
+  const data = await client.request(query, { name });
   const qResults: { id: string; name: string }[] = data.projects?.nodes ||
     [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
@@ -233,12 +233,12 @@ async function getIssueIdByTitle(
   title: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($title: String!) {
+  const query = gql(`
+    query GetIssueIdByTitle($title: String!) {
       issues(filter: {title: {eq: $title}}) {nodes{identifier}}
-    }`,
-    { title },
-  );
+    }
+  `);
+  const data = await client.request(query, { title });
   return data.issues?.nodes[0]?.identifier;
 }
 
@@ -246,25 +246,25 @@ async function getIssueUidByIdentifier(
   identifier: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($identifier: String!) {
-      issues(filter: {identifier: {eq: $identifier}}) {nodes{id}}
-    }`,
-    { identifier },
-  );
-  return data.issues?.nodes[0]?.id;
+  const query = gql(`
+    query GetIssueUidByIdentifier($identifier: String!) {
+      issue(id: $identifier) { id }
+    }
+  `);
+  const data = await client.request(query, { identifier });
+  return data.issue?.id;
 }
 
 async function getIssueUidOptionsByTitle(
   title: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($title: String!) {
+  const query = gql(`
+    query GetIssueUidOptionsByTitle($title: String!) {
         issues(filter: {title: {containsIgnoreCase: $title}}) {nodes{id, identifier, title}}
-      }`,
-    { title },
-  );
+      }
+  `);
+  const data = await client.request(query, { title });
   const qResults: { id: string; identifier: string; title: string }[] =
     data.issues?.nodes || [];
   return Object.fromEntries(
@@ -310,12 +310,12 @@ async function getTeamUidByKey(
   team: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
-  const data = await client.request(
-    `query match($team: String!) {
+  const query = gql(`
+    query GetTeamUidByKey($team: String!) {
       teams(filter: {key: {eq: $team}}) {nodes{id}}
-    }`,
-    { team },
-  ) as any;
+    }
+  `);
+  const data = await client.request(query, { team });
   return data.teams?.nodes[0]?.id;
 }
 
@@ -323,12 +323,12 @@ async function getTeamUidByName(
   team: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($team: String!) {
+  const query = gql(`
+    query GetTeamUidByName($team: String!) {
       teams(filter: {name: {eq: $team}}) {nodes{id}}
-    }`,
-    { team },
-  );
+    }
+  `);
+  const data = await client.request(query, { team });
   return data.teams?.nodes[0]?.id;
 }
 
@@ -353,12 +353,12 @@ async function getTeamUidOptionsByKey(
   team: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($team: String!) {
+  const query = gql(`
+    query GetTeamUidOptionsByKey($team: String!) {
         teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key}}
-      }`,
-    { team },
-  );
+      }
+  `);
+  const data = await client.request(query, { team });
   const qResults: { id: string; key: string }[] = data.teams?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.key]));
 }
@@ -367,12 +367,12 @@ async function getTeamUidOptionsByName(
   team: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($team: String!) {
+  const query = gql(`
+    query GetTeamUidOptionsByName($team: String!) {
         teams(filter: {name: {containsIgnoreCase: $team}}) {nodes{id, key, name}}
-      }`,
-    { team },
-  );
+      }
+  `);
+  const data = await client.request(query, { team });
   const qResults: { id: string; name: string; key: string }[] =
     data.teams?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, `${t.key}: ${t.name}`]));
@@ -400,12 +400,12 @@ async function getUserUidByDisplayName(
   username: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($username: String!) {
+  const query = gql(`
+    query GetUserUidByDisplayName($username: String!) {
       users(filter: {displayName: {eq: $username}}) {nodes{id}}
-    }`,
-    { username },
-  );
+    }
+  `);
+  const data = await client.request(query, { username });
   return data.users?.nodes[0]?.id;
 }
 
@@ -413,12 +413,12 @@ async function getUserUidOptionsByDisplayName(
   name: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($name: String!) {
+  const query = gql(`
+    query GetUserUidOptionsByDisplayName($name: String!) {
         users(filter: {displayName: {containsIgnoreCase: $name}}) {nodes{id, displayName}}
-      }`,
-    { name },
-  );
+      }
+  `);
+  const data = await client.request(query, { name });
   const qResults: { id: string; displayName: string }[] = data.users?.nodes ||
     [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.displayName]));
@@ -428,12 +428,12 @@ async function getUserUidOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($name: String!) {
+  const query = gql(`
+    query GetUserUidOptionsByName($name: String!) {
         users(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
-      }`,
-    { name },
-  );
+      }
+  `);
+  const data = await client.request(query, { name });
   const qResults: { id: string; name: string }[] = data.users?.nodes || [];
   [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
@@ -462,12 +462,12 @@ async function getUserId(
 ): Promise<string | undefined> {
   if (username === undefined || username === "self") {
     const client = getGraphQLClient();
-    const data = await client.request<any>(
-      `query viewerId {
+    const query = gql(`
+      query GetViewerId {
       viewer {id}
-    }`,
-      {},
-    );
+    }
+    `);
+    const data = await client.request(query, {});
     return data.viewer.id;
   } else {
     return await getUserUidByDisplayName(username);
@@ -478,12 +478,12 @@ async function getIssueLabelUidByName(
   name: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($name: String!) {
+  const query = gql(`
+    query GetIssueLabelUidByName($name: String!) {
       issueLabels(filter: {name: {eq: $name}}) {nodes{id}}
-    }`,
-    { name },
-  );
+    }
+  `);
+  const data = await client.request(query, { name });
   return data.issueLabels?.nodes[0]?.id;
 }
 
@@ -491,12 +491,12 @@ async function getIssueLabelUidOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
-  const data = await client.request<any>(
-    `query match($name: String!) {
+  const query = gql(`
+    query GetIssueLabelUidOptionsByName($name: String!) {
         issueLabels(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
-      }`,
-    { name },
-  );
+      }
+  `);
+  const data = await client.request(query, { name });
   const qResults: { id: string; name: string }[] = data.issueLabels?.nodes ||
     [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
@@ -622,7 +622,7 @@ async function fetchIssuesForState(teamId: string, state: string) {
   }
 
   const query = gql(`
-    query issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
+    query GetIssuesForState($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
       issues(
         filter: {
           team: { key: { eq: $teamId } }
@@ -684,15 +684,18 @@ async function fetchIssueDetails(
   issueId: string,
   showSpinner = false,
 ): Promise<
-  { title: string; description: string | null; url: string; branchName: string }
+  { title: string; description?: string | null | undefined; url: string; branchName: string }
 > {
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
   try {
-    const query =
-      `query($id: String!) { issue(id: $id) { title, description, url, branchName } }`;
+    const query = gql(`
+      query GetIssueDetails($id: String!) { 
+        issue(id: $id) { title, description, url, branchName } 
+      }
+    `);
     const client = getGraphQLClient();
-    const data = await client.request<any>(query, { id: issueId });
+    const data = await client.request(query, { id: issueId });
     spinner?.stop();
     return data.issue;
   } catch (error) {
@@ -1419,7 +1422,7 @@ const issueCommand = new Command()
           return;
         }
         const createIssueMutation = gql(`
-          mutation createIssue($input: IssueCreateInput!) {
+          mutation CreateIssue($input: IssueCreateInput!) {
             issueCreate(input: $input) {
               success
               issue { id, team { key } }
