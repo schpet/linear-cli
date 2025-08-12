@@ -1228,7 +1228,7 @@ const issueCommand = new Command()
     "Assign the issue to 'self' or someone (by username or name)",
   )
   .option(
-    "-d, --dueDate <dueDate:string>",
+    "-d, --due-date <dueDate:string>",
     "Due date of the issue",
   )
   .option(
