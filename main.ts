@@ -120,6 +120,72 @@ async function branchExists(branch: string): Promise<boolean> {
   }
 }
 
+async function getEditor(): Promise<string | null> {
+  // Try git config first
+  try {
+    const process = new Deno.Command("git", {
+      args: ["config", "--global", "core.editor"],
+    });
+    const { stdout, success } = await process.output();
+    if (success) {
+      const editor = new TextDecoder().decode(stdout).trim();
+      if (editor) return editor;
+    }
+  } catch {
+    // Fall through to next option
+  }
+
+  // Try EDITOR environment variable
+  const editor = Deno.env.get("EDITOR");
+  if (editor) return editor;
+
+  return null;
+}
+
+async function openEditor(): Promise<string | undefined> {
+  const editor = await getEditor();
+  if (!editor) {
+    console.error("No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>");
+    return undefined;
+  }
+  
+  // Create a temporary file
+  const tempFile = await Deno.makeTempFile({ suffix: ".md" });
+  
+  try {
+    // Open the editor
+    const process = new Deno.Command(editor, {
+      args: [tempFile],
+      stdin: "inherit",
+      stdout: "inherit", 
+      stderr: "inherit",
+    });
+    
+    const { success } = await process.output();
+    
+    if (!success) {
+      console.error("Editor exited with an error");
+      return undefined;
+    }
+    
+    // Read the content back
+    const content = await Deno.readTextFile(tempFile);
+    const cleaned = content.trim();
+    
+    return cleaned.length > 0 ? cleaned : undefined;
+  } catch (error) {
+    console.error("Failed to open editor:", error instanceof Error ? error.message : String(error));
+    return undefined;
+  } finally {
+    // Clean up the temporary file
+    try {
+      await Deno.remove(tempFile);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
 async function getWorkflowStates(
   teamId: string,
 ): Promise<
@@ -506,83 +572,19 @@ async function getAllTeams(): Promise<
   Array<{ id: string; key: string; name: string }>
 > {
   const client = getGraphQLClient();
-  const allTeams: Array<{ id: string; key: string; name: string }> = [];
-  let hasNextPage = true;
-  let endCursor: string | undefined;
-
-  while (hasNextPage) {
-    const query = gql(`
-      query GetAllTeams($after: String, $first: Int) {
-        teams(after: $after, first: $first) {
-          nodes {
-            id
-            key
-            name
-          }
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
+  const query = gql(`
+    query GetAllTeams {
+      teams {
+        nodes {
+          id
+          key
+          name
         }
       }
-    `);
-    
-    const data = await client.request(query, {
-      after: endCursor,
-      first: 100, // Request 100 teams per page
-    });
-
-    if (data.teams?.nodes) {
-      allTeams.push(...data.teams.nodes);
     }
-
-    hasNextPage = data.teams?.pageInfo?.hasNextPage || false;
-    endCursor = data.teams?.pageInfo?.endCursor || undefined;
-  }
-
-  // Sort teams alphabetically by name
-  return allTeams.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-async function getAllProjects(): Promise<
-  Array<{ id: string; name: string }>
-> {
-  const client = getGraphQLClient();
-  const allProjects: Array<{ id: string; name: string }> = [];
-  let hasNextPage = true;
-  let endCursor: string | undefined;
-
-  while (hasNextPage) {
-    const query = gql(`
-      query GetAllProjects($after: String, $first: Int) {
-        projects(after: $after, first: $first) {
-          nodes {
-            id
-            name
-          }
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-        }
-      }
-    `);
-    
-    const data = await client.request(query, {
-      after: endCursor,
-      first: 100, // Request 100 projects per page
-    });
-
-    if (data.projects?.nodes) {
-      allProjects.push(...data.projects.nodes);
-    }
-
-    hasNextPage = data.projects?.pageInfo?.hasNextPage || false;
-    endCursor = data.projects?.pageInfo?.endCursor || undefined;
-  }
-
-  // Sort projects alphabetically by name
-  return allProjects.sort((a, b) => a.name.localeCompare(b.name));
+  `);
+  const data = await client.request(query);
+  return data.teams?.nodes || [];
 }
 
 async function getAllLabels(): Promise<
@@ -636,7 +638,6 @@ async function selectOption(
         })),
         { name: "none of the above", value: NO },
       ],
-      search: true,
     });
     return result === NO ? undefined : result;
   }
@@ -1240,7 +1241,6 @@ const issueCommand = new Command()
               ` ${issue.identifier}: ${issue.title}`,
             value: issue.identifier,
           })),
-          search: true,
         });
 
         resolvedId = answer as string;
@@ -1354,7 +1354,6 @@ async function promptInteractiveIssueCreation(
   preStartedStatesPromise?: Promise<
     Array<{ id: string; name: string; type: string; position: number }>
   >,
-  preStartedProjectsPromise?: Promise<Array<{ id: string; name: string }>>,
 ): Promise<{
   title: string;
   teamId: string;
@@ -1364,9 +1363,13 @@ async function promptInteractiveIssueCreation(
   labelIds: string[];
   description?: string;
   stateId?: string;
-  projectId?: string;
   start: boolean;
 }> {
+  const title = await Input.prompt({
+    message: "What's the title of your issue?",
+    minLength: 1,
+  });
+
   // Determine team automatically if possible
   const defaultTeamId = await getTeamId();
   let teamId: string;
@@ -1383,39 +1386,61 @@ async function promptInteractiveIssueCreation(
     } else {
       // Fallback to team selection if we can't resolve the team
       const teams = await getAllTeams();
+      const teamSuggestions = teams.map((team) => `${team.key}: ${team.name}`);
       
-      teamId = await Select.prompt({
+      const selectedTeam = await Input.prompt({
         message: "Which team should this issue belong to?",
-        options: teams.map((team) => ({
-          name: `${team.name} (${team.key})`,
-          value: team.id,
-        })),
-        search: true,
+        suggestions: teamSuggestions,
+        list: true,
+        info: true,
+        
+        
       });
+      
+      // Find the team by key, name, or the full suggestion format
+      const team = teams.find((t) => 
+        t.key.toLowerCase() === selectedTeam.toLowerCase() ||
+        t.name.toLowerCase() === selectedTeam.toLowerCase() ||
+        `${t.key}: ${t.name}` === selectedTeam
+      );
+      
+      if (!team) {
+        console.error(`Could not find team: ${selectedTeam}`);
+        Deno.exit(1);
+      }
+      
+      teamId = team.id;
       // Start fetching workflow states after team selection (can't use pre-started promise for different team)
       statesPromise = getWorkflowStates(teamId);
     }
   } else {
     // No default team, prompt for selection
     const teams = await getAllTeams();
+    const teamSuggestions = teams.map((team) => `${team.key}: ${team.name}`);
     
-    teamId = await Select.prompt({
+    const selectedTeam = await Input.prompt({
       message: "Which team should this issue belong to?",
-      options: teams.map((team) => ({
-        name: `${team.name} (${team.key})`,
-        value: team.id,
-      })),
-      search: true,
+      suggestions: teamSuggestions,
+      list: true,
+      info: true,
     });
     
+    // Find the team by key, name, or the full suggestion format
+    const team = teams.find((t) => 
+      t.key.toLowerCase() === selectedTeam.toLowerCase() ||
+      t.name.toLowerCase() === selectedTeam.toLowerCase() ||
+      `${t.key}: ${t.name}` === selectedTeam
+    );
+    
+    if (!team) {
+      console.error(`Could not find team: ${selectedTeam}`);
+      Deno.exit(1);
+    }
+    
+    teamId = team.id;
     // Start fetching workflow states after team selection (can't use pre-started promise for different team)
     statesPromise = getWorkflowStates(teamId);
   }
-
-  const title = await Input.prompt({
-    message: "What's the title of your issue?",
-    minLength: 1,
-  });
 
   // Select workflow state - await the promise we started earlier
   const states = await statesPromise;
@@ -1433,12 +1458,9 @@ async function promptInteractiveIssueCreation(
         value: state.id,
       })),
       default: defaultState.id,
-      search: true,
     });
   }
 
-  // Note: we'll ask about starting later, and if they choose to start,
-  // we'll auto-assign to self to match flag-based behavior
   const assignToSelf = await Select.prompt({
     message: "Assign this issue to yourself?",
     options: [
@@ -1448,26 +1470,7 @@ async function promptInteractiveIssueCreation(
     default: false,
   });
 
-  let assigneeId = assignToSelf ? await getUserId("self") : undefined;
-
-  // Select project - await the promise we started earlier
-  const projects = await (preStartedProjectsPromise || getAllProjects());
-  let projectId: string | undefined;
-  
-  if (projects.length > 0) {
-    projectId = await Select.prompt({
-      message: "Which project should this issue belong to?",
-      options: [
-        { name: "No project", value: undefined },
-        ...projects.map((project) => ({
-          name: project.name,
-          value: project.id,
-        })),
-      ],
-      search: true,
-      default: undefined,
-    });
-  }
+  const assigneeId = assignToSelf ? await getUserId("self") : undefined;
 
   const priority = await Select.prompt({
     message: "What priority should this issue have?",
@@ -1479,7 +1482,6 @@ async function promptInteractiveIssueCreation(
       { name: "Low (4)", value: 4 },
     ],
     default: 0,
-    search: true,
   });
 
   const labels = await getAllLabels();
@@ -1507,20 +1509,34 @@ async function promptInteractiveIssueCreation(
     }
   }
 
-  const hasDescription = await Select.prompt({
-    message: "Do you want to add a description?",
-    options: [
-      { name: "No", value: false },
-      { name: "Yes", value: true },
-    ],
-    default: false,
+  // Get editor name for prompt
+  const editorName = await getEditor();
+  const editorDisplayName = editorName ? editorName.split('/').pop() : null;
+  
+  const promptMessage = editorDisplayName 
+    ? `Body [(e) to launch ${editorDisplayName}]`
+    : "Body";
+  
+  const description = await Input.prompt({
+    message: promptMessage,
+    default: "",
   });
 
-  let description: string | undefined;
-  if (hasDescription) {
-    description = await Input.prompt({
-      message: "Enter description (optional)",
-    });
+  let finalDescription: string | undefined;
+  if (description === "e" && editorDisplayName) {
+    console.log(`Opening ${editorDisplayName}...`);
+    finalDescription = await openEditor();
+    if (finalDescription && finalDescription.length > 0) {
+      console.log(`Description entered (${finalDescription.length} characters)`);
+    } else {
+      console.log("No description entered");
+      finalDescription = undefined;
+    }
+  } else if (description === "e" && !editorDisplayName) {
+    console.error("No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>");
+    finalDescription = undefined;
+  } else if (description.trim().length > 0) {
+    finalDescription = description.trim();
   }
 
   const start = await Select.prompt({
@@ -1533,11 +1549,6 @@ async function promptInteractiveIssueCreation(
     default: false,
   });
 
-  // Auto-assign to self if starting the issue (to match flag-based behavior)
-  if (start && !assigneeId) {
-    assigneeId = await getUserId("self");
-  }
-
   return {
     title,
     teamId,
@@ -1545,9 +1556,8 @@ async function promptInteractiveIssueCreation(
     priority: priority === 0 ? undefined : priority,
     estimate: undefined,
     labelIds,
-    description,
+    description: finalDescription,
     stateId,
-    projectId,
     start,
   };
 }
@@ -1655,12 +1665,8 @@ const createCommand = new Command()
             }
           }
 
-          // Start fetching projects immediately
-          const projectsPromise = getAllProjects();
-
           const interactiveData = await promptInteractiveIssueCreation(
             statesPromise,
-            projectsPromise,
           );
 
           console.log(`Creating issue...`);
@@ -1686,7 +1692,7 @@ const createCommand = new Command()
               estimate: interactiveData.estimate,
               labelIds: interactiveData.labelIds,
               teamId: interactiveData.teamId,
-              projectId: interactiveData.projectId,
+              projectId: undefined,
               stateId: interactiveData.stateId,
               useDefaultTemplate,
               description: interactiveData.description,
@@ -1936,22 +1942,9 @@ await new Command()
     }
 
     const client = getGraphQLClient();
-    
-    // Get workspace info
-    const orgQuery = gql(`
-      query GetOrganization {
-        viewer {
-          organization {
-            urlKey
-          }
-        }
-      }
-    `);
-    const orgResult = await client.request(orgQuery);
-    const workspace = orgResult.viewer.organization.urlKey;
-    
-    // Get teams using the paginated getAllTeams function (already sorted alphabetically)
-    const teams = await getAllTeams();
+    const result = await client.request(configQuery);
+    const workspace = result.viewer.organization.urlKey;
+    const teams = result.teams.nodes;
 
     interface Team {
       id: string;
@@ -1959,19 +1952,24 @@ await new Command()
       name: string;
     }
 
-    const selectedTeamId = await Select.prompt({
+    teams.sort((a, b) => a.name.localeCompare(b.name));
+    const teamSuggestions = teams.map((team) => `${team.key}: ${team.name}`);
+
+    const selectedTeam = await Input.prompt({
       message: "Select a team:",
-      options: teams.map((team) => ({
-        name: `${team.name} (${team.key})`,
-        value: team.id,
-      })),
-      search: true,
+      suggestions: teamSuggestions,
+      list: true,
+      info: true,
     });
 
-    const team = teams.find((t) => t.id === selectedTeamId);
+    const team = teams.find((t) => 
+      t.key.toLowerCase() === selectedTeam.toLowerCase() ||
+      t.name.toLowerCase() === selectedTeam.toLowerCase() ||
+      `${t.key}: ${t.name}` === selectedTeam
+    );
 
     if (!team) {
-      console.error(`Could not find team with ID: ${selectedTeamId}`);
+      console.error(`Could not find team: ${selectedTeam}`);
       Deno.exit(1);
     }
 

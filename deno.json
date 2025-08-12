@@ -5,13 +5,13 @@
   "exports": "./main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --unstable-sloppy-imports --quiet main.ts ",
-    "install": "deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --unstable-sloppy-imports --quiet -g -f -n linear ./main.ts",
+    "dev": "deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --unstable-sloppy-imports --quiet main.ts ",
+    "install": "deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --unstable-sloppy-imports --quiet -g -f -n linear ./main.ts",
     "uninstall": "deno uninstall -g linear",
     "sync-schema": "deno run -A npm:get-graphql-schema https://api.linear.app/graphql > graphql/schema.graphql",
     "codegen": "deno run --allow-all npm:@graphql-codegen/cli/graphql-codegen-esm",
     "check": "deno check --unstable-sloppy-imports main.ts",
-    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --unstable-sloppy-imports --quiet"
+    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --unstable-sloppy-imports --quiet"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
