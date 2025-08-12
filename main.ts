@@ -430,12 +430,23 @@ async function getTeamUidOptionsByKey(
   const client = getGraphQLClient();
   const query = gql(`
     query GetTeamUidOptionsByKey($team: String!) {
-        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key}}
+        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key, name}}
       }
   `);
   const data = await client.request(query, { team });
   const qResults = data.teams?.nodes || [];
-  return Object.fromEntries(qResults.map((t) => [t.id, t.key]));
+  // Sort teams alphabetically by key (case insensitive) and format as "Name (KEY)"
+  const sortedResults = qResults.sort((a, b) =>
+    a.key.toLowerCase().localeCompare(b.key.toLowerCase())
+  );
+  return Object.fromEntries(
+    sortedResults.map((
+      t,
+    ) => [
+      t.id,
+      `${(t as { id: string; key: string; name: string }).name} (${t.key})`,
+    ]),
+  );
 }
 
 async function getTeamUidOptionsByName(
@@ -449,7 +460,13 @@ async function getTeamUidOptionsByName(
   `);
   const data = await client.request(query, { team });
   const qResults = data.teams?.nodes || [];
-  return Object.fromEntries(qResults.map((t) => [t.id, `${t.key}: ${t.name}`]));
+  // Sort teams alphabetically by name (case insensitive) and format as "Name (KEY)"
+  const sortedResults = qResults.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  );
+  return Object.fromEntries(
+    sortedResults.map((t) => [t.id, `${t.name} (${t.key})`]),
+  );
 }
 
 async function getTeamUidOptions(
@@ -593,7 +610,11 @@ async function getAllTeams(): Promise<
     }
   `);
   const data = await client.request(query);
-  return data.teams?.nodes || [];
+  const teams = data.teams?.nodes || [];
+  // Sort teams alphabetically by name (case insensitive)
+  return teams.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  );
 }
 
 async function getAllLabels(): Promise<
@@ -1399,24 +1420,21 @@ async function promptInteractiveIssueCreation(
     } else {
       // Fallback to team selection if we can't resolve the team
       const teams = await getAllTeams();
-      const teamSuggestions = teams.map((team) => `${team.key}: ${team.name}`);
 
-      const selectedTeam = await Input.prompt({
+      const selectedTeamId = await Select.prompt({
         message: "Which team should this issue belong to?",
-        suggestions: teamSuggestions,
-        list: true,
-        info: true,
+        search: true,
+        searchLabel: "Search teams",
+        options: teams.map((team) => ({
+          name: `${team.name} (${team.key})`,
+          value: team.id,
+        })),
       });
 
-      // Find the team by key, name, or the full suggestion format
-      const team = teams.find((t) =>
-        t.key.toLowerCase() === selectedTeam.toLowerCase() ||
-        t.name.toLowerCase() === selectedTeam.toLowerCase() ||
-        `${t.key}: ${t.name}` === selectedTeam
-      );
+      const team = teams.find((t) => t.id === selectedTeamId);
 
       if (!team) {
-        console.error(`Could not find team: ${selectedTeam}`);
+        console.error(`Could not find team: ${selectedTeamId}`);
         Deno.exit(1);
       }
 
@@ -1427,24 +1445,21 @@ async function promptInteractiveIssueCreation(
   } else {
     // No default team, prompt for selection
     const teams = await getAllTeams();
-    const teamSuggestions = teams.map((team) => `${team.key}: ${team.name}`);
 
-    const selectedTeam = await Input.prompt({
+    const selectedTeamId = await Select.prompt({
       message: "Which team should this issue belong to?",
-      suggestions: teamSuggestions,
-      list: true,
-      info: true,
+      search: true,
+      searchLabel: "Search teams",
+      options: teams.map((team) => ({
+        name: `${team.name} (${team.key})`,
+        value: team.id,
+      })),
     });
 
-    // Find the team by key, name, or the full suggestion format
-    const team = teams.find((t) =>
-      t.key.toLowerCase() === selectedTeam.toLowerCase() ||
-      t.name.toLowerCase() === selectedTeam.toLowerCase() ||
-      `${t.key}: ${t.name}` === selectedTeam
-    );
+    const team = teams.find((t) => t.id === selectedTeamId);
 
     if (!team) {
-      console.error(`Could not find team: ${selectedTeam}`);
+      console.error(`Could not find team: ${selectedTeamId}`);
       Deno.exit(1);
     }
 
@@ -1512,7 +1527,7 @@ async function promptInteractiveIssueCreation(
       const selectedLabelIds = await Checkbox.prompt({
         message: "Select labels (use space to select, enter to confirm)",
         search: true,
-        searchLabel: "🔍 Search labels",
+        searchLabel: "Search labels",
         options: labels.map((label) => ({
           name: label.name,
           value: label.id,
@@ -1962,6 +1977,10 @@ await new Command()
     const result = await client.request(configQuery);
     const workspace = result.viewer.organization.urlKey;
     const teams = result.teams.nodes;
+    // Sort teams alphabetically by name (case insensitive)
+    teams.sort((a, b) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+    );
 
     interface Team {
       id: string;
@@ -1969,24 +1988,20 @@ await new Command()
       name: string;
     }
 
-    teams.sort((a, b) => a.name.localeCompare(b.name));
-    const teamSuggestions = teams.map((team) => `${team.key}: ${team.name}`);
-
-    const selectedTeam = await Input.prompt({
+    const selectedTeamId = await Select.prompt({
       message: "Select a team:",
-      suggestions: teamSuggestions,
-      list: true,
-      info: true,
+      search: true,
+      searchLabel: "Search teams",
+      options: teams.map((team) => ({
+        name: `${team.name} (${team.key})`,
+        value: team.id,
+      })),
     });
 
-    const team = teams.find((t) =>
-      t.key.toLowerCase() === selectedTeam.toLowerCase() ||
-      t.name.toLowerCase() === selectedTeam.toLowerCase() ||
-      `${t.key}: ${t.name}` === selectedTeam
-    );
+    const team = teams.find((t) => t.id === selectedTeamId);
 
     if (!team) {
-      console.error(`Could not find team: ${selectedTeam}`);
+      console.error(`Could not find team: ${selectedTeamId}`);
       Deno.exit(1);
     }
 

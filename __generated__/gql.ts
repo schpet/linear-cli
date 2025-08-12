@@ -23,7 +23,7 @@ type Documents = {
     "\n    query GetIssueUidOptionsByTitle($title: String!) {\n        issues(filter: {title: {containsIgnoreCase: $title}}) {nodes{id, identifier, title}}\n      }\n  ": typeof types.GetIssueUidOptionsByTitleDocument,
     "\n    query GetTeamUidByKey($team: String!) {\n      teams(filter: {key: {eq: $team}}) {nodes{id}}\n    }\n  ": typeof types.GetTeamUidByKeyDocument,
     "\n    query GetTeamUidByName($team: String!) {\n      teams(filter: {name: {eq: $team}}) {nodes{id}}\n    }\n  ": typeof types.GetTeamUidByNameDocument,
-    "\n    query GetTeamUidOptionsByKey($team: String!) {\n        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key}}\n      }\n  ": typeof types.GetTeamUidOptionsByKeyDocument,
+    "\n    query GetTeamUidOptionsByKey($team: String!) {\n        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key, name}}\n      }\n  ": typeof types.GetTeamUidOptionsByKeyDocument,
     "\n    query GetTeamUidOptionsByName($team: String!) {\n        teams(filter: {name: {containsIgnoreCase: $team}}) {nodes{id, key, name}}\n      }\n  ": typeof types.GetTeamUidOptionsByNameDocument,
     "\n    query GetUserUidByDisplayName($username: String!) {\n      users(filter: {displayName: {eq: $username}}) {nodes{id}}\n    }\n  ": typeof types.GetUserUidByDisplayNameDocument,
     "\n    query GetUserUidOptionsByDisplayName($name: String!) {\n        users(filter: {displayName: {containsIgnoreCase: $name}}) {nodes{id, displayName}}\n      }\n  ": typeof types.GetUserUidOptionsByDisplayNameDocument,
@@ -49,7 +49,7 @@ const documents: Documents = {
     "\n    query GetIssueUidOptionsByTitle($title: String!) {\n        issues(filter: {title: {containsIgnoreCase: $title}}) {nodes{id, identifier, title}}\n      }\n  ": types.GetIssueUidOptionsByTitleDocument,
     "\n    query GetTeamUidByKey($team: String!) {\n      teams(filter: {key: {eq: $team}}) {nodes{id}}\n    }\n  ": types.GetTeamUidByKeyDocument,
     "\n    query GetTeamUidByName($team: String!) {\n      teams(filter: {name: {eq: $team}}) {nodes{id}}\n    }\n  ": types.GetTeamUidByNameDocument,
-    "\n    query GetTeamUidOptionsByKey($team: String!) {\n        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key}}\n      }\n  ": types.GetTeamUidOptionsByKeyDocument,
+    "\n    query GetTeamUidOptionsByKey($team: String!) {\n        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key, name}}\n      }\n  ": types.GetTeamUidOptionsByKeyDocument,
     "\n    query GetTeamUidOptionsByName($team: String!) {\n        teams(filter: {name: {containsIgnoreCase: $team}}) {nodes{id, key, name}}\n      }\n  ": types.GetTeamUidOptionsByNameDocument,
     "\n    query GetUserUidByDisplayName($username: String!) {\n      users(filter: {displayName: {eq: $username}}) {nodes{id}}\n    }\n  ": types.GetUserUidByDisplayNameDocument,
     "\n    query GetUserUidOptionsByDisplayName($name: String!) {\n        users(filter: {displayName: {containsIgnoreCase: $name}}) {nodes{id, displayName}}\n      }\n  ": types.GetUserUidOptionsByDisplayNameDocument,
@@ -119,7 +119,7 @@ export function gql(source: "\n    query GetTeamUidByName($team: String!) {\n   
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n    query GetTeamUidOptionsByKey($team: String!) {\n        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key}}\n      }\n  "): (typeof documents)["\n    query GetTeamUidOptionsByKey($team: String!) {\n        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key}}\n      }\n  "];
+export function gql(source: "\n    query GetTeamUidOptionsByKey($team: String!) {\n        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key, name}}\n      }\n  "): (typeof documents)["\n    query GetTeamUidOptionsByKey($team: String!) {\n        teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key, name}}\n      }\n  "];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

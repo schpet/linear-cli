@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2025-08-12
+
+### Changed
+
+- Improved UX around selecting a team
+
 ## [0.6.0] - 2025-08-12
 
 ### Security
@@ -136,7 +142,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/schpet/linear-cli/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/schpet/linear-cli/compare/v0.5.7...v0.6.0
 [0.5.7]: https://github.com/schpet/linear-cli/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/schpet/linear-cli/compare/v0.5.5...v0.5.6
