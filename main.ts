@@ -1437,6 +1437,8 @@ async function promptInteractiveIssueCreation(
     });
   }
 
+  // Note: we'll ask about starting later, and if they choose to start,
+  // we'll auto-assign to self to match flag-based behavior
   const assignToSelf = await Select.prompt({
     message: "Assign this issue to yourself?",
     options: [
@@ -1446,7 +1448,7 @@ async function promptInteractiveIssueCreation(
     default: false,
   });
 
-  const assigneeId = assignToSelf ? await getUserId("self") : undefined;
+  let assigneeId = assignToSelf ? await getUserId("self") : undefined;
 
   // Select project - await the promise we started earlier
   const projects = await (preStartedProjectsPromise || getAllProjects());
@@ -1530,6 +1532,11 @@ async function promptInteractiveIssueCreation(
     ],
     default: false,
   });
+
+  // Auto-assign to self if starting the issue (to match flag-based behavior)
+  if (start && !assigneeId) {
+    assigneeId = await getUserId("self");
+  }
 
   return {
     title,
