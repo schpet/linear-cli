@@ -15,6 +15,7 @@
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.7",
+    "@graphql-codegen/cli": "npm:@graphql-codegen/cli@^5.0.7",
     "@graphql-typed-document-node/core": "npm:@graphql-typed-document-node/core@^3.2.0",
     "@littletof/charmd": "jsr:@littletof/charmd@^0.1.2",
     "@opensrc/deno-open": "jsr:@opensrc/deno-open@^1.0.0",

@@ -31,6 +31,7 @@
     "jsr:@std/text@~1.0.7": "1.0.8",
     "jsr:@std/toml@^1.0.2": "1.0.2",
     "npm:@graphql-codegen/cli@*": "5.0.7_graphql@16.11.0_@types+node@22.15.15",
+    "npm:@graphql-codegen/cli@^5.0.7": "5.0.7_graphql@16.11.0_@types+node@22.15.15",
     "npm:@graphql-typed-document-node/core@^3.2.0": "3.2.0_graphql@16.11.0",
     "npm:@types/node@*": "22.15.15",
     "npm:get-graphql-schema@*": "2.1.2",
@@ -2136,6 +2137,7 @@
       "jsr:@std/encoding@^1.0.5",
       "jsr:@std/path@^1.0.8",
       "jsr:@std/toml@^1.0.2",
+      "npm:@graphql-codegen/cli@^5.0.7",
       "npm:@graphql-typed-document-node/core@^3.2.0",
       "npm:graphql@^16.8.1"
     ]
