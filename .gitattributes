@@ -1,1 +1,3 @@
 graphql/schema.graphql linguist-generated=true
+__generated__/** -diff linguist-generated=true
+graphql/** -diff linguist-generated=true
