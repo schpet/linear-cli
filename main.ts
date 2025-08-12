@@ -419,8 +419,8 @@ async function getUserUidOptionsByDisplayName(
       }`,
     { name },
   );
-  const qResults: { id: string; displayName: string }[] =
-    data.users?.nodes || [];
+  const qResults: { id: string; displayName: string }[] = data.users?.nodes ||
+    [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.displayName]));
 }
 
@@ -435,7 +435,7 @@ async function getUserUidOptionsByName(
     { name },
   );
   const qResults: { id: string; name: string }[] = data.users?.nodes || [];
-    [];
+  [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
@@ -497,8 +497,8 @@ async function getIssueLabelUidOptionsByName(
       }`,
     { name },
   );
-  const qResults: { id: string; name: string }[] =
-    data.issueLabels?.nodes || [];
+  const qResults: { id: string; name: string }[] = data.issueLabels?.nodes ||
+    [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
@@ -611,8 +611,6 @@ export function getGraphQLClient(): GraphQLClient {
     },
   });
 }
-
-
 
 async function fetchIssuesForState(teamId: string, state: string) {
   const sort = getOption("issue_sort") as "manual" | "priority" | undefined;
@@ -1403,7 +1401,6 @@ const issueCommand = new Command()
         }
         // Date validation done at graphql level
 
-
         const input = {
           title,
           assigneeId,
@@ -1429,7 +1426,7 @@ const issueCommand = new Command()
             }
           }
         `);
-        
+
         const client = getGraphQLClient();
         const data = await client.request(createIssueMutation, { input });
         if (!data.issueCreate.success) {

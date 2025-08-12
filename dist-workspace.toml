@@ -20,6 +20,7 @@ build-command = [
     "--allow-write",
     "--allow-run=git,gh,open,cmd,xdg-open,wslview",
     "--allow-net=api.linear.app",
+    "--unstable-sloppy-imports",
     "--quiet",
     "main.ts",
 ]

@@ -31,9 +31,9 @@ Deno.test("getGraphQLClient handles authentication errors", async () => {
     errors: [{
       message: "Authentication failed",
       extensions: {
-        code: "INVALID_API_KEY"
-      }
-    }]
+        code: "INVALID_API_KEY",
+      },
+    }],
   };
 
   const mockResponse = new Response(
