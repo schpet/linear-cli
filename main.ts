@@ -1,7 +1,7 @@
 import { Command, EnumType } from "@cliffy/command";
 import { load } from "@std/dotenv";
 import { getOption } from "./config.ts";
-import { prompt, Select } from "@cliffy/prompt";
+import { Checkbox, Confirm, Input, prompt, Select } from "@cliffy/prompt";
 
 // Try loading .env from current directory first, then from git root if not found
 let envVars: Record<string, string> = {};
@@ -472,6 +472,44 @@ async function getIssueLabelUidOptionsByName(
   const data = await client.request(query, { name });
   const qResults = data.issueLabels?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
+}
+
+async function getAllTeams(): Promise<
+  Array<{ id: string; key: string; name: string }>
+> {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetAllTeams {
+      teams {
+        nodes {
+          id
+          key
+          name
+        }
+      }
+    }
+  `);
+  const data = await client.request(query);
+  return data.teams?.nodes || [];
+}
+
+async function getAllLabels(): Promise<
+  Array<{ id: string; name: string; color: string }>
+> {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetAllLabels {
+      issueLabels {
+        nodes {
+          id
+          name
+          color
+        }
+      }
+    }
+  `);
+  const data = await client.request(query);
+  return data.issueLabels?.nodes || [];
 }
 
 async function selectOption(
@@ -1216,8 +1254,144 @@ const issueCommand = new Command()
       console.error("Failed to create pull request");
       Deno.exit(1);
     }
-  })
-  .command("create", "Create a linear issue")
+  });
+
+async function promptInteractiveIssueCreation(): Promise<{
+  title: string;
+  teamId: string;
+  assigneeId?: string;
+  priority?: number;
+  estimate?: number;
+  labelIds: string[];
+  description?: string;
+  start: boolean;
+}> {
+  const title = await Input.prompt({
+    message: "What's the title of your issue?",
+    minLength: 1,
+  });
+
+  // Determine team automatically if possible
+  const defaultTeamId = await getTeamId();
+  let teamId: string;
+
+  if (defaultTeamId) {
+    const teamUid = await getTeamUid(defaultTeamId);
+    if (teamUid) {
+      teamId = teamUid;
+    } else {
+      // Fallback to team selection if we can't resolve the team
+      const teams = await getAllTeams();
+      teamId = await Select.prompt({
+        message: "Which team should this issue belong to?",
+        options: teams.map((team) => ({
+          name: `${team.name} (${team.key})`,
+          value: team.id,
+        })),
+      });
+    }
+  } else {
+    // No default team, prompt for selection
+    const teams = await getAllTeams();
+    teamId = await Select.prompt({
+      message: "Which team should this issue belong to?",
+      options: teams.map((team) => ({
+        name: `${team.name} (${team.key})`,
+        value: team.id,
+      })),
+    });
+  }
+
+  const assignToSelf = await Confirm.prompt({
+    message: "Assign this issue to yourself?",
+    default: false,
+  });
+
+  const assigneeId = assignToSelf ? await getUserId("self") : undefined;
+
+  const priority = await Select.prompt({
+    message: "What priority should this issue have?",
+    options: [
+      { name: "No priority", value: 0 },
+      { name: "Urgent (1)", value: 1 },
+      { name: "High (2)", value: 2 },
+      { name: "Medium (3)", value: 3 },
+      { name: "Low (4)", value: 4 },
+    ],
+    default: 0,
+  });
+
+  const hasEstimate = await Confirm.prompt({
+    message: "Do you want to add a points estimate?",
+    default: false,
+  });
+
+  let estimate: number | undefined;
+  if (hasEstimate) {
+    const estimateStr = await Input.prompt({
+      message: "How many points? (1, 2, 3, 5, 8, etc.)",
+      validate: (input) => {
+        const num = parseInt(input);
+        return !isNaN(num) && num > 0 ? true : "Please enter a positive number";
+      },
+    });
+    estimate = parseInt(estimateStr);
+  }
+
+  const labels = await getAllLabels();
+  const labelIds: string[] = [];
+
+  if (labels.length > 0) {
+    const hasLabels = await Confirm.prompt({
+      message: "Do you want to add labels?",
+      default: false,
+    });
+
+    if (hasLabels) {
+      const selectedLabelIds = await Checkbox.prompt({
+        message: "Select labels (use space to select, enter to confirm)",
+        options: labels.map((label) => ({
+          name: label.name,
+          value: label.id,
+        })),
+      });
+      labelIds.push(...selectedLabelIds);
+    }
+  }
+
+  const hasDescription = await Confirm.prompt({
+    message: "Do you want to add a description?",
+    default: false,
+  });
+
+  let description: string | undefined;
+  if (hasDescription) {
+    description = await Input.prompt({
+      message: "Enter description (optional)",
+    });
+  }
+
+  const start = await Confirm.prompt({
+    message:
+      "Start working on this issue now? (creates branch and updates status)",
+    default: false,
+  });
+
+  return {
+    title,
+    teamId,
+    assigneeId,
+    priority: priority === 0 ? undefined : priority,
+    estimate,
+    labelIds,
+    description,
+    start,
+  };
+}
+
+const createCommand = new Command()
+  .name("create")
+  .description("Create a linear issue")
   .option(
     "-s, --start",
     "Start the issue after creation",
@@ -1243,6 +1417,10 @@ const issueCommand = new Command()
     "Points estimate of the issue",
   )
   .option(
+    "-d, --description <description:string>",
+    "Description of the issue",
+  )
+  .option(
     "-l, --label [label...:string]",
     "Issue label associated with the issue. May be repeated.",
   )
@@ -1260,9 +1438,7 @@ const issueCommand = new Command()
   )
   .option("--no-color", "Disable colored output")
   .option("--no-interactive", "Disable interactive prompts")
-  .option("-t, --title <title:string>", "Title of the issue", {
-    required: true,
-  })
+  .option("-t, --title <title:string>", "Title of the issue")
   .action(
     async (
       {
@@ -1273,6 +1449,7 @@ const issueCommand = new Command()
         parent,
         priority,
         estimate,
+        description,
         label: labels,
         team,
         project,
@@ -1282,6 +1459,82 @@ const issueCommand = new Command()
       },
     ) => {
       interactive = interactive && Deno.stdout.isTerminal();
+
+      // If no flags are provided (just title is empty), use interactive mode
+      const noFlagsProvided = !title && !assignee && !dueDate && !parent &&
+        priority === undefined && estimate === undefined && !description &&
+        (!labels || labels === true ||
+          (Array.isArray(labels) && labels.length === 0)) &&
+        !team && !project && !start;
+
+      if (noFlagsProvided && interactive) {
+        try {
+          const interactiveData = await promptInteractiveIssueCreation();
+
+          console.log(`Creating issue...`);
+          console.log();
+
+          const createIssueMutation = gql(`
+            mutation CreateIssue($input: IssueCreateInput!) {
+              issueCreate(input: $input) {
+                success
+                issue { id, identifier, url, team { key } }
+              }
+            }
+          `);
+
+          const client = getGraphQLClient();
+          const data = await client.request(createIssueMutation, {
+            input: {
+              title: interactiveData.title,
+              assigneeId: interactiveData.assigneeId,
+              dueDate: undefined,
+              parentId: undefined,
+              priority: interactiveData.priority,
+              estimate: interactiveData.estimate,
+              labelIds: interactiveData.labelIds,
+              teamId: interactiveData.teamId,
+              projectId: undefined,
+              useDefaultTemplate,
+              description: interactiveData.description,
+            },
+          });
+
+          if (!data.issueCreate.success) {
+            throw "query failed";
+          }
+          const issue = data.issueCreate.issue;
+          if (!issue) {
+            throw "Issue creation failed - no issue returned";
+          }
+          const issueId = issue.id;
+          console.log(
+            `✓ Created issue ${issue.identifier}: ${interactiveData.title}`,
+          );
+          console.log(issue.url);
+
+          if (interactiveData.start) {
+            const teamKey = issue.team.key;
+            const teamUid = await getTeamUidByKey(teamKey);
+            if (teamUid) {
+              await doStartIssue(issueId, teamUid);
+            }
+          }
+          return;
+        } catch (error) {
+          console.error("✗ Failed to create issue", error);
+          Deno.exit(1);
+        }
+      }
+
+      // Fallback to flag-based mode
+      if (!title) {
+        console.error(
+          "Title is required when not using interactive mode. Use --title or run without any flags for interactive mode.",
+        );
+        Deno.exit(1);
+      }
+
       const showSpinner = color && interactive;
       const spinner = showSpinner ? new Spinner() : null;
       spinner?.start();
@@ -1388,6 +1641,7 @@ const issueCommand = new Command()
           teamId: teamUid,
           projectId,
           useDefaultTemplate,
+          description,
         };
         spinner?.stop();
         console.log(`Creating issue in ${team}`);
@@ -1426,6 +1680,9 @@ const issueCommand = new Command()
       }
     },
   );
+
+// Add create command to issueCommand
+issueCommand.command("create", createCommand);
 
 const configQuery = gql(`
   query Config {
