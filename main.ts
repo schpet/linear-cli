@@ -56,6 +56,7 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
+import { graphql } from "./__generated__/gql.ts";
 
 interface Label {
   name: string;
@@ -1530,7 +1531,7 @@ await new Command()
       Deno.exit(1);
     }
 
-    const query = `
+    const query = graphql(`
       query {
         viewer {
           organization {
@@ -1545,7 +1546,8 @@ await new Command()
           }
         }
       }
-    `;
+    `);
+
     const response = await fetch("https://api.linear.app/graphql", {
       method: "POST",
       headers: {
