@@ -60,28 +60,6 @@ import { gql } from "./__generated__/gql.ts";
 
 import { GraphQLClient } from "graphql-request";
 
-interface Label {
-  name: string;
-  color: string;
-}
-
-interface Issue {
-  id: string;
-  identifier: string;
-  title: string;
-  priority: number;
-  estimate?: number | null | undefined;
-  state: {
-    id: string;
-    name: string;
-    color: string;
-  };
-  labels: {
-    nodes: Label[];
-  };
-  updatedAt: string;
-}
-
 function padDisplay(s: string, width: number): string {
   const w = unicodeWidth(s);
   return s + " ".repeat(Math.max(0, width - w));
@@ -684,8 +662,8 @@ async function fetchIssueDetails(
   spinner?.start();
   try {
     const query = gql(`
-      query GetIssueDetails($id: String!) { 
-        issue(id: $id) { title, description, url, branchName } 
+      query GetIssueDetails($id: String!) {
+        issue(id: $id) { title, description, url, branchName }
       }
     `);
     const client = getGraphQLClient();
