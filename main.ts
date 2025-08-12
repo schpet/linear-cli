@@ -656,7 +656,12 @@ async function fetchIssueDetails(
   issueId: string,
   showSpinner = false,
 ): Promise<
-  { title: string; description?: string | null | undefined; url: string; branchName: string }
+  {
+    title: string;
+    description?: string | null | undefined;
+    url: string;
+    branchName: string;
+  }
 > {
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
