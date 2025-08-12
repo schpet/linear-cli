@@ -1218,7 +1218,6 @@ const issueCommand = new Command()
     }
   })
   .command("create", "Create a linear issue")
-  .alias("cr")
   .option(
     "-s, --start",
     "Start the issue after creation",
