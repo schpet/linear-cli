@@ -597,7 +597,7 @@ async function doStartIssue(issueId: string, teamId: string) {
   }
 }
 
-function getGraphQLClient(): GraphQLClient {
+export function getGraphQLClient(): GraphQLClient {
   const apiKey = getOption("api_key");
   if (!apiKey) {
     throw new Error(
@@ -612,15 +612,7 @@ function getGraphQLClient(): GraphQLClient {
   });
 }
 
-// Deprecated: use getGraphQLClient() instead for better typing
-export async function fetchGraphQL(
-  query: string,
-  variables: Record<string, unknown>,
-): Promise<{ data: unknown }> {
-  const client = getGraphQLClient();
-  const data = await client.request(query, variables);
-  return { data };
-}
+
 
 async function fetchIssuesForState(teamId: string, state: string) {
   const sort = getOption("issue_sort") as "manual" | "priority" | undefined;
