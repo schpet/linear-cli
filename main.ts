@@ -563,10 +563,6 @@ async function getUserId(
   }
 }
 
-
-
-
-
 async function getIssueLabelUidByNameForTeam(
   name: string,
   teamId: string,
@@ -634,8 +630,6 @@ async function getAllTeams(): Promise<
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
   );
 }
-
-
 
 async function getLabelsForTeam(teamId: string): Promise<
   Array<{ id: string; name: string; color: string }>
