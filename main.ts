@@ -1279,7 +1279,9 @@ const issueCommand = new Command()
     }
   });
 
-async function promptInteractiveIssueCreation(): Promise<{
+async function promptInteractiveIssueCreation(
+  preStartedStatesPromise?: Promise<Array<{ id: string; name: string; type: string; position: number }>>
+): Promise<{
   title: string;
   teamId: string;
   assigneeId?: string;
@@ -1304,8 +1306,8 @@ async function promptInteractiveIssueCreation(): Promise<{
     const teamUid = await getTeamUid(defaultTeamId);
     if (teamUid) {
       teamId = teamUid;
-      // Start fetching workflow states immediately
-      statesPromise = getWorkflowStates(teamId);
+      // Use pre-started promise if available, otherwise start now
+      statesPromise = preStartedStatesPromise || getWorkflowStates(teamId);
     } else {
       // Fallback to team selection if we can't resolve the team
       const teams = await getAllTeams();
@@ -1316,7 +1318,7 @@ async function promptInteractiveIssueCreation(): Promise<{
           value: team.id,
         })),
       });
-      // Start fetching workflow states after team selection
+      // Start fetching workflow states after team selection (can't use pre-started promise for different team)
       statesPromise = getWorkflowStates(teamId);
     }
   } else {
@@ -1329,7 +1331,7 @@ async function promptInteractiveIssueCreation(): Promise<{
         value: team.id,
       })),
     });
-    // Start fetching workflow states after team selection
+    // Start fetching workflow states after team selection (can't use pre-started promise for different team)
     statesPromise = getWorkflowStates(teamId);
   }
 
@@ -1524,7 +1526,19 @@ const createCommand = new Command()
 
       if (noFlagsProvided && interactive) {
         try {
-          const interactiveData = await promptInteractiveIssueCreation();
+          // Pre-fetch team info and start workflow states query early
+          const defaultTeamId = await getTeamId();
+          let statesPromise: Promise<Array<{ id: string; name: string; type: string; position: number }>> | undefined;
+          
+          if (defaultTeamId) {
+            const teamUid = await getTeamUid(defaultTeamId);
+            if (teamUid) {
+              // Start fetching workflow states immediately for the default team
+              statesPromise = getWorkflowStates(teamUid);
+            }
+          }
+          
+          const interactiveData = await promptInteractiveIssueCreation(statesPromise);
 
           console.log(`Creating issue...`);
           console.log();
