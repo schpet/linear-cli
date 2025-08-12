@@ -120,11 +120,11 @@ async function branchExists(branch: string): Promise<boolean> {
   }
 }
 
-async function getStartedState(
+async function getWorkflowStates(
   teamId: string,
-): Promise<{ id: string; name: string }> {
+): Promise<Array<{ id: string; name: string; type: string; position: number }>> {
   const query = gql(`
-    query GetStartedState($teamId: String!) {
+    query GetWorkflowStates($teamId: String!) {
       team(id: $teamId) {
         states {
           nodes {
@@ -140,20 +140,43 @@ async function getStartedState(
 
   const client = getGraphQLClient();
   const result = await client.request(query, { teamId });
-  const states = result.team.states.nodes;
-  const startedStates = states
-    .filter((s: { type: string }) => s.type === "started")
-    .sort((a: { position: number }, b: { position: number }) =>
-      a.position - b.position
-    );
+  return result.team.states.nodes.sort((a: { position: number }, b: { position: number }) =>
+    a.position - b.position
+  );
+}
+
+async function getStartedState(
+  teamId: string,
+): Promise<{ id: string; name: string }> {
+  const states = await getWorkflowStates(teamId);
+  const startedStates = states.filter((s) => s.type === "started");
 
   if (!startedStates.length) {
     throw new Error("No 'started' state found in workflow");
   }
 
-  const startedState = startedStates[0];
+  return { id: startedStates[0].id, name: startedStates[0].name };
+}
 
-  return { id: startedState.id, name: startedState.name };
+async function getWorkflowStateByNameOrType(
+  teamId: string,
+  nameOrType: string,
+): Promise<{ id: string; name: string } | undefined> {
+  const states = await getWorkflowStates(teamId);
+  
+  // First try exact name match
+  const nameMatch = states.find((s) => s.name.toLowerCase() === nameOrType.toLowerCase());
+  if (nameMatch) {
+    return { id: nameMatch.id, name: nameMatch.name };
+  }
+  
+  // Then try type match
+  const typeMatch = states.find((s) => s.type === nameOrType.toLowerCase());
+  if (typeMatch) {
+    return { id: typeMatch.id, name: typeMatch.name };
+  }
+  
+  return undefined;
 }
 
 async function updateIssueState(
@@ -1264,6 +1287,7 @@ async function promptInteractiveIssueCreation(): Promise<{
   estimate?: number;
   labelIds: string[];
   description?: string;
+  stateId?: string;
   start: boolean;
 }> {
   const title = await Input.prompt({
@@ -1274,11 +1298,14 @@ async function promptInteractiveIssueCreation(): Promise<{
   // Determine team automatically if possible
   const defaultTeamId = await getTeamId();
   let teamId: string;
+  let statesPromise: Promise<Array<{ id: string; name: string; type: string; position: number }>>;
 
   if (defaultTeamId) {
     const teamUid = await getTeamUid(defaultTeamId);
     if (teamUid) {
       teamId = teamUid;
+      // Start fetching workflow states immediately
+      statesPromise = getWorkflowStates(teamId);
     } else {
       // Fallback to team selection if we can't resolve the team
       const teams = await getAllTeams();
@@ -1289,6 +1316,8 @@ async function promptInteractiveIssueCreation(): Promise<{
           value: team.id,
         })),
       });
+      // Start fetching workflow states after team selection
+      statesPromise = getWorkflowStates(teamId);
     }
   } else {
     // No default team, prompt for selection
@@ -1300,10 +1329,34 @@ async function promptInteractiveIssueCreation(): Promise<{
         value: team.id,
       })),
     });
+    // Start fetching workflow states after team selection
+    statesPromise = getWorkflowStates(teamId);
   }
 
-  const assignToSelf = await Confirm.prompt({
+  // Select workflow state - await the promise we started earlier
+  const states = await statesPromise;
+  let stateId: string | undefined;
+  
+  if (states.length > 0) {
+    // Find the first 'unstarted' state as default
+    const defaultState = states.find((s) => s.type === "unstarted") || states[0];
+    
+    stateId = await Select.prompt({
+      message: "Which workflow state should this issue be in?",
+      options: states.map((state) => ({
+        name: `${state.name} (${state.type})`,
+        value: state.id,
+      })),
+      default: defaultState.id,
+    });
+  }
+
+  const assignToSelf = await Select.prompt({
     message: "Assign this issue to yourself?",
+    options: [
+      { name: "No", value: false },
+      { name: "Yes", value: true },
+    ],
     default: false,
   });
 
@@ -1321,29 +1374,17 @@ async function promptInteractiveIssueCreation(): Promise<{
     default: 0,
   });
 
-  const hasEstimate = await Confirm.prompt({
-    message: "Do you want to add a points estimate?",
-    default: false,
-  });
-
-  let estimate: number | undefined;
-  if (hasEstimate) {
-    const estimateStr = await Input.prompt({
-      message: "How many points? (1, 2, 3, 5, 8, etc.)",
-      validate: (input) => {
-        const num = parseInt(input);
-        return !isNaN(num) && num > 0 ? true : "Please enter a positive number";
-      },
-    });
-    estimate = parseInt(estimateStr);
-  }
 
   const labels = await getAllLabels();
   const labelIds: string[] = [];
 
   if (labels.length > 0) {
-    const hasLabels = await Confirm.prompt({
+    const hasLabels = await Select.prompt({
       message: "Do you want to add labels?",
+      options: [
+        { name: "No", value: false },
+        { name: "Yes", value: true },
+      ],
       default: false,
     });
 
@@ -1359,8 +1400,12 @@ async function promptInteractiveIssueCreation(): Promise<{
     }
   }
 
-  const hasDescription = await Confirm.prompt({
+  const hasDescription = await Select.prompt({
     message: "Do you want to add a description?",
+    options: [
+      { name: "No", value: false },
+      { name: "Yes", value: true },
+    ],
     default: false,
   });
 
@@ -1371,9 +1416,13 @@ async function promptInteractiveIssueCreation(): Promise<{
     });
   }
 
-  const start = await Confirm.prompt({
+  const start = await Select.prompt({
     message:
       "Start working on this issue now? (creates branch and updates status)",
+    options: [
+      { name: "No", value: false },
+      { name: "Yes", value: true },
+    ],
     default: false,
   });
 
@@ -1382,9 +1431,10 @@ async function promptInteractiveIssueCreation(): Promise<{
     teamId,
     assigneeId,
     priority: priority === 0 ? undefined : priority,
-    estimate,
+    estimate: undefined,
     labelIds,
     description,
+    stateId,
     start,
   };
 }
@@ -1433,6 +1483,10 @@ const createCommand = new Command()
     "Name of the project with the issue",
   )
   .option(
+    "--state <state:string>",
+    "Workflow state for the issue (by name or type)",
+  )
+  .option(
     "--no-use-default-template",
     "Do not use default template for the issue",
   )
@@ -1453,6 +1507,7 @@ const createCommand = new Command()
         label: labels,
         team,
         project,
+        state,
         color,
         interactive,
         title,
@@ -1465,7 +1520,7 @@ const createCommand = new Command()
         priority === undefined && estimate === undefined && !description &&
         (!labels || labels === true ||
           (Array.isArray(labels) && labels.length === 0)) &&
-        !team && !project && !start;
+        !team && !project && !state && !start;
 
       if (noFlagsProvided && interactive) {
         try {
@@ -1495,6 +1550,7 @@ const createCommand = new Command()
               labelIds: interactiveData.labelIds,
               teamId: interactiveData.teamId,
               projectId: undefined,
+              stateId: interactiveData.stateId,
               useDefaultTemplate,
               description: interactiveData.description,
             },
@@ -1562,6 +1618,18 @@ const createCommand = new Command()
         if (start && assignee !== undefined && assignee !== "self") {
           console.error("Cannot use --start and a non-self --assignee");
         }
+        let stateId: string | undefined;
+        if (state) {
+          const workflowState = await getWorkflowStateByNameOrType(teamUid, state);
+          if (!workflowState) {
+            console.error(
+              `Could not find workflow state '${state}' for team ${team}`,
+            );
+            Deno.exit(1);
+          }
+          stateId = workflowState.id;
+        }
+
         let assigneeId = await getUserId(assignee);
         if (!assigneeId && assignee !== undefined) {
           if (interactive) {
@@ -1640,6 +1708,7 @@ const createCommand = new Command()
           labelIds,
           teamId: teamUid,
           projectId,
+          stateId,
           useDefaultTemplate,
           description,
         };
