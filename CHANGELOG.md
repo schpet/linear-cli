@@ -9,6 +9,7 @@
 ### Added
 
 - Test for JSON and HTML error response formatting
+- added `linear issue create` command, (#30, thanks @maparent)
 
 ### Changed
 
