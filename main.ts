@@ -56,7 +56,9 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
-import { gql, graphql } from "./__generated__/gql.ts";
+import { gql } from "./__generated__/gql.ts";
+import type { GetStartedStateQuery, IssuesQuery, ConfigQuery } from "./__generated__/graphql.ts";
+import { GraphQLClient } from "graphql-request";
 
 interface Label {
   name: string;
@@ -156,8 +158,9 @@ async function getStartedState(
     }
   `);
 
-  const result = await fetchGraphQL(query, { teamId });
-  const states = result.data.team.states.nodes;
+  const client = getGraphQLClient();
+  const result = await client.request(query, { teamId });
+  const states = result.team.states.nodes;
   const startedStates = states
     .filter((s: { type: string }) => s.type === "started")
     .sort((a: { position: number }, b: { position: number }) =>
@@ -188,7 +191,8 @@ async function updateIssueState(
     }
   `;
 
-  await fetchGraphQL(mutation, { issueId, stateId });
+  const client = getGraphQLClient();
+  await client.request(mutation, { issueId, stateId });
 }
 
 function isValidLinearId(id: string): boolean {
@@ -198,25 +202,27 @@ function isValidLinearId(id: string): boolean {
 async function getProjectUidByName(
   name: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request(
     `query match($name: String!) {
       projects(filter: {name: {eq: $name}}) {nodes{id}}
     }`,
     { name },
-  );
-  return data.data.projects?.nodes[0]?.id;
+  ) as any;
+  return data.projects?.nodes[0]?.id;
 }
 
 async function getProjectUidOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request(
     `query match($name: String!) {
         projects(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
       }`,
     { name },
-  );
-  const qResults: { id: string; name: string }[] = data.data.projects?.nodes ||
+  ) as any;
+  const qResults: { id: string; name: string }[] = data.projects?.nodes ||
     [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
@@ -224,38 +230,41 @@ async function getProjectUidOptionsByName(
 async function getIssueIdByTitle(
   title: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($title: String!) {
       issues(filter: {title: {eq: $title}}) {nodes{identifier}}
     }`,
     { title },
   );
-  return data.data.issues?.nodes[0]?.identifier;
+  return data.issues?.nodes[0]?.identifier;
 }
 
 async function getIssueUidByIdentifier(
   identifier: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($identifier: String!) {
       issues(filter: {identifier: {eq: $identifier}}) {nodes{id}}
     }`,
     { identifier },
   );
-  return data.data.issues?.nodes[0]?.id;
+  return data.issues?.nodes[0]?.id;
 }
 
 async function getIssueUidOptionsByTitle(
   title: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($title: String!) {
         issues(filter: {title: {containsIgnoreCase: $title}}) {nodes{id, identifier, title}}
       }`,
     { title },
   );
   const qResults: { id: string; identifier: string; title: string }[] =
-    data.data.issues?.nodes || [];
+    data.issues?.nodes || [];
   return Object.fromEntries(
     qResults.map((t) => [t.id, `${t.identifier}: ${t.title}`]),
   );
@@ -298,25 +307,27 @@ async function getTeamId(): Promise<string | undefined> {
 async function getTeamUidByKey(
   team: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request(
     `query match($team: String!) {
       teams(filter: {key: {eq: $team}}) {nodes{id}}
     }`,
     { team },
-  );
-  return data.data.teams?.nodes[0]?.id;
+  ) as any;
+  return data.teams?.nodes[0]?.id;
 }
 
 async function getTeamUidByName(
   team: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($team: String!) {
       teams(filter: {name: {eq: $team}}) {nodes{id}}
     }`,
     { team },
   );
-  return data.data.teams?.nodes[0]?.id;
+  return data.teams?.nodes[0]?.id;
 }
 
 async function getTeamUid(
@@ -339,27 +350,29 @@ async function getTeamUid(
 async function getTeamUidOptionsByKey(
   team: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($team: String!) {
         teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key}}
       }`,
     { team },
   );
-  const qResults: { id: string; key: string }[] = data.data.teams?.nodes || [];
+  const qResults: { id: string; key: string }[] = data.teams?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.key]));
 }
 
 async function getTeamUidOptionsByName(
   team: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($team: String!) {
         teams(filter: {name: {containsIgnoreCase: $team}}) {nodes{id, key, name}}
       }`,
     { team },
   );
   const qResults: { id: string; name: string; key: string }[] =
-    data.data.teams?.nodes || [];
+    data.teams?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, `${t.key}: ${t.name}`]));
 }
 
@@ -384,39 +397,43 @@ async function getTeamUidOptions(
 async function getUserUidByDisplayName(
   username: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($username: String!) {
       users(filter: {displayName: {eq: $username}}) {nodes{id}}
     }`,
     { username },
   );
-  return data.data.users?.nodes[0]?.id;
+  return data.users?.nodes[0]?.id;
 }
 
 async function getUserUidOptionsByDisplayName(
   name: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($name: String!) {
         users(filter: {displayName: {containsIgnoreCase: $name}}) {nodes{id, displayName}}
       }`,
     { name },
   );
   const qResults: { id: string; displayName: string }[] =
-    data.data.users?.nodes || [];
+    data.users?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.displayName]));
 }
 
 async function getUserUidOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($name: String!) {
         users(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
       }`,
     { name },
   );
-  const qResults: { id: string; name: string }[] = data.data.users?.nodes || [];
+  const qResults: { id: string; name: string }[] = data.users?.nodes || [];
+    [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
@@ -442,13 +459,14 @@ async function getUserId(
   username: string | undefined,
 ): Promise<string | undefined> {
   if (username === undefined || username === "self") {
-    const data = await fetchGraphQL(
+    const client = getGraphQLClient();
+    const data = await client.request<any>(
       `query viewerId {
       viewer {id}
     }`,
       {},
     );
-    return data.data.viewer.id;
+    return data.viewer.id;
   } else {
     return await getUserUidByDisplayName(username);
   }
@@ -457,26 +475,28 @@ async function getUserId(
 async function getIssueLabelUidByName(
   name: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($name: String!) {
       issueLabels(filter: {name: {eq: $name}}) {nodes{id}}
     }`,
     { name },
   );
-  return data.data.issueLabels?.nodes[0]?.id;
+  return data.issueLabels?.nodes[0]?.id;
 }
 
 async function getIssueLabelUidOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
+  const client = getGraphQLClient();
+  const data = await client.request<any>(
     `query match($name: String!) {
         issueLabels(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
       }`,
     { name },
   );
   const qResults: { id: string; name: string }[] =
-    data.data.issueLabels?.nodes || [];
+    data.issueLabels?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
@@ -575,11 +595,7 @@ async function doStartIssue(issueId: string, teamId: string) {
   }
 }
 
-export async function fetchGraphQL(
-  query: string,
-  variables: Record<string, unknown>,
-  // deno-lint-ignore no-explicit-any
-): Promise<any> {
+function getGraphQLClient(): GraphQLClient {
   const apiKey = getOption("api_key");
   if (!apiKey) {
     throw new Error(
@@ -587,76 +603,22 @@ export async function fetchGraphQL(
     );
   }
 
-  const response = await fetch("https://api.linear.app/graphql", {
-    method: "POST",
+  return new GraphQLClient("https://api.linear.app/graphql", {
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": apiKey,
-      "Accept": "application/json",
+      Authorization: apiKey,
     },
-    body: JSON.stringify({ query, variables }),
   });
+}
 
-  const responseBodyText = await response.text();
-
-  if (!response.ok) {
-    // HTTP error (e.g., 4xx, 5xx)
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      let errorData;
-      try {
-        errorData = JSON.parse(responseBodyText);
-      } catch {
-        // Fall back to original error if JSON parsing fails
-      }
-      if (errorData) {
-        throw new Error(
-          `GraphQL API request rejected:\n\n${
-            JSON.stringify(errorData, null, 2)
-          }`,
-        );
-      }
-    }
-
-    throw new Error(
-      `GraphQL API request failed with status ${response.status} ${response.statusText}.\nResponse body (first 500 chars): ${
-        responseBodyText.slice(0, 500)
-      }`,
-    );
-  }
-
-  // Response is OK (2xx), now check Content-Type and parse as JSON
-  const contentType = response.headers.get("content-type");
-  if (!contentType || !contentType.includes("application/json")) {
-    // This case implies an issue if the API is expected to always return JSON on success.
-    throw new Error(
-      `GraphQL API request succeeded with status ${response.status}, but response Content-Type was not 'application/json'.\nContent-Type: ${contentType}\nResponse body (first 500 chars): ${
-        responseBodyText.slice(0, 500)
-      }`,
-    );
-  }
-
-  let data;
-  try {
-    data = JSON.parse(responseBodyText);
-  } catch (jsonError) {
-    // HTTP 2xx, Content-Type was application/json, but body was not valid JSON
-    throw new Error(
-      `GraphQL API request succeeded with status ${response.status}, but failed to parse JSON response.\nContent-Type: ${contentType}\nError: ${
-        (jsonError as Error).message
-      }\nResponse body (first 500 chars): ${responseBodyText.slice(0, 500)}`,
-    );
-  }
-
-  if (data.errors) {
-    // GraphQL level errors (e.g. bad query, auth issue reported in JSON)
-    throw new Error(
-      `GraphQL API request returned errors: ${
-        JSON.stringify(data.errors, null, 2)
-      }`,
-    );
-  }
-  return data;
+// Deprecated: use getGraphQLClient() instead for better typing
+export async function fetchGraphQL(
+  query: string,
+  variables: Record<string, unknown>,
+  // deno-lint-ignore no-explicit-any
+): Promise<any> {
+  const client = getGraphQLClient();
+  const data = await client.request(query, variables);
+  return { data };
 }
 
 async function fetchIssuesForState(teamId: string, state: string) {
@@ -706,7 +668,8 @@ async function fetchIssuesForState(teamId: string, state: string) {
     ? [{ manual: { nulls: "last", order: "Ascending" } }]
     : [{ priority: { nulls: "last", order: "Descending" } }];
 
-  return await fetchGraphQL(query, {
+  const client = getGraphQLClient();
+  return await client.request<IssuesQuery>(query, {
     teamId,
     sort: sortPayload,
     states: [state],
@@ -737,9 +700,10 @@ async function fetchIssueDetails(
   try {
     const query =
       `query($id: String!) { issue(id: $id) { title, description, url, branchName } }`;
-    const data = await fetchGraphQL(query, { id: issueId });
+    const client = getGraphQLClient();
+    const data = await client.request<any>(query, { id: issueId });
     spinner?.stop();
-    return data.data.issue;
+    return data.issue;
   } catch (error) {
     spinner?.stop();
     console.error("✗ Failed to fetch issue details");
@@ -1482,7 +1446,8 @@ const issueCommand = new Command()
           console.log(input);
           return;
         }
-        const data = await fetchGraphQL(
+        const client = getGraphQLClient();
+        const data = await client.request(
           `mutation createIssue($input: IssueCreateInput!) {
             issueCreate(input: $input) {
               success
@@ -1490,12 +1455,12 @@ const issueCommand = new Command()
           }}`,
           { input },
         );
-        if (!data.data.issueCreate.success) {
+        if (!data.issueCreate.success) {
           throw "query failed";
         }
-        const issueId = data.data.issueCreate.issue.id;
+        const issueId = data.issueCreate.issue.id;
         if (start) {
-          await doStartIssue(issueId, data.data.issueCreate.issue.team.key);
+          await doStartIssue(issueId, data.issueCreate.issue.team.key);
         }
         spinner?.stop();
       } catch (error) {
@@ -1548,24 +1513,10 @@ await new Command()
       Deno.exit(1);
     }
 
-    const response = await fetch("https://api.linear.app/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": apiKey,
-      },
-      body: JSON.stringify({ query: configQuery }),
-    });
-    const result = await response.json();
-    if (result.errors) {
-      console.error(
-        "Error fetching data from Linear GraphQL API:",
-        result.errors,
-      );
-      Deno.exit(1);
-    }
-    const workspace = result.data.viewer.organization.urlKey;
-    const teams = result.data.teams.nodes;
+    const client = getGraphQLClient();
+    const result = await client.request(configQuery);
+    const workspace = result.viewer.organization.urlKey;
+    const teams = result.teams.nodes;
 
     interface Team {
       id: string;
