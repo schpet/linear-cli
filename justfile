@@ -5,6 +5,7 @@ dev *args:
 tag:
     deno check main.ts
     deno fmt --check
+    deno lint
 
     svbump write "$(changelog version latest)" version deno.json
     svbump write "$(svbump read version deno.json)" package.version dist-workspace.toml

@@ -563,36 +563,9 @@ async function getUserId(
   }
 }
 
-async function getIssueLabelUidByName(
-  name: string,
-): Promise<string | undefined> {
-  const client = getGraphQLClient();
-  const query = gql(`
-    query GetIssueLabelUidByName($name: String!) {
-      issueLabels(filter: {name: {eq: $name}}) {nodes{id}}
-    }
-  `);
-  const data = await client.request(query, { name });
-  return data.issueLabels?.nodes[0]?.id;
-}
 
-async function getIssueLabelUidOptionsByName(
-  name: string,
-): Promise<Record<string, string>> {
-  const client = getGraphQLClient();
-  const query = gql(`
-    query GetIssueLabelUidOptionsByName($name: String!) {
-        issueLabels(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
-      }
-  `);
-  const data = await client.request(query, { name });
-  const qResults = data.issueLabels?.nodes || [];
-  // Sort labels alphabetically (case insensitive)
-  const sortedResults = qResults.sort((a, b) =>
-    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-  );
-  return Object.fromEntries(sortedResults.map((t) => [t.id, t.name]));
-}
+
+
 
 async function getIssueLabelUidByNameForTeam(
   name: string,
@@ -662,29 +635,7 @@ async function getAllTeams(): Promise<
   );
 }
 
-async function getAllLabels(): Promise<
-  Array<{ id: string; name: string; color: string }>
-> {
-  const client = getGraphQLClient();
-  const query = gql(`
-    query GetAllLabels {
-      issueLabels {
-        nodes {
-          id
-          name
-          color
-        }
-      }
-    }
-  `);
 
-  const result = await client.request(query);
-  const labels = result.issueLabels.nodes;
-  // Sort labels alphabetically (case insensitive)
-  return labels.sort((a, b) =>
-    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-  );
-}
 
 async function getLabelsForTeam(teamId: string): Promise<
   Array<{ id: string; name: string; color: string }>

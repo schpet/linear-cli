@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.6.4] - 2025-08-12
+
+### Removed
+
+- Remove unused label lookup functions replaced by team-aware versions
+
 ## [0.6.3] - 2025-08-12
 
 ### Changed
@@ -158,7 +164,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/schpet/linear-cli/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/schpet/linear-cli/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/schpet/linear-cli/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/schpet/linear-cli/compare/v0.6.0...v0.6.1
