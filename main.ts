@@ -122,7 +122,9 @@ async function branchExists(branch: string): Promise<boolean> {
 
 async function getWorkflowStates(
   teamId: string,
-): Promise<Array<{ id: string; name: string; type: string; position: number }>> {
+): Promise<
+  Array<{ id: string; name: string; type: string; position: number }>
+> {
   const query = gql(`
     query GetWorkflowStates($teamId: String!) {
       team(id: $teamId) {
@@ -140,9 +142,10 @@ async function getWorkflowStates(
 
   const client = getGraphQLClient();
   const result = await client.request(query, { teamId });
-  return result.team.states.nodes.sort((a: { position: number }, b: { position: number }) =>
-    a.position - b.position
-  );
+  return result.team.states.nodes.sort((
+    a: { position: number },
+    b: { position: number },
+  ) => a.position - b.position);
 }
 
 async function getStartedState(
@@ -163,19 +166,21 @@ async function getWorkflowStateByNameOrType(
   nameOrType: string,
 ): Promise<{ id: string; name: string } | undefined> {
   const states = await getWorkflowStates(teamId);
-  
+
   // First try exact name match
-  const nameMatch = states.find((s) => s.name.toLowerCase() === nameOrType.toLowerCase());
+  const nameMatch = states.find((s) =>
+    s.name.toLowerCase() === nameOrType.toLowerCase()
+  );
   if (nameMatch) {
     return { id: nameMatch.id, name: nameMatch.name };
   }
-  
+
   // Then try type match
   const typeMatch = states.find((s) => s.type === nameOrType.toLowerCase());
   if (typeMatch) {
     return { id: typeMatch.id, name: typeMatch.name };
   }
-  
+
   return undefined;
 }
 
@@ -1280,7 +1285,9 @@ const issueCommand = new Command()
   });
 
 async function promptInteractiveIssueCreation(
-  preStartedStatesPromise?: Promise<Array<{ id: string; name: string; type: string; position: number }>>
+  preStartedStatesPromise?: Promise<
+    Array<{ id: string; name: string; type: string; position: number }>
+  >,
 ): Promise<{
   title: string;
   teamId: string;
@@ -1300,7 +1307,9 @@ async function promptInteractiveIssueCreation(
   // Determine team automatically if possible
   const defaultTeamId = await getTeamId();
   let teamId: string;
-  let statesPromise: Promise<Array<{ id: string; name: string; type: string; position: number }>>;
+  let statesPromise: Promise<
+    Array<{ id: string; name: string; type: string; position: number }>
+  >;
 
   if (defaultTeamId) {
     const teamUid = await getTeamUid(defaultTeamId);
@@ -1338,11 +1347,12 @@ async function promptInteractiveIssueCreation(
   // Select workflow state - await the promise we started earlier
   const states = await statesPromise;
   let stateId: string | undefined;
-  
+
   if (states.length > 0) {
     // Find the first 'unstarted' state as default
-    const defaultState = states.find((s) => s.type === "unstarted") || states[0];
-    
+    const defaultState = states.find((s) => s.type === "unstarted") ||
+      states[0];
+
     stateId = await Select.prompt({
       message: "Which workflow state should this issue be in?",
       options: states.map((state) => ({
@@ -1375,7 +1385,6 @@ async function promptInteractiveIssueCreation(
     ],
     default: 0,
   });
-
 
   const labels = await getAllLabels();
   const labelIds: string[] = [];
@@ -1528,8 +1537,14 @@ const createCommand = new Command()
         try {
           // Pre-fetch team info and start workflow states query early
           const defaultTeamId = await getTeamId();
-          let statesPromise: Promise<Array<{ id: string; name: string; type: string; position: number }>> | undefined;
-          
+          let statesPromise:
+            | Promise<
+              Array<
+                { id: string; name: string; type: string; position: number }
+              >
+            >
+            | undefined;
+
           if (defaultTeamId) {
             const teamUid = await getTeamUid(defaultTeamId);
             if (teamUid) {
@@ -1537,8 +1552,10 @@ const createCommand = new Command()
               statesPromise = getWorkflowStates(teamUid);
             }
           }
-          
-          const interactiveData = await promptInteractiveIssueCreation(statesPromise);
+
+          const interactiveData = await promptInteractiveIssueCreation(
+            statesPromise,
+          );
 
           console.log(`Creating issue...`);
           console.log();
@@ -1634,7 +1651,10 @@ const createCommand = new Command()
         }
         let stateId: string | undefined;
         if (state) {
-          const workflowState = await getWorkflowStateByNameOrType(teamUid, state);
+          const workflowState = await getWorkflowStateByNameOrType(
+            teamUid,
+            state,
+          );
           if (!workflowState) {
             console.error(
               `Could not find workflow state '${state}' for team ${team}`,
