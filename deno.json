@@ -25,7 +25,8 @@
     "@std/encoding": "jsr:@std/encoding@^1.0.5",
     "@std/path": "jsr:@std/path@^1.0.8",
     "@std/toml": "jsr:@std/toml@^1.0.2",
-    "graphql": "npm:graphql@^16.8.1"
+    "graphql": "npm:graphql@^16.8.1",
+    "./__generated__/graphql": "./__generated__/graphql.ts"
   },
   "publish": {
     "include": [
