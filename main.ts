@@ -1271,18 +1271,36 @@ async function promptInteractiveIssueCreation(): Promise<{
     minLength: 1,
   });
 
-  const teams = await getAllTeams();
+  // Determine team automatically if possible
   const defaultTeamId = await getTeamId();
-  const defaultTeam = teams.find((t) => t.key === defaultTeamId);
-
-  const teamId = await Select.prompt({
-    message: "Which team should this issue belong to?",
-    options: teams.map((team) => ({
-      name: `${team.name} (${team.key})`,
-      value: team.id,
-    })),
-    default: defaultTeam?.id,
-  });
+  let teamId: string;
+  
+  if (defaultTeamId) {
+    const teamUid = await getTeamUid(defaultTeamId);
+    if (teamUid) {
+      teamId = teamUid;
+    } else {
+      // Fallback to team selection if we can't resolve the team
+      const teams = await getAllTeams();
+      teamId = await Select.prompt({
+        message: "Which team should this issue belong to?",
+        options: teams.map((team) => ({
+          name: `${team.name} (${team.key})`,
+          value: team.id,
+        })),
+      });
+    }
+  } else {
+    // No default team, prompt for selection
+    const teams = await getAllTeams();
+    teamId = await Select.prompt({
+      message: "Which team should this issue belong to?",
+      options: teams.map((team) => ({
+        name: `${team.name} (${team.key})`,
+        value: team.id,
+      })),
+    });
+  }
 
   const assignToSelf = await Confirm.prompt({
     message: "Assign this issue to yourself?",
