@@ -22,4 +22,4 @@ jobs:
         run: deno check --unstable-sloppy-imports main.ts
 
       - name: Run tests
-        run: deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --unstable-sloppy-imports --quiet
+        run: deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --unstable-sloppy-imports
