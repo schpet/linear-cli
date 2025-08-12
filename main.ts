@@ -594,6 +594,51 @@ async function getIssueLabelUidOptionsByName(
   return Object.fromEntries(sortedResults.map((t) => [t.id, t.name]));
 }
 
+async function getIssueLabelUidByNameForTeam(
+  name: string,
+  teamId: string,
+): Promise<string | undefined> {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetIssueLabelUidByNameForTeam($name: String!, $teamId: ID!) {
+      issueLabels(filter: {
+        name: {eq: $name},
+        or: [
+          { team: { id: { eq: $teamId } } },
+          { team: { null: true } }
+        ]
+      }) {nodes{id}}
+    }
+  `);
+  const data = await client.request(query, { name, teamId });
+  return data.issueLabels?.nodes[0]?.id;
+}
+
+async function getIssueLabelUidOptionsByNameForTeam(
+  name: string,
+  teamId: string,
+): Promise<Record<string, string>> {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetIssueLabelUidOptionsByNameForTeam($name: String!, $teamId: ID!) {
+        issueLabels(filter: {
+          name: {containsIgnoreCase: $name},
+          or: [
+            { team: { id: { eq: $teamId } } },
+            { team: { null: true } }
+          ]
+        }) {nodes{id, name}}
+      }
+  `);
+  const data = await client.request(query, { name, teamId });
+  const qResults = data.issueLabels?.nodes || [];
+  // Sort labels alphabetically (case insensitive)
+  const sortedResults = qResults.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  );
+  return Object.fromEntries(sortedResults.map((t) => [t.id, t.name]));
+}
+
 async function getAllTeams(): Promise<
   Array<{ id: string; key: string; name: string }>
 > {
@@ -632,8 +677,38 @@ async function getAllLabels(): Promise<
       }
     }
   `);
-  const data = await client.request(query);
-  const labels = data.issueLabels?.nodes || [];
+
+  const result = await client.request(query);
+  const labels = result.issueLabels.nodes;
+  // Sort labels alphabetically (case insensitive)
+  return labels.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  );
+}
+
+async function getLabelsForTeam(teamId: string): Promise<
+  Array<{ id: string; name: string; color: string }>
+> {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetLabelsForTeam($teamId: ID!) {
+      issueLabels(filter: {
+        or: [
+          { team: { id: { eq: $teamId } } },
+          { team: { null: true } }
+        ]
+      }) {
+        nodes {
+          id
+          name
+          color
+        }
+      }
+    }
+  `);
+
+  const result = await client.request(query, { teamId });
+  const labels = result.issueLabels.nodes;
   // Sort labels alphabetically (case insensitive)
   return labels.sort((a, b) =>
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
@@ -1399,12 +1474,7 @@ async function promptInteractiveIssueCreation(
   stateId?: string;
   start: boolean;
 }> {
-  const title = await Input.prompt({
-    message: "What's the title of your issue?",
-    minLength: 1,
-  });
-
-  // Determine team automatically if possible
+  // Determine team FIRST, before asking for title
   const defaultTeamId = await getTeamId();
   let teamId: string;
   let statesPromise: Promise<
@@ -1468,6 +1538,11 @@ async function promptInteractiveIssueCreation(
     statesPromise = getWorkflowStates(teamId);
   }
 
+  const title = await Input.prompt({
+    message: "What's the title of your issue?",
+    minLength: 1,
+  });
+
   // Select workflow state - await the promise we started earlier
   const states = await statesPromise;
   let stateId: string | undefined;
@@ -1510,7 +1585,7 @@ async function promptInteractiveIssueCreation(
     default: 0,
   });
 
-  const labels = await getAllLabels();
+  const labels = await getLabelsForTeam(teamId);
   const labelIds: string[] = [];
 
   if (labels.length > 0) {
@@ -1827,9 +1902,9 @@ const createCommand = new Command()
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
-            let labelId = await getIssueLabelUidByName(label);
+            let labelId = await getIssueLabelUidByNameForTeam(label, teamUid);
             if (!labelId && interactive) {
-              const labelIds = await getIssueLabelUidOptionsByName(label);
+              const labelIds = await getIssueLabelUidOptionsByNameForTeam(label, teamUid);
               spinner?.stop();
               labelId = await selectOption("Issue label", label, labelIds);
               spinner?.start();

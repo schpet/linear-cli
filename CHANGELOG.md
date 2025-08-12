@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.6.2] - 2025-08-12
+
+### Changed
+
+- Ask for team selection before issue title in interactive create mode
+
+### Fixed
+
+- Filter issue labels by team to prevent 'label not associated with team' errors
+
 ## [0.6.1] - 2025-08-12
 
 ### Changed
@@ -142,7 +152,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/schpet/linear-cli/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/schpet/linear-cli/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/schpet/linear-cli/compare/v0.5.7...v0.6.0
 [0.5.7]: https://github.com/schpet/linear-cli/compare/v0.5.6...v0.5.7
