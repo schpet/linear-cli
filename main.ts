@@ -1398,11 +1398,16 @@ const issueCommand = new Command()
           console.log(input);
           return;
         }
+        spinner?.stop();
+        console.log(`Creating issue in ${team}`);
+        console.log();
+        spinner?.start();
+
         const createIssueMutation = gql(`
           mutation CreateIssue($input: IssueCreateInput!) {
             issueCreate(input: $input) {
               success
-              issue { id, team { key } }
+              issue { id, identifier, url, team { key } }
             }
           }
         `);
@@ -1417,10 +1422,12 @@ const issueCommand = new Command()
           throw "Issue creation failed - no issue returned";
         }
         const issueId = issue.id;
+        spinner?.stop();
+        console.log(issue.url);
+        
         if (start) {
           await doStartIssue(issueId, issue.team.key);
         }
-        spinner?.stop();
       } catch (error) {
         spinner?.stop();
         console.error("✗ Failed to create issue", error);
