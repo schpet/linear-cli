@@ -56,26 +56,9 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
+import { gql } from "./__generated__/gql.ts";
 
-interface Label {
-  name: string;
-  color: string;
-}
-
-interface Issue {
-  id: string;
-  identifier: string;
-  title: string;
-  priority: number;
-  estimate: number | null;
-  labels: { nodes: Label[] };
-  state: {
-    id: string;
-    name: string;
-    color: string;
-  };
-  updatedAt: string;
-}
+import { GraphQLClient } from "graphql-request";
 
 function padDisplay(s: string, width: number): string {
   const w = unicodeWidth(s);
@@ -140,8 +123,8 @@ async function branchExists(branch: string): Promise<boolean> {
 async function getStartedState(
   teamId: string,
 ): Promise<{ id: string; name: string }> {
-  const query = /* GraphQL */ `
-    query($teamId: String!) {
+  const query = gql(`
+    query GetStartedState($teamId: String!) {
       team(id: $teamId) {
         states {
           nodes {
@@ -153,10 +136,11 @@ async function getStartedState(
         }
       }
     }
-  `;
+  `);
 
-  const result = await fetchGraphQL(query, { teamId });
-  const states = result.data.team.states.nodes;
+  const client = getGraphQLClient();
+  const result = await client.request(query, { teamId });
+  const states = result.team.states.nodes;
   const startedStates = states
     .filter((s: { type: string }) => s.type === "started")
     .sort((a: { position: number }, b: { position: number }) =>
@@ -176,8 +160,8 @@ async function updateIssueState(
   issueId: string,
   stateId: string,
 ): Promise<void> {
-  const mutation = `
-    mutation($issueId: String!, $stateId: String!) {
+  const mutation = gql(`
+    mutation UpdateIssueState($issueId: String!, $stateId: String!) {
       issueUpdate(
         id: $issueId,
         input: { stateId: $stateId }
@@ -185,9 +169,10 @@ async function updateIssueState(
         success
       }
     }
-  `;
+  `);
 
-  await fetchGraphQL(mutation, { issueId, stateId });
+  const client = getGraphQLClient();
+  await client.request(mutation, { issueId, stateId });
 }
 
 function isValidLinearId(id: string): boolean {
@@ -197,64 +182,67 @@ function isValidLinearId(id: string): boolean {
 async function getProjectUidByName(
   name: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
-    `query match($name: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetProjectUidByName($name: String!) {
       projects(filter: {name: {eq: $name}}) {nodes{id}}
-    }`,
-    { name },
-  );
-  return data.data.projects?.nodes[0]?.id;
+    }
+  `);
+  const data = await client.request(query, { name });
+  return data.projects?.nodes[0]?.id;
 }
 
 async function getProjectUidOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
-    `query match($name: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetProjectUidOptionsByName($name: String!) {
         projects(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
-      }`,
-    { name },
-  );
-  const qResults: { id: string; name: string }[] = data.data.projects?.nodes ||
-    [];
+      }
+  `);
+  const data = await client.request(query, { name });
+  const qResults = data.projects?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
 async function getIssueIdByTitle(
   title: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
-    `query match($title: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetIssueIdByTitle($title: String!) {
       issues(filter: {title: {eq: $title}}) {nodes{identifier}}
-    }`,
-    { title },
-  );
-  return data.data.issues?.nodes[0]?.identifier;
+    }
+  `);
+  const data = await client.request(query, { title });
+  return data.issues?.nodes[0]?.identifier;
 }
 
 async function getIssueUidByIdentifier(
   identifier: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
-    `query match($identifier: String!) {
-      issues(filter: {identifier: {eq: $identifier}}) {nodes{id}}
-    }`,
-    { identifier },
-  );
-  return data.data.issues?.nodes[0]?.id;
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetIssueUidByIdentifier($identifier: String!) {
+      issue(id: $identifier) { id }
+    }
+  `);
+  const data = await client.request(query, { identifier });
+  return data.issue?.id;
 }
 
 async function getIssueUidOptionsByTitle(
   title: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
-    `query match($title: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetIssueUidOptionsByTitle($title: String!) {
         issues(filter: {title: {containsIgnoreCase: $title}}) {nodes{id, identifier, title}}
-      }`,
-    { title },
-  );
-  const qResults: { id: string; identifier: string; title: string }[] =
-    data.data.issues?.nodes || [];
+      }
+  `);
+  const data = await client.request(query, { title });
+  const qResults = data.issues?.nodes || [];
   return Object.fromEntries(
     qResults.map((t) => [t.id, `${t.identifier}: ${t.title}`]),
   );
@@ -297,25 +285,27 @@ async function getTeamId(): Promise<string | undefined> {
 async function getTeamUidByKey(
   team: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
-    `query match($team: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetTeamUidByKey($team: String!) {
       teams(filter: {key: {eq: $team}}) {nodes{id}}
-    }`,
-    { team },
-  );
-  return data.data.teams?.nodes[0]?.id;
+    }
+  `);
+  const data = await client.request(query, { team });
+  return data.teams?.nodes[0]?.id;
 }
 
 async function getTeamUidByName(
   team: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
-    `query match($team: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetTeamUidByName($team: String!) {
       teams(filter: {name: {eq: $team}}) {nodes{id}}
-    }`,
-    { team },
-  );
-  return data.data.teams?.nodes[0]?.id;
+    }
+  `);
+  const data = await client.request(query, { team });
+  return data.teams?.nodes[0]?.id;
 }
 
 async function getTeamUid(
@@ -338,27 +328,28 @@ async function getTeamUid(
 async function getTeamUidOptionsByKey(
   team: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
-    `query match($team: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetTeamUidOptionsByKey($team: String!) {
         teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key}}
-      }`,
-    { team },
-  );
-  const qResults: { id: string; key: string }[] = data.data.teams?.nodes || [];
+      }
+  `);
+  const data = await client.request(query, { team });
+  const qResults = data.teams?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.key]));
 }
 
 async function getTeamUidOptionsByName(
   team: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
-    `query match($team: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetTeamUidOptionsByName($team: String!) {
         teams(filter: {name: {containsIgnoreCase: $team}}) {nodes{id, key, name}}
-      }`,
-    { team },
-  );
-  const qResults: { id: string; name: string; key: string }[] =
-    data.data.teams?.nodes || [];
+      }
+  `);
+  const data = await client.request(query, { team });
+  const qResults = data.teams?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, `${t.key}: ${t.name}`]));
 }
 
@@ -383,39 +374,41 @@ async function getTeamUidOptions(
 async function getUserUidByDisplayName(
   username: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
-    `query match($username: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetUserUidByDisplayName($username: String!) {
       users(filter: {displayName: {eq: $username}}) {nodes{id}}
-    }`,
-    { username },
-  );
-  return data.data.users?.nodes[0]?.id;
+    }
+  `);
+  const data = await client.request(query, { username });
+  return data.users?.nodes[0]?.id;
 }
 
 async function getUserUidOptionsByDisplayName(
   name: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
-    `query match($name: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetUserUidOptionsByDisplayName($name: String!) {
         users(filter: {displayName: {containsIgnoreCase: $name}}) {nodes{id, displayName}}
-      }`,
-    { name },
-  );
-  const qResults: { id: string; displayName: string }[] =
-    data.data.users?.nodes || [];
+      }
+  `);
+  const data = await client.request(query, { name });
+  const qResults = data.users?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.displayName]));
 }
 
 async function getUserUidOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
-    `query match($name: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetUserUidOptionsByName($name: String!) {
         users(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
-      }`,
-    { name },
-  );
-  const qResults: { id: string; name: string }[] = data.data.users?.nodes || [];
+      }
+  `);
+  const data = await client.request(query, { name });
+  const qResults = data.users?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
@@ -441,13 +434,14 @@ async function getUserId(
   username: string | undefined,
 ): Promise<string | undefined> {
   if (username === undefined || username === "self") {
-    const data = await fetchGraphQL(
-      `query viewerId {
+    const client = getGraphQLClient();
+    const query = gql(`
+      query GetViewerId {
       viewer {id}
-    }`,
-      {},
-    );
-    return data.data.viewer.id;
+    }
+    `);
+    const data = await client.request(query, {});
+    return data.viewer.id;
   } else {
     return await getUserUidByDisplayName(username);
   }
@@ -456,26 +450,27 @@ async function getUserId(
 async function getIssueLabelUidByName(
   name: string,
 ): Promise<string | undefined> {
-  const data = await fetchGraphQL(
-    `query match($name: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetIssueLabelUidByName($name: String!) {
       issueLabels(filter: {name: {eq: $name}}) {nodes{id}}
-    }`,
-    { name },
-  );
-  return data.data.issueLabels?.nodes[0]?.id;
+    }
+  `);
+  const data = await client.request(query, { name });
+  return data.issueLabels?.nodes[0]?.id;
 }
 
 async function getIssueLabelUidOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
-  const data = await fetchGraphQL(
-    `query match($name: String!) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetIssueLabelUidOptionsByName($name: String!) {
         issueLabels(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
-      }`,
-    { name },
-  );
-  const qResults: { id: string; name: string }[] =
-    data.data.issueLabels?.nodes || [];
+      }
+  `);
+  const data = await client.request(query, { name });
+  const qResults = data.issueLabels?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
@@ -574,11 +569,7 @@ async function doStartIssue(issueId: string, teamId: string) {
   }
 }
 
-export async function fetchGraphQL(
-  query: string,
-  variables: Record<string, unknown>,
-  // deno-lint-ignore no-explicit-any
-): Promise<any> {
+export function getGraphQLClient(): GraphQLClient {
   const apiKey = getOption("api_key");
   if (!apiKey) {
     throw new Error(
@@ -586,76 +577,11 @@ export async function fetchGraphQL(
     );
   }
 
-  const response = await fetch("https://api.linear.app/graphql", {
-    method: "POST",
+  return new GraphQLClient("https://api.linear.app/graphql", {
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": apiKey,
-      "Accept": "application/json",
+      Authorization: apiKey,
     },
-    body: JSON.stringify({ query, variables }),
   });
-
-  const responseBodyText = await response.text();
-
-  if (!response.ok) {
-    // HTTP error (e.g., 4xx, 5xx)
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      let errorData;
-      try {
-        errorData = JSON.parse(responseBodyText);
-      } catch {
-        // Fall back to original error if JSON parsing fails
-      }
-      if (errorData) {
-        throw new Error(
-          `GraphQL API request rejected:\n\n${
-            JSON.stringify(errorData, null, 2)
-          }`,
-        );
-      }
-    }
-
-    throw new Error(
-      `GraphQL API request failed with status ${response.status} ${response.statusText}.\nResponse body (first 500 chars): ${
-        responseBodyText.slice(0, 500)
-      }`,
-    );
-  }
-
-  // Response is OK (2xx), now check Content-Type and parse as JSON
-  const contentType = response.headers.get("content-type");
-  if (!contentType || !contentType.includes("application/json")) {
-    // This case implies an issue if the API is expected to always return JSON on success.
-    throw new Error(
-      `GraphQL API request succeeded with status ${response.status}, but response Content-Type was not 'application/json'.\nContent-Type: ${contentType}\nResponse body (first 500 chars): ${
-        responseBodyText.slice(0, 500)
-      }`,
-    );
-  }
-
-  let data;
-  try {
-    data = JSON.parse(responseBodyText);
-  } catch (jsonError) {
-    // HTTP 2xx, Content-Type was application/json, but body was not valid JSON
-    throw new Error(
-      `GraphQL API request succeeded with status ${response.status}, but failed to parse JSON response.\nContent-Type: ${contentType}\nError: ${
-        (jsonError as Error).message
-      }\nResponse body (first 500 chars): ${responseBodyText.slice(0, 500)}`,
-    );
-  }
-
-  if (data.errors) {
-    // GraphQL level errors (e.g. bad query, auth issue reported in JSON)
-    throw new Error(
-      `GraphQL API request returned errors: ${
-        JSON.stringify(data.errors, null, 2)
-      }`,
-    );
-  }
-  return data;
 }
 
 async function fetchIssuesForState(teamId: string, state: string) {
@@ -667,8 +593,8 @@ async function fetchIssuesForState(teamId: string, state: string) {
     Deno.exit(1);
   }
 
-  const query = /* GraphQL */ `
-    query issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
+  const query = gql(`
+    query GetIssuesForState($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
       issues(
         filter: {
           team: { key: { eq: $teamId } }
@@ -699,13 +625,14 @@ async function fetchIssuesForState(teamId: string, state: string) {
         }
       }
     }
-  `;
+  `);
 
   const sortPayload = sort === "manual"
-    ? [{ manual: { nulls: "last", order: "Ascending" } }]
-    : [{ priority: { nulls: "last", order: "Descending" } }];
+    ? [{ manual: { nulls: "last" as const, order: "Ascending" as const } }]
+    : [{ priority: { nulls: "last" as const, order: "Descending" as const } }];
 
-  return await fetchGraphQL(query, {
+  const client = getGraphQLClient();
+  return await client.request(query, {
     teamId,
     sort: sortPayload,
     states: [state],
@@ -729,16 +656,25 @@ async function fetchIssueDetails(
   issueId: string,
   showSpinner = false,
 ): Promise<
-  { title: string; description: string | null; url: string; branchName: string }
+  {
+    title: string;
+    description?: string | null | undefined;
+    url: string;
+    branchName: string;
+  }
 > {
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
   try {
-    const query =
-      `query($id: String!) { issue(id: $id) { title, description, url, branchName } }`;
-    const data = await fetchGraphQL(query, { id: issueId });
+    const query = gql(`
+      query GetIssueDetails($id: String!) {
+        issue(id: $id) { title, description, url, branchName }
+      }
+    `);
+    const client = getGraphQLClient();
+    const data = await client.request(query, { id: issueId });
     spinner?.stop();
-    return data.data.issue;
+    return data.issue;
   } catch (error) {
     spinner?.stop();
     console.error("✗ Failed to fetch issue details");
@@ -968,7 +904,7 @@ const issueCommand = new Command()
 
     try {
       const result = await fetchIssuesForState(teamId, state);
-      const issues = result.data.issues?.nodes || [];
+      const issues = result.issues?.nodes || [];
 
       if (issues.length === 0) {
         console.log("No unstarted issues found.");
@@ -986,7 +922,7 @@ const issueCommand = new Command()
       const updatedHeader = "UPDATED";
       const UPDATED_WIDTH = Math.max(
         unicodeWidth(updatedHeader),
-        ...issues.map((issue: Issue) =>
+        ...issues.map((issue) =>
           unicodeWidth(getTimeAgo(new Date(issue.updatedAt)))
         ),
       );
@@ -1001,12 +937,12 @@ const issueCommand = new Command()
         state: string;
         stateStyles: string[];
         timeAgo: string;
-        estimate: number | null;
+        estimate: number | null | undefined;
       };
 
-      const tableData: Array<TableRow> = issues.map((issue: Issue) => {
+      const tableData: Array<TableRow> = issues.map((issue) => {
         // First build the plain text version to measure length
-        const plainLabels = issue.labels.nodes.map((l: Label) => l.name).join(
+        const plainLabels = issue.labels.nodes.map((l) => l.name).join(
           ", ",
         );
         let labelsFormat: string;
@@ -1026,7 +962,7 @@ const issueCommand = new Command()
             .join(", ");
           labelsStyles = issue.labels.nodes
             .filter((_, i) => i < truncatedLabels.split(", ").length)
-            .flatMap((l: Label) => [`color: ${l.color}`, ""]);
+            .flatMap((l) => [`color: ${l.color}`, ""]);
         }
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
@@ -1083,7 +1019,7 @@ const issueCommand = new Command()
         padDisplay(updatedHeader, UPDATED_WIDTH),
       ];
       let headerMsg = "";
-      const headerStyles: Array<string> = [];
+      const headerStyles: string[] = [];
       headerCells.forEach((cell, index) => {
         headerMsg += `%c${cell}`;
         headerStyles.push("text-decoration: underline");
@@ -1157,7 +1093,7 @@ const issueCommand = new Command()
     if (!resolvedId) {
       try {
         const result = await fetchIssuesForState(teamId, "unstarted");
-        const issues = result.data.issues.nodes;
+        const issues = result.issues?.nodes || [];
 
         if (issues.length === 0) {
           console.error("No unstarted issues found.");
@@ -1392,7 +1328,7 @@ const issueCommand = new Command()
             Deno.exit(1);
           }
         }
-        const labelIds: string[] = [];
+        const labelIds = [];
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
@@ -1445,25 +1381,6 @@ const issueCommand = new Command()
         }
         // Date validation done at graphql level
 
-        const query = `
-          mutation createIssue($title: String!, $assigneeId: String, $dueDate: TimelessDate, $parentId: String, $priority: Int, $estimate: Int, $labelIds: [String!], $teamId: String!, $projectId: String, $useDefaultTemplate: Boolean) {
-            issueCreate(input: {
-              title: $title
-              assigneeId: $assigneeId
-              dueDate: $dueDate
-              parentId: $parentId
-              priority: $priority
-              estimate: $estimate
-              labelIds: $labelIds
-              teamId: $teamId
-              projectId: $projectId
-              useDefaultTemplate: $useDefaultTemplate
-            }) {
-              success
-              issue { id, team { key } }
-            }
-          }
-        `;
         const input = {
           title,
           assigneeId,
@@ -1481,20 +1398,27 @@ const issueCommand = new Command()
           console.log(input);
           return;
         }
-        const data = await fetchGraphQL(
-          `mutation createIssue($input: IssueCreateInput!) {
+        const createIssueMutation = gql(`
+          mutation CreateIssue($input: IssueCreateInput!) {
             issueCreate(input: $input) {
               success
               issue { id, team { key } }
-          }}`,
-          { input },
-        );
-        if (!data.data.issueCreate.success) {
+            }
+          }
+        `);
+
+        const client = getGraphQLClient();
+        const data = await client.request(createIssueMutation, { input });
+        if (!data.issueCreate.success) {
           throw "query failed";
         }
-        const issueId = data.data.issueCreate.issue.id;
+        const issue = data.issueCreate.issue;
+        if (!issue) {
+          throw "Issue creation failed - no issue returned";
+        }
+        const issueId = issue.id;
         if (start) {
-          await doStartIssue(issueId, data.data.issueCreate.issue.team.key);
+          await doStartIssue(issueId, issue.team.key);
         }
         spinner?.stop();
       } catch (error) {
@@ -1504,6 +1428,23 @@ const issueCommand = new Command()
       }
     },
   );
+
+const configQuery = gql(`
+  query Config {
+    viewer {
+      organization {
+        urlKey
+      }
+    }
+    teams {
+      nodes {
+        id
+        key
+        name
+      }
+    }
+  }
+`);
 
 await new Command()
   .name("linear")
@@ -1530,40 +1471,10 @@ await new Command()
       Deno.exit(1);
     }
 
-    const query = `
-      query {
-        viewer {
-          organization {
-            urlKey
-          }
-        }
-        teams {
-          nodes {
-            id
-            key
-            name
-          }
-        }
-      }
-    `;
-    const response = await fetch("https://api.linear.app/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": apiKey,
-      },
-      body: JSON.stringify({ query }),
-    });
-    const result = await response.json();
-    if (result.errors) {
-      console.error(
-        "Error fetching data from Linear GraphQL API:",
-        result.errors,
-      );
-      Deno.exit(1);
-    }
-    const workspace = result.data.viewer.organization.urlKey;
-    const teams = result.data.teams.nodes;
+    const client = getGraphQLClient();
+    const result = await client.request(configQuery);
+    const workspace = result.viewer.organization.urlKey;
+    const teams = result.teams.nodes;
 
     interface Team {
       id: string;
@@ -1571,8 +1482,8 @@ await new Command()
       name: string;
     }
 
-    teams.sort((a: Team, b: Team) => a.name.localeCompare(b.name));
-    const teamChoices = teams.map((team: Team) => ({
+    teams.sort((a, b) => a.name.localeCompare(b.name));
+    const teamChoices = teams.map((team) => ({
       name: `${team.name} (${team.key})`,
       value: team.key,
     }));

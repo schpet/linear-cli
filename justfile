@@ -1,5 +1,5 @@
 dev *args:
-    deno run main.ts {{ args }}
+    deno run -A main.ts {{ args }}
 
 # tags the newest release in the changelog
 tag:

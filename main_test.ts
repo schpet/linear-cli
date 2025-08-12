@@ -1,5 +1,5 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
-import { fetchGraphQL } from "./main.ts";
+import { assertStringIncludes } from "@std/assert";
+import { getGraphQLClient } from "./main.ts";
 
 // Mock fetch function for testing
 const originalFetch = globalThis.fetch;
@@ -26,11 +26,14 @@ function restoreEnv() {
   Deno.env.get = originalEnv;
 }
 
-Deno.test("fetchGraphQL formats JSON error responses", async () => {
+Deno.test("getGraphQLClient handles authentication errors", async () => {
   const jsonErrorResponse = {
-    error: "Authentication failed",
-    message: "Invalid API key provided",
-    code: "INVALID_API_KEY",
+    errors: [{
+      message: "Authentication failed",
+      extensions: {
+        code: "INVALID_API_KEY",
+      },
+    }],
   };
 
   const mockResponse = new Response(
@@ -48,26 +51,21 @@ Deno.test("fetchGraphQL formats JSON error responses", async () => {
   mockEnv();
 
   try {
-    await fetchGraphQL("query { viewer { id } }", {});
-    throw new Error("Expected fetchGraphQL to throw an error");
+    const client = getGraphQLClient();
+    await client.request("query { viewer { id } }", {});
+    throw new Error("Expected GraphQL client to throw an error");
   } catch (error) {
     const errorMessage = (error as Error).message;
 
-    // Verify the error message contains formatted JSON
-    assertStringIncludes(errorMessage, "GraphQL API request rejected:");
-    assertStringIncludes(errorMessage, '"error": "Authentication failed"');
-    assertStringIncludes(errorMessage, '"message": "Invalid API key provided"');
-    assertStringIncludes(errorMessage, '"code": "INVALID_API_KEY"');
-
-    // Verify JSON is properly formatted (indented)
-    assertStringIncludes(errorMessage, "{\n  ");
+    // graphql-request formats errors as "GraphQL Error (Code: status)"
+    assertStringIncludes(errorMessage, "GraphQL Error (Code: 401)");
   } finally {
     restoreFetch();
     restoreEnv();
   }
 });
 
-Deno.test("fetchGraphQL formats HTML error responses", async () => {
+Deno.test("getGraphQLClient handles HTTP errors", async () => {
   const htmlErrorResponse = `
     <!DOCTYPE html>
     <html>
@@ -97,45 +95,22 @@ Deno.test("fetchGraphQL formats HTML error responses", async () => {
   mockEnv();
 
   try {
-    await fetchGraphQL("query { viewer { id } }", {});
-    throw new Error("Expected fetchGraphQL to throw an error");
+    const client = getGraphQLClient();
+    await client.request("query { viewer { id } }", {});
+    throw new Error("Expected GraphQL client to throw an error");
   } catch (error) {
     const errorMessage = (error as Error).message;
 
-    // Verify the error message contains status information
-    assertStringIncludes(
-      errorMessage,
-      "GraphQL API request failed with status 500 Internal Server Error",
-    );
-    assertStringIncludes(errorMessage, "Response body (first 500 chars):");
-
-    // Verify HTML content is included in the error message
-    assertStringIncludes(errorMessage, "<!DOCTYPE html>");
-    assertStringIncludes(
-      errorMessage,
-      "<title>500 Internal Server Error</title>",
-    );
-    assertStringIncludes(errorMessage, "Internal Server Error");
-
-    // Verify it's truncated to 500 chars if longer
-    const bodyStart = errorMessage.indexOf("Response body (first 500 chars): ");
-    if (bodyStart !== -1) {
-      const bodyContent = errorMessage.substring(
-        bodyStart + "Response body (first 500 chars): ".length,
-      );
-      assertEquals(
-        bodyContent.length <= 500,
-        true,
-        "Response body should be truncated to 500 chars",
-      );
-    }
+    // graphql-request will throw a ClientError for HTTP errors
+    // The exact format may differ, but it should contain error information
+    assertStringIncludes(errorMessage.toLowerCase(), "500");
   } finally {
     restoreFetch();
     restoreEnv();
   }
 });
 
-Deno.test("fetchGraphQL handles malformed JSON error responses", async () => {
+Deno.test("getGraphQLClient handles malformed JSON responses", async () => {
   const malformedJsonResponse = '{"error": "Invalid JSON", "incomplete": ';
 
   const mockResponse = new Response(
@@ -153,18 +128,15 @@ Deno.test("fetchGraphQL handles malformed JSON error responses", async () => {
   mockEnv();
 
   try {
-    await fetchGraphQL("query { viewer { id } }", {});
-    throw new Error("Expected fetchGraphQL to throw an error");
+    const client = getGraphQLClient();
+    await client.request("query { viewer { id } }", {});
+    throw new Error("Expected GraphQL client to throw an error");
   } catch (error) {
     const errorMessage = (error as Error).message;
 
-    // When JSON parsing fails, it should fall back to the generic error format
-    assertStringIncludes(
-      errorMessage,
-      "GraphQL API request failed with status 400 Bad Request",
-    );
-    assertStringIncludes(errorMessage, "Response body (first 500 chars):");
-    assertStringIncludes(errorMessage, malformedJsonResponse);
+    // graphql-request will handle JSON parsing errors
+    // The exact error message may vary, but should indicate an error code
+    assertStringIncludes(errorMessage.toLowerCase(), "400");
   } finally {
     restoreFetch();
     restoreEnv();

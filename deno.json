@@ -5,15 +5,19 @@
   "exports": "./main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --quiet main.ts ",
-    "install": "deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --quiet -g -f -n linear ./main.ts",
+    "dev": "deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --unstable-sloppy-imports --quiet main.ts ",
+    "install": "deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --unstable-sloppy-imports --quiet -g -f -n linear ./main.ts",
     "uninstall": "deno uninstall -g linear",
     "sync-schema": "deno run -A npm:get-graphql-schema https://api.linear.app/graphql > graphql/schema.graphql",
-    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --quiet"
+    "codegen": "deno run --allow-all npm:@graphql-codegen/cli/graphql-codegen-esm",
+    "check": "deno check --unstable-sloppy-imports main.ts",
+    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --allow-run=git,gh,open,cmd,xdg-open,wslview --allow-net=api.linear.app --unstable-sloppy-imports --quiet"
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.7",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.7",
+    "@graphql-codegen/cli": "npm:@graphql-codegen/cli@^5.0.7",
+    "@graphql-typed-document-node/core": "npm:@graphql-typed-document-node/core@^3.2.0",
     "@littletof/charmd": "jsr:@littletof/charmd@^0.1.2",
     "@opensrc/deno-open": "jsr:@opensrc/deno-open@^1.0.0",
     "@std/assert": "jsr:@std/assert@1",
@@ -21,7 +25,10 @@
     "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
     "@std/encoding": "jsr:@std/encoding@^1.0.5",
     "@std/path": "jsr:@std/path@^1.0.8",
-    "@std/toml": "jsr:@std/toml@^1.0.2"
+    "@std/toml": "jsr:@std/toml@^1.0.2",
+    "graphql": "npm:graphql@^16.8.1",
+    "./__generated__/graphql": "./__generated__/graphql.ts",
+    "graphql-request": "npm:graphql-request@^7.2.0"
   },
   "publish": {
     "include": [
@@ -34,7 +41,13 @@
   "fmt": {
     "exclude": [
       ".github/workflows/release.yml",
-      ".github/workflows/build-setup.yml"
+      ".github/workflows/build-setup.yml",
+      "__generated__/"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "__generated__/"
     ]
   }
 }

@@ -19,7 +19,7 @@ jobs:
         run: deno lint
 
       - name: Type check
-        run: deno check main.ts
+        run: deno check --unstable-sloppy-imports main.ts
 
       - name: Run tests
-        run: deno test
+        run: deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --unstable-sloppy-imports
