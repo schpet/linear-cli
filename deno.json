@@ -35,7 +35,8 @@
       "main.ts",
       "main_test.ts",
       "config.ts",
-      "README.md"
+      "README.md",
+      "__generated__/"
     ]
   },
   "fmt": {
