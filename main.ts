@@ -224,8 +224,7 @@ async function getProjectUidOptionsByName(
       }
   `);
   const data = await client.request(query, { name });
-  const qResults: { id: string; name: string }[] = data.projects?.nodes ||
-    [];
+  const qResults = data.projects?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
@@ -265,8 +264,7 @@ async function getIssueUidOptionsByTitle(
       }
   `);
   const data = await client.request(query, { title });
-  const qResults: { id: string; identifier: string; title: string }[] =
-    data.issues?.nodes || [];
+  const qResults = data.issues?.nodes || [];
   return Object.fromEntries(
     qResults.map((t) => [t.id, `${t.identifier}: ${t.title}`]),
   );
@@ -359,7 +357,7 @@ async function getTeamUidOptionsByKey(
       }
   `);
   const data = await client.request(query, { team });
-  const qResults: { id: string; key: string }[] = data.teams?.nodes || [];
+  const qResults = data.teams?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.key]));
 }
 
@@ -373,8 +371,7 @@ async function getTeamUidOptionsByName(
       }
   `);
   const data = await client.request(query, { team });
-  const qResults: { id: string; name: string; key: string }[] =
-    data.teams?.nodes || [];
+  const qResults = data.teams?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, `${t.key}: ${t.name}`]));
 }
 
@@ -419,8 +416,7 @@ async function getUserUidOptionsByDisplayName(
       }
   `);
   const data = await client.request(query, { name });
-  const qResults: { id: string; displayName: string }[] = data.users?.nodes ||
-    [];
+  const qResults = data.users?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.displayName]));
 }
 
@@ -434,8 +430,7 @@ async function getUserUidOptionsByName(
       }
   `);
   const data = await client.request(query, { name });
-  const qResults: { id: string; name: string }[] = data.users?.nodes || [];
-  [];
+  const qResults = data.users?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
@@ -497,8 +492,7 @@ async function getIssueLabelUidOptionsByName(
       }
   `);
   const data = await client.request(query, { name });
-  const qResults: { id: string; name: string }[] = data.issueLabels?.nodes ||
-    [];
+  const qResults = data.issueLabels?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
@@ -945,7 +939,7 @@ const issueCommand = new Command()
       const updatedHeader = "UPDATED";
       const UPDATED_WIDTH = Math.max(
         unicodeWidth(updatedHeader),
-        ...issues.map((issue: Issue) =>
+        ...issues.map((issue) =>
           unicodeWidth(getTimeAgo(new Date(issue.updatedAt)))
         ),
       );
@@ -963,9 +957,9 @@ const issueCommand = new Command()
         estimate: number | null | undefined;
       };
 
-      const tableData: Array<TableRow> = issues.map((issue: Issue) => {
+      const tableData: Array<TableRow> = issues.map((issue) => {
         // First build the plain text version to measure length
-        const plainLabels = issue.labels.nodes.map((l: Label) => l.name).join(
+        const plainLabels = issue.labels.nodes.map((l) => l.name).join(
           ", ",
         );
         let labelsFormat: string;
@@ -985,7 +979,7 @@ const issueCommand = new Command()
             .join(", ");
           labelsStyles = issue.labels.nodes
             .filter((_, i) => i < truncatedLabels.split(", ").length)
-            .flatMap((l: Label) => [`color: ${l.color}`, ""]);
+            .flatMap((l) => [`color: ${l.color}`, ""]);
         }
         const updatedAt = new Date(issue.updatedAt);
         const timeAgo = getTimeAgo(updatedAt);
@@ -1042,7 +1036,7 @@ const issueCommand = new Command()
         padDisplay(updatedHeader, UPDATED_WIDTH),
       ];
       let headerMsg = "";
-      const headerStyles: Array<string> = [];
+      const headerStyles: string[] = [];
       headerCells.forEach((cell, index) => {
         headerMsg += `%c${cell}`;
         headerStyles.push("text-decoration: underline");
@@ -1351,7 +1345,7 @@ const issueCommand = new Command()
             Deno.exit(1);
           }
         }
-        const labelIds: string[] = [];
+        const labelIds = [];
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
@@ -1505,8 +1499,8 @@ await new Command()
       name: string;
     }
 
-    teams.sort((a: Team, b: Team) => a.name.localeCompare(b.name));
-    const teamChoices = teams.map((team: Team) => ({
+    teams.sort((a, b) => a.name.localeCompare(b.name));
+    const teamChoices = teams.map((team) => ({
       name: `${team.name} (${team.key})`,
       value: team.key,
     }));
