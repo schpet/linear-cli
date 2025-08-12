@@ -14,9 +14,19 @@ export type Scalars = {
   Boolean: { input: boolean; output: boolean; }
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
-  /** Represents a date and time in ISO 8601 format. Accepts shortcuts like `2021` to represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings which are added to the current date to create the represented date (e.g '-P2W1D' represents the date that was two weeks and 1 day ago)  */
+  /**
+   * Represents a date and time in ISO 8601 format. Accepts shortcuts like `2021` to
+   * represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings
+   * which are added to the current date to create the represented date (e.g '-P2W1D'
+   * represents the date that was two weeks and 1 day ago)
+   */
   DateTime: { input: any; output: any; }
-  /** Represents a date and time in ISO 8601 format. Accepts shortcuts like `2021` to represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings which are added to the current date to create the represented date (e.g '-P2W1D' represents the date that was two weeks and 1 day ago)  */
+  /**
+   * Represents a date and time in ISO 8601 format. Accepts shortcuts like `2021` to
+   * represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings
+   * which are added to the current date to create the represented date (e.g '-P2W1D'
+   * represents the date that was two weeks and 1 day ago)
+   */
   DateTimeOrDuration: { input: any; output: any; }
   /** Represents a duration in ISO 8601 format. Accepts ISO 8601 duration strings or integers in milliseconds. */
   Duration: { input: any; output: any; }
@@ -24,9 +34,18 @@ export type Scalars = {
   JSON: { input: any; output: any; }
   /** The `JSONObject` scalar type represents arbitrary values as *embedded* JSON */
   JSONObject: { input: any; output: any; }
-  /** Represents a date in ISO 8601 format. Accepts shortcuts like `2021` to represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings which are added to the current date to create the represented date (e.g '-P2W1D' represents the date that was two weeks and 1 day ago)  */
+  /**
+   * Represents a date in ISO 8601 format. Accepts shortcuts like `2021` to represent
+   * midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings which are
+   * added to the current date to create the represented date (e.g '-P2W1D'
+   * represents the date that was two weeks and 1 day ago)
+   */
   TimelessDate: { input: any; output: any; }
-  /** Represents a date in ISO 8601 format or a duration. Accepts shortcuts like `2021` to represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations strings (e.g '-P2W1D'), which are not converted to dates. */
+  /**
+   * Represents a date in ISO 8601 format or a duration. Accepts shortcuts like
+   * `2021` to represent midnight Fri Jan 01 2021. Also accepts ISO 8601 durations
+   * strings (e.g '-P2W1D'), which are not converted to dates.
+   */
   TimelessDateOrDuration: { input: any; output: any; }
   /** A universally unique identifier as specified by RFC 4122. */
   UUID: { input: any; output: any; }
@@ -336,7 +355,11 @@ export type ApiKey = Node & {
   lastActiveAt?: Maybe<Scalars['DateTime']['output']>;
   /** Organization the API key belongs to. */
   organization: Organization;
-  /** The sync groups that this API key requests access to. If null, the API key has access to all sync groups the user has access to. The final set of sync groups is computed as the intersection of these requested groups with the user's base sync groups. */
+  /**
+   * The sync groups that this API key requests access to. If null, the API key has
+   * access to all sync groups the user has access to. The final set of sync groups
+   * is computed as the intersection of these requested groups with the user's base sync groups.
+   */
   requestedSyncGroups?: Maybe<Array<Scalars['String']['output']>>;
   /** Scopes associated with the API key. */
   scope?: Maybe<Array<Scalars['String']['output']>>;
@@ -558,11 +581,17 @@ export type AttachmentCreateInput = {
   commentBody?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] Create a linked comment with Prosemirror body. Please use `commentBody` instead. */
   commentBodyData?: InputMaybe<Scalars['JSONObject']['input']>;
-  /** Create attachment as a user with the provided name. This option is only available to OAuth applications creating attachments in `actor=application` mode. */
+  /**
+   * Create attachment as a user with the provided name. This option is only
+   * available to OAuth applications creating attachments in `actor=application` mode.
+   */
   createAsUser?: InputMaybe<Scalars['String']['input']>;
   /** Indicates if attachments for the same source application should be grouped in the Linear UI. */
   groupBySource?: InputMaybe<Scalars['Boolean']['input']>;
-  /** An icon url to display with the attachment. Should be of jpg or png format. Maximum of 1MB in size. Dimensions should be 20x20px for optimal display quality. */
+  /**
+   * An icon url to display with the attachment. Should be of jpg or png format.
+   * Maximum of 1MB in size. Dimensions should be 20x20px for optimal display quality.
+   */
   iconUrl?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
   id?: InputMaybe<Scalars['String']['input']>;
@@ -574,7 +603,11 @@ export type AttachmentCreateInput = {
   subtitle?: InputMaybe<Scalars['String']['input']>;
   /** The attachment title. */
   title: Scalars['String']['input'];
-  /** Attachment location which is also used as an unique identifier for the attachment. If another attachment is created with the same `url` value, existing record is updated instead. */
+  /**
+   * Attachment location which is also used as an unique identifier for the
+   * attachment. If another attachment is created with the same `url` value,
+   * existing record is updated instead.
+   */
   url: Scalars['String']['input'];
 };
 
@@ -626,7 +659,10 @@ export type AttachmentSourcesPayload = {
 };
 
 export type AttachmentUpdateInput = {
-  /** An icon url to display with the attachment. Should be of jpg or png format. Maximum of 1MB in size. Dimensions should be 20x20px for optimal display quality. */
+  /**
+   * An icon url to display with the attachment. Should be of jpg or png format.
+   * Maximum of 1MB in size. Dimensions should be 20x20px for optimal display quality.
+   */
   iconUrl?: InputMaybe<Scalars['String']['input']>;
   /** Attachment metadata object with string and number values. */
   metadata?: InputMaybe<Scalars['JSONObject']['input']>;
@@ -1013,13 +1049,26 @@ export type CommentCreateInput = {
   body?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The comment content as a Prosemirror document. */
   bodyData?: InputMaybe<Scalars['JSON']['input']>;
-  /** Create comment as a user with the provided name. This option is only available to OAuth applications creating comments in `actor=app` mode. */
+  /**
+   * Create comment as a user with the provided name. This option is only available
+   * to OAuth applications creating comments in `actor=app` mode.
+   */
   createAsUser?: InputMaybe<Scalars['String']['input']>;
-  /** Flag to indicate this comment should be created on the issue's synced Slack comment thread. If no synced Slack comment thread exists, the mutation will fail. */
+  /**
+   * Flag to indicate this comment should be created on the issue's synced Slack
+   * comment thread. If no synced Slack comment thread exists, the mutation will fail.
+   */
   createOnSyncedSlackThread?: InputMaybe<Scalars['Boolean']['input']>;
-  /** The date when the comment was created (e.g. if importing from another system). Must be a date in the past. If none is provided, the backend will generate the time as now. */
+  /**
+   * The date when the comment was created (e.g. if importing from another system).
+   * Must be a date in the past. If none is provided, the backend will generate the time as now.
+   */
   createdAt?: InputMaybe<Scalars['DateTime']['input']>;
-  /** Provide an external user avatar URL. Can only be used in conjunction with the `createAsUser` options. This option is only available to OAuth applications creating comments in `actor=app` mode. */
+  /**
+   * Provide an external user avatar URL. Can only be used in conjunction with the
+   * `createAsUser` options. This option is only available to OAuth applications
+   * creating comments in `actor=app` mode.
+   */
   displayIconUrl?: InputMaybe<Scalars['String']['input']>;
   /** Flag to prevent auto subscription to the issue the comment is created on. */
   doNotSubscribeToIssue?: InputMaybe<Scalars['Boolean']['input']>;
@@ -1778,13 +1827,20 @@ export type CustomerNeedCreateInput = {
   bodyData?: InputMaybe<Scalars['JSON']['input']>;
   /** The comment this need is referencing. */
   commentId?: InputMaybe<Scalars['String']['input']>;
-  /** Create need as a user with the provided name. This option is only available to OAuth applications creating needs in `actor=app` mode. */
+  /**
+   * Create need as a user with the provided name. This option is only available to
+   * OAuth applications creating needs in `actor=app` mode.
+   */
   createAsUser?: InputMaybe<Scalars['String']['input']>;
   /** The external ID of the customer the need belongs to. */
   customerExternalId?: InputMaybe<Scalars['String']['input']>;
   /** The uuid of the customer the need belongs to. */
   customerId?: InputMaybe<Scalars['String']['input']>;
-  /** Provide an external user avatar URL. Can only be used in conjunction with the `createAsUser` options. This option is only available to OAuth applications creating needs in `actor=app` mode. */
+  /**
+   * Provide an external user avatar URL. Can only be used in conjunction with the
+   * `createAsUser` options. This option is only available to OAuth applications
+   * creating needs in `actor=app` mode.
+   */
   displayIconUrl?: InputMaybe<Scalars['String']['input']>;
   /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
   id?: InputMaybe<Scalars['String']['input']>;
@@ -1859,7 +1915,11 @@ export type CustomerNeedNotification = Entity & Node & Notification & {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -1975,7 +2035,11 @@ export type CustomerNotification = Entity & Node & Notification & {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -2415,7 +2479,10 @@ export type Cycle = Node & {
   name?: Maybe<Scalars['String']['output']>;
   /** The number of the cycle. */
   number: Scalars['Float']['output'];
-  /** The overall progress of the cycle. This is the (completed estimate points + 0.25 * in progress estimate points) / total estimate points. */
+  /**
+   * The overall progress of the cycle. This is the (completed estimate points +
+   * 0.25 * in progress estimate points) / total estimate points.
+   */
   progress: Scalars['Float']['output'];
   /** [Internal] The progress history of the cycle. */
   progressHistory: Scalars['JSONObject']['output'];
@@ -2621,7 +2688,11 @@ export type CycleShiftAllInput = {
 
 /** Issue cycle sorting options. */
 export type CycleSort = {
-  /** When set to true, cycles will be ordered with a custom order. Current cycle comes first, followed by upcoming cycles in ASC order, followed by previous cycles in DESC order. */
+  /**
+   * When set to true, cycles will be ordered with a custom order. Current cycle
+   * comes first, followed by upcoming cycles in ASC order, followed by previous
+   * cycles in DESC order.
+   */
   currentCycleFirst?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether nulls should be sorted first or last */
   nulls?: InputMaybe<PaginationNulls>;
@@ -2875,7 +2946,12 @@ export type DocumentContentHistoryType = {
   actorIds?: Maybe<Array<Scalars['String']['output']>>;
   /** [Internal] The document content as Prosemirror document. */
   contentData?: Maybe<Scalars['JSON']['output']>;
-  /** The date when the document content history snapshot was taken. This can be different than createdAt since the content is captured from its state at the previously known updatedAt timestamp in the case of an update. On document create, these timestamps can be the same. */
+  /**
+   * The date when the document content history snapshot was taken. This can be
+   * different than createdAt since the content is captured from its state at the
+   * previously known updatedAt timestamp in the case of an update. On document
+   * create, these timestamps can be the same.
+   */
   contentDataSnapshotAt: Scalars['DateTime']['output'];
   /** The date when the document content history entry was created. */
   createdAt: Scalars['DateTime']['output'];
@@ -2973,7 +3049,11 @@ export type DocumentNotification = Entity & Node & Notification & {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -3301,7 +3381,10 @@ export type EmailIntakeAddressType =
 export type EmailIntakeAddressUpdateInput = {
   /** Whether customer requests are enabled. */
   customerRequestsEnabled?: InputMaybe<Scalars['Boolean']['input']>;
-  /** Whether the email address is currently enabled. If set to false, the email address will be disabled and no longer accept incoming emails. */
+  /**
+   * Whether the email address is currently enabled. If set to false, the email
+   * address will be disabled and no longer accept incoming emails.
+   */
   enabled?: InputMaybe<Scalars['Boolean']['input']>;
   /** The email address used to forward emails to the intake address. */
   forwardingEmailAddress?: InputMaybe<Scalars['String']['input']>;
@@ -3605,7 +3688,11 @@ export type ExternalSyncService =
   | 'jira'
   | 'slack';
 
-/** An external authenticated (e.g., through Slack) user which doesn't have a Linear account, but can create and update entities in Linear from the external system that authenticated them. */
+/**
+ * An external authenticated (e.g., through Slack) user which doesn't have a Linear
+ * account, but can create and update entities in Linear from the external system
+ * that authenticated them.
+ */
 export type ExternalUser = Node & {
   __typename?: 'ExternalUser';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
@@ -3647,7 +3734,10 @@ export type ExternalUserEdge = {
   node: ExternalUser;
 };
 
-/** A facet. Facets are joins between entities. A facet can tie a custom view to a project, or a a project to a roadmap for example. */
+/**
+ * A facet. Facets are joins between entities. A facet can tie a custom view to a
+ * project, or a a project to a roadmap for example.
+ */
 export type Facet = Node & {
   __typename?: 'Facet';
   /** The time at which the entity was archived. Null if the entity has not been archived. */
@@ -3955,11 +4045,17 @@ export type FrontSettingsInput = {
   automateTicketReopeningOnProjectCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is completed. */
   automateTicketReopeningOnProjectCompletion?: InputMaybe<Scalars['Boolean']['input']>;
-  /** [ALPHA] Whether customer and customer requests should not be automatically created when conversations are linked to a Linear issue. */
+  /**
+   * [ALPHA] Whether customer and customer requests should not be automatically
+   * created when conversations are linked to a Linear issue.
+   */
   disableCustomerRequestsAutoCreation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when someone comments on an issue. */
   sendNoteOnComment?: InputMaybe<Scalars['Boolean']['input']>;
-  /** Whether an internal message should be added when a Linear issue changes status (for status types except completed or canceled). */
+  /**
+   * Whether an internal message should be added when a Linear issue changes status
+   * (for status types except completed or canceled).
+   */
   sendNoteOnStatusChange?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
@@ -4304,7 +4400,11 @@ export type IdentityProvider = Node & {
   id: Scalars['ID']['output'];
   /** The issuer's custom entity ID. */
   issuerEntityId?: Maybe<Scalars['String']['output']>;
-  /** The SAML priority used to pick default workspace in SAML SP initiated flow, when same domain is claimed for SAML by multiple workspaces. Lower priority value means higher preference. */
+  /**
+   * The SAML priority used to pick default workspace in SAML SP initiated flow,
+   * when same domain is claimed for SAML by multiple workspaces. Lower priority
+   * value means higher preference.
+   */
   priority?: Maybe<Scalars['Float']['output']>;
   /** Whether SAML authentication is enabled for organization. */
   samlEnabled: Scalars['Boolean']['output'];
@@ -4724,7 +4824,11 @@ export type InitiativeNotification = Entity & Node & Notification & {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -5551,11 +5655,17 @@ export type IntercomSettingsInput = {
   automateTicketReopeningOnProjectCancellation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether a ticket should be automatically reopened when its linked Linear project is completed. */
   automateTicketReopeningOnProjectCompletion?: InputMaybe<Scalars['Boolean']['input']>;
-  /** [ALPHA] Whether customer and customer requests should not be automatically created when conversations are linked to a Linear issue. */
+  /**
+   * [ALPHA] Whether customer and customer requests should not be automatically
+   * created when conversations are linked to a Linear issue.
+   */
   disableCustomerRequestsAutoCreation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when someone comments on an issue. */
   sendNoteOnComment?: InputMaybe<Scalars['Boolean']['input']>;
-  /** Whether an internal message should be added when a Linear issue changes status (for status types except completed or canceled). */
+  /**
+   * Whether an internal message should be added when a Linear issue changes status
+   * (for status types except completed or canceled).
+   */
   sendNoteOnStatusChange?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
@@ -6036,11 +6146,21 @@ export type IssueConnection = {
 export type IssueCreateInput = {
   /** The identifier of the user to assign the issue to. */
   assigneeId?: InputMaybe<Scalars['String']['input']>;
-  /** The date when the issue was completed (e.g. if importing from another system). Must be a date in the past and after createdAt date. Cannot be provided with an incompatible workflow state. */
+  /**
+   * The date when the issue was completed (e.g. if importing from another system).
+   * Must be a date in the past and after createdAt date. Cannot be provided with
+   * an incompatible workflow state.
+   */
   completedAt?: InputMaybe<Scalars['DateTime']['input']>;
-  /** Create issue as a user with the provided name. This option is only available to OAuth applications creating issues in `actor=app` mode. */
+  /**
+   * Create issue as a user with the provided name. This option is only available
+   * to OAuth applications creating issues in `actor=app` mode.
+   */
   createAsUser?: InputMaybe<Scalars['String']['input']>;
-  /** The date when the issue was created (e.g. if importing from another system). Must be a date in the past. If none is provided, the backend will generate the time as now. */
+  /**
+   * The date when the issue was created (e.g. if importing from another system).
+   * Must be a date in the past. If none is provided, the backend will generate the time as now.
+   */
   createdAt?: InputMaybe<Scalars['DateTime']['input']>;
   /** The cycle associated with the issue. */
   cycleId?: InputMaybe<Scalars['String']['input']>;
@@ -6050,7 +6170,11 @@ export type IssueCreateInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   /** [Internal] The issue description as a Prosemirror document. */
   descriptionData?: InputMaybe<Scalars['JSON']['input']>;
-  /** Provide an external user avatar URL. Can only be used in conjunction with the `createAsUser` options. This option is only available to OAuth applications creating comments in `actor=app` mode. */
+  /**
+   * Provide an external user avatar URL. Can only be used in conjunction with the
+   * `createAsUser` options. This option is only available to OAuth applications
+   * creating comments in `actor=app` mode.
+   */
   displayIconUrl?: InputMaybe<Scalars['String']['input']>;
   /** The date at which the issue is due. */
   dueDate?: InputMaybe<Scalars['TimelessDate']['input']>;
@@ -6096,11 +6220,17 @@ export type IssueCreateInput = {
   subscriberIds?: InputMaybe<Array<Scalars['String']['input']>>;
   /** The identifier of the team associated with the issue. */
   teamId: Scalars['String']['input'];
-  /** The identifier of a template the issue should be created from. If other values are provided in the input, they will override template values. */
+  /**
+   * The identifier of a template the issue should be created from. If other values
+   * are provided in the input, they will override template values.
+   */
   templateId?: InputMaybe<Scalars['String']['input']>;
   /** The title of the issue. */
   title?: InputMaybe<Scalars['String']['input']>;
-  /** Whether to use the default template for the team. When set to true, the default template of this team based on user's membership will be applied. */
+  /**
+   * Whether to use the default template for the team. When set to true, the
+   * default template of this team based on user's membership will be applied.
+   */
   useDefaultTemplate?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
@@ -6776,7 +6906,11 @@ export type IssueNotification = Entity & Node & Notification & {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -7482,7 +7616,11 @@ export type JiraSettingsInput = {
   projectMapping?: InputMaybe<Array<JiraLinearMappingInput>>;
   /** The Jira projects for the organization. */
   projects: Array<JiraProjectDataInput>;
-  /** Whether the user needs to provide setup information about the webhook to complete the integration setup. Only relevant for integrations that use a manual setup flow */
+  /**
+   * Whether the user needs to provide setup information about the webhook to
+   * complete the integration setup. Only relevant for integrations that use a
+   * manual setup flow
+   */
   setupPending?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
@@ -7720,7 +7858,10 @@ export type Mutation = {
   customerTierUpdate: CustomerTierPayload;
   /** Updates a customer */
   customerUpdate: CustomerPayload;
-  /** Upserts a customer, creating it if it doesn't exists, updating it otherwise. Matches against an existing customer with `id` or `externalId` */
+  /**
+   * Upserts a customer, creating it if it doesn't exists, updating it otherwise.
+   * Matches against an existing customer with `id` or `externalId`
+   */
   customerUpsert: CustomerPayload;
   /** Archives a cycle. */
   cycleArchive: CycleArchivePayload;
@@ -10025,7 +10166,11 @@ export type Notification = {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -10899,7 +11044,10 @@ export type NullableStringComparator = {
   contains?: InputMaybe<Scalars['String']['input']>;
   /** Contains case insensitive constraint. Matches any values that contain the given string case insensitive. */
   containsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
-  /** Contains case and accent insensitive constraint. Matches any values that contain the given string case and accent insensitive. */
+  /**
+   * Contains case and accent insensitive constraint. Matches any values that
+   * contain the given string case and accent insensitive.
+   */
   containsIgnoreCaseAndAccent?: InputMaybe<Scalars['String']['input']>;
   /** Ends with constraint. Matches any values that end with the given string. */
   endsWith?: InputMaybe<Scalars['String']['input']>;
@@ -11021,7 +11169,10 @@ export type NullableUserFilter = {
   id?: InputMaybe<IdComparator>;
   /** Comparator for the user's invited status. */
   invited?: InputMaybe<BooleanComparator>;
-  /** Filter based on the currently authenticated user. Set to true to filter for the authenticated user, false for any other user. */
+  /**
+   * Filter based on the currently authenticated user. Set to true to filter for
+   * the authenticated user, false for any other user.
+   */
   isMe?: InputMaybe<BooleanComparator>;
   /** Comparator for the user's name. */
   name?: InputMaybe<StringComparator>;
@@ -11117,7 +11268,11 @@ export type OauthClientApprovalNotification = Entity & Node & Notification & {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -11871,7 +12026,11 @@ export type PostNotification = Entity & Node & Notification & {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -12023,7 +12182,10 @@ export type Project = Node & {
   priorityLabel: Scalars['String']['output'];
   /** The sort order for the project within the organization, when ordered by priority. */
   prioritySortOrder: Scalars['Float']['output'];
-  /** The overall progress of the project. This is the (completed estimate points + 0.25 * in progress estimate points) / total estimate points. */
+  /**
+   * The overall progress of the project. This is the (completed estimate points +
+   * 0.25 * in progress estimate points) / total estimate points.
+   */
   progress: Scalars['Float']['output'];
   /** [INTERNAL] The progress history of the project. */
   progressHistory: Scalars['JSONObject']['output'];
@@ -12895,15 +13057,29 @@ export type ProjectMilestoneFilter = {
 };
 
 export type ProjectMilestoneMoveInput = {
-  /** Whether to add each milestone issue's team to the project. This is needed when there is a mismatch between a project's teams and the milestone's issues' teams. Either this or newIssueTeamId is required in that situation to resolve constraints. */
+  /**
+   * Whether to add each milestone issue's team to the project. This is needed when
+   * there is a mismatch between a project's teams and the milestone's issues'
+   * teams. Either this or newIssueTeamId is required in that situation to resolve constraints.
+   */
   addIssueTeamToProject?: InputMaybe<Scalars['Boolean']['input']>;
-  /** The team id to move the attached issues to. This is needed when there is a mismatch between a project's teams and the milestone's issues' teams. Either this or addIssueTeamToProject is required in that situation to resolve constraints. */
+  /**
+   * The team id to move the attached issues to. This is needed when there is a
+   * mismatch between a project's teams and the milestone's issues' teams. Either
+   * this or addIssueTeamToProject is required in that situation to resolve constraints.
+   */
   newIssueTeamId?: InputMaybe<Scalars['String']['input']>;
   /** The identifier of the project to move the milestone to. */
   projectId: Scalars['String']['input'];
-  /** A list of issue id to team ids, used for undoing a previous milestone move where the specified issues were moved from the specified teams. */
+  /**
+   * A list of issue id to team ids, used for undoing a previous milestone move
+   * where the specified issues were moved from the specified teams.
+   */
   undoIssueTeamIds?: InputMaybe<Array<ProjectMilestoneMoveIssueToTeamInput>>;
-  /** A mapping of project id to a previous set of team ids, used for undoing a previous milestone move where the specified teams were added to the project. */
+  /**
+   * A mapping of project id to a previous set of team ids, used for undoing a
+   * previous milestone move where the specified teams were added to the project.
+   */
   undoProjectTeamIds?: InputMaybe<ProjectMilestoneMoveProjectTeamsInput>;
 };
 
@@ -12927,9 +13103,17 @@ export type ProjectMilestoneMovePayload = {
   __typename?: 'ProjectMilestoneMovePayload';
   /** The identifier of the last sync operation. */
   lastSyncId: Scalars['Float']['output'];
-  /** A snapshot of the issues that were moved to new teams, if the user selected to do it, containing an array of mappings between an issue and its previous team. Store on the client to use for undoing a previous milestone move. */
+  /**
+   * A snapshot of the issues that were moved to new teams, if the user selected to
+   * do it, containing an array of mappings between an issue and its previous team.
+   * Store on the client to use for undoing a previous milestone move.
+   */
   previousIssueTeamIds?: Maybe<Array<ProjectMilestoneMoveIssueToTeam>>;
-  /** A snapshot of the project that had new teams added to it, if the user selected to do it, containing an array of mappings between a project and its previous teams. Store on the client to use for undoing a previous milestone move. */
+  /**
+   * A snapshot of the project that had new teams added to it, if the user selected
+   * to do it, containing an array of mappings between a project and its previous
+   * teams. Store on the client to use for undoing a previous milestone move.
+   */
   previousProjectTeamIds?: Maybe<ProjectMilestoneMoveProjectTeams>;
   /** The project milestone that was created or updated. */
   projectMilestone: ProjectMilestone;
@@ -13027,7 +13211,11 @@ export type ProjectNotification = Entity & Node & Notification & {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -13333,7 +13521,10 @@ export type ProjectSearchResult = Node & {
   priorityLabel: Scalars['String']['output'];
   /** The sort order for the project within the organization, when ordered by priority. */
   prioritySortOrder: Scalars['Float']['output'];
-  /** The overall progress of the project. This is the (completed estimate points + 0.25 * in progress estimate points) / total estimate points. */
+  /**
+   * The overall progress of the project. This is the (completed estimate points +
+   * 0.25 * in progress estimate points) / total estimate points.
+   */
   progress: Scalars['Float']['output'];
   /** [INTERNAL] The progress history of the project. */
   progressHistory: Scalars['JSONObject']['output'];
@@ -14105,7 +14296,11 @@ export type PullRequestNotification = Entity & Node & Notification & {
   externalUserActor?: Maybe<ExternalUser>;
   /** [Internal] Notifications with the same grouping key will be grouped together in the UI. */
   groupingKey: Scalars['String']['output'];
-  /** [Internal] Priority of the notification with the same grouping key. Higher number means higher priority. If priority is the same, notifications should be sorted by `createdAt`. */
+  /**
+   * [Internal] Priority of the notification with the same grouping key. Higher
+   * number means higher priority. If priority is the same, notifications should be
+   * sorted by `createdAt`.
+   */
   groupingPriority: Scalars['Float']['output'];
   /** The unique identifier of the entity. */
   id: Scalars['ID']['output'];
@@ -14211,7 +14406,11 @@ export type PushSubscriptionType =
 
 export type Query = {
   __typename?: 'Query';
-  /** All teams you the user can administrate. Administrable teams are teams whose settings the user can change, but to whose issues the user doesn't necessarily have access to. */
+  /**
+   * All teams you the user can administrate. Administrable teams are teams whose
+   * settings the user can change, but to whose issues the user doesn't necessarily
+   * have access to.
+   */
   administrableTeams: TeamConnection;
   /** All agent activities. */
   agentActivities: AgentActivityConnection;
@@ -14237,15 +14436,12 @@ export type Query = {
   /** [Internal] All archived teams of the organization. */
   archivedTeams: Array<Team>;
   /**
-   *
    * One specific issue attachment.
    * [Deprecated] 'url' can no longer be used as the 'id' parameter. Use 'attachmentsForUrl' instead
    */
   attachment: Attachment;
   /**
-   *
    * Query an issue by its associated attachment, and its id.
-   *
    * @deprecated Will be removed in near future, please use `attachmentsForURL` to get attachments and their issues instead.
    */
   attachmentIssue: Issue;
@@ -14325,7 +14521,11 @@ export type Query = {
   favorite: Favorite;
   /** The user's favorites. */
   favorites: FavoriteConnection;
-  /** [Internal] Fetch an arbitrary set of data using natural language query. Be specific about what you want including properties for each entity, sort order, filters, limit and properties. */
+  /**
+   * [Internal] Fetch an arbitrary set of data using natural language query. Be
+   * specific about what you want including properties for each entity, sort order,
+   * filters, limit and properties.
+   */
   fetchData: FetchDataPayload;
   /** One specific initiative. */
   initiative: Initiative;
@@ -14479,7 +14679,11 @@ export type Query = {
   teamMembership: TeamMembership;
   /** All team memberships. */
   teamMemberships: TeamMembershipConnection;
-  /** All teams whose issues can be accessed by the user. This might be different from `administrableTeams`, which also includes teams whose settings can be changed by the user. */
+  /**
+   * All teams whose issues can be accessed by the user. This might be different
+   * from `administrableTeams`, which also includes teams whose settings can be
+   * changed by the user.
+   */
   teams: TeamConnection;
   /** A specific template. */
   template: Template;
@@ -15869,15 +16073,24 @@ export type SalesforceSettingsInput = {
   automateTicketReopeningOnProjectCompletion?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Salesforce team to use when a template doesn't specify a team. */
   defaultTeam?: InputMaybe<Scalars['String']['input']>;
-  /** [ALPHA] Whether customer and customer requests should not be automatically created when conversations are linked to a Linear issue. */
+  /**
+   * [ALPHA] Whether customer and customer requests should not be automatically
+   * created when conversations are linked to a Linear issue.
+   */
   disableCustomerRequestsAutoCreation?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Salesforce case status to use to reopen cases. */
   reopenCaseStatus?: InputMaybe<Scalars['String']['input']>;
-  /** Whether to restrict visibility of the integration to issues that have been either created from Salesforce or linked to Salesforce. */
+  /**
+   * Whether to restrict visibility of the integration to issues that have been
+   * either created from Salesforce or linked to Salesforce.
+   */
   restrictVisibility?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when someone comments on an issue. */
   sendNoteOnComment?: InputMaybe<Scalars['Boolean']['input']>;
-  /** Whether an internal message should be added when a Linear issue changes status (for status types except completed or canceled). */
+  /**
+   * Whether an internal message should be added when a Linear issue changes status
+   * (for status types except completed or canceled).
+   */
   sendNoteOnStatusChange?: InputMaybe<Scalars['Boolean']['input']>;
   /** The Salesforce subdomain. */
   subdomain?: InputMaybe<Scalars['String']['input']>;
@@ -16072,7 +16285,10 @@ export type SlackChannelNameMapping = {
   autoCreateOnEmoji?: Maybe<Scalars['Boolean']['output']>;
   /** Whether or not top-level messages in this channel should automatically create Asks. */
   autoCreateOnMessage?: Maybe<Scalars['Boolean']['output']>;
-  /** The optional template ID to use for Asks auto-created in this channel. If not set, auto-created Asks won't use any template. */
+  /**
+   * The optional template ID to use for Asks auto-created in this channel. If not
+   * set, auto-created Asks won't use any template.
+   */
   autoCreateTemplateId?: Maybe<Scalars['String']['output']>;
   /** Whether or not the Linear Asks bot has been added to this Slack channel. */
   botAdded?: Maybe<Scalars['Boolean']['output']>;
@@ -16103,7 +16319,10 @@ export type SlackChannelNameMappingInput = {
   autoCreateOnEmoji?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether or not top-level messages in this channel should automatically create Asks. */
   autoCreateOnMessage?: InputMaybe<Scalars['Boolean']['input']>;
-  /** The optional template ID to use for Asks auto-created in this channel. If not set, auto-created Asks won't use any template. */
+  /**
+   * The optional template ID to use for Asks auto-created in this channel. If not
+   * set, auto-created Asks won't use any template.
+   */
   autoCreateTemplateId?: InputMaybe<Scalars['String']['input']>;
   /** Whether or not the Linear Asks bot has been added to this Slack channel. */
   botAdded?: InputMaybe<Scalars['Boolean']['input']>;
@@ -16177,7 +16396,10 @@ export type SourceTypeComparator = {
   contains?: InputMaybe<Scalars['String']['input']>;
   /** Contains case insensitive constraint. Matches any values that contain the given string case insensitive. */
   containsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
-  /** Contains case and accent insensitive constraint. Matches any values that contain the given string case and accent insensitive. */
+  /**
+   * Contains case and accent insensitive constraint. Matches any values that
+   * contain the given string case and accent insensitive.
+   */
   containsIgnoreCaseAndAccent?: InputMaybe<Scalars['String']['input']>;
   /** Ends with constraint. Matches any values that end with the given string. */
   endsWith?: InputMaybe<Scalars['String']['input']>;
@@ -16239,7 +16461,10 @@ export type StringComparator = {
   contains?: InputMaybe<Scalars['String']['input']>;
   /** Contains case insensitive constraint. Matches any values that contain the given string case insensitive. */
   containsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
-  /** Contains case and accent insensitive constraint. Matches any values that contain the given string case and accent insensitive. */
+  /**
+   * Contains case and accent insensitive constraint. Matches any values that
+   * contain the given string case and accent insensitive.
+   */
   containsIgnoreCaseAndAccent?: InputMaybe<Scalars['String']['input']>;
   /** Ends with constraint. Matches any values that end with the given string. */
   endsWith?: InputMaybe<Scalars['String']['input']>;
@@ -16275,7 +16500,10 @@ export type StringItemComparator = {
   contains?: InputMaybe<Scalars['String']['input']>;
   /** Contains case insensitive constraint. Matches any values that contain the given string case insensitive. */
   containsIgnoreCase?: InputMaybe<Scalars['String']['input']>;
-  /** Contains case and accent insensitive constraint. Matches any values that contain the given string case and accent insensitive. */
+  /**
+   * Contains case and accent insensitive constraint. Matches any values that
+   * contain the given string case and accent insensitive.
+   */
   containsIgnoreCaseAndAccent?: InputMaybe<Scalars['String']['input']>;
   /** Ends with constraint. Matches any values that end with the given string. */
   endsWith?: InputMaybe<Scalars['String']['input']>;
@@ -16481,7 +16709,10 @@ export type Team = Node & {
   key: Scalars['String']['output'];
   /** Labels associated with the team. */
   labels: IssueLabelConnection;
-  /** The workflow state into which issues are moved when they are marked as a duplicate of another issue. Defaults to the first canceled state. */
+  /**
+   * The workflow state into which issues are moved when they are marked as a
+   * duplicate of another issue. Defaults to the first canceled state.
+   */
   markedAsDuplicateWorkflowState?: Maybe<WorkflowState>;
   /** Users who are members of this team. */
   members: UserConnection;
@@ -16554,7 +16785,10 @@ export type Team = Node & {
   timezone: Scalars['String']['output'];
   /** Whether triage mode is enabled for the team or not. */
   triageEnabled: Scalars['Boolean']['output'];
-  /** The workflow state into which issues are set when they are opened by non-team members or integrations if triage is enabled. */
+  /**
+   * The workflow state into which issues are set when they are opened by non-team
+   * members or integrations if triage is enabled.
+   */
   triageIssueState?: Maybe<WorkflowState>;
   /** Team's triage responsibility. */
   triageResponsibility?: Maybe<TriageResponsibility>;
@@ -17119,7 +17353,10 @@ export type TemplateCreateInput = {
   name: Scalars['String']['input'];
   /** The position of the template in the templates list. */
   sortOrder?: InputMaybe<Scalars['Float']['input']>;
-  /** The identifier or key of the team associated with the template. If not given, the template will be shared across all teams. */
+  /**
+   * The identifier or key of the team associated with the template. If not given,
+   * the template will be shared across all teams.
+   */
   teamId?: InputMaybe<Scalars['String']['input']>;
   /** The template data as JSON encoded attributes of the type of entity, such as an issue. */
   templateData: Scalars['JSON']['input'];
@@ -17151,7 +17388,10 @@ export type TemplateUpdateInput = {
   name?: InputMaybe<Scalars['String']['input']>;
   /** The position of the template in the templates list. */
   sortOrder?: InputMaybe<Scalars['Float']['input']>;
-  /** The identifier or key of the team associated with the template. If set to null, the template will be shared across all teams. */
+  /**
+   * The identifier or key of the team associated with the template. If set to
+   * null, the template will be shared across all teams.
+   */
   teamId?: InputMaybe<Scalars['String']['input']>;
   /** The template data as JSON encoded attributes of the type of entity, such as an issue. */
   templateData?: InputMaybe<Scalars['JSON']['input']>;
@@ -17226,9 +17466,15 @@ export type TimeScheduleEntry = {
   endsAt: Scalars['DateTime']['output'];
   /** The start date of the schedule in ISO 8601 date-time format. */
   startsAt: Scalars['DateTime']['output'];
-  /** The email, name or reference to the user on schedule. This is used in case the external user could not be mapped to a Linear user id. */
+  /**
+   * The email, name or reference to the user on schedule. This is used in case the
+   * external user could not be mapped to a Linear user id.
+   */
   userEmail?: Maybe<Scalars['String']['output']>;
-  /** The Linear user id of the user on schedule. If the user cannot be mapped to a Linear user then `userEmail` can be used as a reference. */
+  /**
+   * The Linear user id of the user on schedule. If the user cannot be mapped to a
+   * Linear user then `userEmail` can be used as a reference.
+   */
   userId?: Maybe<Scalars['String']['output']>;
 };
 
@@ -17237,9 +17483,15 @@ export type TimeScheduleEntryInput = {
   endsAt: Scalars['DateTime']['input'];
   /** The start date of the schedule in ISO 8601 date-time format. */
   startsAt: Scalars['DateTime']['input'];
-  /** The email, name or reference to the user on schedule. This is used in case the external user could not be mapped to a Linear user id. */
+  /**
+   * The email, name or reference to the user on schedule. This is used in case the
+   * external user could not be mapped to a Linear user id.
+   */
   userEmail?: InputMaybe<Scalars['String']['input']>;
-  /** The Linear user id of the user on schedule. If the user cannot be mapped to a Linear user then `userEmail` can be used as a reference. */
+  /**
+   * The Linear user id of the user on schedule. If the user cannot be mapped to a
+   * Linear user then `userEmail` can be used as a reference.
+   */
   userId?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -17642,7 +17894,10 @@ export type UserCollectionFilter = {
   id?: InputMaybe<IdComparator>;
   /** Comparator for the user's invited status. */
   invited?: InputMaybe<BooleanComparator>;
-  /** Filter based on the currently authenticated user. Set to true to filter for the authenticated user, false for any other user. */
+  /**
+   * Filter based on the currently authenticated user. Set to true to filter for
+   * the authenticated user, false for any other user.
+   */
   isMe?: InputMaybe<BooleanComparator>;
   /** Comparator for the collection length. */
   length?: InputMaybe<NumberComparator>;
@@ -17703,7 +17958,10 @@ export type UserFilter = {
   id?: InputMaybe<IdComparator>;
   /** Comparator for the user's invited status. */
   invited?: InputMaybe<BooleanComparator>;
-  /** Filter based on the currently authenticated user. Set to true to filter for the authenticated user, false for any other user. */
+  /**
+   * Filter based on the currently authenticated user. Set to true to filter for
+   * the authenticated user, false for any other user.
+   */
   isMe?: InputMaybe<BooleanComparator>;
   /** Comparator for the user's name. */
   name?: InputMaybe<StringComparator>;
@@ -17853,7 +18111,10 @@ export type UserSettings = Node & {
   notificationCategoryPreferences: NotificationCategoryPreferences;
   /** The user's notification channel preferences. */
   notificationChannelPreferences: NotificationChannelPreferences;
-  /** The notification delivery preferences for the user. Note: notificationDisabled field is deprecated in favor of notificationChannelPreferences. */
+  /**
+   * The notification delivery preferences for the user. Note: notificationDisabled
+   * field is deprecated in favor of notificationChannelPreferences.
+   */
   notificationDeliveryPreferences: NotificationDeliveryPreferences;
   /** Whether to show full user names instead of display names. */
   showFullUserNames: Scalars['Boolean']['output'];
@@ -18122,9 +18383,16 @@ export type Webhook = Node & {
   resourceTypes: Array<Scalars['String']['output']>;
   /** Secret token for verifying the origin on the recipient side. */
   secret?: Maybe<Scalars['String']['output']>;
-  /** The team that the webhook is associated with. If null, the webhook is associated with all public teams of the organization or multiple teams. */
+  /**
+   * The team that the webhook is associated with. If null, the webhook is
+   * associated with all public teams of the organization or multiple teams.
+   */
   team?: Maybe<Team>;
-  /** [INTERNAL] The teams that the webhook is associated with. Used to represent a webhook that targets multiple teams, potentially in addition to all public teams of the organization. */
+  /**
+   * [INTERNAL] The teams that the webhook is associated with. Used to represent a
+   * webhook that targets multiple teams, potentially in addition to all public
+   * teams of the organization.
+   */
   teamIds?: Maybe<Array<Scalars['String']['output']>>;
   /**
    * The last time at which the entity was meaningfully updated. This is the same as the creation time if the entity hasn't
@@ -18433,11 +18701,17 @@ export type ZendeskSettingsInput = {
   botUserId?: InputMaybe<Scalars['String']['input']>;
   /** [INTERNAL] Temporary flag indicating if the integration has the necessary scopes for Customers */
   canReadCustomers?: InputMaybe<Scalars['Boolean']['input']>;
-  /** [ALPHA] Whether customer and customer requests should not be automatically created when conversations are linked to a Linear issue. */
+  /**
+   * [ALPHA] Whether customer and customer requests should not be automatically
+   * created when conversations are linked to a Linear issue.
+   */
   disableCustomerRequestsAutoCreation?: InputMaybe<Scalars['Boolean']['input']>;
   /** Whether an internal message should be added when someone comments on an issue. */
   sendNoteOnComment?: InputMaybe<Scalars['Boolean']['input']>;
-  /** Whether an internal message should be added when a Linear issue changes status (for status types except completed or canceled). */
+  /**
+   * Whether an internal message should be added when a Linear issue changes status
+   * (for status types except completed or canceled).
+   */
   sendNoteOnStatusChange?: InputMaybe<Scalars['Boolean']['input']>;
   /** The subdomain of the Zendesk organization being connected. */
   subdomain: Scalars['String']['input'];
