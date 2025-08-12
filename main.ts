@@ -565,7 +565,9 @@ async function getIssueLabelUidOptionsByName(
   `);
   const data = await client.request(query, { name });
   const qResults = data.issueLabels?.nodes || [];
-  return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
+  // Sort labels alphabetically (case insensitive)
+  const sortedResults = qResults.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  return Object.fromEntries(sortedResults.map((t) => [t.id, t.name]));
 }
 
 async function getAllTeams(): Promise<
@@ -603,7 +605,9 @@ async function getAllLabels(): Promise<
     }
   `);
   const data = await client.request(query);
-  return data.issueLabels?.nodes || [];
+  const labels = data.issueLabels?.nodes || [];
+  // Sort labels alphabetically (case insensitive)
+  return labels.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 }
 
 async function selectOption(
@@ -1500,6 +1504,8 @@ async function promptInteractiveIssueCreation(
     if (hasLabels) {
       const selectedLabelIds = await Checkbox.prompt({
         message: "Select labels (use space to select, enter to confirm)",
+        search: true,
+        searchLabel: "🔍 Search labels",
         options: labels.map((label) => ({
           name: label.name,
           value: label.id,
