@@ -1474,46 +1474,40 @@ async function promptInteractiveIssueCreation(
   stateId?: string;
   start: boolean;
 }> {
-  // Determine team FIRST, before asking for title
-  const defaultTeamId = await getTeamId();
+  // Start team resolution in background while asking for title
+  const teamResolutionPromise = (async () => {
+    const defaultTeamId = await getTeamId();
+    if (defaultTeamId) {
+      const teamUid = await getTeamUid(defaultTeamId);
+      if (teamUid) {
+        return {
+          teamId: teamUid,
+          statesPromise: preStartedStatesPromise || getWorkflowStates(teamUid),
+          needsTeamSelection: false,
+        };
+      }
+    }
+    return {
+      teamId: null,
+      statesPromise: null,
+      needsTeamSelection: true,
+    };
+  })();
+
+  const title = await Input.prompt({
+    message: "What's the title of your issue?",
+    minLength: 1,
+  });
+
+  // Await team resolution
+  const teamResult = await teamResolutionPromise;
   let teamId: string;
   let statesPromise: Promise<
     Array<{ id: string; name: string; type: string; position: number }>
   >;
 
-  if (defaultTeamId) {
-    const teamUid = await getTeamUid(defaultTeamId);
-    if (teamUid) {
-      teamId = teamUid;
-      // Use pre-started promise if available, otherwise start now
-      statesPromise = preStartedStatesPromise || getWorkflowStates(teamId);
-    } else {
-      // Fallback to team selection if we can't resolve the team
-      const teams = await getAllTeams();
-
-      const selectedTeamId = await Select.prompt({
-        message: "Which team should this issue belong to?",
-        search: true,
-        searchLabel: "Search teams",
-        options: teams.map((team) => ({
-          name: `${team.name} (${team.key})`,
-          value: team.id,
-        })),
-      });
-
-      const team = teams.find((t) => t.id === selectedTeamId);
-
-      if (!team) {
-        console.error(`Could not find team: ${selectedTeamId}`);
-        Deno.exit(1);
-      }
-
-      teamId = team.id;
-      // Start fetching workflow states after team selection (can't use pre-started promise for different team)
-      statesPromise = getWorkflowStates(teamId);
-    }
-  } else {
-    // No default team, prompt for selection
+  if (teamResult.needsTeamSelection) {
+    // Need to prompt for team selection
     const teams = await getAllTeams();
 
     const selectedTeamId = await Select.prompt({
@@ -1534,14 +1528,12 @@ async function promptInteractiveIssueCreation(
     }
 
     teamId = team.id;
-    // Start fetching workflow states after team selection (can't use pre-started promise for different team)
     statesPromise = getWorkflowStates(teamId);
+  } else {
+    // Team was resolved in background
+    teamId = teamResult.teamId!;
+    statesPromise = teamResult.statesPromise!;
   }
-
-  const title = await Input.prompt({
-    message: "What's the title of your issue?",
-    minLength: 1,
-  });
 
   // Select workflow state - await the promise we started earlier
   const states = await statesPromise;
@@ -1904,7 +1896,10 @@ const createCommand = new Command()
           for (const label of labels) {
             let labelId = await getIssueLabelUidByNameForTeam(label, teamUid);
             if (!labelId && interactive) {
-              const labelIds = await getIssueLabelUidOptionsByNameForTeam(label, teamUid);
+              const labelIds = await getIssueLabelUidOptionsByNameForTeam(
+                label,
+                teamUid,
+              );
               spinner?.stop();
               labelId = await selectOption("Issue label", label, labelIds);
               spinner?.start();

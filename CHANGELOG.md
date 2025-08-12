@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.6.3] - 2025-08-12
+
+### Changed
+
+- Remove delay before title prompt in interactive create mode
+
 ## [0.6.2] - 2025-08-12
 
 ### Changed
@@ -152,7 +158,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/schpet/linear-cli/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/schpet/linear-cli/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/schpet/linear-cli/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/schpet/linear-cli/compare/v0.5.7...v0.6.0
