@@ -19,7 +19,7 @@ jobs:
         run: deno lint
 
       - name: Type check
-        run: deno check main.ts
+        run: deno check --unstable-sloppy-imports main.ts
 
       - name: Run tests
-        run: deno test
+        run: deno test --unstable-sloppy-imports
