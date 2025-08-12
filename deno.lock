@@ -35,6 +35,7 @@
     "npm:@graphql-typed-document-node/core@^3.2.0": "3.2.0_graphql@16.11.0",
     "npm:@types/node@*": "22.15.15",
     "npm:get-graphql-schema@*": "2.1.2",
+    "npm:graphql-request@^7.2.0": "7.2.0_graphql@16.11.0",
     "npm:graphql@^16.8.1": "16.11.0"
   },
   "jsr": {
@@ -712,7 +713,7 @@
         "debug",
         "dotenv",
         "graphql@16.11.0",
-        "graphql-request",
+        "graphql-request@6.1.0_graphql@16.11.0",
         "http-proxy-agent",
         "https-proxy-agent",
         "jose",
@@ -1322,6 +1323,13 @@
       "dependencies": [
         "@graphql-typed-document-node/core",
         "cross-fetch",
+        "graphql@16.11.0"
+      ]
+    },
+    "graphql-request@7.2.0_graphql@16.11.0": {
+      "integrity": "sha512-0GR7eQHBFYz372u9lxS16cOtEekFlZYB2qOyq8wDvzRmdRSJ0mgUVX1tzNcIzk3G+4NY+mGtSz411wZdeDF/+A==",
+      "dependencies": [
+        "@graphql-typed-document-node/core",
         "graphql@16.11.0"
       ]
     },
@@ -2139,6 +2147,7 @@
       "jsr:@std/toml@^1.0.2",
       "npm:@graphql-codegen/cli@^5.0.7",
       "npm:@graphql-typed-document-node/core@^3.2.0",
+      "npm:graphql-request@^7.2.0",
       "npm:graphql@^16.8.1"
     ]
   }
