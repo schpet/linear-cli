@@ -145,36 +145,41 @@ async function getEditor(): Promise<string | null> {
 async function openEditor(): Promise<string | undefined> {
   const editor = await getEditor();
   if (!editor) {
-    console.error("No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>");
+    console.error(
+      "No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>",
+    );
     return undefined;
   }
-  
+
   // Create a temporary file
   const tempFile = await Deno.makeTempFile({ suffix: ".md" });
-  
+
   try {
     // Open the editor
     const process = new Deno.Command(editor, {
       args: [tempFile],
       stdin: "inherit",
-      stdout: "inherit", 
+      stdout: "inherit",
       stderr: "inherit",
     });
-    
+
     const { success } = await process.output();
-    
+
     if (!success) {
       console.error("Editor exited with an error");
       return undefined;
     }
-    
+
     // Read the content back
     const content = await Deno.readTextFile(tempFile);
     const cleaned = content.trim();
-    
+
     return cleaned.length > 0 ? cleaned : undefined;
   } catch (error) {
-    console.error("Failed to open editor:", error instanceof Error ? error.message : String(error));
+    console.error(
+      "Failed to open editor:",
+      error instanceof Error ? error.message : String(error),
+    );
     return undefined;
   } finally {
     // Clean up the temporary file
@@ -566,7 +571,9 @@ async function getIssueLabelUidOptionsByName(
   const data = await client.request(query, { name });
   const qResults = data.issueLabels?.nodes || [];
   // Sort labels alphabetically (case insensitive)
-  const sortedResults = qResults.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  const sortedResults = qResults.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  );
   return Object.fromEntries(sortedResults.map((t) => [t.id, t.name]));
 }
 
@@ -607,7 +614,9 @@ async function getAllLabels(): Promise<
   const data = await client.request(query);
   const labels = data.issueLabels?.nodes || [];
   // Sort labels alphabetically (case insensitive)
-  return labels.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  return labels.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  );
 }
 
 async function selectOption(
@@ -1391,28 +1400,26 @@ async function promptInteractiveIssueCreation(
       // Fallback to team selection if we can't resolve the team
       const teams = await getAllTeams();
       const teamSuggestions = teams.map((team) => `${team.key}: ${team.name}`);
-      
+
       const selectedTeam = await Input.prompt({
         message: "Which team should this issue belong to?",
         suggestions: teamSuggestions,
         list: true,
         info: true,
-        
-        
       });
-      
+
       // Find the team by key, name, or the full suggestion format
-      const team = teams.find((t) => 
+      const team = teams.find((t) =>
         t.key.toLowerCase() === selectedTeam.toLowerCase() ||
         t.name.toLowerCase() === selectedTeam.toLowerCase() ||
         `${t.key}: ${t.name}` === selectedTeam
       );
-      
+
       if (!team) {
         console.error(`Could not find team: ${selectedTeam}`);
         Deno.exit(1);
       }
-      
+
       teamId = team.id;
       // Start fetching workflow states after team selection (can't use pre-started promise for different team)
       statesPromise = getWorkflowStates(teamId);
@@ -1421,26 +1428,26 @@ async function promptInteractiveIssueCreation(
     // No default team, prompt for selection
     const teams = await getAllTeams();
     const teamSuggestions = teams.map((team) => `${team.key}: ${team.name}`);
-    
+
     const selectedTeam = await Input.prompt({
       message: "Which team should this issue belong to?",
       suggestions: teamSuggestions,
       list: true,
       info: true,
     });
-    
+
     // Find the team by key, name, or the full suggestion format
-    const team = teams.find((t) => 
+    const team = teams.find((t) =>
       t.key.toLowerCase() === selectedTeam.toLowerCase() ||
       t.name.toLowerCase() === selectedTeam.toLowerCase() ||
       `${t.key}: ${t.name}` === selectedTeam
     );
-    
+
     if (!team) {
       console.error(`Could not find team: ${selectedTeam}`);
       Deno.exit(1);
     }
-    
+
     teamId = team.id;
     // Start fetching workflow states after team selection (can't use pre-started promise for different team)
     statesPromise = getWorkflowStates(teamId);
@@ -1517,12 +1524,12 @@ async function promptInteractiveIssueCreation(
 
   // Get editor name for prompt
   const editorName = await getEditor();
-  const editorDisplayName = editorName ? editorName.split('/').pop() : null;
-  
-  const promptMessage = editorDisplayName 
+  const editorDisplayName = editorName ? editorName.split("/").pop() : null;
+
+  const promptMessage = editorDisplayName
     ? `Body [(e) to launch ${editorDisplayName}]`
     : "Body";
-  
+
   const description = await Input.prompt({
     message: promptMessage,
     default: "",
@@ -1533,13 +1540,17 @@ async function promptInteractiveIssueCreation(
     console.log(`Opening ${editorDisplayName}...`);
     finalDescription = await openEditor();
     if (finalDescription && finalDescription.length > 0) {
-      console.log(`Description entered (${finalDescription.length} characters)`);
+      console.log(
+        `Description entered (${finalDescription.length} characters)`,
+      );
     } else {
       console.log("No description entered");
       finalDescription = undefined;
     }
   } else if (description === "e" && !editorDisplayName) {
-    console.error("No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>");
+    console.error(
+      "No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>",
+    );
     finalDescription = undefined;
   } else if (description.trim().length > 0) {
     finalDescription = description.trim();
@@ -1968,7 +1979,7 @@ await new Command()
       info: true,
     });
 
-    const team = teams.find((t) => 
+    const team = teams.find((t) =>
       t.key.toLowerCase() === selectedTeam.toLowerCase() ||
       t.name.toLowerCase() === selectedTeam.toLowerCase() ||
       `${t.key}: ${t.name}` === selectedTeam

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-08-12
+
 ### Security
 
 - made deno permissions more specific
@@ -9,7 +11,9 @@
 ### Added
 
 - Test for JSON and HTML error response formatting
-- added `linear issue create` command, (#30, thanks @maparent)
+- added `linear issue create` for creating issues with flags (#30, thanks
+  @maparent)
+- added `linear issue create` interactive issue creation
 
 ### Changed
 
@@ -132,7 +136,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.5.7...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/schpet/linear-cli/compare/v0.5.7...v0.6.0
 [0.5.7]: https://github.com/schpet/linear-cli/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/schpet/linear-cli/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/schpet/linear-cli/compare/v0.5.3...v0.5.5
