@@ -1,7 +1,7 @@
 import { Command, EnumType } from "@cliffy/command";
 import { load } from "@std/dotenv";
 import { getOption } from "./config.ts";
-import { Checkbox, type Confirm, Input, prompt, Select } from "@cliffy/prompt";
+import { Checkbox, Input, prompt, Select } from "@cliffy/prompt";
 
 // Try loading .env from current directory first, then from git root if not found
 let envVars: Record<string, string> = {};
