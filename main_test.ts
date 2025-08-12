@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertStringIncludes } from "@std/assert";
 import { getGraphQLClient } from "./main.ts";
 
 // Mock fetch function for testing
