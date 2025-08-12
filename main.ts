@@ -1265,7 +1265,9 @@ const issueCommand = new Command()
   )
   .option("--no-color", "Disable colored output")
   .option("--no-interactive", "Disable interactive prompts")
-  .option("-t, --title <title:string>", "Title of the issue", { required: true })
+  .option("-t, --title <title:string>", "Title of the issue", {
+    required: true,
+  })
   .action(
     async (
       {
@@ -1424,7 +1426,7 @@ const issueCommand = new Command()
         const issueId = issue.id;
         spinner?.stop();
         console.log(issue.url);
-        
+
         if (start) {
           await doStartIssue(issueId, issue.team.key);
         }
