@@ -1274,7 +1274,7 @@ async function promptInteractiveIssueCreation(): Promise<{
   // Determine team automatically if possible
   const defaultTeamId = await getTeamId();
   let teamId: string;
-  
+
   if (defaultTeamId) {
     const teamUid = await getTeamUid(defaultTeamId);
     if (teamUid) {
@@ -1417,6 +1417,10 @@ const createCommand = new Command()
     "Points estimate of the issue",
   )
   .option(
+    "-d, --description <description:string>",
+    "Description of the issue",
+  )
+  .option(
     "-l, --label [label...:string]",
     "Issue label associated with the issue. May be repeated.",
   )
@@ -1445,6 +1449,7 @@ const createCommand = new Command()
         parent,
         priority,
         estimate,
+        description,
         label: labels,
         team,
         project,
@@ -1457,7 +1462,7 @@ const createCommand = new Command()
 
       // If no flags are provided (just title is empty), use interactive mode
       const noFlagsProvided = !title && !assignee && !dueDate && !parent &&
-        priority === undefined && estimate === undefined &&
+        priority === undefined && estimate === undefined && !description &&
         (!labels || labels === true ||
           (Array.isArray(labels) && labels.length === 0)) &&
         !team && !project && !start;
@@ -1465,21 +1470,6 @@ const createCommand = new Command()
       if (noFlagsProvided && interactive) {
         try {
           const interactiveData = await promptInteractiveIssueCreation();
-
-          // Use the interactive data to create the issue
-          const input = {
-            title: interactiveData.title,
-            assigneeId: interactiveData.assigneeId,
-            dueDate: undefined,
-            parentId: undefined,
-            priority: interactiveData.priority,
-            estimate: interactiveData.estimate,
-            labelIds: interactiveData.labelIds,
-            teamId: interactiveData.teamId,
-            projectId: undefined,
-            useDefaultTemplate,
-            description: interactiveData.description,
-          };
 
           console.log(`Creating issue...`);
           console.log();
@@ -1494,7 +1484,22 @@ const createCommand = new Command()
           `);
 
           const client = getGraphQLClient();
-          const data = await client.request(createIssueMutation, { input });
+          const data = await client.request(createIssueMutation, {
+            input: {
+              title: interactiveData.title,
+              assigneeId: interactiveData.assigneeId,
+              dueDate: undefined,
+              parentId: undefined,
+              priority: interactiveData.priority,
+              estimate: interactiveData.estimate,
+              labelIds: interactiveData.labelIds,
+              teamId: interactiveData.teamId,
+              projectId: undefined,
+              useDefaultTemplate,
+              description: interactiveData.description,
+            },
+          });
+
           if (!data.issueCreate.success) {
             throw "query failed";
           }
@@ -1636,6 +1641,7 @@ const createCommand = new Command()
           teamId: teamUid,
           projectId,
           useDefaultTemplate,
+          description,
         };
         spinner?.stop();
         console.log(`Creating issue in ${team}`);

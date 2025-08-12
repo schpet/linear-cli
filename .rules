@@ -5,6 +5,7 @@
   updated types after it's updated,
   `const result = await client.request(query, { teamId });` should work and be
   typed (and not require explicit types)
+- graphql/schema.graphql has the graphql schema document for linear's api
 
 ## changelog entries
 
