@@ -33,7 +33,7 @@ type Documents = {
     "\n    query GetIssueLabelUidOptionsByName($name: String!) {\n        issueLabels(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}\n      }\n  ": typeof types.GetIssueLabelUidOptionsByNameDocument,
     "\n    query GetIssuesForState($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  ": typeof types.GetIssuesForStateDocument,
     "\n      query GetIssueDetails($id: String!) {\n        issue(id: $id) { title, description, url, branchName }\n      }\n    ": typeof types.GetIssueDetailsDocument,
-    "\n          mutation CreateIssue($input: IssueCreateInput!) {\n            issueCreate(input: $input) {\n              success\n              issue { id, team { key } }\n            }\n          }\n        ": typeof types.CreateIssueDocument,
+    "\n          mutation CreateIssue($input: IssueCreateInput!) {\n            issueCreate(input: $input) {\n              success\n              issue { id, identifier, url, team { key } }\n            }\n          }\n        ": typeof types.CreateIssueDocument,
     "\n  query Config {\n    viewer {\n      organization {\n        urlKey\n      }\n    }\n    teams {\n      nodes {\n        id\n        key\n        name\n      }\n    }\n  }\n": typeof types.ConfigDocument,
 };
 const documents: Documents = {
@@ -56,7 +56,7 @@ const documents: Documents = {
     "\n    query GetIssueLabelUidOptionsByName($name: String!) {\n        issueLabels(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}\n      }\n  ": types.GetIssueLabelUidOptionsByNameDocument,
     "\n    query GetIssuesForState($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {\n      issues(\n        filter: {\n          team: { key: { eq: $teamId } }\n          assignee: { isMe: { eq: true } }\n          state: { type: { in: $states } }\n        }\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  ": types.GetIssuesForStateDocument,
     "\n      query GetIssueDetails($id: String!) {\n        issue(id: $id) { title, description, url, branchName }\n      }\n    ": types.GetIssueDetailsDocument,
-    "\n          mutation CreateIssue($input: IssueCreateInput!) {\n            issueCreate(input: $input) {\n              success\n              issue { id, team { key } }\n            }\n          }\n        ": types.CreateIssueDocument,
+    "\n          mutation CreateIssue($input: IssueCreateInput!) {\n            issueCreate(input: $input) {\n              success\n              issue { id, identifier, url, team { key } }\n            }\n          }\n        ": types.CreateIssueDocument,
     "\n  query Config {\n    viewer {\n      organization {\n        urlKey\n      }\n    }\n    teams {\n      nodes {\n        id\n        key\n        name\n      }\n    }\n  }\n": types.ConfigDocument,
 };
 
@@ -153,7 +153,7 @@ export function gql(source: "\n      query GetIssueDetails($id: String!) {\n    
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function gql(source: "\n          mutation CreateIssue($input: IssueCreateInput!) {\n            issueCreate(input: $input) {\n              success\n              issue { id, team { key } }\n            }\n          }\n        "): (typeof documents)["\n          mutation CreateIssue($input: IssueCreateInput!) {\n            issueCreate(input: $input) {\n              success\n              issue { id, team { key } }\n            }\n          }\n        "];
+export function gql(source: "\n          mutation CreateIssue($input: IssueCreateInput!) {\n            issueCreate(input: $input) {\n              success\n              issue { id, identifier, url, team { key } }\n            }\n          }\n        "): (typeof documents)["\n          mutation CreateIssue($input: IssueCreateInput!) {\n            issueCreate(input: $input) {\n              success\n              issue { id, identifier, url, team { key } }\n            }\n          }\n        "];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -1218,7 +1218,6 @@ const issueCommand = new Command()
     }
   })
   .command("create", "Create a linear issue")
-  .alias("cr")
   .option(
     "-s, --start",
     "Start the issue after creation",
@@ -1228,16 +1227,12 @@ const issueCommand = new Command()
     "Assign the issue to 'self' or someone (by username or name)",
   )
   .option(
-    "-d, --dueDate <dueDate:string>",
+    "--due-date <dueDate:string>",
     "Due date of the issue",
   )
   .option(
     "-p, --parent <parent:string>",
     "Parent issue (if any) as a team_number code",
-  )
-  .option(
-    "--dry-run",
-    "Dry run: do not create the issue, print the mutation",
   )
   .option(
     "--priority <priority:number>",
@@ -1248,8 +1243,8 @@ const issueCommand = new Command()
     "Points estimate of the issue",
   )
   .option(
-    "-l, --labels [labels...:string]",
-    "Issue labels associated with the issue. May be repeated.",
+    "-l, --label [label...:string]",
+    "Issue label associated with the issue. May be repeated.",
   )
   .option(
     "--team <team:string>",
@@ -1265,7 +1260,9 @@ const issueCommand = new Command()
   )
   .option("--no-color", "Disable colored output")
   .option("--no-interactive", "Disable interactive prompts")
-  .arguments("[title:string]")
+  .option("-t, --title <title:string>", "Title of the issue", {
+    required: true,
+  })
   .action(
     async (
       {
@@ -1276,14 +1273,13 @@ const issueCommand = new Command()
         parent,
         priority,
         estimate,
-        labels,
+        label: labels,
         team,
         project,
-        dryRun,
         color,
         interactive,
+        title,
       },
-      title,
     ) => {
       interactive = interactive && Deno.stdout.isTerminal();
       const showSpinner = color && interactive;
@@ -1393,16 +1389,16 @@ const issueCommand = new Command()
           projectId,
           useDefaultTemplate,
         };
-        if (dryRun) {
-          spinner?.stop();
-          console.log(input);
-          return;
-        }
+        spinner?.stop();
+        console.log(`Creating issue in ${team}`);
+        console.log();
+        spinner?.start();
+
         const createIssueMutation = gql(`
           mutation CreateIssue($input: IssueCreateInput!) {
             issueCreate(input: $input) {
               success
-              issue { id, team { key } }
+              issue { id, identifier, url, team { key } }
             }
           }
         `);
@@ -1417,10 +1413,12 @@ const issueCommand = new Command()
           throw "Issue creation failed - no issue returned";
         }
         const issueId = issue.id;
+        spinner?.stop();
+        console.log(issue.url);
+
         if (start) {
           await doStartIssue(issueId, issue.team.key);
         }
-        spinner?.stop();
       } catch (error) {
         spinner?.stop();
         console.error("✗ Failed to create issue", error);
