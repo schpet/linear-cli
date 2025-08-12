@@ -57,7 +57,7 @@ import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
 import { gql } from "./__generated__/gql.ts";
-import type { GetStartedStateQuery, IssuesQuery, ConfigQuery } from "./__generated__/graphql.ts";
+
 import { GraphQLClient } from "graphql-request";
 
 interface Label {
@@ -70,12 +70,14 @@ interface Issue {
   identifier: string;
   title: string;
   priority: number;
-  estimate: number | null;
-  labels: { nodes: Label[] };
+  estimate?: number | null | undefined;
   state: {
     id: string;
     name: string;
     color: string;
+  };
+  labels: {
+    nodes: Label[];
   };
   updatedAt: string;
 }
@@ -143,7 +145,7 @@ async function branchExists(branch: string): Promise<boolean> {
 async function getStartedState(
   teamId: string,
 ): Promise<{ id: string; name: string }> {
-  const query = gql(/* GraphQL */ `
+  const query = gql(`
     query GetStartedState($teamId: String!) {
       team(id: $teamId) {
         states {
@@ -614,8 +616,7 @@ function getGraphQLClient(): GraphQLClient {
 export async function fetchGraphQL(
   query: string,
   variables: Record<string, unknown>,
-  // deno-lint-ignore no-explicit-any
-): Promise<any> {
+): Promise<{ data: unknown }> {
   const client = getGraphQLClient();
   const data = await client.request(query, variables);
   return { data };
@@ -630,7 +631,7 @@ async function fetchIssuesForState(teamId: string, state: string) {
     Deno.exit(1);
   }
 
-  const query = /* GraphQL */ `
+  const query = gql(`
     query issues($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
       issues(
         filter: {
@@ -662,14 +663,14 @@ async function fetchIssuesForState(teamId: string, state: string) {
         }
       }
     }
-  `;
+  `);
 
   const sortPayload = sort === "manual"
-    ? [{ manual: { nulls: "last", order: "Ascending" } }]
-    : [{ priority: { nulls: "last", order: "Descending" } }];
+    ? [{ manual: { nulls: "last" as const, order: "Ascending" as const } }]
+    : [{ priority: { nulls: "last" as const, order: "Descending" as const } }];
 
   const client = getGraphQLClient();
-  return await client.request<IssuesQuery>(query, {
+  return await client.request(query, {
     teamId,
     sort: sortPayload,
     states: [state],
@@ -933,7 +934,7 @@ const issueCommand = new Command()
 
     try {
       const result = await fetchIssuesForState(teamId, state);
-      const issues = result.data.issues?.nodes || [];
+      const issues = result.issues?.nodes || [];
 
       if (issues.length === 0) {
         console.log("No unstarted issues found.");
@@ -966,7 +967,7 @@ const issueCommand = new Command()
         state: string;
         stateStyles: string[];
         timeAgo: string;
-        estimate: number | null;
+        estimate: number | null | undefined;
       };
 
       const tableData: Array<TableRow> = issues.map((issue: Issue) => {
@@ -1122,7 +1123,7 @@ const issueCommand = new Command()
     if (!resolvedId) {
       try {
         const result = await fetchIssuesForState(teamId, "unstarted");
-        const issues = result.data.issues.nodes;
+        const issues = result.issues?.nodes || [];
 
         if (issues.length === 0) {
           console.error("No unstarted issues found.");
@@ -1410,25 +1411,7 @@ const issueCommand = new Command()
         }
         // Date validation done at graphql level
 
-        const query = `
-          mutation createIssue($title: String!, $assigneeId: String, $dueDate: TimelessDate, $parentId: String, $priority: Int, $estimate: Int, $labelIds: [String!], $teamId: String!, $projectId: String, $useDefaultTemplate: Boolean) {
-            issueCreate(input: {
-              title: $title
-              assigneeId: $assigneeId
-              dueDate: $dueDate
-              parentId: $parentId
-              priority: $priority
-              estimate: $estimate
-              labelIds: $labelIds
-              teamId: $teamId
-              projectId: $projectId
-              useDefaultTemplate: $useDefaultTemplate
-            }) {
-              success
-              issue { id, team { key } }
-            }
-          }
-        `;
+
         const input = {
           title,
           assigneeId,
@@ -1446,21 +1429,27 @@ const issueCommand = new Command()
           console.log(input);
           return;
         }
-        const client = getGraphQLClient();
-        const data = await client.request(
-          `mutation createIssue($input: IssueCreateInput!) {
+        const createIssueMutation = gql(`
+          mutation createIssue($input: IssueCreateInput!) {
             issueCreate(input: $input) {
               success
               issue { id, team { key } }
-          }}`,
-          { input },
-        );
+            }
+          }
+        `);
+        
+        const client = getGraphQLClient();
+        const data = await client.request(createIssueMutation, { input });
         if (!data.issueCreate.success) {
           throw "query failed";
         }
-        const issueId = data.issueCreate.issue.id;
+        const issue = data.issueCreate.issue;
+        if (!issue) {
+          throw "Issue creation failed - no issue returned";
+        }
+        const issueId = issue.id;
         if (start) {
-          await doStartIssue(issueId, data.issueCreate.issue.team.key);
+          await doStartIssue(issueId, issue.team.key);
         }
         spinner?.stop();
       } catch (error) {
