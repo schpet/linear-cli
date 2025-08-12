@@ -1248,8 +1248,8 @@ const issueCommand = new Command()
     "Points estimate of the issue",
   )
   .option(
-    "-l, --labels [labels...:string]",
-    "Issue labels associated with the issue. May be repeated.",
+    "-l, --label [label...:string]",
+    "Issue label associated with the issue. May be repeated.",
   )
   .option(
     "--team <team:string>",
@@ -1276,7 +1276,7 @@ const issueCommand = new Command()
         parent,
         priority,
         estimate,
-        labels,
+        label: labels,
         team,
         project,
         dryRun,
