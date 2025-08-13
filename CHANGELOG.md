@@ -2,33 +2,38 @@
 
 ## [Unreleased]
 
+### Added
+
+- new --assignee flag on `issue list` allowing you to list issues assigned to
+  @me, @all or a given user. A flag is shorthand for --assignee @all
+
 ## [0.6.4] - 2025-08-12
 
 ### Removed
 
-- Remove unused label lookup functions replaced by team-aware versions
+- remove unused label lookup functions replaced by team-aware versions
 
 ## [0.6.3] - 2025-08-12
 
 ### Changed
 
-- Remove delay before title prompt in interactive create mode
+- remove delay before title prompt in interactive create mode
 
 ## [0.6.2] - 2025-08-12
 
 ### Changed
 
-- Ask for team selection before issue title in interactive create mode
+- ask for team selection before issue title in interactive create mode
 
 ### Fixed
 
-- Filter issue labels by team to prevent 'label not associated with team' errors
+- filter issue labels by team to prevent 'label not associated with team' errors
 
 ## [0.6.1] - 2025-08-12
 
 ### Changed
 
-- Improved UX around selecting a team
+- improved UX around selecting a team
 
 ## [0.6.0] - 2025-08-12
 
@@ -38,7 +43,7 @@
 
 ### Added
 
-- Test for JSON and HTML error response formatting
+- test for JSON and HTML error response formatting
 - added `linear issue create` for creating issues with flags (#30, thanks
   @maparent)
 - added `linear issue create` interactive issue creation

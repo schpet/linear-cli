@@ -9,8 +9,10 @@
 
 ## changelog entries
 
-if asked to add a changelog entry use the changelog cli
+do not update the CHANGELOG.md manually. if asked to add a changelog entry use
+the changelog cli
 
     changelog add --type <TYPE> <DESCRIPTION>
 
-types: added|changed|deprecated|removed|fixed|security
+description should be lowercase. types is one of
+added|changed|deprecated|removed|fixed|security
