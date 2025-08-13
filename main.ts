@@ -851,7 +851,9 @@ async function fetchIssuesForState(
 function getPriorityDisplay(priority: number): string {
   if (priority === 0) {
     return "---";
-  } else if (priority === 1 || priority === 2) {
+  } else if (priority === 1) {
+    return "⚠⚠⚠";
+  } else if (priority === 2) {
     return "▄▆█";
   } else if (priority === 3) {
     return "▄▆ ";
@@ -1164,7 +1166,6 @@ const issueCommand = new Command()
 
         type TableRow = {
           priorityStr: string;
-          priorityStyles: string[];
           identifier: string;
           title: string;
           labelsFormat: string;
@@ -1208,29 +1209,10 @@ const issueCommand = new Command()
           const updatedAt = new Date(issue.updatedAt);
           const timeAgo = getTimeAgo(updatedAt);
 
-          let priorityStr = "";
-          let priorityStyles: string[] = [];
-          if (issue.priority === 0) {
-            priorityStr = "%c---%c";
-            priorityStyles = ["color: silver", ""];
-          } else if (issue.priority === 1 || issue.priority === 2) {
-            // ▄▆█
-            priorityStr = "%c▄%c▆%c█%c";
-            priorityStyles = ["", "", "", ""];
-          } else if (issue.priority === 3) {
-            priorityStr = "%c▄%c▆%c█%c";
-            priorityStyles = ["", "", "color: silver", ""];
-          } else if (issue.priority === 4) {
-            priorityStr = "%c▄%c▆%c█%c";
-            priorityStyles = ["", "color: silver", "color: silver", ""];
-          } else {
-            priorityStr = issue.priority.toString();
-            priorityStyles = [];
-          }
+          const priorityStr = getPriorityDisplay(issue.priority);
 
           return {
             priorityStr,
-            priorityStyles,
             identifier: issue.identifier,
             title: issue.title,
             labelsFormat,
@@ -1279,7 +1261,6 @@ const issueCommand = new Command()
         for (const row of tableData) {
           const {
             priorityStr,
-            priorityStyles,
             identifier,
             title,
             labelsFormat,
@@ -1298,14 +1279,13 @@ const issueCommand = new Command()
             : "";
 
           console.log(
-            `${padDisplayFormatted(priorityStr, 3)} ${
+            `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
               padDisplay(identifier, ID_WIDTH)
             } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
               padDisplay(row.estimate?.toString() || "-", ESTIMATE_WIDTH)
             } ${assigneeOutput}${padDisplayFormatted(state, STATE_WIDTH)} %c${
               padDisplay(timeAgo, UPDATED_WIDTH)
             }%c`,
-            ...priorityStyles,
             ...labelsStyles,
             ...stateStyles,
             "color: gray",
@@ -1584,11 +1564,11 @@ async function promptInteractiveIssueCreation(
   const priority = await Select.prompt({
     message: "What priority should this issue have?",
     options: [
-      { name: "No priority", value: 0 },
-      { name: "Urgent (1)", value: 1 },
-      { name: "High (2)", value: 2 },
-      { name: "Medium (3)", value: 3 },
-      { name: "Low (4)", value: 4 },
+      { name: `${getPriorityDisplay(0)} No priority`, value: 0 },
+      { name: `${getPriorityDisplay(1)} Urgent`, value: 1 },
+      { name: `${getPriorityDisplay(2)} High`, value: 2 },
+      { name: `${getPriorityDisplay(3)} Medium`, value: 3 },
+      { name: `${getPriorityDisplay(4)} Low`, value: 4 },
     ],
     default: 0,
   });
