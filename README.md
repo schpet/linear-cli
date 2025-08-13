@@ -21,13 +21,19 @@ myself with this so
 
 ## demo
 
-### `linear issue create`
+<details>
+<summary><code>linear issue create</code></summary>
 
 <img width="600" src="docs/cast-issue-create.svg?1" alt="screencast showing the linear issue create command, interactively adding issue details">
 
-### `linear issue start`
+</details>
+
+<details>
+<summary><code>linear issue start</code></summary>
 
 <img width="600" src="docs/cast-issue-start.svg?1" alt="screencast showing the linear issue start command, interactively choosing an issue to start">
+
+</details>
 
 ## install
 
