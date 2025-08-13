@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- more consistent rendering of priority
+
 ### Added
 
 - new --assignee flag on `issue list` allowing you to list issues assigned to
