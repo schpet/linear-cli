@@ -47,8 +47,7 @@
     ]
   },
   "lint": {
-    "exclude": [
-      "__generated__/"
-    ]
-  }
+    "exclude": ["__generated__/"]
+  },
+  "unstable": ["sloppy-imports"]
 }

@@ -57,6 +57,7 @@ import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
 import { gql } from "./__generated__/gql.ts";
+import type { IssueFilter } from "./__generated__/graphql.ts";
 
 import { GraphQLClient } from "graphql-request";
 
@@ -770,7 +771,11 @@ export function getGraphQLClient(): GraphQLClient {
   });
 }
 
-async function fetchIssuesForState(teamId: string, state: string) {
+async function fetchIssuesForState(
+  teamId: string,
+  state: string,
+  assignee = "@me",
+) {
   const sort = getOption("issue_sort") as "manual" | "priority" | undefined;
   if (!sort) {
     console.error(
@@ -779,14 +784,29 @@ async function fetchIssuesForState(teamId: string, state: string) {
     Deno.exit(1);
   }
 
+  // Build filter and query based on the assignee parameter
+  const filter: IssueFilter = {
+    team: { key: { eq: teamId } },
+    state: { type: { in: [state] } },
+  };
+
+  if (assignee === "@me") {
+    filter.assignee = { isMe: { eq: true } };
+  } else if (assignee === "@all") {
+    // No assignee filter means all assignees
+  } else {
+    // Get user ID for the specified username
+    const userId = await getUserUidByDisplayName(assignee);
+    if (!userId) {
+      throw new Error(`User not found: ${assignee}`);
+    }
+    filter.assignee = { id: { eq: userId } };
+  }
+
   const query = gql(`
-    query GetIssuesForState($teamId: String!, $sort: [IssueSortInput!], $states: [String!]) {
+    query GetIssuesForState($sort: [IssueSortInput!], $filter: IssueFilter!) {
       issues(
-        filter: {
-          team: { key: { eq: $teamId } }
-          assignee: { isMe: { eq: true } }
-          state: { type: { in: $states } }
-        }
+        filter: $filter
         sort: $sort
       ) {
         nodes {
@@ -821,7 +841,7 @@ async function fetchIssuesForState(teamId: string, state: string) {
   return await client.request(query, {
     teamId,
     sort: sortPayload,
-    states: [state],
+    filter,
   });
 }
 
@@ -1063,9 +1083,16 @@ const issueCommand = new Command()
       default: "unstarted",
     },
   )
+  .option(
+    "--assignee <assignee:string>",
+    "Filter by assignee (@me, @all, or username)",
+    {
+      default: "@me",
+    },
+  )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
-  .action(async ({ sort: sortFlag, state, web, app }) => {
+  .action(async ({ sort: sortFlag, state, assignee, web, app }) => {
     if (web || app) {
       await openTeamPage({ app });
       return;
@@ -1088,12 +1115,17 @@ const issueCommand = new Command()
       Deno.exit(1);
     }
 
+    const showSpinner = Deno.stdout.isTerminal();
+    const spinner = showSpinner ? new Spinner() : null;
+    spinner?.start();
+
     try {
-      const result = await fetchIssuesForState(teamId, state);
+      const result = await fetchIssuesForState(teamId, state, assignee);
+      spinner?.stop();
       const issues = result.issues?.nodes || [];
 
       if (issues.length === 0) {
-        console.log("No unstarted issues found.");
+        console.log("No issues found.");
         return;
       }
 
@@ -1250,7 +1282,14 @@ const issueCommand = new Command()
         );
       }
     } catch (error) {
-      console.error("Failed to fetch issues:", error);
+      spinner?.stop();
+      if (
+        error instanceof Error && error.message.startsWith("User not found:")
+      ) {
+        console.error(error.message);
+      } else {
+        console.error("Failed to fetch issues:", error);
+      }
       Deno.exit(1);
     }
   })
