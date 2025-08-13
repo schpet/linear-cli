@@ -19,7 +19,7 @@ it's pretty dialed to my own use cases, but i want to support more people than
 myself with this so
 [lmk what it can do for you](https://github.com/schpet/linear-cli/issues/).
 
-## demo
+## screencast demos
 
 <details>
 <summary><code>linear issue create</code></summary>
