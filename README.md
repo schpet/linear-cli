@@ -104,6 +104,10 @@ linear team id         # print out the team id (e.g. for scripts)
 linear autolinks       # use gh to setup autolinked references from github to linear
 ```
 
+#### issue create demo
+
+<img width="600" src="docs/cast-issue-create.svg" alt="screencast showing the linear issue create command, interactively adding issue details">
+
 ### other commands
 
 ```bash
