@@ -893,6 +893,24 @@ async function fetchIssueDetails(
   }
 }
 
+async function fetchParentIssueTitle(
+  parentId: string,
+): Promise<string | null> {
+  try {
+    const query = gql(`
+      query GetParentIssueTitle($id: String!) {
+        issue(id: $id) { title, identifier }
+      }
+    `);
+    const client = getGraphQLClient();
+    const data = await client.request(query, { id: parentId });
+    return `${data.issue.identifier}: ${data.issue.title}`;
+  } catch (_error) {
+    console.error("✗ Failed to fetch parent issue details");
+    return null;
+  }
+}
+
 async function openTeamPage(options: { app?: boolean } = {}) {
   const teamId = await getTeamId();
   if (!teamId) {
@@ -1531,6 +1549,7 @@ async function promptInteractiveIssueCreation(
   preStartedStatesPromise?: Promise<
     Array<{ id: string; name: string; type: string; position: number }>
   >,
+  parentId?: string,
 ): Promise<{
   title: string;
   teamId: string;
@@ -1541,6 +1560,7 @@ async function promptInteractiveIssueCreation(
   description?: string;
   stateId?: string;
   start: boolean;
+  parentId?: string;
 }> {
   // Start team resolution in background while asking for title
   const teamResolutionPromise = (async () => {
@@ -1562,8 +1582,20 @@ async function promptInteractiveIssueCreation(
     };
   })();
 
+  // If we have a parent issue, fetch and display its title
+  let parentTitle: string | null = null;
+  if (parentId) {
+    parentTitle = await fetchParentIssueTitle(parentId);
+    if (parentTitle) {
+      console.log(`Creating subissue for: ${parentTitle}`);
+      console.log();
+    }
+  }
+
   const title = await Input.prompt({
-    message: "What's the title of your issue?",
+    message: parentId
+      ? "What's the title of your subissue?"
+      : "What's the title of your issue?",
     minLength: 1,
   });
 
@@ -1726,6 +1758,7 @@ async function promptInteractiveIssueCreation(
     description: finalDescription,
     stateId,
     start,
+    parentId,
   };
 }
 
@@ -1805,8 +1838,8 @@ const createCommand = new Command()
     ) => {
       interactive = interactive && Deno.stdout.isTerminal();
 
-      // If no flags are provided (just title is empty), use interactive mode
-      const noFlagsProvided = !title && !assignee && !dueDate && !parent &&
+      // If no flags are provided (or only parent is provided), use interactive mode
+      const noFlagsProvided = !title && !assignee && !dueDate &&
         priority === undefined && estimate === undefined && !description &&
         (!labels || labels === true ||
           (Array.isArray(labels) && labels.length === 0)) &&
@@ -1832,8 +1865,22 @@ const createCommand = new Command()
             }
           }
 
+          // Handle parent issue if provided
+          let parentUid: string | undefined = undefined;
+          if (parent !== undefined) {
+            const parentId = await getIssueId(parent, true);
+            if (parentId) {
+              parentUid = await getIssueUidByIdentifier(parentId);
+            }
+            if (parentUid === undefined) {
+              console.error(`Could not determine ID for issue ${parent}`);
+              Deno.exit(1);
+            }
+          }
+
           const interactiveData = await promptInteractiveIssueCreation(
             statesPromise,
+            parentUid,
           );
 
           console.log(`Creating issue...`);
@@ -1854,7 +1901,7 @@ const createCommand = new Command()
               title: interactiveData.title,
               assigneeId: interactiveData.assigneeId,
               dueDate: undefined,
-              parentId: undefined,
+              parentId: interactiveData.parentId,
               priority: interactiveData.priority,
               estimate: interactiveData.estimate,
               labelIds: interactiveData.labelIds,
@@ -1896,7 +1943,7 @@ const createCommand = new Command()
       // Fallback to flag-based mode
       if (!title) {
         console.error(
-          "Title is required when not using interactive mode. Use --title or run without any flags for interactive mode.",
+          "Title is required when not using interactive mode. Use --title or run without any flags (or only --parent) for interactive mode.",
         );
         Deno.exit(1);
       }
@@ -2001,7 +2048,7 @@ const createCommand = new Command()
           if (parentId) {
             parentUid = await getIssueUidByIdentifier(parentId);
           }
-          if (parentId === undefined && interactive) {
+          if (parentUid === undefined && interactive) {
             const parentUids = await getIssueUidOptionsByTitle(parent);
             spinner?.stop();
             parentUid = await selectOption("Parent issue", parent, parentUids);
@@ -2100,6 +2147,14 @@ await new Command()
   .command("completions", new CompletionsCommand())
   .command("config", "Interactively generate .linear.toml configuration")
   .action(async () => {
+    console.log(`
+██      ██ ███    ██ ███████  █████  ██████      ██████ ██      ██
+██      ██ ████   ██ ██      ██   ██ ██   ██    ██      ██      ██  
+██      ██ ██ ██  ██ █████   ███████ ██████     ██      ██      ██
+██      ██ ██  ██ ██ ██      ██   ██ ██   ██    ██      ██      ██
+███████ ██ ██   ████ ███████ ██   ██ ██   ██     ██████ ███████ ██
+`);
+
     const apiKey = Deno.env.get("LINEAR_API_KEY");
     if (!apiKey) {
       console.error("The LINEAR_API_KEY environment variable is required.");

@@ -35,6 +35,7 @@ type Documents = {
     "\n    query GetLabelsForTeam($teamId: ID!) {\n      issueLabels(filter: {\n        or: [\n          { team: { id: { eq: $teamId } } },\n          { team: { null: true } }\n        ]\n      }) {\n        nodes {\n          id\n          name\n          color\n        }\n      }\n    }\n  ": typeof types.GetLabelsForTeamDocument,
     "\n    query GetIssuesForState($sort: [IssueSortInput!], $filter: IssueFilter!) {\n      issues(\n        filter: $filter\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          assignee {\n            initials\n          }\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  ": typeof types.GetIssuesForStateDocument,
     "\n      query GetIssueDetails($id: String!) {\n        issue(id: $id) { title, description, url, branchName }\n      }\n    ": typeof types.GetIssueDetailsDocument,
+    "\n      query GetParentIssueTitle($id: String!) {\n        issue(id: $id) { title, identifier }\n      }\n    ": typeof types.GetParentIssueTitleDocument,
     "\n      query GetIssueDeleteDetails($id: String!) {\n        issue(id: $id) { title, identifier }\n      }\n    ": typeof types.GetIssueDeleteDetailsDocument,
     "\n      mutation DeleteIssue($id: String!) {\n        issueDelete(id: $id) {\n          success\n          entity {\n            identifier\n            title\n          }\n        }\n      }\n    ": typeof types.DeleteIssueDocument,
     "\n            mutation CreateIssue($input: IssueCreateInput!) {\n              issueCreate(input: $input) {\n                success\n                issue { id, identifier, url, team { key } }\n              }\n            }\n          ": typeof types.CreateIssueDocument,
@@ -63,6 +64,7 @@ const documents: Documents = {
     "\n    query GetLabelsForTeam($teamId: ID!) {\n      issueLabels(filter: {\n        or: [\n          { team: { id: { eq: $teamId } } },\n          { team: { null: true } }\n        ]\n      }) {\n        nodes {\n          id\n          name\n          color\n        }\n      }\n    }\n  ": types.GetLabelsForTeamDocument,
     "\n    query GetIssuesForState($sort: [IssueSortInput!], $filter: IssueFilter!) {\n      issues(\n        filter: $filter\n        sort: $sort\n      ) {\n        nodes {\n          id\n          identifier\n          title\n          priority\n          estimate\n          assignee {\n            initials\n          }\n          state {\n            id\n            name\n            color\n          }\n          labels {\n            nodes {\n              id\n              name\n              color\n            }\n          }\n          updatedAt\n        }\n      }\n    }\n  ": types.GetIssuesForStateDocument,
     "\n      query GetIssueDetails($id: String!) {\n        issue(id: $id) { title, description, url, branchName }\n      }\n    ": types.GetIssueDetailsDocument,
+    "\n      query GetParentIssueTitle($id: String!) {\n        issue(id: $id) { title, identifier }\n      }\n    ": types.GetParentIssueTitleDocument,
     "\n      query GetIssueDeleteDetails($id: String!) {\n        issue(id: $id) { title, identifier }\n      }\n    ": types.GetIssueDeleteDetailsDocument,
     "\n      mutation DeleteIssue($id: String!) {\n        issueDelete(id: $id) {\n          success\n          entity {\n            identifier\n            title\n          }\n        }\n      }\n    ": types.DeleteIssueDocument,
     "\n            mutation CreateIssue($input: IssueCreateInput!) {\n              issueCreate(input: $input) {\n                success\n                issue { id, identifier, url, team { key } }\n              }\n            }\n          ": types.CreateIssueDocument,
@@ -168,6 +170,10 @@ export function gql(source: "\n    query GetIssuesForState($sort: [IssueSortInpu
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function gql(source: "\n      query GetIssueDetails($id: String!) {\n        issue(id: $id) { title, description, url, branchName }\n      }\n    "): (typeof documents)["\n      query GetIssueDetails($id: String!) {\n        issue(id: $id) { title, description, url, branchName }\n      }\n    "];
+/**
+ * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function gql(source: "\n      query GetParentIssueTitle($id: String!) {\n        issue(id: $id) { title, identifier }\n      }\n    "): (typeof documents)["\n      query GetParentIssueTitle($id: String!) {\n        issue(id: $id) { title, identifier }\n      }\n    "];
 /**
  * The gql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
