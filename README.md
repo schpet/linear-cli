@@ -46,8 +46,9 @@ deno task install
 
 ## setup
 
-1. create an API key at https://linear.app/settings/account/security (requires
-   member access, not available for guest accounts)
+1. create an API key at https://linear.app/settings/account/security\
+   _fyi creating an api key requires member access, it is not available for
+   guest accounts_
 
 2. add the API key to your shell environment:
 
@@ -62,6 +63,7 @@ deno task install
 3. run the configuration wizard:
 
    ```sh
+   cd my-project-repo
    linear config
    ```
 
