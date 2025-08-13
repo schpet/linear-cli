@@ -1090,209 +1090,219 @@ const issueCommand = new Command()
       default: "@me",
     },
   )
+  .option(
+    "-A, --all-assignees",
+    "Show issues for all assignees (equivalent to --assignee @all)",
+  )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
-  .action(async ({ sort: sortFlag, state, assignee, web, app }) => {
-    if (web || app) {
-      await openTeamPage({ app });
-      return;
-    }
-    const sort = sortFlag ||
-      getOption("issue_sort") as "manual" | "priority" | undefined;
-    if (!sort) {
-      console.error(
-        "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
-      );
-      Deno.exit(1);
-    }
-    if (!SortType.values().includes(sort)) {
-      console.error(`Sort must be one of: ${SortType.values().join(", ")}`);
-      Deno.exit(1);
-    }
-    const teamId = await getTeamId();
-    if (!teamId) {
-      console.error("Could not determine team id from directory name.");
-      Deno.exit(1);
-    }
-
-    const showSpinner = Deno.stdout.isTerminal();
-    const spinner = showSpinner ? new Spinner() : null;
-    spinner?.start();
-
-    try {
-      const result = await fetchIssuesForState(teamId, state, assignee);
-      spinner?.stop();
-      const issues = result.issues?.nodes || [];
-
-      if (issues.length === 0) {
-        console.log("No issues found.");
+  .action(
+    async ({ sort: sortFlag, state, assignee, allAssignees, web, app }) => {
+      if (web || app) {
+        await openTeamPage({ app });
         return;
       }
 
-      // Define column widths first
-      const { columns } = Deno.consoleSize();
-      const PRIORITY_WIDTH = 4;
-      const ID_WIDTH = 8;
-      const LABEL_WIDTH = columns <= 100 ? 12 : 24; // adjust label width based on terminal size
-      const ESTIMATE_WIDTH = 2; // fixed width for estimate
-      const STATE_WIDTH = 12; // fixed width for state
-      const SPACE_WIDTH = 4;
-      const updatedHeader = "UPDATED";
-      const UPDATED_WIDTH = Math.max(
-        unicodeWidth(updatedHeader),
-        ...issues.map((issue) =>
-          unicodeWidth(getTimeAgo(new Date(issue.updatedAt)))
-        ),
-      );
+      // Handle -A flag to override assignee
+      const finalAssignee = allAssignees ? "@all" : assignee;
 
-      type TableRow = {
-        priorityStr: string;
-        priorityStyles: string[];
-        identifier: string;
-        title: string;
-        labelsFormat: string;
-        labelsStyles: string[];
-        state: string;
-        stateStyles: string[];
-        timeAgo: string;
-        estimate: number | null | undefined;
-      };
-
-      const tableData: Array<TableRow> = issues.map((issue) => {
-        // First build the plain text version to measure length
-        const plainLabels = issue.labels.nodes.map((l) => l.name).join(
-          ", ",
+      const sort = sortFlag ||
+        getOption("issue_sort") as "manual" | "priority" | undefined;
+      if (!sort) {
+        console.error(
+          "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
         );
-        let labelsFormat: string;
-        let labelsStyles: string[] = [];
+        Deno.exit(1);
+      }
+      if (!SortType.values().includes(sort)) {
+        console.error(`Sort must be one of: ${SortType.values().join(", ")}`);
+        Deno.exit(1);
+      }
+      const teamId = await getTeamId();
+      if (!teamId) {
+        console.error("Could not determine team id from directory name.");
+        Deno.exit(1);
+      }
 
-        if (issue.labels.nodes.length === 0) {
-          labelsFormat = "";
-        } else {
-          const truncatedLabels = plainLabels.length > LABEL_WIDTH
-            ? plainLabels.slice(0, LABEL_WIDTH - 3) + "..."
-            : plainLabels;
+      const showSpinner = Deno.stdout.isTerminal();
+      const spinner = showSpinner ? new Spinner() : null;
+      spinner?.start();
 
-          // Then format the truncated version with colors
-          labelsFormat = truncatedLabels
-            .split(", ")
-            .map((name) => `%c${name}%c`)
-            .join(", ");
-          labelsStyles = issue.labels.nodes
-            .filter((_, i) => i < truncatedLabels.split(", ").length)
-            .flatMap((l) => [`color: ${l.color}`, ""]);
-        }
-        const updatedAt = new Date(issue.updatedAt);
-        const timeAgo = getTimeAgo(updatedAt);
+      try {
+        const result = await fetchIssuesForState(teamId, state, finalAssignee);
+        spinner?.stop();
+        const issues = result.issues?.nodes || [];
 
-        let priorityStr = "";
-        let priorityStyles: string[] = [];
-        if (issue.priority === 0) {
-          priorityStr = "%c---%c";
-          priorityStyles = ["color: silver", ""];
-        } else if (issue.priority === 1 || issue.priority === 2) {
-          // ▄▆█
-          priorityStr = "%c▄%c▆%c█%c";
-          priorityStyles = ["", "", "", ""];
-        } else if (issue.priority === 3) {
-          priorityStr = "%c▄%c▆%c█%c";
-          priorityStyles = ["", "", "color: silver", ""];
-        } else if (issue.priority === 4) {
-          priorityStr = "%c▄%c▆%c█%c";
-          priorityStyles = ["", "color: silver", "color: silver", ""];
-        } else {
-          priorityStr = issue.priority.toString();
-          priorityStyles = [];
+        if (issues.length === 0) {
+          console.log("No issues found.");
+          return;
         }
 
-        return {
-          priorityStr,
-          priorityStyles,
-          identifier: issue.identifier,
-          title: issue.title,
-          labelsFormat,
-          labelsStyles,
-          state: `%c${issue.state.name}%c`,
-          stateStyles: [`color: ${issue.state.color}`, ""],
-          timeAgo,
-          estimate: issue.estimate,
+        // Define column widths first
+        const { columns } = Deno.consoleSize();
+        const PRIORITY_WIDTH = 4;
+        const ID_WIDTH = 8;
+        const LABEL_WIDTH = columns <= 100 ? 12 : 24; // adjust label width based on terminal size
+        const ESTIMATE_WIDTH = 2; // fixed width for estimate
+        const STATE_WIDTH = 12; // fixed width for state
+        const SPACE_WIDTH = 4;
+        const updatedHeader = "UPDATED";
+        const UPDATED_WIDTH = Math.max(
+          unicodeWidth(updatedHeader),
+          ...issues.map((issue) =>
+            unicodeWidth(getTimeAgo(new Date(issue.updatedAt)))
+          ),
+        );
+
+        type TableRow = {
+          priorityStr: string;
+          priorityStyles: string[];
+          identifier: string;
+          title: string;
+          labelsFormat: string;
+          labelsStyles: string[];
+          state: string;
+          stateStyles: string[];
+          timeAgo: string;
+          estimate: number | null | undefined;
         };
-      });
 
-      const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
-        LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH; // sum of fixed columns including spacing for estimate
-      const PADDING = 1;
-      const maxTitleWidth = Math.max(
-        ...tableData.map((row) => unicodeWidth(row.title)),
-      );
-      const availableWidth = Math.max(columns - PADDING - fixed, 0);
-      const titleWidth = Math.min(maxTitleWidth, availableWidth); // use smaller of max title width or available space
-      const headerCells = [
-        padDisplay("◌", PRIORITY_WIDTH),
-        padDisplay("ID", ID_WIDTH),
-        padDisplay("TITLE", titleWidth),
-        padDisplay("LABELS", LABEL_WIDTH),
-        padDisplay("E", ESTIMATE_WIDTH),
-        padDisplay("STATE", STATE_WIDTH),
-        padDisplay(updatedHeader, UPDATED_WIDTH),
-      ];
-      let headerMsg = "";
-      const headerStyles: string[] = [];
-      headerCells.forEach((cell, index) => {
-        headerMsg += `%c${cell}`;
-        headerStyles.push("text-decoration: underline");
-        if (index < headerCells.length - 1) {
-          headerMsg += "%c %c"; // non-underlined space between cells
-          headerStyles.push("text-decoration: none");
-          headerStyles.push("text-decoration: underline");
-        }
-      });
-      console.log(headerMsg, ...headerStyles);
+        const tableData: Array<TableRow> = issues.map((issue) => {
+          // First build the plain text version to measure length
+          const plainLabels = issue.labels.nodes.map((l) => l.name).join(
+            ", ",
+          );
+          let labelsFormat: string;
+          let labelsStyles: string[] = [];
 
-      // Print each issue
-      for (const row of tableData) {
-        const {
-          priorityStr,
-          priorityStyles,
-          identifier,
-          title,
-          labelsFormat,
-          labelsStyles,
-          state,
-          stateStyles,
-          timeAgo,
-        } = row;
-        const truncTitle = title.length > titleWidth
-          ? title.slice(0, titleWidth - 3) + "..."
-          : padDisplay(title, titleWidth);
+          if (issue.labels.nodes.length === 0) {
+            labelsFormat = "";
+          } else {
+            const truncatedLabels = plainLabels.length > LABEL_WIDTH
+              ? plainLabels.slice(0, LABEL_WIDTH - 3) + "..."
+              : plainLabels;
 
-        console.log(
-          `${padDisplayFormatted(priorityStr, 4)} ${
-            padDisplay(identifier, 8)
-          } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
-            padDisplay(row.estimate?.toString() || "-", ESTIMATE_WIDTH)
-          } ${padDisplayFormatted(state, STATE_WIDTH)} %c${
-            padDisplay(timeAgo, UPDATED_WIDTH)
-          }%c`,
-          ...priorityStyles,
-          ...labelsStyles,
-          ...stateStyles,
-          "color: gray",
-          "",
+            // Then format the truncated version with colors
+            labelsFormat = truncatedLabels
+              .split(", ")
+              .map((name) => `%c${name}%c`)
+              .join(", ");
+            labelsStyles = issue.labels.nodes
+              .filter((_, i) => i < truncatedLabels.split(", ").length)
+              .flatMap((l) => [`color: ${l.color}`, ""]);
+          }
+          const updatedAt = new Date(issue.updatedAt);
+          const timeAgo = getTimeAgo(updatedAt);
+
+          let priorityStr = "";
+          let priorityStyles: string[] = [];
+          if (issue.priority === 0) {
+            priorityStr = "%c---%c";
+            priorityStyles = ["color: silver", ""];
+          } else if (issue.priority === 1 || issue.priority === 2) {
+            // ▄▆█
+            priorityStr = "%c▄%c▆%c█%c";
+            priorityStyles = ["", "", "", ""];
+          } else if (issue.priority === 3) {
+            priorityStr = "%c▄%c▆%c█%c";
+            priorityStyles = ["", "", "color: silver", ""];
+          } else if (issue.priority === 4) {
+            priorityStr = "%c▄%c▆%c█%c";
+            priorityStyles = ["", "color: silver", "color: silver", ""];
+          } else {
+            priorityStr = issue.priority.toString();
+            priorityStyles = [];
+          }
+
+          return {
+            priorityStr,
+            priorityStyles,
+            identifier: issue.identifier,
+            title: issue.title,
+            labelsFormat,
+            labelsStyles,
+            state: `%c${issue.state.name}%c`,
+            stateStyles: [`color: ${issue.state.color}`, ""],
+            timeAgo,
+            estimate: issue.estimate,
+          };
+        });
+
+        const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
+          LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH; // sum of fixed columns including spacing for estimate
+        const PADDING = 1;
+        const maxTitleWidth = Math.max(
+          ...tableData.map((row) => unicodeWidth(row.title)),
         );
+        const availableWidth = Math.max(columns - PADDING - fixed, 0);
+        const titleWidth = Math.min(maxTitleWidth, availableWidth); // use smaller of max title width or available space
+        const headerCells = [
+          padDisplay("◌", PRIORITY_WIDTH),
+          padDisplay("ID", ID_WIDTH),
+          padDisplay("TITLE", titleWidth),
+          padDisplay("LABELS", LABEL_WIDTH),
+          padDisplay("E", ESTIMATE_WIDTH),
+          padDisplay("STATE", STATE_WIDTH),
+          padDisplay(updatedHeader, UPDATED_WIDTH),
+        ];
+        let headerMsg = "";
+        const headerStyles: string[] = [];
+        headerCells.forEach((cell, index) => {
+          headerMsg += `%c${cell}`;
+          headerStyles.push("text-decoration: underline");
+          if (index < headerCells.length - 1) {
+            headerMsg += "%c %c"; // non-underlined space between cells
+            headerStyles.push("text-decoration: none");
+            headerStyles.push("text-decoration: underline");
+          }
+        });
+        console.log(headerMsg, ...headerStyles);
+
+        // Print each issue
+        for (const row of tableData) {
+          const {
+            priorityStr,
+            priorityStyles,
+            identifier,
+            title,
+            labelsFormat,
+            labelsStyles,
+            state,
+            stateStyles,
+            timeAgo,
+          } = row;
+          const truncTitle = title.length > titleWidth
+            ? title.slice(0, titleWidth - 3) + "..."
+            : padDisplay(title, titleWidth);
+
+          console.log(
+            `${padDisplayFormatted(priorityStr, 4)} ${
+              padDisplay(identifier, 8)
+            } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
+              padDisplay(row.estimate?.toString() || "-", ESTIMATE_WIDTH)
+            } ${padDisplayFormatted(state, STATE_WIDTH)} %c${
+              padDisplay(timeAgo, UPDATED_WIDTH)
+            }%c`,
+            ...priorityStyles,
+            ...labelsStyles,
+            ...stateStyles,
+            "color: gray",
+            "",
+          );
+        }
+      } catch (error) {
+        spinner?.stop();
+        if (
+          error instanceof Error && error.message.startsWith("User not found:")
+        ) {
+          console.error(error.message);
+        } else {
+          console.error("Failed to fetch issues:", error);
+        }
+        Deno.exit(1);
       }
-    } catch (error) {
-      spinner?.stop();
-      if (
-        error instanceof Error && error.message.startsWith("User not found:")
-      ) {
-        console.error(error.message);
-      } else {
-        console.error("Failed to fetch issues:", error);
-      }
-      Deno.exit(1);
-    }
-  })
+    },
+  )
   .command("title", "Print the issue title")
   .arguments("[issueId:string]")
   .action(async (_, issueId) => {
