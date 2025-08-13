@@ -8,7 +8,8 @@ here's how it works:
 ```bash
 linear config               # setup your repo, it writes a config file
 
-linear issue list           # list issues assigned to you
+linear issue list           # list unstarted issues assigned to you
+linear issue list -A        # list unstarted issues assigned to anyone
 linear issue start ABC-123  # update an issue status, checks out a branch
 linear issue pr             # makes a PR with title/body preset, leverages gh (https://cli.github.com/)
 linear issue create         # create a new issue
