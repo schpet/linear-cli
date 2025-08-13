@@ -6,6 +6,7 @@
   `const result = await client.request(query, { teamId });` should work and be
   typed (and not require explicit types)
 - graphql/schema.graphql has the graphql schema document for linear's api
+- for diagnostics, use `deno check` and `deno lint` (and not tsc directly)
 
 ## changelog entries
 
