@@ -23,7 +23,7 @@ myself with this so
 
 ### `linear issue create`
 
-<img width="600" src="docs/cast-issue-create.svg" alt="screencast showing the linear issue create command, interactively adding issue details">
+<img width="600" src="docs/cast-issue-create.svg?1" alt="screencast showing the linear issue create command, interactively adding issue details">
 
 ## install
 
