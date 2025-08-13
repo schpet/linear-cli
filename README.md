@@ -19,6 +19,22 @@ it's pretty dialed to my own use cases, but i want to support more people than
 myself with this so
 [lmk what it can do for you](https://github.com/schpet/linear-cli/issues/).
 
+## screencast demos
+
+<details>
+<summary><code>linear issue create</code></summary>
+
+<img width="600" src="docs/cast-issue-create.svg?1" alt="screencast showing the linear issue create command, interactively adding issue details">
+
+</details>
+
+<details>
+<summary><code>linear issue start</code></summary>
+
+<img width="600" src="docs/cast-issue-start.svg?1" alt="screencast showing the linear issue start command, interactively choosing an issue to start">
+
+</details>
+
 ## install
 
 ### homebrew
