@@ -19,6 +19,12 @@ it's pretty dialed to my own use cases, but i want to support more people than
 myself with this so
 [lmk what it can do for you](https://github.com/schpet/linear-cli/issues/).
 
+## demo
+
+### `issue create`
+
+<img width="600" src="docs/cast-issue-create.svg" alt="screencast showing the linear issue create command, interactively adding issue details">
+
 ## install
 
 ### homebrew
@@ -103,10 +109,6 @@ linear issue create -t "title" -d "description"  # create with flags
 linear team id         # print out the team id (e.g. for scripts)
 linear autolinks       # use gh to setup autolinked references from github to linear
 ```
-
-#### issue create demo
-
-<img width="600" src="docs/cast-issue-create.svg" alt="screencast showing the linear issue create command, interactively adding issue details">
 
 ### other commands
 
