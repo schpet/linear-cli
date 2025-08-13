@@ -815,6 +815,9 @@ async function fetchIssuesForState(
           title
           priority
           estimate
+          assignee {
+            initials
+          }
           state {
             id
             name
@@ -1140,12 +1143,17 @@ const issueCommand = new Command()
 
         // Define column widths first
         const { columns } = Deno.consoleSize();
-        const PRIORITY_WIDTH = 4;
-        const ID_WIDTH = 8;
+        const PRIORITY_WIDTH = 3;
+        const ID_WIDTH = Math.max(
+          2, // minimum width for "ID" header
+          ...issues.map((issue) => issue.identifier.length),
+        );
         const LABEL_WIDTH = columns <= 100 ? 12 : 24; // adjust label width based on terminal size
-        const ESTIMATE_WIDTH = 2; // fixed width for estimate
+        const ESTIMATE_WIDTH = 1; // fixed width for estimate
         const STATE_WIDTH = 12; // fixed width for state
+        const ASSIGNEE_WIDTH = 2; // fixed width for assignee initials
         const SPACE_WIDTH = 4;
+        const showAssigneeColumn = finalAssignee !== "@me";
         const updatedHeader = "UPDATED";
         const UPDATED_WIDTH = Math.max(
           unicodeWidth(updatedHeader),
@@ -1165,6 +1173,7 @@ const issueCommand = new Command()
           stateStyles: string[];
           timeAgo: string;
           estimate: number | null | undefined;
+          assignee?: string;
         };
 
         const tableData: Array<TableRow> = issues.map((issue) => {
@@ -1172,6 +1181,11 @@ const issueCommand = new Command()
           const plainLabels = issue.labels.nodes.map((l) => l.name).join(
             ", ",
           );
+
+          // Get assignee initials if needed
+          const assignee = showAssigneeColumn
+            ? (issue.assignee?.initials?.slice(0, 2) || "-")
+            : undefined;
           let labelsFormat: string;
           let labelsStyles: string[] = [];
 
@@ -1225,11 +1239,13 @@ const issueCommand = new Command()
             stateStyles: [`color: ${issue.state.color}`, ""],
             timeAgo,
             estimate: issue.estimate,
+            assignee,
           };
         });
 
         const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
-          LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH; // sum of fixed columns including spacing for estimate
+          LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH +
+          (showAssigneeColumn ? ASSIGNEE_WIDTH + SPACE_WIDTH : 0); // sum of fixed columns including spacing for estimate
         const PADDING = 1;
         const maxTitleWidth = Math.max(
           ...tableData.map((row) => unicodeWidth(row.title)),
@@ -1242,6 +1258,7 @@ const issueCommand = new Command()
           padDisplay("TITLE", titleWidth),
           padDisplay("LABELS", LABEL_WIDTH),
           padDisplay("E", ESTIMATE_WIDTH),
+          ...(showAssigneeColumn ? [padDisplay("A", ASSIGNEE_WIDTH)] : []),
           padDisplay("STATE", STATE_WIDTH),
           padDisplay(updatedHeader, UPDATED_WIDTH),
         ];
@@ -1270,17 +1287,22 @@ const issueCommand = new Command()
             state,
             stateStyles,
             timeAgo,
+            assignee,
           } = row;
           const truncTitle = title.length > titleWidth
             ? title.slice(0, titleWidth - 3) + "..."
             : padDisplay(title, titleWidth);
 
+          const assigneeOutput = showAssigneeColumn
+            ? `${padDisplay(assignee || "-", ASSIGNEE_WIDTH)} `
+            : "";
+
           console.log(
-            `${padDisplayFormatted(priorityStr, 4)} ${
-              padDisplay(identifier, 8)
+            `${padDisplayFormatted(priorityStr, 3)} ${
+              padDisplay(identifier, ID_WIDTH)
             } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
               padDisplay(row.estimate?.toString() || "-", ESTIMATE_WIDTH)
-            } ${padDisplayFormatted(state, STATE_WIDTH)} %c${
+            } ${assigneeOutput}${padDisplayFormatted(state, STATE_WIDTH)} %c${
               padDisplay(timeAgo, UPDATED_WIDTH)
             }%c`,
             ...priorityStyles,
