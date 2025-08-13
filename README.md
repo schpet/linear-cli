@@ -21,7 +21,7 @@ myself with this so
 
 ## demo
 
-### `issue create`
+### `linear issue create`
 
 <img width="600" src="docs/cast-issue-create.svg" alt="screencast showing the linear issue create command, interactively adding issue details">
 
