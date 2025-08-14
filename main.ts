@@ -774,7 +774,9 @@ export function getGraphQLClient(): GraphQLClient {
 async function fetchIssuesForState(
   teamId: string,
   state: string,
-  assignee = "@me",
+  assignee?: string,
+  unassigned = false,
+  allAssignees = false,
 ) {
   const sort = getOption("issue_sort") as "manual" | "priority" | undefined;
   if (!sort) {
@@ -790,17 +792,19 @@ async function fetchIssuesForState(
     state: { type: { in: [state] } },
   };
 
-  if (assignee === "@me") {
-    filter.assignee = { isMe: { eq: true } };
-  } else if (assignee === "@all") {
+  if (unassigned) {
+    filter.assignee = { null: true };
+  } else if (allAssignees) {
     // No assignee filter means all assignees
-  } else {
+  } else if (assignee) {
     // Get user ID for the specified username
     const userId = await getUserUidByDisplayName(assignee);
     if (!userId) {
       throw new Error(`User not found: ${assignee}`);
     }
     filter.assignee = { id: { eq: userId } };
+  } else {
+    filter.assignee = { isMe: { eq: true } };
   }
 
   const query = gql(`
@@ -1108,26 +1112,36 @@ const issueCommand = new Command()
   )
   .option(
     "--assignee <assignee:string>",
-    "Filter by assignee (@me, @all, or username)",
-    {
-      default: "@me",
-    },
+    "Filter by assignee (username)",
   )
   .option(
     "-A, --all-assignees",
-    "Show issues for all assignees (equivalent to --assignee @all)",
+    "Show issues for all assignees",
+  )
+  .option(
+    "-U, --unassigned",
+    "Show only unassigned issues",
   )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
   .action(
-    async ({ sort: sortFlag, state, assignee, allAssignees, web, app }) => {
+    async (
+      { sort: sortFlag, state, assignee, allAssignees, unassigned, web, app },
+    ) => {
       if (web || app) {
         await openTeamPage({ app });
         return;
       }
 
-      // Handle -A flag to override assignee
-      const finalAssignee = allAssignees ? "@all" : assignee;
+      // Validate that conflicting flags are not used together
+      const flagCount =
+        [assignee, allAssignees, unassigned].filter(Boolean).length;
+      if (flagCount > 1) {
+        console.error(
+          "Cannot specify multiple assignee filters (--assignee, --all-assignees, --unassigned)",
+        );
+        Deno.exit(1);
+      }
 
       const sort = sortFlag ||
         getOption("issue_sort") as "manual" | "priority" | undefined;
@@ -1152,7 +1166,13 @@ const issueCommand = new Command()
       spinner?.start();
 
       try {
-        const result = await fetchIssuesForState(teamId, state, finalAssignee);
+        const result = await fetchIssuesForState(
+          teamId,
+          state,
+          assignee,
+          unassigned,
+          allAssignees,
+        );
         spinner?.stop();
         const issues = result.issues?.nodes || [];
 
@@ -1173,7 +1193,7 @@ const issueCommand = new Command()
         const STATE_WIDTH = 12; // fixed width for state
         const ASSIGNEE_WIDTH = 2; // fixed width for assignee initials
         const SPACE_WIDTH = 4;
-        const showAssigneeColumn = finalAssignee !== "@me";
+        const showAssigneeColumn = allAssignees || unassigned;
         const updatedHeader = "UPDATED";
         const UPDATED_WIDTH = Math.max(
           unicodeWidth(updatedHeader),
@@ -2149,7 +2169,7 @@ await new Command()
   .action(async () => {
     console.log(`
 ██      ██ ███    ██ ███████  █████  ██████      ██████ ██      ██
-██      ██ ████   ██ ██      ██   ██ ██   ██    ██      ██      ██  
+██      ██ ████   ██ ██      ██   ██ ██   ██    ██      ██      ██
 ██      ██ ██ ██  ██ █████   ███████ ██████     ██      ██      ██
 ██      ██ ██  ██ ██ ██      ██   ██ ██   ██    ██      ██      ██
 ███████ ██ ██   ████ ███████ ██   ██ ██   ██     ██████ ███████ ██

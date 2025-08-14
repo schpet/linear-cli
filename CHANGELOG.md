@@ -8,11 +8,11 @@
 
 ### Added
 
-- new --assignee flag on `issue list` allowing you to list issues assigned to
+- add --assignee flag on `issue list` allowing you to list issues assigned to
+- add -U, --unassigned flag to list only unassigned issues
+- add -A, --all-assignees flag to list issues for all assignees
 - `issue delete` command to delete issues by id
-- create an issue with a parent
-
-  @me, @all or a given user. A flag is shorthand for --assignee @all
+- allow specifying a --parent on linear issue create
 
 ## [0.6.4] - 2025-08-12
 
