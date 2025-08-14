@@ -35,6 +35,9 @@
       "src/",
       "test/",
       "README.md"
+    ],
+    "exclude": [
+      "!src/__codegen__/"
     ]
   },
   "fmt": {
