@@ -7,12 +7,8 @@ export const teamCommand = new Command()
   .description(
     "Manage Linear teams (deprecated: use `linear issue list --app` instead)",
   )
-  .action(() => {
-    console.error(
-      "Warning: 'linear team' is deprecated and will be removed in a future release.",
-    );
-    console.error("Please use 'linear issue list --app' instead.");
-    return openTeamPage({ app: true });
+  .action(function () {
+    this.showHelp();
   })
   .command("open", "Open the team page in Linear.app")
   .alias("o")
