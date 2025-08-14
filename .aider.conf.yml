@@ -1,7 +1,0 @@
-# https://aider.chat/docs/config/aider_conf.html
-read: CONVENTIONS.md
-watch-files: true
-test-cmd: deno check main.ts
-
-lint-cmd: deno fmt && deno lint
-auto-lint: true

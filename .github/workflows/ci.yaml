@@ -12,6 +12,9 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Generate GraphQL code
+        run: deno task codegen
+
       - name: Check formatting
         run: deno fmt --check
 
@@ -19,7 +22,7 @@ jobs:
         run: deno lint
 
       - name: Type check
-        run: deno check --unstable-sloppy-imports main.ts
+        run: deno check --all
 
       - name: Run tests
-        run: deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV' --allow-read --allow-write --unstable-sloppy-imports
+        run: deno task test

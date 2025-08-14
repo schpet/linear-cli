@@ -1,5 +1,5 @@
 import { assertStringIncludes } from "@std/assert";
-import { getGraphQLClient } from "./main.ts";
+import { getGraphQLClient } from "../src/utils/graphql.ts";
 
 // Mock fetch function for testing
 const originalFetch = globalThis.fetch;

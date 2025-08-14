@@ -1,5 +1,6 @@
 import { parse } from "@std/toml";
 import { join } from "@std/path";
+import { load } from "@std/dotenv";
 
 let config: Record<string, unknown> = {};
 
@@ -32,6 +33,44 @@ async function loadConfig() {
   }
 }
 
+// Load .env files
+async function loadEnvFiles() {
+  let envVars: Record<string, string> = {};
+  if (await Deno.stat(".env").catch(() => null)) {
+    envVars = await load();
+  } else {
+    try {
+      const gitRoot = new TextDecoder()
+        .decode(
+          await new Deno.Command("git", {
+            args: ["rev-parse", "--show-toplevel"],
+          })
+            .output()
+            .then((output) => output.stdout),
+        )
+        .trim();
+
+      const gitRootEnvPath = join(gitRoot, ".env");
+      if (await Deno.stat(gitRootEnvPath).catch(() => null)) {
+        envVars = await load({ envPath: gitRootEnvPath });
+      }
+    } catch {
+      // Silently continue if not in a git repo
+    }
+  }
+
+  // Apply known environment variables from .env
+  const ALLOWED_ENV_VAR_PREFIXES = ["LINEAR_", "GH_", "GITHUB_"];
+  for (const [key, value] of Object.entries(envVars)) {
+    if (ALLOWED_ENV_VAR_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+      // Use same precedence as dotenv
+      if (Deno.env.get(key) !== undefined) continue;
+      Deno.env.set(key, value);
+    }
+  }
+}
+
+await loadEnvFiles();
 await loadConfig();
 
 export type OptionValueMapping = {

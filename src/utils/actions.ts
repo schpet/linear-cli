@@ -1,0 +1,94 @@
+import { open } from "@opensrc/deno-open";
+import { Select } from "@cliffy/prompt";
+import { branchExists } from "./git.ts";
+import {
+  fetchIssueDetails,
+  getIssueId,
+  getStartedState,
+  updateIssueState,
+} from "./linear.ts";
+import { getOption } from "../config.ts";
+
+export async function openIssuePage(
+  providedId?: string,
+  options: { app?: boolean; web?: boolean } = {},
+) {
+  const issueId = await getIssueId(providedId);
+  if (!issueId) {
+    console.error(
+      "The current branch does not contain a valid linear issue id.",
+    );
+    Deno.exit(1);
+  }
+
+  const workspace = getOption("workspace");
+  if (!workspace) {
+    console.error(
+      "workspace is not set via command line, configuration file, or environment.",
+    );
+    Deno.exit(1);
+  }
+
+  const url = `https://linear.app/${workspace}/issue/${issueId}`;
+  const destination = options.app ? "Linear.app" : "web browser";
+  console.log(`Opening ${url} in ${destination}`);
+  await open(url, options.app ? { app: { name: "Linear" } } : undefined);
+}
+
+export async function startWorkOnIssue(issueId: string, teamId: string) {
+  const { branchName } = await fetchIssueDetails(issueId, true);
+
+  // Check if branch exists
+  if (await branchExists(branchName)) {
+    const answer = await Select.prompt({
+      message:
+        `Branch ${branchName} already exists. What would you like to do?`,
+      options: [
+        { name: "Switch to existing branch", value: "switch" },
+        { name: "Create new branch with suffix", value: "create" },
+      ],
+    });
+
+    if (answer === "switch") {
+      const process = new Deno.Command("git", {
+        args: ["checkout", branchName],
+      });
+      await process.output();
+      console.log(`✓ Switched to '${branchName}'`);
+    } else {
+      // Find next available suffix
+      let suffix = 1;
+      let newBranch = `${branchName}-${suffix}`;
+      while (await branchExists(newBranch)) {
+        suffix++;
+        newBranch = `${branchName}-${suffix}`;
+      }
+
+      const process = new Deno.Command("git", {
+        args: ["checkout", "-b", newBranch],
+      });
+      await process.output();
+      console.log(`✓ Created and switched to branch '${newBranch}'`);
+    }
+  } else {
+    // Create and checkout the branch
+    const process = new Deno.Command("git", {
+      args: ["checkout", "-b", branchName],
+    });
+    await process.output();
+    console.log(`✓ Created and switched to branch '${branchName}'`);
+  }
+
+  // Update issue state
+  try {
+    const state = await getStartedState(teamId);
+    if (!issueId) {
+      console.error("No issue ID resolved");
+      Deno.exit(1);
+    }
+    await updateIssueState(issueId, state.id);
+    console.log(`✓ Issue state updated to '${state.name}'`);
+  } catch (error) {
+    console.error("Failed to update issue state:", error);
+  }
+}

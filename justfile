@@ -1,9 +1,9 @@
 dev *args:
-    deno run -A main.ts {{ args }}
+    deno run -A src/main.ts {{ args }}
 
 # tags the newest release in the changelog
 tag:
-    deno check main.ts
+    deno check --all
     deno fmt --check
     deno lint
 
@@ -19,3 +19,8 @@ tag:
     @echo "run this to release it:"
     @echo
     @echo "  git push origin HEAD --tags"
+
+# depends on `cargo install --git https://github.com/astral-sh/cargo-dist.git --tag v0.28.3 cargo-dist`
+# cargo-dist - needed to update .github/workflows/release.yml
+dist-generate:
+  dist generate

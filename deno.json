@@ -2,15 +2,15 @@
   "$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
   "name": "@schpet/linear-cli",
   "version": "0.6.4",
-  "exports": "./main.ts",
+  "exports": "./src/main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet main.ts ",
-    "install": "deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet -g -f -n linear ./main.ts",
+    "dev": "deno task codegen && deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet src/main.ts ",
+    "install": "deno task codegen && deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet -g -f -n linear ./src/main.ts",
     "uninstall": "deno uninstall -g linear",
     "sync-schema": "deno run -A npm:get-graphql-schema https://api.linear.app/graphql > graphql/schema.graphql",
     "codegen": "deno run --allow-all npm:@graphql-codegen/cli/graphql-codegen-esm",
-    "check": "deno check main.ts",
+    "check": "deno check src/main.ts",
     "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet"
   },
   "imports": {
@@ -27,27 +27,26 @@
     "@std/path": "jsr:@std/path@^1.0.8",
     "@std/toml": "jsr:@std/toml@^1.0.2",
     "graphql": "npm:graphql@^16.8.1",
-    "./__generated__/graphql": "./__generated__/graphql.ts",
+    "./__generated__/graphql": "./src/__codegen__/graphql.ts",
     "graphql-request": "npm:graphql-request@^7.2.0"
   },
   "publish": {
     "include": [
-      "main.ts",
-      "main_test.ts",
-      "config.ts",
-      "README.md",
-      "__generated__/"
+      "src/",
+      "test/",
+      "README.md"
     ]
   },
   "fmt": {
     "exclude": [
       ".github/workflows/release.yml",
       ".github/workflows/build-setup.yml",
-      "__generated__/"
+      "__generated__/",
+      "src/__codegen__/"
     ]
   },
   "lint": {
-    "exclude": ["__generated__/"]
+    "exclude": ["__generated__/", "src/__codegen__/"]
   },
   "unstable": ["sloppy-imports"]
 }

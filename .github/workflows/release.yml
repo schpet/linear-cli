@@ -129,6 +129,8 @@ jobs:
         uses: "denoland/setup-deno@v2"
         with:
           "deno-version": "v2.x"
+      - name: "Generate GraphQL code"
+        run: "deno task codegen"
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest
