@@ -122,13 +122,13 @@ export const createCommand = new Command()
           }
 
           // Handle parent issue if provided
-          let parentUid: string | undefined = undefined;
+          let parentId: string | undefined = undefined;
           if (parent !== undefined) {
-            const parentId = await getIssueId(parent, true);
-            if (parentId) {
-              parentUid = await getIssueIdByIdentifier(parentId);
+            const parentIdentifier = await getIssueId(parent, true);
+            if (parentIdentifier) {
+              parentId = await getIssueIdByIdentifier(parentIdentifier);
             }
-            if (parentUid === undefined) {
+            if (parentId === undefined) {
               console.error(`Could not determine ID for issue ${parent}`);
               Deno.exit(1);
             }
@@ -136,7 +136,7 @@ export const createCommand = new Command()
 
           const interactiveData = await promptInteractiveIssueCreation(
             statesPromise,
-            parentUid,
+            parentId,
           );
 
           console.log(`Creating issue...`);
@@ -220,9 +220,9 @@ export const createCommand = new Command()
         // For functions that need actual team IDs (like createIssue), get the ID
         let teamId = await getTeamIdByKey(team);
         if (interactive && !teamId) {
-          const teamUids = await searchTeamsByKeySubstring(team);
+          const teamIds = await searchTeamsByKeySubstring(team);
           spinner?.stop();
-          teamId = await selectOption("Team", team, teamUids);
+          teamId = await selectOption("Team", team, teamIds);
           spinner?.start();
         }
         if (!teamId) {
@@ -302,19 +302,19 @@ export const createCommand = new Command()
             Deno.exit(1);
           }
         }
-        let parentUid: string | undefined = undefined;
+        let parentId: string | undefined = undefined;
         if (parent !== undefined) {
-          const parentId = await getIssueId(parent, true);
-          if (parentId) {
-            parentUid = await getIssueIdByIdentifier(parentId);
+          const parentIdentifier = await getIssueId(parent, true);
+          if (parentIdentifier) {
+            parentId = await getIssueIdByIdentifier(parentIdentifier);
           }
-          if (parentUid === undefined && interactive) {
-            const parentUids = await getIssueOptionsByTitle(parent);
+          if (parentId === undefined && interactive) {
+            const parentIds = await getIssueOptionsByTitle(parent);
             spinner?.stop();
-            parentUid = await selectOption("Parent issue", parent, parentUids);
+            parentId = await selectOption("Parent issue", parent, parentIds);
             spinner?.start();
           }
-          if (parentUid === undefined) {
+          if (parentId === undefined) {
             console.error(`Could not determine ID for issue ${parent}`);
             Deno.exit(1);
           }
@@ -325,7 +325,7 @@ export const createCommand = new Command()
           title,
           assigneeId,
           dueDate,
-          parentId: parentUid,
+          parentId: parentId,
           priority,
           estimate,
           labelIds,

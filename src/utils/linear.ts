@@ -269,7 +269,7 @@ export async function getProjectIdByName(
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetProjectUidByName($name: String!) {
+    query GetProjectIdByName($name: String!) {
       projects(filter: {name: {eq: $name}}) {nodes{id}}
     }
   `);
@@ -282,7 +282,7 @@ export async function getProjectOptionsByName(
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetProjectUidOptionsByName($name: String!) {
+    query GetProjectIdOptionsByName($name: String!) {
         projects(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
       }
   `);
@@ -309,7 +309,7 @@ export async function getIssueIdByIdentifier(
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetIssueUidByIdentifier($identifier: String!) {
+    query GetIssueIdByIdentifier($identifier: String!) {
       issue(id: $identifier) { id }
     }
   `);
@@ -322,7 +322,7 @@ export async function getIssueOptionsByTitle(
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetIssueUidOptionsByTitle($title: String!) {
+    query GetIssueIdOptionsByTitle($title: String!) {
         issues(filter: {title: {containsIgnoreCase: $title}}) {nodes{id, identifier, title}}
       }
   `);
@@ -338,7 +338,7 @@ export async function getTeamIdByKey(
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetTeamUidByKey($team: String!) {
+    query GetTeamIdByKey($team: String!) {
       teams(filter: {key: {eq: $team}}) {nodes{id}}
     }
   `);
@@ -351,7 +351,7 @@ export async function searchTeamsByKeySubstring(
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetTeamUidOptionsByKey($team: String!) {
+    query GetTeamIdOptionsByKey($team: String!) {
         teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key, name}}
       }
   `);
@@ -376,7 +376,7 @@ export async function getUserIdByDisplayName(
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetUserUidByDisplayName($username: String!) {
+    query GetUserIdByDisplayName($username: String!) {
       users(filter: {displayName: {eq: $username}}) {nodes{id}}
     }
   `);
@@ -389,7 +389,7 @@ export async function getUserOptionsByDisplayName(
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetUserUidOptionsByDisplayName($name: String!) {
+    query GetUserIdOptionsByDisplayName($name: String!) {
         users(filter: {displayName: {containsIgnoreCase: $name}}) {nodes{id, displayName}}
       }
   `);
@@ -403,7 +403,7 @@ export async function getUserOptionsByName(
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetUserUidOptionsByName($name: String!) {
+    query GetUserIdOptionsByName($name: String!) {
         users(filter: {name: {containsIgnoreCase: $name}}) {nodes{id, name}}
       }
   `);
@@ -453,7 +453,7 @@ export async function getIssueLabelIdByNameForTeam(
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetIssueLabelUidByNameForTeam($name: String!, $teamKey: ID!) {
+    query GetIssueLabelIdByNameForTeam($name: String!, $teamKey: ID!) {
       issueLabels(filter: {
         name: {eq: $name},
         or: [
@@ -473,7 +473,7 @@ export async function getIssueLabelOptionsByNameForTeam(
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetIssueLabelUidOptionsByNameForTeam($name: String!, $teamKey: ID!) {
+    query GetIssueLabelIdOptionsByNameForTeam($name: String!, $teamKey: ID!) {
         issueLabels(filter: {
           name: {containsIgnoreCase: $name},
           or: [
