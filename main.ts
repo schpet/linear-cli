@@ -57,7 +57,11 @@ import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
 import { gql } from "./__generated__/gql.ts";
-import type { IssueFilter, IssueUpdateInput } from "./__generated__/graphql.ts";
+import type {
+  IssueFilter,
+  IssueUpdateInput,
+  UpdateIssueNonInteractiveMutation,
+} from "./__generated__/graphql.ts";
 
 import { GraphQLClient } from "graphql-request";
 
@@ -769,6 +773,92 @@ export function getGraphQLClient(): GraphQLClient {
       Authorization: apiKey,
     },
   });
+}
+
+// Common option resolution functions
+async function resolveAssignee(
+  assignee: string | undefined,
+): Promise<string | undefined> {
+  if (assignee === undefined) return undefined;
+
+  const assigneeId = await getUserId(assignee);
+  if (!assigneeId && assignee !== "self") {
+    throw new Error(`Could not determine user ID for assignee ${assignee}`);
+  }
+  return assigneeId;
+}
+
+async function resolveTeam(
+  team: string | undefined,
+): Promise<string | undefined> {
+  if (team === undefined) return undefined;
+
+  const teamUpper = team.toUpperCase();
+  const teamUid = await getTeamUid(teamUpper);
+  if (!teamUid) {
+    throw new Error(`Could not determine team ID for team ${team}`);
+  }
+  return teamUid;
+}
+
+async function resolveState(
+  state: string | undefined,
+  teamUid: string,
+): Promise<string | undefined> {
+  if (state === undefined) return undefined;
+
+  const workflowState = await getWorkflowStateByNameOrType(teamUid, state);
+  if (!workflowState) {
+    throw new Error(`Could not find workflow state '${state}'`);
+  }
+  return workflowState.id;
+}
+
+async function resolveLabels(
+  labels: string[] | undefined | true,
+  teamUid: string,
+): Promise<string[] | undefined> {
+  if (labels === undefined || labels === true || labels.length === 0) {
+    return undefined;
+  }
+
+  const labelIds = [];
+  for (const label of labels) {
+    const labelId = await getIssueLabelUidByNameForTeam(label, teamUid);
+    if (!labelId) {
+      throw new Error(`Could not determine ID for issue label ${label}`);
+    }
+    labelIds.push(labelId);
+  }
+  return labelIds;
+}
+
+async function resolveProject(
+  project: string | undefined,
+): Promise<string | undefined> {
+  if (project === undefined) return undefined;
+
+  const projectId = await getProjectUidByName(project);
+  if (projectId === undefined) {
+    throw new Error(`Could not determine ID for project ${project}`);
+  }
+  return projectId;
+}
+
+async function resolveParent(
+  parent: string | undefined,
+): Promise<string | undefined> {
+  if (parent === undefined) return undefined;
+
+  const parentId = await getIssueId(parent, true);
+  let parentUid: string | undefined = undefined;
+  if (parentId) {
+    parentUid = await getIssueUidByIdentifier(parentId);
+  }
+  if (parentUid === undefined) {
+    throw new Error(`Could not determine ID for issue ${parent}`);
+  }
+  return parentUid;
 }
 
 async function fetchIssuesForState(
@@ -1682,15 +1772,14 @@ const issueCommand = new Command()
         }
 
         // Handle assignee
-        if (assignee !== undefined) {
-          const assigneeId = await getUserId(assignee);
-          if (!assigneeId && assignee !== "self") {
-            console.error(
-              `Could not determine user ID for assignee ${assignee}`,
-            );
-            Deno.exit(1);
+        try {
+          const assigneeId = await resolveAssignee(assignee);
+          if (assigneeId !== undefined) {
+            input.assigneeId = assigneeId;
           }
-          input.assigneeId = assigneeId;
+        } catch (error) {
+          console.error((error as Error).message);
+          Deno.exit(1);
         }
 
         // Handle due date
@@ -1709,98 +1798,92 @@ const issueCommand = new Command()
         }
 
         // Handle team
-        if (team !== undefined) {
-          const teamUpper = team.toUpperCase();
-          const teamUid = await getTeamUid(teamUpper);
-          if (!teamUid) {
-            console.error(`Could not determine team ID for team ${team}`);
-            Deno.exit(1);
+        try {
+          const teamUid = await resolveTeam(team);
+          if (teamUid !== undefined) {
+            input.teamId = teamUid;
           }
-          input.teamId = teamUid;
+        } catch (error) {
+          console.error((error as Error).message);
+          Deno.exit(1);
         }
 
         // Handle state
         if (state !== undefined) {
-          // Need team ID for state resolution
-          let stateTeamUid: string;
-          if (input.teamId) {
-            stateTeamUid = input.teamId;
-          } else {
-            const currentTeamId = await getTeamId();
-            if (!currentTeamId) {
-              console.error("Could not determine team ID for state resolution");
-              Deno.exit(1);
+          try {
+            // Need team ID for state resolution
+            let stateTeamUid: string;
+            if (input.teamId) {
+              stateTeamUid = input.teamId;
+            } else {
+              const currentTeamId = await getTeamId();
+              if (!currentTeamId) {
+                console.error(
+                  "Could not determine team ID for state resolution",
+                );
+                Deno.exit(1);
+              }
+              stateTeamUid = await getTeamUid(currentTeamId) as string;
             }
-            stateTeamUid = await getTeamUid(currentTeamId) as string;
-          }
 
-          const workflowState = await getWorkflowStateByNameOrType(
-            stateTeamUid,
-            state,
-          );
-          if (!workflowState) {
-            console.error(
-              `Could not find workflow state '${state}'`,
-            );
+            const stateId = await resolveState(state, stateTeamUid);
+            if (stateId !== undefined) {
+              input.stateId = stateId;
+            }
+          } catch (error) {
+            console.error((error as Error).message);
             Deno.exit(1);
           }
-          input.stateId = workflowState.id;
         }
 
         // Handle labels
         if (labels !== undefined && labels !== true && labels.length > 0) {
-          const labelIds = [];
-          // Need team ID for label resolution
-          let labelTeamUid: string;
-          if (input.teamId) {
-            labelTeamUid = input.teamId;
-          } else {
-            const currentTeamId = await getTeamId();
-            if (!currentTeamId) {
-              console.error("Could not determine team ID for label resolution");
-              Deno.exit(1);
+          try {
+            // Need team ID for label resolution
+            let labelTeamUid: string;
+            if (input.teamId) {
+              labelTeamUid = input.teamId;
+            } else {
+              const currentTeamId = await getTeamId();
+              if (!currentTeamId) {
+                console.error(
+                  "Could not determine team ID for label resolution",
+                );
+                Deno.exit(1);
+              }
+              labelTeamUid = await getTeamUid(currentTeamId) as string;
             }
-            labelTeamUid = await getTeamUid(currentTeamId) as string;
-          }
 
-          for (const label of labels) {
-            const labelId = await getIssueLabelUidByNameForTeam(
-              label,
-              labelTeamUid,
-            );
-            if (!labelId) {
-              console.error(
-                `Could not determine ID for issue label ${label}`,
-              );
-              Deno.exit(1);
+            const labelIds = await resolveLabels(labels, labelTeamUid);
+            if (labelIds !== undefined) {
+              input.labelIds = labelIds;
             }
-            labelIds.push(labelId);
+          } catch (error) {
+            console.error((error as Error).message);
+            Deno.exit(1);
           }
-          input.labelIds = labelIds;
         }
 
         // Handle project
-        if (project !== undefined) {
-          const projectId = await getProjectUidByName(project);
-          if (projectId === undefined) {
-            console.error(`Could not determine ID for project ${project}`);
-            Deno.exit(1);
+        try {
+          const projectId = await resolveProject(project);
+          if (projectId !== undefined) {
+            input.projectId = projectId;
           }
-          input.projectId = projectId;
+        } catch (error) {
+          console.error((error as Error).message);
+          Deno.exit(1);
         }
 
         // Handle parent
-        if (parent !== undefined) {
-          const parentId = await getIssueId(parent, true);
-          let parentUid: string | undefined = undefined;
-          if (parentId) {
-            parentUid = await getIssueUidByIdentifier(parentId);
+        try {
+          const parentUid = await resolveParent(parent);
+          if (parentUid !== undefined) {
+            input.parentId = parentUid;
           }
-          if (parentUid === undefined) {
-            console.error(`Could not determine ID for issue ${parent}`);
-            Deno.exit(1);
-          }
-          input.parentId = parentUid;
+        } catch (error) {
+          console.error((error as Error).message);
+          Deno.exit(1);
         }
 
         // Check if we have anything to update
@@ -1834,7 +1917,7 @@ const issueCommand = new Command()
         const data = await client.request(updateIssueMutation, {
           id: issueUid,
           input,
-        });
+        }) as UpdateIssueNonInteractiveMutation;
 
         if (!data.issueUpdate.success) {
           throw "Update mutation failed";
@@ -2301,18 +2384,18 @@ const createCommand = new Command()
           stateId = workflowState.id;
         }
 
-        let assigneeId = await getUserId(assignee);
-        if (!assigneeId && assignee !== undefined) {
+        let assigneeId: string | undefined;
+        try {
+          assigneeId = await resolveAssignee(assignee);
+        } catch (error) {
           if (interactive) {
-            const assigneeIds = await getUserUidOptions(assignee);
+            const assigneeIds = await getUserUidOptions(assignee!);
             spinner?.stop();
-            assigneeId = await selectOption("User", assignee, assigneeIds);
+            assigneeId = await selectOption("User", assignee!, assigneeIds);
             spinner?.start();
           }
           if (!assigneeId) {
-            console.error(
-              `Could not determine user ID for assignee ${assignee}`,
-            );
+            console.error((error as Error).message);
             Deno.exit(1);
           }
         }
@@ -2340,33 +2423,32 @@ const createCommand = new Command()
           }
         }
         let projectId: string | undefined = undefined;
-        if (project !== undefined) {
-          projectId = await getProjectUidByName(project);
-          if (projectId === undefined && interactive) {
+        try {
+          projectId = await resolveProject(project);
+        } catch (error) {
+          if (interactive && project !== undefined) {
             const projectIds = await getProjectUidOptionsByName(project);
             spinner?.stop();
             projectId = await selectOption("Project", project, projectIds);
             spinner?.start();
           }
           if (projectId === undefined) {
-            console.error(`Could not determine ID for project ${project}`);
+            console.error((error as Error).message);
             Deno.exit(1);
           }
         }
         let parentUid: string | undefined = undefined;
-        if (parent !== undefined) {
-          const parentId = await getIssueId(parent, true);
-          if (parentId) {
-            parentUid = await getIssueUidByIdentifier(parentId);
-          }
-          if (parentUid === undefined && interactive) {
+        try {
+          parentUid = await resolveParent(parent);
+        } catch (error) {
+          if (interactive && parent !== undefined) {
             const parentUids = await getIssueUidOptionsByTitle(parent);
             spinner?.stop();
             parentUid = await selectOption("Parent issue", parent, parentUids);
             spinner?.start();
           }
           if (parentUid === undefined) {
-            console.error(`Could not determine ID for issue ${parent}`);
+            console.error((error as Error).message);
             Deno.exit(1);
           }
         }

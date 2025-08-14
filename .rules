@@ -17,3 +17,15 @@ the changelog cli
 
 description should be lowercase. types is one of
 added|changed|deprecated|removed|fixed|security
+
+## graphql types
+
+do not add types for client.request calls, e.g.
+
+this is right
+
+    const data = await client.request(updateIssueMutation, { ... });
+
+this is wrong:
+
+    const data = await client.request(updateIssueMutation, { ... }) as UpdateIssueNonInteractiveMutation;
