@@ -36,8 +36,9 @@ const StateType = new EnumType([
 
 export const issueCommand = new Command()
   .description("Manage Linear issues")
-  .arguments("[issueId:string]")
-  .action((_, issueId) => openIssuePage(issueId))
+  .action(function () {
+    this.showHelp();
+  })
   .command(
     "open",
     "Open the issue in Linear.app (deprecated: use `linear issue view --app` instead)",
