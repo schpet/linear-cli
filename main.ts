@@ -2320,7 +2320,16 @@ const createCommand = new Command()
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
-            const labelId = await getIssueLabelUidByNameForTeam(label, teamUid);
+            let labelId = await getIssueLabelUidByNameForTeam(label, teamUid);
+            if (!labelId && interactive) {
+              const labelIds = await getIssueLabelUidOptionsByNameForTeam(
+                label,
+                teamUid,
+              );
+              spinner?.stop();
+              labelId = await selectOption("Issue label", label, labelIds);
+              spinner?.start();
+            }
             if (!labelId) {
               console.error(
                 `Could not determine ID for issue label ${label}`,
