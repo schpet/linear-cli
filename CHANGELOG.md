@@ -14,6 +14,7 @@
 
 - more consistent rendering of priority
 - labels column width now dynamically sized based on actual label content
+- state flag on issue list can now be repeated to filter by multiple states
 
 ### Added
 
@@ -23,6 +24,7 @@
 - `issue delete` command to delete issues by id
 - allow specifying a --parent on linear issue create
 - add -A and -U flags to issue start command for filtering assignees
+- add --all-states flag to issue list command to show issues from all states
 
 ## [0.6.4] - 2025-08-12
 

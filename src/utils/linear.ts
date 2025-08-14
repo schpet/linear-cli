@@ -177,7 +177,7 @@ export async function fetchParentIssueTitle(
 
 export async function fetchIssuesForState(
   teamId: string,
-  state: string,
+  state: string[] | undefined,
   assignee?: string,
   unassigned = false,
   allAssignees = false,
@@ -193,8 +193,12 @@ export async function fetchIssuesForState(
   // Build filter and query based on the assignee parameter
   const filter: IssueFilter = {
     team: { key: { eq: teamId } },
-    state: { type: { in: [state] } },
   };
+
+  // Only add state filter if state is specified
+  if (state) {
+    filter.state = { type: { in: state } };
+  }
 
   if (unassigned) {
     filter.assignee = { null: true };

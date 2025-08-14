@@ -25,18 +25,16 @@ export const listCommand = new Command()
   .type("sort", SortType)
   .type("state", StateType)
   .option(
-    "--sort <sort:sort>",
-    "Sort order (can also be set via LINEAR_ISSUE_SORT)",
+    "-s, --state <state:state>",
+    "Filter by issue state (can be repeated for multiple states)",
     {
-      required: false,
+      default: ["unstarted"],
+      collect: true,
     },
   )
   .option(
-    "-s, --state <state:state>",
-    "Filter by issue state",
-    {
-      default: "unstarted",
-    },
+    "--all-states",
+    "Show issues from all states",
   )
   .option(
     "--assignee <assignee:string>",
@@ -50,11 +48,27 @@ export const listCommand = new Command()
     "-U, --unassigned",
     "Show only unassigned issues",
   )
+  .option(
+    "--sort <sort:sort>",
+    "Sort order (can also be set via LINEAR_ISSUE_SORT)",
+    {
+      required: false,
+    },
+  )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
   .action(
     async (
-      { sort: sortFlag, state, assignee, allAssignees, unassigned, web, app },
+      {
+        sort: sortFlag,
+        state,
+        assignee,
+        allAssignees,
+        unassigned,
+        web,
+        app,
+        allStates,
+      },
     ) => {
       if (web || app) {
         console.error(
@@ -67,11 +81,19 @@ export const listCommand = new Command()
       }
 
       // Validate that conflicting flags are not used together
-      const flagCount =
+      const assigneeFilterCount =
         [assignee, allAssignees, unassigned].filter(Boolean).length;
-      if (flagCount > 1) {
+      if (assigneeFilterCount > 1) {
         console.error(
           "Cannot specify multiple assignee filters (--assignee, --all-assignees, --unassigned)",
+        );
+        Deno.exit(1);
+      }
+
+      // Validate state filters are not used together
+      if (allStates && (state.length > 1 || state[0] !== "unstarted")) {
+        console.error(
+          "Cannot use --all-states with --state flag",
         );
         Deno.exit(1);
       }
@@ -102,7 +124,7 @@ export const listCommand = new Command()
       try {
         const result = await fetchIssuesForState(
           teamId,
-          state,
+          allStates ? undefined : state,
           assignee,
           unassigned,
           allAssignees,
