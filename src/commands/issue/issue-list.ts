@@ -90,8 +90,15 @@ export const listCommand = new Command()
         Deno.exit(1);
       }
 
+      // Convert state to proper string array type
+      const stateArray: string[] = Array.isArray(state)
+        ? state.flat()
+        : [state];
+
       // Validate state filters are not used together
-      if (allStates && (state.length > 1 || state[0] !== "unstarted")) {
+      if (
+        allStates && (stateArray.length > 1 || stateArray[0] !== "unstarted")
+      ) {
         console.error(
           "Cannot use --all-states with --state flag",
         );
@@ -124,7 +131,7 @@ export const listCommand = new Command()
       try {
         const result = await fetchIssuesForState(
           teamId,
-          allStates ? undefined : state,
+          allStates ? undefined : stateArray,
           assignee,
           unassigned,
           allAssignees,
