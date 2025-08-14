@@ -5,14 +5,15 @@
 ### Changed
 
 - more consistent rendering of priority
+- remove @me and @all special assignee values, keep -A flag for all assignees
 
 ### Added
 
 - new --assignee flag on `issue list` allowing you to list issues assigned to
 - `issue delete` command to delete issues by id
 - create an issue with a parent
-
-  @me, @all or a given user. A flag is shorthand for --assignee @all
+- add --unassigned flag to list only unassigned issues and remove @all assignee
+  option
 
 ## [0.6.4] - 2025-08-12
 
