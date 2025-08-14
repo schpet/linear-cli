@@ -17,6 +17,8 @@
 - state flag on issue list can now be repeated to filter by multiple states
 - team members command now shows initials, timezone, and other details with
   --verbose flag
+- team members command now loads all paginated members and shows full names and
+  detailed info by default
 
 ### Added
 

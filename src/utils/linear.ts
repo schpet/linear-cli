@@ -650,7 +650,7 @@ export async function getTeamMembers(teamId: string) {
   while (hasNextPage) {
     const result: GetTeamMembersQuery = await client.request(query, {
       teamId,
-      first: 100,
+      first: 100, // Fetch 100 members per page
       after,
     });
 

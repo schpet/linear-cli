@@ -10,7 +10,6 @@ export const membersCommand = new Command()
   .description("List team members")
   .arguments("[teamKey:string]")
   .option("-a, --all", "Include inactive members")
-  .option("-v, --verbose", "Show additional member information")
   .action(async (options, teamKey?: string) => {
     let teamId: string | undefined;
 
@@ -58,35 +57,31 @@ export const membersCommand = new Command()
         const assignableStatus = !member.isAssignable
           ? " (not assignable)"
           : "";
-        const name = member.displayName || member.name;
+        const displayName = member.displayName || member.name;
+        const fullName = member.name !== member.displayName
+          ? ` (${member.name})`
+          : "";
 
-        if (options.verbose) {
+        console.log(
+          `${displayName}${fullName} [${member.initials}]${status}${guestStatus}${assignableStatus}`,
+        );
+        if (member.email) {
+          console.log(`  Email: ${member.email}`);
+        }
+        if (member.description) {
+          console.log(`  Role: ${member.description}`);
+        }
+        if (member.timezone) {
+          console.log(`  Timezone: ${member.timezone}`);
+        }
+        if (member.statusEmoji && member.statusLabel) {
           console.log(
-            `${name} [${member.initials}]${status}${guestStatus}${assignableStatus}`,
+            `  Status: ${member.statusEmoji} ${member.statusLabel}`,
           );
-          if (member.email) {
-            console.log(`  Email: ${member.email}`);
-          }
-          if (member.description) {
-            console.log(`  Role: ${member.description}`);
-          }
-          if (member.timezone) {
-            console.log(`  Timezone: ${member.timezone}`);
-          }
-          if (member.statusEmoji && member.statusLabel) {
-            console.log(
-              `  Status: ${member.statusEmoji} ${member.statusLabel}`,
-            );
-          }
-          if (member.lastSeen) {
-            const lastSeenDate = new Date(member.lastSeen);
-            console.log(`  Last seen: ${lastSeenDate.toLocaleString()}`);
-          }
-        } else {
-          console.log(`${name}${status}${guestStatus}${assignableStatus}`);
-          if (member.email) {
-            console.log(`  ${member.email}`);
-          }
+        }
+        if (member.lastSeen) {
+          const lastSeenDate = new Date(member.lastSeen);
+          console.log(`  Last seen: ${lastSeenDate.toLocaleString()}`);
         }
         console.log("");
       }
