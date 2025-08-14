@@ -11,7 +11,8 @@ linear config               # setup your repo, it writes a config file
 linear issue list           # list unstarted issues assigned to you
 linear issue list -A        # list unstarted issues assigned to anyone
 linear issue start ABC-123  # update an issue status, checks out a branch
-linear issue pr             # makes a PR with title/body preset, leverages gh (https://cli.github.com/)
+linear issue view           # see current branch's issue as markdown
+linear issue pr             # makes a PR with title/body preset, using gh cli
 linear issue create         # create a new issue
 ```
 
@@ -63,7 +64,8 @@ deno task install
 
 ## setup
 
-1. create an API key at https://linear.app/settings/account/security\
+1. create an API key at
+   [linear.app/settings/account/security](https://linear.app/settings/account/security)
    _fyi creating an api key requires member access, it is not available for
    guest accounts_
 
