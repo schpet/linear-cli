@@ -1,13 +1,13 @@
 import { Command, EnumType } from "@cliffy/command";
 import { unicodeWidth } from "@std/cli";
-import { getOption } from "../config.ts";
+import { getOption } from "../../config.ts";
 import {
   getPriorityDisplay,
   getTimeAgo,
   padDisplay,
   padDisplayFormatted,
-} from "../utils/display.ts";
-import { fetchIssuesForState, getTeamId } from "../utils/linear.ts";
+} from "../../utils/display.ts";
+import { fetchIssuesForState, getTeamId } from "../../utils/linear.ts";
 
 const SortType = new EnumType(["manual", "priority"]);
 const StateType = new EnumType([

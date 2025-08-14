@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { getTeamId } from "../utils/linear.ts";
+import { getTeamId } from "../../utils/linear.ts";
 
 export const idCommand = new Command()
   .name("id")

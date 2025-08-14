@@ -1,8 +1,12 @@
 import { Command } from "@cliffy/command";
 import { Select } from "@cliffy/prompt";
-import { getPriorityDisplay } from "../utils/display.ts";
-import { fetchIssuesForState, getIssueId, getTeamId } from "../utils/linear.ts";
-import { doStartIssue as startIssue } from "../utils/actions.ts";
+import { getPriorityDisplay } from "../../utils/display.ts";
+import {
+  fetchIssuesForState,
+  getIssueId,
+  getTeamId,
+} from "../../utils/linear.ts";
+import { doStartIssue as startIssue } from "../../utils/actions.ts";
 
 export const startCommand = new Command()
   .name("start")

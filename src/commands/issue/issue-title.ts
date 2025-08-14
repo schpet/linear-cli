@@ -1,9 +1,9 @@
 import { Command } from "@cliffy/command";
-import { fetchIssueDetails, getIssueId } from "../utils/linear.ts";
+import { fetchIssueDetails, getIssueId } from "../../utils/linear.ts";
 
-export const urlCommand = new Command()
-  .name("url")
-  .description("Print the issue URL")
+export const titleCommand = new Command()
+  .name("title")
+  .description("Print the issue title")
   .arguments("[issueId:string]")
   .action(async (_, issueId) => {
     const resolvedId = await getIssueId(issueId);
@@ -13,6 +13,6 @@ export const urlCommand = new Command()
       );
       Deno.exit(1);
     }
-    const { url } = await fetchIssueDetails(resolvedId, false);
-    console.log(url);
+    const { title } = await fetchIssueDetails(resolvedId, false);
+    console.log(title);
   });

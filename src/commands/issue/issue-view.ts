@@ -1,7 +1,7 @@
 import { Command } from "@cliffy/command";
 import { renderMarkdown } from "@littletof/charmd";
-import { fetchIssueDetails, getIssueId } from "../utils/linear.ts";
-import { openIssuePage } from "../utils/actions.ts";
+import { fetchIssueDetails, getIssueId } from "../../utils/linear.ts";
+import { openIssuePage } from "../../utils/actions.ts";
 
 export const viewCommand = new Command()
   .name("view")

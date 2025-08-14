@@ -1,6 +1,6 @@
 import { Command } from "@cliffy/command";
-import { getTeamId } from "../utils/linear.ts";
-import { getOption } from "../config.ts";
+import { getTeamId } from "../../utils/linear.ts";
+import { getOption } from "../../config.ts";
 
 export const autolinksCommand = new Command()
   .name("autolinks")

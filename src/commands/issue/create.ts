@@ -1,6 +1,6 @@
 import { Command } from "@cliffy/command";
-import { gql } from "../__codegen__/gql.ts";
-import { getGraphQLClient } from "../utils/graphql.ts";
+import { gql } from "../../__codegen__/gql.ts";
+import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
   getIssueId,
   getIssueIdByIdentifier,
@@ -18,9 +18,9 @@ import {
   getWorkflowStates,
   resolveTeamId,
   selectOption,
-} from "../utils/linear.ts";
-import { doStartIssue } from "../utils/actions.ts";
-import { promptInteractiveIssueCreation } from "../utils/interactive.ts";
+} from "../../utils/linear.ts";
+import { doStartIssue } from "../../utils/actions.ts";
+import { promptInteractiveIssueCreation } from "../../utils/interactive.ts";
 
 export const createCommand = new Command()
   .name("create")

@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { fetchIssueDetails, getIssueId } from "../utils/linear.ts";
+import { fetchIssueDetails, getIssueId } from "../../utils/linear.ts";
 
 export const pullRequestCommand = new Command()
   .name("pull-request")

@@ -1,8 +1,8 @@
 import { Command } from "@cliffy/command";
 import { CompletionsCommand } from "@cliffy/command/completions";
 import denoConfig from "../deno.json" with { type: "json" };
-import { issueCommand } from "./commands/issue.ts";
-import { teamCommand } from "./commands/team.ts";
+import { issueCommand } from "./commands/issue/issue.ts";
+import { teamCommand } from "./commands/team/team.ts";
 import { configCommand } from "./commands/config.ts";
 
 // Import config setup

@@ -1,8 +1,8 @@
 import { Command } from "@cliffy/command";
 import { Confirm } from "@cliffy/prompt";
-import { gql } from "../__codegen__/gql.ts";
-import { getGraphQLClient } from "../utils/graphql.ts";
-import { getIssueId } from "../utils/linear.ts";
+import { gql } from "../../__codegen__/gql.ts";
+import { getGraphQLClient } from "../../utils/graphql.ts";
+import { getIssueId } from "../../utils/linear.ts";
 
 export const deleteCommand = new Command()
   .name("delete")
