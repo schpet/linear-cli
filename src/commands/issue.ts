@@ -8,15 +8,12 @@ import { titleCommand } from "./issue-title.ts";
 import { urlCommand } from "./issue-url.ts";
 import { deleteCommand } from "./issue-delete.ts";
 import { pullRequestCommand } from "./issue-pull-request.ts";
-import { openCommand, printCommand } from "./issue-deprecated.ts";
 
 export const issueCommand = new Command()
   .description("Manage Linear issues")
   .action(function () {
     this.showHelp();
   })
-  .command("open", openCommand)
-  .command("print", printCommand)
   .command("id", idCommand)
   .command("list", listCommand)
   .command("title", titleCommand)

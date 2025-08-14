@@ -5,6 +5,9 @@
 ### Removed
 
 - linear issue <id> is removed, must use linear issue view <id>. linear issue
+- deprecated 'linear issue open' and 'linear issue print' commands - use 'linear
+  issue view --app' and 'linear issue view' instead
+
   now just shows help text
 
 ### Changed
