@@ -4,9 +4,7 @@ import { idCommand } from "./team-id.ts";
 import { autolinksCommand } from "./team-autolinks.ts";
 
 export const teamCommand = new Command()
-  .description(
-    "Manage Linear teams (deprecated: use `linear issue list --app` instead)",
-  )
+  .description("Manage Linear teams")
   .action(function () {
     this.showHelp();
   })
