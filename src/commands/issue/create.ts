@@ -11,12 +11,11 @@ import {
   getProjectOptionsByName,
   getTeamId,
   getTeamIdByKey,
-  getTeamOptions,
   getUserId,
   getUserOptions,
   getWorkflowStateByNameOrType,
   getWorkflowStates,
-  resolveTeamId,
+  searchTeamsByKeySubstring,
   selectOption,
 } from "../../utils/linear.ts";
 import { startWorkOnIssue } from "../../utils/actions.ts";
@@ -108,7 +107,7 @@ export const createCommand = new Command()
       if (noFlagsProvided && interactive) {
         try {
           // Pre-fetch team info and start workflow states query early
-          const defaultTeamId = await getTeamId();
+          const defaultTeamKey = await getTeamId();
           let statesPromise:
             | Promise<
               Array<
@@ -117,12 +116,9 @@ export const createCommand = new Command()
             >
             | undefined;
 
-          if (defaultTeamId) {
-            const teamUid = await resolveTeamId(defaultTeamId);
-            if (teamUid) {
-              // Start fetching workflow states immediately for the default team
-              statesPromise = getWorkflowStates(teamUid);
-            }
+          if (defaultTeamKey) {
+            // Start fetching workflow states immediately for the default team
+            statesPromise = getWorkflowStates(defaultTeamKey);
           }
 
           // Handle parent issue if provided
@@ -188,9 +184,9 @@ export const createCommand = new Command()
 
           if (interactiveData.start) {
             const teamKey = issue.team.key;
-            const teamUid = await getTeamIdByKey(teamKey);
-            if (teamUid) {
-              await startWorkOnIssue(issueId, teamUid);
+            const teamIdForStartWork = await getTeamIdByKey(teamKey);
+            if (teamIdForStartWork) {
+              await startWorkOnIssue(issueId, teamIdForStartWork);
             }
           }
           return;
@@ -216,17 +212,20 @@ export const createCommand = new Command()
         team = (team === undefined)
           ? (await getTeamId() || undefined)
           : team.toUpperCase();
-        let teamUid: string | undefined = undefined;
-        if (team !== undefined) {
-          teamUid = await resolveTeamId(team);
-          if (interactive && !teamUid) {
-            const teamUids = await getTeamOptions(team);
-            spinner?.stop();
-            teamUid = await selectOption("Team", team, teamUids);
-            spinner?.start();
-          }
+        if (!team) {
+          console.error("Could not determine team key");
+          Deno.exit(1);
         }
-        if (!teamUid) {
+
+        // For functions that need actual team IDs (like createIssue), get the ID
+        let teamId = await getTeamIdByKey(team);
+        if (interactive && !teamId) {
+          const teamUids = await searchTeamsByKeySubstring(team);
+          spinner?.stop();
+          teamId = await selectOption("Team", team, teamUids);
+          spinner?.start();
+        }
+        if (!teamId) {
           console.error(`Could not determine team ID for team ${team}`);
           Deno.exit(1);
         }
@@ -239,7 +238,7 @@ export const createCommand = new Command()
         let stateId: string | undefined;
         if (state) {
           const workflowState = await getWorkflowStateByNameOrType(
-            teamUid,
+            team,
             state,
           );
           if (!workflowState) {
@@ -270,11 +269,11 @@ export const createCommand = new Command()
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
-            let labelId = await getIssueLabelIdByNameForTeam(label, teamUid);
+            let labelId = await getIssueLabelIdByNameForTeam(label, team);
             if (!labelId && interactive) {
               const labelIds = await getIssueLabelOptionsByNameForTeam(
                 label,
-                teamUid,
+                team,
               );
               spinner?.stop();
               labelId = await selectOption("Issue label", label, labelIds);
@@ -330,7 +329,7 @@ export const createCommand = new Command()
           priority,
           estimate,
           labelIds,
-          teamId: teamUid,
+          teamId: teamId,
           projectId,
           stateId,
           useDefaultTemplate,

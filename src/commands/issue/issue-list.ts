@@ -55,6 +55,10 @@ export const listCommand = new Command()
       required: false,
     },
   )
+  .option(
+    "--team <team:string>",
+    "Team to list issues for (if not your default team)",
+  )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
   .action(
@@ -68,6 +72,7 @@ export const listCommand = new Command()
         web,
         app,
         allStates,
+        team,
       },
     ) => {
       if (web || app) {
@@ -117,9 +122,11 @@ export const listCommand = new Command()
         console.error(`Sort must be one of: ${SortType.values().join(", ")}`);
         Deno.exit(1);
       }
-      const teamId = await getTeamId();
-      if (!teamId) {
-        console.error("Could not determine team id from directory name.");
+      const teamKey = team || await getTeamId();
+      if (!teamKey) {
+        console.error(
+          "Could not determine team key from directory name or team flag.",
+        );
         Deno.exit(1);
       }
 
@@ -130,7 +137,7 @@ export const listCommand = new Command()
 
       try {
         const result = await fetchIssuesForState(
-          teamId,
+          teamKey,
           allStates ? undefined : stateArray,
           assignee,
           unassigned,

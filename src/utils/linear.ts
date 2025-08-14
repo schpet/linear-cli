@@ -47,13 +47,13 @@ export async function getIssueId(
 }
 
 export async function getWorkflowStates(
-  teamId: string,
+  teamKey: string,
 ): Promise<
   Array<{ id: string; name: string; type: string; position: number }>
 > {
   const query = gql(`
-    query GetWorkflowStates($teamId: String!) {
-      team(id: $teamId) {
+    query GetWorkflowStates($teamKey: String!) {
+      team(id: $teamKey) {
         states {
           nodes {
             id
@@ -67,7 +67,7 @@ export async function getWorkflowStates(
   `);
 
   const client = getGraphQLClient();
-  const result = await client.request(query, { teamId });
+  const result = await client.request(query, { teamKey });
   return result.team.states.nodes.sort((
     a: { position: number },
     b: { position: number },
@@ -75,9 +75,9 @@ export async function getWorkflowStates(
 }
 
 export async function getStartedState(
-  teamId: string,
+  teamKey: string,
 ): Promise<{ id: string; name: string }> {
-  const states = await getWorkflowStates(teamId);
+  const states = await getWorkflowStates(teamKey);
   const startedStates = states.filter((s) => s.type === "started");
 
   if (!startedStates.length) {
@@ -88,10 +88,10 @@ export async function getStartedState(
 }
 
 export async function getWorkflowStateByNameOrType(
-  teamId: string,
+  teamKey: string,
   nameOrType: string,
 ): Promise<{ id: string; name: string } | undefined> {
-  const states = await getWorkflowStates(teamId);
+  const states = await getWorkflowStates(teamKey);
 
   // First try exact name match
   const nameMatch = states.find((s) =>
@@ -179,7 +179,7 @@ export async function fetchParentIssueTitle(
 }
 
 export async function fetchIssuesForState(
-  teamId: string,
+  teamKey: string,
   state: string[] | undefined,
   assignee?: string,
   unassigned = false,
@@ -195,7 +195,7 @@ export async function fetchIssuesForState(
 
   // Build filter and query based on the assignee parameter
   const filter: IssueFilter = {
-    team: { key: { eq: teamId } },
+    team: { key: { eq: teamKey } },
   };
 
   // Only add state filter if state is specified
@@ -257,7 +257,6 @@ export async function fetchIssuesForState(
 
   const client = getGraphQLClient();
   return await client.request(query, {
-    teamId,
     sort: sortPayload,
     filter,
   });
@@ -347,38 +346,8 @@ export async function getTeamIdByKey(
   return data.teams?.nodes[0]?.id;
 }
 
-export async function getTeamIdByName(
-  team: string,
-): Promise<string | undefined> {
-  const client = getGraphQLClient();
-  const query = gql(`
-    query GetTeamUidByName($team: String!) {
-      teams(filter: {name: {eq: $team}}) {nodes{id}}
-    }
-  `);
-  const data = await client.request(query, { team });
-  return data.teams?.nodes[0]?.id;
-}
-
-export async function resolveTeamId(
-  team: string | undefined = undefined,
-  tryDisplayName: boolean = true,
-  tryKey: boolean = true,
-): Promise<string | undefined> {
-  team = team || await getTeamId() || undefined;
-  if (team === undefined) return undefined;
-  if (tryKey) {
-    const teamId = await getTeamIdByKey(team);
-    if (teamId) return teamId;
-  }
-  if (tryDisplayName) {
-    const teamId = await getTeamIdByName(team);
-    if (teamId) return teamId;
-  }
-}
-
-export async function getTeamOptionsByKey(
-  team: string,
+export async function searchTeamsByKeySubstring(
+  keySubstring: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
   const query = gql(`
@@ -386,7 +355,7 @@ export async function getTeamOptionsByKey(
         teams(filter: {key: {containsIgnoreCase: $team}}) {nodes{id, key, name}}
       }
   `);
-  const data = await client.request(query, { team });
+  const data = await client.request(query, { team: keySubstring });
   const qResults = data.teams?.nodes || [];
   // Sort teams alphabetically by key (case insensitive) and format as "Name (KEY)"
   const sortedResults = qResults.sort((a, b) =>
@@ -400,44 +369,6 @@ export async function getTeamOptionsByKey(
       `${(t as { id: string; key: string; name: string }).name} (${t.key})`,
     ]),
   );
-}
-
-export async function getTeamOptionsByName(
-  team: string,
-): Promise<Record<string, string>> {
-  const client = getGraphQLClient();
-  const query = gql(`
-    query GetTeamUidOptionsByName($team: String!) {
-        teams(filter: {name: {containsIgnoreCase: $team}}) {nodes{id, key, name}}
-      }
-  `);
-  const data = await client.request(query, { team });
-  const qResults = data.teams?.nodes || [];
-  // Sort teams alphabetically by name (case insensitive) and format as "Name (KEY)"
-  const sortedResults = qResults.sort((a, b) =>
-    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-  );
-  return Object.fromEntries(
-    sortedResults.map((t) => [t.id, `${t.name} (${t.key})`]),
-  );
-}
-
-export async function getTeamOptions(
-  team: string,
-  tryName: boolean = true,
-  tryKey: boolean = true,
-): Promise<Record<string, string>> {
-  let results: Record<string, string> = {};
-  if (tryKey) {
-    results = await getTeamOptionsByKey(team);
-  }
-  if (tryName) {
-    results = {
-      ...results,
-      ...await getTeamOptionsByName(team),
-    };
-  }
-  return results;
 }
 
 export async function getUserIdByDisplayName(
@@ -518,41 +449,41 @@ export async function getUserId(
 
 export async function getIssueLabelIdByNameForTeam(
   name: string,
-  teamId: string,
+  teamKey: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetIssueLabelUidByNameForTeam($name: String!, $teamId: ID!) {
+    query GetIssueLabelUidByNameForTeam($name: String!, $teamKey: ID!) {
       issueLabels(filter: {
         name: {eq: $name},
         or: [
-          { team: { id: { eq: $teamId } } },
+          { team: { id: { eq: $teamKey } } },
           { team: { null: true } }
         ]
       }) {nodes{id}}
     }
   `);
-  const data = await client.request(query, { name, teamId });
+  const data = await client.request(query, { name, teamKey });
   return data.issueLabels?.nodes[0]?.id;
 }
 
 export async function getIssueLabelOptionsByNameForTeam(
   name: string,
-  teamId: string,
+  teamKey: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetIssueLabelUidOptionsByNameForTeam($name: String!, $teamId: ID!) {
+    query GetIssueLabelUidOptionsByNameForTeam($name: String!, $teamKey: ID!) {
         issueLabels(filter: {
           name: {containsIgnoreCase: $name},
           or: [
-            { team: { id: { eq: $teamId } } },
+            { team: { id: { eq: $teamKey } } },
             { team: { null: true } }
           ]
         }) {nodes{id, name}}
       }
   `);
-  const data = await client.request(query, { name, teamId });
+  const data = await client.request(query, { name, teamKey });
   const qResults = data.issueLabels?.nodes || [];
   // Sort labels alphabetically (case insensitive)
   const sortedResults = qResults.sort((a, b) =>
@@ -584,15 +515,15 @@ export async function getAllTeams(): Promise<
   );
 }
 
-export async function getLabelsForTeam(teamId: string): Promise<
+export async function getLabelsForTeam(teamKey: string): Promise<
   Array<{ id: string; name: string; color: string }>
 > {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetLabelsForTeam($teamId: ID!) {
+    query GetLabelsForTeam($teamKey: ID!) {
       issueLabels(filter: {
         or: [
-          { team: { id: { eq: $teamId } } },
+          { team: { id: { eq: $teamKey } } },
           { team: { null: true } }
         ]
       }) {
@@ -605,7 +536,7 @@ export async function getLabelsForTeam(teamId: string): Promise<
     }
   `);
 
-  const result = await client.request(query, { teamId });
+  const result = await client.request(query, { teamKey });
   const labels = result.issueLabels.nodes;
   // Sort labels alphabetically (case insensitive)
   return labels.sort((a, b) =>
@@ -613,11 +544,11 @@ export async function getLabelsForTeam(teamId: string): Promise<
   );
 }
 
-export async function getTeamMembers(teamId: string) {
+export async function getTeamMembers(teamKey: string) {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetTeamMembers($teamId: String!, $first: Int, $after: String) {
-      team(id: $teamId) {
+    query GetTeamMembers($teamKey: String!, $first: Int, $after: String) {
+      team(id: $teamKey) {
         members(first: $first, after: $after) {
           nodes {
             id
@@ -649,7 +580,7 @@ export async function getTeamMembers(teamId: string) {
 
   while (hasNextPage) {
     const result: GetTeamMembersQuery = await client.request(query, {
-      teamId,
+      teamKey,
       first: 100, // Fetch 100 members per page
       after,
     });

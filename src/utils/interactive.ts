@@ -6,9 +6,9 @@ import {
   getAllTeams,
   getLabelsForTeam,
   getTeamId,
+  getTeamIdByKey,
   getUserId,
   getWorkflowStates,
-  resolveTeamId,
 } from "./linear.ts";
 
 export async function promptInteractiveIssueCreation(
@@ -30,19 +30,22 @@ export async function promptInteractiveIssueCreation(
 }> {
   // Start team resolution in background while asking for title
   const teamResolutionPromise = (async () => {
-    const defaultTeamId = await getTeamId();
-    if (defaultTeamId) {
-      const teamUid = await resolveTeamId(defaultTeamId);
-      if (teamUid) {
+    const defaultTeamKey = await getTeamId();
+    if (defaultTeamKey) {
+      const teamId = await getTeamIdByKey(defaultTeamKey);
+      if (teamId) {
         return {
-          teamId: teamUid,
-          statesPromise: preStartedStatesPromise || getWorkflowStates(teamUid),
+          teamId: teamId,
+          teamKey: defaultTeamKey,
+          statesPromise: preStartedStatesPromise ||
+            getWorkflowStates(defaultTeamKey),
           needsTeamSelection: false,
         };
       }
     }
     return {
       teamId: null,
+      teamKey: null,
       statesPromise: null,
       needsTeamSelection: true,
     };
@@ -68,6 +71,7 @@ export async function promptInteractiveIssueCreation(
   // Await team resolution
   const teamResult = await teamResolutionPromise;
   let teamId: string;
+  let teamKey: string;
   let statesPromise: Promise<
     Array<{ id: string; name: string; type: string; position: number }>
   >;
@@ -94,10 +98,12 @@ export async function promptInteractiveIssueCreation(
     }
 
     teamId = team.id;
-    statesPromise = getWorkflowStates(teamId);
+    teamKey = team.key;
+    statesPromise = getWorkflowStates(team.key);
   } else {
     // Team was resolved in background
     teamId = teamResult.teamId!;
+    teamKey = teamResult.teamKey!;
     statesPromise = teamResult.statesPromise!;
   }
 
@@ -143,7 +149,7 @@ export async function promptInteractiveIssueCreation(
     default: 0,
   });
 
-  const labels = await getLabelsForTeam(teamId);
+  const labels = await getLabelsForTeam(teamKey);
   const labelIds: string[] = [];
 
   if (labels.length > 0) {

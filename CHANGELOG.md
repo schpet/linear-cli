@@ -30,6 +30,7 @@
 - add -A and -U flags to issue start command for filtering assignees
 - add --all-states flag to issue list command to show issues from all states
 - add --confirm flag to issue delete command to skip confirmation prompt
+- support --team flag in issue list command
 
 ## [0.6.4] - 2025-08-12
 

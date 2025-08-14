@@ -1,9 +1,5 @@
 import { Command } from "@cliffy/command";
-import {
-  getTeamId,
-  getTeamMembers,
-  resolveTeamId,
-} from "../../utils/linear.ts";
+import { getTeamId, getTeamMembers } from "../../utils/linear.ts";
 
 export const membersCommand = new Command()
   .name("members")
@@ -11,26 +7,16 @@ export const membersCommand = new Command()
   .arguments("[teamKey:string]")
   .option("-a, --all", "Include inactive members")
   .action(async (options, teamKey?: string) => {
-    let teamId: string | undefined;
-
-    if (teamKey) {
-      teamId = await resolveTeamId(teamKey);
-      if (!teamId) {
-        console.error(`Could not find team: ${teamKey}`);
-        Deno.exit(1);
-      }
-    } else {
-      teamId = await getTeamId();
-      if (!teamId) {
-        console.error(
-          "Could not determine team id from directory name. Please specify a team key.",
-        );
-        Deno.exit(1);
-      }
+    const resolvedTeamKey = teamKey || await getTeamId();
+    if (!resolvedTeamKey) {
+      console.error(
+        "Could not determine team key from directory name. Please specify a team key.",
+      );
+      Deno.exit(1);
     }
 
     try {
-      const members = await getTeamMembers(teamId);
+      const members = await getTeamMembers(resolvedTeamKey);
 
       if (members.length === 0) {
         console.log("No members found for this team.");
