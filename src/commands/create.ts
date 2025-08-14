@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { gql } from "../../__generated__/gql.ts";
+import { gql } from "../__codegen__/gql.ts";
 import { getGraphQLClient } from "../utils/graphql.ts";
 import {
   getIssueId,

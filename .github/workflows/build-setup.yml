@@ -2,3 +2,5 @@
   uses: denoland/setup-deno@v2
   with:
     deno-version: v2.x
+- name: Generate GraphQL code
+  run: deno task codegen

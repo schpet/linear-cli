@@ -12,6 +12,9 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Generate GraphQL code
+        run: deno task codegen
+
       - name: Check formatting
         run: deno fmt --check
 

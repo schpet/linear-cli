@@ -1,5 +1,5 @@
-import { gql } from "../../__generated__/gql.ts";
-import type { IssueFilter } from "../../__generated__/graphql.ts";
+import { gql } from "../__codegen__/gql.ts";
+import type { IssueFilter } from "../__codegen__/graphql.ts";
 import { Select } from "@cliffy/prompt";
 import { getOption } from "../config.ts";
 import { getGraphQLClient } from "./graphql.ts";
