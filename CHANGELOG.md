@@ -5,10 +5,10 @@
 ### Removed
 
 - linear issue <id> is removed, must use linear issue view <id>. linear issue
+  prints help text
 - deprecated 'linear issue open' and 'linear issue print' commands - use 'linear
   issue view --app' and 'linear issue view' instead
-
-  now just shows help text
+- removed team open command (use linear issue list -a)
 
 ### Changed
 

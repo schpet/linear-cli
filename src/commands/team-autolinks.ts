@@ -4,7 +4,9 @@ import { getOption } from "../config.ts";
 
 export const autolinksCommand = new Command()
   .name("autolinks")
-  .description("Configure GitHub repository autolinks for Linear issues")
+  .description(
+    "Configure GitHub repository autolinks for Linear issues with this team prefix",
+  )
   .action(async () => {
     const teamId = await getTeamId();
     if (!teamId) {
