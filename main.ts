@@ -804,7 +804,6 @@ async function fetchIssuesForState(
     }
     filter.assignee = { id: { eq: userId } };
   } else {
-    // Default to @me when no assignee specified
     filter.assignee = { isMe: { eq: true } };
   }
 
@@ -2170,7 +2169,7 @@ await new Command()
   .action(async () => {
     console.log(`
 ██      ██ ███    ██ ███████  █████  ██████      ██████ ██      ██
-██      ██ ████   ██ ██      ██   ██ ██   ██    ██      ██      ██  
+██      ██ ████   ██ ██      ██   ██ ██   ██    ██      ██      ██
 ██      ██ ██ ██  ██ █████   ███████ ██████     ██      ██      ██
 ██      ██ ██  ██ ██ ██      ██   ██ ██   ██    ██      ██      ██
 ███████ ██ ██   ████ ███████ ██   ██ ██   ██     ██████ ███████ ██
