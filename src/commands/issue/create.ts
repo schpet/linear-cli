@@ -19,7 +19,7 @@ import {
   resolveTeamId,
   selectOption,
 } from "../../utils/linear.ts";
-import { doStartIssue } from "../../utils/actions.ts";
+import { startWorkOnIssue } from "../../utils/actions.ts";
 import { promptInteractiveIssueCreation } from "../../utils/interactive.ts";
 
 export const createCommand = new Command()
@@ -190,7 +190,7 @@ export const createCommand = new Command()
             const teamKey = issue.team.key;
             const teamUid = await getTeamIdByKey(teamKey);
             if (teamUid) {
-              await doStartIssue(issueId, teamUid);
+              await startWorkOnIssue(issueId, teamUid);
             }
           }
           return;
@@ -364,7 +364,7 @@ export const createCommand = new Command()
         console.log(issue.url);
 
         if (start) {
-          await doStartIssue(issueId, issue.team.key);
+          await startWorkOnIssue(issueId, issue.team.key);
         }
       } catch (error) {
         spinner?.stop();

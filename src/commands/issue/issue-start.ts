@@ -6,7 +6,7 @@ import {
   getIssueId,
   getTeamId,
 } from "../../utils/linear.ts";
-import { doStartIssue as startIssue } from "../../utils/actions.ts";
+import { startWorkOnIssue as startIssue } from "../../utils/actions.ts";
 
 export const startCommand = new Command()
   .name("start")

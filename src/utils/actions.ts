@@ -35,7 +35,7 @@ export async function openIssuePage(
   await open(url, options.app ? { app: { name: "Linear" } } : undefined);
 }
 
-export async function doStartIssue(issueId: string, teamId: string) {
+export async function startWorkOnIssue(issueId: string, teamId: string) {
   const { branchName } = await fetchIssueDetails(issueId, true);
 
   // Check if branch exists
