@@ -1358,16 +1358,37 @@ const issueCommand = new Command()
   })
   .command("start", "Start working on an issue")
   .arguments("[issueId:string]")
-  .action(async (_, issueId) => {
+  .option(
+    "-A, --all-assignees",
+    "Show issues for all assignees",
+  )
+  .option(
+    "-U, --unassigned",
+    "Show only unassigned issues",
+  )
+  .action(async ({ allAssignees, unassigned }, issueId) => {
     const teamId = await getTeamId();
     if (!teamId) {
       console.error("Could not determine team ID");
       Deno.exit(1);
     }
+
+    // Validate that conflicting flags are not used together
+    if (allAssignees && unassigned) {
+      console.error("Cannot specify both --all-assignees and --unassigned");
+      Deno.exit(1);
+    }
+
     let resolvedId = await getIssueId(issueId);
     if (!resolvedId) {
       try {
-        const result = await fetchIssuesForState(teamId, "unstarted");
+        const result = await fetchIssuesForState(
+          teamId,
+          "unstarted",
+          undefined,
+          unassigned,
+          allAssignees,
+        );
         const issues = result.issues?.nodes || [];
 
         if (issues.length === 0) {

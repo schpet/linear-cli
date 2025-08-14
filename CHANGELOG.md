@@ -13,6 +13,7 @@
 - add -A, --all-assignees flag to list issues for all assignees
 - `issue delete` command to delete issues by id
 - allow specifying a --parent on linear issue create
+- add -A and -U flags to issue start command for filtering assignees
 
 ## [0.6.4] - 2025-08-12
 
