@@ -19,6 +19,7 @@
   --verbose flag
 - team members command now loads all paginated members and shows full names and
   detailed info by default
+- organized code into multiple files so it's less of a nightmare to work on
 
 ### Added
 
