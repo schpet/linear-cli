@@ -21,7 +21,7 @@ import {
   doStartIssue as startIssue,
   openIssuePage,
   openTeamPage,
-} from "./issue-actions.ts";
+} from "../utils/actions.ts";
 import { createCommand } from "./create.ts";
 
 const SortType = new EnumType(["manual", "priority"]);

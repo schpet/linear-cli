@@ -1,34 +1,7 @@
 import { Command } from "@cliffy/command";
-import { encodeBase64 } from "@std/encoding/base64";
-import { open } from "@opensrc/deno-open";
-import { getOption } from "../config.ts";
+import { openTeamPage } from "../utils/actions.ts";
 import { getTeamId } from "../utils/linear.ts";
-
-async function openTeamPage(options: { app?: boolean } = {}) {
-  const teamId = await getTeamId();
-  if (!teamId) {
-    console.error(
-      "Could not determine team id from configuration or directory name.",
-    );
-    Deno.exit(1);
-  }
-
-  const workspace = getOption("workspace");
-  if (!workspace) {
-    console.error(
-      "workspace is not set via command line, configuration file, or environment.",
-    );
-    Deno.exit(1);
-  }
-
-  const filterObj = {
-    "and": [{ "assignee": { "or": [{ "isMe": { "eq": true } }] } }],
-  };
-  const filter = encodeBase64(JSON.stringify(filterObj)).replace(/=/g, "");
-  const url =
-    `https://linear.app/${workspace}/team/${teamId}/active?filter=${filter}`;
-  await open(url, options.app ? { app: { name: "Linear" } } : undefined);
-}
+import { getOption } from "../config.ts";
 
 export const teamCommand = new Command()
   .description(

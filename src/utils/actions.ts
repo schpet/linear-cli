@@ -1,14 +1,14 @@
 import { open } from "@opensrc/deno-open";
 import { encodeBase64 } from "@std/encoding/base64";
 import { Select } from "@cliffy/prompt";
-import { branchExists } from "../utils/git.ts";
+import { branchExists } from "./git.ts";
 import {
   fetchIssueDetails,
   getIssueId,
   getStartedState,
   getTeamId,
   updateIssueState,
-} from "../utils/linear.ts";
+} from "./linear.ts";
 import { getOption } from "../config.ts";
 
 export async function openIssuePage(
