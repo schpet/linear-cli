@@ -9,7 +9,8 @@ export const deleteCommand = new Command()
   .description("Delete an issue")
   .alias("d")
   .arguments("<issueId:string>")
-  .action(async (_, issueId) => {
+  .option("-y, --confirm", "Skip confirmation prompt")
+  .action(async ({ confirm }, issueId) => {
     // First resolve the issue ID to get the issue details
     const resolvedId = await getIssueId(issueId);
     if (!resolvedId) {
@@ -40,15 +41,17 @@ export const deleteCommand = new Command()
 
     const { title, identifier } = issueDetails.issue;
 
-    // Show confirmation prompt
-    const confirmed = await Confirm.prompt({
-      message: `Are you sure you want to delete "${identifier}: ${title}"?`,
-      default: false,
-    });
+    // Show confirmation prompt unless --confirm flag is used
+    if (!confirm) {
+      const confirmed = await Confirm.prompt({
+        message: `Are you sure you want to delete "${identifier}: ${title}"?`,
+        default: false,
+      });
 
-    if (!confirmed) {
-      console.log("Delete cancelled.");
-      return;
+      if (!confirmed) {
+        console.log("Delete cancelled.");
+        return;
+      }
     }
 
     // Delete the issue
