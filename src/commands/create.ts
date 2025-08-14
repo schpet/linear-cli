@@ -3,20 +3,20 @@ import { gql } from "../../__generated__/gql.ts";
 import { getGraphQLClient } from "../utils/graphql.ts";
 import {
   getIssueId,
-  getIssueLabelUidByNameForTeam,
-  getIssueLabelUidOptionsByNameForTeam,
-  getIssueUidByIdentifier,
-  getIssueUidOptionsByTitle,
-  getProjectUidByName,
-  getProjectUidOptionsByName,
+  getIssueIdByIdentifier,
+  getIssueLabelIdByNameForTeam,
+  getIssueLabelOptionsByNameForTeam,
+  getIssueOptionsByTitle,
+  getProjectIdByName,
+  getProjectOptionsByName,
   getTeamId,
-  getTeamUid,
-  getTeamUidByKey,
-  getTeamUidOptions,
+  getTeamIdByKey,
+  getTeamOptions,
   getUserId,
-  getUserUidOptions,
+  getUserOptions,
   getWorkflowStateByNameOrType,
   getWorkflowStates,
+  resolveTeamId,
   selectOption,
 } from "../utils/linear.ts";
 import { doStartIssue } from "../utils/actions.ts";
@@ -118,7 +118,7 @@ export const createCommand = new Command()
             | undefined;
 
           if (defaultTeamId) {
-            const teamUid = await getTeamUid(defaultTeamId);
+            const teamUid = await resolveTeamId(defaultTeamId);
             if (teamUid) {
               // Start fetching workflow states immediately for the default team
               statesPromise = getWorkflowStates(teamUid);
@@ -130,7 +130,7 @@ export const createCommand = new Command()
           if (parent !== undefined) {
             const parentId = await getIssueId(parent, true);
             if (parentId) {
-              parentUid = await getIssueUidByIdentifier(parentId);
+              parentUid = await getIssueIdByIdentifier(parentId);
             }
             if (parentUid === undefined) {
               console.error(`Could not determine ID for issue ${parent}`);
@@ -188,7 +188,7 @@ export const createCommand = new Command()
 
           if (interactiveData.start) {
             const teamKey = issue.team.key;
-            const teamUid = await getTeamUidByKey(teamKey);
+            const teamUid = await getTeamIdByKey(teamKey);
             if (teamUid) {
               await doStartIssue(issueId, teamUid);
             }
@@ -218,9 +218,9 @@ export const createCommand = new Command()
           : team.toUpperCase();
         let teamUid: string | undefined = undefined;
         if (team !== undefined) {
-          teamUid = await getTeamUid(team);
+          teamUid = await resolveTeamId(team);
           if (interactive && !teamUid) {
-            const teamUids = await getTeamUidOptions(team);
+            const teamUids = await getTeamOptions(team);
             spinner?.stop();
             teamUid = await selectOption("Team", team, teamUids);
             spinner?.start();
@@ -254,7 +254,7 @@ export const createCommand = new Command()
         let assigneeId = await getUserId(assignee);
         if (!assigneeId && assignee !== undefined) {
           if (interactive) {
-            const assigneeIds = await getUserUidOptions(assignee);
+            const assigneeIds = await getUserOptions(assignee);
             spinner?.stop();
             assigneeId = await selectOption("User", assignee, assigneeIds);
             spinner?.start();
@@ -270,9 +270,9 @@ export const createCommand = new Command()
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
-            let labelId = await getIssueLabelUidByNameForTeam(label, teamUid);
+            let labelId = await getIssueLabelIdByNameForTeam(label, teamUid);
             if (!labelId && interactive) {
-              const labelIds = await getIssueLabelUidOptionsByNameForTeam(
+              const labelIds = await getIssueLabelOptionsByNameForTeam(
                 label,
                 teamUid,
               );
@@ -291,9 +291,9 @@ export const createCommand = new Command()
         }
         let projectId: string | undefined = undefined;
         if (project !== undefined) {
-          projectId = await getProjectUidByName(project);
+          projectId = await getProjectIdByName(project);
           if (projectId === undefined && interactive) {
-            const projectIds = await getProjectUidOptionsByName(project);
+            const projectIds = await getProjectOptionsByName(project);
             spinner?.stop();
             projectId = await selectOption("Project", project, projectIds);
             spinner?.start();
@@ -307,10 +307,10 @@ export const createCommand = new Command()
         if (parent !== undefined) {
           const parentId = await getIssueId(parent, true);
           if (parentId) {
-            parentUid = await getIssueUidByIdentifier(parentId);
+            parentUid = await getIssueIdByIdentifier(parentId);
           }
           if (parentUid === undefined && interactive) {
-            const parentUids = await getIssueUidOptionsByTitle(parent);
+            const parentUids = await getIssueOptionsByTitle(parent);
             spinner?.stop();
             parentUid = await selectOption("Parent issue", parent, parentUids);
             spinner?.start();

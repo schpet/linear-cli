@@ -202,7 +202,7 @@ export async function fetchIssuesForState(
     // No assignee filter means all assignees
   } else if (assignee) {
     // Get user ID for the specified username
-    const userId = await getUserUidByDisplayName(assignee);
+    const userId = await getUserIdByDisplayName(assignee);
     if (!userId) {
       throw new Error(`User not found: ${assignee}`);
     }
@@ -258,7 +258,7 @@ export async function fetchIssuesForState(
 
 // Additional helper functions that were in the original main.ts
 
-export async function getProjectUidByName(
+export async function getProjectIdByName(
   name: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
@@ -271,7 +271,7 @@ export async function getProjectUidByName(
   return data.projects?.nodes[0]?.id;
 }
 
-export async function getProjectUidOptionsByName(
+export async function getProjectOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
@@ -298,7 +298,7 @@ export async function getIssueIdByTitle(
   return data.issues?.nodes[0]?.identifier;
 }
 
-export async function getIssueUidByIdentifier(
+export async function getIssueIdByIdentifier(
   identifier: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
@@ -311,7 +311,7 @@ export async function getIssueUidByIdentifier(
   return data.issue?.id;
 }
 
-export async function getIssueUidOptionsByTitle(
+export async function getIssueOptionsByTitle(
   title: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
@@ -327,7 +327,7 @@ export async function getIssueUidOptionsByTitle(
   );
 }
 
-export async function getTeamUidByKey(
+export async function getTeamIdByKey(
   team: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
@@ -340,7 +340,7 @@ export async function getTeamUidByKey(
   return data.teams?.nodes[0]?.id;
 }
 
-export async function getTeamUidByName(
+export async function getTeamIdByName(
   team: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
@@ -353,7 +353,7 @@ export async function getTeamUidByName(
   return data.teams?.nodes[0]?.id;
 }
 
-export async function getTeamUid(
+export async function resolveTeamId(
   team: string | undefined = undefined,
   tryDisplayName: boolean = true,
   tryKey: boolean = true,
@@ -361,16 +361,16 @@ export async function getTeamUid(
   team = team || await getTeamId() || undefined;
   if (team === undefined) return undefined;
   if (tryKey) {
-    const teamId = await getTeamUidByKey(team);
+    const teamId = await getTeamIdByKey(team);
     if (teamId) return teamId;
   }
   if (tryDisplayName) {
-    const teamId = await getTeamUidByName(team);
+    const teamId = await getTeamIdByName(team);
     if (teamId) return teamId;
   }
 }
 
-export async function getTeamUidOptionsByKey(
+export async function getTeamOptionsByKey(
   team: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
@@ -395,7 +395,7 @@ export async function getTeamUidOptionsByKey(
   );
 }
 
-export async function getTeamUidOptionsByName(
+export async function getTeamOptionsByName(
   team: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
@@ -415,25 +415,25 @@ export async function getTeamUidOptionsByName(
   );
 }
 
-export async function getTeamUidOptions(
+export async function getTeamOptions(
   team: string,
   tryName: boolean = true,
   tryKey: boolean = true,
 ): Promise<Record<string, string>> {
   let results: Record<string, string> = {};
   if (tryKey) {
-    results = await getTeamUidOptionsByKey(team);
+    results = await getTeamOptionsByKey(team);
   }
   if (tryName) {
     results = {
       ...results,
-      ...await getTeamUidOptionsByName(team),
+      ...await getTeamOptionsByName(team),
     };
   }
   return results;
 }
 
-export async function getUserUidByDisplayName(
+export async function getUserIdByDisplayName(
   username: string,
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
@@ -446,7 +446,7 @@ export async function getUserUidByDisplayName(
   return data.users?.nodes[0]?.id;
 }
 
-export async function getUserUidOptionsByDisplayName(
+export async function getUserOptionsByDisplayName(
   name: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
@@ -460,7 +460,7 @@ export async function getUserUidOptionsByDisplayName(
   return Object.fromEntries(qResults.map((t) => [t.id, t.displayName]));
 }
 
-export async function getUserUidOptionsByName(
+export async function getUserOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
@@ -474,19 +474,19 @@ export async function getUserUidOptionsByName(
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
-export async function getUserUidOptions(
+export async function getUserOptions(
   name: string,
   tryDisplayName: boolean = true,
   tryName: boolean = true,
 ): Promise<Record<string, string>> {
   let results: Record<string, string> = {};
   if (tryDisplayName) {
-    results = await getUserUidOptionsByDisplayName(name);
+    results = await getUserOptionsByDisplayName(name);
   }
   if (tryName) {
     results = {
       ...results,
-      ...await getUserUidOptionsByName(name),
+      ...await getUserOptionsByName(name),
     };
   }
   return results;
@@ -505,11 +505,11 @@ export async function getUserId(
     const data = await client.request(query, {});
     return data.viewer.id;
   } else {
-    return await getUserUidByDisplayName(username);
+    return await getUserIdByDisplayName(username);
   }
 }
 
-export async function getIssueLabelUidByNameForTeam(
+export async function getIssueLabelIdByNameForTeam(
   name: string,
   teamId: string,
 ): Promise<string | undefined> {
@@ -529,7 +529,7 @@ export async function getIssueLabelUidByNameForTeam(
   return data.issueLabels?.nodes[0]?.id;
 }
 
-export async function getIssueLabelUidOptionsByNameForTeam(
+export async function getIssueLabelOptionsByNameForTeam(
   name: string,
   teamId: string,
 ): Promise<Record<string, string>> {

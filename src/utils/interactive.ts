@@ -6,9 +6,9 @@ import {
   getAllTeams,
   getLabelsForTeam,
   getTeamId,
-  getTeamUid,
   getUserId,
   getWorkflowStates,
+  resolveTeamId,
 } from "./linear.ts";
 
 export async function promptInteractiveIssueCreation(
@@ -32,7 +32,7 @@ export async function promptInteractiveIssueCreation(
   const teamResolutionPromise = (async () => {
     const defaultTeamId = await getTeamId();
     if (defaultTeamId) {
-      const teamUid = await getTeamUid(defaultTeamId);
+      const teamUid = await resolveTeamId(defaultTeamId);
       if (teamUid) {
         return {
           teamId: teamUid,
