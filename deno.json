@@ -33,7 +33,7 @@
   "publish": {
     "include": [
       "src/",
-      "main_test.ts",
+      "test/",
       "README.md"
     ]
   },
