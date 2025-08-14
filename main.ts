@@ -57,7 +57,11 @@ import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
 import { gql } from "./__generated__/gql.ts";
-import type { IssueFilter } from "./__generated__/graphql.ts";
+import type {
+  IssueFilter,
+  IssueUpdateInput,
+  UpdateIssueNonInteractiveMutation,
+} from "./__generated__/graphql.ts";
 
 import { GraphQLClient } from "graphql-request";
 
@@ -1584,7 +1588,317 @@ const issueCommand = new Command()
       console.error("Failed to delete issue:", error);
       Deno.exit(1);
     }
-  });
+  })
+  .command("update", "Update an issue")
+  .alias("u")
+  .arguments("[issueId:string]")
+  .option(
+    "-a, --assignee <assignee:string>",
+    "Assign the issue to 'self' or someone (by username or name)",
+  )
+  .option(
+    "--due-date <dueDate:string>",
+    "Due date of the issue",
+  )
+  .option(
+    "-p, --parent <parent:string>",
+    "Parent issue (if any) as a team_number code",
+  )
+  .option(
+    "--priority <priority:number>",
+    "Priority of the issue (1-4, descending priority)",
+  )
+  .option(
+    "--estimate <estimate:number>",
+    "Points estimate of the issue",
+  )
+  .option(
+    "-d, --description <description:string>",
+    "Description of the issue",
+  )
+  .option(
+    "-l, --label [label...:string]",
+    "Issue label associated with the issue. May be repeated.",
+  )
+  .option(
+    "--team <team:string>",
+    "Team associated with the issue (if not your default team)",
+  )
+  .option(
+    "--project <project:string>",
+    "Name of the project with the issue",
+  )
+  .option(
+    "--state <state:string>",
+    "Workflow state for the issue (by name or type)",
+  )
+  .option("--no-color", "Disable colored output")
+  .option("--no-interactive", "Disable interactive prompts")
+  .option("-t, --title <title:string>", "Title of the issue")
+  .action(
+    async (
+      {
+        assignee,
+        dueDate,
+        parent,
+        priority,
+        estimate,
+        description,
+        label: labels,
+        team,
+        project,
+        state,
+        color,
+        interactive,
+        title,
+      },
+      issueId,
+    ) => {
+      interactive = interactive && Deno.stdout.isTerminal();
+
+      // Resolve the issue ID
+      const resolvedId = await getIssueId(issueId);
+      if (!resolvedId) {
+        console.error(
+          "Could not determine issue ID. Provide an issue ID or run from a branch with a Linear issue ID.",
+        );
+        Deno.exit(1);
+      }
+
+      // Get the issue UID
+      const issueUid = await getIssueUidByIdentifier(resolvedId);
+      if (!issueUid) {
+        console.error(`Could not find issue with ID: ${resolvedId}`);
+        Deno.exit(1);
+      }
+
+      const showSpinner = color && interactive;
+      const spinner = showSpinner ? new Spinner() : null;
+      spinner?.start();
+
+      try {
+        // Build the update input object
+        const input: Partial<IssueUpdateInput> = {};
+
+        // Handle title
+        if (title !== undefined) {
+          input.title = title;
+        }
+
+        // Handle description
+        if (description !== undefined) {
+          input.description = description;
+        }
+
+        // Handle assignee
+        if (assignee !== undefined) {
+          let assigneeId = await getUserId(assignee);
+          if (!assigneeId && assignee !== "self") {
+            if (interactive) {
+              const assigneeIds = await getUserUidOptions(assignee);
+              spinner?.stop();
+              assigneeId = await selectOption("User", assignee, assigneeIds);
+              spinner?.start();
+            }
+            if (!assigneeId) {
+              console.error(
+                `Could not determine user ID for assignee ${assignee}`,
+              );
+              Deno.exit(1);
+            }
+          }
+          input.assigneeId = assigneeId;
+        }
+
+        // Handle due date
+        if (dueDate !== undefined) {
+          input.dueDate = dueDate;
+        }
+
+        // Handle priority
+        if (priority !== undefined) {
+          input.priority = priority;
+        }
+
+        // Handle estimate
+        if (estimate !== undefined) {
+          input.estimate = estimate;
+        }
+
+        // Handle team
+        if (team !== undefined) {
+          const teamUpper = team.toUpperCase();
+          let teamUid = await getTeamUid(teamUpper);
+          if (interactive && !teamUid) {
+            const teamUids = await getTeamUidOptions(teamUpper);
+            spinner?.stop();
+            teamUid = await selectOption("Team", teamUpper, teamUids);
+            spinner?.start();
+          }
+          if (!teamUid) {
+            console.error(`Could not determine team ID for team ${team}`);
+            Deno.exit(1);
+          }
+          input.teamId = teamUid;
+        }
+
+        // Handle state
+        if (state !== undefined) {
+          // Need team ID for state resolution
+          let stateTeamUid: string;
+          if (input.teamId) {
+            stateTeamUid = input.teamId;
+          } else {
+            const currentTeamId = await getTeamId();
+            if (!currentTeamId) {
+              console.error("Could not determine team ID for state resolution");
+              Deno.exit(1);
+            }
+            stateTeamUid = await getTeamUid(currentTeamId) as string;
+          }
+
+          const workflowState = await getWorkflowStateByNameOrType(
+            stateTeamUid,
+            state,
+          );
+          if (!workflowState) {
+            console.error(
+              `Could not find workflow state '${state}'`,
+            );
+            Deno.exit(1);
+          }
+          input.stateId = workflowState.id;
+        }
+
+        // Handle labels
+        if (labels !== undefined && labels !== true && labels.length > 0) {
+          const labelIds = [];
+          // Need team ID for label resolution
+          let labelTeamUid: string;
+          if (input.teamId) {
+            labelTeamUid = input.teamId;
+          } else {
+            const currentTeamId = await getTeamId();
+            if (!currentTeamId) {
+              console.error("Could not determine team ID for label resolution");
+              Deno.exit(1);
+            }
+            labelTeamUid = await getTeamUid(currentTeamId) as string;
+          }
+
+          for (const label of labels) {
+            let labelId = await getIssueLabelUidByNameForTeam(
+              label,
+              labelTeamUid,
+            );
+            if (!labelId && interactive) {
+              const labelOptions = await getIssueLabelUidOptionsByNameForTeam(
+                label,
+                labelTeamUid,
+              );
+              spinner?.stop();
+              labelId = await selectOption("Issue label", label, labelOptions);
+              spinner?.start();
+            }
+            if (!labelId) {
+              console.error(
+                `Could not determine ID for issue label ${label}`,
+              );
+              Deno.exit(1);
+            }
+            labelIds.push(labelId);
+          }
+          input.labelIds = labelIds;
+        }
+
+        // Handle project
+        if (project !== undefined) {
+          let projectId = await getProjectUidByName(project);
+          if (projectId === undefined && interactive) {
+            const projectIds = await getProjectUidOptionsByName(project);
+            spinner?.stop();
+            projectId = await selectOption("Project", project, projectIds);
+            spinner?.start();
+          }
+          if (projectId === undefined) {
+            console.error(`Could not determine ID for project ${project}`);
+            Deno.exit(1);
+          }
+          input.projectId = projectId;
+        }
+
+        // Handle parent
+        if (parent !== undefined) {
+          const parentId = await getIssueId(parent, true);
+          let parentUid: string | undefined = undefined;
+          if (parentId) {
+            parentUid = await getIssueUidByIdentifier(parentId);
+          }
+          if (parentUid === undefined && interactive) {
+            const parentUids = await getIssueUidOptionsByTitle(parent);
+            spinner?.stop();
+            parentUid = await selectOption("Parent issue", parent, parentUids);
+            spinner?.start();
+          }
+          if (parentUid === undefined) {
+            console.error(`Could not determine ID for issue ${parent}`);
+            Deno.exit(1);
+          }
+          input.parentId = parentUid;
+        }
+
+        // Check if we have anything to update
+        if (Object.keys(input).length === 0) {
+          console.error(
+            "No fields specified to update. Use --help to see available options.",
+          );
+          Deno.exit(1);
+        }
+
+        spinner?.stop();
+        console.log(`Updating issue ${resolvedId}...`);
+        console.log();
+        spinner?.start();
+
+        const updateIssueMutation = gql(`
+          mutation UpdateIssueNonInteractive($id: String!, $input: IssueUpdateInput!) {
+            issueUpdate(id: $id, input: $input) {
+              success
+              issue {
+                id
+                identifier
+                url
+                title
+              }
+            }
+          }
+        `);
+
+        const client = getGraphQLClient();
+        const data = await client.request(updateIssueMutation, {
+          id: issueUid,
+          input,
+        });
+
+        if (!data.issueUpdate.success) {
+          throw "Update mutation failed";
+        }
+
+        const issue = data.issueUpdate.issue;
+        if (!issue) {
+          throw "Issue update failed - no issue returned";
+        }
+
+        spinner?.stop();
+        console.log(`✓ Updated issue ${issue.identifier}: ${issue.title}`);
+        console.log(issue.url);
+      } catch (error) {
+        spinner?.stop();
+        console.error("✗ Failed to update issue", error);
+        Deno.exit(1);
+      }
+    },
+  );
 
 async function promptInteractiveIssueCreation(
   preStartedStatesPromise?: Promise<
