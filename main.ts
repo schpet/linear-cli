@@ -584,7 +584,7 @@ async function getIssueLabelUidByNameForTeam(
   return data.issueLabels?.nodes[0]?.id;
 }
 
-async function _getIssueLabelUidOptionsByNameForTeam(
+async function getIssueLabelUidOptionsByNameForTeam(
   name: string,
   teamId: string,
 ): Promise<Record<string, string>> {
