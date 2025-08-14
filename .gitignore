@@ -1,6 +1,4 @@
 .aider.*
 .config/linear.toml
 
-# Generated GraphQL code
-__generated__/
 src/__codegen__/
