@@ -20,6 +20,7 @@ tag:
     @echo
     @echo "  git push origin HEAD --tags"
 
+# depends on `cargo install --git https://github.com/astral-sh/cargo-dist.git --tag v0.28.3 cargo-dist`
 # cargo-dist - needed to update .github/workflows/release.yml
 dist-generate:
   dist generate
