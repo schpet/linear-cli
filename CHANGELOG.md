@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Removed
+
+- linear issue <id> is removed, must use linear issue view <id>. linear issue
+  now just shows help text
+
 ### Changed
 
 - more consistent rendering of priority
