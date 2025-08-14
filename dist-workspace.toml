@@ -21,7 +21,7 @@ build-command = [
     "--allow-run",
     "--allow-net=api.linear.app",
     "--quiet",
-    "main.ts",
+    "src/main.ts",
 ]
 
 # Config for 'dist'

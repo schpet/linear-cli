@@ -34,7 +34,6 @@
     "include": [
       "src/",
       "main_test.ts",
-      "config.ts",
       "README.md"
     ]
   },

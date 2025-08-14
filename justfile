@@ -1,9 +1,9 @@
 dev *args:
-    deno run -A main.ts {{ args }}
+    deno run -A src/main.ts {{ args }}
 
 # tags the newest release in the changelog
 tag:
-    deno check main.ts
+    deno check src/main.ts
     deno fmt --check
     deno lint
 
