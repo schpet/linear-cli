@@ -17,21 +17,19 @@
 - state flag on issue list can now be repeated to filter by multiple states
 - team members command now shows initials, timezone, and other details with
   --verbose flag
-- team members command now loads all paginated members and shows full names and
-  detailed info by default
 - organized code into multiple files so it's less of a nightmare to work on
 
 ### Added
 
+- `issue delete` command to delete issues by id
+- `team members` command to list team members
 - add --assignee flag on `issue list` allowing you to list issues assigned to
 - add -U, --unassigned flag to list only unassigned issues
 - add -A, --all-assignees flag to list issues for all assignees
-- `issue delete` command to delete issues by id
 - allow specifying a --parent on linear issue create
 - add -A and -U flags to issue start command for filtering assignees
 - add --all-states flag to issue list command to show issues from all states
 - add --confirm flag to issue delete command to skip confirmation prompt
-- team members subcommand to list team members
 
 ## [0.6.4] - 2025-08-12
 
