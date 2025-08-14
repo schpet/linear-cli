@@ -1,5 +1,8 @@
 import { gql } from "../__codegen__/gql.ts";
-import type { IssueFilter } from "../__codegen__/graphql.ts";
+import type {
+  GetTeamMembersQuery,
+  IssueFilter,
+} from "../__codegen__/graphql.ts";
 import { Select } from "@cliffy/prompt";
 import { getOption } from "../config.ts";
 import { getGraphQLClient } from "./graphql.ts";
@@ -607,6 +610,60 @@ export async function getLabelsForTeam(teamId: string): Promise<
   // Sort labels alphabetically (case insensitive)
   return labels.sort((a, b) =>
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  );
+}
+
+export async function getTeamMembers(teamId: string) {
+  const client = getGraphQLClient();
+  const query = gql(`
+    query GetTeamMembers($teamId: String!, $first: Int, $after: String) {
+      team(id: $teamId) {
+        members(first: $first, after: $after) {
+          nodes {
+            id
+            name
+            displayName
+            email
+            active
+            initials
+            description
+            timezone
+            lastSeen
+            statusEmoji
+            statusLabel
+            guest
+            isAssignable
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }
+    }
+  `);
+
+  const allMembers = [];
+  let hasNextPage = true;
+  let after: string | null | undefined = undefined;
+
+  while (hasNextPage) {
+    const result: GetTeamMembersQuery = await client.request(query, {
+      teamId,
+      first: 100, // Fetch 100 members per page
+      after,
+    });
+
+    const members = result.team.members.nodes;
+    allMembers.push(...members);
+
+    hasNextPage = result.team.members.pageInfo.hasNextPage;
+    after = result.team.members.pageInfo.endCursor;
+  }
+
+  // Sort members alphabetically by display name (case insensitive)
+  return allMembers.sort((a, b) =>
+    a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
   );
 }
 

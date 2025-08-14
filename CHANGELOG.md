@@ -15,6 +15,10 @@
 - more consistent rendering of priority
 - labels column width now dynamically sized based on actual label content
 - state flag on issue list can now be repeated to filter by multiple states
+- team members command now shows initials, timezone, and other details with
+  --verbose flag
+- team members command now loads all paginated members and shows full names and
+  detailed info by default
 
 ### Added
 
@@ -26,6 +30,7 @@
 - add -A and -U flags to issue start command for filtering assignees
 - add --all-states flag to issue list command to show issues from all states
 - add --confirm flag to issue delete command to skip confirmation prompt
+- team members subcommand to list team members
 
 ## [0.6.4] - 2025-08-12
 
