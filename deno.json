@@ -5,7 +5,7 @@
   "exports": "./src/main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet src/main.ts ",
+    "dev": "deno task codegen && deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet src/main.ts ",
     "install": "deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet -g -f -n linear ./src/main.ts",
     "uninstall": "deno uninstall -g linear",
     "sync-schema": "deno run -A npm:get-graphql-schema https://api.linear.app/graphql > graphql/schema.graphql",
