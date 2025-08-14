@@ -57,11 +57,7 @@ import { renderMarkdown } from "@littletof/charmd";
 import { basename, join } from "@std/path";
 import { unicodeWidth } from "@std/cli";
 import { gql } from "./__generated__/gql.ts";
-import type {
-  IssueFilter,
-  IssueUpdateInput,
-  UpdateIssueNonInteractiveMutation,
-} from "./__generated__/graphql.ts";
+import type { IssueFilter, IssueUpdateInput } from "./__generated__/graphql.ts";
 
 import { GraphQLClient } from "graphql-request";
 
@@ -588,7 +584,7 @@ async function getIssueLabelUidByNameForTeam(
   return data.issueLabels?.nodes[0]?.id;
 }
 
-async function getIssueLabelUidOptionsByNameForTeam(
+async function _getIssueLabelUidOptionsByNameForTeam(
   name: string,
   teamId: string,
 ): Promise<Record<string, string>> {
@@ -1590,7 +1586,6 @@ const issueCommand = new Command()
     }
   })
   .command("update", "Update an issue")
-  .alias("u")
   .arguments("[issueId:string]")
   .option(
     "-a, --assignee <assignee:string>",
@@ -1633,7 +1628,6 @@ const issueCommand = new Command()
     "Workflow state for the issue (by name or type)",
   )
   .option("--no-color", "Disable colored output")
-  .option("--no-interactive", "Disable interactive prompts")
   .option("-t, --title <title:string>", "Title of the issue")
   .action(
     async (
@@ -1649,13 +1643,10 @@ const issueCommand = new Command()
         project,
         state,
         color,
-        interactive,
         title,
       },
       issueId,
     ) => {
-      interactive = interactive && Deno.stdout.isTerminal();
-
       // Resolve the issue ID
       const resolvedId = await getIssueId(issueId);
       if (!resolvedId) {
@@ -1672,7 +1663,7 @@ const issueCommand = new Command()
         Deno.exit(1);
       }
 
-      const showSpinner = color && interactive;
+      const showSpinner = color && Deno.stdout.isTerminal();
       const spinner = showSpinner ? new Spinner() : null;
       spinner?.start();
 
@@ -1692,20 +1683,12 @@ const issueCommand = new Command()
 
         // Handle assignee
         if (assignee !== undefined) {
-          let assigneeId = await getUserId(assignee);
+          const assigneeId = await getUserId(assignee);
           if (!assigneeId && assignee !== "self") {
-            if (interactive) {
-              const assigneeIds = await getUserUidOptions(assignee);
-              spinner?.stop();
-              assigneeId = await selectOption("User", assignee, assigneeIds);
-              spinner?.start();
-            }
-            if (!assigneeId) {
-              console.error(
-                `Could not determine user ID for assignee ${assignee}`,
-              );
-              Deno.exit(1);
-            }
+            console.error(
+              `Could not determine user ID for assignee ${assignee}`,
+            );
+            Deno.exit(1);
           }
           input.assigneeId = assigneeId;
         }
@@ -1728,13 +1711,7 @@ const issueCommand = new Command()
         // Handle team
         if (team !== undefined) {
           const teamUpper = team.toUpperCase();
-          let teamUid = await getTeamUid(teamUpper);
-          if (interactive && !teamUid) {
-            const teamUids = await getTeamUidOptions(teamUpper);
-            spinner?.stop();
-            teamUid = await selectOption("Team", teamUpper, teamUids);
-            spinner?.start();
-          }
+          const teamUid = await getTeamUid(teamUpper);
           if (!teamUid) {
             console.error(`Could not determine team ID for team ${team}`);
             Deno.exit(1);
@@ -1787,19 +1764,10 @@ const issueCommand = new Command()
           }
 
           for (const label of labels) {
-            let labelId = await getIssueLabelUidByNameForTeam(
+            const labelId = await getIssueLabelUidByNameForTeam(
               label,
               labelTeamUid,
             );
-            if (!labelId && interactive) {
-              const labelOptions = await getIssueLabelUidOptionsByNameForTeam(
-                label,
-                labelTeamUid,
-              );
-              spinner?.stop();
-              labelId = await selectOption("Issue label", label, labelOptions);
-              spinner?.start();
-            }
             if (!labelId) {
               console.error(
                 `Could not determine ID for issue label ${label}`,
@@ -1813,13 +1781,7 @@ const issueCommand = new Command()
 
         // Handle project
         if (project !== undefined) {
-          let projectId = await getProjectUidByName(project);
-          if (projectId === undefined && interactive) {
-            const projectIds = await getProjectUidOptionsByName(project);
-            spinner?.stop();
-            projectId = await selectOption("Project", project, projectIds);
-            spinner?.start();
-          }
+          const projectId = await getProjectUidByName(project);
           if (projectId === undefined) {
             console.error(`Could not determine ID for project ${project}`);
             Deno.exit(1);
@@ -1833,12 +1795,6 @@ const issueCommand = new Command()
           let parentUid: string | undefined = undefined;
           if (parentId) {
             parentUid = await getIssueUidByIdentifier(parentId);
-          }
-          if (parentUid === undefined && interactive) {
-            const parentUids = await getIssueUidOptionsByTitle(parent);
-            spinner?.stop();
-            parentUid = await selectOption("Parent issue", parent, parentUids);
-            spinner?.start();
           }
           if (parentUid === undefined) {
             console.error(`Could not determine ID for issue ${parent}`);
@@ -2364,16 +2320,7 @@ const createCommand = new Command()
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
-            let labelId = await getIssueLabelUidByNameForTeam(label, teamUid);
-            if (!labelId && interactive) {
-              const labelIds = await getIssueLabelUidOptionsByNameForTeam(
-                label,
-                teamUid,
-              );
-              spinner?.stop();
-              labelId = await selectOption("Issue label", label, labelIds);
-              spinner?.start();
-            }
+            const labelId = await getIssueLabelUidByNameForTeam(label, teamUid);
             if (!labelId) {
               console.error(
                 `Could not determine ID for issue label ${label}`,
