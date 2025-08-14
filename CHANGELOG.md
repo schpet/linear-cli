@@ -13,6 +13,7 @@
 ### Changed
 
 - more consistent rendering of priority
+- labels column width now dynamically sized based on actual label content
 
 ### Added
 

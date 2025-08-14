@@ -122,7 +122,12 @@ export const listCommand = new Command()
           2, // minimum width for "ID" header
           ...issues.map((issue) => issue.identifier.length),
         );
-        const LABEL_WIDTH = columns <= 100 ? 12 : 24; // adjust label width based on terminal size
+        const LABEL_WIDTH = Math.max(
+          6, // minimum width for "LABELS" header
+          ...issues.map((issue) =>
+            unicodeWidth(issue.labels.nodes.map((l) => l.name).join(", "))
+          ),
+        );
         const ESTIMATE_WIDTH = 1; // fixed width for estimate
         const STATE_WIDTH = 12; // fixed width for state
         const ASSIGNEE_WIDTH = 2; // fixed width for assignee initials
