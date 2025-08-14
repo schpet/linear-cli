@@ -19,3 +19,7 @@ tag:
     @echo "run this to release it:"
     @echo
     @echo "  git push origin HEAD --tags"
+
+# cargo-dist - needed to update .github/workflows/release.yml
+dist-generate:
+  dist generate
