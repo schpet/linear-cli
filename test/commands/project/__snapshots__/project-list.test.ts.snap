@@ -1,0 +1,41 @@
+export const snapshot = {};
+
+snapshot[`Project List Command - Help Text 1`] = `
+stdout:
+"
+\\x1b[1mUsage:\\x1b[22m \\x1b[95mlist\\x1b[39m
+
+\\x1b[1mDescription:\\x1b[22m
+
+  List projects
+
+\\x1b[1mOptions:\\x1b[22m
+
+  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m             \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.               
+  \\x1b[94m--team\\x1b[39m       \\x1b[33m<\\x1b[39m\\x1b[95mteam\\x1b[39m\\x1b[33m>\\x1b[39m    \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Filter by team key            
+  \\x1b[94m--all-teams\\x1b[39m            \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show projects from all teams  
+  \\x1b[94m--status\\x1b[39m     \\x1b[33m<\\x1b[39m\\x1b[95mstatus\\x1b[39m\\x1b[33m>\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Filter by status name         
+
+"
+stderr:
+""
+`;
+
+snapshot[`Project List Command - With Mock Projects 1`] = `
+stdout:
+"SLUG      NAME                   STATUS      PRIORITY HEALTH  LEAD TEAMS            DATE                
+auth-sys  Authentication System  In Progress High     onTrack JS   BACKEND,SECURITY Started 577 days ago
+mobile-ui Mobile App UI Redesign Planned     Medium   Unknown AD   DESIGN,MOBILE    Start: 2024-04-01   
+api-docs  API Documentation      Completed   Low      onTrack -    DOCS             Done 603 days ago   
+"
+stderr:
+""
+`;
+
+snapshot[`Project List Command - No Projects Found 1`] = `
+stdout:
+"No projects found.
+"
+stderr:
+""
+`;

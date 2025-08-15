@@ -3,6 +3,7 @@ import { CompletionsCommand } from "@cliffy/command/completions";
 import denoConfig from "../deno.json" with { type: "json" };
 import { issueCommand } from "./commands/issue/issue.ts";
 import { teamCommand } from "./commands/team/team.ts";
+import { projectCommand } from "./commands/project/project.ts";
 import { configCommand } from "./commands/config.ts";
 
 // Import config setup
@@ -19,6 +20,8 @@ await new Command()
   .alias("i")
   .command("team", teamCommand)
   .alias("t")
+  .command("project", projectCommand)
+  .alias("p")
   .command("completions", new CompletionsCommand())
   .command("config", configCommand)
   .parse(Deno.args);

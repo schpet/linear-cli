@@ -32,6 +32,8 @@
 - add --confirm flag to issue delete command to skip confirmation prompt
 - support --team flag in issue list command
 - show comments by default in linear issue view, use --no-comments to disable
+- project list command to display projects in a table format
+- project view command to show detailed project information
 
 ## [0.6.4] - 2025-08-12
 
