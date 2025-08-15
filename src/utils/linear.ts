@@ -22,9 +22,8 @@ export async function getTeamId(): Promise<string | undefined> {
   return match ? match[0].toUpperCase() : undefined;
 }
 
-export async function getIssueId(
+export async function resolveIssueId(
   providedId?: string,
-  allowByTitle = false,
 ): Promise<string | undefined> {
   if (providedId && isValidLinearId(providedId)) {
     return providedId.toUpperCase();
@@ -36,12 +35,6 @@ export async function getIssueId(
     const match = branch.match(/[a-zA-Z0-9]+-[1-9][0-9]*/i);
     if (match) {
       return match[0].toUpperCase();
-    }
-  }
-  if (allowByTitle && providedId) {
-    const issueId = await getIssueIdByTitle(providedId);
-    if (issueId) {
-      return issueId;
     }
   }
 }
@@ -349,19 +342,6 @@ export async function getProjectOptionsByName(
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
 }
 
-export async function getIssueIdByTitle(
-  title: string,
-): Promise<string | undefined> {
-  const client = getGraphQLClient();
-  const query = gql(`
-    query GetIssueIdByTitle($title: String!) {
-      issues(filter: {title: {eq: $title}}) {nodes{identifier}}
-    }
-  `);
-  const data = await client.request(query, { title });
-  return data.issues?.nodes[0]?.identifier;
-}
-
 export async function getIssueIdByIdentifier(
   identifier: string,
 ): Promise<string | undefined> {
@@ -373,22 +353,6 @@ export async function getIssueIdByIdentifier(
   `);
   const data = await client.request(query, { identifier });
   return data.issue?.id;
-}
-
-export async function getIssueOptionsByTitle(
-  title: string,
-): Promise<Record<string, string>> {
-  const client = getGraphQLClient();
-  const query = gql(`
-    query GetIssueIdOptionsByTitle($title: String!) {
-        issues(filter: {title: {containsIgnoreCase: $title}}) {nodes{id, identifier, title}}
-      }
-  `);
-  const data = await client.request(query, { title });
-  const qResults = data.issues?.nodes || [];
-  return Object.fromEntries(
-    qResults.map((t) => [t.id, `${t.identifier}: ${t.title}`]),
-  );
 }
 
 export async function getTeamIdByKey(

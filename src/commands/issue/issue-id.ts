@@ -1,11 +1,11 @@
 import { Command } from "@cliffy/command";
-import { getIssueId } from "../../utils/linear.ts";
+import { resolveIssueId } from "../../utils/linear.ts";
 
 export const idCommand = new Command()
   .name("id")
   .description("Print the issue based on the current git branch")
   .action(async (_) => {
-    const resolvedId = await getIssueId();
+    const resolvedId = await resolveIssueId();
     if (resolvedId) {
       console.log(resolvedId);
     } else {

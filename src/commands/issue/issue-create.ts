@@ -2,11 +2,9 @@ import { Command } from "@cliffy/command";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
-  getIssueId,
   getIssueIdByIdentifier,
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
-  getIssueOptionsByTitle,
   getProjectIdByName,
   getProjectOptionsByName,
   getTeamId,
@@ -15,6 +13,7 @@ import {
   getUserOptions,
   getWorkflowStateByNameOrType,
   getWorkflowStates,
+  resolveIssueId,
   searchTeamsByKeySubstring,
   selectOption,
 } from "../../utils/linear.ts";
@@ -124,7 +123,7 @@ export const createCommand = new Command()
           // Handle parent issue if provided
           let parentId: string | undefined = undefined;
           if (parent !== undefined) {
-            const parentIdentifier = await getIssueId(parent, true);
+            const parentIdentifier = await resolveIssueId(parent);
             if (parentIdentifier) {
               parentId = await getIssueIdByIdentifier(parentIdentifier);
             }
@@ -304,15 +303,9 @@ export const createCommand = new Command()
         }
         let parentId: string | undefined = undefined;
         if (parent !== undefined) {
-          const parentIdentifier = await getIssueId(parent, true);
+          const parentIdentifier = await resolveIssueId(parent);
           if (parentIdentifier) {
             parentId = await getIssueIdByIdentifier(parentIdentifier);
-          }
-          if (parentId === undefined && interactive) {
-            const parentIds = await getIssueOptionsByTitle(parent);
-            spinner?.stop();
-            parentId = await selectOption("Parent issue", parent, parentIds);
-            spinner?.start();
           }
           if (parentId === undefined) {
             console.error(`Could not determine ID for issue ${parent}`);

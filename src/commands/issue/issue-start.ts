@@ -3,8 +3,8 @@ import { Select } from "@cliffy/prompt";
 import { getPriorityDisplay } from "../../utils/display.ts";
 import {
   fetchIssuesForState,
-  getIssueId,
   getTeamId,
+  resolveIssueId,
 } from "../../utils/linear.ts";
 import { startWorkOnIssue as startIssue } from "../../utils/actions.ts";
 
@@ -33,7 +33,7 @@ export const startCommand = new Command()
       Deno.exit(1);
     }
 
-    let resolvedId = await getIssueId(issueId);
+    let resolvedId = await resolveIssueId(issueId);
     if (!resolvedId) {
       try {
         const result = await fetchIssuesForState(
