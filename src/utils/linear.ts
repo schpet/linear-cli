@@ -132,26 +132,84 @@ export async function updateIssueState(
 export async function fetchIssueDetails(
   issueId: string,
   showSpinner = false,
+  includeComments = false,
 ): Promise<
   {
     title: string;
     description?: string | null | undefined;
     url: string;
     branchName: string;
+    comments?: Array<{
+      id: string;
+      body: string;
+      createdAt: string;
+      user?: { name: string; displayName: string } | null;
+      externalUser?: { name: string; displayName: string } | null;
+      parent?: { id: string } | null;
+    }>;
   }
 > {
   const { Spinner } = await import("@std/cli/unstable-spinner");
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
   try {
-    const query = gql(`
-      query GetIssueDetails($id: String!) {
-        issue(id: $id) { title, description, url, branchName }
-      }
-    `);
+    const query = includeComments
+      ? gql(`
+          query GetIssueDetailsWithComments($id: String!) {
+            issue(id: $id) { 
+              title, 
+              description, 
+              url, 
+              branchName,
+              comments(first: 50, orderBy: createdAt) {
+                nodes {
+                  id
+                  body
+                  createdAt
+                  user {
+                    name
+                    displayName
+                  }
+                  externalUser {
+                    name
+                    displayName
+                  }
+                  parent {
+                    id
+                  }
+                }
+              }
+            }
+          }
+        `)
+      : gql(`
+          query GetIssueDetails($id: String!) {
+            issue(id: $id) { title, description, url, branchName }
+          }
+        `);
     const client = getGraphQLClient();
     const data = await client.request(query, { id: issueId });
     spinner?.stop();
+
+    if (includeComments) {
+      const issueWithComments = data.issue as typeof data.issue & {
+        comments?: {
+          nodes: Array<{
+            id: string;
+            body: string;
+            createdAt: string;
+            user?: { name: string; displayName: string } | null;
+            externalUser?: { name: string; displayName: string } | null;
+            parent?: { id: string } | null;
+          }>;
+        };
+      };
+      return {
+        ...data.issue,
+        comments: issueWithComments.comments?.nodes || [],
+      };
+    }
+
     return data.issue;
   } catch (error) {
     spinner?.stop();
