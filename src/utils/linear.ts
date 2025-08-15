@@ -181,31 +181,20 @@ export async function fetchIssueDetails(
       }
     `);
 
-    const query = includeComments ? queryWithComments : queryWithoutComments;
     const client = getGraphQLClient();
-    const data = await client.request(query, { id: issueId });
-    spinner?.stop();
 
     if (includeComments) {
-      const issueWithComments = data.issue as typeof data.issue & {
-        comments?: {
-          nodes: Array<{
-            id: string;
-            body: string;
-            createdAt: string;
-            user?: { name: string; displayName: string } | null;
-            externalUser?: { name: string; displayName: string } | null;
-            parent?: { id: string } | null;
-          }>;
-        };
-      };
+      const data = await client.request(queryWithComments, { id: issueId });
+      spinner?.stop();
       return {
         ...data.issue,
-        comments: issueWithComments.comments?.nodes || [],
+        comments: data.issue.comments?.nodes || [],
       };
+    } else {
+      const data = await client.request(queryWithoutComments, { id: issueId });
+      spinner?.stop();
+      return data.issue;
     }
-
-    return data.issue;
   } catch (error) {
     spinner?.stop();
     console.error("✗ Failed to fetch issue details");
