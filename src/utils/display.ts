@@ -44,3 +44,22 @@ export function getPriorityDisplay(priority: number): string {
   }
   return priority.toString();
 }
+
+export function formatRelativeTime(dateString: string): string {
+  const now = new Date();
+  const commentDate = new Date(dateString);
+  const diffMs = now.getTime() - commentDate.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMinutes < 60) {
+    return diffMinutes <= 1 ? "1 minute ago" : `${diffMinutes} minutes ago`;
+  } else if (diffHours < 24) {
+    return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
+  } else if (diffDays < 7) {
+    return diffDays === 1 ? "1 day ago" : `${diffDays} days ago`;
+  } else {
+    return commentDate.toLocaleDateString();
+  }
+}

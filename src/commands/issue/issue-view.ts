@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command";
 import { renderMarkdown } from "@littletof/charmd";
 import { fetchIssueDetails, getIssueId } from "../../utils/linear.ts";
 import { openIssuePage } from "../../utils/actions.ts";
+import { formatRelativeTime } from "../../utils/display.ts";
 
 export const viewCommand = new Command()
   .name("view")
@@ -235,24 +236,4 @@ function formatWrappedText(
   }
 
   return wrappedParagraphs.join("\n\n");
-}
-
-// Helper function to format dates as relative time
-function formatRelativeTime(dateString: string): string {
-  const now = new Date();
-  const commentDate = new Date(dateString);
-  const diffMs = now.getTime() - commentDate.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMinutes < 60) {
-    return diffMinutes <= 1 ? "1 minute ago" : `${diffMinutes} minutes ago`;
-  } else if (diffHours < 24) {
-    return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
-  } else if (diffDays < 7) {
-    return diffDays === 1 ? "1 day ago" : `${diffDays} days ago`;
-  } else {
-    return commentDate.toLocaleDateString();
-  }
 }
