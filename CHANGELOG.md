@@ -31,7 +31,7 @@
 - add --all-states flag to issue list command to show issues from all states
 - add --confirm flag to issue delete command to skip confirmation prompt
 - support --team flag in issue list command
-- add --comments flag to linear issue view to include comments
+- show comments by default in linear issue view, use --no-comments to disable
 
 ## [0.6.4] - 2025-08-12
 

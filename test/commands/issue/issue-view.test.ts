@@ -52,53 +52,12 @@ await snapshotTest({
   },
 });
 
-// Test with working mock server - Terminal output
+// Test with working mock server - Terminal output (no comments available)
 await snapshotTest({
-  name: "Issue View Command - With Mock Server Terminal",
+  name: "Issue View Command - With Mock Server Terminal No Comments",
   meta: import.meta,
   colors: false,
   args: ["TEST-123"],
-  denoArgs,
-  async fn() {
-    const server = new MockLinearServer([
-      {
-        queryName: "GetIssueDetails",
-        variables: { id: "TEST-123" },
-        response: {
-          data: {
-            issue: {
-              title: "Fix authentication bug in login flow",
-              description:
-                "Users are experiencing issues logging in when their session expires. This affects the main authentication flow and needs to be resolved quickly.\n\n## Steps to reproduce\n1. Log in to the application\n2. Wait for session to expire\n3. Try to perform an authenticated action\n4. Observe the error\n\n## Expected behavior\nUser should be redirected to login page with clear messaging.\n\n## Actual behavior\nUser sees cryptic error message and gets stuck.",
-              url:
-                "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
-              branchName: "fix/test-123-auth-bug",
-            },
-          },
-        },
-      },
-    ]);
-
-    try {
-      await server.start();
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
-
-      await viewCommand.parse();
-    } finally {
-      await server.stop();
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
-      Deno.env.delete("LINEAR_API_KEY");
-    }
-  },
-});
-
-// Test with comments flag - no comments
-await snapshotTest({
-  name: "Issue View Command - With Comments Flag No Comments",
-  meta: import.meta,
-  colors: false,
-  args: ["TEST-123", "--comments"],
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
@@ -110,7 +69,7 @@ await snapshotTest({
             issue: {
               title: "Fix authentication bug in login flow",
               description:
-                "Users are experiencing issues logging in when their session expires.",
+                "Users are experiencing issues logging in when their session expires. This affects the main authentication flow and needs to be resolved quickly.\n\n## Steps to reproduce\n1. Log in to the application\n2. Wait for session to expire\n3. Try to perform an authenticated action\n4. Observe the error\n\n## Expected behavior\nUser should be redirected to login page with clear messaging.\n\n## Actual behavior\nUser sees cryptic error message and gets stuck.",
               url:
                 "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
               branchName: "fix/test-123-auth-bug",
@@ -137,12 +96,53 @@ await snapshotTest({
   },
 });
 
-// Test with comments flag - with comments
+// Test with no-comments flag to disable comments
 await snapshotTest({
-  name: "Issue View Command - With Comments Flag With Comments",
+  name: "Issue View Command - With No Comments Flag",
   meta: import.meta,
   colors: false,
-  args: ["TEST-123", "-c"],
+  args: ["TEST-123", "--no-comments"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        variables: { id: "TEST-123" },
+        response: {
+          data: {
+            issue: {
+              title: "Fix authentication bug in login flow",
+              description:
+                "Users are experiencing issues logging in when their session expires.",
+              url:
+                "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
+              branchName: "fix/test-123-auth-bug",
+            },
+          },
+        },
+      },
+    ]);
+
+    try {
+      await server.start();
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
+
+      await viewCommand.parse();
+    } finally {
+      await server.stop();
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
+      Deno.env.delete("LINEAR_API_KEY");
+    }
+  },
+});
+
+// Test with comments (default behavior)
+await snapshotTest({
+  name: "Issue View Command - With Comments Default",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-123"],
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
@@ -244,7 +244,7 @@ await snapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetIssueDetails",
+        queryName: "GetIssueDetailsWithComments",
         variables: { id: "TEST-999" },
         response: {
           errors: [{

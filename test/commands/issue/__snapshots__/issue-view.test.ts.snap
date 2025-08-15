@@ -11,10 +11,10 @@ stdout:
 
 \\x1b[1mOptions:\\x1b[22m
 
-  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.                 
-  \\x1b[94m-w\\x1b[39m, \\x1b[94m--web\\x1b[39m       \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in web browser             
-  \\x1b[94m-a\\x1b[39m, \\x1b[94m--app\\x1b[39m       \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in Linear.app              
-  \\x1b[94m-c\\x1b[39m, \\x1b[94m--comments\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Include comments in the output  
+  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.                   
+  \\x1b[94m-w\\x1b[39m, \\x1b[94m--web\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in web browser               
+  \\x1b[94m-a\\x1b[39m, \\x1b[94m--app\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in Linear.app                
+  \\x1b[94m--no-comments\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Exclude comments from the output  
 
 "
 stderr:
@@ -30,7 +30,7 @@ stderr:
 "
 `;
 
-snapshot[`Issue View Command - With Mock Server Terminal 1`] = `
+snapshot[`Issue View Command - With Mock Server Terminal No Comments 1`] = `
 stdout:
 "# Fix authentication bug in login flow
 
@@ -47,16 +47,6 @@ User should be redirected to login page with clear messaging.
 
 ## Actual behavior
 User sees cryptic error message and gets stuck.
-"
-stderr:
-""
-`;
-
-snapshot[`Issue View Command - With Comments Flag No Comments 1`] = `
-stdout:
-"# Fix authentication bug in login flow
-
-Users are experiencing issues logging in when their session expires.
 
 ## Comments
 
@@ -68,7 +58,17 @@ stderr:
 ""
 `;
 
-snapshot[`Issue View Command - With Comments Flag With Comments 1`] = `
+snapshot[`Issue View Command - With No Comments Flag 1`] = `
+stdout:
+"# Fix authentication bug in login flow
+
+Users are experiencing issues logging in when their session expires.
+"
+stderr:
+""
+`;
+
+snapshot[`Issue View Command - With Comments Default 1`] = `
 stdout:
 "# Fix authentication bug in login flow
 
@@ -100,7 +100,7 @@ stderr:
 
 snapshot[`Issue View Command - Issue Not Found 1`] = `
 stdout:
-'Error: Issue not found: TEST-999: {"response":{"errors":[{"message":"Issue not found: TEST-999","extensions":{"code":"NOT_FOUND"}}],"status":200,"headers":{}},"request":{"query":"query GetIssueDetails(\$id: String!) {\\\\n  issue(id: \$id) {\\\\n    title\\\\n    description\\\\n    url\\\\n    branchName\\\\n  }\\\\n}","variables":{"id":"TEST-999"}}}
+'Error: Issue not found: TEST-999: {"response":{"errors":[{"message":"Issue not found: TEST-999","extensions":{"code":"NOT_FOUND"}}],"status":200,"headers":{}},"request":{"query":"query GetIssueDetailsWithComments(\$id: String!) {\\\\n  issue(id: \$id) {\\\\n    title\\\\n    description\\\\n    url\\\\n    branchName\\\\n    comments(first: 50, orderBy: createdAt) {\\\\n      nodes {\\\\n        id\\\\n        body\\\\n        createdAt\\\\n        user {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        externalUser {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        parent {\\\\n          id\\\\n        }\\\\n      }\\\\n    }\\\\n  }\\\\n}","variables":{"id":"TEST-999"}}}
 '
 stderr:
 "✗ Failed to fetch issue details
