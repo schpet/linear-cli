@@ -23,7 +23,7 @@ stderr:
 
 snapshot[`Issue View Command - With Issue ID 1`] = `
 stdout:
-"Error: error sending request for url (http://localhost:3000/graphql): client error (Connect): tcp connect error: Connection refused (os error 61): Connection refused (os error 61)
+"Error: error sending request for url (http://127.0.0.1:3000/graphql): client error (Connect): tcp connect error: Connection refused: Connection refused
 "
 stderr:
 "✗ Failed to fetch issue details

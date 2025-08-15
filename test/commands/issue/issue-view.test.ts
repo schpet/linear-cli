@@ -3,7 +3,7 @@ import { viewCommand } from "../../../src/commands/issue/issue-view.ts";
 import { MockLinearServer } from "../../utils/mock_linear_server.ts";
 
 // Mock the GraphQL endpoint for testing
-const TEST_ENDPOINT = "http://localhost:3000/graphql";
+const TEST_ENDPOINT = "http://127.0.0.1:3000/graphql";
 
 // Common Deno args for permissions
 const denoArgs = [
@@ -43,7 +43,13 @@ await snapshotTest({
       await viewCommand.parse();
     } catch (error) {
       // Expected to fail with mock endpoint, capture the error for snapshot
-      console.log(`Error: ${(error as Error).message}`);
+      // Normalize error message to be consistent across platforms
+      const message = (error as Error).message;
+      const normalizedMessage = message.replace(
+        /Connection refused \(os error \d+\)/g,
+        "Connection refused",
+      );
+      console.log(`Error: ${normalizedMessage}`);
     } finally {
       // Clean up environment
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
