@@ -1,0 +1,38 @@
+export const snapshot = {};
+
+snapshot[`Team List Command - Help Text 1`] = `
+stdout:
+"
+\\x1b[1mUsage:\\x1b[22m \\x1b[95mlist\\x1b[39m
+
+\\x1b[1mDescription:\\x1b[22m
+
+  List teams
+
+\\x1b[1mOptions:\\x1b[22m
+
+  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Team List Command - With Mock Teams 1`] = `
+stdout:
+"KEY      NAME          CYCLES UPDATED     
+BACKEND  Backend Team  Yes    573 days ago
+FRONTEND Frontend Team No     575 days ago
+SEC      Security Team Yes    571 days ago
+"
+stderr:
+""
+`;
+
+snapshot[`Team List Command - No Teams Found 1`] = `
+stdout:
+"No teams found.
+"
+stderr:
+""
+`;
