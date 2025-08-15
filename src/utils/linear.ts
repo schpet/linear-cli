@@ -8,8 +8,12 @@ import { getOption } from "../config.ts";
 import { getGraphQLClient } from "./graphql.ts";
 import { getCurrentBranch, getRepoDir } from "./git.ts";
 
-export function isValidLinearId(id: string): boolean {
-  return /^[A-Za-z0-9]+-[1-9][0-9]*$/.test(id);
+function isValidLinearId(id: string): boolean {
+  return /^[a-zA-Z0-9]+-[1-9][0-9]*$/i.test(id);
+}
+
+export function formatIssueId(providedId: string): string {
+  return providedId.toUpperCase();
 }
 
 export async function getTeamId(): Promise<string | undefined> {
@@ -26,7 +30,7 @@ export async function getIssueId(
   providedId?: string,
 ): Promise<string | undefined> {
   if (providedId && isValidLinearId(providedId)) {
-    return providedId.toUpperCase();
+    return formatIssueId(providedId);
   }
   if (providedId === undefined) {
     // look in branch
@@ -331,19 +335,6 @@ export async function getProjectOptionsByName(
   const data = await client.request(query, { name });
   const qResults = data.projects?.nodes || [];
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
-}
-
-export async function getIssueIdByIdentifier(
-  identifier: string,
-): Promise<string | undefined> {
-  const client = getGraphQLClient();
-  const query = gql(`
-    query GetIssueIdByIdentifier($identifier: String!) {
-      issue(id: $identifier) { id }
-    }
-  `);
-  const data = await client.request(query, { identifier });
-  return data.issue?.id;
 }
 
 export async function getTeamIdByKey(

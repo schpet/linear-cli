@@ -2,8 +2,7 @@ import { Command } from "@cliffy/command";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
-  getIssueId,
-  getIssueIdByIdentifier,
+  formatIssueId,
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
   getProjectIdByName,
@@ -120,22 +119,9 @@ export const createCommand = new Command()
             statesPromise = getWorkflowStates(defaultTeamKey);
           }
 
-          // Handle parent issue if provided
-          let parentId: string | undefined = undefined;
-          if (parent !== undefined) {
-            const parentIdentifier = await getIssueId(parent);
-            if (parentIdentifier) {
-              parentId = await getIssueIdByIdentifier(parentIdentifier);
-            }
-            if (parentId === undefined) {
-              console.error(`Could not determine ID for issue ${parent}`);
-              Deno.exit(1);
-            }
-          }
-
           const interactiveData = await promptInteractiveIssueCreation(
             statesPromise,
-            parentId,
+            parent ? formatIssueId(parent) : undefined,
           );
 
           console.log(`Creating issue...`);
@@ -301,24 +287,14 @@ export const createCommand = new Command()
             Deno.exit(1);
           }
         }
-        let parentId: string | undefined = undefined;
-        if (parent !== undefined) {
-          const parentIdentifier = await getIssueId(parent);
-          if (parentIdentifier) {
-            parentId = await getIssueIdByIdentifier(parentIdentifier);
-          }
-          if (parentId === undefined) {
-            console.error(`Could not determine ID for issue ${parent}`);
-            Deno.exit(1);
-          }
-        }
+
         // Date validation done at graphql level
 
         const input = {
           title,
           assigneeId,
           dueDate,
-          parentId: parentId,
+          parentId: parent ? formatIssueId(parent) : undefined,
           priority,
           estimate,
           labelIds,
