@@ -146,40 +146,42 @@ export async function fetchIssueDetails(
   const spinner = showSpinner ? new Spinner() : null;
   spinner?.start();
   try {
-    const query = includeComments
-      ? gql(`
-          query GetIssueDetailsWithComments($id: String!) {
-            issue(id: $id) {
-              title,
-              description,
-              url,
-              branchName,
-              comments(first: 50, orderBy: createdAt) {
-                nodes {
-                  id
-                  body
-                  createdAt
-                  user {
-                    name
-                    displayName
-                  }
-                  externalUser {
-                    name
-                    displayName
-                  }
-                  parent {
-                    id
-                  }
-                }
+    const queryWithComments = gql(`
+      query GetIssueDetailsWithComments($id: String!) {
+        issue(id: $id) {
+          title
+          description
+          url
+          branchName
+          comments(first: 50, orderBy: createdAt) {
+            nodes {
+              id
+              body
+              createdAt
+              user {
+                name
+                displayName
+              }
+              externalUser {
+                name
+                displayName
+              }
+              parent {
+                id
               }
             }
           }
-        `)
-      : gql(`
-          query GetIssueDetails($id: String!) {
-            issue(id: $id) { title, description, url, branchName }
-          }
-        `);
+        }
+      }
+    `);
+
+    const queryWithoutComments = gql(`
+      query GetIssueDetails($id: String!) {
+        issue(id: $id) { title, description, url, branchName }
+      }
+    `);
+
+    const query = includeComments ? queryWithComments : queryWithoutComments;
     const client = getGraphQLClient();
     const data = await client.request(query, { id: issueId });
     spinner?.stop();
