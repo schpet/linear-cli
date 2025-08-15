@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
+  getIssueId,
   getIssueIdByIdentifier,
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
@@ -13,7 +14,6 @@ import {
   getUserOptions,
   getWorkflowStateByNameOrType,
   getWorkflowStates,
-  resolveIssueId,
   searchTeamsByKeySubstring,
   selectOption,
 } from "../../utils/linear.ts";
@@ -123,7 +123,7 @@ export const createCommand = new Command()
           // Handle parent issue if provided
           let parentId: string | undefined = undefined;
           if (parent !== undefined) {
-            const parentIdentifier = await resolveIssueId(parent);
+            const parentIdentifier = await getIssueId(parent);
             if (parentIdentifier) {
               parentId = await getIssueIdByIdentifier(parentIdentifier);
             }
@@ -303,7 +303,7 @@ export const createCommand = new Command()
         }
         let parentId: string | undefined = undefined;
         if (parent !== undefined) {
-          const parentIdentifier = await resolveIssueId(parent);
+          const parentIdentifier = await getIssueId(parent);
           if (parentIdentifier) {
             parentId = await getIssueIdByIdentifier(parentIdentifier);
           }

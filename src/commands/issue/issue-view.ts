@@ -1,6 +1,6 @@
 import { Command } from "@cliffy/command";
 import { renderMarkdown } from "@littletof/charmd";
-import { fetchIssueDetails, resolveIssueId } from "../../utils/linear.ts";
+import { fetchIssueDetails, getIssueId } from "../../utils/linear.ts";
 import { openIssuePage } from "../../utils/actions.ts";
 import { formatRelativeTime } from "../../utils/display.ts";
 
@@ -21,7 +21,7 @@ export const viewCommand = new Command()
       return;
     }
 
-    const resolvedId = await resolveIssueId(issueId);
+    const resolvedId = await getIssueId(issueId);
     if (!resolvedId) {
       console.error(
         "The current branch does not contain a valid linear issue id.",

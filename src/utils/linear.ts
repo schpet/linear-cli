@@ -22,7 +22,7 @@ export async function getTeamId(): Promise<string | undefined> {
   return match ? match[0].toUpperCase() : undefined;
 }
 
-export async function resolveIssueId(
+export async function getIssueId(
   providedId?: string,
 ): Promise<string | undefined> {
   if (providedId && isValidLinearId(providedId)) {
@@ -149,10 +149,10 @@ export async function fetchIssueDetails(
     const query = includeComments
       ? gql(`
           query GetIssueDetailsWithComments($id: String!) {
-            issue(id: $id) { 
-              title, 
-              description, 
-              url, 
+            issue(id: $id) {
+              title,
+              description,
+              url,
               branchName,
               comments(first: 50, orderBy: createdAt) {
                 nodes {
