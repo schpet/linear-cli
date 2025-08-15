@@ -76,21 +76,21 @@ Users are experiencing issues logging in when their session expires.
 
 ## Comments
 
-> **@Bob Senior** - *1/15/2024*
->
-> Should we also consider implementing automatic session refresh?
+- **@Bob Senior** - *1/15/2024*
 
-> **@John Doe** - *1/15/2024*
->
-> I've reproduced this issue on staging. The session timeout seems to be too aggressive.
+  Should we also consider implementing automatic session refresh?
 
-- > **@Jane Smith** - *1/15/2024*
-  >
-  > Working on a fix. Will increase the session timeout and add proper error handling.
+- **@John Doe** - *1/15/2024*
 
-- > **@Alice Developer** - *1/15/2024*
-  >
-  > Sounds good! Also, we should add better error messaging for expired sessions.
+  I've reproduced this issue on staging. The session timeout seems to be too aggressive.
+
+  - **@Jane Smith** - *1/15/2024*
+
+    Working on a fix. Will increase the session timeout and add proper error handling.
+
+  - **@Alice Developer** - *1/15/2024*
+
+    Sounds good! Also, we should add better error messaging for expired sessions.
 
 
 "
