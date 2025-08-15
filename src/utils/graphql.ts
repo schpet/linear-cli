@@ -9,7 +9,10 @@ export function getGraphQLClient(): GraphQLClient {
     );
   }
 
-  return new GraphQLClient("https://api.linear.app/graphql", {
+  const endpoint = Deno.env.get("LINEAR_GRAPHQL_ENDPOINT") ||
+    "https://api.linear.app/graphql";
+
+  return new GraphQLClient(endpoint, {
     headers: {
       Authorization: apiKey,
     },

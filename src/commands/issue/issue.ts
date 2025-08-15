@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { createCommand } from "./create.ts";
+import { createCommand } from "./issue-create.ts";
 import { listCommand } from "./issue-list.ts";
 import { viewCommand } from "./issue-view.ts";
 import { startCommand } from "./issue-start.ts";

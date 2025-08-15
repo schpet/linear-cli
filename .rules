@@ -17,3 +17,10 @@ the changelog cli
 
 description should be lowercase. types is one of
 added|changed|deprecated|removed|fixed|security
+
+## tests
+
+tests on commands should mirror the directory structure of the src, e.g.
+
+    src/commands/issue/issue-view.ts
+    test/commands/issue/issue-view.test.ts

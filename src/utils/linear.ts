@@ -453,11 +453,11 @@ export async function getIssueLabelIdByNameForTeam(
 ): Promise<string | undefined> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetIssueLabelIdByNameForTeam($name: String!, $teamKey: ID!) {
+    query GetIssueLabelIdByNameForTeam($name: String!, $teamKey: String!) {
       issueLabels(filter: {
         name: {eq: $name},
         or: [
-          { team: { id: { eq: $teamKey } } },
+          { team: { key: { eq: $teamKey } } },
           { team: { null: true } }
         ]
       }) {nodes{id}}
@@ -473,11 +473,11 @@ export async function getIssueLabelOptionsByNameForTeam(
 ): Promise<Record<string, string>> {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetIssueLabelIdOptionsByNameForTeam($name: String!, $teamKey: ID!) {
+    query GetIssueLabelIdOptionsByNameForTeam($name: String!, $teamKey: String!) {
         issueLabels(filter: {
           name: {containsIgnoreCase: $name},
           or: [
-            { team: { id: { eq: $teamKey } } },
+            { team: { key: { eq: $teamKey } } },
             { team: { null: true } }
           ]
         }) {nodes{id, name}}
@@ -520,24 +520,22 @@ export async function getLabelsForTeam(teamKey: string): Promise<
 > {
   const client = getGraphQLClient();
   const query = gql(`
-    query GetLabelsForTeam($teamKey: ID!) {
-      issueLabels(filter: {
-        or: [
-          { team: { id: { eq: $teamKey } } },
-          { team: { null: true } }
-        ]
-      }) {
-        nodes {
-          id
-          name
-          color
+    query GetLabelsForTeam($teamKey: String!) {
+      team(id: $teamKey) {
+        labels {
+          nodes {
+            id
+            name
+            color
+          }
         }
       }
     }
   `);
 
   const result = await client.request(query, { teamKey });
-  const labels = result.issueLabels.nodes;
+  const labels = result.team?.labels?.nodes || [];
+
   // Sort labels alphabetically (case insensitive)
   return labels.sort((a, b) =>
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
