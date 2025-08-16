@@ -21,9 +21,9 @@ stderr:
 snapshot[`Team List Command - With Mock Teams 1`] = `
 stdout:
 "KEY      NAME          CYCLES UPDATED     
-BACKEND  Backend Team  Yes    573 days ago
-FRONTEND Frontend Team No     575 days ago
-SEC      Security Team Yes    571 days ago
+BACKEND  Backend Team  Yes    574 days ago
+FRONTEND Frontend Team No     576 days ago
+SEC      Security Team Yes    572 days ago
 "
 stderr:
 ""
