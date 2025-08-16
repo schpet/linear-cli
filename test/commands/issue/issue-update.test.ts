@@ -103,6 +103,70 @@ await snapshotTest({
   },
 });
 
+// Test updating issue without explicit ID (inferred from branch)
+await snapshotTest({
+  name: "Issue Update Command - ID from Branch",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Updated from branch",
+    "--no-color",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      // Mock response for getTeamIdByKey() - converting team key to ID
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for the update issue mutation
+      {
+        queryName: "UpdateIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-456",
+                identifier: "ENG-456",
+                url:
+                  "https://linear.app/test-team/issue/ENG-456/updated-from-branch",
+                title: "Updated from branch",
+              },
+            },
+          },
+        },
+      },
+    ]);
+
+    try {
+      await server.start();
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
+
+      // Mock git branch that contains issue ID
+      const mockGitCommand = `echo "feature/ENG-456-some-feature"`;
+      Deno.env.set("MOCK_GIT_BRANCH_COMMAND", mockGitCommand);
+
+      await updateCommand.parse();
+    } finally {
+      await server.stop();
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
+      Deno.env.delete("LINEAR_API_KEY");
+      Deno.env.delete("MOCK_GIT_BRANCH_COMMAND");
+    }
+  },
+});
+
 // Test updating issue with missing ID
 await snapshotTest({
   name: "Issue Update Command - Missing Issue ID",

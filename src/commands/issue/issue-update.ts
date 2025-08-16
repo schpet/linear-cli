@@ -14,7 +14,7 @@ import {
 export const updateCommand = new Command()
   .name("update")
   .description("Update a linear issue")
-  .arguments("<issue_id:string>")
+  .arguments("[issue_id:string]")
   .option(
     "-a, --assignee <assignee:string>",
     "Assign the issue to 'self' or someone (by username or name)",
@@ -80,7 +80,7 @@ export const updateCommand = new Command()
         const issueId = await getIssueId(issueIdArg);
         if (!issueId) {
           console.error(
-            "Could not determine issue ID. Please provide an issue ID like 'ENG-123'",
+            "Could not determine issue ID. Please provide an issue ID like 'ENG-123' or run from a branch with an issue ID.",
           );
           Deno.exit(1);
         }
