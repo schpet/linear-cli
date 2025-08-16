@@ -8,6 +8,7 @@ import {
   updateIssueState,
 } from "./linear.ts";
 import { getOption } from "../config.ts";
+import { encodeBase64 } from "@std/encoding/base64";
 
 export async function openIssuePage(
   providedId?: string,
@@ -32,6 +33,32 @@ export async function openIssuePage(
   const url = `https://linear.app/${workspace}/issue/${issueId}`;
   const destination = options.app ? "Linear.app" : "web browser";
   console.log(`Opening ${url} in ${destination}`);
+  await open(url, options.app ? { app: { name: "Linear" } } : undefined);
+}
+
+export async function openTeamAssigneeView(options: { app?: boolean } = {}) {
+  const teamId = await (await import("./linear.ts")).getTeamId();
+  if (!teamId) {
+    console.error(
+      "Could not determine team id from configuration or directory name.",
+    );
+    Deno.exit(1);
+  }
+
+  const workspace = getOption("workspace");
+  if (!workspace) {
+    console.error(
+      "workspace is not set via command line, configuration file, or environment.",
+    );
+    Deno.exit(1);
+  }
+
+  const filterObj = {
+    "and": [{ "assignee": { "or": [{ "isMe": { "eq": true } }] } }],
+  };
+  const filter = encodeBase64(JSON.stringify(filterObj)).replace(/=/g, "");
+  const url =
+    `https://linear.app/${workspace}/team/${teamId}/active?filter=${filter}`;
   await open(url, options.app ? { app: { name: "Linear" } } : undefined);
 }
 

@@ -8,6 +8,7 @@ import {
   padDisplayFormatted,
 } from "../../utils/display.ts";
 import { fetchIssuesForState, getTeamId } from "../../utils/linear.ts";
+import { openTeamAssigneeView } from "../../utils/actions.ts";
 
 const SortType = new EnumType(["manual", "priority"]);
 const StateType = new EnumType([
@@ -76,13 +77,8 @@ export const listCommand = new Command()
       },
     ) => {
       if (web || app) {
-        console.error(
-          "--web and --app flags are no longer supported for issue list",
-        );
-        console.error(
-          "Use 'linear issue view --app' to open a specific issue instead",
-        );
-        Deno.exit(1);
+        await openTeamAssigneeView({ app: app });
+        return;
       }
 
       // Validate that conflicting flags are not used together

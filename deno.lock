@@ -19,6 +19,7 @@
     "jsr:@std/cli@^1.0.12": "1.0.12",
     "jsr:@std/collections@^1.0.9": "1.0.10",
     "jsr:@std/dotenv@~0.225.3": "0.225.3",
+    "jsr:@std/encoding@^1.0.5": "1.0.10",
     "jsr:@std/encoding@~1.0.5": "1.0.10",
     "jsr:@std/fmt@0.223.0": "0.223.0",
     "jsr:@std/fmt@~1.0.2": "1.0.8",
@@ -47,7 +48,7 @@
       "integrity": "ba37f10ce55bbfbdd8ddd987f91f029b17bce88385b98ba3058870f3b007b80c",
       "dependencies": [
         "jsr:@cliffy/internal",
-        "jsr:@std/encoding",
+        "jsr:@std/encoding@~1.0.5",
         "jsr:@std/io"
       ]
     },
