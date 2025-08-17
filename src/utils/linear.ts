@@ -454,7 +454,7 @@ export async function getUserOptions(
 
 export async function lookupUserId(
   /**
-   * username or display name or '@me' for viewer
+   * email, username, display name, or '@me' for viewer
    */
   input: string,
 ): Promise<string | undefined> {
@@ -473,15 +473,45 @@ export async function lookupUserId(
     const client = getGraphQLClient();
     const query = gql(/* GraphQL */ `
       query LookupUser($input: String!) {
-        users(filter: { displayName: { eq: $input } }) {
+        users(
+          filter: {
+            or: [
+              { email: { eqIgnoreCase: $input } }
+              { displayName: { eqIgnoreCase: $input } }
+              { name: { containsIgnoreCaseAndAccent: $input } }
+            ]
+          }
+        ) {
           nodes {
             id
+            email
+            displayName
+            name
           }
         }
       }
     `);
     const data = await client.request(query, { input });
-    return data.users?.nodes[0]?.id;
+
+    if (!data.users?.nodes?.length) {
+      return undefined;
+    }
+
+    // Priority matching: email > displayName > name
+    for (const user of data.users.nodes) {
+      if (user.email?.toLowerCase() === input.toLowerCase()) {
+        return user.id;
+      }
+    }
+
+    for (const user of data.users.nodes) {
+      if (user.displayName?.toLowerCase() === input.toLowerCase()) {
+        return user.id;
+      }
+    }
+
+    // If no exact email or displayName match, return first name match
+    return data.users.nodes[0]?.id;
   }
 }
 
