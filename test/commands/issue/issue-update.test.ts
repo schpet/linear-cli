@@ -1,5 +1,5 @@
 import { snapshotTest } from "@cliffy/testing";
-import { createCommand } from "../../../src/commands/issue/issue-create.ts";
+import { updateCommand } from "../../../src/commands/issue/issue-update.ts";
 import {
   commonDenoArgs,
   setupMockLinearServer,
@@ -7,35 +7,33 @@ import {
 
 // Test help output
 await snapshotTest({
-  name: "Issue Create Command - Help Text",
+  name: "Issue Update Command - Help Text",
   meta: import.meta,
   colors: true,
   args: ["--help"],
   denoArgs: commonDenoArgs,
   async fn() {
-    await createCommand.parse();
+    await updateCommand.parse();
   },
 });
 
-// Test creating an issue with flags (happy path)
+// Test updating an issue with flags (happy path)
 await snapshotTest({
-  name: "Issue Create Command - Happy Path",
+  name: "Issue Update Command - Happy Path",
   meta: import.meta,
   colors: false,
   args: [
+    "ENG-123",
     "--title",
-    "Fix authentication bug",
+    "Updated authentication bug fix",
     "--description",
-    "Users are experiencing login issues",
+    "Updated description for login issues",
     "--assignee",
     "self",
     "--priority",
-    "2",
+    "1",
     "--estimate",
-    "3",
-    "--team",
-    "ENG",
-    "--no-interactive",
+    "5",
     "--no-color",
   ],
   denoArgs: commonDenoArgs,
@@ -62,21 +60,19 @@ await snapshotTest({
           },
         },
       },
-      // Mock response for the create issue mutation
+      // Mock response for the update issue mutation
       {
-        queryName: "CreateIssue",
+        queryName: "UpdateIssue",
         response: {
           data: {
-            issueCreate: {
+            issueUpdate: {
               success: true,
               issue: {
-                id: "issue-new-456",
+                id: "issue-existing-123",
                 identifier: "ENG-123",
                 url:
-                  "https://linear.app/test-team/issue/ENG-123/fix-authentication-bug",
-                team: {
-                  key: "ENG",
-                },
+                  "https://linear.app/test-team/issue/ENG-123/updated-authentication-bug-fix",
+                title: "Updated authentication bug fix",
               },
             },
           },
@@ -85,7 +81,7 @@ await snapshotTest({
     ], { LINEAR_TEAM_ID: "ENG" });
 
     try {
-      await createCommand.parse();
+      await updateCommand.parse();
     } finally {
       await cleanup();
     }
