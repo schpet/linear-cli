@@ -1,16 +1,9 @@
 import { snapshotTest } from "@cliffy/testing";
 import { createCommand } from "../../../src/commands/issue/issue-create.ts";
-import { MockLinearServer } from "../../utils/mock_linear_server.ts";
-
-// Common Deno args for permissions
-const denoArgs = [
-  "--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,SNAPSHOT_TEST_NAME",
-  "--allow-read",
-  "--allow-write",
-  "--allow-run",
-  "--allow-net",
-  "--quiet",
-];
+import {
+  commonDenoArgs,
+  setupMockLinearServer,
+} from "../../utils/test-helpers.ts";
 
 // Test help output
 await snapshotTest({
@@ -18,7 +11,7 @@ await snapshotTest({
   meta: import.meta,
   colors: true,
   args: ["--help"],
-  denoArgs,
+  denoArgs: commonDenoArgs,
   async fn() {
     await createCommand.parse();
   },
@@ -45,9 +38,9 @@ await snapshotTest({
     "--no-interactive",
     "--no-color",
   ],
-  denoArgs,
+  denoArgs: commonDenoArgs,
   async fn() {
-    const server = new MockLinearServer([
+    const { cleanup } = await setupMockLinearServer([
       // Mock response for getTeamIdByKey() - converting team key to ID
       {
         queryName: "GetTeamIdByKey",
@@ -89,20 +82,12 @@ await snapshotTest({
           },
         },
       },
-    ]);
+    ], { LINEAR_TEAM_ID: "ENG" });
 
     try {
-      await server.start();
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
-      Deno.env.set("LINEAR_TEAM_ID", "ENG"); // Set default team
-
       await createCommand.parse();
     } finally {
-      await server.stop();
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
-      Deno.env.delete("LINEAR_API_KEY");
-      Deno.env.delete("LINEAR_TEAM_ID");
+      await cleanup();
     }
   },
 });

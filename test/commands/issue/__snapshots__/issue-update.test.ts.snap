@@ -29,3 +29,14 @@ stdout:
 stderr:
 ""
 `;
+
+snapshot[`Issue Update Command - Happy Path 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Updated authentication bug fix
+https://linear.app/test-team/issue/ENG-123/updated-authentication-bug-fix
+"
+stderr:
+""
+`;
