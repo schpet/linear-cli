@@ -9,7 +9,6 @@ import {
   getProjectOptionsByName,
   getTeamId,
   getTeamIdByKey,
-  getUserOptions,
   getWorkflowStateByNameOrType,
   getWorkflowStates,
   lookupUserId,
@@ -235,21 +234,18 @@ export const createCommand = new Command()
           stateId = workflowState.id;
         }
 
-        let assigneeId = await lookupUserId(assignee);
-        if (!assigneeId && assignee !== undefined) {
-          if (interactive) {
-            const assigneeIds = await getUserOptions(assignee);
-            spinner?.stop();
-            assigneeId = await selectOption("User", assignee, assigneeIds);
-            spinner?.start();
-          }
-          if (!assigneeId) {
+        let assigneeId = undefined;
+
+        if (assignee) {
+          assigneeId = lookupUserId(assignee);
+          if (assigneeId == null) {
             console.error(
               `Could not determine user ID for assignee ${assignee}`,
             );
             Deno.exit(1);
           }
         }
+
         const labelIds = [];
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions

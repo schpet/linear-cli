@@ -396,62 +396,6 @@ export async function searchTeamsByKeySubstring(
   );
 }
 
-export async function getUserOptionsByDisplayName(
-  name: string,
-): Promise<Record<string, string>> {
-  const client = getGraphQLClient();
-  const query = gql(/* GraphQL */ `
-    query GetUserIdOptionsByDisplayName($name: String!) {
-      users(filter: { displayName: { containsIgnoreCase: $name } }) {
-        nodes {
-          id
-          displayName
-        }
-      }
-    }
-  `);
-  const data = await client.request(query, { name });
-  const qResults = data.users?.nodes || [];
-  return Object.fromEntries(qResults.map((t) => [t.id, t.displayName]));
-}
-
-export async function getUserOptionsByName(
-  name: string,
-): Promise<Record<string, string>> {
-  const client = getGraphQLClient();
-  const query = gql(/* GraphQL */ `
-    query GetUserIdOptionsByName($name: String!) {
-      users(filter: { name: { containsIgnoreCase: $name } }) {
-        nodes {
-          id
-          name
-        }
-      }
-    }
-  `);
-  const data = await client.request(query, { name });
-  const qResults = data.users?.nodes || [];
-  return Object.fromEntries(qResults.map((t) => [t.id, t.name]));
-}
-
-export async function getUserOptions(
-  name: string,
-  tryDisplayName: boolean = true,
-  tryName: boolean = true,
-): Promise<Record<string, string>> {
-  let results: Record<string, string> = {};
-  if (tryDisplayName) {
-    results = await getUserOptionsByDisplayName(name);
-  }
-  if (tryName) {
-    results = {
-      ...results,
-      ...(await getUserOptionsByName(name)),
-    };
-  }
-  return results;
-}
-
 export async function lookupUserId(
   /**
    * email, username, display name, or '@me' for viewer
