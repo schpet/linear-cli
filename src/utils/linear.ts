@@ -472,7 +472,7 @@ export async function lookupUserId(
   } else {
     const client = getGraphQLClient();
     const query = gql(/* GraphQL */ `
-      query GetUserIdByDisplayName($input: String!) {
+      query LookupUser($input: String!) {
         users(filter: { displayName: { eq: $input } }) {
           nodes {
             id
