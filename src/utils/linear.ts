@@ -456,7 +456,7 @@ export async function lookupUserId(
   /**
    * email, username, display name, or '@me' for viewer
    */
-  input: string,
+  input: "@me" | string,
 ): Promise<string | undefined> {
   if (input === "@me") {
     const client = getGraphQLClient();
