@@ -255,7 +255,7 @@ export async function fetchIssuesForState(
     // No assignee filter means all assignees
   } else if (assignee) {
     // Get user ID for the specified username
-    const userId = await getUserIdByDisplayName(assignee);
+    const userId = await lookupUserId(assignee);
     if (!userId) {
       throw new Error(`User not found: ${assignee}`);
     }
@@ -375,19 +375,6 @@ export async function searchTeamsByKeySubstring(
   );
 }
 
-export async function getUserIdByDisplayName(
-  username: string,
-): Promise<string | undefined> {
-  const client = getGraphQLClient();
-  const query = gql(`
-    query GetUserIdByDisplayName($username: String!) {
-      users(filter: {displayName: {eq: $username}}) {nodes{id}}
-    }
-  `);
-  const data = await client.request(query, { username });
-  return data.users?.nodes[0]?.id;
-}
-
 export async function getUserOptionsByDisplayName(
   name: string,
 ): Promise<Record<string, string>> {
@@ -434,10 +421,13 @@ export async function getUserOptions(
   return results;
 }
 
-export async function getUserId(
-  username: string | undefined,
+export async function lookupUserId(
+  /**
+   * username or display name or '@me' for viewer
+   */
+  input: string,
 ): Promise<string | undefined> {
-  if (username === undefined || username === "self") {
+  if (input === "@me") {
     const client = getGraphQLClient();
     const query = gql(`
       query GetViewerId {
@@ -447,7 +437,14 @@ export async function getUserId(
     const data = await client.request(query, {});
     return data.viewer.id;
   } else {
-    return await getUserIdByDisplayName(username);
+    const client = getGraphQLClient();
+    const query = gql(/* GraphQL */ `
+      query GetUserIdByDisplayName($input: String!) {
+        users(filter: {displayName: {eq: $input}}) {nodes{id}}
+      }
+    `);
+    const data = await client.request(query, { input });
+    return data.users?.nodes[0]?.id;
   }
 }
 

@@ -7,8 +7,8 @@ import {
   getIssueLabelIdByNameForTeam,
   getProjectIdByName,
   getTeamIdByKey,
-  getUserId,
   getWorkflowStateByNameOrType,
+  lookupUserId,
 } from "../../utils/linear.ts";
 
 export const updateCommand = new Command()
@@ -125,7 +125,7 @@ export const updateCommand = new Command()
 
         let assigneeId: string | undefined;
         if (assignee !== undefined) {
-          assigneeId = await getUserId(assignee);
+          assigneeId = await lookupUserId(assignee);
           if (!assigneeId) {
             console.error(
               `Could not determine user ID for assignee ${assignee}`,

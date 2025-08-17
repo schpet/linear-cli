@@ -9,10 +9,10 @@ import {
   getProjectOptionsByName,
   getTeamId,
   getTeamIdByKey,
-  getUserId,
   getUserOptions,
   getWorkflowStateByNameOrType,
   getWorkflowStates,
+  lookupUserId,
   searchTeamsByKeySubstring,
   selectOption,
 } from "../../utils/linear.ts";
@@ -235,7 +235,7 @@ export const createCommand = new Command()
           stateId = workflowState.id;
         }
 
-        let assigneeId = await getUserId(assignee);
+        let assigneeId = await lookupUserId(assignee);
         if (!assigneeId && assignee !== undefined) {
           if (interactive) {
             const assigneeIds = await getUserOptions(assignee);
