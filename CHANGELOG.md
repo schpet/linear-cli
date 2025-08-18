@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- state column is now dynamically sized with max 20 chars and auto-truncation
+
 ### Removed
 
 - linear issue <id> is removed, must use linear issue view <id>. linear issue

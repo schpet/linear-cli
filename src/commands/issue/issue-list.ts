@@ -161,7 +161,13 @@ export const listCommand = new Command()
           ),
         );
         const ESTIMATE_WIDTH = 1; // fixed width for estimate
-        const STATE_WIDTH = 12; // fixed width for state
+        const STATE_WIDTH = Math.min(
+          20, // maximum width for state
+          Math.max(
+            5, // minimum width for "STATE" header
+            ...issues.map((issue) => unicodeWidth(issue.state.name)),
+          ),
+        );
         const ASSIGNEE_WIDTH = 2; // fixed width for assignee initials
         const SPACE_WIDTH = 4;
         const showAssigneeColumn = allAssignees || unassigned;
@@ -220,13 +226,18 @@ export const listCommand = new Command()
 
           const priorityStr = getPriorityDisplay(issue.priority);
 
+          // Truncate state name if it exceeds the column width
+          const stateName = issue.state.name.length > STATE_WIDTH
+            ? issue.state.name.slice(0, STATE_WIDTH - 3) + "..."
+            : issue.state.name;
+
           return {
             priorityStr,
             identifier: issue.identifier,
             title: issue.title,
             labelsFormat,
             labelsStyles,
-            state: `%c${issue.state.name}%c`,
+            state: `%c${stateName}%c`,
             stateStyles: [`color: ${issue.state.color}`, ""],
             timeAgo,
             estimate: issue.estimate,
