@@ -237,7 +237,7 @@ export const createCommand = new Command()
         let assigneeId = undefined;
 
         if (assignee) {
-          assigneeId = lookupUserId(assignee);
+          assigneeId = await lookupUserId(assignee);
           if (assigneeId == null) {
             console.error(
               `Could not determine user ID for assignee ${assignee}`,
