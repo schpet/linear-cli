@@ -9,6 +9,7 @@ import {
 } from "../../utils/display.ts";
 import { fetchIssuesForState, getTeamId } from "../../utils/linear.ts";
 import { openTeamAssigneeView } from "../../utils/actions.ts";
+import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts";
 
 const SortType = new EnumType(["manual", "priority"]);
 const StateType = new EnumType([
@@ -62,6 +63,7 @@ export const listCommand = new Command()
   )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
+  .option("--no-pager", "Disable automatic paging for long output")
   .action(
     async (
       {
@@ -74,8 +76,10 @@ export const listCommand = new Command()
         app,
         allStates,
         team,
+        pager,
       },
     ) => {
+      const usePager = pager !== false;
       if (web || app) {
         await openTeamAssigneeView({ app: app });
         return;
@@ -275,9 +279,14 @@ export const listCommand = new Command()
             headerStyles.push("text-decoration: underline");
           }
         });
-        console.log(headerMsg, ...headerStyles);
 
-        // Print each issue
+        // Collect all output lines first to determine if paging is needed
+        const outputLines: string[] = [];
+
+        // Add header line
+        outputLines.push(formatHeaderLine(headerMsg, ...headerStyles));
+
+        // Add issue lines
         for (const row of tableData) {
           const {
             priorityStr,
@@ -298,7 +307,7 @@ export const listCommand = new Command()
             ? `${padDisplay(assignee || "-", ASSIGNEE_WIDTH)} `
             : "";
 
-          console.log(
+          const issueLine = formatIssueLine(
             `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
               padDisplay(identifier, ID_WIDTH)
             } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
@@ -311,6 +320,52 @@ export const listCommand = new Command()
             "color: gray",
             "",
           );
+          outputLines.push(issueLine);
+        }
+
+        // Check if we should use pager
+        if (shouldUsePager(outputLines, usePager)) {
+          await pipeToUserPager(outputLines.join("\n"));
+        } else {
+          // Print directly for shorter output
+          console.log(headerMsg, ...headerStyles);
+
+          for (const row of tableData) {
+            const {
+              priorityStr,
+              identifier,
+              title,
+              labelsFormat,
+              labelsStyles,
+              state,
+              stateStyles,
+              timeAgo,
+              assignee,
+            } = row;
+            const truncTitle = title.length > titleWidth
+              ? title.slice(0, titleWidth - 3) + "..."
+              : padDisplay(title, titleWidth);
+
+            const assigneeOutput = showAssigneeColumn
+              ? `${padDisplay(assignee || "-", ASSIGNEE_WIDTH)} `
+              : "";
+
+            console.log(
+              `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
+                padDisplay(identifier, ID_WIDTH)
+              } ${truncTitle} ${
+                padDisplayFormatted(labelsFormat, LABEL_WIDTH)
+              } ${
+                padDisplay(row.estimate?.toString() || "-", ESTIMATE_WIDTH)
+              } ${assigneeOutput}${padDisplayFormatted(state, STATE_WIDTH)} %c${
+                padDisplay(timeAgo, UPDATED_WIDTH)
+              }%c`,
+              ...labelsStyles,
+              ...stateStyles,
+              "color: gray",
+              "",
+            );
+          }
         }
       } catch (error) {
         spinner?.stop();
@@ -325,3 +380,75 @@ export const listCommand = new Command()
       }
     },
   );
+
+// Helper function to format header line with ANSI escape sequences for pager
+function formatHeaderLine(
+  headerMsg: string,
+  ...headerStyles: string[]
+): string {
+  let result = headerMsg;
+  let styleIndex = 0;
+
+  // Replace %c placeholders with ANSI escape sequences
+  result = result.replace(/%c/g, () => {
+    const style = headerStyles[styleIndex++];
+    if (style === "text-decoration: underline") {
+      return "\x1b[4m"; // underline
+    } else if (style === "text-decoration: none") {
+      return "\x1b[24m"; // no underline
+    }
+    return "";
+  });
+
+  // Add reset at the end
+  result += "\x1b[0m";
+
+  return result;
+}
+
+// Helper function to format issue line with ANSI escape sequences for pager
+function formatIssueLine(lineFormat: string, ...styles: string[]): string {
+  let result = lineFormat;
+  let styleIndex = 0;
+
+  // Replace %c placeholders with ANSI escape sequences
+  result = result.replace(/%c/g, () => {
+    const style = styles[styleIndex++];
+    if (!style) {
+      return "\x1b[0m"; // reset
+    }
+
+    if (style.startsWith("color: ")) {
+      const color = style.substring(7);
+      if (color === "gray") {
+        return "\x1b[90m"; // bright black (gray)
+      } else if (color.startsWith("#")) {
+        // Convert hex color to closest ANSI color (simplified)
+        return `\x1b[38;2;${hexToRgb(color).r};${hexToRgb(color).g};${
+          hexToRgb(color).b
+        }m`;
+      }
+    }
+
+    return "";
+  });
+
+  // Add final reset
+  if (!result.endsWith("\x1b[0m")) {
+    result += "\x1b[0m";
+  }
+
+  return result;
+}
+
+// Helper function to convert hex color to RGB
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16),
+    }
+    : { r: 255, g: 255, b: 255 };
+}

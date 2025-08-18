@@ -3,6 +3,7 @@ import { renderMarkdown } from "@littletof/charmd";
 import { fetchIssueDetails, getIssueId } from "../../utils/linear.ts";
 import { openIssuePage } from "../../utils/actions.ts";
 import { formatRelativeTime } from "../../utils/display.ts";
+import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts";
 
 export const viewCommand = new Command()
   .name("view")
@@ -41,8 +42,7 @@ export const viewCommand = new Command()
     let markdown = `# ${title}${description ? "\n\n" + description : ""}`;
 
     if (Deno.stdout.isTerminal()) {
-      const { columns: terminalWidth, rows: terminalHeight } = Deno
-        .consoleSize();
+      const { columns: terminalWidth } = Deno.consoleSize();
       const renderedMarkdown = renderMarkdown(markdown, {
         lineWidth: terminalWidth,
       });
@@ -64,7 +64,7 @@ export const viewCommand = new Command()
       }
 
       // Check if output exceeds terminal height and use pager if necessary
-      if (usePager && outputLines.length > terminalHeight - 2) { // Leave some space for shell prompt
+      if (shouldUsePager(outputLines, usePager)) {
         await pipeToUserPager(outputLines.join("\n"));
       } else {
         // Print directly for shorter output
@@ -344,116 +344,4 @@ function captureCommentsForTerminal(
   }
 
   return outputLines;
-}
-
-// Helper function to get the appropriate pager command
-function getPagerCommand(): { command: string; args: string[] } | null {
-  // Respect user's PAGER environment variable
-  const userPager = Deno.env.get("PAGER");
-  if (userPager) {
-    // Split the pager command to handle cases like "less -R" or "more"
-    const parts = userPager.trim().split(/\s+/);
-    return {
-      command: parts[0],
-      args: parts.slice(1),
-    };
-  }
-
-  // Platform-specific fallbacks with color support
-  const os = Deno.build.os;
-  switch (os) {
-    case "windows":
-      // Windows: try more first (built-in), then less if available
-      return { command: "more", args: [] };
-    case "darwin":
-    case "linux":
-    default:
-      // Unix-like systems: prefer less with color support
-      return { command: "less", args: ["-R"] };
-  }
-}
-
-// Helper function to pipe output to appropriate pager with color support
-async function pipeToUserPager(content: string): Promise<void> {
-  const pagerConfig = getPagerCommand();
-  if (!pagerConfig) {
-    console.log(content);
-    return;
-  }
-
-  try {
-    const process = new Deno.Command(pagerConfig.command, {
-      args: pagerConfig.args,
-      stdin: "piped",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-
-    const child = process.spawn();
-    const writer = child.stdin.getWriter();
-
-    await writer.write(new TextEncoder().encode(content));
-    await writer.close();
-
-    const status = await child.status;
-    if (!status.success) {
-      // Try fallback pagers if the primary one fails
-      await tryFallbackPagers(content, pagerConfig.command);
-    }
-  } catch {
-    // Try fallback pagers if the primary one is not available
-    await tryFallbackPagers(content, pagerConfig.command);
-  }
-}
-
-// Helper function to try fallback pagers
-async function tryFallbackPagers(
-  content: string,
-  failedPager: string,
-): Promise<void> {
-  const fallbacks = [];
-  const os = Deno.build.os;
-
-  if (os === "windows") {
-    // Windows fallbacks
-    if (failedPager !== "more") fallbacks.push({ command: "more", args: [] });
-    if (failedPager !== "less") {
-      fallbacks.push({ command: "less", args: ["-R"] });
-    }
-  } else {
-    // Unix-like fallbacks
-    if (failedPager !== "less") {
-      fallbacks.push({ command: "less", args: ["-R"] });
-    }
-    if (failedPager !== "more") fallbacks.push({ command: "more", args: [] });
-    if (failedPager !== "cat") fallbacks.push({ command: "cat", args: [] });
-  }
-
-  for (const fallback of fallbacks) {
-    try {
-      const process = new Deno.Command(fallback.command, {
-        args: fallback.args,
-        stdin: "piped",
-        stdout: "inherit",
-        stderr: "inherit",
-      });
-
-      const child = process.spawn();
-      const writer = child.stdin.getWriter();
-
-      await writer.write(new TextEncoder().encode(content));
-      await writer.close();
-
-      const status = await child.status;
-      if (status.success) {
-        return; // Successfully used fallback
-      }
-    } catch {
-      // Continue to next fallback
-      continue;
-    }
-  }
-
-  // If all pagers fail, output directly to console
-  console.log(content);
 }

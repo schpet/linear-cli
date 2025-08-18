@@ -43,6 +43,8 @@
 - project view command to show detailed project information
 - team list command to display teams in a table format
 - automatic paging for issue view command with --no-pager flag and pager
+- pager support for issue list command with --no-pager option
+
   environment variable support
 
 ## [0.6.4] - 2025-08-12
