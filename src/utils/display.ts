@@ -25,7 +25,7 @@ export function getTimeAgo(date: Date): string {
   if (diffMins < 1) return "just now";
   if (diffMins < 60) return `${diffMins} minutes ago`;
   if (diffHours < 24) {
-    return `about ${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+    return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
   }
   return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
