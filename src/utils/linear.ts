@@ -2,6 +2,7 @@ import { gql } from "../__codegen__/gql.ts";
 import type {
   GetTeamMembersQuery,
   IssueFilter,
+  IssueSortInput,
 } from "../__codegen__/graphql.ts";
 import { Select } from "@cliffy/prompt";
 import { getOption } from "../config.ts";
@@ -297,13 +298,23 @@ export async function fetchIssuesForState(
     }
   `);
 
-  const sortPayload = sort === "manual"
-    ? [{ manual: { nulls: "last" as const, order: "Ascending" as const } }]
-    : [
-      {
-        priority: { nulls: "last" as const, order: "Descending" as const },
-      },
-    ];
+  let sortPayload: Array<IssueSortInput>;
+  switch (sort) {
+    case "manual":
+      sortPayload = [
+        { workflowState: { order: "Descending" } },
+        { manual: { nulls: "last" as const, order: "Ascending" as const } },
+      ];
+      break;
+    case "priority":
+      sortPayload = [
+        { workflowState: { order: "Descending" } },
+        { priority: { nulls: "last" as const, order: "Descending" as const } },
+      ];
+      break;
+    default:
+      throw new Error(`Unknown sort type: ${sort}`);
+  }
 
   const client = getGraphQLClient();
   return await client.request(query, {

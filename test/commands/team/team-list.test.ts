@@ -1,8 +1,7 @@
 import { snapshotTest } from "@cliffy/testing";
-import { stub } from "@std/testing/mock";
+import { FakeTime } from "@std/testing/time";
 import { listCommand } from "../../../src/commands/team/team-list.ts";
 import { MockLinearServer } from "../../utils/mock_linear_server.ts";
-import type * as displayUtils from "../../../src/utils/display.ts";
 
 // Common Deno args for permissions
 const denoArgs = [
@@ -34,11 +33,10 @@ await snapshotTest({
   args: [],
   denoArgs,
   async fn() {
-    // Mock Date constructor to return a fixed date for deterministic output
-    // Using a date that produces the expected "days ago" values in the snapshot
-    const fixedDate = new Date("2025-08-18T12:00:00Z");
-    const originalDate = Date;
-    const DateStub = stub(globalThis, "Date", () => fixedDate);
+    // Calculate fake time to produce expected "days ago" output
+    // BACKEND: "2024-01-20T15:30:00Z" should be "574 days ago"
+    // So current time = 2024-01-20 + 574 days = 2025-08-17
+    const fakeTime = new FakeTime("2025-08-17T15:30:00Z");
 
     const server = new MockLinearServer([
       {
@@ -126,7 +124,7 @@ await snapshotTest({
 
       await listCommand.parse();
     } finally {
-      DateStub.restore();
+      fakeTime.restore();
       await server.stop();
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
       Deno.env.delete("LINEAR_API_KEY");
