@@ -18,6 +18,7 @@
 - team members command now shows initials, timezone, and other details with
   --verbose flag
 - organized code into multiple files so it's less of a nightmare to work on
+- linear issue list now sorts by workflow state first
 
 ### Added
 
