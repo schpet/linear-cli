@@ -17,8 +17,12 @@ export const pullRequestCommand = new Command()
     "-t, --title <title:string>",
     "Optional title for the pull request (Linear issue ID will be prefixed)",
   )
+  .option(
+    "--web",
+    "Open the pull request in the browser after creating it",
+  )
   .arguments("[issueId:string]")
-  .action(async ({ base, draft, title: customTitle }, issueId) => {
+  .action(async ({ base, draft, title: customTitle, web }, issueId) => {
     const resolvedId = await getIssueId(issueId);
     if (!resolvedId) {
       console.error(
@@ -40,7 +44,8 @@ export const pullRequestCommand = new Command()
         "--body",
         url,
         ...(base ? ["--base", base] : []),
-        ...(draft ? ["--draft"] : ["--web"]),
+        ...(draft ? ["--draft"] : []),
+        ...(web ? ["--web"] : []),
       ],
       stdin: "inherit",
       stdout: "inherit",
