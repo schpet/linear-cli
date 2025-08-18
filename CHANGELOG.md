@@ -37,6 +37,8 @@
 - project list command to display projects in a table format
 - project view command to show detailed project information
 - team list command to display teams in a table format
+- automatic paging for issue view command with --no-pager flag and pager
+  environment variable support
 
 ## [0.6.4] - 2025-08-12
 
