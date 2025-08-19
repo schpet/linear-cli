@@ -5,16 +5,18 @@
   "exports": "./src/main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno task codegen && deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet src/main.ts ",
-    "install": "deno task codegen && deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet -g -f -n linear ./src/main.ts",
+    "dev": "deno task codegen && deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet src/main.ts ",
+    "install": "deno task codegen && deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet -g -f -n linear ./src/main.ts",
     "uninstall": "deno uninstall -g linear",
     "sync-schema": "deno run -A npm:get-graphql-schema https://api.linear.app/graphql > graphql/schema.graphql",
     "codegen": "deno run --allow-all npm:@graphql-codegen/cli/graphql-codegen-esm",
     "check": "deno check src/main.ts",
-    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,SNAPSHOT_TEST_NAME' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet"
+    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet"
   },
   "imports": {
+    "@cliffy/ansi": "jsr:@cliffy/ansi@^1.0.0-rc.8",
     "@cliffy/command": "jsr:@cliffy/command@^1.0.0-rc.8",
+    "@cliffy/internal": "jsr:@cliffy/internal@^1.0.0-rc.8",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.8",
     "@cliffy/testing": "jsr:@cliffy/testing@^1.0.0-rc.8",
     "@graphql-codegen/cli": "npm:@graphql-codegen/cli@^5.0.7",
@@ -23,6 +25,7 @@
     "@opensrc/deno-open": "jsr:@opensrc/deno-open@^1.0.0",
     "@std/assert": "jsr:@std/assert@1",
     "@std/cli": "jsr:@std/cli@^1.0.12",
+    "@std/fmt": "jsr:@std/fmt@1",
     "@std/testing": "jsr:@std/testing@1",
     "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
     "@std/encoding": "jsr:@std/encoding@^1.0.5",

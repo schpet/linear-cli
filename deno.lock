@@ -2,9 +2,11 @@
   "version": "5",
   "specifiers": {
     "jsr:@cliffy/ansi@1.0.0-rc.8": "1.0.0-rc.8",
+    "jsr:@cliffy/ansi@^1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/command@^1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/flags@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/internal@1.0.0-rc.8": "1.0.0-rc.8",
+    "jsr:@cliffy/internal@^1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/keycode@1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/prompt@^1.0.0-rc.8": "1.0.0-rc.8",
     "jsr:@cliffy/table@1.0.0-rc.8": "1.0.0-rc.8",
@@ -24,6 +26,7 @@
     "jsr:@std/encoding@^1.0.5": "1.0.10",
     "jsr:@std/encoding@~1.0.5": "1.0.10",
     "jsr:@std/fmt@0.223.0": "0.223.0",
+    "jsr:@std/fmt@1": "1.0.8",
     "jsr:@std/fmt@~1.0.2": "1.0.8",
     "jsr:@std/fs@^1.0.1": "1.0.13",
     "jsr:@std/internal@^1.0.1": "1.0.10",
@@ -49,7 +52,7 @@
     "@cliffy/ansi@1.0.0-rc.8": {
       "integrity": "ba37f10ce55bbfbdd8ddd987f91f029b17bce88385b98ba3058870f3b007b80c",
       "dependencies": [
-        "jsr:@cliffy/internal",
+        "jsr:@cliffy/internal@1.0.0-rc.8",
         "jsr:@std/encoding@~1.0.5",
         "jsr:@std/io"
       ]
@@ -58,7 +61,7 @@
       "integrity": "758147790797c74a707e5294cc7285df665422a13d2a483437092ffce40b5557",
       "dependencies": [
         "jsr:@cliffy/flags",
-        "jsr:@cliffy/internal",
+        "jsr:@cliffy/internal@1.0.0-rc.8",
         "jsr:@cliffy/table",
         "jsr:@std/fmt@~1.0.2",
         "jsr:@std/text"
@@ -82,8 +85,8 @@
     "@cliffy/prompt@1.0.0-rc.8": {
       "integrity": "eba403ea1d47b9971bf2210fa35f4dc7ebd2aba87beec9540ae47552806e2f25",
       "dependencies": [
-        "jsr:@cliffy/ansi",
-        "jsr:@cliffy/internal",
+        "jsr:@cliffy/ansi@1.0.0-rc.8",
+        "jsr:@cliffy/internal@1.0.0-rc.8",
         "jsr:@cliffy/keycode",
         "jsr:@std/assert@~1.0.6",
         "jsr:@std/fmt@~1.0.2",
@@ -101,8 +104,8 @@
     "@cliffy/testing@1.0.0-rc.8": {
       "integrity": "e048afd26b38d079861d80f3e44c0997f7cef5443e9fe43bf99219788fd561f5",
       "dependencies": [
-        "jsr:@cliffy/ansi",
-        "jsr:@cliffy/internal",
+        "jsr:@cliffy/ansi@1.0.0-rc.8",
+        "jsr:@cliffy/internal@1.0.0-rc.8",
         "jsr:@std/assert@~1.0.6",
         "jsr:@std/fmt@~1.0.2",
         "jsr:@std/testing@1.0.0"
@@ -2184,7 +2187,9 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@cliffy/ansi@^1.0.0-rc.8",
       "jsr:@cliffy/command@^1.0.0-rc.8",
+      "jsr:@cliffy/internal@^1.0.0-rc.8",
       "jsr:@cliffy/prompt@^1.0.0-rc.8",
       "jsr:@cliffy/testing@^1.0.0-rc.8",
       "jsr:@littletof/charmd@~0.1.2",
@@ -2193,6 +2198,7 @@
       "jsr:@std/cli@^1.0.12",
       "jsr:@std/dotenv@~0.225.3",
       "jsr:@std/encoding@^1.0.5",
+      "jsr:@std/fmt@1",
       "jsr:@std/path@^1.0.8",
       "jsr:@std/testing@1",
       "jsr:@std/toml@^1.0.2",

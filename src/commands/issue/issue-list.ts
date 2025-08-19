@@ -1,14 +1,17 @@
 import { Command, EnumType } from "@cliffy/command";
 import { unicodeWidth } from "@std/cli";
+import { rgb24 } from "@std/fmt/colors";
 import { getOption } from "../../config.ts";
 import {
   getPriorityDisplay,
   getTimeAgo,
   padDisplay,
-  padDisplayFormatted,
+  truncateText,
 } from "../../utils/display.ts";
 import { fetchIssuesForState, getTeamId } from "../../utils/linear.ts";
 import { openTeamAssigneeView } from "../../utils/actions.ts";
+import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts";
+import { header, muted } from "../../utils/styling.ts";
 
 const SortType = new EnumType(["manual", "priority"]);
 const StateType = new EnumType([
@@ -62,6 +65,7 @@ export const listCommand = new Command()
   )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
+  .option("--no-pager", "Disable automatic paging for long output")
   .action(
     async (
       {
@@ -74,8 +78,10 @@ export const listCommand = new Command()
         app,
         allStates,
         team,
+        pager,
       },
     ) => {
+      const usePager = pager !== false;
       if (web || app) {
         await openTeamAssigneeView({ app: app });
         return;
@@ -154,14 +160,23 @@ export const listCommand = new Command()
           2, // minimum width for "ID" header
           ...issues.map((issue) => issue.identifier.length),
         );
-        const LABEL_WIDTH = Math.max(
-          6, // minimum width for "LABELS" header
-          ...issues.map((issue) =>
-            unicodeWidth(issue.labels.nodes.map((l) => l.name).join(", "))
+        const LABEL_WIDTH = Math.min(
+          25, // maximum width for labels column
+          Math.max(
+            6, // minimum width for "LABELS" header
+            ...issues.map((issue) =>
+              unicodeWidth(issue.labels.nodes.map((l) => l.name).join(", "))
+            ),
           ),
         );
         const ESTIMATE_WIDTH = 1; // fixed width for estimate
-        const STATE_WIDTH = 12; // fixed width for state
+        const STATE_WIDTH = Math.min(
+          20, // maximum width for state
+          Math.max(
+            5, // minimum width for "STATE" header
+            ...issues.map((issue) => unicodeWidth(issue.state.name)),
+          ),
+        );
         const ASSIGNEE_WIDTH = 2; // fixed width for assignee initials
         const SPACE_WIDTH = 4;
         const showAssigneeColumn = allAssignees || unassigned;
@@ -177,10 +192,8 @@ export const listCommand = new Command()
           priorityStr: string;
           identifier: string;
           title: string;
-          labelsFormat: string;
-          labelsStyles: string[];
+          labels: string;
           state: string;
-          stateStyles: string[];
           timeAgo: string;
           estimate: number | null | undefined;
           assignee?: string;
@@ -196,38 +209,37 @@ export const listCommand = new Command()
           const assignee = showAssigneeColumn
             ? (issue.assignee?.initials?.slice(0, 2) || "-")
             : undefined;
-          let labelsFormat: string;
-          let labelsStyles: string[] = [];
 
+          // Format labels with colors
+          let labels: string;
           if (issue.labels.nodes.length === 0) {
-            labelsFormat = "";
+            labels = "";
           } else {
-            const truncatedLabels = plainLabels.length > LABEL_WIDTH
-              ? plainLabels.slice(0, LABEL_WIDTH - 3) + "..."
-              : plainLabels;
+            const truncatedLabels = truncateText(plainLabels, LABEL_WIDTH);
 
-            // Then format the truncated version with colors
-            labelsFormat = truncatedLabels
-              .split(", ")
-              .map((name) => `%c${name}%c`)
-              .join(", ");
-            labelsStyles = issue.labels.nodes
+            // Format with colors using @std/fmt/colors
+            labels = issue.labels.nodes
               .filter((_, i) => i < truncatedLabels.split(", ").length)
-              .flatMap((l) => [`color: ${l.color}`, ""]);
+              .map((l) => rgb24(l.name, parseInt(l.color.replace("#", ""), 16)))
+              .join(", ");
           }
           const updatedAt = new Date(issue.updatedAt);
           const timeAgo = getTimeAgo(updatedAt);
 
           const priorityStr = getPriorityDisplay(issue.priority);
 
+          // Truncate state name if it exceeds the column width
+          const stateName = truncateText(issue.state.name, STATE_WIDTH);
+
           return {
             priorityStr,
             identifier: issue.identifier,
             title: issue.title,
-            labelsFormat,
-            labelsStyles,
-            state: `%c${issue.state.name}%c`,
-            stateStyles: [`color: ${issue.state.color}`, ""],
+            labels,
+            state: rgb24(
+              stateName,
+              parseInt(issue.state.color.replace("#", ""), 16),
+            ),
             timeAgo,
             estimate: issue.estimate,
             assignee,
@@ -253,53 +265,53 @@ export const listCommand = new Command()
           padDisplay("STATE", STATE_WIDTH),
           padDisplay(updatedHeader, UPDATED_WIDTH),
         ];
-        let headerMsg = "";
-        const headerStyles: string[] = [];
-        headerCells.forEach((cell, index) => {
-          headerMsg += `%c${cell}`;
-          headerStyles.push("text-decoration: underline");
-          if (index < headerCells.length - 1) {
-            headerMsg += "%c %c"; // non-underlined space between cells
-            headerStyles.push("text-decoration: none");
-            headerStyles.push("text-decoration: underline");
-          }
-        });
-        console.log(headerMsg, ...headerStyles);
 
-        // Print each issue
+        // Format header line
+        const formattedHeaderLine = header(headerCells.join(" "));
+
+        // Collect all output lines first to determine if paging is needed
+        const outputLines: string[] = [];
+
+        // Add header line
+        outputLines.push(formattedHeaderLine);
+
+        // Add issue lines
         for (const row of tableData) {
           const {
             priorityStr,
             identifier,
             title,
-            labelsFormat,
-            labelsStyles,
+            labels,
             state,
-            stateStyles,
             timeAgo,
+            estimate,
             assignee,
           } = row;
-          const truncTitle = title.length > titleWidth
-            ? title.slice(0, titleWidth - 3) + "..."
-            : padDisplay(title, titleWidth);
+          const truncTitle = padDisplay(
+            truncateText(title, titleWidth),
+            titleWidth,
+          );
 
           const assigneeOutput = showAssigneeColumn
             ? `${padDisplay(assignee || "-", ASSIGNEE_WIDTH)} `
             : "";
 
-          console.log(
-            `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
-              padDisplay(identifier, ID_WIDTH)
-            } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
-              padDisplay(row.estimate?.toString() || "-", ESTIMATE_WIDTH)
-            } ${assigneeOutput}${padDisplayFormatted(state, STATE_WIDTH)} %c${
-              padDisplay(timeAgo, UPDATED_WIDTH)
-            }%c`,
-            ...labelsStyles,
-            ...stateStyles,
-            "color: gray",
-            "",
-          );
+          const issueLine = `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
+            padDisplay(identifier, ID_WIDTH)
+          } ${truncTitle} ${padDisplay(labels, LABEL_WIDTH)} ${
+            padDisplay(estimate?.toString() || "-", ESTIMATE_WIDTH)
+          } ${assigneeOutput}${padDisplay(state, STATE_WIDTH)} ${
+            muted(padDisplay(timeAgo, UPDATED_WIDTH))
+          }`;
+          outputLines.push(issueLine);
+        }
+
+        // Check if we should use pager
+        if (shouldUsePager(outputLines, usePager)) {
+          await pipeToUserPager(outputLines.join("\n"));
+        } else {
+          // Print directly for shorter output - same logic as pager
+          outputLines.forEach((line) => console.log(line));
         }
       } catch (error) {
         spinner?.stop();

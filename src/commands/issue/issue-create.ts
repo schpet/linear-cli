@@ -3,16 +3,16 @@ import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
   formatIssueId,
+  getIssueIdByIdentifier,
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
   getProjectIdByName,
   getProjectOptionsByName,
   getTeamId,
   getTeamIdByKey,
-  getUserId,
-  getUserOptions,
   getWorkflowStateByNameOrType,
   getWorkflowStates,
+  lookupUserId,
   searchTeamsByKeySubstring,
   selectOption,
 } from "../../utils/linear.ts";
@@ -80,7 +80,7 @@ export const createCommand = new Command()
         assignee,
         dueDate,
         useDefaultTemplate,
-        parent,
+        parent: parentIdentifier,
         priority,
         estimate,
         description,
@@ -119,9 +119,23 @@ export const createCommand = new Command()
             statesPromise = getWorkflowStates(defaultTeamKey);
           }
 
+          // Convert parent identifier to UUID if provided
+          let parentId: string | undefined;
+          if (parentIdentifier) {
+            parentId = await getIssueIdByIdentifier(parentIdentifier);
+            if (!parentId) {
+              console.error(
+                `✗ Could not find parent issue with identifier ${
+                  formatIssueId(parentIdentifier)
+                }`,
+              );
+              Deno.exit(1);
+            }
+          }
+
           const interactiveData = await promptInteractiveIssueCreation(
             statesPromise,
-            parent ? formatIssueId(parent) : undefined,
+            parentId,
           );
 
           console.log(`Creating issue...`);
@@ -235,21 +249,18 @@ export const createCommand = new Command()
           stateId = workflowState.id;
         }
 
-        let assigneeId = await getUserId(assignee);
-        if (!assigneeId && assignee !== undefined) {
-          if (interactive) {
-            const assigneeIds = await getUserOptions(assignee);
-            spinner?.stop();
-            assigneeId = await selectOption("User", assignee, assigneeIds);
-            spinner?.start();
-          }
-          if (!assigneeId) {
+        let assigneeId = undefined;
+
+        if (assignee) {
+          assigneeId = await lookupUserId(assignee);
+          if (assigneeId == null) {
             console.error(
               `Could not determine user ID for assignee ${assignee}`,
             );
             Deno.exit(1);
           }
         }
+
         const labelIds = [];
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
@@ -290,11 +301,25 @@ export const createCommand = new Command()
 
         // Date validation done at graphql level
 
+        // Convert parent identifier to UUID if provided
+        let parentId: string | undefined;
+        if (parentIdentifier) {
+          parentId = await getIssueIdByIdentifier(parentIdentifier);
+          if (!parentId) {
+            console.error(
+              `✗ Could not find parent issue with identifier ${
+                formatIssueId(parentIdentifier)
+              }`,
+            );
+            Deno.exit(1);
+          }
+        }
+
         const input = {
           title,
           assigneeId,
           dueDate,
-          parentId: parent ? formatIssueId(parent) : undefined,
+          parentId,
           priority,
           estimate,
           labelIds,

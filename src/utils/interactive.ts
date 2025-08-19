@@ -7,8 +7,8 @@ import {
   getLabelsForTeam,
   getTeamId,
   getTeamIdByKey,
-  getUserId,
   getWorkflowStates,
+  lookupUserId,
 } from "./linear.ts";
 
 export async function promptInteractiveIssueCreation(
@@ -135,7 +135,7 @@ export async function promptInteractiveIssueCreation(
     default: false,
   });
 
-  const assigneeId = assignToSelf ? await getUserId("self") : undefined;
+  const assigneeId = assignToSelf ? await lookupUserId("self") : undefined;
 
   const priority = await Select.prompt({
     message: "What priority should this issue have?",

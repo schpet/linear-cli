@@ -11,10 +11,11 @@ stdout:
 
 \\x1b[1mOptions:\\x1b[22m
 
-  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.                   
-  \\x1b[94m-w\\x1b[39m, \\x1b[94m--web\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in web browser               
-  \\x1b[94m-a\\x1b[39m, \\x1b[94m--app\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in Linear.app                
-  \\x1b[94m--no-comments\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Exclude comments from the output  
+  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.                           
+  \\x1b[94m-w\\x1b[39m, \\x1b[94m--web\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in web browser                       
+  \\x1b[94m-a\\x1b[39m, \\x1b[94m--app\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in Linear.app                        
+  \\x1b[94m--no-comments\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Exclude comments from the output          
+  \\x1b[94m--no-pager\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Disable automatic paging for long output  
 
 "
 stderr:

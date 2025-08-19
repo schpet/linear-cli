@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- state column is now dynamically sized with max 20 chars and auto-truncation
+
 ### Removed
 
 - linear issue <id> is removed, must use linear issue view <id>. linear issue
@@ -18,6 +22,9 @@
 - team members command now shows initials, timezone, and other details with
   --verbose flag
 - organized code into multiple files so it's less of a nightmare to work on
+- linear issue list now sorts by workflow state first
+- issue pr create no longer opens browser by default, added --web flag
+- removed 'about' prefix from relative timestamps
 
 ### Added
 
@@ -35,6 +42,10 @@
 - project list command to display projects in a table format
 - project view command to show detailed project information
 - team list command to display teams in a table format
+- automatic paging for issue view command with --no-pager flag and pager
+- pager support for issue list command with --no-pager option
+
+  environment variable support
 
 ## [0.6.4] - 2025-08-12
 

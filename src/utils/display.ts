@@ -25,9 +25,35 @@ export function getTimeAgo(date: Date): string {
   if (diffMins < 1) return "just now";
   if (diffMins < 60) return `${diffMins} minutes ago`;
   if (diffHours < 24) {
-    return `about ${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+    return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
   }
   return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+}
+
+export function truncateText(text: string, maxWidth: number): string {
+  if (unicodeWidth(text) <= maxWidth) {
+    return text;
+  }
+
+  if (maxWidth < 3) {
+    return text.slice(0, maxWidth);
+  }
+
+  // Unicode-aware truncation by iterating through characters
+  let truncated = "";
+  let width = 0;
+  const maxContentWidth = maxWidth - 3; // Reserve space for "..."
+
+  for (const char of text) {
+    const charWidth = unicodeWidth(char);
+    if (width + charWidth > maxContentWidth) {
+      break;
+    }
+    truncated += char;
+    width += charWidth;
+  }
+
+  return truncated + "...";
 }
 
 export function getPriorityDisplay(priority: number): string {
