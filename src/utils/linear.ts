@@ -33,6 +33,18 @@ export async function getIssueId(
   if (providedId && isValidLinearId(providedId)) {
     return formatIssueIdentifier(providedId);
   }
+
+  // Handle integer-only IDs by prepending team prefix
+  if (providedId && /^[1-9][0-9]*$/.test(providedId)) {
+    const teamId = await getTeamId();
+    if (teamId) {
+      const fullId = `${teamId}-${providedId}`;
+      if (isValidLinearId(fullId)) {
+        return formatIssueIdentifier(fullId);
+      }
+    }
+  }
+
   if (providedId === undefined) {
     // look in branch
     const branch = await getCurrentBranch();
