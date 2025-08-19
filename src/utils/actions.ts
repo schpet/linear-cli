@@ -37,7 +37,7 @@ export async function openIssuePage(
 }
 
 export async function openTeamAssigneeView(options: { app?: boolean } = {}) {
-  const teamId = await (await import("./linear.ts")).getTeamId();
+  const teamId = await (await import("./linear.ts")).getTeamKey();
   if (!teamId) {
     console.error(
       "Could not determine team id from configuration or directory name.",

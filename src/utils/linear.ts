@@ -17,7 +17,7 @@ export function formatIssueIdentifier(providedId: string): string {
   return providedId.toUpperCase();
 }
 
-export function getTeamId(): string | undefined {
+export function getTeamKey(): string | undefined {
   const teamId = getOption("team_id");
   if (teamId) {
     return teamId.toUpperCase();
@@ -34,7 +34,7 @@ export async function getIssueId(
 
   // Handle integer-only IDs by prepending team prefix
   if (providedId && /^[1-9][0-9]*$/.test(providedId)) {
-    const teamId = getTeamId();
+    const teamId = getTeamKey();
     if (teamId) {
       const fullId = `${teamId}-${providedId}`;
       if (isValidLinearId(fullId)) {
