@@ -1,15 +1,16 @@
 import { Command, EnumType } from "@cliffy/command";
 import { unicodeWidth } from "@std/cli";
+import { rgb24 } from "@std/fmt/colors";
 import { getOption } from "../../config.ts";
 import {
   getPriorityDisplay,
   getTimeAgo,
   padDisplay,
-  padDisplayFormatted,
 } from "../../utils/display.ts";
 import { fetchIssuesForState, getTeamId } from "../../utils/linear.ts";
 import { openTeamAssigneeView } from "../../utils/actions.ts";
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts";
+import { header, muted } from "../../utils/styling.ts";
 
 const SortType = new EnumType(["manual", "priority"]);
 const StateType = new EnumType([
@@ -187,10 +188,8 @@ export const listCommand = new Command()
           priorityStr: string;
           identifier: string;
           title: string;
-          labelsFormat: string;
-          labelsStyles: string[];
+          labels: string;
           state: string;
-          stateStyles: string[];
           timeAgo: string;
           estimate: number | null | undefined;
           assignee?: string;
@@ -206,24 +205,21 @@ export const listCommand = new Command()
           const assignee = showAssigneeColumn
             ? (issue.assignee?.initials?.slice(0, 2) || "-")
             : undefined;
-          let labelsFormat: string;
-          let labelsStyles: string[] = [];
 
+          // Format labels with colors
+          let labels: string;
           if (issue.labels.nodes.length === 0) {
-            labelsFormat = "";
+            labels = "";
           } else {
             const truncatedLabels = plainLabels.length > LABEL_WIDTH
               ? plainLabels.slice(0, LABEL_WIDTH - 3) + "..."
               : plainLabels;
 
-            // Then format the truncated version with colors
-            labelsFormat = truncatedLabels
-              .split(", ")
-              .map((name) => `%c${name}%c`)
-              .join(", ");
-            labelsStyles = issue.labels.nodes
+            // Format with colors using @std/fmt/colors
+            labels = issue.labels.nodes
               .filter((_, i) => i < truncatedLabels.split(", ").length)
-              .flatMap((l) => [`color: ${l.color}`, ""]);
+              .map((l) => rgb24(l.name, parseInt(l.color.replace("#", ""), 16)))
+              .join(", ");
           }
           const updatedAt = new Date(issue.updatedAt);
           const timeAgo = getTimeAgo(updatedAt);
@@ -239,10 +235,11 @@ export const listCommand = new Command()
             priorityStr,
             identifier: issue.identifier,
             title: issue.title,
-            labelsFormat,
-            labelsStyles,
-            state: `%c${stateName}%c`,
-            stateStyles: [`color: ${issue.state.color}`, ""],
+            labels,
+            state: rgb24(
+              stateName,
+              parseInt(issue.state.color.replace("#", ""), 16),
+            ),
             timeAgo,
             estimate: issue.estimate,
             assignee,
@@ -268,23 +265,15 @@ export const listCommand = new Command()
           padDisplay("STATE", STATE_WIDTH),
           padDisplay(updatedHeader, UPDATED_WIDTH),
         ];
-        let headerMsg = "";
-        const headerStyles: string[] = [];
-        headerCells.forEach((cell, index) => {
-          headerMsg += `%c${cell}`;
-          headerStyles.push("text-decoration: underline");
-          if (index < headerCells.length - 1) {
-            headerMsg += "%c %c"; // non-underlined space between cells
-            headerStyles.push("text-decoration: none");
-            headerStyles.push("text-decoration: underline");
-          }
-        });
+
+        // Format header line
+        const formattedHeaderLine = header(headerCells.join(" "));
 
         // Collect all output lines first to determine if paging is needed
         const outputLines: string[] = [];
 
         // Add header line
-        outputLines.push(formatHeaderLine(headerMsg, ...headerStyles));
+        outputLines.push(formattedHeaderLine);
 
         // Add issue lines
         for (const row of tableData) {
@@ -292,11 +281,10 @@ export const listCommand = new Command()
             priorityStr,
             identifier,
             title,
-            labelsFormat,
-            labelsStyles,
+            labels,
             state,
-            stateStyles,
             timeAgo,
+            estimate,
             assignee,
           } = row;
           const truncTitle = title.length > titleWidth
@@ -307,19 +295,13 @@ export const listCommand = new Command()
             ? `${padDisplay(assignee || "-", ASSIGNEE_WIDTH)} `
             : "";
 
-          const issueLine = formatIssueLine(
-            `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
-              padDisplay(identifier, ID_WIDTH)
-            } ${truncTitle} ${padDisplayFormatted(labelsFormat, LABEL_WIDTH)} ${
-              padDisplay(row.estimate?.toString() || "-", ESTIMATE_WIDTH)
-            } ${assigneeOutput}${padDisplayFormatted(state, STATE_WIDTH)} %c${
-              padDisplay(timeAgo, UPDATED_WIDTH)
-            }%c`,
-            ...labelsStyles,
-            ...stateStyles,
-            "color: gray",
-            "",
-          );
+          const issueLine = `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
+            padDisplay(identifier, ID_WIDTH)
+          } ${truncTitle} ${padDisplay(labels, LABEL_WIDTH)} ${
+            padDisplay(estimate?.toString() || "-", ESTIMATE_WIDTH)
+          } ${assigneeOutput}${padDisplay(state, STATE_WIDTH)} ${
+            muted(padDisplay(timeAgo, UPDATED_WIDTH))
+          }`;
           outputLines.push(issueLine);
         }
 
@@ -327,45 +309,8 @@ export const listCommand = new Command()
         if (shouldUsePager(outputLines, usePager)) {
           await pipeToUserPager(outputLines.join("\n"));
         } else {
-          // Print directly for shorter output
-          console.log(headerMsg, ...headerStyles);
-
-          for (const row of tableData) {
-            const {
-              priorityStr,
-              identifier,
-              title,
-              labelsFormat,
-              labelsStyles,
-              state,
-              stateStyles,
-              timeAgo,
-              assignee,
-            } = row;
-            const truncTitle = title.length > titleWidth
-              ? title.slice(0, titleWidth - 3) + "..."
-              : padDisplay(title, titleWidth);
-
-            const assigneeOutput = showAssigneeColumn
-              ? `${padDisplay(assignee || "-", ASSIGNEE_WIDTH)} `
-              : "";
-
-            console.log(
-              `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
-                padDisplay(identifier, ID_WIDTH)
-              } ${truncTitle} ${
-                padDisplayFormatted(labelsFormat, LABEL_WIDTH)
-              } ${
-                padDisplay(row.estimate?.toString() || "-", ESTIMATE_WIDTH)
-              } ${assigneeOutput}${padDisplayFormatted(state, STATE_WIDTH)} %c${
-                padDisplay(timeAgo, UPDATED_WIDTH)
-              }%c`,
-              ...labelsStyles,
-              ...stateStyles,
-              "color: gray",
-              "",
-            );
-          }
+          // Print directly for shorter output - same logic as pager
+          outputLines.forEach((line) => console.log(line));
         }
       } catch (error) {
         spinner?.stop();
@@ -380,75 +325,3 @@ export const listCommand = new Command()
       }
     },
   );
-
-// Helper function to format header line with ANSI escape sequences for pager
-function formatHeaderLine(
-  headerMsg: string,
-  ...headerStyles: string[]
-): string {
-  let result = headerMsg;
-  let styleIndex = 0;
-
-  // Replace %c placeholders with ANSI escape sequences
-  result = result.replace(/%c/g, () => {
-    const style = headerStyles[styleIndex++];
-    if (style === "text-decoration: underline") {
-      return "\x1b[4m"; // underline
-    } else if (style === "text-decoration: none") {
-      return "\x1b[24m"; // no underline
-    }
-    return "";
-  });
-
-  // Add reset at the end
-  result += "\x1b[0m";
-
-  return result;
-}
-
-// Helper function to format issue line with ANSI escape sequences for pager
-function formatIssueLine(lineFormat: string, ...styles: string[]): string {
-  let result = lineFormat;
-  let styleIndex = 0;
-
-  // Replace %c placeholders with ANSI escape sequences
-  result = result.replace(/%c/g, () => {
-    const style = styles[styleIndex++];
-    if (!style) {
-      return "\x1b[0m"; // reset
-    }
-
-    if (style.startsWith("color: ")) {
-      const color = style.substring(7);
-      if (color === "gray") {
-        return "\x1b[90m"; // bright black (gray)
-      } else if (color.startsWith("#")) {
-        // Convert hex color to closest ANSI color (simplified)
-        return `\x1b[38;2;${hexToRgb(color).r};${hexToRgb(color).g};${
-          hexToRgb(color).b
-        }m`;
-      }
-    }
-
-    return "";
-  });
-
-  // Add final reset
-  if (!result.endsWith("\x1b[0m")) {
-    result += "\x1b[0m";
-  }
-
-  return result;
-}
-
-// Helper function to convert hex color to RGB
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16),
-    }
-    : { r: 255, g: 255, b: 255 };
-}
