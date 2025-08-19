@@ -30,6 +30,32 @@ export function getTimeAgo(date: Date): string {
   return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
+export function truncateText(text: string, maxWidth: number): string {
+  if (unicodeWidth(text) <= maxWidth) {
+    return text;
+  }
+
+  if (maxWidth < 3) {
+    return text.slice(0, maxWidth);
+  }
+
+  // Unicode-aware truncation by iterating through characters
+  let truncated = "";
+  let width = 0;
+  const maxContentWidth = maxWidth - 3; // Reserve space for "..."
+
+  for (const char of text) {
+    const charWidth = unicodeWidth(char);
+    if (width + charWidth > maxContentWidth) {
+      break;
+    }
+    truncated += char;
+    width += charWidth;
+  }
+
+  return truncated + "...";
+}
+
 export function getPriorityDisplay(priority: number): string {
   if (priority === 0) {
     return "---";

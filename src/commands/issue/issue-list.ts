@@ -6,6 +6,7 @@ import {
   getPriorityDisplay,
   getTimeAgo,
   padDisplay,
+  truncateText,
 } from "../../utils/display.ts";
 import { fetchIssuesForState, getTeamId } from "../../utils/linear.ts";
 import { openTeamAssigneeView } from "../../utils/actions.ts";
@@ -159,10 +160,13 @@ export const listCommand = new Command()
           2, // minimum width for "ID" header
           ...issues.map((issue) => issue.identifier.length),
         );
-        const LABEL_WIDTH = Math.max(
-          6, // minimum width for "LABELS" header
-          ...issues.map((issue) =>
-            unicodeWidth(issue.labels.nodes.map((l) => l.name).join(", "))
+        const LABEL_WIDTH = Math.min(
+          25, // maximum width for labels column
+          Math.max(
+            6, // minimum width for "LABELS" header
+            ...issues.map((issue) =>
+              unicodeWidth(issue.labels.nodes.map((l) => l.name).join(", "))
+            ),
           ),
         );
         const ESTIMATE_WIDTH = 1; // fixed width for estimate
@@ -211,9 +215,7 @@ export const listCommand = new Command()
           if (issue.labels.nodes.length === 0) {
             labels = "";
           } else {
-            const truncatedLabels = plainLabels.length > LABEL_WIDTH
-              ? plainLabels.slice(0, LABEL_WIDTH - 3) + "..."
-              : plainLabels;
+            const truncatedLabels = truncateText(plainLabels, LABEL_WIDTH);
 
             // Format with colors using @std/fmt/colors
             labels = issue.labels.nodes
@@ -227,9 +229,7 @@ export const listCommand = new Command()
           const priorityStr = getPriorityDisplay(issue.priority);
 
           // Truncate state name if it exceeds the column width
-          const stateName = issue.state.name.length > STATE_WIDTH
-            ? issue.state.name.slice(0, STATE_WIDTH - 3) + "..."
-            : issue.state.name;
+          const stateName = truncateText(issue.state.name, STATE_WIDTH);
 
           return {
             priorityStr,
@@ -287,9 +287,10 @@ export const listCommand = new Command()
             estimate,
             assignee,
           } = row;
-          const truncTitle = title.length > titleWidth
-            ? title.slice(0, titleWidth - 3) + "..."
-            : padDisplay(title, titleWidth);
+          const truncTitle = padDisplay(
+            truncateText(title, titleWidth),
+            titleWidth,
+          );
 
           const assigneeOutput = showAssigneeColumn
             ? `${padDisplay(assignee || "-", ASSIGNEE_WIDTH)} `
