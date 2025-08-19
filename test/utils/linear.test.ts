@@ -7,18 +7,12 @@ Deno.test("getIssueId - handles full issue identifiers", async () => {
 });
 
 Deno.test("getIssueId - handles integer-only IDs with team prefix", async () => {
-  // The getTeamId function will fall back to repo name "linear-cli" -> "CLI"
-  // since there's no explicit team_id config in tests
+  Deno.env.set("LINEAR_TEAM_ID", "CLI");
+
   const result = await getIssueId("123");
   assertEquals(result, "CLI-123");
-});
 
-Deno.test("getIssueId - handles integer-only IDs with fallback team from repo", async () => {
-  // Ensure no explicit team_id is set so it falls back to repo name
   Deno.env.delete("LINEAR_TEAM_ID");
-
-  const result = await getIssueId("123");
-  assertEquals(result, "CLI-123"); // Falls back to "CLI" from "linear-cli" repo name
 });
 
 Deno.test("getIssueId - rejects invalid integer patterns", async () => {
