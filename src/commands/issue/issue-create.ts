@@ -302,10 +302,10 @@ export const createCommand = new Command()
         // Date validation done at graphql level
 
         // Convert parent identifier to UUID if provided
-        let parentUuid: string | undefined;
+        let parentId: string | undefined;
         if (parentIdentifier) {
-          parentUuid = await getIssueIdByIdentifier(parentIdentifier);
-          if (!parentUuid) {
+          parentId = await getIssueIdByIdentifier(parentIdentifier);
+          if (!parentId) {
             console.error(
               `✗ Could not find parent issue with identifier ${
                 formatIssueId(parentIdentifier)
@@ -319,7 +319,7 @@ export const createCommand = new Command()
           title,
           assigneeId,
           dueDate,
-          parentId: parentUuid,
+          parentId,
           priority,
           estimate,
           labelIds,
