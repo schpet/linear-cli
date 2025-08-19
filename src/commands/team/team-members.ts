@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { getTeamId, getTeamMembers } from "../../utils/linear.ts";
+import { getTeamKey, getTeamMembers } from "../../utils/linear.ts";
 
 export const membersCommand = new Command()
   .name("members")
@@ -7,7 +7,7 @@ export const membersCommand = new Command()
   .arguments("[teamKey:string]")
   .option("-a, --all", "Include inactive members")
   .action(async (options, teamKey?: string) => {
-    const resolvedTeamKey = teamKey || await getTeamId();
+    const resolvedTeamKey = teamKey || getTeamKey();
     if (!resolvedTeamKey) {
       console.error(
         "Could not determine team key from directory name. Please specify a team key.",

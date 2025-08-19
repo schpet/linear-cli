@@ -5,8 +5,8 @@ import {
   fetchParentIssueTitle,
   getAllTeams,
   getLabelsForTeam,
-  getTeamId,
   getTeamIdByKey,
+  getTeamKey,
   getWorkflowStates,
   lookupUserId,
 } from "./linear.ts";
@@ -30,7 +30,7 @@ export async function promptInteractiveIssueCreation(
 }> {
   // Start team resolution in background while asking for title
   const teamResolutionPromise = (async () => {
-    const defaultTeamKey = await getTeamId();
+    const defaultTeamKey = getTeamKey();
     if (defaultTeamKey) {
       const teamId = await getTeamIdByKey(defaultTeamKey);
       if (teamId) {

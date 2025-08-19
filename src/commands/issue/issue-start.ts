@@ -4,7 +4,7 @@ import { getPriorityDisplay } from "../../utils/display.ts";
 import {
   fetchIssuesForState,
   getIssueId,
-  getTeamId,
+  getTeamKey,
 } from "../../utils/linear.ts";
 import { startWorkOnIssue as startIssue } from "../../utils/actions.ts";
 
@@ -21,7 +21,7 @@ export const startCommand = new Command()
     "Show only unassigned issues",
   )
   .action(async ({ allAssignees, unassigned }, issueId) => {
-    const teamId = await getTeamId();
+    const teamId = getTeamKey();
     if (!teamId) {
       console.error("Could not determine team ID");
       Deno.exit(1);

@@ -5,6 +5,7 @@ import {
   fetchIssueDetails,
   getIssueId,
   getStartedState,
+  getTeamKey,
   updateIssueState,
 } from "./linear.ts";
 import { getOption } from "../config.ts";
@@ -37,7 +38,7 @@ export async function openIssuePage(
 }
 
 export async function openTeamAssigneeView(options: { app?: boolean } = {}) {
-  const teamId = await (await import("./linear.ts")).getTeamId();
+  const teamId = getTeamKey();
   if (!teamId) {
     console.error(
       "Could not determine team id from configuration or directory name.",

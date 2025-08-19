@@ -2,7 +2,6 @@ import { Command } from "@cliffy/command";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
-  formatIssueId,
   getIssueId,
   getIssueLabelIdByNameForTeam,
   getProjectIdByName,
@@ -164,7 +163,14 @@ export const updateCommand = new Command()
         if (title !== undefined) input.title = title;
         if (assigneeId !== undefined) input.assigneeId = assigneeId;
         if (dueDate !== undefined) input.dueDate = dueDate;
-        if (parent !== undefined) input.parentId = formatIssueId(parent);
+        if (parent !== undefined) {
+          const parentId = await getIssueId(parent);
+          if (!parentId) {
+            console.error(`Could not resolve parent issue ID: ${parent}`);
+            Deno.exit(1);
+          }
+          input.parentId = parentId;
+        }
         if (priority !== undefined) input.priority = priority;
         if (estimate !== undefined) input.estimate = estimate;
         if (description !== undefined) input.description = description;

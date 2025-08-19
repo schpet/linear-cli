@@ -8,7 +8,7 @@ import {
   padDisplay,
   truncateText,
 } from "../../utils/display.ts";
-import { fetchIssuesForState, getTeamId } from "../../utils/linear.ts";
+import { fetchIssuesForState, getTeamKey } from "../../utils/linear.ts";
 import { openTeamAssigneeView } from "../../utils/actions.ts";
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts";
 import { header, muted } from "../../utils/styling.ts";
@@ -124,7 +124,7 @@ export const listCommand = new Command()
         console.error(`Sort must be one of: ${SortType.values().join(", ")}`);
         Deno.exit(1);
       }
-      const teamKey = team || await getTeamId();
+      const teamKey = team || getTeamKey();
       if (!teamKey) {
         console.error(
           "Could not determine team key from directory name or team flag.",

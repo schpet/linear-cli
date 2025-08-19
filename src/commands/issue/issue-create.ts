@@ -2,14 +2,13 @@ import { Command } from "@cliffy/command";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
-  formatIssueId,
-  getIssueIdByIdentifier,
+  getIssueId,
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
   getProjectIdByName,
   getProjectOptionsByName,
-  getTeamId,
   getTeamIdByKey,
+  getTeamKey,
   getWorkflowStateByNameOrType,
   getWorkflowStates,
   lookupUserId,
@@ -105,7 +104,7 @@ export const createCommand = new Command()
       if (noFlagsProvided && interactive) {
         try {
           // Pre-fetch team info and start workflow states query early
-          const defaultTeamKey = await getTeamId();
+          const defaultTeamKey = getTeamKey();
           let statesPromise:
             | Promise<
               Array<
@@ -119,15 +118,13 @@ export const createCommand = new Command()
             statesPromise = getWorkflowStates(defaultTeamKey);
           }
 
-          // Convert parent identifier to UUID if provided
+          // Convert parent identifier if provided
           let parentId: string | undefined;
           if (parentIdentifier) {
-            parentId = await getIssueIdByIdentifier(parentIdentifier);
+            parentId = await getIssueId(parentIdentifier);
             if (!parentId) {
               console.error(
-                `✗ Could not find parent issue with identifier ${
-                  formatIssueId(parentIdentifier)
-                }`,
+                `✗ Could not resolve parent issue ID: ${parentIdentifier}`,
               );
               Deno.exit(1);
             }
@@ -208,9 +205,7 @@ export const createCommand = new Command()
       const spinner = showSpinner ? new Spinner() : null;
       spinner?.start();
       try {
-        team = (team === undefined)
-          ? (await getTeamId() || undefined)
-          : team.toUpperCase();
+        team = (team == null) ? getTeamKey() : team.toUpperCase();
         if (!team) {
           console.error("Could not determine team key");
           Deno.exit(1);
@@ -301,15 +296,13 @@ export const createCommand = new Command()
 
         // Date validation done at graphql level
 
-        // Convert parent identifier to UUID if provided
+        // Convert parent identifier if provided
         let parentId: string | undefined;
         if (parentIdentifier) {
-          parentId = await getIssueIdByIdentifier(parentIdentifier);
+          parentId = await getIssueId(parentIdentifier);
           if (!parentId) {
             console.error(
-              `✗ Could not find parent issue with identifier ${
-                formatIssueId(parentIdentifier)
-              }`,
+              `✗ Could not resolve parent issue ID: ${parentIdentifier}`,
             );
             Deno.exit(1);
           }

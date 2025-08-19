@@ -7,32 +7,42 @@ import type {
 import { Select } from "@cliffy/prompt";
 import { getOption } from "../config.ts";
 import { getGraphQLClient } from "./graphql.ts";
-import { getCurrentBranch, getRepoDir } from "./git.ts";
+import { getCurrentBranch } from "./git.ts";
 
 function isValidLinearId(id: string): boolean {
   return /^[a-zA-Z0-9]+-[1-9][0-9]*$/i.test(id);
 }
 
-export function formatIssueId(providedId: string): string {
+export function formatIssueIdentifier(providedId: string): string {
   return providedId.toUpperCase();
 }
 
-export async function getTeamId(): Promise<string | undefined> {
+export function getTeamKey(): string | undefined {
   const teamId = getOption("team_id");
   if (teamId) {
     return teamId.toUpperCase();
   }
-  const dir = await getRepoDir();
-  const match = dir.match(/^[a-zA-Z0-9]+/);
-  return match ? match[0].toUpperCase() : undefined;
+  return undefined;
 }
 
 export async function getIssueId(
   providedId?: string,
 ): Promise<string | undefined> {
   if (providedId && isValidLinearId(providedId)) {
-    return formatIssueId(providedId);
+    return formatIssueIdentifier(providedId);
   }
+
+  // Handle integer-only IDs by prepending team prefix
+  if (providedId && /^[1-9][0-9]*$/.test(providedId)) {
+    const teamId = getTeamKey();
+    if (teamId) {
+      const fullId = `${teamId}-${providedId}`;
+      if (isValidLinearId(fullId)) {
+        return formatIssueIdentifier(fullId);
+      }
+    }
+  }
+
   if (providedId === undefined) {
     // look in branch
     const branch = await getCurrentBranch();
@@ -627,24 +637,6 @@ export async function getTeamMembers(teamKey: string) {
   return allMembers.sort((a, b) =>
     a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
   );
-}
-
-export async function getIssueIdByIdentifier(
-  identifier: string,
-): Promise<string> {
-  const client = getGraphQLClient();
-  const formattedId = formatIssueId(identifier);
-
-  const query = gql(/* GraphQL */ `
-    query GetIssueIdByIdentifier($identifier: String!) {
-      issue(id: $identifier) {
-        id
-      }
-    }
-  `);
-
-  const data = await client.request(query, { identifier: formattedId });
-  return data.issue.id;
 }
 
 export async function selectOption(

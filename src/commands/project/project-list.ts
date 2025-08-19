@@ -7,7 +7,7 @@ import type {
 } from "../../__codegen__/graphql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import { getTimeAgo, padDisplay } from "../../utils/display.ts";
-import { getTeamId } from "../../utils/linear.ts";
+import { getTeamKey } from "../../utils/linear.ts";
 
 const GetProjects = gql(`
   query GetProjects($filter: ProjectFilter) {
@@ -70,9 +70,7 @@ export const listCommand = new Command()
       }
 
       // Determine team to filter by
-      const teamKey = allTeams
-        ? null
-        : (team?.toUpperCase() || await getTeamId());
+      const teamKey = allTeams ? null : (team?.toUpperCase() || getTeamKey());
 
       let filter = {};
       if (teamKey) {

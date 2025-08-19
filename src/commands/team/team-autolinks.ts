@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { getTeamId } from "../../utils/linear.ts";
+import { getTeamKey } from "../../utils/linear.ts";
 import { getOption } from "../../config.ts";
 
 export const autolinksCommand = new Command()
@@ -8,7 +8,7 @@ export const autolinksCommand = new Command()
     "Configure GitHub repository autolinks for Linear issues with this team prefix",
   )
   .action(async () => {
-    const teamId = await getTeamId();
+    const teamId = getTeamKey();
     if (!teamId) {
       console.error("Could not determine team id from directory name.");
       Deno.exit(1);
