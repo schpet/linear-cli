@@ -154,7 +154,9 @@ export const listCommand = new Command()
         }
 
         // Define column widths first
-        const { columns } = Deno.consoleSize();
+        const { columns } = Deno.stdout.isTerminal()
+          ? Deno.consoleSize()
+          : { columns: 120 };
         const PRIORITY_WIDTH = 3;
         const ID_WIDTH = Math.max(
           2, // minimum width for "ID" header
@@ -200,11 +202,6 @@ export const listCommand = new Command()
         };
 
         const tableData: Array<TableRow> = issues.map((issue) => {
-          // First build the plain text version to measure length
-          const plainLabels = issue.labels.nodes.map((l) => l.name).join(
-            ", ",
-          );
-
           // Get assignee initials if needed
           const assignee = showAssigneeColumn
             ? (issue.assignee?.initials?.slice(0, 2) || "-")
@@ -213,15 +210,52 @@ export const listCommand = new Command()
           // Format labels with colors
           let labels: string;
           if (issue.labels.nodes.length === 0) {
-            labels = "";
+            labels = " ".repeat(LABEL_WIDTH);
           } else {
-            const truncatedLabels = truncateText(plainLabels, LABEL_WIDTH);
+            // Build colored labels incrementally to ensure proper width
+            const coloredLabels: string[] = [];
+            let currentWidth = 0;
 
-            // Format with colors using @std/fmt/colors
-            labels = issue.labels.nodes
-              .filter((_, i) => i < truncatedLabels.split(", ").length)
-              .map((l) => rgb24(l.name, parseInt(l.color.replace("#", ""), 16)))
-              .join(", ");
+            for (let i = 0; i < issue.labels.nodes.length; i++) {
+              const label = issue.labels.nodes[i];
+              const coloredLabel = rgb24(
+                label.name,
+                parseInt(label.color.replace("#", ""), 16),
+              );
+              const separator = i > 0 ? ", " : "";
+              const testText = separator + label.name;
+
+              if (currentWidth + unicodeWidth(testText) > LABEL_WIDTH) {
+                // If adding this label would exceed width, truncate if possible
+                const remainingWidth = LABEL_WIDTH - currentWidth;
+                if (remainingWidth >= 4) { // Need at least 4 chars for "..."
+                  const truncatedName = truncateText(
+                    label.name,
+                    remainingWidth - (separator.length),
+                  );
+                  coloredLabels.push(
+                    separator +
+                      rgb24(
+                        truncatedName,
+                        parseInt(label.color.replace("#", ""), 16),
+                      ),
+                  );
+                }
+                break;
+              }
+
+              coloredLabels.push(separator + coloredLabel);
+              currentWidth += unicodeWidth(testText);
+            }
+
+            labels = coloredLabels.join("");
+            // Calculate actual width of the final labels string (excluding color codes)
+            const ansiRegex = new RegExp("\u001B\\[[0-9;]*m", "g");
+            const actualLabelsWidth = unicodeWidth(
+              coloredLabels.join("").replace(ansiRegex, ""),
+            );
+            const remainingSpace = Math.max(0, LABEL_WIDTH - actualLabelsWidth);
+            labels += " ".repeat(remainingSpace);
           }
           const updatedAt = new Date(issue.updatedAt);
           const timeAgo = getTimeAgo(updatedAt);
@@ -230,16 +264,23 @@ export const listCommand = new Command()
 
           // Truncate state name if it exceeds the column width
           const stateName = truncateText(issue.state.name, STATE_WIDTH);
+          const stateColored = rgb24(
+            stateName,
+            parseInt(issue.state.color.replace("#", ""), 16),
+          );
+          // Add padding to fill the remaining width
+          const stateRemainingSpace = Math.max(
+            0,
+            STATE_WIDTH - unicodeWidth(stateName),
+          );
+          const statePadded = stateColored + " ".repeat(stateRemainingSpace);
 
           return {
             priorityStr,
             identifier: issue.identifier,
             title: issue.title,
             labels,
-            state: rgb24(
-              stateName,
-              parseInt(issue.state.color.replace("#", ""), 16),
-            ),
+            state: statePadded,
             timeAgo,
             estimate: issue.estimate,
             assignee,
@@ -298,9 +339,9 @@ export const listCommand = new Command()
 
           const issueLine = `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
             padDisplay(identifier, ID_WIDTH)
-          } ${truncTitle} ${padDisplay(labels, LABEL_WIDTH)} ${
+          } ${truncTitle} ${labels} ${
             padDisplay(estimate?.toString() || "-", ESTIMATE_WIDTH)
-          } ${assigneeOutput}${padDisplay(state, STATE_WIDTH)} ${
+          } ${assigneeOutput}${state} ${
             muted(padDisplay(timeAgo, UPDATED_WIDTH))
           }`;
           outputLines.push(issueLine);

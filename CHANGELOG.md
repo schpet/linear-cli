@@ -5,6 +5,7 @@
 ### Fixed
 
 - state column is now dynamically sized with max 20 chars and auto-truncation
+- correctly align issue list columns
 
 ### Removed
 
