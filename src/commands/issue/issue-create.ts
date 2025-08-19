@@ -2,8 +2,7 @@ import { Command } from "@cliffy/command";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
-  formatIssueIdentifier,
-  getIssueIdByIdentifier,
+  getIssueId,
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
   getProjectIdByName,
@@ -119,15 +118,13 @@ export const createCommand = new Command()
             statesPromise = getWorkflowStates(defaultTeamKey);
           }
 
-          // Convert parent identifier to UUID if provided
+          // Convert parent identifier if provided
           let parentId: string | undefined;
           if (parentIdentifier) {
-            parentId = await getIssueIdByIdentifier(parentIdentifier);
+            parentId = await getIssueId(parentIdentifier);
             if (!parentId) {
               console.error(
-                `✗ Could not find parent issue with identifier ${
-                  formatIssueIdentifier(parentIdentifier)
-                }`,
+                `✗ Could not resolve parent issue ID: ${parentIdentifier}`,
               );
               Deno.exit(1);
             }
@@ -301,15 +298,13 @@ export const createCommand = new Command()
 
         // Date validation done at graphql level
 
-        // Convert parent identifier to UUID if provided
+        // Convert parent identifier if provided
         let parentId: string | undefined;
         if (parentIdentifier) {
-          parentId = await getIssueIdByIdentifier(parentIdentifier);
+          parentId = await getIssueId(parentIdentifier);
           if (!parentId) {
             console.error(
-              `✗ Could not find parent issue with identifier ${
-                formatIssueIdentifier(parentIdentifier)
-              }`,
+              `✗ Could not resolve parent issue ID: ${parentIdentifier}`,
             );
             Deno.exit(1);
           }

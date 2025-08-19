@@ -641,24 +641,6 @@ export async function getTeamMembers(teamKey: string) {
   );
 }
 
-export async function getIssueIdByIdentifier(
-  identifier: string,
-): Promise<string> {
-  const client = getGraphQLClient();
-  const formattedId = formatIssueIdentifier(identifier);
-
-  const query = gql(/* GraphQL */ `
-    query GetIssueIdByIdentifier($identifier: String!) {
-      issue(id: $identifier) {
-        id
-      }
-    }
-  `);
-
-  const data = await client.request(query, { identifier: formattedId });
-  return data.issue.id;
-}
-
 export async function selectOption(
   dataName: string,
   originalValue: string,
