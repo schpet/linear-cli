@@ -9,7 +9,7 @@ import { getOption } from "../config.ts";
 import { getGraphQLClient } from "./graphql.ts";
 import { getCurrentBranch } from "./git.ts";
 
-function isValidLinearId(id: string): boolean {
+function isValidLinearIdentifier(id: string): boolean {
   return /^[a-zA-Z0-9]+-[1-9][0-9]*$/i.test(id);
 }
 
@@ -25,10 +25,15 @@ export function getTeamKey(): string | undefined {
   return undefined;
 }
 
-export async function getIssueId(
+/**
+ * based on loose inputs, returns a linear issue identifier like ABC-123
+ *
+ * formats the provided identifier, adds the team id prefix, or finds one from the branch name
+ */
+export async function getIssueIdentifier(
   providedId?: string,
 ): Promise<string | undefined> {
-  if (providedId && isValidLinearId(providedId)) {
+  if (providedId && isValidLinearIdentifier(providedId)) {
     return formatIssueIdentifier(providedId);
   }
 
@@ -37,9 +42,13 @@ export async function getIssueId(
     const teamId = getTeamKey();
     if (teamId) {
       const fullId = `${teamId}-${providedId}`;
-      if (isValidLinearId(fullId)) {
+      if (isValidLinearIdentifier(fullId)) {
         return formatIssueIdentifier(fullId);
       }
+    } else {
+      throw new Error(
+        "an integer id was provided, but no team is set. run `linear configure`",
+      );
     }
   }
 
@@ -52,6 +61,22 @@ export async function getIssueId(
       return match[0].toUpperCase();
     }
   }
+}
+
+export async function getIssueId(
+  identifier: string,
+): Promise<string | undefined> {
+  const query = gql(/* GraphQL */ `
+    query GetIssueId($id: String!) {
+      issue(id: $id) {
+        id
+      }
+    }
+  `);
+
+  const client = getGraphQLClient();
+  const data = await client.request(query, { id: identifier });
+  return data.issue?.id;
 }
 
 export async function getWorkflowStates(
@@ -232,6 +257,40 @@ export async function fetchParentIssueTitle(
     const client = getGraphQLClient();
     const data = await client.request(query, { id: parentId });
     return `${data.issue.identifier}: ${data.issue.title}`;
+  } catch (_error) {
+    console.error("✗ Failed to fetch parent issue details");
+    return null;
+  }
+}
+
+export async function fetchParentIssueData(
+  parentId: string,
+): Promise<
+  {
+    title: string;
+    identifier: string;
+    projectId: string | null;
+  } | null
+> {
+  try {
+    const query = gql(/* GraphQL */ `
+      query GetParentIssueData($id: String!) {
+        issue(id: $id) {
+          title
+          identifier
+          project {
+            id
+          }
+        }
+      }
+    `);
+    const client = getGraphQLClient();
+    const data = await client.request(query, { id: parentId });
+    return {
+      title: data.issue.title,
+      identifier: data.issue.identifier,
+      projectId: data.issue.project?.id || null,
+    };
   } catch (_error) {
     console.error("✗ Failed to fetch parent issue details");
     return null;

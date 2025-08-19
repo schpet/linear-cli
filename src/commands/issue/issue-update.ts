@@ -3,6 +3,7 @@ import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
   getIssueId,
+  getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
   getProjectIdByName,
   getTeamIdByKey,
@@ -76,7 +77,7 @@ export const updateCommand = new Command()
     ) => {
       try {
         // Get the issue ID - either from argument or infer from current context
-        const issueId = await getIssueId(issueIdArg);
+        const issueId = await getIssueIdentifier(issueIdArg);
         if (!issueId) {
           console.error(
             "Could not determine issue ID. Please provide an issue ID like 'ENG-123' or run from a branch with an issue ID.",
@@ -164,9 +165,18 @@ export const updateCommand = new Command()
         if (assigneeId !== undefined) input.assigneeId = assigneeId;
         if (dueDate !== undefined) input.dueDate = dueDate;
         if (parent !== undefined) {
-          const parentId = await getIssueId(parent);
+          const parentIdentifier = await getIssueIdentifier(parent);
+          if (!parentIdentifier) {
+            console.error(
+              `Could not resolve parent issue identifier: ${parent}`,
+            );
+            Deno.exit(1);
+          }
+          const parentId = await getIssueId(parentIdentifier);
           if (!parentId) {
-            console.error(`Could not resolve parent issue ID: ${parent}`);
+            console.error(
+              `Could not resolve parent issue ID: ${parentIdentifier}`,
+            );
             Deno.exit(1);
           }
           input.parentId = parentId;

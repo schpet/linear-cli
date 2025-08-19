@@ -2,7 +2,9 @@ import { Command } from "@cliffy/command";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
+  fetchParentIssueData,
   getIssueId,
+  getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
   getProjectIdByName,
@@ -118,21 +120,39 @@ export const createCommand = new Command()
             statesPromise = getWorkflowStates(defaultTeamKey);
           }
 
-          // Convert parent identifier if provided
+          // Convert parent identifier if provided and fetch parent data
           let parentId: string | undefined;
+          let parentData: {
+            title: string;
+            identifier: string;
+            projectId: string | null;
+          } | null = null;
           if (parentIdentifier) {
-            parentId = await getIssueId(parentIdentifier);
-            if (!parentId) {
+            const parentIdentifierResolved = await getIssueIdentifier(
+              parentIdentifier,
+            );
+            if (!parentIdentifierResolved) {
               console.error(
-                `✗ Could not resolve parent issue ID: ${parentIdentifier}`,
+                `✗ Could not resolve parent issue identifier: ${parentIdentifier}`,
               );
               Deno.exit(1);
             }
+            parentId = await getIssueId(parentIdentifierResolved);
+            if (!parentId) {
+              console.error(
+                `✗ Could not resolve parent issue ID: ${parentIdentifierResolved}`,
+              );
+              Deno.exit(1);
+            }
+
+            // Fetch parent issue data including project
+            parentData = await fetchParentIssueData(parentId);
           }
 
           const interactiveData = await promptInteractiveIssueCreation(
             statesPromise,
             parentId,
+            parentData,
           );
 
           console.log(`Creating issue...`);
@@ -158,7 +178,7 @@ export const createCommand = new Command()
               estimate: interactiveData.estimate,
               labelIds: interactiveData.labelIds,
               teamId: interactiveData.teamId,
-              projectId: undefined,
+              projectId: interactiveData.projectId,
               stateId: interactiveData.stateId,
               useDefaultTemplate,
               description: interactiveData.description,
@@ -296,16 +316,33 @@ export const createCommand = new Command()
 
         // Date validation done at graphql level
 
-        // Convert parent identifier if provided
+        // Convert parent identifier if provided and fetch parent data
         let parentId: string | undefined;
+        let parentData: {
+          title: string;
+          identifier: string;
+          projectId: string | null;
+        } | null = null;
         if (parentIdentifier) {
-          parentId = await getIssueId(parentIdentifier);
-          if (!parentId) {
+          const parentIdentifierResolved = await getIssueIdentifier(
+            parentIdentifier,
+          );
+          if (!parentIdentifierResolved) {
             console.error(
-              `✗ Could not resolve parent issue ID: ${parentIdentifier}`,
+              `✗ Could not resolve parent issue identifier: ${parentIdentifier}`,
             );
             Deno.exit(1);
           }
+          parentId = await getIssueId(parentIdentifierResolved);
+          if (!parentId) {
+            console.error(
+              `✗ Could not resolve parent issue ID: ${parentIdentifierResolved}`,
+            );
+            Deno.exit(1);
+          }
+
+          // Fetch parent issue data including project
+          parentData = await fetchParentIssueData(parentId);
         }
 
         const input = {
@@ -317,7 +354,7 @@ export const createCommand = new Command()
           estimate,
           labelIds,
           teamId: teamId,
-          projectId,
+          projectId: projectId || parentData?.projectId,
           stateId,
           useDefaultTemplate,
           description,

@@ -48,6 +48,7 @@
 - automatic paging for issue view command with --no-pager flag and pager
 - pager support for issue list command with --no-pager option
 - allow integer-only issue ids when team is configured
+- sub-issues now inherit parent project automatically
 
 ## [0.6.4] - 2025-08-12
 

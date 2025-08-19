@@ -2,7 +2,6 @@ import { Checkbox, Input, Select } from "@cliffy/prompt";
 import { getEditor, openEditor } from "./editor.ts";
 import { getPriorityDisplay } from "./display.ts";
 import {
-  fetchParentIssueTitle,
   getAllTeams,
   getLabelsForTeam,
   getTeamIdByKey,
@@ -16,6 +15,11 @@ export async function promptInteractiveIssueCreation(
     Array<{ id: string; name: string; type: string; position: number }>
   >,
   parentId?: string,
+  parentData?: {
+    title: string;
+    identifier: string;
+    projectId: string | null;
+  } | null,
 ): Promise<{
   title: string;
   teamId: string;
@@ -27,6 +31,7 @@ export async function promptInteractiveIssueCreation(
   stateId?: string;
   start: boolean;
   parentId?: string;
+  projectId?: string | null;
 }> {
   // Start team resolution in background while asking for title
   const teamResolutionPromise = (async () => {
@@ -51,14 +56,11 @@ export async function promptInteractiveIssueCreation(
     };
   })();
 
-  // If we have a parent issue, fetch and display its title
-  let parentTitle: string | null = null;
-  if (parentId) {
-    parentTitle = await fetchParentIssueTitle(parentId);
-    if (parentTitle) {
-      console.log(`Creating subissue for: ${parentTitle}`);
-      console.log();
-    }
+  // If we have a parent issue, display its title
+  if (parentData) {
+    const parentTitle = `${parentData.identifier}: ${parentData.title}`;
+    console.log(`Creating subissue for: ${parentTitle}`);
+    console.log();
   }
 
   const title = await Input.prompt({
@@ -231,5 +233,6 @@ export async function promptInteractiveIssueCreation(
     stateId,
     start,
     parentId,
+    projectId: parentData?.projectId || null,
   };
 }

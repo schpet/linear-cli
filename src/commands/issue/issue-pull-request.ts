@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command";
-import { fetchIssueDetails, getIssueId } from "../../utils/linear.ts";
+import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts";
 
 export const pullRequestCommand = new Command()
   .name("pull-request")
@@ -23,7 +23,7 @@ export const pullRequestCommand = new Command()
   )
   .arguments("[issueId:string]")
   .action(async ({ base, draft, title: customTitle, web }, issueId) => {
-    const resolvedId = await getIssueId(issueId);
+    const resolvedId = await getIssueIdentifier(issueId);
     if (!resolvedId) {
       console.error(
         "The current branch does not contain a valid linear issue id.",

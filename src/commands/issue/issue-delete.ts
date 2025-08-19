@@ -2,7 +2,7 @@ import { Command } from "@cliffy/command";
 import { Confirm } from "@cliffy/prompt";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
-import { getIssueId } from "../../utils/linear.ts";
+import { getIssueIdentifier } from "../../utils/linear.ts";
 
 export const deleteCommand = new Command()
   .name("delete")
@@ -12,7 +12,7 @@ export const deleteCommand = new Command()
   .option("-y, --confirm", "Skip confirmation prompt")
   .action(async ({ confirm }, issueId) => {
     // First resolve the issue ID to get the issue details
-    const resolvedId = await getIssueId(issueId);
+    const resolvedId = await getIssueIdentifier(issueId);
     if (!resolvedId) {
       console.error("Could not find issue with ID:", issueId);
       Deno.exit(1);

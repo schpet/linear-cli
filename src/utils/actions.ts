@@ -3,7 +3,7 @@ import { Select } from "@cliffy/prompt";
 import { branchExists } from "./git.ts";
 import {
   fetchIssueDetails,
-  getIssueId,
+  getIssueIdentifier,
   getStartedState,
   getTeamKey,
   updateIssueState,
@@ -15,7 +15,7 @@ export async function openIssuePage(
   providedId?: string,
   options: { app?: boolean; web?: boolean } = {},
 ) {
-  const issueId = await getIssueId(providedId);
+  const issueId = await getIssueIdentifier(providedId);
   if (!issueId) {
     console.error(
       "The current branch does not contain a valid linear issue id.",
