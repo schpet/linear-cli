@@ -13,15 +13,3 @@ await snapshotTest({
     await listCommand.parse();
   },
 });
-
-// Test pager flag parsing
-await snapshotTest({
-  name: "Issue List Command - Help with no-pager flag",
-  meta: import.meta,
-  colors: true,
-  args: ["--help"],
-  denoArgs: commonDenoArgs,
-  async fn() {
-    await listCommand.parse();
-  },
-});
