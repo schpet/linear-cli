@@ -2,7 +2,7 @@ import { Command } from "@cliffy/command";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
-  formatIssueId,
+  formatIssueIdentifier,
   getIssueId,
   getIssueLabelIdByNameForTeam,
   getProjectIdByName,
@@ -164,7 +164,9 @@ export const updateCommand = new Command()
         if (title !== undefined) input.title = title;
         if (assigneeId !== undefined) input.assigneeId = assigneeId;
         if (dueDate !== undefined) input.dueDate = dueDate;
-        if (parent !== undefined) input.parentId = formatIssueId(parent);
+        if (parent !== undefined) {
+          input.parentId = formatIssueIdentifier(parent);
+        }
         if (priority !== undefined) input.priority = priority;
         if (estimate !== undefined) input.estimate = estimate;
         if (description !== undefined) input.description = description;

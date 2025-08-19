@@ -13,7 +13,7 @@ function isValidLinearId(id: string): boolean {
   return /^[a-zA-Z0-9]+-[1-9][0-9]*$/i.test(id);
 }
 
-export function formatIssueId(providedId: string): string {
+export function formatIssueIdentifier(providedId: string): string {
   return providedId.toUpperCase();
 }
 
@@ -31,7 +31,7 @@ export async function getIssueId(
   providedId?: string,
 ): Promise<string | undefined> {
   if (providedId && isValidLinearId(providedId)) {
-    return formatIssueId(providedId);
+    return formatIssueIdentifier(providedId);
   }
   if (providedId === undefined) {
     // look in branch
@@ -633,7 +633,7 @@ export async function getIssueIdByIdentifier(
   identifier: string,
 ): Promise<string> {
   const client = getGraphQLClient();
-  const formattedId = formatIssueId(identifier);
+  const formattedId = formatIssueIdentifier(identifier);
 
   const query = gql(/* GraphQL */ `
     query GetIssueIdByIdentifier($identifier: String!) {

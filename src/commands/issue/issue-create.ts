@@ -2,7 +2,7 @@ import { Command } from "@cliffy/command";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import {
-  formatIssueId,
+  formatIssueIdentifier,
   getIssueIdByIdentifier,
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
@@ -126,7 +126,7 @@ export const createCommand = new Command()
             if (!parentId) {
               console.error(
                 `✗ Could not find parent issue with identifier ${
-                  formatIssueId(parentIdentifier)
+                  formatIssueIdentifier(parentIdentifier)
                 }`,
               );
               Deno.exit(1);
@@ -308,7 +308,7 @@ export const createCommand = new Command()
           if (!parentId) {
             console.error(
               `✗ Could not find parent issue with identifier ${
-                formatIssueId(parentIdentifier)
+                formatIssueIdentifier(parentIdentifier)
               }`,
             );
             Deno.exit(1);
