@@ -7,7 +7,7 @@ import type {
 import { Select } from "@cliffy/prompt";
 import { getOption } from "../config.ts";
 import { getGraphQLClient } from "./graphql.ts";
-import { getCurrentBranch, getRepoDir } from "./git.ts";
+import { getCurrentBranch } from "./git.ts";
 
 function isValidLinearId(id: string): boolean {
   return /^[a-zA-Z0-9]+-[1-9][0-9]*$/i.test(id);
@@ -17,14 +17,12 @@ export function formatIssueIdentifier(providedId: string): string {
   return providedId.toUpperCase();
 }
 
-export async function getTeamId(): Promise<string | undefined> {
+export function getTeamId(): string | undefined {
   const teamId = getOption("team_id");
   if (teamId) {
     return teamId.toUpperCase();
   }
-  const dir = await getRepoDir();
-  const match = dir.match(/^[a-zA-Z0-9]+/);
-  return match ? match[0].toUpperCase() : undefined;
+  return undefined;
 }
 
 export async function getIssueId(
@@ -36,7 +34,7 @@ export async function getIssueId(
 
   // Handle integer-only IDs by prepending team prefix
   if (providedId && /^[1-9][0-9]*$/.test(providedId)) {
-    const teamId = await getTeamId();
+    const teamId = getTeamId();
     if (teamId) {
       const fullId = `${teamId}-${providedId}`;
       if (isValidLinearId(fullId)) {

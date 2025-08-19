@@ -8,7 +8,7 @@ export const autolinksCommand = new Command()
     "Configure GitHub repository autolinks for Linear issues with this team prefix",
   )
   .action(async () => {
-    const teamId = await getTeamId();
+    const teamId = getTeamId();
     if (!teamId) {
       console.error("Could not determine team id from directory name.");
       Deno.exit(1);

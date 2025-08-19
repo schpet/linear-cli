@@ -124,7 +124,7 @@ export const listCommand = new Command()
         console.error(`Sort must be one of: ${SortType.values().join(", ")}`);
         Deno.exit(1);
       }
-      const teamKey = team || await getTeamId();
+      const teamKey = team || getTeamId();
       if (!teamKey) {
         console.error(
           "Could not determine team key from directory name or team flag.",

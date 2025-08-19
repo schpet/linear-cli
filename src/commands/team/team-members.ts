@@ -7,7 +7,7 @@ export const membersCommand = new Command()
   .arguments("[teamKey:string]")
   .option("-a, --all", "Include inactive members")
   .action(async (options, teamKey?: string) => {
-    const resolvedTeamKey = teamKey || await getTeamId();
+    const resolvedTeamKey = teamKey || getTeamId();
     if (!resolvedTeamKey) {
       console.error(
         "Could not determine team key from directory name. Please specify a team key.",

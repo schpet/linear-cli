@@ -9,6 +9,8 @@
 ### Removed
 
 - linear issue <id> is removed, must use linear issue view <id>. linear issue
+- remove support for deriving team ids from directory name
+
   prints help text
 - deprecated 'linear issue open' and 'linear issue print' commands - use 'linear
   issue view --app' and 'linear issue view' instead
@@ -30,7 +32,8 @@
 
 - `issue delete` command to delete issues by id
 - `team members` command to list team members
-- add --assignee flag on `issue list` allowing you to list issues assigned to
+- add --assignee flag on `issue list` allowing you to list issues assigned to a
+  user
 - add -U, --unassigned flag to list only unassigned issues
 - add -A, --all-assignees flag to list issues for all assignees
 - allow specifying a --parent on linear issue create
@@ -45,8 +48,6 @@
 - automatic paging for issue view command with --no-pager flag and pager
 - pager support for issue list command with --no-pager option
 - allow integer-only issue ids when team is configured
-
-  environment variable support
 
 ## [0.6.4] - 2025-08-12
 

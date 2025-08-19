@@ -104,7 +104,7 @@ export const createCommand = new Command()
       if (noFlagsProvided && interactive) {
         try {
           // Pre-fetch team info and start workflow states query early
-          const defaultTeamKey = await getTeamId();
+          const defaultTeamKey = getTeamId();
           let statesPromise:
             | Promise<
               Array<
@@ -205,9 +205,7 @@ export const createCommand = new Command()
       const spinner = showSpinner ? new Spinner() : null;
       spinner?.start();
       try {
-        team = (team === undefined)
-          ? (await getTeamId() || undefined)
-          : team.toUpperCase();
+        team = (team == null) ? getTeamId() : team.toUpperCase();
         if (!team) {
           console.error("Could not determine team key");
           Deno.exit(1);

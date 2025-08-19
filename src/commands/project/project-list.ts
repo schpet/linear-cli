@@ -70,9 +70,7 @@ export const listCommand = new Command()
       }
 
       // Determine team to filter by
-      const teamKey = allTeams
-        ? null
-        : (team?.toUpperCase() || await getTeamId());
+      const teamKey = allTeams ? null : (team?.toUpperCase() || getTeamId());
 
       let filter = {};
       if (teamKey) {
