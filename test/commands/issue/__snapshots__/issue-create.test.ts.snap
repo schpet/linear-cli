@@ -12,7 +12,7 @@ Description:
 Options:
 
   -h, --help                                - Show this help.                                              
-  -s, --start                               - Start the issue after creation                               
+  --start                                   - Start the issue after creation                               
   -a, --assignee             <assignee>     - Assign the issue to 'self' or someone (by username or name)  
   --due-date                 <dueDate>      - Due date of the issue                                        
   -p, --parent               <parent>       - Parent issue (if any) as a team_number code                  
@@ -22,7 +22,7 @@ Options:
   -l, --label                [label...]     - Issue label associated with the issue. May be repeated.      
   --team                     <team>         - Team associated with the issue (if not your default team)    
   --project                  <project>      - Name of the project with the issue                           
-  --state                    <state>        - Workflow state for the issue (by name or type)               
+  -s, --state                <state>        - Workflow state for the issue (by name or type)               
   --no-use-default-template                 - Do not use default template for the issue                    
   --no-color                                - Disable colored output                                       
   --no-interactive                          - Disable interactive prompts                                  

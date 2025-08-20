@@ -21,7 +21,7 @@ Options:
   -l, --label        [label...]     - Issue label associated with the issue. May be repeated.      
   --team             <team>         - Team associated with the issue (if not your default team)    
   --project          <project>      - Name of the project with the issue                           
-  --state            <state>        - Workflow state for the issue (by name or type)               
+  -s, --state        <state>        - Workflow state for the issue (by name or type)               
   --no-color                        - Disable colored output                                       
   -t, --title        <title>        - Title of the issue                                           
 

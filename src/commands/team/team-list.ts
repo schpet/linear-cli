@@ -77,6 +77,10 @@ export const listCommand = new Command()
       const { columns } = Deno.stdout.isTerminal()
         ? Deno.consoleSize()
         : { columns: 120 };
+      const ID_WIDTH = Math.max(
+        2, // minimum width for "ID" header
+        ...teams.map((team) => team.id.length),
+      );
       const KEY_WIDTH = Math.max(
         3, // minimum width for "KEY" header
         ...teams.map((team) => team.key.length),
@@ -90,8 +94,9 @@ export const listCommand = new Command()
         ...teams.map((team) => getTimeAgo(new Date(team.updatedAt)).length),
       );
 
-      const SPACE_WIDTH = 4;
-      const fixed = KEY_WIDTH + CYCLES_WIDTH + UPDATED_WIDTH + SPACE_WIDTH;
+      const SPACE_WIDTH = 5;
+      const fixed = ID_WIDTH + KEY_WIDTH + CYCLES_WIDTH + UPDATED_WIDTH +
+        SPACE_WIDTH;
       const PADDING = 1;
       const maxNameWidth = Math.max(
         ...teams.map((team) => unicodeWidth(team.name)),
@@ -105,6 +110,7 @@ export const listCommand = new Command()
         padDisplay("NAME", nameWidth),
         padDisplay("CYCLES", CYCLES_WIDTH),
         padDisplay("UPDATED", UPDATED_WIDTH),
+        padDisplay("ID", ID_WIDTH),
       ];
 
       let headerMsg = "";
@@ -132,8 +138,12 @@ export const listCommand = new Command()
         console.log(
           `%c${padDisplay(team.key, KEY_WIDTH)}%c ${truncName} ${
             padDisplay(cycles, CYCLES_WIDTH)
-          } %c${padDisplay(updated, UPDATED_WIDTH)}%c`,
+          } %c${padDisplay(updated, UPDATED_WIDTH)}%c %c${
+            padDisplay(team.id, ID_WIDTH)
+          }%c`,
           `color: ${team.color || "#ffffff"}`,
+          "",
+          "color: gray",
           "",
           "color: gray",
           "",
