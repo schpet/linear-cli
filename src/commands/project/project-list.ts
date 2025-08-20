@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import { unicodeWidth } from "@std/cli";
+import { open } from "@opensrc/deno-open";
 import { gql } from "../../__codegen__/gql.ts";
 import type {
   GetProjectsQuery,
@@ -8,6 +9,7 @@ import type {
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import { getTimeAgo, padDisplay } from "../../utils/display.ts";
 import { getTeamKey } from "../../utils/linear.ts";
+import { getOption } from "../../config.ts";
 
 const GetProjects = gql(`
   query GetProjects($filter: ProjectFilter) {
@@ -56,7 +58,37 @@ export const listCommand = new Command()
   .option("--team <team:string>", "Filter by team key")
   .option("--all-teams", "Show projects from all teams")
   .option("--status <status:string>", "Filter by status name")
-  .action(async ({ team, allTeams, status }) => {
+  .option("-w, --web", "Open in web browser")
+  .option("-a, --app", "Open in Linear.app")
+  .action(async ({ team, allTeams, status, web, app }) => {
+    if (web || app) {
+      let workspace = getOption("workspace");
+      if (!workspace) {
+        // Get workspace from viewer if not configured
+        const client = getGraphQLClient();
+        const viewerQuery = gql(`
+          query GetViewer {
+            viewer {
+              organization {
+                urlKey
+              }
+            }
+          }
+        `);
+        const result = await client.request(viewerQuery);
+        workspace = result.viewer.organization.urlKey;
+      }
+
+      // Determine team to filter by for URL construction
+      const teamKey = allTeams ? null : (team?.toUpperCase() || getTeamKey());
+      const url = teamKey
+        ? `https://linear.app/${workspace}/team/${teamKey}/projects/all`
+        : `https://linear.app/${workspace}/projects/all`;
+      const destination = app ? "Linear.app" : "web browser";
+      console.log(`Opening ${url} in ${destination}`);
+      await open(url, app ? { app: { name: "Linear" } } : undefined);
+      return;
+    }
     const { Spinner } = await import("@std/cli/unstable-spinner");
     const showSpinner = Deno.stdout.isTerminal();
     const spinner = showSpinner ? new Spinner() : null;
