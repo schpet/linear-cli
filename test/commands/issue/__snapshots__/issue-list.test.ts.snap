@@ -3,26 +3,26 @@ export const snapshot = {};
 snapshot[`Issue List Command - Help Text 1`] = `
 stdout:
 '
-\\x1b[1mUsage:\\x1b[22m \\x1b[95mlist\\x1b[39m
+Usage: list
 
-\\x1b[1mDescription:\\x1b[22m
+Description:
 
   List your issues
 
-\\x1b[1mOptions:\\x1b[22m
+Options:
 
-  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m                       \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.                                                                                                     
-  \\x1b[94m-s\\x1b[39m, \\x1b[94m--state\\x1b[39m          \\x1b[33m<\\x1b[39m\\x1b[95mstate\\x1b[39m\\x1b[33m>\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Filter by issue state (can be repeated for multiple states)  (\\x1b[1mDefault: \\x1b[22m[ \\x1b[32m"unstarted"\\x1b[39m ], \\x1b[1mValues: \\x1b[22m\\x1b[32m"triage"\\x1b[39m, \\x1b[32m"backlog"\\x1b[39m,
+  -h, --help                       - Show this help.                                                                                                     
+  -s, --state          <state>     - Filter by issue state (can be repeated for multiple states)  (Default: [ \\x1b[32m"unstarted"\\x1b[39m ], Values: \\x1b[32m"triage"\\x1b[39m, \\x1b[32m"backlog"\\x1b[39m,
                                                                                                   \\x1b[32m"unstarted"\\x1b[39m, \\x1b[32m"started"\\x1b[39m, \\x1b[32m"completed"\\x1b[39m, \\x1b[32m"canceled"\\x1b[39m)       
-  \\x1b[94m--all-states\\x1b[39m                     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show issues from all states                                                                                         
-  \\x1b[94m--assignee\\x1b[39m           \\x1b[33m<\\x1b[39m\\x1b[95massignee\\x1b[39m\\x1b[33m>\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Filter by assignee (username)                                                                                       
-  \\x1b[94m-A\\x1b[39m, \\x1b[94m--all-assignees\\x1b[39m              \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show issues for all assignees                                                                                       
-  \\x1b[94m-U\\x1b[39m, \\x1b[94m--unassigned\\x1b[39m                 \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show only unassigned issues                                                                                         
-  \\x1b[94m--sort\\x1b[39m               \\x1b[33m<\\x1b[39m\\x1b[95msort\\x1b[39m\\x1b[33m>\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Sort order (can also be set via LINEAR_ISSUE_SORT)           (\\x1b[1mValues: \\x1b[22m\\x1b[32m"manual"\\x1b[39m, \\x1b[32m"priority"\\x1b[39m)                         
-  \\x1b[94m--team\\x1b[39m               \\x1b[33m<\\x1b[39m\\x1b[95mteam\\x1b[39m\\x1b[33m>\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Team to list issues for (if not your default team)                                                                  
-  \\x1b[94m-w\\x1b[39m, \\x1b[94m--web\\x1b[39m                        \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in web browser                                                                                                 
-  \\x1b[94m-a\\x1b[39m, \\x1b[94m--app\\x1b[39m                        \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in Linear.app                                                                                                  
-  \\x1b[94m--no-pager\\x1b[39m                       \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Disable automatic paging for long output                                                                            
+  --all-states                     - Show issues from all states                                                                                         
+  --assignee           <assignee>  - Filter by assignee (username)                                                                                       
+  -A, --all-assignees              - Show issues for all assignees                                                                                       
+  -U, --unassigned                 - Show only unassigned issues                                                                                         
+  --sort               <sort>      - Sort order (can also be set via LINEAR_ISSUE_SORT)           (Values: \\x1b[32m"manual"\\x1b[39m, \\x1b[32m"priority"\\x1b[39m)                         
+  --team               <team>      - Team to list issues for (if not your default team)                                                                  
+  -w, --web                        - Open in web browser                                                                                                 
+  -a, --app                        - Open in Linear.app                                                                                                  
+  --no-pager                       - Disable automatic paging for long output                                                                            
 
 '
 stderr:
@@ -32,26 +32,26 @@ stderr:
 snapshot[`Issue List Command - Help with no-pager flag 1`] = `
 stdout:
 '
-\\x1b[1mUsage:\\x1b[22m \\x1b[95mlist\\x1b[39m
+Usage: list
 
-\\x1b[1mDescription:\\x1b[22m
+Description:
 
   List your issues
 
-\\x1b[1mOptions:\\x1b[22m
+Options:
 
-  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m                       \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.                                                                                                     
-  \\x1b[94m-s\\x1b[39m, \\x1b[94m--state\\x1b[39m          \\x1b[33m<\\x1b[39m\\x1b[95mstate\\x1b[39m\\x1b[33m>\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Filter by issue state (can be repeated for multiple states)  (\\x1b[1mDefault: \\x1b[22m[ \\x1b[32m"unstarted"\\x1b[39m ], \\x1b[1mValues: \\x1b[22m\\x1b[32m"triage"\\x1b[39m, \\x1b[32m"backlog"\\x1b[39m,
+  -h, --help                       - Show this help.                                                                                                     
+  -s, --state          <state>     - Filter by issue state (can be repeated for multiple states)  (Default: [ \\x1b[32m"unstarted"\\x1b[39m ], Values: \\x1b[32m"triage"\\x1b[39m, \\x1b[32m"backlog"\\x1b[39m,
                                                                                                   \\x1b[32m"unstarted"\\x1b[39m, \\x1b[32m"started"\\x1b[39m, \\x1b[32m"completed"\\x1b[39m, \\x1b[32m"canceled"\\x1b[39m)       
-  \\x1b[94m--all-states\\x1b[39m                     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show issues from all states                                                                                         
-  \\x1b[94m--assignee\\x1b[39m           \\x1b[33m<\\x1b[39m\\x1b[95massignee\\x1b[39m\\x1b[33m>\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Filter by assignee (username)                                                                                       
-  \\x1b[94m-A\\x1b[39m, \\x1b[94m--all-assignees\\x1b[39m              \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show issues for all assignees                                                                                       
-  \\x1b[94m-U\\x1b[39m, \\x1b[94m--unassigned\\x1b[39m                 \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show only unassigned issues                                                                                         
-  \\x1b[94m--sort\\x1b[39m               \\x1b[33m<\\x1b[39m\\x1b[95msort\\x1b[39m\\x1b[33m>\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Sort order (can also be set via LINEAR_ISSUE_SORT)           (\\x1b[1mValues: \\x1b[22m\\x1b[32m"manual"\\x1b[39m, \\x1b[32m"priority"\\x1b[39m)                         
-  \\x1b[94m--team\\x1b[39m               \\x1b[33m<\\x1b[39m\\x1b[95mteam\\x1b[39m\\x1b[33m>\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Team to list issues for (if not your default team)                                                                  
-  \\x1b[94m-w\\x1b[39m, \\x1b[94m--web\\x1b[39m                        \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in web browser                                                                                                 
-  \\x1b[94m-a\\x1b[39m, \\x1b[94m--app\\x1b[39m                        \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in Linear.app                                                                                                  
-  \\x1b[94m--no-pager\\x1b[39m                       \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Disable automatic paging for long output                                                                            
+  --all-states                     - Show issues from all states                                                                                         
+  --assignee           <assignee>  - Filter by assignee (username)                                                                                       
+  -A, --all-assignees              - Show issues for all assignees                                                                                       
+  -U, --unassigned                 - Show only unassigned issues                                                                                         
+  --sort               <sort>      - Sort order (can also be set via LINEAR_ISSUE_SORT)           (Values: \\x1b[32m"manual"\\x1b[39m, \\x1b[32m"priority"\\x1b[39m)                         
+  --team               <team>      - Team to list issues for (if not your default team)                                                                  
+  -w, --web                        - Open in web browser                                                                                                 
+  -a, --app                        - Open in Linear.app                                                                                                  
+  --no-pager                       - Disable automatic paging for long output                                                                            
 
 '
 stderr:

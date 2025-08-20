@@ -3,27 +3,27 @@ export const snapshot = {};
 snapshot[`Issue Update Command - Help Text 1`] = `
 stdout:
 "
-\\x1b[1mUsage:\\x1b[22m \\x1b[95mupdate \\x1b[33m[\\x1b[95m\\x1b[95missue_id\\x1b[95m\\x1b[33m]\\x1b[95m\\x1b[39m
+Usage: update [issue_id]
 
-\\x1b[1mDescription:\\x1b[22m
+Description:
 
   Update a linear issue
 
-\\x1b[1mOptions:\\x1b[22m
+Options:
 
-  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m                        \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.                                              
-  \\x1b[94m-a\\x1b[39m, \\x1b[94m--assignee\\x1b[39m     \\x1b[33m<\\x1b[39m\\x1b[95massignee\\x1b[39m\\x1b[33m>\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Assign the issue to 'self' or someone (by username or name)  
-  \\x1b[94m--due-date\\x1b[39m         \\x1b[33m<\\x1b[39m\\x1b[95mdueDate\\x1b[39m\\x1b[33m>\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Due date of the issue                                        
-  \\x1b[94m-p\\x1b[39m, \\x1b[94m--parent\\x1b[39m       \\x1b[33m<\\x1b[39m\\x1b[95mparent\\x1b[39m\\x1b[33m>\\x1b[39m       \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Parent issue (if any) as a team_number code                  
-  \\x1b[94m--priority\\x1b[39m         \\x1b[33m<\\x1b[39m\\x1b[95mpriority\\x1b[39m\\x1b[33m>\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Priority of the issue (1-4, descending priority)             
-  \\x1b[94m--estimate\\x1b[39m         \\x1b[33m<\\x1b[39m\\x1b[95mestimate\\x1b[39m\\x1b[33m>\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Points estimate of the issue                                 
-  \\x1b[94m-d\\x1b[39m, \\x1b[94m--description\\x1b[39m  \\x1b[33m<\\x1b[39m\\x1b[95mdescription\\x1b[39m\\x1b[33m>\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Description of the issue                                     
-  \\x1b[94m-l\\x1b[39m, \\x1b[94m--label\\x1b[39m        \\x1b[33m[\\x1b[39m\\x1b[95mlabel...\\x1b[39m\\x1b[33m]\\x1b[39m     \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Issue label associated with the issue. May be repeated.      
-  \\x1b[94m--team\\x1b[39m             \\x1b[33m<\\x1b[39m\\x1b[95mteam\\x1b[39m\\x1b[33m>\\x1b[39m         \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Team associated with the issue (if not your default team)    
-  \\x1b[94m--project\\x1b[39m          \\x1b[33m<\\x1b[39m\\x1b[95mproject\\x1b[39m\\x1b[33m>\\x1b[39m      \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Name of the project with the issue                           
-  \\x1b[94m--state\\x1b[39m            \\x1b[33m<\\x1b[39m\\x1b[95mstate\\x1b[39m\\x1b[33m>\\x1b[39m        \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Workflow state for the issue (by name or type)               
-  \\x1b[94m--no-color\\x1b[39m                        \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Disable colored output                                       
-  \\x1b[94m-t\\x1b[39m, \\x1b[94m--title\\x1b[39m        \\x1b[33m<\\x1b[39m\\x1b[95mtitle\\x1b[39m\\x1b[33m>\\x1b[39m        \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Title of the issue                                           
+  -h, --help                        - Show this help.                                              
+  -a, --assignee     <assignee>     - Assign the issue to 'self' or someone (by username or name)  
+  --due-date         <dueDate>      - Due date of the issue                                        
+  -p, --parent       <parent>       - Parent issue (if any) as a team_number code                  
+  --priority         <priority>     - Priority of the issue (1-4, descending priority)             
+  --estimate         <estimate>     - Points estimate of the issue                                 
+  -d, --description  <description>  - Description of the issue                                     
+  -l, --label        [label...]     - Issue label associated with the issue. May be repeated.      
+  --team             <team>         - Team associated with the issue (if not your default team)    
+  --project          <project>      - Name of the project with the issue                           
+  --state            <state>        - Workflow state for the issue (by name or type)               
+  --no-color                        - Disable colored output                                       
+  -t, --title        <title>        - Title of the issue                                           
 
 "
 stderr:

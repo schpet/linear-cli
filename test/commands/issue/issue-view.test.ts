@@ -19,7 +19,7 @@ const denoArgs = [
 await snapshotTest({
   name: "Issue View Command - Help Text",
   meta: import.meta,
-  colors: true,
+  colors: false,
   args: ["--help"],
   denoArgs,
   async fn() {

@@ -3,17 +3,17 @@ export const snapshot = {};
 snapshot[`Project View Command - Help Text 1`] = `
 stdout:
 "
-\\x1b[1mUsage:\\x1b[22m \\x1b[95mview \\x1b[33m<\\x1b[95m\\x1b[95mprojectId\\x1b[95m\\x1b[33m>\\x1b[95m\\x1b[39m
+Usage: view <projectId>
 
-\\x1b[1mDescription:\\x1b[22m
+Description:
 
   View project details
 
-\\x1b[1mOptions:\\x1b[22m
+Options:
 
-  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.      
-  \\x1b[94m-w\\x1b[39m, \\x1b[94m--web\\x1b[39m   \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in web browser  
-  \\x1b[94m-a\\x1b[39m, \\x1b[94m--app\\x1b[39m   \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Open in Linear.app   
+  -h, --help  - Show this help.      
+  -w, --web   - Open in web browser  
+  -a, --app   - Open in Linear.app   
 
 "
 stderr:

@@ -9,7 +9,7 @@ import {
 await snapshotTest({
   name: "Issue Update Command - Help Text",
   meta: import.meta,
-  colors: true,
+  colors: false,
   args: ["--help"],
   denoArgs: commonDenoArgs,
   async fn() {

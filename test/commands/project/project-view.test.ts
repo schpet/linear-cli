@@ -16,7 +16,7 @@ const denoArgs = [
 await snapshotTest({
   name: "Project View Command - Help Text",
   meta: import.meta,
-  colors: true,
+  colors: false,
   args: ["--help"],
   denoArgs,
   async fn() {
