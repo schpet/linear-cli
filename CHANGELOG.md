@@ -4,6 +4,9 @@
 
 ## [1.0.0] - 2025-08-20
 
+given the number of breaking changes, giving this a major bump. hello
+one-point-oh.
+
 ### Fixed
 
 - state column is now dynamically sized with max 20 chars and auto-truncation
