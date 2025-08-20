@@ -17,7 +17,7 @@ const denoArgs = [
 await cliffySnapshotTest({
   name: "Team List Command - Help Text",
   meta: import.meta,
-  colors: true,
+  colors: false,
   args: ["--help"],
   denoArgs,
   async fn() {

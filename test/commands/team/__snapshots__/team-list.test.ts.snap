@@ -3,27 +3,18 @@ export const snapshot = {};
 snapshot[`Team List Command - Help Text 1`] = `
 stdout:
 "
-\\x1b[1mUsage:\\x1b[22m \\x1b[95mlist\\x1b[39m
+Usage: list
 
-\\x1b[1mDescription:\\x1b[22m
+Description:
 
   List teams
 
-\\x1b[1mOptions:\\x1b[22m
+Options:
 
-  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.  
+  -h, --help  - Show this help.      
+  -w, --web   - Open in web browser  
+  -a, --app   - Open in Linear.app   
 
-"
-stderr:
-""
-`;
-
-snapshot[`Team List Command - With Mock Teams 1`] = `
-stdout:
-"KEY      NAME          CYCLES UPDATED     
-BACKEND  Backend Team  Yes    574 days ago
-FRONTEND Frontend Team No     577 days ago
-SEC      Security Team Yes    572 days ago
 "
 stderr:
 ""
