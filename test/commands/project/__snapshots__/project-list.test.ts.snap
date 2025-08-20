@@ -3,18 +3,20 @@ export const snapshot = {};
 snapshot[`Project List Command - Help Text 1`] = `
 stdout:
 "
-\\x1b[1mUsage:\\x1b[22m \\x1b[95mlist\\x1b[39m
+Usage: list
 
-\\x1b[1mDescription:\\x1b[22m
+Description:
 
   List projects
 
-\\x1b[1mOptions:\\x1b[22m
+Options:
 
-  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m             \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.               
-  \\x1b[94m--team\\x1b[39m       \\x1b[33m<\\x1b[39m\\x1b[95mteam\\x1b[39m\\x1b[33m>\\x1b[39m    \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Filter by team key            
-  \\x1b[94m--all-teams\\x1b[39m            \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show projects from all teams  
-  \\x1b[94m--status\\x1b[39m     \\x1b[33m<\\x1b[39m\\x1b[95mstatus\\x1b[39m\\x1b[33m>\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Filter by status name         
+  -h, --help             - Show this help.               
+  --team       <team>    - Filter by team key            
+  --all-teams            - Show projects from all teams  
+  --status     <status>  - Filter by status name         
+  -w, --web              - Open in web browser           
+  -a, --app              - Open in Linear.app            
 
 "
 stderr:

@@ -27,7 +27,9 @@ added|changed|deprecated|removed|fixed|security
 
 ## tests
 
-tests on commands should mirror the directory structure of the src, e.g.
-
-    src/commands/issue/issue-view.ts
-    test/commands/issue/issue-view.test.ts
+- tests on commands should mirror the directory structure of the src, e.g.
+  - src/commands/issue/issue-view.ts
+  - test/commands/issue/issue-view.test.ts
+- use `deno task test` instead of `deno test`
+- use the NO_COLOR variable for snapshot tests so they don't include ansi escape
+  codes

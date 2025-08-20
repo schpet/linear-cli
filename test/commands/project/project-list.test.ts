@@ -8,7 +8,7 @@ import { MockLinearServer } from "../../utils/mock_linear_server.ts";
 await cliffySnapshotTest({
   name: "Project List Command - Help Text",
   meta: import.meta,
-  colors: true,
+  colors: false,
   args: ["--help"],
   denoArgs: commonDenoArgs,
   async fn() {
