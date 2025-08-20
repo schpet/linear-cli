@@ -1,8 +1,10 @@
 import { Command } from "@cliffy/command";
 import { unicodeWidth } from "@std/cli";
+import { open } from "@opensrc/deno-open";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import { getTimeAgo, padDisplay } from "../../utils/display.ts";
+import { getOption } from "../../config.ts";
 
 const GetTeams = gql(`
   query GetTeams($filter: TeamFilter) {
@@ -30,7 +32,24 @@ const GetTeams = gql(`
 export const listCommand = new Command()
   .name("list")
   .description("List teams")
-  .action(async () => {
+  .option("-w, --web", "Open in web browser")
+  .option("-a, --app", "Open in Linear.app")
+  .action(async ({ web, app }) => {
+    if (web || app) {
+      const workspace = getOption("workspace");
+      if (!workspace) {
+        console.error(
+          "workspace is not set via command line, configuration file, or environment.",
+        );
+        Deno.exit(1);
+      }
+
+      const url = `https://linear.app/${workspace}/settings/teams`;
+      const destination = app ? "Linear.app" : "web browser";
+      console.log(`Opening ${url} in ${destination}`);
+      await open(url, app ? { app: { name: "Linear" } } : undefined);
+      return;
+    }
     const { Spinner } = await import("@std/cli/unstable-spinner");
     const showSpinner = Deno.stdout.isTerminal();
     const spinner = showSpinner ? new Spinner() : null;

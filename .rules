@@ -11,6 +11,8 @@
 - when coloring or styling terminal text, use deno's support for css style
   formatting, e.g. console.log("%cHello World", "color: red"); or
   console.log("%cHello World", "text-decoration: underline");
+- prefer `foo == null` and `foo != null` over `foo === undefined` and
+  `foo !== undefined`
 
 ## changelog entries
 
