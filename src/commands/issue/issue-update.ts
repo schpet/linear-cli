@@ -52,7 +52,7 @@ export const updateCommand = new Command()
     "Name of the project with the issue",
   )
   .option(
-    "--state <state:string>",
+    "-s, --state <state:string>",
     "Workflow state for the issue (by name or type)",
   )
   .option("--no-color", "Disable colored output")

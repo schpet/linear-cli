@@ -24,7 +24,7 @@ export const createCommand = new Command()
   .name("create")
   .description("Create a linear issue")
   .option(
-    "-s, --start",
+    "--start",
     "Start the issue after creation",
   )
   .option(
@@ -64,7 +64,7 @@ export const createCommand = new Command()
     "Name of the project with the issue",
   )
   .option(
-    "--state <state:string>",
+    "-s, --state <state:string>",
     "Workflow state for the issue (by name or type)",
   )
   .option(
