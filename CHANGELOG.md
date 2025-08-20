@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-08-20
+
 ### Fixed
 
 - state column is now dynamically sized with max 20 chars and auto-truncation
@@ -213,7 +215,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/schpet/linear-cli/compare/v0.6.4...v1.0.0
 [0.6.4]: https://github.com/schpet/linear-cli/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/schpet/linear-cli/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/schpet/linear-cli/compare/v0.6.1...v0.6.2
