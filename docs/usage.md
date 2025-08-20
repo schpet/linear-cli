@@ -1,30 +1,32 @@
-## Usage
+## linear cli
 
-Linear CLI provides commands to manage Linear issues, teams, and projects from
+### usage
+
+linear cli provides commands to manage linear issues, teams, and projects from
 the command line.
 
-## Repo Configuration
+### repo configuration
 
-First, configure the CLI with your Linear API token:
+first, configure the cli with your linear api token:
 
 ```bash
 linear config
 ```
 
-This will interactively generate a `.linear.toml` configuration file in the
+this will interactively generate a `.linear.toml` configuration file in the
 repo.
 
-## Issues
+### issues
 
-### List Issues
+#### list issues
 
-List your issues (shows unstarted issues by default):
+list your issues (shows unstarted issues by default):
 
 ```bash
 linear issue list
 ```
 
-List issues with different states:
+list issues with different states:
 
 ```bash
 # List started issues
@@ -37,7 +39,7 @@ linear issue list --all-states
 linear issue list --state unstarted --state started
 ```
 
-Filter by assignee:
+filter by assignee:
 
 ```bash
 # List issues assigned to you
@@ -53,7 +55,7 @@ linear issue list --unassigned
 linear issue list --all-assignees
 ```
 
-Other options:
+other options:
 
 ```bash
 # List issues for specific team
@@ -69,21 +71,21 @@ linear issue list --web
 linear issue list --app
 ```
 
-### View Issue Details
+#### view issue details
 
-View the current issue (based on git branch):
+view the current issue (based on git branch):
 
 ```bash
 linear issue view
 ```
 
-View a specific issue:
+view a specific issue:
 
 ```bash
 linear issue view TEAM-123
 ```
 
-View options:
+view options:
 
 ```bash
 # Open in web browser
@@ -96,31 +98,31 @@ linear issue view TEAM-123 --app
 linear issue view TEAM-123 --no-comments
 ```
 
-### Start Working on an Issue
+#### start working on an issue
 
-Start the next available issue:
+start the next available issue:
 
 ```bash
 linear issue start
 ```
 
-Start a specific issue:
+start a specific issue:
 
 ```bash
 linear issue start TEAM-123
 ```
 
-This will move the issue to "In Progress" and create a git branch.
+this will move the issue to "in progress" and create a git branch.
 
-### Create an Issue
+#### create an issue
 
-Create an issue interactively:
+create an issue interactively:
 
 ```bash
 linear issue create
 ```
 
-Create with specific options:
+create with specific options:
 
 ```bash
 # Create with title and description
@@ -145,114 +147,114 @@ linear issue create --team TEAM
 linear issue create --start
 ```
 
-### Update an Issue
+#### update an issue
 
-Update the current issue:
+update the current issue:
 
 ```bash
 linear issue update
 ```
 
-Update a specific issue:
+update a specific issue:
 
 ```bash
 linear issue update TEAM-123
 ```
 
-### Other Issue Commands
+#### other issue commands
 
-Get issue ID from current git branch:
+get issue id from current git branch:
 
 ```bash
 linear issue id
 ```
 
-Get issue title:
+get issue title:
 
 ```bash
 linear issue title TEAM-123
 ```
 
-Get issue URL:
+get issue url:
 
 ```bash
 linear issue url TEAM-123
 ```
 
-Create a GitHub pull request:
+create a github pull request:
 
 ```bash
 linear issue pull-request
 linear issue pr  # Short alias
 ```
 
-Delete an issue:
+delete an issue:
 
 ```bash
 linear issue delete TEAM-123
 ```
 
-## Teams
+### teams
 
-### List Teams
+#### list teams
 
 ```bash
 linear team list
 ```
 
-### Get Team ID
+#### get team id
 
-Get team ID derived from repository name:
+get team id derived from repository name:
 
 ```bash
 linear team id
 ```
 
-### Team Members
+#### team members
 
-List members of your default team:
+list members of your default team:
 
 ```bash
 linear team members
 ```
 
-List members of a specific team:
+list members of a specific team:
 
 ```bash
 linear team members TEAM
 ```
 
-### Create a Team
+#### create a team
 
 ```bash
 linear team create
 ```
 
-### Configure GitHub Autolinks
+#### configure github autolinks
 
-Set up GitHub repository autolinks for Linear issues:
+set up github repository autolinks for linear issues:
 
 ```bash
 linear team autolinks
 ```
 
-## Projects
+### projects
 
-### List Projects
+#### list projects
 
 ```bash
 linear project list
 ```
 
-### View Project Details
+#### view project details
 
 ```bash
 linear project view PROJECT-ID
 ```
 
-## Shell Completions
+### shell completions
 
-Generate shell completions for better command-line experience:
+generate shell completions for better command-line experience:
 
 ```bash
 # For bash
@@ -265,20 +267,20 @@ source <(linear completions zsh)
 linear completions fish | source
 ```
 
-Add the appropriate line to your shell's configuration file (e.g., `~/.bashrc`,
+add the appropriate line to your shell's configuration file (e.g., `~/.bashrc`,
 `~/.zshrc`, or `~/.config/fish/config.fish`).
 
-## Global Options
+### global options
 
-Most commands support these options:
+most commands support these options:
 
-- `--no-pager` - Disable automatic paging for long output
-- `--no-color` - Disable colored output
-- `--help` - Show help for the command
+- `--no-pager` - disable automatic paging for long output
+- `--no-color` - disable colored output
+- `--help` - show help for the command
 
-## Examples
+### examples
 
-Common workflows:
+common workflows:
 
 ```bash
 # Start working on the next issue
