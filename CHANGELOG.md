@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- pager leaves content visible after quitting
+
 ### Changed
 
 - issue start command now has searchable prompt with type-ahead filtering

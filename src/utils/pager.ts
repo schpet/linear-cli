@@ -1,5 +1,5 @@
 // Helper function to get the appropriate pager command
-function getPagerCommand(): { command: string; args: string[] } | null {
+export function getPagerCommand(): { command: string; args: string[] } | null {
   // Respect user's PAGER environment variable
   const userPager = Deno.env.get("PAGER");
   if (userPager) {
@@ -20,8 +20,8 @@ function getPagerCommand(): { command: string; args: string[] } | null {
     case "darwin":
     case "linux":
     default:
-      // Unix-like systems: prefer less with color support
-      return { command: "less", args: ["-R"] };
+      // Unix-like systems: prefer less with color support and no alternate screen
+      return { command: "less", args: ["-R", "-X"] };
   }
 }
 
@@ -37,12 +37,12 @@ async function tryFallbackPagers(
     // Windows fallbacks
     if (failedPager !== "more") fallbacks.push({ command: "more", args: [] });
     if (failedPager !== "less") {
-      fallbacks.push({ command: "less", args: ["-R"] });
+      fallbacks.push({ command: "less", args: ["-R", "-X"] });
     }
   } else {
     // Unix-like fallbacks
     if (failedPager !== "less") {
-      fallbacks.push({ command: "less", args: ["-R"] });
+      fallbacks.push({ command: "less", args: ["-R", "-X"] });
     }
     if (failedPager !== "more") fallbacks.push({ command: "more", args: [] });
     if (failedPager !== "cat") fallbacks.push({ command: "cat", args: [] });

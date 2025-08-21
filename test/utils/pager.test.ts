@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { shouldUsePager } from "../../src/utils/pager.ts";
+import { getPagerCommand, shouldUsePager } from "../../src/utils/pager.ts";
 
 Deno.test({
   name: "shouldUsePager - returns false when usePager is false",
@@ -85,6 +85,26 @@ Deno.test({
       assertEquals(shouldUsePager(outputLines, true), false);
     } finally {
       Deno.stdout.isTerminal = originalIsTerminal;
+    }
+  },
+});
+
+Deno.test({
+  name: "getPagerCommand - includes -X flag for less on unix systems",
+  fn() {
+    // Clear PAGER environment variable to test default behavior
+    const originalPager = Deno.env.get("PAGER");
+    if (originalPager) Deno.env.delete("PAGER");
+
+    try {
+      const pagerConfig = getPagerCommand();
+      if (Deno.build.os !== "windows") {
+        assertEquals(pagerConfig?.command, "less");
+        assertEquals(pagerConfig?.args, ["-R", "-X"]);
+      }
+    } finally {
+      // Restore original PAGER if it existed
+      if (originalPager) Deno.env.set("PAGER", originalPager);
     }
   },
 });
