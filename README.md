@@ -116,9 +116,25 @@ linear issue list -a   # open issue list in Linear.app
 linear issue start     # create/switch to issue branch and mark as started
 linear issue create    # create a new issue (interactive prompts)
 linear issue create -t "title" -d "description"  # create with flags
+linear issue update    # update an issue (interactive prompts)
+linear issue delete    # delete an issue
+```
 
+### team commands
+
+```bash
+linear team list       # list teams
 linear team id         # print out the team id (e.g. for scripts)
-linear autolinks       # use gh to setup autolinked references from github to linear
+linear team members    # list team members
+linear team create     # create a new team
+linear team autolinks  # configure GitHub repository autolinks for Linear issues
+```
+
+### project commands
+
+```bash
+linear project list    # list projects
+linear project view    # view project details
 ```
 
 ### other commands
