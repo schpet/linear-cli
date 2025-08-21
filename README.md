@@ -10,8 +10,8 @@ linear config               # setup your repo, it writes a config file
 
 linear issue list           # list unstarted issues assigned to you
 linear issue list -A        # list unstarted issues assigned to anyone
-linear issue start          # choose an issue to start,
-linear issue start ABC-123  # update an issue status, checks out a branch
+linear issue start          # choose an issue to start, creates a branch
+linear issue start ABC-123  # start a specific issue
 linear issue view           # see current branch's issue as markdown
 linear issue pr             # makes a PR with title/body preset, using gh cli
 linear issue create         # create a new issue
