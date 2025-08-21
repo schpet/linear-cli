@@ -14,7 +14,7 @@ import {
 export const updateCommand = new Command()
   .name("update")
   .description("Update a linear issue")
-  .arguments("[issue_id:string]")
+  .arguments("[issueId:string]")
   .option(
     "-a, --assignee <assignee:string>",
     "Assign the issue to 'self' or someone (by username or name)",
