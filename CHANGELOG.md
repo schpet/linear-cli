@@ -5,6 +5,7 @@
 ### Changed
 
 - issue start command now has searchable prompt with type-ahead filtering
+- improve choices for assignment on issue create
 
 ## [1.0.0] - 2025-08-20
 

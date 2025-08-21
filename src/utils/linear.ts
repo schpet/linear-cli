@@ -83,9 +83,7 @@ export async function getIssueId(
 
 export async function getWorkflowStates(
   teamKey: string,
-): Promise<
-  Array<{ id: string; name: string; type: string; position: number }>
-> {
+) {
   const query = gql(/* GraphQL */ `
     query GetWorkflowStates($teamKey: String!) {
       team(id: $teamKey) {
@@ -108,6 +106,8 @@ export async function getWorkflowStates(
       a.position - b.position,
   );
 }
+export type WorkflowState = Awaited<ReturnType<typeof getWorkflowStates>>[number]
+
 
 export async function getStartedState(
   teamKey: string,

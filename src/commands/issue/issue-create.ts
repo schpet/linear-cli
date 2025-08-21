@@ -21,13 +21,219 @@ import {
   lookupUserId,
   searchTeamsByKeySubstring,
   selectOption,
+  type WorkflowState,
 } from "../../utils/linear.ts";
 import { startWorkOnIssue } from "../../utils/actions.ts";
 
+type IssueLabel = { id: string; name: string; color: string };
+
+type AdditionalField = {
+  key: string;
+  label: string;
+  handler: (
+    teamKey: string,
+    teamId: string,
+    preloaded?: {
+      states?: WorkflowState[];
+      labels?: IssueLabel[];
+    },
+  ) => Promise<string | number | string[] | undefined>;
+};
+
+const ADDITIONAL_FIELDS: AdditionalField[] = [
+  {
+    key: "workflow_state",
+    label: "Workflow state",
+    handler: async (
+      teamKey: string,
+      _teamId: string,
+      preloaded?: {
+        states?: WorkflowState[];
+        labels?: IssueLabel[];
+      },
+    ) => {
+      const states = preloaded?.states ?? await getWorkflowStates(teamKey);
+      if (states.length === 0) return undefined;
+
+      const defaultState = states.find((s) => s.type === "unstarted") ||
+        states[0];
+      return await Select.prompt({
+        message: "Which workflow state should this issue be in?",
+        options: states.map((state) => ({
+          name: `${state.name} (${state.type})`,
+          value: state.id,
+        })),
+        default: defaultState.id,
+      });
+    },
+  },
+  {
+    key: "assignee",
+    label: "Assignee",
+    handler: async () => {
+      const assignToSelf = await Select.prompt({
+        message: "Assign this issue to yourself?",
+        options: [
+          { name: "No", value: false },
+          { name: "Yes", value: true },
+        ],
+        default: false,
+      });
+      return assignToSelf ? await lookupUserId("self") : undefined;
+    },
+  },
+  {
+    key: "priority",
+    label: "Priority",
+    handler: async () => {
+      return await Select.prompt({
+        message: "What priority should this issue have?",
+        options: [
+          { name: `${getPriorityDisplay(0)} No priority`, value: 0 },
+          { name: `${getPriorityDisplay(1)} Urgent`, value: 1 },
+          { name: `${getPriorityDisplay(2)} High`, value: 2 },
+          { name: `${getPriorityDisplay(3)} Medium`, value: 3 },
+          { name: `${getPriorityDisplay(4)} Low`, value: 4 },
+        ],
+        default: 0,
+      });
+    },
+  },
+  {
+    key: "labels",
+    label: "Labels",
+    handler: async (
+      teamKey: string,
+      _teamId: string,
+      preloaded?: {
+        states?: WorkflowState[];
+        labels?: IssueLabel[];
+      },
+    ) => {
+      const labels = preloaded?.labels ?? await getLabelsForTeam(teamKey);
+      if (labels.length === 0) return [];
+
+      const hasLabels = await Select.prompt({
+        message: "Do you want to add labels?",
+        options: [
+          { name: "No", value: false },
+          { name: "Yes", value: true },
+        ],
+        default: false,
+      });
+
+      if (!hasLabels) return [];
+
+      return await Checkbox.prompt({
+        message: "Select labels (use space to select, enter to confirm)",
+        search: true,
+        searchLabel: "Search labels",
+        options: labels.map((label) => ({
+          name: label.name,
+          value: label.id,
+        })),
+      });
+    },
+  },
+  {
+    key: "estimate",
+    label: "Estimate",
+    handler: async () => {
+      const estimate = await Input.prompt({
+        message: "Estimate (leave blank for none)",
+        default: "",
+      });
+      const parsed = parseInt(estimate);
+      return isNaN(parsed) ? undefined : parsed;
+    },
+  },
+];
+
+async function promptAdditionalFields(
+  teamKey: string,
+  teamId: string,
+  states: WorkflowState[],
+  labels: IssueLabel[],
+  autoAssignToSelf: boolean,
+): Promise<{
+  assigneeId?: string;
+  priority?: number;
+  estimate?: number;
+  labelIds: string[];
+  stateId?: string;
+}> {
+  // Build options that display defaults in parentheses for workflow state and assignee
+  let defaultStateName: string | null = null;
+  if (states.length > 0) {
+    const defaultState = states.find((s) => s.type === "unstarted") ||
+      states[0];
+    defaultStateName = defaultState.name;
+  }
+  const additionalFieldOptions = ADDITIONAL_FIELDS.map((field) => {
+    let name = field.label;
+    if (field.key === "workflow_state" && defaultStateName) {
+      name = `${field.label} (${defaultStateName})`;
+    } else if (field.key === "assignee") {
+      name = `${field.label} (${autoAssignToSelf ? "self" : "unassigned"})`;
+    }
+    return { name, value: field.key };
+  });
+  const selectedFields = await Checkbox.prompt({
+    message: "Select additional fields to configure",
+    options: additionalFieldOptions,
+  });
+
+  // Initialize default values
+  let assigneeId: string | undefined;
+  let priority: number | undefined;
+  let estimate: number | undefined;
+  let labelIds: string[] = [];
+  let stateId: string | undefined;
+
+  // Set assignee default based on user settings
+  if (autoAssignToSelf) {
+    assigneeId = await lookupUserId("self");
+  }
+
+  // Process selected fields
+  for (const fieldKey of selectedFields) {
+    const field = ADDITIONAL_FIELDS.find((f) => f.key === fieldKey);
+    if (field) {
+      const value = await field.handler(teamKey, teamId, {
+        states,
+        labels,
+      });
+
+      switch (fieldKey) {
+        case "workflow_state":
+          stateId = value as string | undefined;
+          break;
+        case "assignee":
+          assigneeId = value as string | undefined;
+          break;
+        case "priority":
+          priority = value === 0 ? undefined : (value as number);
+          break;
+        case "labels":
+          labelIds = (value as string[]) || [];
+          break;
+        case "estimate":
+          estimate = value as number | undefined;
+          break;
+      }
+    }
+  }
+
+  return {
+    assigneeId,
+    priority,
+    estimate,
+    labelIds,
+    stateId,
+  };
+}
+
 async function promptInteractiveIssueCreation(
-  preStartedStatesPromise?: Promise<
-    Array<{ id: string; name: string; type: string; position: number }>
-  >,
   parentId?: string,
   parentData?: {
     title: string;
@@ -69,8 +275,6 @@ async function promptInteractiveIssueCreation(
         return {
           teamId: teamId,
           teamKey: defaultTeamKey,
-          statesPromise: preStartedStatesPromise ||
-            getWorkflowStates(defaultTeamKey),
           needsTeamSelection: false,
         };
       }
@@ -78,7 +282,6 @@ async function promptInteractiveIssueCreation(
     return {
       teamId: null,
       teamKey: null,
-      statesPromise: null,
       needsTeamSelection: true,
     };
   })();
@@ -100,9 +303,6 @@ async function promptInteractiveIssueCreation(
   const autoAssignToSelf = await userSettingsPromise;
   let teamId: string;
   let teamKey: string;
-  let statesPromise: Promise<
-    Array<{ id: string; name: string; type: string; position: number }>
-  >;
 
   if (teamResult.needsTeamSelection) {
     // Need to prompt for team selection
@@ -127,90 +327,22 @@ async function promptInteractiveIssueCreation(
 
     teamId = team.id;
     teamKey = team.key;
-    statesPromise = getWorkflowStates(team.key);
   } else {
     // Team was resolved in background
     teamId = teamResult.teamId!;
     teamKey = teamResult.teamKey!;
-    statesPromise = teamResult.statesPromise!;
   }
 
-  // Select workflow state - await the promise we started earlier
-  const states = await statesPromise;
-  let stateId: string | undefined;
+  // Preload team-scoped data (do not await yet)
+  const workflowStatesPromise = getWorkflowStates(teamKey);
+  const labelsPromise = getLabelsForTeam(teamKey);
 
-  if (states.length > 0) {
-    // Find the first 'unstarted' state as default
-    const defaultState = states.find((s) => s.type === "unstarted") ||
-      states[0];
-
-    stateId = await Select.prompt({
-      message: "Which workflow state should this issue be in?",
-      options: states.map((state) => ({
-        name: `${state.name} (${state.type})`,
-        value: state.id,
-      })),
-      default: defaultState.id,
-    });
-  }
-
-  const assignToSelf = await Select.prompt({
-    message: "Assign this issue to yourself?",
-    options: [
-      { name: "No", value: false },
-      { name: "Yes", value: true },
-    ],
-    default: autoAssignToSelf,
-  });
-
-  const assigneeId = assignToSelf ? await lookupUserId("self") : undefined;
-
-  const priority = await Select.prompt({
-    message: "What priority should this issue have?",
-    options: [
-      { name: `${getPriorityDisplay(0)} No priority`, value: 0 },
-      { name: `${getPriorityDisplay(1)} Urgent`, value: 1 },
-      { name: `${getPriorityDisplay(2)} High`, value: 2 },
-      { name: `${getPriorityDisplay(3)} Medium`, value: 3 },
-      { name: `${getPriorityDisplay(4)} Low`, value: 4 },
-    ],
-    default: 0,
-  });
-
-  const labels = await getLabelsForTeam(teamKey);
-  const labelIds: string[] = [];
-
-  if (labels.length > 0) {
-    const hasLabels = await Select.prompt({
-      message: "Do you want to add labels?",
-      options: [
-        { name: "No", value: false },
-        { name: "Yes", value: true },
-      ],
-      default: false,
-    });
-
-    if (hasLabels) {
-      const selectedLabelIds = await Checkbox.prompt({
-        message: "Select labels (use space to select, enter to confirm)",
-        search: true,
-        searchLabel: "Search labels",
-        options: labels.map((label) => ({
-          name: label.name,
-          value: label.id,
-        })),
-      });
-      labelIds.push(...selectedLabelIds);
-    }
-  }
-
-  // Get editor name for prompt
+  // Description prompt
   const editorName = await getEditor();
   const editorDisplayName = editorName ? editorName.split("/").pop() : null;
-
   const promptMessage = editorDisplayName
-    ? `Body [(e) to launch ${editorDisplayName}]`
-    : "Body";
+    ? `Description [(e) to launch ${editorDisplayName}]`
+    : "Description";
 
   const description = await Input.prompt({
     message: promptMessage,
@@ -238,6 +370,59 @@ async function promptInteractiveIssueCreation(
     finalDescription = description.trim();
   }
 
+  // Now await the preloaded data and resolve default state
+  const states = await workflowStatesPromise;
+  const labels = await labelsPromise;
+  let defaultState: WorkflowState | undefined;
+  if (states.length > 0) {
+    defaultState = states.find((s) => s.type === "unstarted") || states[0];
+  }
+
+  // What's next? prompt
+  const nextAction = await Select.prompt({
+    message: "What's next?",
+    options: [
+      { name: "Submit issue", value: "submit" },
+      { name: "Add more fields", value: "more_fields" },
+    ],
+    default: "submit",
+  });
+
+  // Initialize default values for additional fields
+  let assigneeId: string | undefined;
+  let priority: number | undefined;
+  let estimate: number | undefined;
+  let labelIds: string[] = [];
+  let stateId: string | undefined;
+
+  // Set assignee default based on user settings
+  if (autoAssignToSelf) {
+    assigneeId = await lookupUserId("self");
+  }
+
+  // Set default state (resolved earlier)
+  if (defaultState) {
+    stateId = defaultState.id;
+  }
+
+  if (nextAction === "more_fields") {
+    const additionalFieldsResult = await promptAdditionalFields(
+      teamKey,
+      teamId,
+      states,
+      labels,
+      autoAssignToSelf,
+    );
+
+    // Override defaults with user selections
+    assigneeId = additionalFieldsResult.assigneeId;
+    priority = additionalFieldsResult.priority;
+    estimate = additionalFieldsResult.estimate;
+    labelIds = additionalFieldsResult.labelIds;
+    stateId = additionalFieldsResult.stateId;
+  }
+
+  // Ask about starting work (always show this)
   const start = await Select.prompt({
     message:
       "Start working on this issue now? (creates branch and updates status)",
@@ -252,8 +437,8 @@ async function promptInteractiveIssueCreation(
     title,
     teamId,
     assigneeId,
-    priority: priority === 0 ? undefined : priority,
-    estimate: undefined,
+    priority,
+    estimate,
     labelIds,
     description: finalDescription,
     stateId,
@@ -348,21 +533,6 @@ export const createCommand = new Command()
 
       if (noFlagsProvided && interactive) {
         try {
-          // Pre-fetch team info and start workflow states query early
-          const defaultTeamKey = getTeamKey();
-          let statesPromise:
-            | Promise<
-              Array<
-                { id: string; name: string; type: string; position: number }
-              >
-            >
-            | undefined;
-
-          if (defaultTeamKey) {
-            // Start fetching workflow states immediately for the default team
-            statesPromise = getWorkflowStates(defaultTeamKey);
-          }
-
           // Convert parent identifier if provided and fetch parent data
           let parentId: string | undefined;
           let parentData: {
@@ -393,7 +563,6 @@ export const createCommand = new Command()
           }
 
           const interactiveData = await promptInteractiveIssueCreation(
-            statesPromise,
             parentId,
             parentData,
           );
