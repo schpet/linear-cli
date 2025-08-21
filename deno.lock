@@ -46,7 +46,9 @@
     "npm:@types/node@*": "22.15.15",
     "npm:get-graphql-schema@*": "2.1.2",
     "npm:graphql-request@^7.2.0": "7.2.0_graphql@16.11.0",
-    "npm:graphql@^16.8.1": "16.11.0"
+    "npm:graphql@^16.8.1": "16.11.0",
+    "npm:lefthook@*": "1.12.3",
+    "npm:lefthook@^1.12.3": "1.12.3"
   },
   "jsr": {
     "@cliffy/ansi@1.0.0-rc.8": {
@@ -54,6 +56,7 @@
       "dependencies": [
         "jsr:@cliffy/internal@1.0.0-rc.8",
         "jsr:@std/encoding@~1.0.5",
+        "jsr:@std/fmt@~1.0.2",
         "jsr:@std/io"
       ]
     },
@@ -1602,6 +1605,73 @@
       "integrity": "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==",
       "bin": true
     },
+    "lefthook-darwin-arm64@1.12.3": {
+      "integrity": "sha512-j1lwaosWRy3vhz8oQgCS1M6EUFN95aIYeNuqkczsBoAA6BDNAmVP1ctYEIYUK4bYaIgENbqbA9prYMAhyzh6Og==",
+      "os": ["darwin"],
+      "cpu": ["arm64"]
+    },
+    "lefthook-darwin-x64@1.12.3": {
+      "integrity": "sha512-x6aWFfLQX4m5zQ4X9zh5+hHOE5XTvNjz2zB9DI+xbIBLs2RRg0xJNT3OfgSrBU1QtEBneJ5dRQP5nl47td9GDQ==",
+      "os": ["darwin"],
+      "cpu": ["x64"]
+    },
+    "lefthook-freebsd-arm64@1.12.3": {
+      "integrity": "sha512-41OmulLqVZ0EOHmmHouJrpL59SwDD7FLoso4RsQVIBPaf8fHacdLo07Ye28VWQ5XolZQvnWcr1YXKo4JhqQMyw==",
+      "os": ["freebsd"],
+      "cpu": ["arm64"]
+    },
+    "lefthook-freebsd-x64@1.12.3": {
+      "integrity": "sha512-741/JRCJIS++hgYEH2uefN4FsH872V7gy2zDhcfQofiZnWP7+qhl4Wmwi8IpjIu4X7hLOC4cT18LOVU5L8KV9Q==",
+      "os": ["freebsd"],
+      "cpu": ["x64"]
+    },
+    "lefthook-linux-arm64@1.12.3": {
+      "integrity": "sha512-BXIy1aDFZmFgmebJliNrEqZfX1lSOD4b/USvANv1UirFrNgTq5SRssd1CKfflT2PwKX6LsJTD4WabLLWZOxp9A==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
+    "lefthook-linux-x64@1.12.3": {
+      "integrity": "sha512-FRdwdj5jsQAP2eVrtkVUqMqYNCbQ2Ix84izy29/BvLlu/hVypAGbDfUkgFnsmAd6ZsCBeYCEtPuqyg3E3SO0Rg==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "lefthook-openbsd-arm64@1.12.3": {
+      "integrity": "sha512-tch5wXY4GOjKAYohH7OFoxNdVHuUSYt2Pulo2VTkMYEG8IrvJnRO5MkvgHtKDHzU5mfABQYv5+ccJykDx5hQWA==",
+      "os": ["openbsd"],
+      "cpu": ["arm64"]
+    },
+    "lefthook-openbsd-x64@1.12.3": {
+      "integrity": "sha512-IHbHg/rUFXrAN7LnjcQEtutCHBaD49CZge96Hpk0GZ2eEG5GTCNRnUyEf+Kf3+RTqHFgwtADdpeDa/ZaGZTM4g==",
+      "os": ["openbsd"],
+      "cpu": ["x64"]
+    },
+    "lefthook-windows-arm64@1.12.3": {
+      "integrity": "sha512-wghcE5TSpb+mbtemUV6uAo9hEK09kxRzhf2nPdeDX+fw42cL2TGZsbaCnDyzaY144C+L2/wEWrLIHJMnZYkuqA==",
+      "os": ["win32"],
+      "cpu": ["arm64"]
+    },
+    "lefthook-windows-x64@1.12.3": {
+      "integrity": "sha512-7Co/L8e2x2hGC1L33jDJ4ZlTkO3PJm25GOGpLfN1kqwhGB/uzMLeTI/PBczjlIN8isUv26ouNd9rVR7Bibrwyg==",
+      "os": ["win32"],
+      "cpu": ["x64"]
+    },
+    "lefthook@1.12.3": {
+      "integrity": "sha512-huMg+mGp6wHPjkaLdchuOvxVRMzvz6OVdhivatiH2Qn47O5Zm46jwzbVPYIanX6N/8ZTjGLBxv8tZ0KYmKt/Jg==",
+      "optionalDependencies": [
+        "lefthook-darwin-arm64",
+        "lefthook-darwin-x64",
+        "lefthook-freebsd-arm64",
+        "lefthook-freebsd-x64",
+        "lefthook-linux-arm64",
+        "lefthook-linux-x64",
+        "lefthook-openbsd-arm64",
+        "lefthook-openbsd-x64",
+        "lefthook-windows-arm64",
+        "lefthook-windows-x64"
+      ],
+      "scripts": true,
+      "bin": true
+    },
     "lines-and-columns@1.2.4": {
       "integrity": "sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg=="
     },
@@ -2205,7 +2275,8 @@
       "npm:@graphql-codegen/cli@^5.0.7",
       "npm:@graphql-typed-document-node/core@^3.2.0",
       "npm:graphql-request@^7.2.0",
-      "npm:graphql@^16.8.1"
+      "npm:graphql@^16.8.1",
+      "npm:lefthook@^1.12.3"
     ]
   }
 }

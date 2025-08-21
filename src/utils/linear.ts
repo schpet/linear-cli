@@ -106,8 +106,9 @@ export async function getWorkflowStates(
       a.position - b.position,
   );
 }
-export type WorkflowState = Awaited<ReturnType<typeof getWorkflowStates>>[number]
-
+export type WorkflowState = Awaited<
+  ReturnType<typeof getWorkflowStates>
+>[number];
 
 export async function getStartedState(
   teamKey: string,

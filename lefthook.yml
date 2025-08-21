@@ -1,0 +1,17 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.ts"
+      run: deno lint --fix {staged_files}
+      stage_fixed: true
+    fmt:
+      glob: "*.{ts,md,yaml,json}"
+      run: deno fmt {staged_files}
+      stage_fixed: true
+    typecheck:
+      glob: "*.ts"
+      run: deno check {staged_files}
+    test:
+      glob: "*.ts"
+      run: deno test -A {staged_files}
