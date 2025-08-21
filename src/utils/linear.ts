@@ -1,5 +1,7 @@
 import { gql } from "../__codegen__/gql.ts";
 import type {
+  GetAllTeamsQuery,
+  GetAllTeamsQueryVariables as _GetAllTeamsQueryVariables,
   GetTeamMembersQuery,
   IssueFilter,
   IssueSortInput,
@@ -263,9 +265,7 @@ export async function fetchParentIssueTitle(
   }
 }
 
-export async function fetchParentIssueData(
-  parentId: string,
-): Promise<
+export async function fetchParentIssueData(parentId: string): Promise<
   {
     title: string;
     identifier: string;
@@ -598,21 +598,42 @@ export async function getAllTeams(): Promise<
   Array<{ id: string; key: string; name: string }>
 > {
   const client = getGraphQLClient();
+
   const query = gql(/* GraphQL */ `
-    query GetAllTeams {
-      teams {
+    query GetAllTeams($first: Int, $after: String) {
+      teams(first: $first, after: $after) {
         nodes {
           id
           key
           name
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
     }
   `);
-  const data = await client.request(query);
-  const teams = data.teams?.nodes || [];
+
+  const allTeams = [];
+  let hasNextPage = true;
+  let after: string | null | undefined = undefined;
+
+  while (hasNextPage) {
+    const result: GetAllTeamsQuery = await client.request(query, {
+      first: 100, // Fetch 100 teams per page
+      after,
+    });
+
+    const teams = result.teams.nodes;
+    allTeams.push(...teams);
+
+    hasNextPage = result.teams.pageInfo.hasNextPage;
+    after = result.teams.pageInfo.endCursor;
+  }
+
   // Sort teams alphabetically by name (case insensitive)
-  return teams.sort((a, b) =>
+  return allTeams.sort((a, b) =>
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
   );
 }

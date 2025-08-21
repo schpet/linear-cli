@@ -47,7 +47,20 @@ async function promptInteractiveIssueCreation(
   parentId?: string;
   projectId?: string | null;
 }> {
-  // Start team resolution in background while asking for title
+  // Start user settings and team resolution in background while asking for title
+  const userSettingsPromise = (async () => {
+    const client = getGraphQLClient();
+    const userSettingsQuery = gql(`
+      query GetUserSettings {
+        userSettings {
+          autoAssignToSelf
+        }
+      }
+    `);
+    const result = await client.request(userSettingsQuery);
+    return result.userSettings.autoAssignToSelf;
+  })();
+
   const teamResolutionPromise = (async () => {
     const defaultTeamKey = getTeamKey();
     if (defaultTeamKey) {
@@ -82,8 +95,9 @@ async function promptInteractiveIssueCreation(
     minLength: 1,
   });
 
-  // Await team resolution
+  // Await team resolution and user settings
   const teamResult = await teamResolutionPromise;
+  const autoAssignToSelf = await userSettingsPromise;
   let teamId: string;
   let teamKey: string;
   let statesPromise: Promise<
@@ -146,7 +160,7 @@ async function promptInteractiveIssueCreation(
       { name: "No", value: false },
       { name: "Yes", value: true },
     ],
-    default: false,
+    default: autoAssignToSelf,
   });
 
   const assigneeId = assignToSelf ? await lookupUserId("self") : undefined;
