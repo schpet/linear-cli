@@ -2,10 +2,11 @@
 
 ## [Unreleased]
 
-## [1.0.0] - 2025-08-20
+### Changed
 
-given the number of breaking changes, giving this a major bump. hello
-one-point-oh.
+- issue start command now has searchable prompt with type-ahead filtering
+
+## [1.0.0] - 2025-08-20
 
 ### Fixed
 

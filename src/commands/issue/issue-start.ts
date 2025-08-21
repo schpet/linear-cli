@@ -52,6 +52,8 @@ export const startCommand = new Command()
 
         const answer = await Select.prompt({
           message: "Select an issue to start:",
+          search: true,
+          searchLabel: "Search issues",
           options: issues.map((
             issue: { identifier: string; title: string; priority: number },
           ) => ({
