@@ -59,14 +59,12 @@ export async function promptInteractiveIssueCreation(
   // If we have a parent issue, display its title
   if (parentData) {
     const parentTitle = `${parentData.identifier}: ${parentData.title}`;
-    console.log(`Creating subissue for: ${parentTitle}`);
+    console.log(`Creating sub-issue for: ${parentTitle}`);
     console.log();
   }
 
   const title = await Input.prompt({
-    message: parentId
-      ? "What's the title of your subissue?"
-      : "What's the title of your issue?",
+    message: "What's the title of your issue?",
     minLength: 1,
   });
 
