@@ -3,7 +3,7 @@ export const snapshot = {};
 snapshot[`Issue Update Command - Help Text 1`] = `
 stdout:
 "
-Usage: update [issue_id]
+Usage: update [issueId]
 
 Description:
 
