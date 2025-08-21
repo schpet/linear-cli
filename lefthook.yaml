@@ -6,7 +6,7 @@ pre-commit:
       run: deno lint --fix {staged_files}
       stage_fixed: true
     fmt:
-      glob: "*.{ts,md,yaml,json}"
+      glob: "*.{ts,md,yml,yaml,json}"
       run: deno fmt {staged_files}
       stage_fixed: true
     typecheck:
