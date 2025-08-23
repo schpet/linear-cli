@@ -5,6 +5,7 @@
 ### Fixed
 
 - pager leaves content visible after quitting
+- make issue label matching case-insensitive
 
 ### Changed
 
