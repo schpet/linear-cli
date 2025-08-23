@@ -42,3 +42,13 @@ https://linear.app/test-team/issue/ENG-123/fix-authentication-bug
 stderr:
 ""
 `;
+
+snapshot[`Issue Create Command - Case Insensitive Label Matching 1`] = `
+stdout:
+"Creating issue in ENG
+
+https://linear.app/test-team/issue/ENG-456/test-case-insensitive-labels
+"
+stderr:
+""
+`;
