@@ -40,3 +40,14 @@ https://linear.app/test-team/issue/ENG-123/updated-authentication-bug-fix
 stderr:
 ""
 `;
+
+snapshot[`Issue Update Command - Case Insensitive Label Matching 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Test Issue
+https://linear.app/test-team/issue/ENG-123/test-issue
+"
+stderr:
+""
+`;

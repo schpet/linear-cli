@@ -99,3 +99,80 @@ await snapshotTest({
     }
   },
 });
+
+// Test creating an issue with case-insensitive label matching
+await snapshotTest({
+  name: "Issue Create Command - Case Insensitive Label Matching",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Test case insensitive labels",
+    "--description",
+    "Testing label matching",
+    "--label",
+    "BUG", // uppercase label that should match "bug" label
+    "--team",
+    "ENG",
+    "--no-interactive",
+    "--no-color",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey() - converting team key to ID
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getIssueLabelIdByNameForTeam("BUG", "ENG") - case insensitive
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "BUG", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: {
+              nodes: [{
+                id: "label-bug-123",
+                name: "bug", // actual label is lowercase
+              }],
+            },
+          },
+        },
+      },
+      // Mock response for the create issue mutation
+      {
+        queryName: "CreateIssue",
+        response: {
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-new-789",
+                identifier: "ENG-456",
+                url:
+                  "https://linear.app/test-team/issue/ENG-456/test-case-insensitive-labels",
+                team: {
+                  key: "ENG",
+                },
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" });
+
+    try {
+      await createCommand.parse();
+    } finally {
+      await cleanup();
+    }
+  },
+});

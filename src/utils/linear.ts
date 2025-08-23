@@ -549,12 +549,13 @@ export async function getIssueLabelIdByNameForTeam(
     query GetIssueLabelIdByNameForTeam($name: String!, $teamKey: String!) {
       issueLabels(
         filter: {
-          name: { eq: $name }
+          name: { eqIgnoreCase: $name }
           or: [{ team: { key: { eq: $teamKey } } }, { team: { null: true } }]
         }
       ) {
         nodes {
           id
+          name
         }
       }
     }

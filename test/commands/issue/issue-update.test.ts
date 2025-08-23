@@ -95,3 +95,71 @@ await snapshotTest({
     }
   },
 });
+
+// Test updating an issue with case-insensitive label matching
+await snapshotTest({
+  name: "Issue Update Command - Case Insensitive Label Matching",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "ENG-123",
+    "--label",
+    "FRONTEND", // uppercase label that should match "frontend" label
+    "--no-color",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey() - converting team key to ID
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getIssueLabelIdByNameForTeam("FRONTEND", "ENG") - case insensitive
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "FRONTEND", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: {
+              nodes: [{
+                id: "label-frontend-456",
+                name: "frontend", // actual label is lowercase
+              }],
+            },
+          },
+        },
+      },
+      // Mock response for the update issue mutation
+      {
+        queryName: "UpdateIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/test-issue",
+                title: "Test Issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" });
+
+    try {
+      await updateCommand.parse();
+    } finally {
+      await cleanup();
+    }
+  },
+});
