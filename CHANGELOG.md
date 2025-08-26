@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-08-26
+
 ### Fixed
 
 - pager leaves content visible after quitting
@@ -225,7 +227,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/schpet/linear-cli/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/schpet/linear-cli/compare/v0.6.4...v1.0.0
 [0.6.4]: https://github.com/schpet/linear-cli/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/schpet/linear-cli/compare/v0.6.2...v0.6.3
