@@ -21,7 +21,7 @@ export const startCommand = new Command()
     "Show only unassigned issues",
   )
   .option(
-    "-f, --from-ref=[source-ref]",
+    "-f, --from-ref <fromRef:string>",
     "Git ref to create new branch from",
   )
   .action(async ({ allAssignees, unassigned, fromRef }, issueId) => {

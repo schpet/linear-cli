@@ -93,7 +93,7 @@ export async function startWorkOnIssue(issueId: string, teamId: string, gitSourc
       }
 
       const process = new Deno.Command("git", {
-        args: ["checkout", "-b", newBranch],
+        args: ["checkout", "-b", newBranch, gitSourceRef || 'HEAD'],
       });
       await process.output();
       console.log(`✓ Created and switched to branch '${newBranch}'`);
