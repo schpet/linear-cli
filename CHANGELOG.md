@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- omit empty comments section in markdown output instead of showing 'no comments
+  found'
+
 ## [1.0.1] - 2025-08-26
 
 ### Fixed

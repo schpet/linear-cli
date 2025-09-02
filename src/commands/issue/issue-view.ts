@@ -72,14 +72,9 @@ export const viewCommand = new Command()
         outputLines.forEach((line) => console.log(line));
       }
     } else {
-      if (showComments) {
-        if (issueComments && issueComments.length > 0) {
-          markdown += "\n\n## Comments\n\n";
-          markdown += formatCommentsAsMarkdown(issueComments);
-        } else {
-          markdown +=
-            "\n\n## Comments\n\n*No comments found for this issue.*\n\n";
-        }
+      if (showComments && issueComments && issueComments.length > 0) {
+        markdown += "\n\n## Comments\n\n";
+        markdown += formatCommentsAsMarkdown(issueComments);
       }
 
       console.log(markdown);
