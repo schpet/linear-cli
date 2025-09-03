@@ -63,7 +63,7 @@ export async function openTeamAssigneeView(options: { app?: boolean } = {}) {
   await open(url, options.app ? { app: { name: "Linear" } } : undefined);
 }
 
-export async function startWorkOnIssue(issueId: string, teamId: string) {
+export async function startWorkOnIssue(issueId: string, teamId: string, gitSourceRef?: string) {
   const { branchName } = await fetchIssueDetails(issueId, true);
 
   // Check if branch exists
@@ -93,7 +93,7 @@ export async function startWorkOnIssue(issueId: string, teamId: string) {
       }
 
       const process = new Deno.Command("git", {
-        args: ["checkout", "-b", newBranch],
+        args: ["checkout", "-b", newBranch, gitSourceRef || 'HEAD'],
       });
       await process.output();
       console.log(`✓ Created and switched to branch '${newBranch}'`);
@@ -101,7 +101,7 @@ export async function startWorkOnIssue(issueId: string, teamId: string) {
   } else {
     // Create and checkout the branch
     const process = new Deno.Command("git", {
-      args: ["checkout", "-b", branchName],
+      args: ["checkout", "-b", branchName, gitSourceRef || 'HEAD'],
     });
     await process.output();
     console.log(`✓ Created and switched to branch '${branchName}'`);

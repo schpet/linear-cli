@@ -20,7 +20,11 @@ export const startCommand = new Command()
     "-U, --unassigned",
     "Show only unassigned issues",
   )
-  .action(async ({ allAssignees, unassigned }, issueId) => {
+  .option(
+    "-f, --from-ref <fromRef:string>",
+    "Git ref to create new branch from",
+  )
+  .action(async ({ allAssignees, unassigned, fromRef }, issueId) => {
     const teamId = getTeamKey();
     if (!teamId) {
       console.error("Could not determine team ID");
@@ -74,5 +78,5 @@ export const startCommand = new Command()
       console.error("No issue ID resolved");
       Deno.exit(1);
     }
-    await startIssue(resolvedId, teamId);
+    await startIssue(resolvedId, teamId, fromRef);
   });
