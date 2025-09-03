@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-09-02
+
 ### Added
 
 - add from-ref option to issue start command to start an issue from a different
@@ -239,7 +241,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/schpet/linear-cli/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/schpet/linear-cli/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/schpet/linear-cli/compare/v0.6.4...v1.0.0
 [0.6.4]: https://github.com/schpet/linear-cli/compare/v0.6.3...v0.6.4
