@@ -37,6 +37,24 @@ export async function openIssuePage(
   await open(url, options.app ? { app: { name: "Linear" } } : undefined);
 }
 
+export async function openProjectPage(
+  projectId: string,
+  options: { app?: boolean; web?: boolean } = {},
+) {
+  const workspace = getOption("workspace");
+  if (!workspace) {
+    console.error(
+      "workspace is not set via command line, configuration file, or environment.",
+    );
+    Deno.exit(1);
+  }
+
+  const url = `https://linear.app/${workspace}/project/${projectId}`;
+  const destination = options.app ? "Linear.app" : "web browser";
+  console.log(`Opening ${url} in ${destination}`);
+  await open(url, options.app ? { app: { name: "Linear" } } : undefined);
+}
+
 export async function openTeamAssigneeView(options: { app?: boolean } = {}) {
   const teamId = getTeamKey();
   if (!teamId) {

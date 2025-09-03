@@ -3,6 +3,7 @@ import { renderMarkdown } from "@littletof/charmd";
 import { gql } from "../../__codegen__/gql.ts";
 import { getGraphQLClient } from "../../utils/graphql.ts";
 import { formatRelativeTime } from "../../utils/display.ts";
+import { openProjectPage } from "../../utils/actions.ts";
 
 const GetProjectDetails = gql(`
   query GetProjectDetails($id: String!) {
@@ -79,25 +80,7 @@ export const viewCommand = new Command()
     const { web, app } = options;
 
     if (web || app) {
-      const url = app
-        ? `linear://project/${projectId}`
-        : `https://linear.app/project/${projectId}`;
-
-      try {
-        const command = Deno.build.os === "darwin"
-          ? ["open", url]
-          : Deno.build.os === "windows"
-          ? ["start", url]
-          : ["xdg-open", url];
-
-        await new Deno.Command(command[0], { args: command.slice(1) }).output();
-      } catch (error) {
-        console.error(
-          `Failed to open ${app ? "Linear.app" : "web browser"}:`,
-          error,
-        );
-        Deno.exit(1);
-      }
+      await openProjectPage(projectId, { app, web: !app });
       return;
     }
 
