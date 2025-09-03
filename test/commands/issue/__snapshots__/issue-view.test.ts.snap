@@ -48,12 +48,6 @@ User should be redirected to login page with clear messaging.
 
 ## Actual behavior
 User sees cryptic error message and gets stuck.
-
-## Comments
-
-*No comments found for this issue.*
-
-
 "
 stderr:
 ""

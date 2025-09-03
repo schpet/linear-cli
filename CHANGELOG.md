@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2025-09-02
+
+### Fixed
+
+- fixed tests breaking release
+
 ## [1.1.0] - 2025-09-02
 
 ### Added
@@ -241,7 +247,8 @@
   commands as an alternative to parsing the branch name, e.g.
   `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/schpet/linear-cli/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/schpet/linear-cli/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/schpet/linear-cli/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/schpet/linear-cli/compare/v0.6.4...v1.0.0

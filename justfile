@@ -6,6 +6,7 @@ tag:
     deno check --all
     deno fmt --check
     deno lint
+    deno task test
 
     svbump write "$(changelog version latest)" version deno.json
     svbump write "$(svbump read version deno.json)" package.version dist-workspace.toml

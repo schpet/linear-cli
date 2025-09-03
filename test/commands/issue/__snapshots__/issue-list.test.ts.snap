@@ -28,32 +28,3 @@ Options:
 stderr:
 ""
 `;
-
-snapshot[`Issue List Command - Help with no-pager flag 1`] = `
-stdout:
-'
-Usage: list
-
-Description:
-
-  List your issues
-
-Options:
-
-  -h, --help                       - Show this help.                                                                                                     
-  -s, --state          <state>     - Filter by issue state (can be repeated for multiple states)  (Default: [ \\x1b[32m"unstarted"\\x1b[39m ], Values: \\x1b[32m"triage"\\x1b[39m, \\x1b[32m"backlog"\\x1b[39m,
-                                                                                                  \\x1b[32m"unstarted"\\x1b[39m, \\x1b[32m"started"\\x1b[39m, \\x1b[32m"completed"\\x1b[39m, \\x1b[32m"canceled"\\x1b[39m)       
-  --all-states                     - Show issues from all states                                                                                         
-  --assignee           <assignee>  - Filter by assignee (username)                                                                                       
-  -A, --all-assignees              - Show issues for all assignees                                                                                       
-  -U, --unassigned                 - Show only unassigned issues                                                                                         
-  --sort               <sort>      - Sort order (can also be set via LINEAR_ISSUE_SORT)           (Values: \\x1b[32m"manual"\\x1b[39m, \\x1b[32m"priority"\\x1b[39m)                         
-  --team               <team>      - Team to list issues for (if not your default team)                                                                  
-  -w, --web                        - Open in web browser                                                                                                 
-  -a, --app                        - Open in Linear.app                                                                                                  
-  --no-pager                       - Disable automatic paging for long output                                                                            
-
-'
-stderr:
-""
-`;

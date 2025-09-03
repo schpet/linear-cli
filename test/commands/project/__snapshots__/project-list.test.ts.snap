@@ -23,17 +23,6 @@ stderr:
 ""
 `;
 
-snapshot[`Project List Command - With Mock Projects 1`] = `
-stdout:
-"SLUG      NAME                   STATUS      PRIORITY HEALTH  LEAD TEAMS            DATE                
-auth-sys  Authentication System  In Progress High     onTrack JS   BACKEND,SECURITY Started 579 days ago
-mobile-ui Mobile App UI Redesign Planned     Medium   Unknown AD   DESIGN,MOBILE    Start: 2024-04-01   
-api-docs  API Documentation      Completed   Low      onTrack -    DOCS             Done 605 days ago   
-"
-stderr:
-""
-`;
-
 snapshot[`Project List Command - No Projects Found 1`] = `
 stdout:
 "No projects found.
