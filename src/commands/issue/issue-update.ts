@@ -1,6 +1,6 @@
-import { Command } from "@cliffy/command";
-import { gql } from "../../__codegen__/gql.ts";
-import { getGraphQLClient } from "../../utils/graphql.ts";
+import { Command } from "@cliffy/command"
+import { gql } from "../../__codegen__/gql.ts"
+import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
   getIssueId,
   getIssueIdentifier,
@@ -9,7 +9,7 @@ import {
   getTeamIdByKey,
   getWorkflowStateByNameOrType,
   lookupUserId,
-} from "../../utils/linear.ts";
+} from "../../utils/linear.ts"
 
 export const updateCommand = new Command()
   .name("update")
@@ -77,122 +77,121 @@ export const updateCommand = new Command()
     ) => {
       try {
         // Get the issue ID - either from argument or infer from current context
-        const issueId = await getIssueIdentifier(issueIdArg);
+        const issueId = await getIssueIdentifier(issueIdArg)
         if (!issueId) {
           console.error(
             "Could not determine issue ID. Please provide an issue ID like 'ENG-123' or run from a branch with an issue ID.",
-          );
-          Deno.exit(1);
+          )
+          Deno.exit(1)
         }
 
-        const { Spinner } = await import("@std/cli/unstable-spinner");
-        const showSpinner = color;
-        const spinner = showSpinner ? new Spinner() : null;
-        spinner?.start();
+        const { Spinner } = await import("@std/cli/unstable-spinner")
+        const showSpinner = color
+        const spinner = showSpinner ? new Spinner() : null
+        spinner?.start()
 
         // Extract team from issue ID if not provided
-        let teamKey = team;
+        let teamKey = team
         if (!teamKey) {
-          const match = issueId.match(/^([A-Z]+)-/);
-          teamKey = match?.[1];
+          const match = issueId.match(/^([A-Z]+)-/)
+          teamKey = match?.[1]
         }
         if (!teamKey) {
-          console.error("Could not determine team key from issue ID");
-          Deno.exit(1);
+          console.error("Could not determine team key from issue ID")
+          Deno.exit(1)
         }
 
         // Convert team key to team ID for some operations
-        const teamId = await getTeamIdByKey(teamKey);
+        const teamId = await getTeamIdByKey(teamKey)
         if (!teamId) {
-          console.error(`Could not determine team ID for team ${teamKey}`);
-          Deno.exit(1);
+          console.error(`Could not determine team ID for team ${teamKey}`)
+          Deno.exit(1)
         }
 
-        let stateId: string | undefined;
+        let stateId: string | undefined
         if (state) {
           const workflowState = await getWorkflowStateByNameOrType(
             teamKey,
             state,
-          );
+          )
           if (!workflowState) {
             console.error(
               `Could not find workflow state '${state}' for team ${teamKey}`,
-            );
-            Deno.exit(1);
+            )
+            Deno.exit(1)
           }
-          stateId = workflowState.id;
+          stateId = workflowState.id
         }
 
-        let assigneeId: string | undefined;
+        let assigneeId: string | undefined
         if (assignee !== undefined) {
-          assigneeId = await lookupUserId(assignee);
+          assigneeId = await lookupUserId(assignee)
           if (!assigneeId) {
             console.error(
               `Could not determine user ID for assignee ${assignee}`,
-            );
-            Deno.exit(1);
+            )
+            Deno.exit(1)
           }
         }
 
-        const labelIds = [];
+        const labelIds = []
         if (labels !== undefined && labels !== true && labels.length > 0) {
           for (const label of labels) {
-            const labelId = await getIssueLabelIdByNameForTeam(label, teamKey);
+            const labelId = await getIssueLabelIdByNameForTeam(label, teamKey)
             if (!labelId) {
               console.error(
                 `Could not determine ID for issue label ${label}`,
-              );
-              Deno.exit(1);
+              )
+              Deno.exit(1)
             }
-            labelIds.push(labelId);
+            labelIds.push(labelId)
           }
         }
 
-        let projectId: string | undefined = undefined;
+        let projectId: string | undefined = undefined
         if (project !== undefined) {
-          projectId = await getProjectIdByName(project);
+          projectId = await getProjectIdByName(project)
           if (projectId === undefined) {
-            console.error(`Could not determine ID for project ${project}`);
-            Deno.exit(1);
+            console.error(`Could not determine ID for project ${project}`)
+            Deno.exit(1)
           }
         }
 
         // Build the update input object, only including fields that were provided
-        const input: Record<string, string | number | string[] | undefined> =
-          {};
+        const input: Record<string, string | number | string[] | undefined> = {}
 
-        if (title !== undefined) input.title = title;
-        if (assigneeId !== undefined) input.assigneeId = assigneeId;
-        if (dueDate !== undefined) input.dueDate = dueDate;
+        if (title !== undefined) input.title = title
+        if (assigneeId !== undefined) input.assigneeId = assigneeId
+        if (dueDate !== undefined) input.dueDate = dueDate
         if (parent !== undefined) {
-          const parentIdentifier = await getIssueIdentifier(parent);
+          const parentIdentifier = await getIssueIdentifier(parent)
           if (!parentIdentifier) {
             console.error(
               `Could not resolve parent issue identifier: ${parent}`,
-            );
-            Deno.exit(1);
+            )
+            Deno.exit(1)
           }
-          const parentId = await getIssueId(parentIdentifier);
+          const parentId = await getIssueId(parentIdentifier)
           if (!parentId) {
             console.error(
               `Could not resolve parent issue ID: ${parentIdentifier}`,
-            );
-            Deno.exit(1);
+            )
+            Deno.exit(1)
           }
-          input.parentId = parentId;
+          input.parentId = parentId
         }
-        if (priority !== undefined) input.priority = priority;
-        if (estimate !== undefined) input.estimate = estimate;
-        if (description !== undefined) input.description = description;
-        if (labelIds.length > 0) input.labelIds = labelIds;
-        if (teamId !== undefined) input.teamId = teamId;
-        if (projectId !== undefined) input.projectId = projectId;
-        if (stateId !== undefined) input.stateId = stateId;
+        if (priority !== undefined) input.priority = priority
+        if (estimate !== undefined) input.estimate = estimate
+        if (description !== undefined) input.description = description
+        if (labelIds.length > 0) input.labelIds = labelIds
+        if (teamId !== undefined) input.teamId = teamId
+        if (projectId !== undefined) input.projectId = projectId
+        if (stateId !== undefined) input.stateId = stateId
 
-        spinner?.stop();
-        console.log(`Updating issue ${issueId}`);
-        console.log();
-        spinner?.start();
+        spinner?.stop()
+        console.log(`Updating issue ${issueId}`)
+        console.log()
+        spinner?.start()
 
         const updateIssueMutation = gql(`
           mutation UpdateIssue($id: String!, $input: IssueUpdateInput!) {
@@ -201,29 +200,29 @@ export const updateCommand = new Command()
               issue { id, identifier, url, title }
             }
           }
-        `);
+        `)
 
-        const client = getGraphQLClient();
+        const client = getGraphQLClient()
         const data = await client.request(updateIssueMutation, {
           id: issueId,
           input,
-        });
+        })
 
         if (!data.issueUpdate.success) {
-          throw "Update query failed";
+          throw "Update query failed"
         }
 
-        const issue = data.issueUpdate.issue;
+        const issue = data.issueUpdate.issue
         if (!issue) {
-          throw "Issue update failed - no issue returned";
+          throw "Issue update failed - no issue returned"
         }
 
-        spinner?.stop();
-        console.log(`✓ Updated issue ${issue.identifier}: ${issue.title}`);
-        console.log(issue.url);
+        spinner?.stop()
+        console.log(`✓ Updated issue ${issue.identifier}: ${issue.title}`)
+        console.log(issue.url)
       } catch (error) {
-        console.error("✗ Failed to update issue", error);
-        Deno.exit(1);
+        console.error("✗ Failed to update issue", error)
+        Deno.exit(1)
       }
     },
-  );
+  )

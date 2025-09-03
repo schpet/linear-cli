@@ -1,6 +1,6 @@
-import { snapshotTest } from "@cliffy/testing";
-import { listCommand } from "../../../src/commands/issue/issue-list.ts";
-import { commonDenoArgs } from "../../utils/test-helpers.ts";
+import { snapshotTest } from "@cliffy/testing"
+import { listCommand } from "../../../src/commands/issue/issue-list.ts"
+import { commonDenoArgs } from "../../utils/test-helpers.ts"
 
 // Test help output
 await snapshotTest({
@@ -10,6 +10,6 @@ await snapshotTest({
   args: ["--help"],
   denoArgs: commonDenoArgs,
   async fn() {
-    await listCommand.parse();
+    await listCommand.parse()
   },
-});
+})

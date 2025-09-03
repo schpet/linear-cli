@@ -1,9 +1,9 @@
-import { Command } from "@cliffy/command";
-import { Checkbox, Input, Select } from "@cliffy/prompt";
-import { gql } from "../../__codegen__/gql.ts";
-import { getGraphQLClient } from "../../utils/graphql.ts";
-import { getEditor, openEditor } from "../../utils/editor.ts";
-import { getPriorityDisplay } from "../../utils/display.ts";
+import { Command } from "@cliffy/command"
+import { Checkbox, Input, Select } from "@cliffy/prompt"
+import { gql } from "../../__codegen__/gql.ts"
+import { getGraphQLClient } from "../../utils/graphql.ts"
+import { getEditor, openEditor } from "../../utils/editor.ts"
+import { getPriorityDisplay } from "../../utils/display.ts"
 import {
   fetchParentIssueData,
   getAllTeams,
@@ -22,23 +22,23 @@ import {
   searchTeamsByKeySubstring,
   selectOption,
   type WorkflowState,
-} from "../../utils/linear.ts";
-import { startWorkOnIssue } from "../../utils/actions.ts";
+} from "../../utils/linear.ts"
+import { startWorkOnIssue } from "../../utils/actions.ts"
 
-type IssueLabel = { id: string; name: string; color: string };
+type IssueLabel = { id: string; name: string; color: string }
 
 type AdditionalField = {
-  key: string;
-  label: string;
+  key: string
+  label: string
   handler: (
     teamKey: string,
     teamId: string,
     preloaded?: {
-      states?: WorkflowState[];
-      labels?: IssueLabel[];
+      states?: WorkflowState[]
+      labels?: IssueLabel[]
     },
-  ) => Promise<string | number | string[] | undefined>;
-};
+  ) => Promise<string | number | string[] | undefined>
+}
 
 const ADDITIONAL_FIELDS: AdditionalField[] = [
   {
@@ -48,15 +48,15 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
       teamKey: string,
       _teamId: string,
       preloaded?: {
-        states?: WorkflowState[];
-        labels?: IssueLabel[];
+        states?: WorkflowState[]
+        labels?: IssueLabel[]
       },
     ) => {
-      const states = preloaded?.states ?? await getWorkflowStates(teamKey);
-      if (states.length === 0) return undefined;
+      const states = preloaded?.states ?? await getWorkflowStates(teamKey)
+      if (states.length === 0) return undefined
 
       const defaultState = states.find((s) => s.type === "unstarted") ||
-        states[0];
+        states[0]
       return await Select.prompt({
         message: "Which workflow state should this issue be in?",
         options: states.map((state) => ({
@@ -64,7 +64,7 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
           value: state.id,
         })),
         default: defaultState.id,
-      });
+      })
     },
   },
   {
@@ -78,8 +78,8 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
           { name: "Yes", value: true },
         ],
         default: false,
-      });
-      return assignToSelf ? await lookupUserId("self") : undefined;
+      })
+      return assignToSelf ? await lookupUserId("self") : undefined
     },
   },
   {
@@ -96,7 +96,7 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
           { name: `${getPriorityDisplay(4)} Low`, value: 4 },
         ],
         default: 0,
-      });
+      })
     },
   },
   {
@@ -106,12 +106,12 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
       teamKey: string,
       _teamId: string,
       preloaded?: {
-        states?: WorkflowState[];
-        labels?: IssueLabel[];
+        states?: WorkflowState[]
+        labels?: IssueLabel[]
       },
     ) => {
-      const labels = preloaded?.labels ?? await getLabelsForTeam(teamKey);
-      if (labels.length === 0) return [];
+      const labels = preloaded?.labels ?? await getLabelsForTeam(teamKey)
+      if (labels.length === 0) return []
 
       const hasLabels = await Select.prompt({
         message: "Do you want to add labels?",
@@ -120,9 +120,9 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
           { name: "Yes", value: true },
         ],
         default: false,
-      });
+      })
 
-      if (!hasLabels) return [];
+      if (!hasLabels) return []
 
       return await Checkbox.prompt({
         message: "Select labels (use space to select, enter to confirm)",
@@ -132,7 +132,7 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
           name: label.name,
           value: label.id,
         })),
-      });
+      })
     },
   },
   {
@@ -142,12 +142,12 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
       const estimate = await Input.prompt({
         message: "Estimate (leave blank for none)",
         default: "",
-      });
-      const parsed = parseInt(estimate);
-      return isNaN(parsed) ? undefined : parsed;
+      })
+      const parsed = parseInt(estimate)
+      return isNaN(parsed) ? undefined : parsed
     },
   },
-];
+]
 
 async function promptAdditionalFields(
   teamKey: string,
@@ -156,70 +156,70 @@ async function promptAdditionalFields(
   labels: IssueLabel[],
   autoAssignToSelf: boolean,
 ): Promise<{
-  assigneeId?: string;
-  priority?: number;
-  estimate?: number;
-  labelIds: string[];
-  stateId?: string;
+  assigneeId?: string
+  priority?: number
+  estimate?: number
+  labelIds: string[]
+  stateId?: string
 }> {
   // Build options that display defaults in parentheses for workflow state and assignee
-  let defaultStateName: string | null = null;
+  let defaultStateName: string | null = null
   if (states.length > 0) {
     const defaultState = states.find((s) => s.type === "unstarted") ||
-      states[0];
-    defaultStateName = defaultState.name;
+      states[0]
+    defaultStateName = defaultState.name
   }
   const additionalFieldOptions = ADDITIONAL_FIELDS.map((field) => {
-    let name = field.label;
+    let name = field.label
     if (field.key === "workflow_state" && defaultStateName) {
-      name = `${field.label} (${defaultStateName})`;
+      name = `${field.label} (${defaultStateName})`
     } else if (field.key === "assignee") {
-      name = `${field.label} (${autoAssignToSelf ? "self" : "unassigned"})`;
+      name = `${field.label} (${autoAssignToSelf ? "self" : "unassigned"})`
     }
-    return { name, value: field.key };
-  });
+    return { name, value: field.key }
+  })
   const selectedFields = await Checkbox.prompt({
     message: "Select additional fields to configure",
     options: additionalFieldOptions,
-  });
+  })
 
   // Initialize default values
-  let assigneeId: string | undefined;
-  let priority: number | undefined;
-  let estimate: number | undefined;
-  let labelIds: string[] = [];
-  let stateId: string | undefined;
+  let assigneeId: string | undefined
+  let priority: number | undefined
+  let estimate: number | undefined
+  let labelIds: string[] = []
+  let stateId: string | undefined
 
   // Set assignee default based on user settings
   if (autoAssignToSelf) {
-    assigneeId = await lookupUserId("self");
+    assigneeId = await lookupUserId("self")
   }
 
   // Process selected fields
   for (const fieldKey of selectedFields) {
-    const field = ADDITIONAL_FIELDS.find((f) => f.key === fieldKey);
+    const field = ADDITIONAL_FIELDS.find((f) => f.key === fieldKey)
     if (field) {
       const value = await field.handler(teamKey, teamId, {
         states,
         labels,
-      });
+      })
 
       switch (fieldKey) {
         case "workflow_state":
-          stateId = value as string | undefined;
-          break;
+          stateId = value as string | undefined
+          break
         case "assignee":
-          assigneeId = value as string | undefined;
-          break;
+          assigneeId = value as string | undefined
+          break
         case "priority":
-          priority = value === 0 ? undefined : (value as number);
-          break;
+          priority = value === 0 ? undefined : (value as number)
+          break
         case "labels":
-          labelIds = (value as string[]) || [];
-          break;
+          labelIds = (value as string[]) || []
+          break
         case "estimate":
-          estimate = value as number | undefined;
-          break;
+          estimate = value as number | undefined
+          break
       }
     }
   }
@@ -230,83 +230,83 @@ async function promptAdditionalFields(
     estimate,
     labelIds,
     stateId,
-  };
+  }
 }
 
 async function promptInteractiveIssueCreation(
   parentId?: string,
   parentData?: {
-    title: string;
-    identifier: string;
-    projectId: string | null;
+    title: string
+    identifier: string
+    projectId: string | null
   } | null,
 ): Promise<{
-  title: string;
-  teamId: string;
-  assigneeId?: string;
-  priority?: number;
-  estimate?: number;
-  labelIds: string[];
-  description?: string;
-  stateId?: string;
-  start: boolean;
-  parentId?: string;
-  projectId?: string | null;
+  title: string
+  teamId: string
+  assigneeId?: string
+  priority?: number
+  estimate?: number
+  labelIds: string[]
+  description?: string
+  stateId?: string
+  start: boolean
+  parentId?: string
+  projectId?: string | null
 }> {
   // Start user settings and team resolution in background while asking for title
   const userSettingsPromise = (async () => {
-    const client = getGraphQLClient();
+    const client = getGraphQLClient()
     const userSettingsQuery = gql(`
       query GetUserSettings {
         userSettings {
           autoAssignToSelf
         }
       }
-    `);
-    const result = await client.request(userSettingsQuery);
-    return result.userSettings.autoAssignToSelf;
-  })();
+    `)
+    const result = await client.request(userSettingsQuery)
+    return result.userSettings.autoAssignToSelf
+  })()
 
   const teamResolutionPromise = (async () => {
-    const defaultTeamKey = getTeamKey();
+    const defaultTeamKey = getTeamKey()
     if (defaultTeamKey) {
-      const teamId = await getTeamIdByKey(defaultTeamKey);
+      const teamId = await getTeamIdByKey(defaultTeamKey)
       if (teamId) {
         return {
           teamId: teamId,
           teamKey: defaultTeamKey,
           needsTeamSelection: false,
-        };
+        }
       }
     }
     return {
       teamId: null,
       teamKey: null,
       needsTeamSelection: true,
-    };
-  })();
+    }
+  })()
 
   // If we have a parent issue, display its title
   if (parentData) {
-    const parentTitle = `${parentData.identifier}: ${parentData.title}`;
-    console.log(`Creating sub-issue for: ${parentTitle}`);
-    console.log();
+    const parentTitle = `${parentData.identifier}: ${parentData.title}`
+    console.log(`Creating sub-issue for: ${parentTitle}`)
+    console.log()
   }
 
   const title = await Input.prompt({
     message: "What's the title of your issue?",
     minLength: 1,
-  });
+  })
 
   // Await team resolution and user settings
-  const teamResult = await teamResolutionPromise;
-  const autoAssignToSelf = await userSettingsPromise;
-  let teamId: string;
-  let teamKey: string;
+  const teamResult = await teamResolutionPromise
+  const autoAssignToSelf = await userSettingsPromise
+  let teamId: string
+  let teamKey: string
 
   if (teamResult.needsTeamSelection) {
     // Need to prompt for team selection
-    const teams = await getAllTeams();
+    const teams = await getAllTeams()
 
     const selectedTeamId = await Select.prompt({
       message: "Which team should this issue belong to?",
@@ -316,66 +316,66 @@ async function promptInteractiveIssueCreation(
         name: `${team.name} (${team.key})`,
         value: team.id,
       })),
-    });
+    })
 
-    const team = teams.find((t) => t.id === selectedTeamId);
+    const team = teams.find((t) => t.id === selectedTeamId)
 
     if (!team) {
-      console.error(`Could not find team: ${selectedTeamId}`);
-      Deno.exit(1);
+      console.error(`Could not find team: ${selectedTeamId}`)
+      Deno.exit(1)
     }
 
-    teamId = team.id;
-    teamKey = team.key;
+    teamId = team.id
+    teamKey = team.key
   } else {
     // Team was resolved in background
-    teamId = teamResult.teamId!;
-    teamKey = teamResult.teamKey!;
+    teamId = teamResult.teamId!
+    teamKey = teamResult.teamKey!
   }
 
   // Preload team-scoped data (do not await yet)
-  const workflowStatesPromise = getWorkflowStates(teamKey);
-  const labelsPromise = getLabelsForTeam(teamKey);
+  const workflowStatesPromise = getWorkflowStates(teamKey)
+  const labelsPromise = getLabelsForTeam(teamKey)
 
   // Description prompt
-  const editorName = await getEditor();
-  const editorDisplayName = editorName ? editorName.split("/").pop() : null;
+  const editorName = await getEditor()
+  const editorDisplayName = editorName ? editorName.split("/").pop() : null
   const promptMessage = editorDisplayName
     ? `Description [(e) to launch ${editorDisplayName}]`
-    : "Description";
+    : "Description"
 
   const description = await Input.prompt({
     message: promptMessage,
     default: "",
-  });
+  })
 
-  let finalDescription: string | undefined;
+  let finalDescription: string | undefined
   if (description === "e" && editorDisplayName) {
-    console.log(`Opening ${editorDisplayName}...`);
-    finalDescription = await openEditor();
+    console.log(`Opening ${editorDisplayName}...`)
+    finalDescription = await openEditor()
     if (finalDescription && finalDescription.length > 0) {
       console.log(
         `Description entered (${finalDescription.length} characters)`,
-      );
+      )
     } else {
-      console.log("No description entered");
-      finalDescription = undefined;
+      console.log("No description entered")
+      finalDescription = undefined
     }
   } else if (description === "e" && !editorDisplayName) {
     console.error(
       "No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>",
-    );
-    finalDescription = undefined;
+    )
+    finalDescription = undefined
   } else if (description.trim().length > 0) {
-    finalDescription = description.trim();
+    finalDescription = description.trim()
   }
 
   // Now await the preloaded data and resolve default state
-  const states = await workflowStatesPromise;
-  const labels = await labelsPromise;
-  let defaultState: WorkflowState | undefined;
+  const states = await workflowStatesPromise
+  const labels = await labelsPromise
+  let defaultState: WorkflowState | undefined
   if (states.length > 0) {
-    defaultState = states.find((s) => s.type === "unstarted") || states[0];
+    defaultState = states.find((s) => s.type === "unstarted") || states[0]
   }
 
   // What's next? prompt
@@ -386,23 +386,23 @@ async function promptInteractiveIssueCreation(
       { name: "Add more fields", value: "more_fields" },
     ],
     default: "submit",
-  });
+  })
 
   // Initialize default values for additional fields
-  let assigneeId: string | undefined;
-  let priority: number | undefined;
-  let estimate: number | undefined;
-  let labelIds: string[] = [];
-  let stateId: string | undefined;
+  let assigneeId: string | undefined
+  let priority: number | undefined
+  let estimate: number | undefined
+  let labelIds: string[] = []
+  let stateId: string | undefined
 
   // Set assignee default based on user settings
   if (autoAssignToSelf) {
-    assigneeId = await lookupUserId("self");
+    assigneeId = await lookupUserId("self")
   }
 
   // Set default state (resolved earlier)
   if (defaultState) {
-    stateId = defaultState.id;
+    stateId = defaultState.id
   }
 
   if (nextAction === "more_fields") {
@@ -412,14 +412,14 @@ async function promptInteractiveIssueCreation(
       states,
       labels,
       autoAssignToSelf,
-    );
+    )
 
     // Override defaults with user selections
-    assigneeId = additionalFieldsResult.assigneeId;
-    priority = additionalFieldsResult.priority;
-    estimate = additionalFieldsResult.estimate;
-    labelIds = additionalFieldsResult.labelIds;
-    stateId = additionalFieldsResult.stateId;
+    assigneeId = additionalFieldsResult.assigneeId
+    priority = additionalFieldsResult.priority
+    estimate = additionalFieldsResult.estimate
+    labelIds = additionalFieldsResult.labelIds
+    stateId = additionalFieldsResult.stateId
   }
 
   // Ask about starting work (always show this)
@@ -431,7 +431,7 @@ async function promptInteractiveIssueCreation(
       { name: "Yes", value: true },
     ],
     default: false,
-  });
+  })
 
   return {
     title,
@@ -445,7 +445,7 @@ async function promptInteractiveIssueCreation(
     start,
     parentId,
     projectId: parentData?.projectId || null,
-  };
+  }
 }
 
 export const createCommand = new Command()
@@ -522,53 +522,53 @@ export const createCommand = new Command()
         title,
       },
     ) => {
-      interactive = interactive && Deno.stdout.isTerminal();
+      interactive = interactive && Deno.stdout.isTerminal()
 
       // If no flags are provided (or only parent is provided), use interactive mode
       const noFlagsProvided = !title && !assignee && !dueDate &&
         priority === undefined && estimate === undefined && !description &&
         (!labels || labels === true ||
           (Array.isArray(labels) && labels.length === 0)) &&
-        !team && !project && !state && !start;
+        !team && !project && !state && !start
 
       if (noFlagsProvided && interactive) {
         try {
           // Convert parent identifier if provided and fetch parent data
-          let parentId: string | undefined;
+          let parentId: string | undefined
           let parentData: {
-            title: string;
-            identifier: string;
-            projectId: string | null;
-          } | null = null;
+            title: string
+            identifier: string
+            projectId: string | null
+          } | null = null
           if (parentIdentifier) {
             const parentIdentifierResolved = await getIssueIdentifier(
               parentIdentifier,
-            );
+            )
             if (!parentIdentifierResolved) {
               console.error(
                 `✗ Could not resolve parent issue identifier: ${parentIdentifier}`,
-              );
-              Deno.exit(1);
+              )
+              Deno.exit(1)
             }
-            parentId = await getIssueId(parentIdentifierResolved);
+            parentId = await getIssueId(parentIdentifierResolved)
             if (!parentId) {
               console.error(
                 `✗ Could not resolve parent issue ID: ${parentIdentifierResolved}`,
-              );
-              Deno.exit(1);
+              )
+              Deno.exit(1)
             }
 
             // Fetch parent issue data including project
-            parentData = await fetchParentIssueData(parentId);
+            parentData = await fetchParentIssueData(parentId)
           }
 
           const interactiveData = await promptInteractiveIssueCreation(
             parentId,
             parentData,
-          );
+          )
 
-          console.log(`Creating issue...`);
-          console.log();
+          console.log(`Creating issue...`)
+          console.log()
 
           const createIssueMutation = gql(`
             mutation CreateIssue($input: IssueCreateInput!) {
@@ -577,9 +577,9 @@ export const createCommand = new Command()
                 issue { id, identifier, url, team { key } }
               }
             }
-          `);
+          `)
 
-          const client = getGraphQLClient();
+          const client = getGraphQLClient()
           const data = await client.request(createIssueMutation, {
             input: {
               title: interactiveData.title,
@@ -595,32 +595,32 @@ export const createCommand = new Command()
               useDefaultTemplate,
               description: interactiveData.description,
             },
-          });
+          })
 
           if (!data.issueCreate.success) {
-            throw "query failed";
+            throw "query failed"
           }
-          const issue = data.issueCreate.issue;
+          const issue = data.issueCreate.issue
           if (!issue) {
-            throw "Issue creation failed - no issue returned";
+            throw "Issue creation failed - no issue returned"
           }
-          const issueId = issue.id;
+          const issueId = issue.id
           console.log(
             `✓ Created issue ${issue.identifier}: ${interactiveData.title}`,
-          );
-          console.log(issue.url);
+          )
+          console.log(issue.url)
 
           if (interactiveData.start) {
-            const teamKey = issue.team.key;
-            const teamIdForStartWork = await getTeamIdByKey(teamKey);
+            const teamKey = issue.team.key
+            const teamIdForStartWork = await getTeamIdByKey(teamKey)
             if (teamIdForStartWork) {
-              await startWorkOnIssue(issueId, teamIdForStartWork);
+              await startWorkOnIssue(issueId, teamIdForStartWork)
             }
           }
-          return;
+          return
         } catch (error) {
-          console.error("✗ Failed to create issue", error);
-          Deno.exit(1);
+          console.error("✗ Failed to create issue", error)
+          Deno.exit(1)
         }
       }
 
@@ -628,133 +628,133 @@ export const createCommand = new Command()
       if (!title) {
         console.error(
           "Title is required when not using interactive mode. Use --title or run without any flags (or only --parent) for interactive mode.",
-        );
-        Deno.exit(1);
+        )
+        Deno.exit(1)
       }
 
-      const { Spinner } = await import("@std/cli/unstable-spinner");
-      const showSpinner = color && interactive;
-      const spinner = showSpinner ? new Spinner() : null;
-      spinner?.start();
+      const { Spinner } = await import("@std/cli/unstable-spinner")
+      const showSpinner = color && interactive
+      const spinner = showSpinner ? new Spinner() : null
+      spinner?.start()
       try {
-        team = (team == null) ? getTeamKey() : team.toUpperCase();
+        team = (team == null) ? getTeamKey() : team.toUpperCase()
         if (!team) {
-          console.error("Could not determine team key");
-          Deno.exit(1);
+          console.error("Could not determine team key")
+          Deno.exit(1)
         }
 
         // For functions that need actual team IDs (like createIssue), get the ID
-        let teamId = await getTeamIdByKey(team);
+        let teamId = await getTeamIdByKey(team)
         if (interactive && !teamId) {
-          const teamIds = await searchTeamsByKeySubstring(team);
-          spinner?.stop();
-          teamId = await selectOption("Team", team, teamIds);
-          spinner?.start();
+          const teamIds = await searchTeamsByKeySubstring(team)
+          spinner?.stop()
+          teamId = await selectOption("Team", team, teamIds)
+          spinner?.start()
         }
         if (!teamId) {
-          console.error(`Could not determine team ID for team ${team}`);
-          Deno.exit(1);
+          console.error(`Could not determine team ID for team ${team}`)
+          Deno.exit(1)
         }
         if (start && assignee === undefined) {
-          assignee = "self";
+          assignee = "self"
         }
         if (start && assignee !== undefined && assignee !== "self") {
-          console.error("Cannot use --start and a non-self --assignee");
+          console.error("Cannot use --start and a non-self --assignee")
         }
-        let stateId: string | undefined;
+        let stateId: string | undefined
         if (state) {
           const workflowState = await getWorkflowStateByNameOrType(
             team,
             state,
-          );
+          )
           if (!workflowState) {
             console.error(
               `Could not find workflow state '${state}' for team ${team}`,
-            );
-            Deno.exit(1);
+            )
+            Deno.exit(1)
           }
-          stateId = workflowState.id;
+          stateId = workflowState.id
         }
 
-        let assigneeId = undefined;
+        let assigneeId = undefined
 
         if (assignee) {
-          assigneeId = await lookupUserId(assignee);
+          assigneeId = await lookupUserId(assignee)
           if (assigneeId == null) {
             console.error(
               `Could not determine user ID for assignee ${assignee}`,
-            );
-            Deno.exit(1);
+            )
+            Deno.exit(1)
           }
         }
 
-        const labelIds = [];
+        const labelIds = []
         if (labels !== undefined && labels !== true && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
-            let labelId = await getIssueLabelIdByNameForTeam(label, team);
+            let labelId = await getIssueLabelIdByNameForTeam(label, team)
             if (!labelId && interactive) {
               const labelIds = await getIssueLabelOptionsByNameForTeam(
                 label,
                 team,
-              );
-              spinner?.stop();
-              labelId = await selectOption("Issue label", label, labelIds);
-              spinner?.start();
+              )
+              spinner?.stop()
+              labelId = await selectOption("Issue label", label, labelIds)
+              spinner?.start()
             }
             if (!labelId) {
               console.error(
                 `Could not determine ID for issue label ${label}`,
-              );
-              Deno.exit(1);
+              )
+              Deno.exit(1)
             }
-            labelIds.push(labelId);
+            labelIds.push(labelId)
           }
         }
-        let projectId: string | undefined = undefined;
+        let projectId: string | undefined = undefined
         if (project !== undefined) {
-          projectId = await getProjectIdByName(project);
+          projectId = await getProjectIdByName(project)
           if (projectId === undefined && interactive) {
-            const projectIds = await getProjectOptionsByName(project);
-            spinner?.stop();
-            projectId = await selectOption("Project", project, projectIds);
-            spinner?.start();
+            const projectIds = await getProjectOptionsByName(project)
+            spinner?.stop()
+            projectId = await selectOption("Project", project, projectIds)
+            spinner?.start()
           }
           if (projectId === undefined) {
-            console.error(`Could not determine ID for project ${project}`);
-            Deno.exit(1);
+            console.error(`Could not determine ID for project ${project}`)
+            Deno.exit(1)
           }
         }
 
         // Date validation done at graphql level
 
         // Convert parent identifier if provided and fetch parent data
-        let parentId: string | undefined;
+        let parentId: string | undefined
         let parentData: {
-          title: string;
-          identifier: string;
-          projectId: string | null;
-        } | null = null;
+          title: string
+          identifier: string
+          projectId: string | null
+        } | null = null
         if (parentIdentifier) {
           const parentIdentifierResolved = await getIssueIdentifier(
             parentIdentifier,
-          );
+          )
           if (!parentIdentifierResolved) {
             console.error(
               `✗ Could not resolve parent issue identifier: ${parentIdentifier}`,
-            );
-            Deno.exit(1);
+            )
+            Deno.exit(1)
           }
-          parentId = await getIssueId(parentIdentifierResolved);
+          parentId = await getIssueId(parentIdentifierResolved)
           if (!parentId) {
             console.error(
               `✗ Could not resolve parent issue ID: ${parentIdentifierResolved}`,
-            );
-            Deno.exit(1);
+            )
+            Deno.exit(1)
           }
 
           // Fetch parent issue data including project
-          parentData = await fetchParentIssueData(parentId);
+          parentData = await fetchParentIssueData(parentId)
         }
 
         const input = {
@@ -770,11 +770,11 @@ export const createCommand = new Command()
           stateId,
           useDefaultTemplate,
           description,
-        };
-        spinner?.stop();
-        console.log(`Creating issue in ${team}`);
-        console.log();
-        spinner?.start();
+        }
+        spinner?.stop()
+        console.log(`Creating issue in ${team}`)
+        console.log()
+        spinner?.start()
 
         const createIssueMutation = gql(`
           mutation CreateIssue($input: IssueCreateInput!) {
@@ -783,28 +783,28 @@ export const createCommand = new Command()
               issue { id, identifier, url, team { key } }
             }
           }
-        `);
+        `)
 
-        const client = getGraphQLClient();
-        const data = await client.request(createIssueMutation, { input });
+        const client = getGraphQLClient()
+        const data = await client.request(createIssueMutation, { input })
         if (!data.issueCreate.success) {
-          throw "query failed";
+          throw "query failed"
         }
-        const issue = data.issueCreate.issue;
+        const issue = data.issueCreate.issue
         if (!issue) {
-          throw "Issue creation failed - no issue returned";
+          throw "Issue creation failed - no issue returned"
         }
-        const issueId = issue.id;
-        spinner?.stop();
-        console.log(issue.url);
+        const issueId = issue.id
+        spinner?.stop()
+        console.log(issue.url)
 
         if (start) {
-          await startWorkOnIssue(issueId, issue.team.key);
+          await startWorkOnIssue(issueId, issue.team.key)
         }
       } catch (error) {
-        spinner?.stop();
-        console.error("✗ Failed to create issue", error);
-        Deno.exit(1);
+        spinner?.stop()
+        console.error("✗ Failed to create issue", error)
+        Deno.exit(1)
       }
     },
-  );
+  )

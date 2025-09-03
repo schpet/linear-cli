@@ -2,8 +2,7 @@
 
 ### usage
 
-linear cli provides commands to manage linear issues, teams, and projects from
-the command line.
+linear cli provides commands to manage linear issues, teams, and projects from the command line.
 
 ### repo configuration
 
@@ -13,8 +12,7 @@ first, configure the cli with your linear api token:
 linear config
 ```
 
-this will interactively generate a `.linear.toml` configuration file in the
-repo.
+this will interactively generate a `.linear.toml` configuration file in the repo.
 
 ### issues
 
@@ -267,8 +265,7 @@ source <(linear completions zsh)
 linear completions fish | source
 ```
 
-add the appropriate line to your shell's configuration file (e.g., `~/.bashrc`,
-`~/.zshrc`, or `~/.config/fish/config.fish`).
+add the appropriate line to your shell's configuration file (e.g., `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish`).
 
 ### global options
 

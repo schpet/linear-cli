@@ -1,27 +1,27 @@
 // Helper function to get the appropriate pager command
 export function getPagerCommand(): { command: string; args: string[] } | null {
   // Respect user's PAGER environment variable
-  const userPager = Deno.env.get("PAGER");
+  const userPager = Deno.env.get("PAGER")
   if (userPager) {
     // Split the pager command to handle cases like "less -R" or "more"
-    const parts = userPager.trim().split(/\s+/);
+    const parts = userPager.trim().split(/\s+/)
     return {
       command: parts[0],
       args: parts.slice(1),
-    };
+    }
   }
 
   // Platform-specific fallbacks with color support
-  const os = Deno.build.os;
+  const os = Deno.build.os
   switch (os) {
     case "windows":
       // Windows: try more first (built-in), then less if available
-      return { command: "more", args: [] };
+      return { command: "more", args: [] }
     case "darwin":
     case "linux":
     default:
       // Unix-like systems: prefer less with color support and no alternate screen
-      return { command: "less", args: ["-R", "-X"] };
+      return { command: "less", args: ["-R", "-X"] }
   }
 }
 
@@ -30,22 +30,22 @@ async function tryFallbackPagers(
   content: string,
   failedPager: string,
 ): Promise<void> {
-  const fallbacks = [];
-  const os = Deno.build.os;
+  const fallbacks = []
+  const os = Deno.build.os
 
   if (os === "windows") {
     // Windows fallbacks
-    if (failedPager !== "more") fallbacks.push({ command: "more", args: [] });
+    if (failedPager !== "more") fallbacks.push({ command: "more", args: [] })
     if (failedPager !== "less") {
-      fallbacks.push({ command: "less", args: ["-R", "-X"] });
+      fallbacks.push({ command: "less", args: ["-R", "-X"] })
     }
   } else {
     // Unix-like fallbacks
     if (failedPager !== "less") {
-      fallbacks.push({ command: "less", args: ["-R", "-X"] });
+      fallbacks.push({ command: "less", args: ["-R", "-X"] })
     }
-    if (failedPager !== "more") fallbacks.push({ command: "more", args: [] });
-    if (failedPager !== "cat") fallbacks.push({ command: "cat", args: [] });
+    if (failedPager !== "more") fallbacks.push({ command: "more", args: [] })
+    if (failedPager !== "cat") fallbacks.push({ command: "cat", args: [] })
   }
 
   for (const fallback of fallbacks) {
@@ -55,36 +55,36 @@ async function tryFallbackPagers(
         stdin: "piped",
         stdout: "inherit",
         stderr: "inherit",
-      });
+      })
 
-      const child = process.spawn();
-      const writer = child.stdin.getWriter();
+      const child = process.spawn()
+      const writer = child.stdin.getWriter()
 
-      await writer.write(new TextEncoder().encode(content));
-      await writer.close();
+      await writer.write(new TextEncoder().encode(content))
+      await writer.close()
 
-      const status = await child.status;
+      const status = await child.status
       if (status.success) {
-        return; // Successfully used fallback
+        return // Successfully used fallback
       }
     } catch {
       // Continue to next fallback
-      continue;
+      continue
     }
   }
 
   // If all pagers fail, output directly to console
-  console.log(content);
+  console.log(content)
 }
 
 /**
  * Pipe output to appropriate pager with color support
  */
 export async function pipeToUserPager(content: string): Promise<void> {
-  const pagerConfig = getPagerCommand();
+  const pagerConfig = getPagerCommand()
   if (!pagerConfig) {
-    console.log(content);
-    return;
+    console.log(content)
+    return
   }
 
   try {
@@ -93,22 +93,22 @@ export async function pipeToUserPager(content: string): Promise<void> {
       stdin: "piped",
       stdout: "inherit",
       stderr: "inherit",
-    });
+    })
 
-    const child = process.spawn();
-    const writer = child.stdin.getWriter();
+    const child = process.spawn()
+    const writer = child.stdin.getWriter()
 
-    await writer.write(new TextEncoder().encode(content));
-    await writer.close();
+    await writer.write(new TextEncoder().encode(content))
+    await writer.close()
 
-    const status = await child.status;
+    const status = await child.status
     if (!status.success) {
       // Try fallback pagers if the primary one fails
-      await tryFallbackPagers(content, pagerConfig.command);
+      await tryFallbackPagers(content, pagerConfig.command)
     }
   } catch {
     // Try fallback pagers if the primary one is not available
-    await tryFallbackPagers(content, pagerConfig.command);
+    await tryFallbackPagers(content, pagerConfig.command)
   }
 }
 
@@ -120,14 +120,14 @@ export function shouldUsePager(
   usePager: boolean,
 ): boolean {
   if (!usePager || !Deno.stdout.isTerminal()) {
-    return false;
+    return false
   }
 
   try {
-    const { rows: terminalHeight } = Deno.consoleSize();
-    return outputLines.length > terminalHeight - 2; // Leave some space for shell prompt
+    const { rows: terminalHeight } = Deno.consoleSize()
+    return outputLines.length > terminalHeight - 2 // Leave some space for shell prompt
   } catch {
     // If we can't get console size (e.g., in tests), don't use pager for short content
-    return outputLines.length > 50; // Fallback threshold
+    return outputLines.length > 50 // Fallback threshold
   }
 }

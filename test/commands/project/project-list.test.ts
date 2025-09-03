@@ -1,8 +1,8 @@
-import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing";
-import { snapshotTest } from "../../utils/snapshot_with_fake_time.ts";
-import { listCommand } from "../../../src/commands/project/project-list.ts";
-import { commonDenoArgs } from "../../utils/test-helpers.ts";
-import { MockLinearServer } from "../../utils/mock_linear_server.ts";
+import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
+import { snapshotTest } from "../../utils/snapshot_with_fake_time.ts"
+import { listCommand } from "../../../src/commands/project/project-list.ts"
+import { commonDenoArgs } from "../../utils/test-helpers.ts"
+import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
 // Test help output
 await cliffySnapshotTest({
@@ -12,9 +12,9 @@ await cliffySnapshotTest({
   args: ["--help"],
   denoArgs: commonDenoArgs,
   async fn() {
-    await listCommand.parse();
+    await listCommand.parse()
   },
-});
+})
 
 // Test with mock server - Projects list
 await snapshotTest({
@@ -140,21 +140,21 @@ await snapshotTest({
           },
         },
       },
-    ]);
+    ])
 
     try {
-      await server.start();
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      await listCommand.parse();
+      await listCommand.parse()
     } finally {
-      await server.stop();
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
-      Deno.env.delete("LINEAR_API_KEY");
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
     }
   },
-});
+})
 
 // Test with empty projects list
 await cliffySnapshotTest({
@@ -176,18 +176,18 @@ await cliffySnapshotTest({
           },
         },
       },
-    ]);
+    ])
 
     try {
-      await server.start();
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      await listCommand.parse();
+      await listCommand.parse()
     } finally {
-      await server.stop();
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
-      Deno.env.delete("LINEAR_API_KEY");
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
     }
   },
-});
+})

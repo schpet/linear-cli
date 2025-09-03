@@ -54,7 +54,9 @@
       ".github/workflows/build-setup.yml",
       "__generated__/",
       "src/__codegen__/"
-    ]
+    ],
+    "proseWrap": "never",
+    "semiColons": false
   },
   "lint": {
     "exclude": [

@@ -12,14 +12,11 @@
 
 ### Added
 
-- add from-ref option to issue start command to start an issue from a different
-  git branch or ref ([#54](https://github.com/schpet/linear-cli/pull/54); thanks
-  [@pianohacker](https://github.com/pianohacker))
+- add from-ref option to issue start command to start an issue from a different git branch or ref ([#54](https://github.com/schpet/linear-cli/pull/54); thanks [@pianohacker](https://github.com/pianohacker))
 
 ### Fixed
 
-- omit empty comments section in markdown output instead of showing 'no comments
-  found'
+- omit empty comments section in markdown output instead of showing 'no comments found'
 
 ## [1.0.1] - 2025-08-26
 
@@ -42,11 +39,9 @@
 
 ### Removed
 
-- linear issue <id> is removed, must use linear issue view <id>. linear issue
-  now prints help text
+- linear issue <id> is removed, must use linear issue view <id>. linear issue now prints help text
 - remove support for deriving team ids from directory name
-- deprecated 'linear issue open' and 'linear issue print' commands - use 'linear
-  issue view --app' and 'linear issue view' instead
+- deprecated 'linear issue open' and 'linear issue print' commands - use 'linear issue view --app' and 'linear issue view' instead
 - removed team open command (use linear issue list -a)
 
 ### Changed
@@ -54,8 +49,7 @@
 - more consistent rendering of priority
 - labels column width now dynamically sized based on actual label content
 - state flag on issue list can now be repeated to filter by multiple states
-- team members command now shows initials, timezone, and other details with
-  --verbose flag
+- team members command now shows initials, timezone, and other details with --verbose flag
 - organized code into multiple files so it's less of a nightmare to work on
 - linear issue list now sorts by workflow state first
 - issue pr create no longer opens browser by default, added --web flag
@@ -65,8 +59,7 @@
 
 - `issue delete` command to delete issues by id
 - `team members` command to list team members
-- add --assignee flag on `issue list` allowing you to list issues assigned to a
-  user
+- add --assignee flag on `issue list` allowing you to list issues assigned to a user
 - add -U, --unassigned flag to list only unassigned issues
 - add -A, --all-assignees flag to list issues for all assignees
 - allow specifying a --parent on linear issue create
@@ -121,9 +114,7 @@
 ### Added
 
 - test for JSON and HTML error response formatting
-- added `linear issue create` for creating issues with flags
-  ([#30](https://github.com/schpet/linear-cli/pull/30); thanks
-  [@maparent](https://github.com/maparent))
+- added `linear issue create` for creating issues with flags ([#30](https://github.com/schpet/linear-cli/pull/30); thanks [@maparent](https://github.com/maparent))
 - added `linear issue create` interactive issue creation
 
 ### Changed
@@ -179,8 +170,7 @@
 
 ### Added
 
-- running `linear issue start` without any id parameters will list out unstarted
-  issues and let you select one
+- running `linear issue start` without any id parameters will list out unstarted issues and let you select one
 
 ## [0.4.1]
 
@@ -193,8 +183,7 @@
 
 ### Added
 
-- linear issue view to print the issue, with --web and --app flags to open them
-  instead, similar to gh's view commands
+- linear issue view to print the issue, with --web and --app flags to open them instead, similar to gh's view commands
 
 ### changed
 
@@ -241,11 +230,8 @@
 
 ### added
 
-- adds a -t, --title flag to the `issue pr` command, allowing you to provide a
-  PR title that is different than linear's issue title
-- allows linear issue identifiers to be passed in as arguments to the issue
-  commands as an alternative to parsing the branch name, e.g.
-  `linear issue show ABC-123`
+- adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
+- allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
 [Unreleased]: https://github.com/schpet/linear-cli/compare/v1.2.0...HEAD
 [1.2.0]: https://github.com/schpet/linear-cli/compare/v1.1.0...v1.2.0

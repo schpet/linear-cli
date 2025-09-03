@@ -1,9 +1,9 @@
-import { snapshotTest } from "@cliffy/testing";
-import { viewCommand } from "../../../src/commands/issue/issue-view.ts";
-import { MockLinearServer } from "../../utils/mock_linear_server.ts";
+import { snapshotTest } from "@cliffy/testing"
+import { viewCommand } from "../../../src/commands/issue/issue-view.ts"
+import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
 // Mock the GraphQL endpoint for testing
-const TEST_ENDPOINT = "http://127.0.0.1:3000/graphql";
+const TEST_ENDPOINT = "http://127.0.0.1:3000/graphql"
 
 // Common Deno args for permissions
 const denoArgs = [
@@ -13,7 +13,7 @@ const denoArgs = [
   "--allow-run",
   "--allow-net",
   "--quiet",
-];
+]
 
 // Test help output
 await snapshotTest({
@@ -23,9 +23,9 @@ await snapshotTest({
   args: ["--help"],
   denoArgs,
   async fn() {
-    await viewCommand.parse();
+    await viewCommand.parse()
   },
-});
+})
 
 // Test with mock GraphQL endpoint
 await snapshotTest({
@@ -36,27 +36,27 @@ await snapshotTest({
   denoArgs,
   async fn() {
     // Set environment variables for testing
-    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", TEST_ENDPOINT);
-    Deno.env.set("LINEAR_API_KEY", "lin_api_test_key_123");
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", TEST_ENDPOINT)
+    Deno.env.set("LINEAR_API_KEY", "lin_api_test_key_123")
 
     try {
-      await viewCommand.parse();
+      await viewCommand.parse()
     } catch (error) {
       // Expected to fail with mock endpoint, capture the error for snapshot
       // Normalize error message to be consistent across platforms
-      const message = (error as Error).message;
+      const message = (error as Error).message
       const normalizedMessage = message.replace(
         /Connection refused \(os error \d+\)/g,
         "Connection refused",
-      );
-      console.log(`Error: ${normalizedMessage}`);
+      )
+      console.log(`Error: ${normalizedMessage}`)
     } finally {
       // Clean up environment
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
-      Deno.env.delete("LINEAR_API_KEY");
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
     }
   },
-});
+})
 
 // Test with working mock server - Terminal output (no comments available)
 await snapshotTest({
@@ -86,21 +86,21 @@ await snapshotTest({
           },
         },
       },
-    ]);
+    ])
 
     try {
-      await server.start();
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      await viewCommand.parse();
+      await viewCommand.parse()
     } finally {
-      await server.stop();
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
-      Deno.env.delete("LINEAR_API_KEY");
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
     }
   },
-});
+})
 
 // Test with no-comments flag to disable comments
 await snapshotTest({
@@ -127,21 +127,21 @@ await snapshotTest({
           },
         },
       },
-    ]);
+    ])
 
     try {
-      await server.start();
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      await viewCommand.parse();
+      await viewCommand.parse()
     } finally {
-      await server.stop();
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
-      Deno.env.delete("LINEAR_API_KEY");
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
     }
   },
-});
+})
 
 // Test with comments (default behavior)
 await snapshotTest({
@@ -224,21 +224,21 @@ await snapshotTest({
           },
         },
       },
-    ]);
+    ])
 
     try {
-      await server.start();
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      await viewCommand.parse();
+      await viewCommand.parse()
     } finally {
-      await server.stop();
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
-      Deno.env.delete("LINEAR_API_KEY");
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
     }
   },
-});
+})
 
 // Test with mock server - Issue not found
 await snapshotTest({
@@ -259,22 +259,22 @@ await snapshotTest({
           }],
         },
       },
-    ]);
+    ])
 
     try {
-      await server.start();
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint());
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token");
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
       try {
-        await viewCommand.parse();
+        await viewCommand.parse()
       } catch (error) {
-        console.log(`Error: ${(error as Error).message}`);
+        console.log(`Error: ${(error as Error).message}`)
       }
     } finally {
-      await server.stop();
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT");
-      Deno.env.delete("LINEAR_API_KEY");
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
     }
   },
-});
+})

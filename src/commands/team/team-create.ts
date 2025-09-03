@@ -1,7 +1,7 @@
-import { Command } from "@cliffy/command";
-import { Input, Select } from "@cliffy/prompt";
-import { gql } from "../../__codegen__/gql.ts";
-import { getGraphQLClient } from "../../utils/graphql.ts";
+import { Command } from "@cliffy/command"
+import { Input, Select } from "@cliffy/prompt"
+import { gql } from "../../__codegen__/gql.ts"
+import { getGraphQLClient } from "../../utils/graphql.ts"
 
 export const createCommand = new Command()
   .name("create")
@@ -24,37 +24,37 @@ export const createCommand = new Command()
       color: colorEnabled,
       interactive,
     }) => {
-      interactive = interactive && Deno.stdout.isTerminal();
+      interactive = interactive && Deno.stdout.isTerminal()
 
       // If no flags are provided, use interactive mode
       const noFlagsProvided = !name && !description && !key &&
-        isPrivate === undefined;
+        isPrivate === undefined
 
       if (noFlagsProvided && interactive) {
         try {
-          console.log("Creating a new team...\n");
+          console.log("Creating a new team...\n")
 
           // Prompt for name
           name = await Input.prompt({
             message: "Team name:",
             validate: (input: string) => {
               if (!input || input.trim().length === 0) {
-                return "Team name is required";
+                return "Team name is required"
               }
-              return true;
+              return true
             },
-          });
+          })
 
           // Prompt for description
           description = await Input.prompt({
             message: "Team description (optional):",
-          }) || undefined;
+          }) || undefined
 
           // Prompt for key
           key = await Input.prompt({
             message:
               "Team key (optional, will be generated from name if not provided):",
-          }) || undefined;
+          }) || undefined
 
           // Prompt for privacy
           const privacyChoice = await Select.prompt({
@@ -64,10 +64,10 @@ export const createCommand = new Command()
               { name: "Private", value: "private" },
             ],
             default: "public",
-          });
-          isPrivate = privacyChoice === "private" ? true : undefined;
+          })
+          isPrivate = privacyChoice === "private" ? true : undefined
 
-          console.log(`\nCreating team "${name}"...`);
+          console.log(`\nCreating team "${name}"...`)
 
           const createTeamMutation = gql(`
             mutation CreateTeam($input: TeamCreateInput!) {
@@ -76,9 +76,9 @@ export const createCommand = new Command()
                 team { id, name, key }
               }
             }
-          `);
+          `)
 
-          const client = getGraphQLClient();
+          const client = getGraphQLClient()
           const data = await client.request(createTeamMutation, {
             input: {
               name: name,
@@ -86,22 +86,22 @@ export const createCommand = new Command()
               key: key || undefined,
               private: isPrivate || undefined,
             },
-          });
+          })
 
           if (!data.teamCreate.success) {
-            throw "Team creation failed";
+            throw "Team creation failed"
           }
 
-          const team = data.teamCreate.team;
+          const team = data.teamCreate.team
           if (!team) {
-            throw "Team creation failed - no team returned";
+            throw "Team creation failed - no team returned"
           }
 
-          console.log(`✓ Created team ${team.key}: ${team.name}`);
-          return;
+          console.log(`✓ Created team ${team.key}: ${team.name}`)
+          return
         } catch (error) {
-          console.error("✗ Failed to create team", error);
-          Deno.exit(1);
+          console.error("✗ Failed to create team", error)
+          Deno.exit(1)
         }
       }
 
@@ -109,18 +109,18 @@ export const createCommand = new Command()
       if (!name) {
         console.error(
           "Team name is required when not using interactive mode. Use --name or run without any flags for interactive mode.",
-        );
-        Deno.exit(1);
+        )
+        Deno.exit(1)
       }
 
-      const { Spinner } = await import("@std/cli/unstable-spinner");
-      const showSpinner = colorEnabled && interactive;
-      const spinner = showSpinner ? new Spinner() : null;
-      spinner?.start();
+      const { Spinner } = await import("@std/cli/unstable-spinner")
+      const showSpinner = colorEnabled && interactive
+      const spinner = showSpinner ? new Spinner() : null
+      spinner?.start()
 
       try {
-        console.log(`Creating team "${name}"`);
-        spinner?.start();
+        console.log(`Creating team "${name}"`)
+        spinner?.start()
 
         const createTeamMutation = gql(`
           mutation CreateTeam($input: TeamCreateInput!) {
@@ -129,9 +129,9 @@ export const createCommand = new Command()
               team { id, name, key }
             }
           }
-        `);
+        `)
 
-        const client = getGraphQLClient();
+        const client = getGraphQLClient()
         const data = await client.request(createTeamMutation, {
           input: {
             name,
@@ -139,23 +139,23 @@ export const createCommand = new Command()
             key: key || undefined,
             private: isPrivate || undefined,
           },
-        });
+        })
 
         if (!data.teamCreate.success) {
-          throw "Team creation failed";
+          throw "Team creation failed"
         }
 
-        const team = data.teamCreate.team;
+        const team = data.teamCreate.team
         if (!team) {
-          throw "Team creation failed - no team returned";
+          throw "Team creation failed - no team returned"
         }
 
-        spinner?.stop();
-        console.log(`✓ Created team ${team.key}: ${team.name}`);
+        spinner?.stop()
+        console.log(`✓ Created team ${team.key}: ${team.name}`)
       } catch (error) {
-        spinner?.stop();
-        console.error("✗ Failed to create team", error);
-        Deno.exit(1);
+        spinner?.stop()
+        console.error("✗ Failed to create team", error)
+        Deno.exit(1)
       }
     },
-  );
+  )

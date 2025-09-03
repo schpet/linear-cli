@@ -1,7 +1,6 @@
 # linear cli
 
-a cli to list, start and create issues. git aware to keep you in the right views
-in linear. allows jumping to the web or the linear desktop app similar to `gh`.
+a cli to list, start and create issues. git aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
 here's how it works:
 
@@ -17,9 +16,7 @@ linear issue pr             # makes a PR with title/body preset, using gh cli
 linear issue create         # create a new issue
 ```
 
-it's pretty dialed to my own use cases, but i want to support more people than
-myself with this so
-[lmk what it can do for you](https://github.com/schpet/linear-cli/issues/).
+it's pretty dialed to my own use cases, but i want to support more people than myself with this so [lmk what it can do for you](https://github.com/schpet/linear-cli/issues/).
 
 ## screencast demos
 
@@ -65,8 +62,7 @@ deno task install
 
 ## setup
 
-1. create an API key at
-   [linear.app/settings/account/security](https://linear.app/settings/account/security)[^1]
+1. create an API key at [linear.app/settings/account/security](https://linear.app/settings/account/security)[^1]
 
 2. add the API key to your shell environment:
 
@@ -85,22 +81,15 @@ deno task install
    linear config
    ```
 
-   _this will create a `.linear.toml` config file in your repository with your
-   workspace and team settings._
+   _this will create a `.linear.toml` config file in your repository with your workspace and team settings._
 
-the CLI works best when your git branches include Linear issue IDs (e.g.
-`eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch
-name' button and
-[related automations](https://linear.app/docs/account-preferences#git-related-automations).
+the CLI works best when your git branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
 
 ## commands
 
 ### issue commands
 
-the current issue is determined by the issue id in the current git branch name.
-note that
-[Linear's GitHub integration](https://linear.app/docs/github#branch-format) will
-suggest these branch names.
+the current issue is determined by the issue id in the current git branch name. note that [Linear's GitHub integration](https://linear.app/docs/github#branch-format) will suggest these branch names.
 
 ```bash
 linear issue view      # view issue details in terminal
@@ -148,18 +137,13 @@ linear completions     # generate shell completions
 
 ## why
 
-linear's UI is incredibly good but it slows me down. i find the following pretty
-grating to experience frequently:
+linear's UI is incredibly good but it slows me down. i find the following pretty grating to experience frequently:
 
 - switching context from my repo to linear
 - not being on the right view when i open linear
-- linear suggests a git branch, but i have to do the work of creating or
-  switching to that branch
-- linear's suggested git branch doesn't account for it already existing or
-  having a merged pull request
+- linear suggests a git branch, but i have to do the work of creating or switching to that branch
+- linear's suggested git branch doesn't account for it already existing or having a merged pull request
 
-this cli solves this. it knows what you're working on, does the work of managing
-branches, and will write your pull request details for you.
+this cli solves this. it knows what you're working on, does the work of managing branches, and will write your pull request details for you.
 
-[^1]: creating an API key requires member access, it is not available for guest
-    accounts.
+[^1]: creating an API key requires member access, it is not available for guest accounts.

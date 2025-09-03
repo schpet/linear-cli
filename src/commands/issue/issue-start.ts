@@ -1,12 +1,12 @@
-import { Command } from "@cliffy/command";
-import { Select } from "@cliffy/prompt";
-import { getPriorityDisplay } from "../../utils/display.ts";
+import { Command } from "@cliffy/command"
+import { Select } from "@cliffy/prompt"
+import { getPriorityDisplay } from "../../utils/display.ts"
 import {
   fetchIssuesForState,
   getIssueIdentifier,
   getTeamKey,
-} from "../../utils/linear.ts";
-import { startWorkOnIssue as startIssue } from "../../utils/actions.ts";
+} from "../../utils/linear.ts"
+import { startWorkOnIssue as startIssue } from "../../utils/actions.ts"
 
 export const startCommand = new Command()
   .name("start")
@@ -25,19 +25,19 @@ export const startCommand = new Command()
     "Git ref to create new branch from",
   )
   .action(async ({ allAssignees, unassigned, fromRef }, issueId) => {
-    const teamId = getTeamKey();
+    const teamId = getTeamKey()
     if (!teamId) {
-      console.error("Could not determine team ID");
-      Deno.exit(1);
+      console.error("Could not determine team ID")
+      Deno.exit(1)
     }
 
     // Validate that conflicting flags are not used together
     if (allAssignees && unassigned) {
-      console.error("Cannot specify both --all-assignees and --unassigned");
-      Deno.exit(1);
+      console.error("Cannot specify both --all-assignees and --unassigned")
+      Deno.exit(1)
     }
 
-    let resolvedId = await getIssueIdentifier(issueId);
+    let resolvedId = await getIssueIdentifier(issueId)
     if (!resolvedId) {
       try {
         const result = await fetchIssuesForState(
@@ -46,12 +46,12 @@ export const startCommand = new Command()
           undefined,
           unassigned,
           allAssignees,
-        );
-        const issues = result.issues?.nodes || [];
+        )
+        const issues = result.issues?.nodes || []
 
         if (issues.length === 0) {
-          console.error("No unstarted issues found.");
-          Deno.exit(1);
+          console.error("No unstarted issues found.")
+          Deno.exit(1)
         }
 
         const answer = await Select.prompt({
@@ -65,18 +65,18 @@ export const startCommand = new Command()
               ` ${issue.identifier}: ${issue.title}`,
             value: issue.identifier,
           })),
-        });
+        })
 
-        resolvedId = answer as string;
+        resolvedId = answer as string
       } catch (error) {
-        console.error("Failed to fetch issues:", error);
-        Deno.exit(1);
+        console.error("Failed to fetch issues:", error)
+        Deno.exit(1)
       }
     }
 
     if (!resolvedId) {
-      console.error("No issue ID resolved");
-      Deno.exit(1);
+      console.error("No issue ID resolved")
+      Deno.exit(1)
     }
-    await startIssue(resolvedId, teamId, fromRef);
-  });
+    await startIssue(resolvedId, teamId, fromRef)
+  })

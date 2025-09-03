@@ -1,29 +1,29 @@
-import { assertStringIncludes } from "@std/assert";
-import { getGraphQLClient } from "../src/utils/graphql.ts";
+import { assertStringIncludes } from "@std/assert"
+import { getGraphQLClient } from "../src/utils/graphql.ts"
 
 // Mock fetch function for testing
-const originalFetch = globalThis.fetch;
+const originalFetch = globalThis.fetch
 
 function mockFetch(response: Response) {
-  globalThis.fetch = () => Promise.resolve(response);
+  globalThis.fetch = () => Promise.resolve(response)
 }
 
 function restoreFetch() {
-  globalThis.fetch = originalFetch;
+  globalThis.fetch = originalFetch
 }
 
 // Mock environment variable for API key
-const originalEnv = Deno.env.get;
+const originalEnv = Deno.env.get
 
 function mockEnv() {
   Deno.env.get = (key: string) => {
-    if (key === "LINEAR_API_KEY") return "test-api-key";
-    return originalEnv(key);
-  };
+    if (key === "LINEAR_API_KEY") return "test-api-key"
+    return originalEnv(key)
+  }
 }
 
 function restoreEnv() {
-  Deno.env.get = originalEnv;
+  Deno.env.get = originalEnv
 }
 
 Deno.test("getGraphQLClient handles authentication errors", async () => {
@@ -34,7 +34,7 @@ Deno.test("getGraphQLClient handles authentication errors", async () => {
         code: "INVALID_API_KEY",
       },
     }],
-  };
+  }
 
   const mockResponse = new Response(
     JSON.stringify(jsonErrorResponse),
@@ -45,25 +45,25 @@ Deno.test("getGraphQLClient handles authentication errors", async () => {
         "content-type": "application/json",
       },
     },
-  );
+  )
 
-  mockFetch(mockResponse);
-  mockEnv();
+  mockFetch(mockResponse)
+  mockEnv()
 
   try {
-    const client = getGraphQLClient();
-    await client.request("query { viewer { id } }", {});
-    throw new Error("Expected GraphQL client to throw an error");
+    const client = getGraphQLClient()
+    await client.request("query { viewer { id } }", {})
+    throw new Error("Expected GraphQL client to throw an error")
   } catch (error) {
-    const errorMessage = (error as Error).message;
+    const errorMessage = (error as Error).message
 
     // graphql-request formats errors as "GraphQL Error (Code: status)"
-    assertStringIncludes(errorMessage, "GraphQL Error (Code: 401)");
+    assertStringIncludes(errorMessage, "GraphQL Error (Code: 401)")
   } finally {
-    restoreFetch();
-    restoreEnv();
+    restoreFetch()
+    restoreEnv()
   }
-});
+})
 
 Deno.test("getGraphQLClient handles HTTP errors", async () => {
   const htmlErrorResponse = `
@@ -78,7 +78,7 @@ Deno.test("getGraphQLClient handles HTTP errors", async () => {
         <p>Error ID: abc123def456</p>
     </body>
     </html>
-  `.trim();
+  `.trim()
 
   const mockResponse = new Response(
     htmlErrorResponse,
@@ -89,29 +89,29 @@ Deno.test("getGraphQLClient handles HTTP errors", async () => {
         "content-type": "text/html",
       },
     },
-  );
+  )
 
-  mockFetch(mockResponse);
-  mockEnv();
+  mockFetch(mockResponse)
+  mockEnv()
 
   try {
-    const client = getGraphQLClient();
-    await client.request("query { viewer { id } }", {});
-    throw new Error("Expected GraphQL client to throw an error");
+    const client = getGraphQLClient()
+    await client.request("query { viewer { id } }", {})
+    throw new Error("Expected GraphQL client to throw an error")
   } catch (error) {
-    const errorMessage = (error as Error).message;
+    const errorMessage = (error as Error).message
 
     // graphql-request will throw a ClientError for HTTP errors
     // The exact format may differ, but it should contain error information
-    assertStringIncludes(errorMessage.toLowerCase(), "500");
+    assertStringIncludes(errorMessage.toLowerCase(), "500")
   } finally {
-    restoreFetch();
-    restoreEnv();
+    restoreFetch()
+    restoreEnv()
   }
-});
+})
 
 Deno.test("getGraphQLClient handles malformed JSON responses", async () => {
-  const malformedJsonResponse = '{"error": "Invalid JSON", "incomplete": ';
+  const malformedJsonResponse = '{"error": "Invalid JSON", "incomplete": '
 
   const mockResponse = new Response(
     malformedJsonResponse,
@@ -122,23 +122,23 @@ Deno.test("getGraphQLClient handles malformed JSON responses", async () => {
         "content-type": "application/json",
       },
     },
-  );
+  )
 
-  mockFetch(mockResponse);
-  mockEnv();
+  mockFetch(mockResponse)
+  mockEnv()
 
   try {
-    const client = getGraphQLClient();
-    await client.request("query { viewer { id } }", {});
-    throw new Error("Expected GraphQL client to throw an error");
+    const client = getGraphQLClient()
+    await client.request("query { viewer { id } }", {})
+    throw new Error("Expected GraphQL client to throw an error")
   } catch (error) {
-    const errorMessage = (error as Error).message;
+    const errorMessage = (error as Error).message
 
     // graphql-request will handle JSON parsing errors
     // The exact error message may vary, but should indicate an error code
-    assertStringIncludes(errorMessage.toLowerCase(), "400");
+    assertStringIncludes(errorMessage.toLowerCase(), "400")
   } finally {
-    restoreFetch();
-    restoreEnv();
+    restoreFetch()
+    restoreEnv()
   }
-});
+})

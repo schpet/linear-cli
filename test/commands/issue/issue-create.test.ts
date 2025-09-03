@@ -1,9 +1,9 @@
-import { snapshotTest } from "@cliffy/testing";
-import { createCommand } from "../../../src/commands/issue/issue-create.ts";
+import { snapshotTest } from "@cliffy/testing"
+import { createCommand } from "../../../src/commands/issue/issue-create.ts"
 import {
   commonDenoArgs,
   setupMockLinearServer,
-} from "../../utils/test-helpers.ts";
+} from "../../utils/test-helpers.ts"
 
 // Test help output
 await snapshotTest({
@@ -13,9 +13,9 @@ await snapshotTest({
   args: ["--help"],
   denoArgs: commonDenoArgs,
   async fn() {
-    await createCommand.parse();
+    await createCommand.parse()
   },
-});
+})
 
 // Test creating an issue with flags (happy path)
 await snapshotTest({
@@ -90,15 +90,15 @@ await snapshotTest({
           },
         },
       },
-    ], { LINEAR_TEAM_ID: "ENG" });
+    ], { LINEAR_TEAM_ID: "ENG" })
 
     try {
-      await createCommand.parse();
+      await createCommand.parse()
     } finally {
-      await cleanup();
+      await cleanup()
     }
   },
-});
+})
 
 // Test creating an issue with case-insensitive label matching
 await snapshotTest({
@@ -167,12 +167,12 @@ await snapshotTest({
           },
         },
       },
-    ], { LINEAR_TEAM_ID: "ENG" });
+    ], { LINEAR_TEAM_ID: "ENG" })
 
     try {
-      await createCommand.parse();
+      await createCommand.parse()
     } finally {
-      await cleanup();
+      await cleanup()
     }
   },
-});
+})

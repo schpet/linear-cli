@@ -1,6 +1,6 @@
-import { Command } from "@cliffy/command";
-import { getTeamKey } from "../../utils/linear.ts";
-import { getOption } from "../../config.ts";
+import { Command } from "@cliffy/command"
+import { getTeamKey } from "../../utils/linear.ts"
+import { getOption } from "../../config.ts"
 
 export const autolinksCommand = new Command()
   .name("autolinks")
@@ -8,18 +8,18 @@ export const autolinksCommand = new Command()
     "Configure GitHub repository autolinks for Linear issues with this team prefix",
   )
   .action(async () => {
-    const teamId = getTeamKey();
+    const teamId = getTeamKey()
     if (!teamId) {
-      console.error("Could not determine team id from directory name.");
-      Deno.exit(1);
+      console.error("Could not determine team id from directory name.")
+      Deno.exit(1)
     }
 
-    const workspace = getOption("workspace");
+    const workspace = getOption("workspace")
     if (!workspace) {
       console.error(
         "workspace is not set via command line, configuration file, or environment.",
-      );
-      Deno.exit(1);
+      )
+      Deno.exit(1)
     }
 
     const process = new Deno.Command("gh", {
@@ -34,11 +34,11 @@ export const autolinksCommand = new Command()
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
-    });
+    })
 
-    const status = await process.spawn().status;
+    const status = await process.spawn().status
     if (!status.success) {
-      console.error("Failed to configure autolinks");
-      Deno.exit(1);
+      console.error("Failed to configure autolinks")
+      Deno.exit(1)
     }
-  });
+  })
