@@ -32,6 +32,7 @@ the changelog cli
 - tests on commands should mirror the directory structure of the src, e.g.
   - src/commands/issue/issue-view.ts
   - test/commands/issue/issue-view.test.ts
-- use `deno task test` instead of `deno test`, use `deno task snapshot` to update snapshots
+- use `deno task test` instead of `deno test`, use `deno task snapshot` to
+  update snapshots
 - use the NO_COLOR variable for snapshot tests so they don't include ansi escape
   codes
