@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- add from-ref option to issue start command to start an issue from a different
+  git branch or ref ([#54](https://github.com/schpet/linear-cli/pull/54); thanks
+  [@pianohacker](https://github.com/pianohacker))
+
 ### Fixed
 
 - omit empty comments section in markdown output instead of showing 'no comments
@@ -107,8 +113,9 @@
 ### Added
 
 - test for JSON and HTML error response formatting
-- added `linear issue create` for creating issues with flags (#30, thanks
-  @maparent)
+- added `linear issue create` for creating issues with flags
+  ([#30](https://github.com/schpet/linear-cli/pull/30); thanks
+  [@maparent](https://github.com/maparent))
 - added `linear issue create` interactive issue creation
 
 ### Changed
