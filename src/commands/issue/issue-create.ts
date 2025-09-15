@@ -113,17 +113,6 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
       const labels = preloaded?.labels ?? await getLabelsForTeam(teamKey)
       if (labels.length === 0) return []
 
-      const hasLabels = await Select.prompt({
-        message: "Do you want to add labels?",
-        options: [
-          { name: "No", value: false },
-          { name: "Yes", value: true },
-        ],
-        default: false,
-      })
-
-      if (!hasLabels) return []
-
       return await Checkbox.prompt({
         message: "Select labels (use space to select, enter to confirm)",
         search: true,
