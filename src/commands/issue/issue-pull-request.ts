@@ -21,8 +21,12 @@ export const pullRequestCommand = new Command()
     "--web",
     "Open the pull request in the browser after creating it",
   )
+  .option(
+    "--head <branch:string>",
+    "The branch that contains commits for your pull request",
+  )
   .arguments("[issueId:string]")
-  .action(async ({ base, draft, title: customTitle, web }, issueId) => {
+  .action(async ({ base, draft, title: customTitle, web, head }, issueId) => {
     const resolvedId = await getIssueIdentifier(issueId)
     if (!resolvedId) {
       console.error(
@@ -44,6 +48,7 @@ export const pullRequestCommand = new Command()
         "--body",
         url,
         ...(base ? ["--base", base] : []),
+        ...(head ? ["--head", head] : []),
         ...(draft ? ["--draft"] : []),
         ...(web ? ["--web"] : []),
       ],
