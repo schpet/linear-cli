@@ -304,9 +304,11 @@ export async function fetchIssuesForState(
   assignee?: string,
   unassigned = false,
   allAssignees = false,
+  sort?: "manual" | "priority",
 ) {
-  const sort = getOption("issue_sort") as "manual" | "priority" | undefined
-  if (!sort) {
+  const sortValue = sort ||
+    getOption("issue_sort") as "manual" | "priority" | undefined
+  if (!sortValue) {
     console.error(
       "Sort must be provided via configuration file or LINEAR_ISSUE_SORT environment variable",
     )
@@ -369,7 +371,7 @@ export async function fetchIssuesForState(
   `)
 
   let sortPayload: Array<IssueSortInput>
-  switch (sort) {
+  switch (sortValue) {
     case "manual":
       sortPayload = [
         { workflowState: { order: "Descending" } },
@@ -383,7 +385,7 @@ export async function fetchIssuesForState(
       ]
       break
     default:
-      throw new Error(`Unknown sort type: ${sort}`)
+      throw new Error(`Unknown sort type: ${sortValue}`)
   }
 
   const client = getGraphQLClient()

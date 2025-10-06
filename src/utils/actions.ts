@@ -55,8 +55,10 @@ export async function openProjectPage(
   await open(url, options.app ? { app: { name: "Linear" } } : undefined)
 }
 
-export async function openTeamAssigneeView(options: { app?: boolean } = {}) {
-  const teamId = getTeamKey()
+export async function openTeamAssigneeView(
+  options: { app?: boolean; team?: string } = {},
+) {
+  const teamId = options.team || getTeamKey()
   if (!teamId) {
     console.error(
       "Could not determine team id from configuration or directory name.",
@@ -64,12 +66,23 @@ export async function openTeamAssigneeView(options: { app?: boolean } = {}) {
     Deno.exit(1)
   }
 
-  const workspace = getOption("workspace")
+  let workspace = getOption("workspace")
   if (!workspace) {
-    console.error(
-      "workspace is not set via command line, configuration file, or environment.",
-    )
-    Deno.exit(1)
+    // Get workspace from viewer if not configured
+    const { gql } = await import("../__codegen__/gql.ts")
+    const { getGraphQLClient } = await import("./graphql.ts")
+    const client = getGraphQLClient()
+    const viewerQuery = gql(`
+      query GetViewer {
+        viewer {
+          organization {
+            urlKey
+          }
+        }
+      }
+    `)
+    const result = await client.request(viewerQuery)
+    workspace = result.viewer.organization.urlKey
   }
 
   const filterObj = {

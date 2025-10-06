@@ -45,10 +45,9 @@ await snapshotTest({
       // Expected to fail with mock endpoint, capture the error for snapshot
       // Normalize error message to be consistent across platforms
       const message = (error as Error).message
-      const normalizedMessage = message.replace(
-        /Connection refused \(os error \d+\)/g,
-        "Connection refused",
-      )
+      const normalizedMessage = message
+        .replace(/Connection refused \(os error \d+\)/g, "Connection refused")
+        .replace(/: Connection refused$/g, "")
       console.log(`Error: ${normalizedMessage}`)
     } finally {
       // Clean up environment

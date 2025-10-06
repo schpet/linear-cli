@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- various issues with issue list: --team, --sort flags work now, workspace doesn't need to be set (useful when running unconfigured)
+
 ### Changed
 
 - removed uneccessary double prompt around adding labels

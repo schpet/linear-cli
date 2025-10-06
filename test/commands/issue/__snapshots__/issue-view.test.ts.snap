@@ -24,8 +24,8 @@ stderr:
 
 snapshot[`Issue View Command - With Issue ID 1`] = `
 stdout:
-"Error: error sending request for url (http://127.0.0.1:3000/graphql): client error (Connect): tcp connect error: Connection refused: Connection refused
-"
+'Error: GraphQL Error (Code: 401): {"response":{"status":401,"headers":{}},"request":{"query":"query GetIssueDetailsWithComments(\$id: String!) {\\\\n  issue(id: \$id) {\\\\n    title\\\\n    description\\\\n    url\\\\n    branchName\\\\n    comments(first: 50, orderBy: createdAt) {\\\\n      nodes {\\\\n        id\\\\n        body\\\\n        createdAt\\\\n        user {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        externalUser {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        parent {\\\\n          id\\\\n        }\\\\n      }\\\\n    }\\\\n  }\\\\n}","variables":{"id":"TEST-123"}}}
+'
 stderr:
 "✗ Failed to fetch issue details
 "

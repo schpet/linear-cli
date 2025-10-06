@@ -83,7 +83,7 @@ export const listCommand = new Command()
     ) => {
       const usePager = pager !== false
       if (web || app) {
-        await openTeamAssigneeView({ app: app })
+        await openTeamAssigneeView({ app: app, team })
         return
       }
 
@@ -110,8 +110,10 @@ export const listCommand = new Command()
         Deno.exit(1)
       }
 
-      const sort = sortFlag ||
-        getOption("issue_sort") as "manual" | "priority" | undefined
+      const sort = getOption("issue_sort", sortFlag) as
+        | "manual"
+        | "priority"
+        | undefined
       if (!sort) {
         console.error(
           "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
@@ -142,6 +144,7 @@ export const listCommand = new Command()
           assignee,
           unassigned,
           allAssignees,
+          sort,
         )
         spinner?.stop()
         const issues = result.issues?.nodes || []
