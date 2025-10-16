@@ -9,6 +9,7 @@ import { urlCommand } from "./issue-url.ts"
 import { deleteCommand } from "./issue-delete.ts"
 import { pullRequestCommand } from "./issue-pull-request.ts"
 import { updateCommand } from "./issue-update.ts"
+import { commentCommand } from "./comment.ts"
 
 export const issueCommand = new Command()
   .description("Manage Linear issues")
@@ -25,3 +26,4 @@ export const issueCommand = new Command()
   .command("delete", deleteCommand)
   .command("create", createCommand)
   .command("update", updateCommand)
+  .command("comment", commentCommand)
