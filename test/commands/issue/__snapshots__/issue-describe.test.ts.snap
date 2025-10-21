@@ -1,0 +1,38 @@
+export const snapshot = {};
+
+snapshot[`Issue Describe Command - Help Text 1`] = `
+stdout:
+"
+Usage: describe [issueId]
+
+Description:
+
+  Print the issue title and Linear-issue trailer
+
+Options:
+
+  -h, --help  - Show this help.  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Describe Command - With Mock Server 1`] = `
+stdout:
+"TEST-123 Fix authentication bug in login flow
+
+Linear-issue: [TEST-123](https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow)
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Describe Command - Issue Not Found 1`] = `
+stdout:
+'Error: Issue not found: TEST-999: {"response":{"errors":[{"message":"Issue not found: TEST-999","extensions":{"code":"NOT_FOUND"}}],"status":200,"headers":{}},"request":{"query":"query GetIssueDetails(\$id: String!) {\\\\n  issue(id: \$id) {\\\\n    title\\\\n    description\\\\n    url\\\\n    branchName\\\\n  }\\\\n}","variables":{"id":"TEST-999"}}}
+'
+stderr:
+"✗ Failed to fetch issue details
+"
+`;
