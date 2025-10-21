@@ -93,6 +93,7 @@ the CLI works with both git and jj version control systems:
 ### issue commands
 
 the current issue is determined by:
+
 - **git**: the issue id in the current branch name (e.g. `eng-123-my-feature`)
 - **jj**: the `Linear-issue` trailer in the current or ancestor commits
 
