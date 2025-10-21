@@ -9,7 +9,7 @@ import type {
 import { Select } from "@cliffy/prompt"
 import { getOption } from "../config.ts"
 import { getGraphQLClient } from "./graphql.ts"
-import { getCurrentBranch } from "./git.ts"
+import { getCurrentIssueFromVcs } from "./vcs.ts"
 
 function isValidLinearIdentifier(id: string): boolean {
   return /^[a-zA-Z0-9]+-[1-9][0-9]*$/i.test(id)
@@ -30,7 +30,7 @@ export function getTeamKey(): string | undefined {
 /**
  * based on loose inputs, returns a linear issue identifier like ABC-123
  *
- * formats the provided identifier, adds the team id prefix, or finds one from the branch name
+ * formats the provided identifier, adds the team id prefix, or finds one from VCS state
  */
 export async function getIssueIdentifier(
   providedId?: string,
@@ -55,13 +55,9 @@ export async function getIssueIdentifier(
   }
 
   if (providedId === undefined) {
-    // look in branch
-    const branch = await getCurrentBranch()
-    if (!branch) return undefined
-    const match = branch.match(/[a-zA-Z0-9]+-[1-9][0-9]*/i)
-    if (match) {
-      return match[0].toUpperCase()
-    }
+    // Look in VCS state (git branch or jj commit trailer)
+    const issueId = await getCurrentIssueFromVcs()
+    return issueId || undefined
   }
 }
 

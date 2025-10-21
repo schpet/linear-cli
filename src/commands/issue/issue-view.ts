@@ -5,6 +5,7 @@ import { openIssuePage } from "../../utils/actions.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { bold, underline } from "@std/fmt/colors"
+import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 
 export const viewCommand = new Command()
   .name("view")
@@ -27,9 +28,7 @@ export const viewCommand = new Command()
 
     const resolvedId = await getIssueIdentifier(issueId)
     if (!resolvedId) {
-      console.error(
-        "The current branch does not contain a valid linear issue id.",
-      )
+      console.error(getNoIssueFoundMessage())
       Deno.exit(1)
     }
 

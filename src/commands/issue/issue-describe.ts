@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { formatIssueDescription } from "../../utils/jj.ts"
+import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 
 export const describeCommand = new Command()
   .name("describe")
@@ -9,9 +10,7 @@ export const describeCommand = new Command()
   .action(async (_, issueId) => {
     const resolvedId = await getIssueIdentifier(issueId)
     if (!resolvedId) {
-      console.error(
-        "The current branch does not contain a valid linear issue id.",
-      )
+      console.error(getNoIssueFoundMessage())
       Deno.exit(1)
     }
     const { title, url } = await fetchIssueDetails(

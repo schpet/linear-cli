@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command"
 import { getIssueIdentifier } from "../../utils/linear.ts"
+import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 
 export const idCommand = new Command()
   .name("id")
@@ -9,9 +10,7 @@ export const idCommand = new Command()
     if (resolvedId) {
       console.log(resolvedId)
     } else {
-      console.error(
-        "The current branch does not contain a valid linear issue id.",
-      )
+      console.error(getNoIssueFoundMessage())
       Deno.exit(1)
     }
   })

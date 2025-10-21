@@ -8,7 +8,7 @@ import {
 } from "./linear.ts"
 import { getOption } from "../config.ts"
 import { encodeBase64 } from "@std/encoding/base64"
-import { startVcsWork } from "./vcs.ts"
+import { getNoIssueFoundMessage, startVcsWork } from "./vcs.ts"
 
 export async function openIssuePage(
   providedId?: string,
@@ -16,9 +16,7 @@ export async function openIssuePage(
 ) {
   const issueId = await getIssueIdentifier(providedId)
   if (!issueId) {
-    console.error(
-      "The current branch does not contain a valid linear issue id.",
-    )
+    console.error(getNoIssueFoundMessage())
     Deno.exit(1)
   }
 
