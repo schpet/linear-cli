@@ -1,6 +1,4 @@
 import { open } from "@opensrc/deno-open"
-import { Select } from "@cliffy/prompt"
-import { branchExists } from "./git.ts"
 import {
   fetchIssueDetails,
   getIssueIdentifier,
@@ -10,6 +8,7 @@ import {
 } from "./linear.ts"
 import { getOption } from "../config.ts"
 import { encodeBase64 } from "@std/encoding/base64"
+import { startVcsWork } from "./vcs.ts"
 
 export async function openIssuePage(
   providedId?: string,
@@ -88,46 +87,8 @@ export async function startWorkOnIssue(
 ) {
   const { branchName } = await fetchIssueDetails(issueId, true)
 
-  // Check if branch exists
-  if (await branchExists(branchName)) {
-    const answer = await Select.prompt({
-      message:
-        `Branch ${branchName} already exists. What would you like to do?`,
-      options: [
-        { name: "Switch to existing branch", value: "switch" },
-        { name: "Create new branch with suffix", value: "create" },
-      ],
-    })
-
-    if (answer === "switch") {
-      const process = new Deno.Command("git", {
-        args: ["checkout", branchName],
-      })
-      await process.output()
-      console.log(`✓ Switched to '${branchName}'`)
-    } else {
-      // Find next available suffix
-      let suffix = 1
-      let newBranch = `${branchName}-${suffix}`
-      while (await branchExists(newBranch)) {
-        suffix++
-        newBranch = `${branchName}-${suffix}`
-      }
-
-      const process = new Deno.Command("git", {
-        args: ["checkout", "-b", newBranch, gitSourceRef || "HEAD"],
-      })
-      await process.output()
-      console.log(`✓ Created and switched to branch '${newBranch}'`)
-    }
-  } else {
-    // Create and checkout the branch
-    const process = new Deno.Command("git", {
-      args: ["checkout", "-b", branchName, gitSourceRef || "HEAD"],
-    })
-    await process.output()
-    console.log(`✓ Created and switched to branch '${branchName}'`)
-  }
+  // Start VCS work (git or jj)
+  await startVcsWork(issueId, branchName, gitSourceRef)
 
   // Update issue state
   try {

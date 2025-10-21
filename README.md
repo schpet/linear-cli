@@ -1,6 +1,6 @@
 # linear cli
 
-a cli to list, start and create issues. git aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
+a cli to list, start and create issues. git and jj aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
 here's how it works:
 
@@ -83,13 +83,20 @@ deno task install
 
    _this will create a `.linear.toml` config file in your repository with your workspace and team settings._
 
-the CLI works best when your git branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
+the CLI works with both git and jj version control systems:
+
+- **git**: works best when your branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
+- **jj**: detects issues from `Linear-issue` trailers in your commit descriptions. use `linear issue start` to automatically add the trailer, or add it manually with `jj describe`.
 
 ## commands
 
 ### issue commands
 
-the current issue is determined by the issue id in the current git branch name. note that [Linear's GitHub integration](https://linear.app/docs/github#branch-format) will suggest these branch names.
+the current issue is determined by:
+- **git**: the issue id in the current branch name (e.g. `eng-123-my-feature`)
+- **jj**: the `Linear-issue` trailer in the current or ancestor commits
+
+note that [Linear's GitHub integration](https://linear.app/docs/github#branch-format) will suggest git branch names.
 
 ```bash
 linear issue view      # view issue details in terminal
@@ -144,6 +151,6 @@ linear's UI is incredibly good but it slows me down. i find the following pretty
 - linear suggests a git branch, but i have to do the work of creating or switching to that branch
 - linear's suggested git branch doesn't account for it already existing or having a merged pull request
 
-this cli solves this. it knows what you're working on, does the work of managing branches, and will write your pull request details for you.
+this cli solves this. it knows what you're working on (via git branches or jj commit trailers), does the work of managing your version control state, and will write your pull request details for you.
 
 [^1]: creating an API key requires member access, it is not available for guest accounts.

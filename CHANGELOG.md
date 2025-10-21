@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- support jj-vcs
+
 ### Changed
 
 - removed uneccessary double prompt around adding labels

@@ -78,6 +78,7 @@ export type OptionValueMapping = {
   api_key: string
   workspace: string
   issue_sort: "manual" | "priority"
+  vcs: "git" | "jj"
 }
 
 export type OptionName = keyof OptionValueMapping

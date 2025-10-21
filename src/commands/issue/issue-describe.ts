@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command"
 import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
+import { formatIssueDescription } from "../../utils/jj.ts"
 
 export const describeCommand = new Command()
   .name("describe")
@@ -18,7 +19,5 @@ export const describeCommand = new Command()
       Deno.stdout.isTerminal(),
     )
 
-    console.log(`${resolvedId} ${title}`)
-    console.log()
-    console.log(`Linear-issue: [${resolvedId}](${url})`)
+    console.log(formatIssueDescription(resolvedId, title, url))
   })
