@@ -2,9 +2,6 @@ import { snapshotTest } from "@cliffy/testing"
 import { describeCommand } from "../../../src/commands/issue/issue-describe.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
-// Mock the GraphQL endpoint for testing
-const TEST_ENDPOINT = "http://127.0.0.1:3000/graphql"
-
 // Common Deno args for permissions
 const denoArgs = [
   "--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,SNAPSHOT_TEST_NAME",
