@@ -16,8 +16,9 @@ export const viewCommand = new Command()
   .option("-a, --app", "Open in Linear.app")
   .option("--no-comments", "Exclude comments from the output")
   .option("--no-pager", "Disable automatic paging for long output")
+  .option("-j, --json", "Output issue data as JSON")
   .action(async (options, issueId) => {
-    const { web, app, comments, pager } = options
+    const { web, app, comments, pager, json } = options
     const showComments = comments !== false
     const usePager = pager !== false
 
@@ -32,12 +33,19 @@ export const viewCommand = new Command()
       Deno.exit(1)
     }
 
-    const { title, description, comments: issueComments } =
-      await fetchIssueDetails(
-        resolvedId,
-        Deno.stdout.isTerminal(),
-        showComments,
-      )
+    const issueData = await fetchIssueDetails(
+      resolvedId,
+      Deno.stdout.isTerminal() && !json,
+      showComments,
+    )
+
+    // Handle JSON output
+    if (json) {
+      console.log(JSON.stringify(issueData, null, 2))
+      return
+    }
+
+    const { title, description, comments: issueComments } = issueData
 
     let markdown = `# ${title}${description ? "\n\n" + description : ""}`
 

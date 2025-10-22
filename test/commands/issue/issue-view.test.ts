@@ -278,3 +278,115 @@ await snapshotTest({
     }
   },
 })
+
+// Test JSON output with no comments
+await snapshotTest({
+  name: "Issue View Command - JSON Output No Comments",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-123", "--json", "--no-comments"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        variables: { id: "TEST-123" },
+        response: {
+          data: {
+            issue: {
+              title: "Fix authentication bug in login flow",
+              description:
+                "Users are experiencing issues logging in when their session expires.",
+              url:
+                "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
+              branchName: "fix/test-123-auth-bug",
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test JSON output with comments
+await snapshotTest({
+  name: "Issue View Command - JSON Output With Comments",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-123", "--json"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetailsWithComments",
+        variables: { id: "TEST-123" },
+        response: {
+          data: {
+            issue: {
+              title: "Fix authentication bug in login flow",
+              description:
+                "Users are experiencing issues logging in when their session expires.",
+              url:
+                "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
+              branchName: "fix/test-123-auth-bug",
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-1",
+                    body:
+                      "I've reproduced this issue on staging. The session timeout seems to be too aggressive.",
+                    createdAt: "2024-01-15T10:30:00Z",
+                    user: {
+                      name: "john.doe",
+                      displayName: "John Doe",
+                    },
+                    externalUser: null,
+                    parent: null,
+                  },
+                  {
+                    id: "comment-2",
+                    body:
+                      "Working on a fix. Will increase the session timeout and add proper error handling.",
+                    createdAt: "2024-01-15T14:22:00Z",
+                    user: {
+                      name: "jane.smith",
+                      displayName: "Jane Smith",
+                    },
+                    externalUser: null,
+                    parent: {
+                      id: "comment-1",
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})

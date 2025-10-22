@@ -16,6 +16,7 @@ Options:
   -a, --app      - Open in Linear.app                        
   --no-comments  - Exclude comments from the output          
   --no-pager     - Disable automatic paging for long output  
+  -j, --json     - Output issue data as JSON                 
 
 "
 stderr:
@@ -100,4 +101,56 @@ stdout:
 stderr:
 "✗ Failed to fetch issue details
 "
+`;
+
+snapshot[`Issue View Command - JSON Output No Comments 1`] = `
+stdout:
+'{
+  "title": "Fix authentication bug in login flow",
+  "description": "Users are experiencing issues logging in when their session expires.",
+  "url": "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
+  "branchName": "fix/test-123-auth-bug"
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Issue View Command - JSON Output With Comments 1`] = `
+stdout:
+\`{
+  "title": "Fix authentication bug in login flow",
+  "description": "Users are experiencing issues logging in when their session expires.",
+  "url": "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
+  "branchName": "fix/test-123-auth-bug",
+  "comments": [
+    {
+      "id": "comment-1",
+      "body": "I've reproduced this issue on staging. The session timeout seems to be too aggressive.",
+      "createdAt": "2024-01-15T10:30:00Z",
+      "user": {
+        "name": "john.doe",
+        "displayName": "John Doe"
+      },
+      "externalUser": null,
+      "parent": null
+    },
+    {
+      "id": "comment-2",
+      "body": "Working on a fix. Will increase the session timeout and add proper error handling.",
+      "createdAt": "2024-01-15T14:22:00Z",
+      "user": {
+        "name": "jane.smith",
+        "displayName": "Jane Smith"
+      },
+      "externalUser": null,
+      "parent": {
+        "id": "comment-1"
+      }
+    }
+  ]
+}
+\`
+stderr:
+""
 `;
