@@ -20,7 +20,7 @@ export function formatIssueDescription(
 export async function isJjChangeEmpty(): Promise<boolean> {
   // Check if description is empty
   const descProcess = await new Deno.Command("jj", {
-    args: ["log", "-r", "@", "-T", "description"],
+    args: ["log", "-r", "@", "-T", "description", "--no-graph"],
   }).output()
 
   const description = new TextDecoder().decode(descProcess.stdout).trim()
@@ -28,14 +28,14 @@ export async function isJjChangeEmpty(): Promise<boolean> {
     return false
   }
 
-  // Check if there are any changes
-  const statusProcess = await new Deno.Command("jj", {
-    args: ["status"],
+  // Check if there are any file changes using log -p
+  const diffProcess = await new Deno.Command("jj", {
+    args: ["log", "-p", "-r", "@", "--git", "--no-graph"],
   }).output()
 
-  const status = new TextDecoder().decode(statusProcess.stdout)
-  // If there are no changes, jj status will show "No changes."
-  return status.includes("No changes.")
+  const diffOutput = new TextDecoder().decode(diffProcess.stdout)
+  // If there are file changes, the output will contain "diff --git"
+  return !diffOutput.includes("diff --git")
 }
 
 /**

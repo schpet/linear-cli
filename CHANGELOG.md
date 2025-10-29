@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- fix jj empty change detection to properly identify changes without descriptions
+
 ## [1.2.0] - 2025-10-21
 
 ### Added
