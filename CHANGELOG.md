@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2025-11-10
+
 ### Fixed
 
 - fix jj empty change detection to properly identify changes without descriptions
@@ -247,7 +249,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/schpet/linear-cli/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/schpet/linear-cli/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/schpet/linear-cli/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/schpet/linear-cli/compare/v1.0.1...v1.1.0
