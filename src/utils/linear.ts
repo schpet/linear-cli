@@ -81,6 +81,24 @@ export async function getIssueId(
   return data.issue?.id
 }
 
+export async function getIssueTeamKey(
+  identifier: string,
+): Promise<string | undefined> {
+  const query = gql(/* GraphQL */ `
+    query GetIssueTeamKey($id: String!) {
+      issue(id: $id) {
+        team {
+          key
+        }
+      }
+    }
+  `)
+
+  const client = getGraphQLClient()
+  const data = await client.request(query, { id: identifier })
+  return data.issue?.team?.key
+}
+
 export async function getWorkflowStates(
   teamKey: string,
 ) {
@@ -121,6 +139,43 @@ export async function getStartedState(
   }
 
   return { id: startedStates[0].id, name: startedStates[0].name }
+}
+
+export async function getDefaultIssueState(
+  teamKey: string,
+): Promise<{ id: string; name: string }> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetDefaultIssueState($teamKey: String!) {
+      team(id: $teamKey) {
+        defaultIssueState {
+          id
+          name
+        }
+      }
+    }
+  `)
+  const result = await client.request(query, { teamKey })
+  if (!result.team.defaultIssueState) {
+    throw new Error("No default issue state found for team")
+  }
+  return {
+    id: result.team.defaultIssueState.id,
+    name: result.team.defaultIssueState.name,
+  }
+}
+
+export async function getCanceledState(
+  teamKey: string,
+): Promise<{ id: string; name: string }> {
+  const states = await getWorkflowStates(teamKey)
+  const canceledStates = states.filter((s) => s.type === "canceled")
+
+  if (!canceledStates.length) {
+    throw new Error("No 'canceled' state found in workflow")
+  }
+
+  return { id: canceledStates[0].id, name: canceledStates[0].name }
 }
 
 export async function getWorkflowStateByNameOrType(
@@ -719,6 +774,56 @@ export async function getTeamMembers(teamKey: string) {
   return allMembers.sort((a, b) =>
     a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
   )
+}
+
+export async function getProjectMilestoneIdByNameForProject(
+  name: string,
+  projectId: string,
+): Promise<string | undefined> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectMilestoneIdByNameForProject($projectId: String!, $name: String!) {
+      project(id: $projectId) {
+        projectMilestones(filter: { name: { eqIgnoreCase: $name } }) {
+          nodes {
+            id
+            name
+          }
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { projectId, name })
+  return data.project?.projectMilestones?.nodes[0]?.id
+}
+
+export async function getProjectMilestoneOptionsByNameForProject(
+  name: string,
+  projectId: string,
+): Promise<Record<string, string>> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectMilestoneIdOptionsByNameForProject(
+      $projectId: String!
+      $name: String!
+    ) {
+      project(id: $projectId) {
+        projectMilestones(filter: { name: { containsIgnoreCase: $name } }) {
+          nodes {
+            id
+            name
+          }
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { projectId, name })
+  const qResults = data.project?.projectMilestones?.nodes || []
+  // Sort milestones alphabetically (case insensitive)
+  const sortedResults = qResults.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  )
+  return Object.fromEntries(sortedResults.map((t) => [t.id, t.name]))
 }
 
 export async function selectOption(

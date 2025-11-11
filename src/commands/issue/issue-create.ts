@@ -13,6 +13,8 @@ import {
   getIssueLabelOptionsByNameForTeam,
   getLabelsForTeam,
   getProjectIdByName,
+  getProjectMilestoneIdByNameForProject,
+  getProjectMilestoneOptionsByNameForProject,
   getProjectOptionsByName,
   getTeamIdByKey,
   getTeamKey,
@@ -481,6 +483,10 @@ export const createCommand = new Command()
     "Name of the project with the issue",
   )
   .option(
+    "--milestone <milestone:string>",
+    "Name of the project milestone for the issue",
+  )
+  .option(
     "-s, --state <state:string>",
     "Workflow state for the issue (by name or type)",
   )
@@ -505,6 +511,7 @@ export const createCommand = new Command()
         label: labels,
         team,
         project,
+        milestone,
         state,
         color,
         interactive,
@@ -715,6 +722,39 @@ export const createCommand = new Command()
           }
         }
 
+        let projectMilestoneId: string | undefined = undefined
+        if (milestone !== undefined) {
+          if (projectId === undefined) {
+            console.error(
+              "Cannot set milestone without a project. Use --project to specify the project.",
+            )
+            Deno.exit(1)
+          }
+          projectMilestoneId = await getProjectMilestoneIdByNameForProject(
+            milestone,
+            projectId,
+          )
+          if (projectMilestoneId === undefined && interactive) {
+            const milestoneIds = await getProjectMilestoneOptionsByNameForProject(
+              milestone,
+              projectId,
+            )
+            spinner?.stop()
+            projectMilestoneId = await selectOption(
+              "Project milestone",
+              milestone,
+              milestoneIds,
+            )
+            spinner?.start()
+          }
+          if (projectMilestoneId === undefined) {
+            console.error(
+              `Could not determine ID for project milestone ${milestone}`,
+            )
+            Deno.exit(1)
+          }
+        }
+
         // Date validation done at graphql level
 
         // Convert parent identifier if provided and fetch parent data
@@ -756,6 +796,7 @@ export const createCommand = new Command()
           labelIds,
           teamId: teamId,
           projectId: projectId || parentData?.projectId,
+          projectMilestoneId,
           stateId,
           useDefaultTemplate,
           description,

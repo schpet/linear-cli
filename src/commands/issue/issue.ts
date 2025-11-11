@@ -10,6 +10,9 @@ import { deleteCommand } from "./issue-delete.ts"
 import { pullRequestCommand } from "./issue-pull-request.ts"
 import { updateCommand } from "./issue-update.ts"
 import { commentCommand } from "./comment.ts"
+import { acceptCommand } from "./issue-accept.ts"
+import { declineCommand } from "./issue-decline.ts"
+import { snoozeCommand } from "./issue-snooze.ts"
 
 export const issueCommand = new Command()
   .description("Manage Linear issues")
@@ -27,3 +30,6 @@ export const issueCommand = new Command()
   .command("create", createCommand)
   .command("update", updateCommand)
   .command("comment", commentCommand)
+  .command("accept", acceptCommand)
+  .command("decline", declineCommand)
+  .command("snooze", snoozeCommand)

@@ -6,6 +6,7 @@ import {
   getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
   getProjectIdByName,
+  getProjectMilestoneIdByNameForProject,
   getTeamIdByKey,
   getWorkflowStateByNameOrType,
   lookupUserId,
@@ -52,6 +53,10 @@ export const updateCommand = new Command()
     "Name of the project with the issue",
   )
   .option(
+    "--milestone <milestone:string>",
+    "Name of the project milestone for the issue",
+  )
+  .option(
     "-s, --state <state:string>",
     "Workflow state for the issue (by name or type)",
   )
@@ -69,6 +74,7 @@ export const updateCommand = new Command()
         label: labels,
         team,
         project,
+        milestone,
         state,
         color,
         title,
@@ -157,6 +163,26 @@ export const updateCommand = new Command()
           }
         }
 
+        let projectMilestoneId: string | undefined = undefined
+        if (milestone !== undefined) {
+          if (projectId === undefined) {
+            console.error(
+              "Cannot set milestone without a project. Use --project to specify the project.",
+            )
+            Deno.exit(1)
+          }
+          projectMilestoneId = await getProjectMilestoneIdByNameForProject(
+            milestone,
+            projectId,
+          )
+          if (projectMilestoneId === undefined) {
+            console.error(
+              `Could not determine ID for project milestone ${milestone}`,
+            )
+            Deno.exit(1)
+          }
+        }
+
         // Build the update input object, only including fields that were provided
         const input: Record<string, string | number | string[] | undefined> = {}
 
@@ -186,6 +212,9 @@ export const updateCommand = new Command()
         if (labelIds.length > 0) input.labelIds = labelIds
         if (teamId !== undefined) input.teamId = teamId
         if (projectId !== undefined) input.projectId = projectId
+        if (projectMilestoneId !== undefined) {
+          input.projectMilestoneId = projectMilestoneId
+        }
         if (stateId !== undefined) input.stateId = stateId
 
         spinner?.stop()
