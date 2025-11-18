@@ -65,6 +65,46 @@ await snapshotTest({
   },
 })
 
+// Test with --references flag
+await snapshotTest({
+  name: "Issue Describe Command - With References Flag",
+  meta: import.meta,
+  colors: false,
+  args: ["--references", "TEST-456"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        variables: { id: "TEST-456" },
+        response: {
+          data: {
+            issue: {
+              title: "Update user profile page",
+              description: "Add new fields to the user profile",
+              url:
+                "https://linear.app/test-team/issue/TEST-456/update-user-profile-page",
+              branchName: "feature/test-456-profile",
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await describeCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
 // Test with issue not found
 await snapshotTest({
   name: "Issue Describe Command - Issue Not Found",

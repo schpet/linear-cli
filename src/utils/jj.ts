@@ -10,8 +10,9 @@ export function formatIssueDescription(
   issueId: string,
   title: string,
   url: string,
+  magicWord = "Fixes",
 ): string {
-  return `${issueId} ${title}\n\nLinear-issue: [${issueId}](${url})`
+  return `${issueId} ${title}\n\nLinear-issue: ${magicWord} ${issueId}\nLinear-issue-url: ${url}`
 }
 
 /**
@@ -68,23 +69,62 @@ export async function setJjDescription(description: string): Promise<void> {
 
 /**
  * Parses a Linear issue identifier from a Linear-issue trailer value
- * Trailer format: [ABC-123](https://linear.app/...)
+ * Supports two formats:
+ * - New format: "Fixes ABC-123" (with magic words)
+ * - Old format: [ABC-123](https://linear.app/...)
  * Returns the issue identifier (e.g., "ABC-123") or null if not found
  */
 export function parseLinearIssueFromTrailer(
   trailerValue: string,
 ): string | null {
-  // Match [TEAM-123](...) format where issue number doesn't start with 0
-  const match = trailerValue.match(/\[([A-Z]+-[1-9]\d*)\]/i)
-  if (match && match[1]) {
-    return match[1].toUpperCase()
+  // Try new format first: "MagicWord TEAM-123" where issue number doesn't start with 0
+  const newFormatMatch = trailerValue.match(/\b([A-Z]+-[1-9]\d*)\b/i)
+  if (newFormatMatch && newFormatMatch[1]) {
+    return newFormatMatch[1].toUpperCase()
   }
+
+  // Fall back to old format: [TEAM-123](...)
+  const oldFormatMatch = trailerValue.match(/\[([A-Z]+-[1-9]\d*)\]/i)
+  if (oldFormatMatch && oldFormatMatch[1]) {
+    return oldFormatMatch[1].toUpperCase()
+  }
+
   return null
+}
+
+/**
+ * Parses the output from jj log trailers command
+ * Returns the last valid issue ID from the first commit with Linear-issue trailer(s)
+ * If multiple trailers exist in a commit, returns the last one
+ */
+export function parseJjTrailersOutput(output: string): string | null {
+  // Collect all valid issue IDs from the first commit with Linear-issue trailer(s)
+  // If multiple trailers exist in a commit, use the last one
+  const lines = output.split("\n")
+  let lastValidIssueId: string | null = null
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed) {
+      const issueId = parseLinearIssueFromTrailer(trimmed)
+      if (issueId) {
+        lastValidIssueId = issueId
+      }
+    } else if (lastValidIssueId) {
+      // Empty line indicates end of current commit's trailers
+      // Return the last valid issue ID found in this commit
+      return lastValidIssueId
+    }
+  }
+
+  // Return the last valid issue ID found (handles case where output doesn't end with blank line)
+  return lastValidIssueId
 }
 
 /**
  * Gets the current Linear issue ID from jj commit trailers
  * Searches the current change and ancestors for the most recent Linear-issue trailer
+ * If multiple Linear-issue trailers exist in a commit, returns the last one
  * Returns the issue identifier (e.g., "ABC-123") or null if not found
  */
 export async function getJjLinearIssue(): Promise<string | null> {
@@ -106,18 +146,5 @@ export async function getJjLinearIssue(): Promise<string | null> {
   }
 
   const output = new TextDecoder().decode(process.stdout)
-
-  // Find the first non-empty line (first commit with Linear-issue trailer)
-  const lines = output.split("\n")
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (trimmed) {
-      const issueId = parseLinearIssueFromTrailer(trimmed)
-      if (issueId) {
-        return issueId
-      }
-    }
-  }
-
-  return null
+  return parseJjTrailersOutput(output)
 }

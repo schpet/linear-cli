@@ -2,7 +2,7 @@ export const snapshot = {};
 
 snapshot[`Issue Describe Command - Help Text 1`] = `
 stdout:
-"
+'
 Usage: describe [issueId]
 
 Description:
@@ -11,9 +11,10 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.  
+  -h, --help                - Show this help.                                                           
+  -m, --magic-word  <word>  - Magic word for Linear issue linking (default: "fixes")  (Default: \\x1b[32m"fixes"\\x1b[39m)
 
-"
+'
 stderr:
 ""
 `;
@@ -22,7 +23,19 @@ snapshot[`Issue Describe Command - With Mock Server 1`] = `
 stdout:
 "TEST-123 Fix authentication bug in login flow
 
-Linear-issue: [TEST-123](https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow)
+Linear-issue: Fixes TEST-123
+Linear-issue-url: https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Describe Command - With Custom Magic Word 1`] = `
+stdout:
+"TEST-456 Update user profile page
+
+Linear-issue: Resolves TEST-456
+Linear-issue-url: https://linear.app/test-team/issue/TEST-456/update-user-profile-page
 "
 stderr:
 ""
