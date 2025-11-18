@@ -2,7 +2,7 @@ import { Command } from "@cliffy/command"
 import { Input } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getIssueIdentifier, getIssueId } from "../../utils/linear.ts"
+import { getIssueId, getIssueIdentifier } from "../../utils/linear.ts"
 import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 
 export const commentAddCommand = new Command()

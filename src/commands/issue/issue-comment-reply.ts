@@ -6,10 +6,10 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 export const commentReplyCommand = new Command()
   .name("reply")
   .description("Reply to a comment on an issue")
-  .arguments("<commentId:string> [issueId:string]")
+  .arguments("<commentId:string>")
   .option("-b, --body <text:string>", "Reply body text")
   .option("-j, --json", "Output reply data as JSON")
-  .action(async (options, commentId, issueId) => {
+  .action(async (options, commentId) => {
     const { body, json } = options
 
     try {
