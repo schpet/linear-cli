@@ -10,9 +10,8 @@ export const commentAddCommand = new Command()
   .description("Add a comment to an issue")
   .arguments("[issueId:string]")
   .option("-b, --body <text:string>", "Comment body text")
-  .option("-j, --json", "Output comment data as JSON")
   .action(async (options, issueId) => {
-    const { body, json } = options
+    const { body } = options
 
     try {
       const resolvedIdentifier = await getIssueIdentifier(issueId)
@@ -77,12 +76,8 @@ export const commentAddCommand = new Command()
         throw new Error("Comment creation failed - no comment returned")
       }
 
-      if (json) {
-        console.log(JSON.stringify(comment, null, 2))
-      } else {
-        console.log(`✓ Comment added to ${resolvedIdentifier}`)
-        console.log(comment.url)
-      }
+      console.log(`✓ Comment added to ${resolvedIdentifier}`)
+      console.log(comment.url)
     } catch (error) {
       console.error("✗ Failed to add comment", error)
       Deno.exit(1)

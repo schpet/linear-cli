@@ -8,9 +8,8 @@ export const commentReplyCommand = new Command()
   .description("Reply to a comment on an issue")
   .arguments("<commentId:string>")
   .option("-b, --body <text:string>", "Reply body text")
-  .option("-j, --json", "Output reply data as JSON")
   .action(async (options, commentId) => {
-    const { body, json } = options
+    const { body } = options
 
     try {
       let replyBody = body
@@ -63,12 +62,8 @@ export const commentReplyCommand = new Command()
         throw new Error("Reply creation failed - no comment returned")
       }
 
-      if (json) {
-        console.log(JSON.stringify(comment, null, 2))
-      } else {
-        console.log("✓ Reply added")
-        console.log(comment.url)
-      }
+      console.log("✓ Reply added")
+      console.log(comment.url)
     } catch (error) {
       console.error("✗ Failed to add reply", error)
       Deno.exit(1)

@@ -8,9 +8,8 @@ export const commentUpdateCommand = new Command()
   .description("Update an existing comment")
   .arguments("<commentId:string>")
   .option("-b, --body <text:string>", "New comment body text")
-  .option("-j, --json", "Output comment data as JSON")
   .action(async (options, commentId) => {
-    const { body, json } = options
+    const { body } = options
 
     try {
       let newBody = body
@@ -63,12 +62,8 @@ export const commentUpdateCommand = new Command()
         throw new Error("Comment update failed - no comment returned")
       }
 
-      if (json) {
-        console.log(JSON.stringify(comment, null, 2))
-      } else {
-        console.log("✓ Comment updated")
-        console.log(comment.url)
-      }
+      console.log("✓ Comment updated")
+      console.log(comment.url)
     } catch (error) {
       console.error("✗ Failed to update comment", error)
       Deno.exit(1)
