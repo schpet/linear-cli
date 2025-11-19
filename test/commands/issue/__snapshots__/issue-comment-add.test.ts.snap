@@ -9,19 +9,11 @@ stderr:
 ""
 `;
 
-snapshot[`Issue Comment Add Command - JSON Output 1`] = `
+snapshot[`Issue Comment Add Command - With Parent Flag 1`] = `
 stdout:
-'{
-  "id": "comment-uuid-789",
-  "body": "Another test comment",
-  "createdAt": "2024-01-15T11:30:00Z",
-  "url": "https://linear.app/issue/TEST-456#comment-uuid-789",
-  "user": {
-    "name": "testuser",
-    "displayName": "Test User"
-  }
-}
-'
+"✓ Comment added to TEST-123
+https://linear.app/issue/TEST-123#comment-uuid-reply-789
+"
 stderr:
 ""
 `;
