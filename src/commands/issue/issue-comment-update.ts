@@ -26,9 +26,9 @@ export const commentUpdateCommand = new Command()
         `)
 
         const client = getGraphQLClient()
-        const commentData = await client.request(getCommentQuery as any, {
+        const commentData = await client.request(getCommentQuery, {
           id: commentId,
-        }) as { comment: { body: string } }
+        })
 
         existingBody = commentData.comment?.body || ""
 
