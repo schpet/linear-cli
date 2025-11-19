@@ -7,11 +7,12 @@ import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 
 export const commentAddCommand = new Command()
   .name("add")
-  .description("Add a comment to an issue")
+  .description("Add a comment to an issue or reply to a comment")
   .arguments("[issueId:string]")
   .option("-b, --body <text:string>", "Comment body text")
+  .option("-p, --parent <id:string>", "Parent comment ID for replies")
   .action(async (options, issueId) => {
-    const { body } = options
+    const { body, parent } = options
 
     try {
       const resolvedIdentifier = await getIssueIdentifier(issueId)
@@ -60,11 +61,17 @@ export const commentAddCommand = new Command()
       `)
 
       const client = getGraphQLClient()
+      const input: Record<string, unknown> = {
+        body: commentBody,
+        issueId: issueDbId,
+      }
+
+      if (parent) {
+        input.parentId = parent
+      }
+
       const data = await client.request(mutation, {
-        input: {
-          issueId: issueDbId,
-          body: commentBody,
-        },
+        input,
       })
 
       if (!data.commentCreate.success) {

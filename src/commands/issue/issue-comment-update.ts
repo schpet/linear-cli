@@ -13,12 +13,28 @@ export const commentUpdateCommand = new Command()
 
     try {
       let newBody = body
+      let existingBody = ""
 
-      // If no body provided, prompt for it
+      // If no body provided, fetch existing comment to show as default
       if (!newBody) {
+        const getCommentQuery = gql(`
+          query GetComment($id: String!) {
+            comment(id: $id) {
+              body
+            }
+          }
+        `)
+
+        const client = getGraphQLClient()
+        const commentData = await client.request(getCommentQuery as any, {
+          id: commentId,
+        }) as { comment: { body: string } }
+
+        existingBody = commentData.comment?.body || ""
+
         newBody = await Input.prompt({
           message: "New comment body",
-          default: "",
+          default: existingBody,
         })
 
         if (!newBody.trim()) {
