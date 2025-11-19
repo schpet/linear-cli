@@ -1,7 +1,7 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getIssueId, getIssueIdentifier } from "../../utils/linear.ts"
+import { getIssueIdentifier } from "../../utils/linear.ts"
 import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { bold } from "@std/fmt/colors"
@@ -18,12 +18,6 @@ export const commentListCommand = new Command()
       const resolvedIdentifier = await getIssueIdentifier(issueId)
       if (!resolvedIdentifier) {
         console.error(getNoIssueFoundMessage())
-        Deno.exit(1)
-      }
-
-      const issueDbId = await getIssueId(resolvedIdentifier)
-      if (!issueDbId) {
-        console.error(`Could not resolve issue ID for ${resolvedIdentifier}`)
         Deno.exit(1)
       }
 
@@ -55,7 +49,7 @@ export const commentListCommand = new Command()
       `)
 
       const client = getGraphQLClient()
-      const data = await client.request(query, { id: issueDbId })
+      const data = await client.request(query, { id: resolvedIdentifier })
 
       const comments = data.issue?.comments?.nodes || []
 

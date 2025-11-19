@@ -2,7 +2,7 @@ import { Command } from "@cliffy/command"
 import { Input } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getIssueId, getIssueIdentifier } from "../../utils/linear.ts"
+import { getIssueIdentifier } from "../../utils/linear.ts"
 import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 
 export const commentAddCommand = new Command()
@@ -18,12 +18,6 @@ export const commentAddCommand = new Command()
       const resolvedIdentifier = await getIssueIdentifier(issueId)
       if (!resolvedIdentifier) {
         console.error(getNoIssueFoundMessage())
-        Deno.exit(1)
-      }
-
-      const issueDbId = await getIssueId(resolvedIdentifier)
-      if (!issueDbId) {
-        console.error(`Could not resolve issue ID for ${resolvedIdentifier}`)
         Deno.exit(1)
       }
 
@@ -63,7 +57,7 @@ export const commentAddCommand = new Command()
       const client = getGraphQLClient()
       const input: Record<string, unknown> = {
         body: commentBody,
-        issueId: issueDbId,
+        issueId: resolvedIdentifier,
       }
 
       if (parent) {
