@@ -1,0 +1,19 @@
+export const snapshot = {};
+
+snapshot[`Issue Comment Add Command - With Body Flag 1`] = `
+stdout:
+"✓ Comment added to TEST-123
+https://linear.app/issue/TEST-123#comment-uuid-456
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Comment Add Command - With Parent Flag 1`] = `
+stdout:
+"✓ Comment added to TEST-123
+https://linear.app/issue/TEST-123#comment-uuid-reply-789
+"
+stderr:
+""
+`;

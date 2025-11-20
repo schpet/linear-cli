@@ -1,0 +1,27 @@
+export const snapshot = {};
+
+snapshot[`Issue Comment Update Command - With Body Flag 1`] = `
+stdout:
+"✓ Comment updated
+https://linear.app/issue/TEST-123#comment-uuid-123
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Comment Update Command - JSON Output 1`] = `
+stdout:
+'{
+  "id": "comment-uuid-456",
+  "body": "Updated with more details",
+  "updatedAt": "2024-01-15T15:30:00Z",
+  "url": "https://linear.app/issue/TEST-456#comment-uuid-456",
+  "user": {
+    "name": "testuser",
+    "displayName": "Test User"
+  }
+}
+'
+stderr:
+""
+`;
