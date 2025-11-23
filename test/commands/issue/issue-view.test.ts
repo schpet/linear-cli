@@ -79,6 +79,10 @@ await snapshotTest({
               url:
                 "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
               branchName: "fix/test-123-auth-bug",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
               comments: {
                 nodes: [],
               },
@@ -123,6 +127,10 @@ await snapshotTest({
               url:
                 "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
               branchName: "fix/test-123-auth-bug",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
             },
           },
         },
@@ -164,6 +172,10 @@ await snapshotTest({
               url:
                 "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
               branchName: "fix/test-123-auth-bug",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
               comments: {
                 nodes: [
                   {
@@ -300,6 +312,10 @@ await snapshotTest({
               url:
                 "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
               branchName: "fix/test-123-auth-bug",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
             },
           },
         },
@@ -341,6 +357,10 @@ await snapshotTest({
               url:
                 "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
               branchName: "fix/test-123-auth-bug",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
               comments: {
                 nodes: [
                   {

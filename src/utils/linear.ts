@@ -167,6 +167,7 @@ export async function fetchIssueDetails(
   description?: string | null | undefined
   url: string
   branchName: string
+  state: { name: string; color: string }
   comments?: Array<{
     id: string
     body: string
@@ -187,6 +188,10 @@ export async function fetchIssueDetails(
           description
           url
           branchName
+          state {
+            name
+            color
+          }
           comments(first: 50, orderBy: createdAt) {
             nodes {
               id
@@ -216,6 +221,10 @@ export async function fetchIssueDetails(
           description
           url
           branchName
+          state {
+            name
+            color
+          }
         }
       }
     `)
