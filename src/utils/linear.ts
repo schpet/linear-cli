@@ -309,6 +309,7 @@ export async function fetchIssuesForState(
   assignee?: string,
   unassigned = false,
   allAssignees = false,
+  limit?: number,
 ) {
   const sort = getOption("issue_sort") as "manual" | "priority" | undefined
   if (!sort) {
@@ -344,8 +345,8 @@ export async function fetchIssuesForState(
   }
 
   const query = gql(/* GraphQL */ `
-    query GetIssuesForState($sort: [IssueSortInput!], $filter: IssueFilter!) {
-      issues(filter: $filter, sort: $sort) {
+    query GetIssuesForState($sort: [IssueSortInput!], $filter: IssueFilter!, $first: Int, $after: String) {
+      issues(filter: $filter, sort: $sort, first: $first, after: $after) {
         nodes {
           id
           identifier
@@ -368,6 +369,10 @@ export async function fetchIssuesForState(
             }
           }
           updatedAt
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
         }
       }
     }
@@ -392,10 +397,41 @@ export async function fetchIssuesForState(
   }
 
   const client = getGraphQLClient()
-  return await client.request(query, {
-    sort: sortPayload,
-    filter,
-  })
+  
+  // Determine page size: use limit if provided, otherwise use default 50
+  const pageSize = limit !== undefined ? Math.min(limit, 100) : 50
+  const fetchAll = limit === undefined || limit === 0
+  
+  // Fetch issues, respecting the limit
+  const allIssues = []
+  let hasNextPage = true
+  let after: string | null | undefined = undefined
+
+  while (hasNextPage) {
+    const result = await client.request(query, {
+      sort: sortPayload,
+      filter,
+      first: pageSize,
+      after,
+    })
+    
+    const issues = result.issues?.nodes || []
+    allIssues.push(...issues)
+    
+    // Stop if we've reached the limit (only if not fetching all)
+    if (!fetchAll && allIssues.length >= limit!) {
+      break
+    }
+    
+    hasNextPage = result.issues?.pageInfo?.hasNextPage || false
+    after = result.issues?.pageInfo?.endCursor
+  }
+
+  return {
+    issues: {
+      nodes: allIssues.slice(0, limit),
+    },
+  }
 }
 
 // Additional helper functions that were in the original main.ts

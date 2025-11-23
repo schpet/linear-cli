@@ -63,6 +63,13 @@ export const listCommand = new Command()
     "--team <team:string>",
     "Team to list issues for (if not your default team)",
   )
+  .option(
+    "--limit <limit:number>",
+    "Maximum number of issues to fetch (default: 50, use 0 for unlimited)",
+    {
+      default: 50,
+    },
+  )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
   .option("--no-pager", "Disable automatic paging for long output")
@@ -78,6 +85,7 @@ export const listCommand = new Command()
         app,
         allStates,
         team,
+        limit,
         pager,
       },
     ) => {
@@ -142,6 +150,7 @@ export const listCommand = new Command()
           assignee,
           unassigned,
           allAssignees,
+          limit === 0 ? undefined : limit,
         )
         spinner?.stop()
         const issues = result.issues?.nodes || []
