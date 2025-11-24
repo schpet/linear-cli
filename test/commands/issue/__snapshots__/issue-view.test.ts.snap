@@ -96,7 +96,7 @@ stderr:
 
 snapshot[`Issue View Command - Issue Not Found 1`] = `
 stdout:
-'Error: Issue not found: TEST-999: {"response":{"errors":[{"message":"Issue not found: TEST-999","extensions":{"code":"NOT_FOUND"}}],"status":200,"headers":{}},"request":{"query":"query GetIssueDetailsWithComments(\$id: String!) {\\\\n  issue(id: \$id) {\\\\n    title\\\\n    description\\\\n    url\\\\n    branchName\\\\n    comments(first: 50, orderBy: createdAt) {\\\\n      nodes {\\\\n        id\\\\n        body\\\\n        createdAt\\\\n        user {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        externalUser {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        parent {\\\\n          id\\\\n        }\\\\n      }\\\\n    }\\\\n  }\\\\n}","variables":{"id":"TEST-999"}}}
+'Error: Issue not found: TEST-999: {"response":{"errors":[{"message":"Issue not found: TEST-999","extensions":{"code":"NOT_FOUND"}}],"status":200,"headers":{}},"request":{"query":"query GetIssueDetailsWithComments(\$id: String!) {\\\\n  issue(id: \$id) {\\\\n    title\\\\n    description\\\\n    url\\\\n    branchName\\\\n    state {\\\\n      name\\\\n      color\\\\n    }\\\\n    comments(first: 50, orderBy: createdAt) {\\\\n      nodes {\\\\n        id\\\\n        body\\\\n        createdAt\\\\n        user {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        externalUser {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        parent {\\\\n          id\\\\n        }\\\\n      }\\\\n    }\\\\n  }\\\\n}","variables":{"id":"TEST-999"}}}
 '
 stderr:
 "✗ Failed to fetch issue details
@@ -109,7 +109,11 @@ stdout:
   "title": "Fix authentication bug in login flow",
   "description": "Users are experiencing issues logging in when their session expires.",
   "url": "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
-  "branchName": "fix/test-123-auth-bug"
+  "branchName": "fix/test-123-auth-bug",
+  "state": {
+    "name": "In Progress",
+    "color": "#f87462"
+  }
 }
 '
 stderr:
@@ -123,6 +127,10 @@ stdout:
   "description": "Users are experiencing issues logging in when their session expires.",
   "url": "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
   "branchName": "fix/test-123-auth-bug",
+  "state": {
+    "name": "In Progress",
+    "color": "#f87462"
+  },
   "comments": [
     {
       "id": "comment-1",
