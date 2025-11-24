@@ -95,7 +95,6 @@ export const listCommand = new Command()
         return
       }
 
-      // Validate that conflicting flags are not used together
       const assigneeFilterCount =
         [assignee, allAssignees, unassigned].filter(Boolean).length
       if (assigneeFilterCount > 1) {
@@ -105,10 +104,8 @@ export const listCommand = new Command()
         Deno.exit(1)
       }
 
-      // Convert state to proper string array type
       const stateArray: string[] = Array.isArray(state) ? state.flat() : [state]
 
-      // Validate state filters are not used together
       if (
         allStates && (stateArray.length > 1 || stateArray[0] !== "unstarted")
       ) {
@@ -160,7 +157,6 @@ export const listCommand = new Command()
           return
         }
 
-        // Define column widths first
         const { columns } = Deno.stdout.isTerminal()
           ? Deno.consoleSize()
           : { columns: 120 }
@@ -209,17 +205,14 @@ export const listCommand = new Command()
         }
 
         const tableData: Array<TableRow> = issues.map((issue) => {
-          // Get assignee initials if needed
           const assignee = showAssigneeColumn
             ? (issue.assignee?.initials?.slice(0, 2) || "-")
             : undefined
 
-          // Format labels with colors
           let labels: string
           if (issue.labels.nodes.length === 0) {
             labels = " ".repeat(LABEL_WIDTH)
           } else {
-            // Build colored labels incrementally to ensure proper width
             const coloredLabels: string[] = []
             let currentWidth = 0
 
@@ -233,7 +226,6 @@ export const listCommand = new Command()
               const testText = separator + label.name
 
               if (currentWidth + unicodeWidth(testText) > LABEL_WIDTH) {
-                // If adding this label would exceed width, truncate if possible
                 const remainingWidth = LABEL_WIDTH - currentWidth
                 if (remainingWidth >= 4) { // Need at least 4 chars for "..."
                   const truncatedName = truncateText(
@@ -256,7 +248,6 @@ export const listCommand = new Command()
             }
 
             labels = coloredLabels.join("")
-            // Calculate actual width of the final labels string (excluding color codes)
             const ansiRegex = new RegExp("\u001B\\[[0-9;]*m", "g")
             const actualLabelsWidth = unicodeWidth(
               coloredLabels.join("").replace(ansiRegex, ""),
@@ -269,13 +260,11 @@ export const listCommand = new Command()
 
           const priorityStr = getPriorityDisplay(issue.priority)
 
-          // Truncate state name if it exceeds the column width
           const stateName = truncateText(issue.state.name, STATE_WIDTH)
           const stateColored = rgb24(
             stateName,
             parseInt(issue.state.color.replace("#", ""), 16),
           )
-          // Add padding to fill the remaining width
           const stateRemainingSpace = Math.max(
             0,
             STATE_WIDTH - unicodeWidth(stateName),
@@ -314,16 +303,12 @@ export const listCommand = new Command()
           padDisplay(updatedHeader, UPDATED_WIDTH),
         ]
 
-        // Format header line
         const formattedHeaderLine = header(headerCells.join(" "))
 
-        // Collect all output lines first to determine if paging is needed
         const outputLines: string[] = []
 
-        // Add header line
         outputLines.push(formattedHeaderLine)
 
-        // Add issue lines
         for (const row of tableData) {
           const {
             priorityStr,
@@ -354,11 +339,9 @@ export const listCommand = new Command()
           outputLines.push(issueLine)
         }
 
-        // Check if we should use pager
         if (shouldUsePager(outputLines, usePager)) {
           await pipeToUserPager(outputLines.join("\n"))
         } else {
-          // Print directly for shorter output - same logic as pager
           outputLines.forEach((line) => console.log(line))
         }
       } catch (error) {
