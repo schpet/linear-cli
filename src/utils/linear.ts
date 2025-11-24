@@ -326,6 +326,7 @@ export async function fetchIssuesForState(
   if (unassigned) {
     filter.assignee = { null: true }
   } else if (allAssignees) {
+    // No assignee filter means all assignees
   } else if (assignee) {
     const userId = await lookupUserId(assignee)
     if (!userId) {
