@@ -2,6 +2,7 @@ import { gql } from "../__codegen__/gql.ts"
 import type {
   GetAllTeamsQuery,
   GetAllTeamsQueryVariables as _GetAllTeamsQueryVariables,
+  GetIssuesForStateQuery,
   GetTeamMembersQuery,
   IssueFilter,
   IssueSortInput,
@@ -399,7 +400,7 @@ export async function fetchIssuesForState(
   let after: string | null | undefined = undefined
 
   while (hasNextPage) {
-    const result = await client.request(query, {
+    const result: GetIssuesForStateQuery = await client.request(query, {
       sort: sortPayload,
       filter,
       first: pageSize,
