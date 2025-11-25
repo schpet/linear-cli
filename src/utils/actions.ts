@@ -82,8 +82,10 @@ export async function startWorkOnIssue(
   issueId: string,
   teamId: string,
   gitSourceRef?: string,
+  customBranchName?: string,
 ) {
-  const { branchName } = await fetchIssueDetails(issueId, true)
+  const { branchName: defaultBranchName } = await fetchIssueDetails(issueId, true)
+  const branchName = customBranchName || defaultBranchName
 
   // Start VCS work (git or jj)
   await startVcsWork(issueId, branchName, gitSourceRef)
