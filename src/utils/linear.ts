@@ -2,6 +2,7 @@ import { gql } from "../__codegen__/gql.ts"
 import type {
   GetAllTeamsQuery,
   GetAllTeamsQueryVariables as _GetAllTeamsQueryVariables,
+  GetIssuesForStateQuery,
   GetTeamMembersQuery,
   IssueFilter,
   IssueSortInput,
@@ -39,7 +40,6 @@ export async function getIssueIdentifier(
     return formatIssueIdentifier(providedId)
   }
 
-  // Handle integer-only IDs by prepending team prefix
   if (providedId && /^[1-9][0-9]*$/.test(providedId)) {
     const teamId = getTeamKey()
     if (teamId) {
@@ -55,7 +55,6 @@ export async function getIssueIdentifier(
   }
 
   if (providedId === undefined) {
-    // Look in VCS state (git branch or jj commit trailer)
     const issueId = await getCurrentIssueFromVcs()
     return issueId || undefined
   }
@@ -125,7 +124,6 @@ export async function getWorkflowStateByNameOrType(
 ): Promise<{ id: string; name: string } | undefined> {
   const states = await getWorkflowStates(teamKey)
 
-  // First try exact name match
   const nameMatch = states.find(
     (s) => s.name.toLowerCase() === nameOrType.toLowerCase(),
   )
@@ -133,7 +131,6 @@ export async function getWorkflowStateByNameOrType(
     return { id: nameMatch.id, name: nameMatch.name }
   }
 
-  // Then try type match
   const typeMatch = states.find((s) => s.type === nameOrType.toLowerCase())
   if (typeMatch) {
     return { id: typeMatch.id, name: typeMatch.name }
@@ -309,6 +306,7 @@ export async function fetchIssuesForState(
   assignee?: string,
   unassigned = false,
   allAssignees = false,
+  limit?: number,
 ) {
   const sort = getOption("issue_sort") as "manual" | "priority" | undefined
   if (!sort) {
@@ -318,12 +316,10 @@ export async function fetchIssuesForState(
     Deno.exit(1)
   }
 
-  // Build filter and query based on the assignee parameter
   const filter: IssueFilter = {
     team: { key: { eq: teamKey } },
   }
 
-  // Only add state filter if state is specified
   if (state) {
     filter.state = { type: { in: state } }
   }
@@ -333,7 +329,6 @@ export async function fetchIssuesForState(
   } else if (allAssignees) {
     // No assignee filter means all assignees
   } else if (assignee) {
-    // Get user ID for the specified username
     const userId = await lookupUserId(assignee)
     if (!userId) {
       throw new Error(`User not found: ${assignee}`)
@@ -344,8 +339,8 @@ export async function fetchIssuesForState(
   }
 
   const query = gql(/* GraphQL */ `
-    query GetIssuesForState($sort: [IssueSortInput!], $filter: IssueFilter!) {
-      issues(filter: $filter, sort: $sort) {
+    query GetIssuesForState($sort: [IssueSortInput!], $filter: IssueFilter!, $first: Int, $after: String) {
+      issues(filter: $filter, sort: $sort, first: $first, after: $after) {
         nodes {
           id
           identifier
@@ -368,6 +363,10 @@ export async function fetchIssuesForState(
             }
           }
           updatedAt
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
         }
       }
     }
@@ -392,13 +391,39 @@ export async function fetchIssuesForState(
   }
 
   const client = getGraphQLClient()
-  return await client.request(query, {
-    sort: sortPayload,
-    filter,
-  })
-}
 
-// Additional helper functions that were in the original main.ts
+  const pageSize = limit !== undefined ? Math.min(limit, 100) : 50
+  const fetchAll = limit === undefined || limit === 0
+
+  const allIssues = []
+  let hasNextPage = true
+  let after: string | null | undefined = undefined
+
+  while (hasNextPage) {
+    const result: GetIssuesForStateQuery = await client.request(query, {
+      sort: sortPayload,
+      filter,
+      first: pageSize,
+      after,
+    })
+
+    const issues = result.issues?.nodes || []
+    allIssues.push(...issues)
+
+    if (!fetchAll && allIssues.length >= limit!) {
+      break
+    }
+
+    hasNextPage = result.issues?.pageInfo?.hasNextPage || false
+    after = result.issues?.pageInfo?.endCursor
+  }
+
+  return {
+    issues: {
+      nodes: allIssues.slice(0, limit),
+    },
+  }
+}
 
 export async function getProjectIdByName(
   name: string,
@@ -470,7 +495,6 @@ export async function searchTeamsByKeySubstring(
   `)
   const data = await client.request(query, { team: keySubstring })
   const qResults = data.teams?.nodes || []
-  // Sort teams alphabetically by key (case insensitive) and format as "Name (KEY)"
   const sortedResults = qResults.sort((a, b) =>
     a.key.toLowerCase().localeCompare(b.key.toLowerCase())
   )
@@ -527,7 +551,6 @@ export async function lookupUserId(
       return undefined
     }
 
-    // Priority matching: email > displayName > name
     for (const user of data.users.nodes) {
       if (user.email?.toLowerCase() === input.toLowerCase()) {
         return user.id
@@ -540,7 +563,6 @@ export async function lookupUserId(
       }
     }
 
-    // If no exact email or displayName match, return first name match
     return data.users.nodes[0]?.id
   }
 }
@@ -594,7 +616,6 @@ export async function getIssueLabelOptionsByNameForTeam(
   `)
   const data = await client.request(query, { name, teamKey })
   const qResults = data.issueLabels?.nodes || []
-  // Sort labels alphabetically (case insensitive)
   const sortedResults = qResults.sort((a, b) =>
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
   )
@@ -639,7 +660,6 @@ export async function getAllTeams(): Promise<
     after = result.teams.pageInfo.endCursor
   }
 
-  // Sort teams alphabetically by name (case insensitive)
   return allTeams.sort((a, b) =>
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
   )
@@ -666,7 +686,6 @@ export async function getLabelsForTeam(
   const result = await client.request(query, { teamKey })
   const labels = result.team?.labels?.nodes || []
 
-  // Sort labels alphabetically (case insensitive)
   return labels.sort((a, b) =>
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
   )
@@ -720,7 +739,6 @@ export async function getTeamMembers(teamKey: string) {
     after = result.team.members.pageInfo.endCursor
   }
 
-  // Sort members alphabetically by display name (case insensitive)
   return allMembers.sort((a, b) =>
     a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
   )
