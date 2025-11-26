@@ -24,7 +24,11 @@ export const startCommand = new Command()
     "-f, --from-ref <fromRef:string>",
     "Git ref to create new branch from",
   )
-  .action(async ({ allAssignees, unassigned, fromRef }, issueId) => {
+  .option(
+    "-b, --branch <branch:string>",
+    "Custom branch name to use instead of the issue identifier",
+  )
+  .action(async ({ allAssignees, unassigned, fromRef, branch }, issueId) => {
     const teamId = getTeamKey()
     if (!teamId) {
       console.error("Could not determine team ID")
@@ -78,5 +82,5 @@ export const startCommand = new Command()
       console.error("No issue ID resolved")
       Deno.exit(1)
     }
-    await startIssue(resolvedId, teamId, fromRef)
+    await startIssue(resolvedId, teamId, fromRef, branch)
   })
