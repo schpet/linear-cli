@@ -46,12 +46,13 @@ export async function isJjChangeEmpty(): Promise<boolean> {
 export async function prepareJjWorkingState(): Promise<void> {
   const isEmpty = await isJjChangeEmpty()
   if (!isEmpty) {
-    const process = new Deno.Command("jj", {
+    const process = await new Deno.Command("jj", {
       args: ["new"],
-      stdout: "inherit",
-      stderr: "inherit",
-    })
-    await process.output()
+    }).output()
+    if (!process.success) {
+      console.error(new TextDecoder().decode(process.stderr))
+      throw new Error("Failed to create new jj change")
+    }
   }
 }
 
@@ -59,24 +60,26 @@ export async function prepareJjWorkingState(): Promise<void> {
  * Sets the jj change description
  */
 export async function setJjDescription(description: string): Promise<void> {
-  const setProcess = new Deno.Command("jj", {
+  const process = await new Deno.Command("jj", {
     args: ["describe", "-m", description],
-    stdout: "inherit",
-    stderr: "inherit",
-  })
-  await setProcess.output()
+  }).output()
+  if (!process.success) {
+    console.error(new TextDecoder().decode(process.stderr))
+    throw new Error("Failed to set jj description")
+  }
 }
 
 /**
  * Creates a new empty jj change
  */
 export async function createJjNewChange(): Promise<void> {
-  const process = new Deno.Command("jj", {
+  const process = await new Deno.Command("jj", {
     args: ["new"],
-    stdout: "inherit",
-    stderr: "inherit",
-  })
-  await process.output()
+  }).output()
+  if (!process.success) {
+    console.error(new TextDecoder().decode(process.stderr))
+    throw new Error("Failed to create new jj change")
+  }
 }
 
 /**
