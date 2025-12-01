@@ -2,10 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- run jj new after setting issue description in issue start command to create empty working change
+- change the jj description format. uses two separate trailers now for easier parsing, one with a magic word and identifier, one with the URL. less likely to exceed width of a terminal, and easier to parse
+
 ### Added
 
 - issue comment commands: add, update, list ([#67](https://github.com/schpet/linear-cli/pull/67); thanks [@tallesborges](https://github.com/tallesborges))
 - add --rev flag to issue start to target changes to start in (jj-vcs only)
+
 ## [1.2.1] - 2025-11-10
 
 ### Fixed
