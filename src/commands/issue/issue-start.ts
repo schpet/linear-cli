@@ -41,7 +41,9 @@ export const startCommand = new Command()
       Deno.exit(1)
     }
 
-    let resolvedId = await getIssueIdentifier(issueId)
+    // Only resolve the provided issueId, don't infer from VCS
+    // (start should pick from a list, not continue on current issue)
+    let resolvedId = issueId ? await getIssueIdentifier(issueId) : undefined
     if (!resolvedId) {
       try {
         const result = await fetchIssuesForState(
