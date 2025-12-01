@@ -68,6 +68,18 @@ export async function setJjDescription(description: string): Promise<void> {
 }
 
 /**
+ * Creates a new empty jj change
+ */
+export async function createJjNewChange(): Promise<void> {
+  const process = new Deno.Command("jj", {
+    args: ["new"],
+    stdout: "inherit",
+    stderr: "inherit",
+  })
+  await process.output()
+}
+
+/**
  * Parses a Linear issue identifier from a Linear-issue trailer value
  * Supports two formats:
  * - New format: "Fixes ABC-123" (with magic words)
