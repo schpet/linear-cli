@@ -1,6 +1,6 @@
 # linear cli
 
-a cli to list, start and create issues. git and jj aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
+a cli to list, start and create issues in the [linear](https://linear.app/) issue tracker. git and jj aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
 here's how it works:
 
@@ -16,7 +16,7 @@ linear issue pr             # makes a PR with title/body preset, using gh cli
 linear issue create         # create a new issue
 ```
 
-it's pretty dialed to my own use cases, but i want to support more people than myself with this so [lmk what it can do for you](https://github.com/schpet/linear-cli/issues/).
+it aims to be a complement to the web and desktop apps that lets you stay on the command line in an interactive or scripted way.
 
 ## screencast demos
 
