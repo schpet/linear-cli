@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-12-01
+
 ### Changed
 
 - change the jj description format to include a linear magic word for [commit linking](https://linear.app/changelog/2022-02-03-github-commit-linking)
@@ -259,7 +261,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/schpet/linear-cli/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/schpet/linear-cli/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/schpet/linear-cli/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/schpet/linear-cli/compare/v1.1.0...v1.1.1
