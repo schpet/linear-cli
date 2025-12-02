@@ -25,7 +25,7 @@ stderr:
 
 snapshot[`Issue View Command - With Issue ID 1`] = `
 stdout:
-"Error: error sending request from 127.0.0.1:50737 for http://127.0.0.1:3000/graphql (127.0.0.1:3000): client error (SendRequest): invalid HTTP version parsed
+"Error: error sending request for url (http://127.0.0.1:3000/graphql): client error (Connect): tcp connect error: Connection refused
 "
 stderr:
 "✗ Failed to fetch issue details
