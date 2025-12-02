@@ -4,13 +4,13 @@
 
 ### Changed
 
-- run jj new after setting issue description in issue start command to create empty working change
-- change the jj description format. uses two separate trailers now for easier parsing, one with a magic word and identifier, one with the URL. less likely to exceed width of a terminal, and easier to parse
+- change the jj description format to include a linear magic word for [commit linking](https://linear.app/changelog/2022-02-03-github-commit-linking)
+- change jj behaviour in issue start to create a new empty commit to support [the squash workflow](https://steveklabnik.github.io/jujutsu-tutorial/real-world-workflows/the-squash-workflow.html)
 
 ### Added
 
 - issue comment commands: add, update, list ([#67](https://github.com/schpet/linear-cli/pull/67); thanks [@tallesborges](https://github.com/tallesborges))
-- add --rev flag to issue start to target changes to start in (jj-vcs only)
+- add `--branch` option to issue start command ([#70](https://github.com/schpet/linear-cli/pull/70); thanks [@tallesborges](https://github.com/tallesborges))
 
 ## [1.2.1] - 2025-11-10
 
