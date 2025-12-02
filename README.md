@@ -115,6 +115,10 @@ linear issue create    # create a new issue (interactive prompts)
 linear issue create -t "title" -d "description"  # create with flags
 linear issue update    # update an issue (interactive prompts)
 linear issue delete    # delete an issue
+linear issue comment list          # list comments on current issue
+linear issue comment add           # add a comment to current issue
+linear issue comment add -p <id>   # reply to a specific comment
+linear issue comment update <id>   # update a comment
 ```
 
 ### team commands
