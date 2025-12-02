@@ -12,10 +12,11 @@ tag:
     svbump write "$(svbump read version deno.json)" package.version dist-workspace.toml
 
     jj commit -m "chore: Release linear-cli version $(svbump read version deno.json)"
-    jj tag set "v$(svbump read version deno.json)"
+    jj bookmark set main -r @-
+    jj tag set "v$(svbump read version deno.json)" -r @-
     @echo "tagged v$(svbump read version deno.json)"
 
-    git push origin HEAD --tags
+    git push origin --tags
 
 # depends on `cargo install --git https://github.com/astral-sh/cargo-dist.git --tag v0.28.3 cargo-dist`
 # cargo-dist - needed to update .github/workflows/release.yml
