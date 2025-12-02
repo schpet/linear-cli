@@ -13,7 +13,7 @@ binaries = ["linear"]
 build-command = [
     "sh",
     "-c",
-    "deno compile --target=$CARGO_DIST_TARGET -o linear '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet src/main.ts",
+    "deno compile --target=$CARGO_DIST_TARGET -o linear '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR,TMPDIR,TMP,TEMP' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet src/main.ts",
 ]
 
 # Config for 'dist'

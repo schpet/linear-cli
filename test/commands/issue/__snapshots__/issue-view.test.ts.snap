@@ -11,12 +11,13 @@ Description:
 
 Options:
 
-  -h, --help     - Show this help.                           
-  -w, --web      - Open in web browser                       
-  -a, --app      - Open in Linear.app                        
-  --no-comments  - Exclude comments from the output          
-  --no-pager     - Disable automatic paging for long output  
-  -j, --json     - Output issue data as JSON                 
+  -h, --help     - Show this help.                                
+  -w, --web      - Open in web browser                            
+  -a, --app      - Open in Linear.app                             
+  --no-comments  - Exclude comments from the output               
+  --no-pager     - Disable automatic paging for long output       
+  -j, --json     - Output issue data as JSON                      
+  --no-download  - Keep remote URLs instead of downloading files  
 
 "
 stderr:

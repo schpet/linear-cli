@@ -5,14 +5,14 @@
   "exports": "./src/main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno task codegen && deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet src/main.ts ",
-    "install": "deno task codegen && deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet -g -f -n linear ./src/main.ts",
+    "dev": "deno task codegen && deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR,TMPDIR,TMP,TEMP' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --quiet src/main.ts ",
+    "install": "deno task codegen && deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR,TMPDIR,TMP,TEMP' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --quiet -g -f -n linear ./src/main.ts",
     "uninstall": "deno uninstall -g linear",
     "sync-schema": "deno run -A npm:get-graphql-schema https://api.linear.app/graphql > graphql/schema.graphql",
     "codegen": "deno run --allow-all npm:@graphql-codegen/cli/graphql-codegen-esm",
     "check": "deno check src/main.ts",
-    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet",
-    "snapshot": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app -- --update",
+    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR,TMPDIR,TMP,TEMP' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --quiet",
+    "snapshot": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR,TMPDIR,TMP,TEMP' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app -- --update",
     "lefthook-install": "deno run --allow-run --allow-read --allow-write --allow-env npm:lefthook install"
   },
   "imports": {
@@ -28,15 +28,24 @@
     "@std/assert": "jsr:@std/assert@1",
     "@std/cli": "jsr:@std/cli@^1.0.12",
     "@std/fmt": "jsr:@std/fmt@1",
+    "@std/fs": "jsr:@std/fs@^1.0.20",
     "@std/testing": "jsr:@std/testing@1",
     "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
     "@std/encoding": "jsr:@std/encoding@^1.0.5",
     "@std/path": "jsr:@std/path@^1.0.8",
     "@std/toml": "jsr:@std/toml@^1.0.2",
+    "@types/mdast": "npm:@types/mdast@^4.0.4",
+    "mdast": "npm:@types/mdast@^4.0.4",
     "graphql": "npm:graphql@^16.8.1",
     "./__generated__/graphql": "./src/__codegen__/graphql.ts",
     "graphql-request": "npm:graphql-request@^7.2.0",
-    "lefthook": "npm:lefthook@^1.12.3"
+    "lefthook": "npm:lefthook@^1.12.3",
+    "remark-parse": "npm:remark-parse@^11.0.0",
+    "remark-stringify": "npm:remark-stringify@^11.0.0",
+    "sanitize-filename": "npm:sanitize-filename@^1.6.3",
+    "unified": "npm:unified@^11.0.5",
+    "unist-util-visit": "npm:unist-util-visit@^5.0.0",
+    "valibot": "npm:valibot@^1.2.0"
   },
   "publish": {
     "include": [
