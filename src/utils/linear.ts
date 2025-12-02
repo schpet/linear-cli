@@ -384,6 +384,7 @@ export async function fetchIssuesForState(
       sortPayload = [
         { workflowState: { order: "Descending" } },
         { priority: { nulls: "last" as const, order: "Descending" as const } },
+        { manual: { nulls: "last" as const, order: "Ascending" as const } },
       ]
       break
     default:

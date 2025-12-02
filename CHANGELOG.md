@@ -7,6 +7,7 @@
 ### Fixed
 
 - correctly use arm binaries for aarch64-apple-darwin
+- apply manual sort within priority groups when sorting by priority
 
 ### Removed
 
