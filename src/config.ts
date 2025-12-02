@@ -1,6 +1,7 @@
 import { parse } from "@std/toml"
 import { join } from "@std/path"
 import { load } from "@std/dotenv"
+import * as v from "valibot"
 
 let config: Record<string, unknown> = {}
 
@@ -73,26 +74,51 @@ async function loadEnvFiles() {
 await loadEnvFiles()
 await loadConfig()
 
-export type OptionValueMapping = {
-  team_id: string
-  api_key: string
-  workspace: string
-  issue_sort: "manual" | "priority"
-  vcs: "git" | "jj"
+// Boolean coercion following Python's distutils.util.strtobool standard
+const TRUTHY = ["true", "yes", "y", "on", "1", "t"]
+const FALSY = ["false", "no", "n", "off", "0", "f"]
+
+function coerceBool(value: unknown): boolean | undefined {
+  if (value === true) return true
+  if (value === false) return false
+  if (value == null) return undefined
+  if (typeof value === "string") {
+    const lower = value.toLowerCase()
+    if (TRUTHY.includes(lower)) return true
+    if (FALSY.includes(lower)) return false
+  }
+  return undefined
 }
 
-export type OptionName = keyof OptionValueMapping
+// Custom valibot schema for boolean coercion
+const BooleanLike = v.pipe(v.unknown(), v.transform(coerceBool))
+
+// Options schema
+const OptionsSchema = v.object({
+  team_id: v.optional(v.string()),
+  api_key: v.optional(v.string()),
+  workspace: v.optional(v.string()),
+  issue_sort: v.optional(v.picklist(["manual", "priority"])),
+  vcs: v.optional(v.picklist(["git", "jj"])),
+  download_images: v.optional(BooleanLike),
+})
+
+export type Options = v.InferOutput<typeof OptionsSchema>
+export type OptionName = keyof Options
+
+function getRawOption(optionName: OptionName, cliValue?: string): unknown {
+  return cliValue ?? config[optionName] ??
+    Deno.env.get("LINEAR_" + optionName.toUpperCase())
+}
 
 export function getOption<T extends OptionName>(
   optionName: T,
   cliValue?: string,
-): OptionValueMapping[T] | undefined {
-  if (cliValue !== undefined) return cliValue as OptionValueMapping[T]
-  const fromConfig = config[optionName]
-  if (typeof fromConfig === "string") {
-    return fromConfig as OptionValueMapping[T]
+): Options[T] {
+  const raw = getRawOption(optionName, cliValue)
+  const result = v.safeParse(OptionsSchema, { [optionName]: raw })
+  if (result.success) {
+    return result.output[optionName] as Options[T]
   }
-  return Deno.env.get("LINEAR_" + optionName.toUpperCase()) as
-    | OptionValueMapping[T]
-    | undefined
+  return undefined as Options[T]
 }

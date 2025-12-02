@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- issue view now downloads images locally instead of showing authenticated uploads.linear.app urls (disable with --no-download flag, LINEAR_DOWNLOAD_IMAGES=false env var, or download_images = false in config)
+
 ## [1.3.1] - 2025-12-02
 
 ### Fixed
