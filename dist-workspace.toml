@@ -11,17 +11,9 @@ repository = "https://github.com/schpet/linear-cli"
 homepage = "https://github.com/schpet/linear-cli"
 binaries = ["linear"]
 build-command = [
-    "deno",
-    "compile",
-    "-o",
-    "linear",
-    '--allow-env="GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR"',
-    "--allow-read",
-    "--allow-write",
-    "--allow-run",
-    "--allow-net=api.linear.app",
-    "--quiet",
-    "src/main.ts",
+    "sh",
+    "-c",
+    "deno compile --target=$CARGO_DIST_TARGET -o linear '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR' --allow-read --allow-write --allow-run --allow-net=api.linear.app --quiet src/main.ts",
 ]
 
 # Config for 'dist'
