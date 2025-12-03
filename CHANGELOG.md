@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2025-12-02
+
 ### Fixed
 
 - correctly use arm binaries for aarch64-apple-darwin
@@ -269,7 +271,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/schpet/linear-cli/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/schpet/linear-cli/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/schpet/linear-cli/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/schpet/linear-cli/compare/v1.1.1...v1.2.0
