@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- correctly use arm binaries for aarch64-apple-darwin
+
+### Removed
+
+- remove compiled binaries for intel macs - x86_64-apple-darwin
+
 ## [1.3.0] - 2025-12-01
 
 ### Changed
