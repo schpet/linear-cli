@@ -131,6 +131,10 @@ jobs:
           "deno-version": "v2.x"
       - name: "Generate GraphQL code"
         run: "deno task codegen"
+      - uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ join(matrix.targets, '-') }}
+          cache-provider: ${{ matrix.cache_provider }}
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest
