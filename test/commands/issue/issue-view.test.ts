@@ -2,8 +2,8 @@ import { snapshotTest } from "@cliffy/testing"
 import { viewCommand } from "../../../src/commands/issue/issue-view.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
-// Mock the GraphQL endpoint for testing
-const TEST_ENDPOINT = "http://127.0.0.1:3000/graphql"
+// Mock the GraphQL endpoint for testing - use unusual port unlikely to have anything listening
+const TEST_ENDPOINT = "http://127.0.0.1:59123/graphql"
 
 // Common Deno args for permissions
 const denoArgs = [
@@ -45,9 +45,14 @@ await snapshotTest({
       // Expected to fail with mock endpoint, capture the error for snapshot
       // Normalize error message to be consistent across platforms
       const message = (error as Error).message
-      const normalizedMessage = message.replace(
+      let normalizedMessage = message.replace(
         /Connection refused \(os error \d+\)/g,
         "Connection refused",
+      )
+      // Normalize ephemeral port numbers (e.g., 127.0.0.1:62518 -> 127.0.0.1:PORT)
+      normalizedMessage = normalizedMessage.replace(
+        /127\.0\.0\.1:\d+/g,
+        "127.0.0.1:PORT",
       )
       console.log(`Error: ${normalizedMessage}`)
     } finally {
