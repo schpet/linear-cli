@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command"
 import { renderMarkdown } from "@littletof/charmd"
+import type { Extension } from "@littletof/charmd"
 import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { openIssuePage } from "../../utils/actions.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
@@ -16,6 +17,8 @@ import remarkParse from "remark-parse"
 import remarkStringify from "remark-stringify"
 import { visit } from "unist-util-visit"
 import type { Image } from "mdast"
+import { shouldEnableHyperlinks } from "../../utils/hyperlink.ts"
+import { createHyperlinkExtension } from "../../utils/charmd-hyperlink-extension.ts"
 
 export const viewCommand = new Command()
   .name("view")
@@ -65,11 +68,19 @@ export const viewCommand = new Command()
       return
     }
 
+    // Determine hyperlink format (only if enabled and environment supports it)
+    const configuredHyperlinkFormat = getOption("hyperlink_format")
+    const hyperlinkFormat =
+      configuredHyperlinkFormat && shouldEnableHyperlinks()
+        ? configuredHyperlinkFormat
+        : undefined
+
     let { description } = issueData
     let { comments: issueComments } = issueData
     const { title } = issueData
 
     if (urlToPath && urlToPath.size > 0) {
+      // Replace URLs with local paths in markdown
       if (description) {
         description = await replaceImageUrls(description, urlToPath)
       }
@@ -88,8 +99,15 @@ export const viewCommand = new Command()
 
     if (Deno.stdout.isTerminal()) {
       const { columns: terminalWidth } = Deno.consoleSize()
+
+      // Build charmd extensions array
+      const extensions = hyperlinkFormat
+        ? [createHyperlinkExtension(hyperlinkFormat)]
+        : []
+
       const renderedMarkdown = renderMarkdown(markdown, {
         lineWidth: terminalWidth,
+        extensions,
       })
 
       // Capture all output in an array to count lines
@@ -104,16 +122,19 @@ export const viewCommand = new Command()
         const commentsOutput = captureCommentsForTerminal(
           issueComments,
           terminalWidth,
+          extensions,
         )
         outputLines.push(...commentsOutput)
       }
 
+      const finalOutput = outputLines.join("\n")
+
       // Check if output exceeds terminal height and use pager if necessary
       if (shouldUsePager(outputLines, usePager)) {
-        await pipeToUserPager(outputLines.join("\n"))
+        await pipeToUserPager(finalOutput)
       } else {
-        // Print directly for shorter output - same logic as pager
-        outputLines.forEach((line) => console.log(line))
+        // Print directly for shorter output
+        console.log(finalOutput)
       }
     } else {
       if (showComments && issueComments && issueComments.length > 0) {
@@ -198,43 +219,6 @@ function formatCommentsAsMarkdown(
 
   return markdown
 }
-
-// Helper function to wrap text with proper indentation
-function formatWrappedText(
-  text: string,
-  width: number,
-  indent: string,
-): string {
-  const effectiveWidth = width - indent.length
-  const paragraphs = text.split(/\n\s*\n/)
-  const wrappedParagraphs: string[] = []
-
-  for (const paragraph of paragraphs) {
-    const words = paragraph.replace(/\s+/g, " ").trim().split(" ")
-    const lines: string[] = []
-    let currentLine = ""
-
-    for (const word of words) {
-      if (currentLine.length === 0) {
-        currentLine = word
-      } else if (currentLine.length + 1 + word.length <= effectiveWidth) {
-        currentLine += " " + word
-      } else {
-        lines.push(indent + currentLine)
-        currentLine = word
-      }
-    }
-
-    if (currentLine.length > 0) {
-      lines.push(indent + currentLine)
-    }
-
-    wrappedParagraphs.push(lines.join("\n"))
-  }
-
-  return wrappedParagraphs.join("\n\n")
-}
-
 // Helper function to capture comments output as string array for consistent formatting
 function captureCommentsForTerminal(
   comments: Array<{
@@ -246,6 +230,7 @@ function captureCommentsForTerminal(
     parent?: { id: string } | null
   }>,
   width: number,
+  extensions: Extension[] = [],
 ): string[] {
   const outputLines: string[] = []
 
@@ -282,9 +267,11 @@ function captureCommentsForTerminal(
 
     // Format root comment using consistent styling
     outputLines.push(formatCommentHeader(rootAuthor, rootDate))
-    outputLines.push(
-      ...formatWrappedText(rootComment.body, width, "").split("\n"),
-    )
+    const renderedRootBody = renderMarkdown(rootComment.body, {
+      lineWidth: width,
+      extensions,
+    })
+    outputLines.push(...renderedRootBody.split("\n"))
 
     if (threadReplies.length > 0) {
       outputLines.push("")
@@ -298,8 +285,12 @@ function captureCommentsForTerminal(
       const replyDate = formatRelativeTime(reply.createdAt)
 
       outputLines.push(formatCommentHeader(replyAuthor, replyDate, "  "))
+      const renderedReplyBody = renderMarkdown(reply.body, {
+        lineWidth: width - 2, // Account for indentation
+        extensions,
+      })
       outputLines.push(
-        ...formatWrappedText(reply.body, width, "  ").split("\n"),
+        ...renderedReplyBody.split("\n").map((line) => "  " + line),
       )
     }
 
