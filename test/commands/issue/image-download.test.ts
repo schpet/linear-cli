@@ -4,6 +4,12 @@ import {
   getUrlHash,
   replaceImageUrls,
 } from "../../../src/commands/issue/issue-view.ts"
+import {
+  formatPathHyperlink,
+  hyperlink,
+  resolveHyperlinkFormat,
+  shouldEnableHyperlinks,
+} from "../../../src/utils/hyperlink.ts"
 
 Deno.test("extractImageInfo - extracts markdown images", () => {
   const markdown = "Check this ![screenshot](https://example.com/img.png)"
@@ -102,3 +108,84 @@ Deno.test("replaceImageUrls - handles empty map", async () => {
   const result = await replaceImageUrls(markdown, urlToPath)
   assertEquals(result.includes("https://example.com/img.png"), true)
 })
+
+// Hyperlink utility tests
+
+Deno.test("hyperlink - creates OSC-8 escape sequence", () => {
+  const result = hyperlink("click me", "https://example.com")
+  assertEquals(
+    result,
+    "\x1b]8;;https://example.com\x1b\\click me\x1b]8;;\x1b\\",
+  )
+})
+
+Deno.test("hyperlink - handles empty text", () => {
+  const result = hyperlink("", "https://example.com")
+  assertEquals(result, "\x1b]8;;https://example.com\x1b\\\x1b]8;;\x1b\\")
+})
+
+Deno.test("resolveHyperlinkFormat - resolves default to file URL format", () => {
+  assertEquals(resolveHyperlinkFormat("default"), "file://{host}{path}")
+})
+
+Deno.test("resolveHyperlinkFormat - passes through custom format", () => {
+  assertEquals(resolveHyperlinkFormat("custom://{path}"), "custom://{path}")
+})
+
+Deno.test("formatPathHyperlink - wraps remote URL in hyperlink", () => {
+  const result = formatPathHyperlink(
+    "https://example.com/img.png",
+    "https://example.com/img.png",
+    "default",
+  )
+  // Remote URLs link directly to themselves
+  assertEquals(
+    result.includes("\x1b]8;;https://example.com/img.png\x1b\\"),
+    true,
+  )
+  assertEquals(
+    result.includes("https://example.com/img.png\x1b]8;;\x1b\\"),
+    true,
+  )
+})
+
+Deno.test("formatPathHyperlink - wraps local path with file URL format", () => {
+  const result = formatPathHyperlink(
+    "/tmp/test/image.png",
+    "/tmp/test/image.png",
+    "default",
+  )
+  // Local paths get file:// URL format
+  assertEquals(result.includes("\x1b]8;;file://"), true)
+  assertEquals(result.includes("/tmp/test/image.png"), true)
+})
+
+Deno.test("formatPathHyperlink - encodes special characters in path", () => {
+  const result = formatPathHyperlink(
+    "/tmp/test/my image#1.png",
+    "/tmp/test/my image#1.png",
+    "default",
+  )
+  // # should be percent-encoded
+  assertEquals(result.includes("%23"), true)
+  // Spaces should be percent-encoded
+  assertEquals(result.includes("%20"), true)
+})
+
+Deno.test("shouldEnableHyperlinks - returns false when NO_COLOR is set", () => {
+  const originalNoColor = Deno.env.get("NO_COLOR")
+  try {
+    Deno.env.set("NO_COLOR", "1")
+    assertEquals(shouldEnableHyperlinks(), false)
+  } finally {
+    if (originalNoColor === undefined) {
+      Deno.env.delete("NO_COLOR")
+    } else {
+      Deno.env.set("NO_COLOR", originalNoColor)
+    }
+  }
+})
+
+// formatPathHyperlink already tested above - it creates OSC-8 escape sequences
+// The hyperlink application to rendered output happens in issue-view.ts
+// and uses formatPathHyperlink internally

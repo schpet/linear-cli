@@ -101,6 +101,7 @@ const OptionsSchema = v.object({
   issue_sort: v.optional(v.picklist(["manual", "priority"])),
   vcs: v.optional(v.picklist(["git", "jj"])),
   download_images: v.optional(BooleanLike),
+  hyperlink_format: v.optional(v.string()),
 })
 
 export type Options = v.InferOutput<typeof OptionsSchema>
