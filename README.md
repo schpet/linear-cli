@@ -147,6 +147,25 @@ linear config          # setup the project
 linear completions     # generate shell completions
 ```
 
+## configuration options
+
+the CLI supports configuration via environment variables or a `.linear.toml` config file. environment variables take precedence over config file values.
+
+| option          | env var                  | toml key          | example                    | description                           |
+| --------------- | ------------------------ | ----------------- | -------------------------- | ------------------------------------- |
+| API key         | `LINEAR_API_KEY`         | `api_key`         | `"lin_api_..."`            | your Linear API key (required)        |
+| Team ID         | `LINEAR_TEAM_ID`         | `team_id`         | `"TEAM_abc123"`            | default team for operations           |
+| Workspace       | `LINEAR_WORKSPACE`       | `workspace`       | `"mycompany"`              | workspace slug for web/app URLs       |
+| Issue sort      | `LINEAR_ISSUE_SORT`      | `issue_sort`      | `"priority"` or `"manual"` | how to sort issue lists               |
+| VCS             | `LINEAR_VCS`             | `vcs`             | `"git"` or `"jj"`          | version control system (default: git) |
+| Download images | `LINEAR_DOWNLOAD_IMAGES` | `download_images` | `true` or `false`          | download images when viewing issues   |
+
+the config file can be placed at:
+
+- `./linear.toml` or `./.linear.toml` (current directory)
+- `<repo-root>/linear.toml` or `<repo-root>/.linear.toml` (repository root)
+- `<repo-root>/.config/linear.toml`
+
 ## why
 
 linear's UI is incredibly good but it slows me down. i find the following pretty grating to experience frequently:
