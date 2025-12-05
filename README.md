@@ -1,6 +1,6 @@
 # linear cli
 
-a cli to list, start and create issues in the [linear](https://linear.app/) issue tracker. git and jj aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
+a cli to list, start and create issues in the [linear](https://linear.app/) issue tracker. git and [jj](https://www.jj-vcs.dev/) aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
 here's how it works:
 
