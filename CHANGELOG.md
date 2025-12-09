@@ -2,10 +2,18 @@
 
 ## [Unreleased]
 
+### Changed
+
+- sync-schema task to use linear schema command instead of npm package
+
 ### Added
 
 - issue view now downloads images locally instead of showing authenticated uploads.linear.app urls (disable with --no-download flag, LINEAR_DOWNLOAD_IMAGES=false env var, or download_images = false in config)
 - optional OSC-8 hyperlinks for images in issue view (configure with hyperlink_format option or LINEAR_HYPERLINK_FORMAT env var)
+- ISC license
+- schema command to print GraphQL schema (SDL or JSON)
+- auth command with whoami and token subcommands
+- claude code skill plugin for linear-cli
 
 ## [1.3.1] - 2025-12-02
 
