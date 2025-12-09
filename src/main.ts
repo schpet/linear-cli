@@ -1,10 +1,12 @@
 import { Command } from "@cliffy/command"
 import { CompletionsCommand } from "@cliffy/command/completions"
 import denoConfig from "../deno.json" with { type: "json" }
+import { authCommand } from "./commands/auth/auth.ts"
 import { issueCommand } from "./commands/issue/issue.ts"
 import { teamCommand } from "./commands/team/team.ts"
 import { projectCommand } from "./commands/project/project.ts"
 import { configCommand } from "./commands/config.ts"
+import { schemaCommand } from "./commands/schema.ts"
 
 // Import config setup
 import "./config.ts"
@@ -16,6 +18,7 @@ await new Command()
   .action(() => {
     console.log("Use --help to see available commands")
   })
+  .command("auth", authCommand)
   .command("issue", issueCommand)
   .alias("i")
   .command("team", teamCommand)
@@ -24,4 +27,5 @@ await new Command()
   .alias("p")
   .command("completions", new CompletionsCommand())
   .command("config", configCommand)
+  .command("schema", schemaCommand)
   .parse(Deno.args)
