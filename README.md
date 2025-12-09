@@ -179,7 +179,7 @@ this cli solves this. it knows what you're working on (via git branches or jj co
 
 ## claude code skill
 
-linear-cli includes a skill for [claude code](https://docs.anthropic.com/en/docs/claude-code) that helps claude use the CLI effectively.
+linear-cli includes [a skill for claude code](https://code.claude.com/docs/en/skills) that helps claude use the CLI effectively. for use cases outside the CLI, it includes instructions to interact directly with the graphql api, including authentication. 
 
 ```bash
 # from claude code

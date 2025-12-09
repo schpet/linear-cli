@@ -24,3 +24,15 @@ tag:
 # cargo-dist - needed to update .github/workflows/release.yml
 dist-generate:
   dist generate
+
+claude-remove-local:
+  -claude plugin remove linear-cli@linear-cli
+  -claude plugin marketplace remove linear-cli
+
+claude-install-local:
+  claude plugin marketplace add ./
+  claude plugin install linear-cli@linear-cli
+
+claude-install-github:
+  claude plugin marketplace add schpet/linear-cli
+  claude plugin install linear-cli@linear-cli
