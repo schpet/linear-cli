@@ -177,4 +177,18 @@ linear's UI is incredibly good but it slows me down. i find the following pretty
 
 this cli solves this. it knows what you're working on (via git branches or jj commit trailers), does the work of managing your version control state, and will write your pull request details for you.
 
+## claude code skill
+
+linear-cli includes a skill for [claude code](https://docs.anthropic.com/en/docs/claude-code) that helps claude use the CLI effectively.
+
+```bash
+# from claude code
+/plugin marketplace add schpet/linear-cli
+/plugin install linear-cli@linear-cli
+
+# from bash
+claude plugin marketplace add schpet/linear-cli
+claude plugin install linear-cli@linear-cli
+```
+
 [^1]: creating an API key requires member access, it is not available for guest accounts.
