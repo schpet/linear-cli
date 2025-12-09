@@ -2,18 +2,16 @@
 
 ## [Unreleased]
 
-### Changed
-
-- sync-schema task to use linear schema command instead of npm package
+## [1.4.0] - 2025-12-08
 
 ### Added
 
 - issue view now downloads images locally instead of showing authenticated uploads.linear.app urls (disable with --no-download flag, LINEAR_DOWNLOAD_IMAGES=false env var, or download_images = false in config)
 - optional OSC-8 hyperlinks for images in issue view (configure with hyperlink_format option or LINEAR_HYPERLINK_FORMAT env var)
-- ISC license
+- claude code skill plugin for linear-cli
 - schema command to print GraphQL schema (SDL or JSON)
 - auth command with whoami and token subcommands
-- claude code skill plugin for linear-cli
+- ISC license
 
 ## [1.3.1] - 2025-12-02
 
@@ -285,7 +283,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/schpet/linear-cli/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/schpet/linear-cli/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/schpet/linear-cli/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/schpet/linear-cli/compare/v1.2.0...v1.2.1
