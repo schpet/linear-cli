@@ -86,7 +86,7 @@ deno task install
 the CLI works with both git and jj version control systems:
 
 - **git**: works best when your branches include Linear issue IDs (e.g. `eng-123-my-feature`). use `linear issue start` or linear UI's 'copy git branch name' button and [related automations](https://linear.app/docs/account-preferences#git-related-automations).
-- **jj**: detects issues from `Linear-issue` trailers in your commit descriptions. use `linear issue start` to automatically add the trailer, or add it manually with `jj describe`.
+- **jj**: detects issues from `Linear-issue` trailers in your commit descriptions. use `linear issue start` to automatically add the trailer, or add it manually with `jj describe`, e.g. `jj describe "$(linear issue describe ABC-123)"`
 
 ## commands
 
@@ -100,7 +100,9 @@ the current issue is determined by:
 note that [Linear's GitHub integration](https://linear.app/docs/github#branch-format) will suggest git branch names.
 
 ```bash
-linear issue view      # view issue details in terminal
+linear issue view      # view current issue details in terminal
+linear issue view ABC-123
+linear issue view 123
 linear issue view -w   # open issue in web browser
 linear issue view -a   # open issue in Linear.app
 linear issue id        # prints the issue id from current branch (e.g., "ENG-123")
@@ -119,6 +121,7 @@ linear issue comment list          # list comments on current issue
 linear issue comment add           # add a comment to current issue
 linear issue comment add -p <id>   # reply to a specific comment
 linear issue comment update <id>   # update a comment
+linear issue commits               # show all commits for an issue (jj only)
 ```
 
 ### team commands

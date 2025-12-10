@@ -1,0 +1,19 @@
+export const snapshot = {};
+
+snapshot[`Issue Commits Command - Help Text 1`] = `
+stdout:
+"
+Usage: commits [issueId]
+
+Description:
+
+  Show all commits for a Linear issue (jj only)
+
+Options:
+
+  -h, --help  - Show this help.  
+
+"
+stderr:
+""
+`;
