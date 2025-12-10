@@ -10,6 +10,21 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "deno check src/main.ts"
+          },
+          {
+            "type": "command",
+            "command": "NO_COLOR=1 deno task test"
+          }
+        ]
+      }
     ]
   }
 }
