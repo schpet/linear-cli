@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- add issue commits command to print previous commits associated with an issue
+
 ## [1.4.0] - 2025-12-08
 
 ### Added

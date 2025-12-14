@@ -3,6 +3,7 @@ import { commentCommand } from "./issue-comment.ts"
 import { createCommand } from "./issue-create.ts"
 import { deleteCommand } from "./issue-delete.ts"
 import { describeCommand } from "./issue-describe.ts"
+import { commitsCommand } from "./issue-commits.ts"
 import { idCommand } from "./issue-id.ts"
 import { listCommand } from "./issue-list.ts"
 import { pullRequestCommand } from "./issue-pull-request.ts"
@@ -24,6 +25,7 @@ export const issueCommand = new Command()
   .command("view", viewCommand)
   .command("url", urlCommand)
   .command("describe", describeCommand)
+  .command("commits", commitsCommand)
   .command("pull-request", pullRequestCommand)
   .command("delete", deleteCommand)
   .command("create", createCommand)

@@ -16,7 +16,7 @@ import { unified } from "unified"
 import remarkParse from "remark-parse"
 import remarkStringify from "remark-stringify"
 import { visit } from "unist-util-visit"
-import type { Image } from "mdast"
+import type { Image, Root } from "mdast"
 import { shouldEnableHyperlinks } from "../../utils/hyperlink.ts"
 import { createHyperlinkExtension } from "../../utils/charmd-hyperlink-extension.ts"
 
@@ -347,7 +347,7 @@ export async function replaceImageUrls(
 ): Promise<string> {
   const processor = unified()
     .use(remarkParse)
-    .use(() => (tree) => {
+    .use(() => (tree: Root) => {
       visit(tree, "image", (node: Image) => {
         const localPath = urlToPath.get(node.url)
         if (localPath) {
