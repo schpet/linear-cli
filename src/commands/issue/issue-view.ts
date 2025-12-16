@@ -373,13 +373,58 @@ export async function getUrlHash(url: string): Promise<string> {
 }
 
 /**
+ * Validates that an image URL is from an allowed Linear domain
+ */
+function validateImageUrl(url: string): void {
+  try {
+    const parsed = new URL(url)
+    const hostname = parsed.hostname.toLowerCase()
+
+    // Only allow Linear's official image domains
+    const allowedHosts = [
+      "uploads.linear.app",
+      "linear.app", // For any Linear-hosted images
+    ]
+
+    // Allow localhost for testing
+    const isLocalhost = hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname.startsWith("127.") ||
+      hostname === "::1"
+
+    if (!allowedHosts.some((host) => hostname === host || hostname.endsWith(`.${host}`)) &&
+      !isLocalhost) {
+      throw new Error(
+        `Image URL not allowed: ${url}. Only Linear-hosted images are supported for security.`,
+      )
+    }
+
+    // Ensure HTTPS for non-localhost endpoints
+    if (!isLocalhost && parsed.protocol !== "https:") {
+      throw new Error(
+        `Image URL must use HTTPS: ${url}`,
+      )
+    }
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(`Invalid image URL: ${url}`)
+    }
+    throw error
+  }
+}
+
+/**
  * download an image to the cache directory if not already cached
  * returns the local file path
+ * Only downloads from Linear-hosted domains for security
  */
 async function downloadImage(
   url: string,
   altText: string | null,
 ): Promise<string> {
+  // Validate URL before downloading
+  validateImageUrl(url)
+
   const urlHash = await getUrlHash(url)
   const imageDir = join(IMAGE_CACHE_DIR, urlHash)
   await ensureDir(imageDir)
