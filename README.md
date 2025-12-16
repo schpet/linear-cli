@@ -148,6 +148,8 @@ linear --help          # show all commands
 linear --version       # show version
 linear config          # setup the project
 linear completions     # generate shell completions
+linear auth token      # show configured API token (masked by default)
+linear auth token --show  # show full unmasked API token
 ```
 
 ## configuration options
