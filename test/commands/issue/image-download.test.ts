@@ -189,3 +189,7 @@ Deno.test("shouldEnableHyperlinks - returns false when NO_COLOR is set", () => {
 // formatPathHyperlink already tested above - it creates OSC-8 escape sequences
 // The hyperlink application to rendered output happens in issue-view.ts
 // and uses formatPathHyperlink internally
+
+// Note: Image URL validation is tested indirectly through integration tests
+// The validateImageUrl function in issue-view.ts restricts downloads to Linear domains only
+// This prevents data leakage to external sources when processing issue markdown
