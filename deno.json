@@ -5,14 +5,14 @@
   "exports": "./src/main.ts",
   "license": "MIT",
   "tasks": {
-    "dev": "deno task codegen && deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR,TMPDIR,TMP,TEMP' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname --quiet src/main.ts ",
-    "install": "deno task codegen && deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR,TMPDIR,TMP,TEMP' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname --quiet -g -f -n linear ./src/main.ts",
+    "dev": "deno task codegen && deno run '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR,TMPDIR,TMP,TEMP,HOME' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname --quiet src/main.ts ",
+    "install": "deno task codegen && deno install -c ./deno.json '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,NO_COLOR,TMPDIR,TMP,TEMP,HOME' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname --quiet -g -f -n linear ./src/main.ts",
     "uninstall": "deno uninstall -g linear",
     "sync-schema": "deno task dev schema -o graphql/schema.graphql",
     "codegen": "deno run --allow-all npm:@graphql-codegen/cli/graphql-codegen-esm",
     "check": "deno check src/main.ts",
-    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR,TMPDIR,TMP,TEMP' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname --quiet",
-    "snapshot": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR,TMPDIR,TMP,TEMP' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname -- --update",
+    "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR,TMPDIR,TMP,TEMP,HOME' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname --quiet",
+    "snapshot": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR,TMPDIR,TMP,TEMP,HOME' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname -- --update",
     "lefthook-install": "deno run --allow-run --allow-read --allow-write --allow-env npm:lefthook install"
   },
   "imports": {

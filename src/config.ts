@@ -4,6 +4,7 @@ import { load } from "@std/dotenv"
 import * as v from "valibot"
 
 let config: Record<string, unknown> = {}
+let homeConfig: Record<string, unknown> = {}
 
 async function loadConfig() {
   const configPaths = [
@@ -71,8 +72,31 @@ async function loadEnvFiles() {
   }
 }
 
+async function loadHomeConfig() {
+  const home = Deno.env.get("HOME")
+  if (!home) return
+
+  const homePaths = [
+    join(home, "linear.toml"),
+    join(home, ".linear.toml"),
+    join(home, ".config", "linear.toml"),
+  ]
+
+  for (const path of homePaths) {
+    try {
+      await Deno.stat(path)
+      const file = await Deno.readTextFile(path)
+      homeConfig = parse(file) as Record<string, unknown>
+      break
+    } catch {
+      // File not found; continue.
+    }
+  }
+}
+
 await loadEnvFiles()
 await loadConfig()
+await loadHomeConfig()
 
 // Boolean coercion following Python's distutils.util.strtobool standard
 const TRUTHY = ["true", "yes", "y", "on", "1", "t"]
@@ -108,8 +132,15 @@ export type Options = v.InferOutput<typeof OptionsSchema>
 export type OptionName = keyof Options
 
 function getRawOption(optionName: OptionName, cliValue?: string): unknown {
-  return cliValue ?? config[optionName] ??
+  const value = cliValue ?? config[optionName] ??
     Deno.env.get("LINEAR_" + optionName.toUpperCase())
+
+  // Fallback to home directory config for api_key
+  if (value == null && optionName === "api_key") {
+    return homeConfig[optionName]
+  }
+
+  return value
 }
 
 export function getOption<T extends OptionName>(
