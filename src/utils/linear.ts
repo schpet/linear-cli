@@ -165,6 +165,16 @@ export async function fetchIssueDetails(
   url: string
   branchName: string
   state: { name: string; color: string }
+  parent?: {
+    identifier: string
+    title: string
+    state: { name: string; color: string }
+  } | null
+  children?: Array<{
+    identifier: string
+    title: string
+    state: { name: string; color: string }
+  }>
   comments?: Array<{
     id: string
     body: string
@@ -188,6 +198,24 @@ export async function fetchIssueDetails(
           state {
             name
             color
+          }
+          parent {
+            identifier
+            title
+            state {
+              name
+              color
+            }
+          }
+          children {
+            nodes {
+              identifier
+              title
+              state {
+                name
+                color
+              }
+            }
           }
           comments(first: 50, orderBy: createdAt) {
             nodes {
@@ -222,6 +250,24 @@ export async function fetchIssueDetails(
             name
             color
           }
+          parent {
+            identifier
+            title
+            state {
+              name
+              color
+            }
+          }
+          children {
+            nodes {
+              identifier
+              title
+              state {
+                name
+                color
+              }
+            }
+          }
         }
       }
     `)
@@ -233,12 +279,16 @@ export async function fetchIssueDetails(
       spinner?.stop()
       return {
         ...data.issue,
+        children: data.issue.children?.nodes || [],
         comments: data.issue.comments?.nodes || [],
       }
     } else {
       const data = await client.request(queryWithoutComments, { id: issueId })
       spinner?.stop()
-      return data.issue
+      return {
+        ...data.issue,
+        children: data.issue.children?.nodes || [],
+      }
     }
   } catch (error) {
     spinner?.stop()

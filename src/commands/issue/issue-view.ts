@@ -5,7 +5,7 @@ import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { openIssuePage } from "../../utils/actions.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
-import { bold, underline } from "@std/fmt/colors"
+import { bold, dim, underline } from "@std/fmt/colors"
 import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import { ensureDir } from "@std/fs"
 import { join } from "@std/path"
@@ -116,6 +116,15 @@ export const viewCommand = new Command()
       // Add the rendered markdown lines
       outputLines.push(...renderedMarkdown.split("\n"))
 
+      // Add parent/children hierarchy
+      const hierarchyLines = formatIssueHierarchyForTerminal(
+        issueData.parent,
+        issueData.children,
+      )
+      if (hierarchyLines.length > 0) {
+        outputLines.push(...hierarchyLines)
+      }
+
       // Add comments if enabled
       if (showComments && issueComments && issueComments.length > 0) {
         outputLines.push("") // Empty line before comments
@@ -137,6 +146,12 @@ export const viewCommand = new Command()
         console.log(finalOutput)
       }
     } else {
+      // Add parent/children hierarchy
+      markdown += formatIssueHierarchyAsMarkdown(
+        issueData.parent,
+        issueData.children,
+      )
+
       if (showComments && issueComments && issueComments.length > 0) {
         markdown += "\n\n## Comments\n\n"
         markdown += formatCommentsAsMarkdown(issueComments)
@@ -145,6 +160,68 @@ export const viewCommand = new Command()
       console.log(markdown)
     }
   })
+
+// Helper type for issue hierarchy display
+type IssueRef = {
+  identifier: string
+  title: string
+  state: { name: string; color: string }
+}
+
+// Helper function to format an issue reference line for terminal
+function formatIssueRefLine(issue: IssueRef, indent = ""): string {
+  return `${indent}${bold(issue.identifier)}: ${issue.title} ${
+    dim(`[${issue.state.name}]`)
+  }`
+}
+
+// Helper function to format parent/children for terminal output
+function formatIssueHierarchyForTerminal(
+  parent: IssueRef | null | undefined,
+  children: IssueRef[] | undefined,
+): string[] {
+  const lines: string[] = []
+
+  if (parent) {
+    lines.push("")
+    lines.push(bold("Parent:"))
+    lines.push(formatIssueRefLine(parent, "  "))
+  }
+
+  if (children && children.length > 0) {
+    lines.push("")
+    lines.push(bold("Sub-issues:"))
+    for (const child of children) {
+      lines.push(formatIssueRefLine(child, "  "))
+    }
+  }
+
+  return lines
+}
+
+// Helper function to format parent/children as markdown
+function formatIssueHierarchyAsMarkdown(
+  parent: IssueRef | null | undefined,
+  children: IssueRef[] | undefined,
+): string {
+  let markdown = ""
+
+  if (parent) {
+    markdown += `\n\n## Parent\n\n`
+    markdown +=
+      `- **${parent.identifier}**: ${parent.title} _[${parent.state.name}]_\n`
+  }
+
+  if (children && children.length > 0) {
+    markdown += `\n\n## Sub-issues\n\n`
+    for (const child of children) {
+      markdown +=
+        `- **${child.identifier}**: ${child.title} _[${child.state.name}]_\n`
+    }
+  }
+
+  return markdown
+}
 
 // Helper function to format a single comment line with consistent styling
 function formatCommentHeader(

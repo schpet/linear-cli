@@ -43,7 +43,7 @@ stderr:
 
 snapshot[`Issue Describe Command - Issue Not Found 1`] = `
 stdout:
-'Error: Issue not found: TEST-999: {"response":{"errors":[{"message":"Issue not found: TEST-999","extensions":{"code":"NOT_FOUND"}}],"status":200,"headers":{}},"request":{"query":"query GetIssueDetails(\$id: String!) {\\\\n  issue(id: \$id) {\\\\n    title\\\\n    description\\\\n    url\\\\n    branchName\\\\n    state {\\\\n      name\\\\n      color\\\\n    }\\\\n  }\\\\n}","variables":{"id":"TEST-999"}}}
+'Error: Issue not found: TEST-999: {"response":{"errors":[{"message":"Issue not found: TEST-999","extensions":{"code":"NOT_FOUND"}}],"status":200,"headers":{}},"request":{"query":"query GetIssueDetails(\$id: String!) {\\\\n  issue(id: \$id) {\\\\n    title\\\\n    description\\\\n    url\\\\n    branchName\\\\n    state {\\\\n      name\\\\n      color\\\\n    }\\\\n    parent {\\\\n      identifier\\\\n      title\\\\n      state {\\\\n        name\\\\n        color\\\\n      }\\\\n    }\\\\n    children {\\\\n      nodes {\\\\n        identifier\\\\n        title\\\\n        state {\\\\n          name\\\\n          color\\\\n        }\\\\n      }\\\\n    }\\\\n  }\\\\n}","variables":{"id":"TEST-999"}}}
 '
 stderr:
 "✗ Failed to fetch issue details
