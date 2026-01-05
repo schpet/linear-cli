@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- prefix issue title with identifier in issue view output
+
 ### Added
 
 - add parent and sub-issues to issue view output
