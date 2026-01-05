@@ -5,7 +5,7 @@ import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { openIssuePage } from "../../utils/actions.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
-import { bold, dim, underline } from "@std/fmt/colors"
+import { bold, underline } from "@std/fmt/colors"
 import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import { ensureDir } from "@std/fs"
 import { join } from "@std/path"
@@ -116,13 +116,17 @@ export const viewCommand = new Command()
       // Add the rendered markdown lines
       outputLines.push(...renderedMarkdown.split("\n"))
 
-      // Add parent/children hierarchy
-      const hierarchyLines = formatIssueHierarchyForTerminal(
+      // Add parent/children hierarchy (rendered as markdown for consistency)
+      const hierarchyMarkdown = formatIssueHierarchyAsMarkdown(
         issueData.parent,
         issueData.children,
       )
-      if (hierarchyLines.length > 0) {
-        outputLines.push(...hierarchyLines)
+      if (hierarchyMarkdown) {
+        const renderedHierarchy = renderMarkdown(hierarchyMarkdown, {
+          lineWidth: terminalWidth,
+          extensions,
+        })
+        outputLines.push(...renderedHierarchy.split("\n"))
       }
 
       // Add comments if enabled
@@ -166,37 +170,6 @@ type IssueRef = {
   identifier: string
   title: string
   state: { name: string; color: string }
-}
-
-// Helper function to format an issue reference line for terminal
-function formatIssueRefLine(issue: IssueRef, indent = ""): string {
-  return `${indent}${bold(issue.identifier)}: ${issue.title} ${
-    dim(`[${issue.state.name}]`)
-  }`
-}
-
-// Helper function to format parent/children for terminal output
-function formatIssueHierarchyForTerminal(
-  parent: IssueRef | null | undefined,
-  children: IssueRef[] | undefined,
-): string[] {
-  const lines: string[] = []
-
-  if (parent) {
-    lines.push("")
-    lines.push(bold("Parent:"))
-    lines.push(formatIssueRefLine(parent, "  "))
-  }
-
-  if (children && children.length > 0) {
-    lines.push("")
-    lines.push(bold("Sub-issues:"))
-    for (const child of children) {
-      lines.push(formatIssueRefLine(child, "  "))
-    }
-  }
-
-  return lines
 }
 
 // Helper function to format parent/children as markdown
