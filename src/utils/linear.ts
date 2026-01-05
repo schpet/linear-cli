@@ -160,6 +160,7 @@ export async function fetchIssueDetails(
   showSpinner = false,
   includeComments = false,
 ): Promise<{
+  identifier: string
   title: string
   description?: string | null | undefined
   url: string
@@ -191,6 +192,7 @@ export async function fetchIssueDetails(
     const queryWithComments = gql(/* GraphQL */ `
       query GetIssueDetailsWithComments($id: String!) {
         issue(id: $id) {
+          identifier
           title
           description
           url
@@ -242,6 +244,7 @@ export async function fetchIssueDetails(
     const queryWithoutComments = gql(/* GraphQL */ `
       query GetIssueDetails($id: String!) {
         issue(id: $id) {
+          identifier
           title
           description
           url
