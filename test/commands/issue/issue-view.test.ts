@@ -78,6 +78,7 @@ await snapshotTest({
         response: {
           data: {
             issue: {
+              identifier: "TEST-123",
               title: "Fix authentication bug in login flow",
               description:
                 "Users are experiencing issues logging in when their session expires. This affects the main authentication flow and needs to be resolved quickly.\n\n## Steps to reproduce\n1. Log in to the application\n2. Wait for session to expire\n3. Try to perform an authenticated action\n4. Observe the error\n\n## Expected behavior\nUser should be redirected to login page with clear messaging.\n\n## Actual behavior\nUser sees cryptic error message and gets stuck.",
@@ -130,6 +131,7 @@ await snapshotTest({
         response: {
           data: {
             issue: {
+              identifier: "TEST-123",
               title: "Fix authentication bug in login flow",
               description:
                 "Users are experiencing issues logging in when their session expires.",
@@ -179,6 +181,7 @@ await snapshotTest({
         response: {
           data: {
             issue: {
+              identifier: "TEST-123",
               title: "Fix authentication bug in login flow",
               description:
                 "Users are experiencing issues logging in when their session expires.",
@@ -323,6 +326,7 @@ await snapshotTest({
         response: {
           data: {
             issue: {
+              identifier: "TEST-123",
               title: "Fix authentication bug in login flow",
               description:
                 "Users are experiencing issues logging in when their session expires.",
@@ -372,6 +376,7 @@ await snapshotTest({
         response: {
           data: {
             issue: {
+              identifier: "TEST-123",
               title: "Fix authentication bug in login flow",
               description:
                 "Users are experiencing issues logging in when their session expires.",
@@ -451,6 +456,7 @@ await snapshotTest({
         response: {
           data: {
             issue: {
+              identifier: "TEST-456",
               title: "Implement user authentication",
               description: "Add user authentication to the application.",
               url:

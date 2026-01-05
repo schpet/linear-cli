@@ -95,7 +95,10 @@ export const viewCommand = new Command()
       }
     }
 
-    let markdown = `# ${title}${description ? "\n\n" + description : ""}`
+    const { identifier } = issueData
+    let markdown = `# ${identifier}: ${title}${
+      description ? "\n\n" + description : ""
+    }`
 
     if (Deno.stdout.isTerminal()) {
       const { columns: terminalWidth } = Deno.consoleSize()
