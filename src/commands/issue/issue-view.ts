@@ -116,6 +116,19 @@ export const viewCommand = new Command()
       // Add the rendered markdown lines
       outputLines.push(...renderedMarkdown.split("\n"))
 
+      // Add parent/children hierarchy (rendered as markdown for consistency)
+      const hierarchyMarkdown = formatIssueHierarchyAsMarkdown(
+        issueData.parent,
+        issueData.children,
+      )
+      if (hierarchyMarkdown) {
+        const renderedHierarchy = renderMarkdown(hierarchyMarkdown, {
+          lineWidth: terminalWidth,
+          extensions,
+        })
+        outputLines.push(...renderedHierarchy.split("\n"))
+      }
+
       // Add comments if enabled
       if (showComments && issueComments && issueComments.length > 0) {
         outputLines.push("") // Empty line before comments
@@ -137,6 +150,12 @@ export const viewCommand = new Command()
         console.log(finalOutput)
       }
     } else {
+      // Add parent/children hierarchy
+      markdown += formatIssueHierarchyAsMarkdown(
+        issueData.parent,
+        issueData.children,
+      )
+
       if (showComments && issueComments && issueComments.length > 0) {
         markdown += "\n\n## Comments\n\n"
         markdown += formatCommentsAsMarkdown(issueComments)
@@ -145,6 +164,37 @@ export const viewCommand = new Command()
       console.log(markdown)
     }
   })
+
+// Helper type for issue hierarchy display
+type IssueRef = {
+  identifier: string
+  title: string
+  state: { name: string; color: string }
+}
+
+// Helper function to format parent/children as markdown
+function formatIssueHierarchyAsMarkdown(
+  parent: IssueRef | null | undefined,
+  children: IssueRef[] | undefined,
+): string {
+  let markdown = ""
+
+  if (parent) {
+    markdown += `\n\n## Parent\n\n`
+    markdown +=
+      `- **${parent.identifier}**: ${parent.title} _[${parent.state.name}]_\n`
+  }
+
+  if (children && children.length > 0) {
+    markdown += `\n\n## Sub-issues\n\n`
+    for (const child of children) {
+      markdown +=
+        `- **${child.identifier}**: ${child.title} _[${child.state.name}]_\n`
+    }
+  }
+
+  return markdown
+}
 
 // Helper function to format a single comment line with consistent styling
 function formatCommentHeader(

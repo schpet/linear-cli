@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- add parent and sub-issues to issue view output
+
 ## [1.5.0] - 2025-12-16
 
 ### Fixed

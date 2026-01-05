@@ -88,6 +88,10 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              parent: null,
+              children: {
+                nodes: [],
+              },
               comments: {
                 nodes: [],
               },
@@ -136,6 +140,10 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              parent: null,
+              children: {
+                nodes: [],
+              },
             },
           },
         },
@@ -180,6 +188,10 @@ await snapshotTest({
               state: {
                 name: "In Progress",
                 color: "#f87462",
+              },
+              parent: null,
+              children: {
+                nodes: [],
               },
               comments: {
                 nodes: [
@@ -321,6 +333,10 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              parent: null,
+              children: {
+                nodes: [],
+              },
             },
           },
         },
@@ -366,6 +382,10 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              parent: null,
+              children: {
+                nodes: [],
+              },
               comments: {
                 nodes: [
                   {
@@ -392,6 +412,86 @@ await snapshotTest({
                     externalUser: null,
                     parent: {
                       id: "comment-1",
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test with parent and sub-issues
+await snapshotTest({
+  name: "Issue View Command - With Parent And Sub-issues",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-456", "--no-comments"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        variables: { id: "TEST-456" },
+        response: {
+          data: {
+            issue: {
+              title: "Implement user authentication",
+              description: "Add user authentication to the application.",
+              url:
+                "https://linear.app/test-team/issue/TEST-456/implement-user-authentication",
+              branchName: "feat/test-456-auth",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
+              parent: {
+                identifier: "TEST-100",
+                title: "Epic: Security Improvements",
+                state: {
+                  name: "In Progress",
+                  color: "#f87462",
+                },
+              },
+              children: {
+                nodes: [
+                  {
+                    identifier: "TEST-457",
+                    title: "Add login form",
+                    state: {
+                      name: "Done",
+                      color: "#4cb782",
+                    },
+                  },
+                  {
+                    identifier: "TEST-458",
+                    title: "Add password reset flow",
+                    state: {
+                      name: "Todo",
+                      color: "#bec2c8",
+                    },
+                  },
+                  {
+                    identifier: "TEST-459",
+                    title: "Add OAuth support",
+                    state: {
+                      name: "In Progress",
+                      color: "#f87462",
                     },
                   },
                 ],
