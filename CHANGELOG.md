@@ -2,13 +2,15 @@
 
 ## [Unreleased]
 
-### Changed
-
-- prefix issue title with identifier in issue view output
+## [1.6.0] - 2026-01-05
 
 ### Added
 
-- add parent and sub-issues to issue view output
+- add parent and sub-issues to issue view output ([#86](https://github.com/schpet/linear-cli/pull/86); thanks [@paymog](https://github.com/paymog))
+
+### Changed
+
+- prefix issue title with identifier in issue view output
 
 ## [1.5.0] - 2025-12-16
 
@@ -301,7 +303,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/schpet/linear-cli/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/schpet/linear-cli/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/schpet/linear-cli/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/schpet/linear-cli/compare/v1.3.0...v1.3.1
