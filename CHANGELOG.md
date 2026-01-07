@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- support loading config from user directory (`~/.config/linear/linear.toml` or `$XDG_CONFIG_HOME/linear/linear.toml` on Unix, `%APPDATA%\linear\linear.toml` on Windows)
+
 ## [1.7.0] - 2026-01-09
 
 ### Added

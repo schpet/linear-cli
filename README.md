@@ -178,11 +178,13 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 | VCS             | `LINEAR_VCS`             | `vcs`             | `"git"` or `"jj"`          | version control system (default: git) |
 | Download images | `LINEAR_DOWNLOAD_IMAGES` | `download_images` | `true` or `false`          | download images when viewing issues   |
 
-the config file can be placed at:
+the config file can be placed at (checked in order, first found is used):
 
 - `./linear.toml` or `./.linear.toml` (current directory)
 - `<repo-root>/linear.toml` or `<repo-root>/.linear.toml` (repository root)
 - `<repo-root>/.config/linear.toml`
+- `$XDG_CONFIG_HOME/linear/linear.toml` or `~/.config/linear/linear.toml` (Unix)
+- `%APPDATA%\linear\linear.toml` (Windows)
 
 ## why
 
