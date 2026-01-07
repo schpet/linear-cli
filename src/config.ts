@@ -22,9 +22,26 @@ async function loadConfig() {
     // Not in a git repository; ignore additional paths.
   }
 
+  // Add home folder config as lowest priority fallback
+  if (Deno.build.os === "windows") {
+    // Windows: use APPDATA (Roaming) for user config
+    const appData = Deno.env.get("APPDATA")
+    if (appData) {
+      configPaths.push(join(appData, "linear", "linear.toml"))
+    }
+  } else {
+    // Unix-like: follow XDG Base Directory Specification
+    const xdgConfigHome = Deno.env.get("XDG_CONFIG_HOME")
+    const homeDir = Deno.env.get("HOME")
+    if (xdgConfigHome) {
+      configPaths.push(join(xdgConfigHome, "linear", "linear.toml"))
+    } else if (homeDir) {
+      configPaths.push(join(homeDir, ".config", "linear", "linear.toml"))
+    }
+  }
+
   for (const path of configPaths) {
     try {
-      await Deno.stat(path)
       const file = await Deno.readTextFile(path)
       config = parse(file) as Record<string, unknown>
       break
