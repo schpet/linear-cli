@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- environment variables now correctly take precedence over config file values
+
 ## [1.6.0] - 2026-01-05
 
 ### Added

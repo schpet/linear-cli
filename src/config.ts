@@ -108,8 +108,9 @@ export type Options = v.InferOutput<typeof OptionsSchema>
 export type OptionName = keyof Options
 
 function getRawOption(optionName: OptionName, cliValue?: string): unknown {
-  return cliValue ?? config[optionName] ??
-    Deno.env.get("LINEAR_" + optionName.toUpperCase())
+  return cliValue ??
+    Deno.env.get("LINEAR_" + optionName.toUpperCase()) ??
+    config[optionName]
 }
 
 export function getOption<T extends OptionName>(
