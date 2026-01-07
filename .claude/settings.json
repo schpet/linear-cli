@@ -11,5 +11,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "jjagent@jjagent": false
   }
 }
