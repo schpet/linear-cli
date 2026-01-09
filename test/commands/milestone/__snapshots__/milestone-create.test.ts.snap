@@ -1,0 +1,44 @@
+export const snapshot = {};
+
+snapshot[`Milestone Create Command - Help Text 1`] = `
+stdout:
+"
+Usage: create --project <projectId> --name <name>
+
+Description:
+
+  Create a new project milestone
+
+Options:
+
+  -h, --help                    - Show this help.                     
+  --project      <projectId>    - Project ID                (required)
+  --name         <name>         - Milestone name            (required)
+  --description  <description>  - Milestone description               
+  --target-date  <date>         - Target date (YYYY-MM-DD)            
+
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone Create Command - Success 1`] = `
+stdout:
+"✓ Created milestone: Q1 Goals
+  ID: milestone-new-1
+  Target Date: 2026-03-31
+  Project: Test Project
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone Create Command - Minimal Fields 1`] = `
+stdout:
+"✓ Created milestone: Simple Milestone
+  ID: milestone-new-2
+  Project: Another Project
+"
+stderr:
+""
+`;

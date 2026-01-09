@@ -1,0 +1,28 @@
+export const snapshot = {};
+
+snapshot[`Milestone Delete Command - Help Text 1`] = `
+stdout:
+"
+Usage: delete <id>
+
+Description:
+
+  Delete a project milestone
+
+Options:
+
+  -h, --help   - Show this help.           
+  -f, --force  - Skip confirmation prompt  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone Delete Command - With Force Flag 1`] = `
+stdout:
+"✓ Deleted milestone milestone-123
+"
+stderr:
+""
+`;

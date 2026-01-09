@@ -1,0 +1,56 @@
+export const snapshot = {};
+
+snapshot[`Milestone Update Command - Help Text 1`] = `
+stdout:
+"
+Usage: update <id>
+
+Description:
+
+  Update an existing project milestone
+
+Options:
+
+  -h, --help                    - Show this help.              
+  --name         <name>         - Milestone name               
+  --description  <description>  - Milestone description        
+  --target-date  <date>         - Target date (YYYY-MM-DD)     
+  --project      <projectId>    - Move to a different project  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone Update Command - Update Name 1`] = `
+stdout:
+"✓ Updated milestone: Updated Milestone Name
+  ID: milestone-123
+  Target Date: 2026-03-31
+  Project: Test Project
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone Update Command - Update Multiple Fields 1`] = `
+stdout:
+"✓ Updated milestone: Q2 Goals
+  ID: milestone-456
+  Target Date: 2026-06-30
+  Project: Another Project
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone Update Command - Update Target Date 1`] = `
+stdout:
+"✓ Updated milestone: Existing Milestone
+  ID: milestone-789
+  Target Date: 2026-12-31
+  Project: Final Project
+"
+stderr:
+""
+`;
