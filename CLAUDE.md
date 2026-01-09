@@ -1,5 +1,3 @@
-**Note**: This project uses [bd (beads)](https://github.com/steveyegge/beads) for issue tracking. Use `bd` commands instead of markdown TODOs. See AGENTS.md for workflow details.
-
 ## basics
 
 - this is a deno app
@@ -11,16 +9,6 @@
 - import: use dynamic import only when necessary, the static form is preferable
 - avoid the typescript `any` type - prefer strict typing, if you can't find a good way to fix a type issue (particularly with graphql data or documents) explain the problem instead of working around it
 
-## changelog entries
-
-do not update the CHANGELOG.md manually. if asked to add a changelog entry use the changelog cli
-
-    changelog add --type <TYPE> <DESCRIPTION>
-
-- description should be lowercase
-- types is one of added|changed|deprecated|removed|fixed|security
-- write in the imperative (i.e. 'fix' and not 'fixes' or 'fixed')
-
 ## tests
 
 - tests on commands should mirror the directory structure of the src, e.g.
@@ -28,3 +16,4 @@ do not update the CHANGELOG.md manually. if asked to add a changelog entry use t
   - test/commands/issue/issue-view.test.ts
 - use `deno task test` instead of `deno test`, use `deno task snapshot` to update snapshots
 - use the NO_COLOR variable for snapshot tests so they don't include ansi escape codes
+- new feature should get tests
