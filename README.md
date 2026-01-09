@@ -141,6 +141,19 @@ linear project list    # list projects
 linear project view    # view project details
 ```
 
+### milestone commands
+
+```bash
+linear milestone list --project <projectId>     # list milestones for a project
+linear m list --project <projectId>             # list milestones (alias)
+linear milestone create --project <projectId> --name "Q1 Goals" --target-date "2026-03-31"  # create a milestone
+linear m create --project <projectId>           # create a milestone (interactive)
+linear milestone update <milestoneId> --name "New Name"  # update milestone name
+linear m update <milestoneId> --target-date "2026-04-15"  # update target date
+linear milestone delete <milestoneId>           # delete a milestone
+linear m delete <milestoneId> --force           # delete without confirmation
+```
+
 ### other commands
 
 ```bash
