@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { resolveProjectId } from "../../utils/linear.ts"
 
 const CreateProjectMilestone = gql(`
   mutation CreateProjectMilestone($input: ProjectMilestoneCreateInput!) {
@@ -26,13 +27,16 @@ export const createCommand = new Command()
   .option("--name <name:string>", "Milestone name", { required: true })
   .option("--description <description:string>", "Milestone description")
   .option("--target-date <date:string>", "Target date (YYYY-MM-DD)")
-  .action(async ({ project: projectId, name, description, targetDate }) => {
+  .action(async ({ project: projectIdOrSlug, name, description, targetDate }) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
     const showSpinner = Deno.stdout.isTerminal()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 
     try {
+      // Resolve project slug to full UUID
+      const projectId = await resolveProjectId(projectIdOrSlug)
+
       const client = getGraphQLClient()
       const result = await client.request(CreateProjectMilestone, {
         input: {

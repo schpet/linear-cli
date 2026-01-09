@@ -4,6 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import type { GetProjectMilestonesQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
+import { resolveProjectId } from "../../utils/linear.ts"
 
 const GetProjectMilestones = gql(`
   query GetProjectMilestones($projectId: String!) {
@@ -30,13 +31,16 @@ export const listCommand = new Command()
   .name("list")
   .description("List milestones for a project")
   .option("--project <projectId:string>", "Project ID", { required: true })
-  .action(async ({ project: projectId }) => {
+  .action(async ({ project: projectIdOrSlug }) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
     const showSpinner = Deno.stdout.isTerminal()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 
     try {
+      // Resolve project slug to full UUID
+      const projectId = await resolveProjectId(projectIdOrSlug)
+
       const client = getGraphQLClient()
       const result = await client.request(GetProjectMilestones, {
         projectId,

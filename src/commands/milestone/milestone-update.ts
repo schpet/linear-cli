@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { resolveProjectId } from "../../utils/linear.ts"
 
 const UpdateProjectMilestone = gql(`
   mutation UpdateProjectMilestone($id: String!, $input: ProjectMilestoneUpdateInput!) {
@@ -27,9 +28,9 @@ export const updateCommand = new Command()
   .option("--description <description:string>", "Milestone description")
   .option("--target-date <date:string>", "Target date (YYYY-MM-DD)")
   .option("--project <projectId:string>", "Move to a different project")
-  .action(async ({ name, description, targetDate, project: projectId }, id) => {
+  .action(async ({ name, description, targetDate, project: projectIdOrSlug }, id) => {
     // Check if at least one update option is provided
-    if (!name && !description && !targetDate && !projectId) {
+    if (!name && !description && !targetDate && !projectIdOrSlug) {
       console.error("✗ At least one update option must be provided")
       console.error("  Use --name, --description, --target-date, or --project")
       Deno.exit(1)
@@ -47,7 +48,10 @@ export const updateCommand = new Command()
       if (name) input.name = name
       if (description) input.description = description
       if (targetDate) input.targetDate = targetDate
-      if (projectId) input.projectId = projectId
+      if (projectIdOrSlug) {
+        // Resolve project slug to full UUID
+        input.projectId = await resolveProjectId(projectIdOrSlug)
+      }
 
       const result = await client.request(UpdateProjectMilestone, {
         id,
