@@ -5,8 +5,39 @@ import * as v from "valibot"
 
 let config: Record<string, unknown> = {}
 
+async function loadConfigFromPath(
+  path: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const file = await Deno.readTextFile(path)
+    return parse(file) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
 async function loadConfig() {
-  const configPaths = [
+  // Build list of global config paths (lowest priority)
+  const globalConfigPaths: string[] = []
+  if (Deno.build.os === "windows") {
+    // Windows: use APPDATA (Roaming) for user config
+    const appData = Deno.env.get("APPDATA")
+    if (appData) {
+      globalConfigPaths.push(join(appData, "linear", "linear.toml"))
+    }
+  } else {
+    // Unix-like: follow XDG Base Directory Specification
+    const xdgConfigHome = Deno.env.get("XDG_CONFIG_HOME")
+    const homeDir = Deno.env.get("HOME")
+    if (xdgConfigHome) {
+      globalConfigPaths.push(join(xdgConfigHome, "linear", "linear.toml"))
+    } else if (homeDir) {
+      globalConfigPaths.push(join(homeDir, ".config", "linear", "linear.toml"))
+    }
+  }
+
+  // Build list of project config paths (higher priority, overrides global)
+  const projectConfigPaths = [
     "./linear.toml",
     "./.linear.toml",
   ]
@@ -15,38 +46,28 @@ async function loadConfig() {
       args: ["rev-parse", "--show-toplevel"],
     }).output()
     const gitRoot = new TextDecoder().decode(gitProcess.stdout).trim()
-    configPaths.push(join(gitRoot, "linear.toml"))
-    configPaths.push(join(gitRoot, ".linear.toml"))
-    configPaths.push(join(gitRoot, ".config", "linear.toml"))
+    projectConfigPaths.push(join(gitRoot, "linear.toml"))
+    projectConfigPaths.push(join(gitRoot, ".linear.toml"))
+    projectConfigPaths.push(join(gitRoot, ".config", "linear.toml"))
   } catch {
     // Not in a git repository; ignore additional paths.
   }
 
-  // Add home folder config as lowest priority fallback
-  if (Deno.build.os === "windows") {
-    // Windows: use APPDATA (Roaming) for user config
-    const appData = Deno.env.get("APPDATA")
-    if (appData) {
-      configPaths.push(join(appData, "linear", "linear.toml"))
-    }
-  } else {
-    // Unix-like: follow XDG Base Directory Specification
-    const xdgConfigHome = Deno.env.get("XDG_CONFIG_HOME")
-    const homeDir = Deno.env.get("HOME")
-    if (xdgConfigHome) {
-      configPaths.push(join(xdgConfigHome, "linear", "linear.toml"))
-    } else if (homeDir) {
-      configPaths.push(join(homeDir, ".config", "linear", "linear.toml"))
+  // Load global config first (lowest priority)
+  for (const path of globalConfigPaths) {
+    const globalConfig = await loadConfigFromPath(path)
+    if (globalConfig) {
+      config = globalConfig
+      break
     }
   }
 
-  for (const path of configPaths) {
-    try {
-      const file = await Deno.readTextFile(path)
-      config = parse(file) as Record<string, unknown>
+  // Load project config and merge on top (project overrides global)
+  for (const path of projectConfigPaths) {
+    const projectConfig = await loadConfigFromPath(path)
+    if (projectConfig) {
+      config = { ...config, ...projectConfig }
       break
-    } catch {
-      // File not found; continue.
     }
   }
 }
