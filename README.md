@@ -146,6 +146,8 @@ linear project view    # view project details
 ```bash
 linear milestone list --project <projectId>     # list milestones for a project
 linear m list --project <projectId>             # list milestones (alias)
+linear milestone view <milestoneId>             # view milestone details
+linear m view <milestoneId>                     # view milestone (alias)
 linear milestone create --project <projectId> --name "Q1 Goals" --target-date "2026-03-31"  # create a milestone
 linear m create --project <projectId>           # create a milestone (interactive)
 linear milestone update <milestoneId> --name "New Name"  # update milestone name
