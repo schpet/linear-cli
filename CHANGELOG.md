@@ -4,7 +4,7 @@
 
 ### Added
 
-- support loading config from user directory (`~/.config/linear/linear.toml` or `$XDG_CONFIG_HOME/linear/linear.toml` on Unix, `%APPDATA%\linear\linear.toml` on Windows)
+- global user config is now merged with project config (`~/.config/linear/linear.toml` on Unix, `%APPDATA%\linear\linear.toml` on Windows); project values override global, env vars override both
 
 ## [1.7.0] - 2026-01-09
 
@@ -15,7 +15,6 @@
 ### Fixed
 
 - environment variables now correctly take precedence over config file values
-
 
 ## [1.6.0] - 2026-01-05
 

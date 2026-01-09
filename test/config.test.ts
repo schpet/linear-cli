@@ -194,9 +194,10 @@ Deno.test("getOption - home folder config is used as fallback", async () => {
       const denoJsonPath = fromFileUrl(new URL("../deno.json", import.meta.url))
 
       // Run subprocess with appropriate env var for platform
+      // Note: Must NOT include XDG_CONFIG_HOME so HOME/.config is used
       const env: Record<string, string> = isWindows
         ? { APPDATA: tempHome }
-        : { HOME: tempHome }
+        : { HOME: tempHome, PATH: Deno.env.get("PATH") ?? "" }
       const command = new Deno.Command("deno", {
         args: [
           "eval",
@@ -205,6 +206,7 @@ Deno.test("getOption - home folder config is used as fallback", async () => {
         ],
         cwd: workDir,
         env,
+        clearEnv: true,
         stdout: "piped",
         stderr: "piped",
       })
@@ -431,6 +433,83 @@ Deno.test({
       await Deno.remove(tempAppData, { recursive: true })
     }
   },
+})
+
+Deno.test("getOption - global and project configs are merged", async () => {
+  // Create temp directories for home and project
+  const tempHome = await Deno.makeTempDir()
+  const projectDir = await Deno.makeTempDir()
+  const globalIssueSort = "priority"
+  const projectWorkspace = "my-workspace"
+
+  try {
+    // Create home config with issue_sort
+    const isWindows = Deno.build.os === "windows"
+    if (isWindows) {
+      await Deno.mkdir(`${tempHome}/linear`, { recursive: true })
+      await Deno.writeTextFile(
+        `${tempHome}/linear/linear.toml`,
+        `issue_sort = "${globalIssueSort}"\n`,
+      )
+    } else {
+      await Deno.mkdir(`${tempHome}/.config/linear`, { recursive: true })
+      await Deno.writeTextFile(
+        `${tempHome}/.config/linear/linear.toml`,
+        `issue_sort = "${globalIssueSort}"\n`,
+      )
+    }
+
+    // Create project config with workspace (different key)
+    await Deno.writeTextFile(
+      `${projectDir}/.linear.toml`,
+      `workspace = "${projectWorkspace}"\n`,
+    )
+
+    const configUrl = new URL("../src/config.ts", import.meta.url)
+    const denoJsonPath = fromFileUrl(new URL("../deno.json", import.meta.url))
+
+    // Note: clearEnv ensures XDG_CONFIG_HOME doesn't interfere with HOME/.config
+    const env: Record<string, string> = isWindows
+      ? { APPDATA: tempHome, SystemRoot: Deno.env.get("SystemRoot") ?? "" }
+      : { HOME: tempHome, PATH: Deno.env.get("PATH") ?? "" }
+
+    // Test that both values are accessible
+    const command = new Deno.Command("deno", {
+      args: [
+        "eval",
+        `--config=${denoJsonPath}`,
+        `import { getOption } from "${configUrl}"; console.log(JSON.stringify({ issue_sort: getOption("issue_sort"), workspace: getOption("workspace") }));`,
+      ],
+      cwd: projectDir,
+      env,
+      clearEnv: true,
+      stdout: "piped",
+      stderr: "piped",
+    })
+
+    const { stdout, stderr } = await command.output()
+    const output = new TextDecoder().decode(stdout).trim()
+    const errorOutput = new TextDecoder().decode(stderr)
+
+    if (errorOutput) {
+      console.error("Subprocess stderr:", errorOutput)
+    }
+
+    const result = JSON.parse(output)
+    assertEquals(
+      result.issue_sort,
+      globalIssueSort,
+      "Global config value (issue_sort) should be accessible",
+    )
+    assertEquals(
+      result.workspace,
+      projectWorkspace,
+      "Project config value (workspace) should be accessible",
+    )
+  } finally {
+    await Deno.remove(tempHome, { recursive: true })
+    await Deno.remove(projectDir, { recursive: true })
+  }
 })
 
 Deno.test("getOption - env var takes precedence over home config", async () => {
