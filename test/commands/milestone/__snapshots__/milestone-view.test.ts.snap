@@ -1,0 +1,112 @@
+export const snapshot = {};
+
+snapshot[`Milestone View Command - Help Text 1`] = `
+stdout:
+"
+Usage: view <milestoneId>
+
+Description:
+
+  View milestone details
+
+Options:
+
+  -h, --help  - Show this help.  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone View Command - With Full Details 1`] = `
+stdout:
+"# Q1 Goals
+
+**ID:** milestone-123
+**Target Date:** 2026-03-31
+**Project:** Platform Infrastructure (platform-infra)
+**Project URL:** https://linear.app/test/project/platform-infra
+
+**Created:** 1/1/2026
+**Updated:** 1 minute ago
+
+## Description
+
+First quarter objectives and key results
+
+## Issues
+
+**Total Issues:** 3
+**Completed:** 1
+**In Progress:** 1
+**To Do:** 1
+
+**Recent Issues:**
+
+- ENG-123: Implement authentication (In Progress)
+- ENG-124: Setup database (Done)
+- ENG-125: Create API endpoints (Todo)
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone View Command - Minimal Details 1`] = `
+stdout:
+"# Simple Milestone
+
+**ID:** milestone-789
+**Target Date:** Not set
+**Project:** Test Project (test-proj)
+**Project URL:** https://linear.app/test/project/test-proj
+
+**Created:** 1 minute ago
+**Updated:** 1 minute ago
+
+_No issues in this milestone yet._
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone View Command - Many Issues 1`] = `
+stdout:
+"# Big Release
+
+**ID:** milestone-456
+**Target Date:** 2026-06-30
+**Project:** Product Team (product)
+**Project URL:** https://linear.app/test/project/product
+
+**Created:** 4 days ago
+**Updated:** 1 minute ago
+
+## Description
+
+Major product release with many features
+
+## Issues
+
+**Total Issues:** 15
+**Completed:** 5
+**In Progress:** 5
+**To Do:** 5
+
+**Recent Issues:**
+
+- PROD-1: Feature 1 (Done)
+- PROD-2: Feature 2 (Done)
+- PROD-3: Feature 3 (Done)
+- PROD-4: Feature 4 (Done)
+- PROD-5: Feature 5 (Done)
+- PROD-6: Feature 6 (In Progress)
+- PROD-7: Feature 7 (In Progress)
+- PROD-8: Feature 8 (In Progress)
+- PROD-9: Feature 9 (In Progress)
+- PROD-10: Feature 10 (In Progress)
+
+_...and 5 more issues_
+"
+stderr:
+""
+`;

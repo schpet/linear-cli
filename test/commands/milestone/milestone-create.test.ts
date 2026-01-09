@@ -34,6 +34,19 @@ await cliffySnapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
+        queryName: "GetProjectBySlug",
+        response: {
+          data: {
+            projects: {
+              nodes: [{
+                id: "project-123",
+                slugId: "project-123",
+              }],
+            },
+          },
+        },
+      },
+      {
         queryName: "CreateProjectMilestone",
         response: {
           data: {
@@ -82,6 +95,19 @@ await cliffySnapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const server = new MockLinearServer([
+      {
+        queryName: "GetProjectBySlug",
+        response: {
+          data: {
+            projects: {
+              nodes: [{
+                id: "project-456",
+                slugId: "project-456",
+              }],
+            },
+          },
+        },
+      },
       {
         queryName: "CreateProjectMilestone",
         response: {
