@@ -1,7 +1,6 @@
 import { Command } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { gql } from "../../__codegen__/gql.ts"
-import type { GetProjectMilestonesQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
@@ -69,11 +68,6 @@ export const listCommand = new Command()
       const { columns } = Deno.stdout.isTerminal()
         ? Deno.consoleSize()
         : { columns: 120 }
-
-      const NAME_WIDTH = Math.max(
-        4, // minimum width for "NAME" header
-        ...sortedMilestones.map((m) => unicodeWidth(m.name)),
-      )
 
       const TARGET_DATE_WIDTH = 12 // "YYYY-MM-DD" format or "No date"
       const PROJECT_WIDTH = Math.min(
