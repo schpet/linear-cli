@@ -69,6 +69,7 @@ export const listCommand = new Command()
         ? Deno.consoleSize()
         : { columns: 120 }
 
+      const ID_WIDTH = 36 // UUID format
       const TARGET_DATE_WIDTH = 12 // "YYYY-MM-DD" format or "No date"
       const PROJECT_WIDTH = Math.min(
         30,
@@ -78,8 +79,8 @@ export const listCommand = new Command()
         ),
       )
 
-      const SPACE_WIDTH = 3
-      const fixed = TARGET_DATE_WIDTH + PROJECT_WIDTH + SPACE_WIDTH
+      const SPACE_WIDTH = 4
+      const fixed = ID_WIDTH + TARGET_DATE_WIDTH + PROJECT_WIDTH + SPACE_WIDTH
       const PADDING = 1
       const maxNameWidth = Math.max(
         ...sortedMilestones.map((m) => unicodeWidth(m.name)),
@@ -90,6 +91,7 @@ export const listCommand = new Command()
       // Print header
       const headerCells = [
         padDisplay("NAME", nameWidth),
+        padDisplay("ID", ID_WIDTH),
         padDisplay("TARGET DATE", TARGET_DATE_WIDTH),
         padDisplay("PROJECT", PROJECT_WIDTH),
       ]
@@ -119,7 +121,7 @@ export const listCommand = new Command()
           : padDisplay(milestone.name, nameWidth)
 
         console.log(
-          `${truncName} ${
+          `${truncName} ${padDisplay(milestone.id, ID_WIDTH)} ${
             padDisplay(targetDate, TARGET_DATE_WIDTH)
           } ${projectName}`,
         )
