@@ -21,7 +21,7 @@ stderr:
 
 snapshot[`Milestone List Command - With Mock Milestones 1`] = `
 stdout:
-"NAME                      ID                                   TARGET DATE  PROJECT
+"NAME                      ID                                   TARGET DATE  PROJECT     
 Infrastructure Foundation milestone-1                          2026-01-31   Test Project
 Observation Phase         milestone-2                          2026-02-28   Test Project
 Safe Enablement           milestone-3                          2026-03-31   Test Project
