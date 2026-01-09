@@ -496,6 +496,40 @@ export async function getProjectIdByName(
   return data.projects?.nodes[0]?.id
 }
 
+export async function resolveProjectId(
+  projectIdOrSlug: string,
+): Promise<string> {
+  // If it looks like a full UUID, try to use it directly
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      projectIdOrSlug,
+    )
+  ) {
+    return projectIdOrSlug
+  }
+
+  // Otherwise, treat it as a slug and look it up
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectBySlug($slugId: String!) {
+      projects(filter: { slugId: { eq: $slugId } }) {
+        nodes {
+          id
+          slugId
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { slugId: projectIdOrSlug })
+  const projectId = data.projects?.nodes[0]?.id
+
+  if (!projectId) {
+    throw new Error(`Project not found with slug or ID: ${projectIdOrSlug}`)
+  }
+
+  return projectId
+}
+
 export async function getProjectOptionsByName(
   name: string,
 ): Promise<Record<string, string>> {

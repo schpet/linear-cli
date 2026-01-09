@@ -5,6 +5,7 @@ import { authCommand } from "./commands/auth/auth.ts"
 import { issueCommand } from "./commands/issue/issue.ts"
 import { teamCommand } from "./commands/team/team.ts"
 import { projectCommand } from "./commands/project/project.ts"
+import { milestoneCommand } from "./commands/milestone/milestone.ts"
 import { configCommand } from "./commands/config.ts"
 import { schemaCommand } from "./commands/schema.ts"
 
@@ -25,6 +26,8 @@ await new Command()
   .alias("t")
   .command("project", projectCommand)
   .alias("p")
+  .command("milestone", milestoneCommand)
+  .alias("m")
   .command("completions", new CompletionsCommand())
   .command("config", configCommand)
   .command("schema", schemaCommand)
