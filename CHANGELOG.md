@@ -5,6 +5,7 @@
 ### Added
 
 - global user config is now merged with project config (`~/.config/linear/linear.toml` on Unix, `%APPDATA%\linear\linear.toml` on Windows); project values override global, env vars override both
+- requests now include a User-Agent header (schpet-linear-cli/VERSION)
 
 ## [1.7.0] - 2026-01-09
 

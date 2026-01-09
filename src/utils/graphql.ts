@@ -1,6 +1,7 @@
 import { ClientError, GraphQLClient } from "graphql-request"
 import { gray, setColorEnabled } from "@std/fmt/colors"
 import { getOption } from "../config.ts"
+import denoConfig from "../../deno.json" with { type: "json" }
 
 export { ClientError }
 
@@ -48,6 +49,7 @@ export function getGraphQLClient(): GraphQLClient {
   return new GraphQLClient(endpoint, {
     headers: {
       Authorization: apiKey,
+      "User-Agent": `schpet-linear-cli/${denoConfig.version}`,
     },
   })
 }
