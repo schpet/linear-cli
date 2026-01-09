@@ -60,7 +60,9 @@ export const listCommand = new Command()
         if (!a.targetDate) return 1
         if (!b.targetDate) return -1
         const dateComparison = a.targetDate.localeCompare(b.targetDate)
-        return dateComparison !== 0 ? dateComparison : a.name.localeCompare(b.name)
+        return dateComparison !== 0
+          ? dateComparison
+          : a.name.localeCompare(b.name)
       })
 
       // Calculate column widths
@@ -85,7 +87,9 @@ export const listCommand = new Command()
       const SPACE_WIDTH = 3
       const fixed = TARGET_DATE_WIDTH + PROJECT_WIDTH + SPACE_WIDTH
       const PADDING = 1
-      const maxNameWidth = Math.max(...sortedMilestones.map((m) => unicodeWidth(m.name)))
+      const maxNameWidth = Math.max(
+        ...sortedMilestones.map((m) => unicodeWidth(m.name)),
+      )
       const availableWidth = Math.max(columns - PADDING - fixed, 0)
       const nameWidth = Math.min(maxNameWidth, availableWidth)
 
@@ -121,7 +125,9 @@ export const listCommand = new Command()
           : padDisplay(milestone.name, nameWidth)
 
         console.log(
-          `${truncName} ${padDisplay(targetDate, TARGET_DATE_WIDTH)} ${projectName}`,
+          `${truncName} ${
+            padDisplay(targetDate, TARGET_DATE_WIDTH)
+          } ${projectName}`,
         )
       }
     } catch (error) {

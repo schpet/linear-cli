@@ -27,44 +27,46 @@ export const createCommand = new Command()
   .option("--name <name:string>", "Milestone name", { required: true })
   .option("--description <description:string>", "Milestone description")
   .option("--target-date <date:string>", "Target date (YYYY-MM-DD)")
-  .action(async ({ project: projectIdOrSlug, name, description, targetDate }) => {
-    const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal()
-    const spinner = showSpinner ? new Spinner() : null
-    spinner?.start()
+  .action(
+    async ({ project: projectIdOrSlug, name, description, targetDate }) => {
+      const { Spinner } = await import("@std/cli/unstable-spinner")
+      const showSpinner = Deno.stdout.isTerminal()
+      const spinner = showSpinner ? new Spinner() : null
+      spinner?.start()
 
-    try {
-      // Resolve project slug to full UUID
-      const projectId = await resolveProjectId(projectIdOrSlug)
+      try {
+        // Resolve project slug to full UUID
+        const projectId = await resolveProjectId(projectIdOrSlug)
 
-      const client = getGraphQLClient()
-      const result = await client.request(CreateProjectMilestone, {
-        input: {
-          projectId,
-          name,
-          description,
-          targetDate,
-        },
-      })
-      spinner?.stop()
+        const client = getGraphQLClient()
+        const result = await client.request(CreateProjectMilestone, {
+          input: {
+            projectId,
+            name,
+            description,
+            targetDate,
+          },
+        })
+        spinner?.stop()
 
-      if (result.projectMilestoneCreate.success) {
-        const milestone = result.projectMilestoneCreate.projectMilestone
-        if (milestone) {
-          console.log(`✓ Created milestone: ${milestone.name}`)
-          console.log(`  ID: ${milestone.id}`)
-          if (milestone.targetDate) {
-            console.log(`  Target Date: ${milestone.targetDate}`)
+        if (result.projectMilestoneCreate.success) {
+          const milestone = result.projectMilestoneCreate.projectMilestone
+          if (milestone) {
+            console.log(`✓ Created milestone: ${milestone.name}`)
+            console.log(`  ID: ${milestone.id}`)
+            if (milestone.targetDate) {
+              console.log(`  Target Date: ${milestone.targetDate}`)
+            }
+            console.log(`  Project: ${milestone.project.name}`)
           }
-          console.log(`  Project: ${milestone.project.name}`)
+        } else {
+          console.error("✗ Failed to create milestone")
+          Deno.exit(1)
         }
-      } else {
-        console.error("✗ Failed to create milestone")
+      } catch (error) {
+        spinner?.stop()
+        console.error("Failed to create milestone:", error)
         Deno.exit(1)
       }
-    } catch (error) {
-      spinner?.stop()
-      console.error("Failed to create milestone:", error)
-      Deno.exit(1)
-    }
-  })
+    },
+  )

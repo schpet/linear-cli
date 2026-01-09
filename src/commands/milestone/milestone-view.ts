@@ -129,7 +129,9 @@ export const viewCommand = new Command()
         lines.push("**Recent Issues:**")
         lines.push("")
         milestone.issues.nodes.slice(0, 10).forEach((issue) => {
-          lines.push(`- ${issue.identifier}: ${issue.title} (${issue.state.name})`)
+          lines.push(
+            `- ${issue.identifier}: ${issue.title} (${issue.state.name})`,
+          )
         })
 
         if (milestone.issues.nodes.length > 10) {

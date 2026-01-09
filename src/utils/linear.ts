@@ -500,7 +500,11 @@ export async function resolveProjectId(
   projectIdOrSlug: string,
 ): Promise<string> {
   // If it looks like a full UUID, try to use it directly
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectIdOrSlug)) {
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      projectIdOrSlug,
+    )
+  ) {
     return projectIdOrSlug
   }
 
