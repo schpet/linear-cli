@@ -17,7 +17,7 @@ import { unified } from "unified"
 import remarkParse from "remark-parse"
 import remarkStringify from "remark-stringify"
 import { visit } from "unist-util-visit"
-import type { Image, Root } from "mdast"
+import type { Image, Link, Root } from "mdast"
 import { shouldEnableHyperlinks } from "../../utils/hyperlink.ts"
 import { createHyperlinkExtension } from "../../utils/charmd-hyperlink-extension.ts"
 
@@ -60,6 +60,20 @@ export const viewCommand = new Command()
       urlToPath = await downloadIssueImages(
         issueData.description,
         issueData.comments,
+      )
+    }
+
+    // Download attachments if enabled
+    let attachmentPaths: Map<string, string> | undefined
+    const shouldDownloadAttachments = shouldDownload &&
+      getOption("auto_download_attachments") !== false
+    if (
+      shouldDownloadAttachments && issueData.attachments &&
+      issueData.attachments.length > 0
+    ) {
+      attachmentPaths = await downloadAttachments(
+        issueData.identifier,
+        issueData.attachments,
       )
     }
 
@@ -133,6 +147,19 @@ export const viewCommand = new Command()
         outputLines.push(...renderedHierarchy.split("\n"))
       }
 
+      // Add attachments section
+      if (issueData.attachments && issueData.attachments.length > 0) {
+        const attachmentsMarkdown = formatAttachmentsAsMarkdown(
+          issueData.attachments,
+          attachmentPaths,
+        )
+        const renderedAttachments = renderMarkdown(attachmentsMarkdown, {
+          lineWidth: terminalWidth,
+          extensions,
+        })
+        outputLines.push(...renderedAttachments.split("\n"))
+      }
+
       // Add comments if enabled
       if (showComments && issueComments && issueComments.length > 0) {
         outputLines.push("") // Empty line before comments
@@ -159,6 +186,14 @@ export const viewCommand = new Command()
         issueData.parent,
         issueData.children,
       )
+
+      // Add attachments
+      if (issueData.attachments && issueData.attachments.length > 0) {
+        markdown += formatAttachmentsAsMarkdown(
+          issueData.attachments,
+          attachmentPaths,
+        )
+      }
 
       if (showComments && issueComments && issueComments.length > 0) {
         markdown += "\n\n## Comments\n\n"
@@ -393,7 +428,44 @@ export function extractImageInfo(
 }
 
 /**
- * replace image URLs in markdown with local file paths using remark
+ * Link info extracted from markdown
+ */
+export interface LinkInfo {
+  url: string
+  text: string | null
+}
+
+/**
+ * Extract link URLs from markdown content that point to Linear uploads
+ */
+export function extractLinearLinkInfo(
+  content: string | null | undefined,
+): LinkInfo[] {
+  if (!content) return []
+
+  const links: LinkInfo[] = []
+
+  const tree = unified().use(remarkParse).parse(content)
+
+  visit(tree, "link", (node: Link) => {
+    // Only extract links to Linear uploads
+    if (
+      node.url &&
+      (node.url.includes("uploads.linear.app") ||
+        node.url.includes("public.linear.app"))
+    ) {
+      // Get link text from first child if it's a text node
+      const textNode = node.children[0]
+      const text = textNode && textNode.type === "text" ? textNode.value : null
+      links.push({ url: node.url, text })
+    }
+  })
+
+  return links
+}
+
+/**
+ * replace image and link URLs in markdown with local file paths using remark
  */
 export async function replaceImageUrls(
   content: string,
@@ -402,7 +474,15 @@ export async function replaceImageUrls(
   const processor = unified()
     .use(remarkParse)
     .use(() => (tree: Root) => {
+      // Replace image URLs
       visit(tree, "image", (node: Image) => {
+        const localPath = urlToPath.get(node.url)
+        if (localPath) {
+          node.url = localPath
+        }
+      })
+      // Replace link URLs
+      visit(tree, "link", (node: Link) => {
         const localPath = urlToPath.get(node.url)
         if (localPath) {
           node.url = localPath
@@ -470,33 +550,49 @@ async function downloadImage(
 }
 
 /**
- * Download all images from issue description and comments
+ * Download all images and linked files from issue description and comments
  * Returns a map of URL to local file path
  */
 async function downloadIssueImages(
   description: string | null | undefined,
   comments?: Array<{ body: string }>,
 ): Promise<Map<string, string>> {
-  const imagesByUrl = new Map<string, string | null>()
+  // Map of URL to alt text/link text (used as filename)
+  const filesByUrl = new Map<string, string | null>()
 
+  // Extract images
   for (const img of extractImageInfo(description)) {
-    if (!imagesByUrl.has(img.url)) {
-      imagesByUrl.set(img.url, img.alt)
+    if (!filesByUrl.has(img.url)) {
+      filesByUrl.set(img.url, img.alt)
+    }
+  }
+
+  // Extract links to Linear uploads
+  for (const link of extractLinearLinkInfo(description)) {
+    if (!filesByUrl.has(link.url)) {
+      filesByUrl.set(link.url, link.text)
     }
   }
 
   if (comments) {
     for (const comment of comments) {
+      // Extract images from comments
       for (const img of extractImageInfo(comment.body)) {
-        if (!imagesByUrl.has(img.url)) {
-          imagesByUrl.set(img.url, img.alt)
+        if (!filesByUrl.has(img.url)) {
+          filesByUrl.set(img.url, img.alt)
+        }
+      }
+      // Extract links to Linear uploads from comments
+      for (const link of extractLinearLinkInfo(comment.body)) {
+        if (!filesByUrl.has(link.url)) {
+          filesByUrl.set(link.url, link.text)
         }
       }
     }
   }
 
   const urlToPath = new Map<string, string>()
-  for (const [url, alt] of imagesByUrl) {
+  for (const [url, alt] of filesByUrl) {
     try {
       const path = await downloadImage(url, alt)
       urlToPath.set(url, path)
@@ -510,4 +606,122 @@ async function downloadIssueImages(
   }
 
   return urlToPath
+}
+
+// Type for attachments
+type AttachmentInfo = {
+  id: string
+  title: string
+  url: string
+  subtitle?: string | null
+  metadata: Record<string, unknown>
+  createdAt: string
+}
+
+function getAttachmentCacheDir(): string {
+  const configuredDir = getOption("attachment_dir")
+  if (configuredDir) {
+    return configuredDir
+  }
+  return join(
+    Deno.env.get("TMPDIR") || Deno.env.get("TMP") || Deno.env.get("TEMP") ||
+      "/tmp",
+    "linear-cli-attachments",
+  )
+}
+
+/**
+ * Download attachments to cache directory
+ * Returns a map of attachment URL to local file path
+ */
+async function downloadAttachments(
+  issueIdentifier: string,
+  attachments: AttachmentInfo[],
+): Promise<Map<string, string>> {
+  const urlToPath = new Map<string, string>()
+  const cacheDir = getAttachmentCacheDir()
+  const issueDir = join(cacheDir, issueIdentifier)
+  await ensureDir(issueDir)
+
+  for (const attachment of attachments) {
+    try {
+      // Skip non-file URLs (e.g., external links)
+      // Linear uses uploads.linear.app for private and public.linear.app for public images
+      const isLinearUpload = attachment.url.includes("uploads.linear.app") ||
+        attachment.url.includes("public.linear.app")
+      if (!isLinearUpload) {
+        continue
+      }
+
+      const filename = sanitize(attachment.title)
+      const filepath = join(issueDir, filename)
+
+      // Check if file already exists
+      try {
+        await Deno.stat(filepath)
+        urlToPath.set(attachment.url, filepath)
+        continue
+      } catch {
+        // File doesn't exist, download it
+      }
+
+      const headers: Record<string, string> = {}
+      // Only add auth header for private uploads, not public URLs
+      if (attachment.url.includes("uploads.linear.app")) {
+        const apiKey = getResolvedApiKey()
+        if (apiKey) {
+          headers["Authorization"] = apiKey
+        }
+      }
+
+      const response = await fetch(attachment.url, { headers })
+      if (!response.ok) {
+        throw new Error(
+          `Failed to download: ${response.status} ${response.statusText}`,
+        )
+      }
+
+      const data = new Uint8Array(await response.arrayBuffer())
+      await Deno.writeFile(filepath, data)
+      urlToPath.set(attachment.url, filepath)
+    } catch (error) {
+      console.error(
+        `Failed to download attachment "${attachment.title}": ${
+          error instanceof Error ? error.message : error
+        }`,
+      )
+    }
+  }
+
+  return urlToPath
+}
+
+/**
+ * Format attachments as markdown for display
+ */
+function formatAttachmentsAsMarkdown(
+  attachments: AttachmentInfo[],
+  localPaths?: Map<string, string>,
+): string {
+  if (attachments.length === 0) {
+    return ""
+  }
+
+  let markdown = "\n\n## Attachments\n\n"
+
+  for (const attachment of attachments) {
+    const localPath = localPaths?.get(attachment.url)
+
+    if (localPath) {
+      markdown += `- **${attachment.title}**: ${localPath}\n`
+    } else {
+      markdown += `- **${attachment.title}**: ${attachment.url}\n`
+    }
+
+    if (attachment.subtitle) {
+      markdown += `  _${attachment.subtitle}_\n`
+    }
+  }
+
+  return markdown
 }

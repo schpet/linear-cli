@@ -140,6 +140,8 @@ const OptionsSchema = v.object({
   vcs: v.optional(v.picklist(["git", "jj"])),
   download_images: v.optional(BooleanLike),
   hyperlink_format: v.optional(v.string()),
+  attachment_dir: v.optional(v.string()),
+  auto_download_attachments: v.optional(BooleanLike),
 })
 
 export type Options = v.InferOutput<typeof OptionsSchema>

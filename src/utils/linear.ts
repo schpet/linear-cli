@@ -184,6 +184,14 @@ export async function fetchIssueDetails(
     externalUser?: { name: string; displayName: string } | null
     parent?: { id: string } | null
   }>
+  attachments?: Array<{
+    id: string
+    title: string
+    url: string
+    subtitle?: string | null
+    metadata: Record<string, unknown>
+    createdAt: string
+  }>
 }> {
   const { Spinner } = await import("@std/cli/unstable-spinner")
   const spinner = showSpinner ? new Spinner() : null
@@ -237,6 +245,16 @@ export async function fetchIssueDetails(
               }
             }
           }
+          attachments(first: 50) {
+            nodes {
+              id
+              title
+              url
+              subtitle
+              metadata
+              createdAt
+            }
+          }
         }
       }
     `)
@@ -271,6 +289,16 @@ export async function fetchIssueDetails(
               }
             }
           }
+          attachments(first: 50) {
+            nodes {
+              id
+              title
+              url
+              subtitle
+              metadata
+              createdAt
+            }
+          }
         }
       }
     `)
@@ -284,6 +312,7 @@ export async function fetchIssueDetails(
         ...data.issue,
         children: data.issue.children?.nodes || [],
         comments: data.issue.comments?.nodes || [],
+        attachments: data.issue.attachments?.nodes || [],
       }
     } else {
       const data = await client.request(queryWithoutComments, { id: issueId })
@@ -291,6 +320,7 @@ export async function fetchIssueDetails(
       return {
         ...data.issue,
         children: data.issue.children?.nodes || [],
+        attachments: data.issue.attachments?.nodes || [],
       }
     }
   } catch (error) {

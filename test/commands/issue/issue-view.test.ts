@@ -96,6 +96,9 @@ await snapshotTest({
               comments: {
                 nodes: [],
               },
+              attachments: {
+                nodes: [],
+              },
             },
           },
         },
@@ -144,6 +147,9 @@ await snapshotTest({
               },
               parent: null,
               children: {
+                nodes: [],
+              },
+              attachments: {
                 nodes: [],
               },
             },
@@ -252,6 +258,9 @@ await snapshotTest({
                   },
                 ],
               },
+              attachments: {
+                nodes: [],
+              },
             },
           },
         },
@@ -341,6 +350,9 @@ await snapshotTest({
               children: {
                 nodes: [],
               },
+              attachments: {
+                nodes: [],
+              },
             },
           },
         },
@@ -420,6 +432,9 @@ await snapshotTest({
                     },
                   },
                 ],
+              },
+              attachments: {
+                nodes: [],
               },
             },
           },
@@ -501,6 +516,9 @@ await snapshotTest({
                     },
                   },
                 ],
+              },
+              attachments: {
+                nodes: [],
               },
             },
           },

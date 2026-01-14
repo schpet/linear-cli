@@ -38,6 +38,9 @@
 - bulk operations support for issue delete (--bulk flag) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks @skgbafa)
 - document management commands (list, view, create, update, delete) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks @skgbafa)
 - auto-generate skill documentation from cli help output with deno task generate-skill-docs
+- file attachment support for issues and comments via `issue attach` command and `--attach` flag on `issue comment add`
+- attachments section in `issue view` output with automatic download to local cache
+- `attachment_dir` and `auto_download_attachments` config options
 
 ## [1.7.0] - 2026-01-09
 
