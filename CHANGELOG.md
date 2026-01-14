@@ -6,6 +6,9 @@
 
 - global user config is now merged with project config (`~/.config/linear/linear.toml` on Unix, `%APPDATA%\linear\linear.toml` on Windows); project values override global, env vars override both
 - requests now include a User-Agent header (schpet-linear-cli/VERSION)
+- file attachment support for issues and comments via `issue attach` command and `--attach` flag on `issue comment add`
+- attachments section in `issue view` output with automatic download to local cache
+- `attachment_dir` and `auto_download_attachments` config options
 
 ## [1.7.0] - 2026-01-09
 
