@@ -20,6 +20,7 @@ The following hosts must be allowed for full functionality:
 - `api.linear.app` - GraphQL API
 - `uploads.linear.app` - Private file uploads/downloads
 - `public.linear.app` - Public image downloads
+- `storage.googleapis.com` - File upload destination (Linear's storage backend)
 
 ## Files to Update
 
