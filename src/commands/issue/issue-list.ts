@@ -8,7 +8,13 @@ import {
   padDisplay,
   truncateText,
 } from "../../utils/display.ts"
-import { fetchIssuesForState, getTeamKey } from "../../utils/linear.ts"
+import {
+  fetchIssuesForState,
+  getProjectIdByName,
+  getProjectOptionsByName,
+  getTeamKey,
+  selectOption,
+} from "../../utils/linear.ts"
 import { openTeamAssigneeView } from "../../utils/actions.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { header, muted } from "../../utils/styling.ts"
@@ -64,6 +70,10 @@ export const listCommand = new Command()
     "Team to list issues for (if not your default team)",
   )
   .option(
+    "--project <project:string>",
+    "Filter by project name",
+  )
+  .option(
     "--limit <limit:number>",
     "Maximum number of issues to fetch (default: 50, use 0 for unlimited)",
     {
@@ -85,6 +95,7 @@ export const listCommand = new Command()
         app,
         allStates,
         team,
+        project,
         limit,
         pager,
       },
@@ -135,6 +146,19 @@ export const listCommand = new Command()
         Deno.exit(1)
       }
 
+      let projectId: string | undefined
+      if (project != null) {
+        projectId = await getProjectIdByName(project)
+        if (projectId == null) {
+          const projectOptions = await getProjectOptionsByName(project)
+          if (Object.keys(projectOptions).length === 0) {
+            console.error(`No projects found matching: ${project}`)
+            Deno.exit(1)
+          }
+          projectId = await selectOption("Project", project, projectOptions)
+        }
+      }
+
       const { Spinner } = await import("@std/cli/unstable-spinner")
       const showSpinner = Deno.stdout.isTerminal()
       const spinner = showSpinner ? new Spinner() : null
@@ -148,6 +172,7 @@ export const listCommand = new Command()
           unassigned,
           allAssignees,
           limit === 0 ? undefined : limit,
+          projectId,
         )
         spinner?.stop()
         const issues = result.issues?.nodes || []
