@@ -360,6 +360,7 @@ export async function fetchIssuesForState(
   unassigned = false,
   allAssignees = false,
   limit?: number,
+  projectId?: string,
 ) {
   const sort = getOption("issue_sort") as "manual" | "priority" | undefined
   if (!sort) {
@@ -389,6 +390,10 @@ export async function fetchIssuesForState(
     filter.assignee = { id: { eq: userId } }
   } else {
     filter.assignee = { isMe: { eq: true } }
+  }
+
+  if (projectId) {
+    filter.project = { id: { eq: projectId } }
   }
 
   const query = gql(/* GraphQL */ `

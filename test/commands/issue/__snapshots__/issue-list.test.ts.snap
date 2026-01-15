@@ -20,6 +20,7 @@ Options:
   -U, --unassigned                 - Show only unassigned issues                                                                                                  
   --sort               <sort>      - Sort order (can also be set via LINEAR_ISSUE_SORT)                    (Values: \\x1b[32m"manual"\\x1b[39m, \\x1b[32m"priority"\\x1b[39m)                         
   --team               <team>      - Team to list issues for (if not your default team)                                                                           
+  --project            <project>   - Filter by project name                                                                                                       
   --limit              <limit>     - Maximum number of issues to fetch (default: 50, use 0 for unlimited)  (Default: \\x1b[33m50\\x1b[39m)                                          
   -w, --web                        - Open in web browser                                                                                                          
   -a, --app                        - Open in Linear.app                                                                                                           
