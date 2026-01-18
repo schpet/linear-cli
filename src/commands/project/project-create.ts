@@ -150,6 +150,7 @@ export const createCommand = new Command()
       } = options
 
       const client = getGraphQLClient()
+      const initiative = providedInitiative
 
       let name = providedName
       let description = providedDescription
@@ -158,7 +159,6 @@ export const createCommand = new Command()
       let status = providedStatus
       let startDate = providedStartDate
       let targetDate = providedTargetDate
-      let initiative = providedInitiative
 
       // Determine if we should run in interactive mode
       const noFlagsProvided = !name && teams.length === 0

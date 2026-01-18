@@ -109,7 +109,7 @@ export const listCommand = new Command()
     try {
       // Build filter
       // deno-lint-ignore no-explicit-any
-      let filter: any = {}
+      const filter: any = {}
 
       // Status filter
       if (status) {

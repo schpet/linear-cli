@@ -79,6 +79,7 @@ export const createCommand = new Command()
     // When checking showSpinner, we use Deno.stdout.isTerminal() as the primary check
 
     const client = getGraphQLClient()
+    const icon = providedIcon
 
     let name = providedName
     let description = providedDescription
@@ -86,7 +87,6 @@ export const createCommand = new Command()
     let owner = providedOwner
     let targetDate = providedTargetDate
     let color = providedColor
-    let icon = providedIcon
 
     // Determine if we should run in interactive mode
     const noFlagsProvided = !name
