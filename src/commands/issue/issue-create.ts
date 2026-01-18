@@ -469,8 +469,9 @@ export const createCommand = new Command()
     "Description of the issue",
   )
   .option(
-    "-l, --label [label...:string]",
+    "-l, --label <label:string>",
     "Issue label associated with the issue. May be repeated.",
+    { collect: true },
   )
   .option(
     "--team <team:string>",
@@ -516,8 +517,7 @@ export const createCommand = new Command()
       // If no flags are provided (or only parent is provided), use interactive mode
       const noFlagsProvided = !title && !assignee && !dueDate &&
         priority === undefined && estimate === undefined && !description &&
-        (!labels || labels === true ||
-          (Array.isArray(labels) && labels.length === 0)) &&
+        (!labels || labels.length === 0) &&
         !team && !project && !state && !start
 
       if (noFlagsProvided && interactive) {
@@ -678,7 +678,7 @@ export const createCommand = new Command()
         }
 
         const labelIds = []
-        if (labels !== undefined && labels !== true && labels.length > 0) {
+        if (labels != null && labels.length > 0) {
           // sequential in case of questions
           for (const label of labels) {
             let labelId = await getIssueLabelIdByNameForTeam(label, team)

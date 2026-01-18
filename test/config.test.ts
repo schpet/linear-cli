@@ -191,7 +191,9 @@ Deno.test("getOption - home folder config is used as fallback", async () => {
 
     try {
       const configUrl = new URL("../src/config.ts", import.meta.url)
-      const denoJsonPath = fromFileUrl(new URL("../deno.json", import.meta.url))
+      const denoJsonPath = fromFileUrl(
+        new URL("../deno.json", import.meta.url),
+      )
 
       // Run subprocess with appropriate env var for platform
       // Note: Must NOT include XDG_CONFIG_HOME so HOME/.config is used
