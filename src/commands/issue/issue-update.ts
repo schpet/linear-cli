@@ -40,8 +40,9 @@ export const updateCommand = new Command()
     "Description of the issue",
   )
   .option(
-    "-l, --label [label...:string]",
+    "-l, --label <label:string>",
     "Issue label associated with the issue. May be repeated.",
+    { collect: true },
   )
   .option(
     "--team <team:string>",
@@ -135,7 +136,7 @@ export const updateCommand = new Command()
         }
 
         const labelIds = []
-        if (labels !== undefined && labels !== true && labels.length > 0) {
+        if (labels != null && labels.length > 0) {
           for (const label of labels) {
             const labelId = await getIssueLabelIdByNameForTeam(label, teamKey)
             if (!labelId) {
