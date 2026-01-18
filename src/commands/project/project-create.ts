@@ -290,25 +290,17 @@ export const createCommand = new Command()
         teamIds.push(teamId)
       }
 
-      // Build input
-      const input: Record<string, unknown> = {
-        name,
-        teamIds,
-      }
-
-      if (description) {
-        input.description = description
-      }
-
+      // Build input - resolve all optional fields first
+      let leadId: string | undefined
       if (lead) {
-        const leadId = await lookupUserId(lead)
+        leadId = await lookupUserId(lead)
         if (!leadId) {
           console.error(`Lead not found: ${lead}`)
           Deno.exit(1)
         }
-        input.leadId = leadId
       }
 
+      let statusId: string | undefined
       if (status) {
         // Map display value to API type if needed
         const statusLower = status.toLowerCase()
@@ -339,25 +331,27 @@ export const createCommand = new Command()
           console.error(`Project status not found for type: ${apiStatusType}`)
           Deno.exit(1)
         }
-        input.statusId = matchingStatus.id
+        statusId = matchingStatus.id
       }
 
-      if (startDate) {
-        // Validate date format
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
-          console.error("Start date must be in YYYY-MM-DD format")
-          Deno.exit(1)
-        }
-        input.startDate = startDate
+      if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+        console.error("Start date must be in YYYY-MM-DD format")
+        Deno.exit(1)
       }
 
-      if (targetDate) {
-        // Validate date format
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-          console.error("Target date must be in YYYY-MM-DD format")
-          Deno.exit(1)
-        }
-        input.targetDate = targetDate
+      if (targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+        console.error("Target date must be in YYYY-MM-DD format")
+        Deno.exit(1)
+      }
+
+      const input = {
+        name,
+        teamIds,
+        ...(description && { description }),
+        ...(leadId && { leadId }),
+        ...(statusId && { statusId }),
+        ...(startDate && { startDate }),
+        ...(targetDate && { targetDate }),
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -376,6 +370,11 @@ export const createCommand = new Command()
 
         const project = result.projectCreate.project
         spinner?.stop()
+
+        if (!project) {
+          console.error("Failed to create project: no project returned")
+          Deno.exit(1)
+        }
 
         console.log(`✓ Created project: ${project.name}`)
         console.log(`  Slug: ${project.slugId}`)

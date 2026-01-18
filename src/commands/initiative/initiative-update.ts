@@ -33,19 +33,21 @@ export const updateCommand = new Command()
   .option("--no-color", "Disable colored output")
   .action(
     async (
-      {
-        name,
-        description,
-        status,
-        owner,
-        targetDate,
-        color: colorHex,
-        icon,
-        interactive,
-        color: colorEnabled,
-      },
+      options,
       initiativeId,
     ) => {
+      // Extract options - use let for variables that may be reassigned in interactive mode
+      let name = options.name
+      let description = options.description
+      let status = options.status
+      const owner = options.owner
+      let targetDate = options.targetDate
+      const color = options.color
+      const icon = options.icon
+      const interactive = options.interactive
+      // color can be a string (hex color) or boolean (from --no-color flag)
+      let colorHex = typeof color === "string" ? color : undefined
+      const colorEnabled = color !== false
       const client = getGraphQLClient()
 
       // Resolve initiative ID
@@ -93,7 +95,7 @@ export const updateCommand = new Command()
       const initiative = initiativeDetails.initiative
 
       // Interactive mode
-      interactive = interactive && Deno.stdout.isTerminal()
+      const isInteractive = interactive && Deno.stdout.isTerminal()
       const noFlagsProvided = !name &&
         !description &&
         !status &&

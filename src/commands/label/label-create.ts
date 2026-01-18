@@ -171,24 +171,20 @@ export const createCommand = new Command()
     }
 
     // Build input
-    // deno-lint-ignore no-explicit-any
-    const input: Record<string, any> = {
-      name,
-      color,
-    }
-
-    if (description) {
-      input.description = description
-    }
-
-    // Resolve team ID if team-specific
+    let teamId: string | undefined
     if (teamKey) {
-      const teamId = await getTeamIdByKey(teamKey.toUpperCase())
+      teamId = await getTeamIdByKey(teamKey.toUpperCase())
       if (!teamId) {
         console.error(`Team not found: ${teamKey}`)
         Deno.exit(1)
       }
-      input.teamId = teamId
+    }
+
+    const input = {
+      name,
+      color,
+      ...(description && { description }),
+      ...(teamId && { teamId }),
     }
 
     const { Spinner } = await import("@std/cli/unstable-spinner")

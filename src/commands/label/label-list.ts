@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { gql } from "../../__codegen__/gql.ts"
+import type { GetIssueLabelsQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
 import { getTeamKey } from "../../utils/linear.ts"
@@ -94,7 +95,7 @@ export const listCommand = new Command()
       let after: string | null | undefined = undefined
 
       while (hasNextPage) {
-        const result = await client.request(GetIssueLabels, {
+        const result: GetIssueLabelsQuery = await client.request(GetIssueLabels, {
           filter: Object.keys(filter).length > 0 ? filter : undefined,
           first: 100,
           after,

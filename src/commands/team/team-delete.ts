@@ -4,6 +4,23 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getAllTeams, getTeamIdByKey } from "../../utils/linear.ts"
 
+const GetTeamIssuesForMove = gql(`
+  query GetTeamIssuesForMove($teamId: String!, $first: Int, $after: String) {
+    team(id: $teamId) {
+      issues(first: $first, after: $after) {
+        nodes {
+          id
+          identifier
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`)
+
 export const deleteCommand = new Command()
   .name("delete")
   .description("Delete a Linear team")
@@ -152,29 +169,23 @@ async function moveIssuesToTeam(
 
   try {
     // Fetch all issues from source team
-    const getIssuesQuery = gql(`
-      query GetTeamIssues($teamId: String!, $first: Int, $after: String) {
-        team(id: $teamId) {
-          issues(first: $first, after: $after) {
-            nodes {
-              id
-              identifier
-            }
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
-          }
-        }
-      }
-    `)
+    type IssueNode = { id: string; identifier: string }
+    type PageInfo = { hasNextPage: boolean; endCursor?: string | null }
+    type TeamIssuesResult = {
+      team?: {
+        issues?: {
+          nodes?: IssueNode[]
+          pageInfo?: PageInfo
+        } | null
+      } | null
+    }
 
-    const allIssues: Array<{ id: string; identifier: string }> = []
+    const allIssues: IssueNode[] = []
     let hasNextPage = true
     let after: string | undefined = undefined
 
     while (hasNextPage) {
-      const result = await client.request(getIssuesQuery, {
+      const result: TeamIssuesResult = await client.request(GetTeamIssuesForMove, {
         teamId: sourceTeamId,
         first: 100,
         after,
@@ -184,7 +195,7 @@ async function moveIssuesToTeam(
       allIssues.push(...issues)
 
       hasNextPage = result.team?.issues?.pageInfo?.hasNextPage || false
-      after = result.team?.issues?.pageInfo?.endCursor
+      after = result.team?.issues?.pageInfo?.endCursor ?? undefined
     }
 
     // Update each issue to move to target team

@@ -205,13 +205,10 @@ export const addProjectCommand = new Command()
       spinner?.start()
 
       // Build input
-      const input: Record<string, unknown> = {
+      const input = {
         initiativeId: initiative.id,
         projectId: project.id,
-      }
-
-      if (sortOrder !== undefined) {
-        input.sortOrder = sortOrder
+        ...(sortOrder !== undefined && { sortOrder }),
       }
 
       try {

@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
+import type { InitiativeStatus } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { lookupUserId } from "../../utils/linear.ts"
 
@@ -207,37 +208,23 @@ export const createCommand = new Command()
     }
 
     // Build input
-    const input: Record<string, unknown> = {
-      name,
-    }
-
-    if (description) {
-      input.description = description
-    }
-
-    if (status) {
-      input.status = status
-    }
-
+    let ownerId: string | undefined
     if (owner) {
-      const ownerId = await lookupUserId(owner)
+      ownerId = await lookupUserId(owner)
       if (!ownerId) {
         console.error(`Owner not found: ${owner}`)
         Deno.exit(1)
       }
-      input.ownerId = ownerId
     }
 
-    if (targetDate) {
-      input.targetDate = targetDate
-    }
-
-    if (color) {
-      input.color = color
-    }
-
-    if (icon) {
-      input.icon = icon
+    const input = {
+      name: name as string,
+      ...(description && { description }),
+      ...(status && { status: status as InitiativeStatus }),
+      ...(ownerId && { ownerId }),
+      ...(targetDate && { targetDate }),
+      ...(color && { color }),
+      ...(icon && { icon }),
     }
 
     const { Spinner } = await import("@std/cli/unstable-spinner")

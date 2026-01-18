@@ -51,7 +51,16 @@ export async function readIdsFromStdin(): Promise<string[]> {
     chunks.push(chunk)
   }
 
-  const input = decoder.decode(new Uint8Array(chunks.flat()))
+  // Concatenate all chunks into a single Uint8Array
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const combined = new Uint8Array(totalLength)
+  let offset = 0
+  for (const chunk of chunks) {
+    combined.set(chunk, offset)
+    offset += chunk.length
+  }
+
+  const input = decoder.decode(combined)
   return parseIds(input)
 }
 
