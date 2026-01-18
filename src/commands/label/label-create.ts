@@ -49,7 +49,10 @@ export const createCommand = new Command()
     "-t, --team <teamKey:string>",
     "Team key for team-specific label (omit for workspace label)",
   )
-  .option("-i, --interactive", "Interactive mode (default if no flags provided)")
+  .option(
+    "-i, --interactive",
+    "Interactive mode (default if no flags provided)",
+  )
   .action(async (options) => {
     const {
       name: providedName,
@@ -68,8 +71,8 @@ export const createCommand = new Command()
 
     // Determine if we should run in interactive mode
     const noFlagsProvided = !name
-    const isInteractive =
-      (noFlagsProvided || interactiveFlag) && Deno.stdout.isTerminal()
+    const isInteractive = (noFlagsProvided || interactiveFlag) &&
+      Deno.stdout.isTerminal()
 
     if (isInteractive) {
       console.log("\nCreate a new label\n")
@@ -141,7 +144,9 @@ export const createCommand = new Command()
         const selectedTeam = await Select.prompt({
           message: "Team:",
           options: teamOptions,
-          default: defaultIndex >= 0 ? teamOptions[defaultIndex].value : "__workspace__",
+          default: defaultIndex >= 0
+            ? teamOptions[defaultIndex].value
+            : "__workspace__",
         })
 
         teamKey = selectedTeam === "__workspace__" ? undefined : selectedTeam
@@ -208,7 +213,13 @@ export const createCommand = new Command()
       if (label.description) {
         console.log(`  Description: ${label.description}`)
       }
-      console.log(`  Scope: ${label.team?.name ? `${label.team.name} (${label.team.key})` : "Workspace"}`)
+      console.log(
+        `  Scope: ${
+          label.team?.name
+            ? `${label.team.name} (${label.team.key})`
+            : "Workspace"
+        }`,
+      )
     } catch (error) {
       spinner?.stop()
       console.error("Failed to create label:", error)

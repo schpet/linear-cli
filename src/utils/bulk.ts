@@ -183,7 +183,9 @@ export async function executeBulkOperations<T extends BulkOperationResult>(
 
   // Clear progress line
   if (showProgress && Deno.stdout.isTerminal()) {
-    Deno.stdout.writeSync(new TextEncoder().encode("\r" + " ".repeat(80) + "\r"))
+    Deno.stdout.writeSync(
+      new TextEncoder().encode("\r" + " ".repeat(80) + "\r"),
+    )
   }
 
   const succeeded = results.filter((r) => r.success).length
@@ -214,14 +216,15 @@ export function printBulkSummary(
   console.log("")
 
   if (summary.failed === 0) {
-    const msg = `✓ Successfully ${operationName} ${summary.succeeded} ${entityName}${
-      summary.succeeded !== 1 ? "s" : ""
-    }`
+    const msg =
+      `✓ Successfully ${operationName} ${summary.succeeded} ${entityName}${
+        summary.succeeded !== 1 ? "s" : ""
+      }`
     console.log(colorEnabled ? msg : msg.replace("✓", "OK:"))
   } else if (summary.succeeded === 0) {
-    const msg = `✗ Failed to ${operationName.replace(/ed$/, "")} all ${summary.total} ${entityName}${
-      summary.total !== 1 ? "s" : ""
-    }`
+    const msg = `✗ Failed to ${
+      operationName.replace(/ed$/, "")
+    } all ${summary.total} ${entityName}${summary.total !== 1 ? "s" : ""}`
     console.log(colorEnabled ? msg : msg.replace("✗", "FAILED:"))
   } else {
     console.log(
@@ -239,7 +242,9 @@ export function printBulkSummary(
     for (const result of summary.results) {
       if (!result.success) {
         const name = result.name ? ` (${result.name})` : ""
-        console.log(`  - ${result.id}${name}: ${result.error || "Unknown error"}`)
+        console.log(
+          `  - ${result.id}${name}: ${result.error || "Unknown error"}`,
+        )
       }
     }
   }

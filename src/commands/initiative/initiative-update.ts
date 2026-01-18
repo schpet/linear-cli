@@ -18,9 +18,15 @@ export const updateCommand = new Command()
   .arguments("<initiativeId:string>")
   .option("-n, --name <name:string>", "New name for the initiative")
   .option("-d, --description <description:string>", "New description")
-  .option("--status <status:string>", "New status (planned, active, completed, paused)")
+  .option(
+    "--status <status:string>",
+    "New status (planned, active, completed, paused)",
+  )
   .option("--owner <owner:string>", "New owner (username, email, or @me)")
-  .option("--target-date <targetDate:string>", "Target completion date (YYYY-MM-DD)")
+  .option(
+    "--target-date <targetDate:string>",
+    "Target completion date (YYYY-MM-DD)",
+  )
   .option("--color <color:string>", "Initiative color (hex, e.g., #5E6AD2)")
   .option("--icon <icon:string>", "Initiative icon name")
   .option("-i, --interactive", "Interactive mode for updates")
@@ -71,7 +77,9 @@ export const updateCommand = new Command()
 
       let initiativeDetails
       try {
-        initiativeDetails = await client.request(detailsQuery, { id: resolvedId })
+        initiativeDetails = await client.request(detailsQuery, {
+          id: resolvedId,
+        })
       } catch (error) {
         console.error("Failed to fetch initiative details:", error)
         Deno.exit(1)
@@ -86,8 +94,7 @@ export const updateCommand = new Command()
 
       // Interactive mode
       interactive = interactive && Deno.stdout.isTerminal()
-      const noFlagsProvided =
-        !name &&
+      const noFlagsProvided = !name &&
         !description &&
         !status &&
         !owner &&
@@ -123,7 +130,9 @@ export const updateCommand = new Command()
         const newStatus = await Select.prompt({
           message: "Status:",
           options: INITIATIVE_STATUSES,
-          default: currentStatusIndex >= 0 ? INITIATIVE_STATUSES[currentStatusIndex].value : undefined,
+          default: currentStatusIndex >= 0
+            ? INITIATIVE_STATUSES[currentStatusIndex].value
+            : undefined,
         })
         if (newStatus !== initiative.status?.toLowerCase()) {
           status = newStatus

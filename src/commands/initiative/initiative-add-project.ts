@@ -224,13 +224,20 @@ export const addProjectCommand = new Command()
           Deno.exit(1)
         }
 
-        console.log(`✓ Added "${project.name}" to initiative "${initiative.name}"`)
+        console.log(
+          `✓ Added "${project.name}" to initiative "${initiative.name}"`,
+        )
       } catch (error) {
         spinner?.stop()
         // Check if the error is because the link already exists
         const errorMessage = String(error)
-        if (errorMessage.includes("already exists") || errorMessage.includes("duplicate")) {
-          console.log(`Project "${project.name}" is already linked to initiative "${initiative.name}"`)
+        if (
+          errorMessage.includes("already exists") ||
+          errorMessage.includes("duplicate")
+        ) {
+          console.log(
+            `Project "${project.name}" is already linked to initiative "${initiative.name}"`,
+          )
         } else {
           console.error("Failed to add project to initiative:", error)
           Deno.exit(1)

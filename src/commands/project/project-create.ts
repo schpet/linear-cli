@@ -121,9 +121,18 @@ export const createCommand = new Command()
     "Project status (planned, started, paused, completed, canceled, backlog)",
   )
   .option("--start-date <startDate:string>", "Start date (YYYY-MM-DD)")
-  .option("--target-date <targetDate:string>", "Target completion date (YYYY-MM-DD)")
-  .option("--initiative <initiative:string>", "Add to initiative immediately (ID, slug, or name)")
-  .option("-i, --interactive", "Interactive mode (default if no flags provided)")
+  .option(
+    "--target-date <targetDate:string>",
+    "Target completion date (YYYY-MM-DD)",
+  )
+  .option(
+    "--initiative <initiative:string>",
+    "Add to initiative immediately (ID, slug, or name)",
+  )
+  .option(
+    "-i, --interactive",
+    "Interactive mode (default if no flags provided)",
+  )
   .option("--no-color", "Disable colored output")
   .action(
     async (options) => {
@@ -153,8 +162,8 @@ export const createCommand = new Command()
 
       // Determine if we should run in interactive mode
       const noFlagsProvided = !name && teams.length === 0
-      const isInteractive =
-        (noFlagsProvided || interactiveFlag) && Deno.stdout.isTerminal()
+      const isInteractive = (noFlagsProvided || interactiveFlag) &&
+        Deno.stdout.isTerminal()
 
       if (isInteractive) {
         console.log("\nCreate a new project\n")
@@ -192,7 +201,9 @@ export const createCommand = new Command()
           const selectedTeam = await Select.prompt({
             message: "Team:",
             options: teamOptions,
-            default: defaultIndex >= 0 ? teamOptions[defaultIndex].value : undefined,
+            default: defaultIndex >= 0
+              ? teamOptions[defaultIndex].value
+              : undefined,
           })
           teams = [selectedTeam]
         }
@@ -393,7 +404,10 @@ export const createCommand = new Command()
                 console.error(`\nWarning: Failed to add project to initiative`)
               }
             } catch (error) {
-              console.error(`\nWarning: Failed to add project to initiative:`, error)
+              console.error(
+                `\nWarning: Failed to add project to initiative:`,
+                error,
+              )
             }
           }
         }

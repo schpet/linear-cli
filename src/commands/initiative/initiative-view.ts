@@ -132,10 +132,10 @@ export const viewCommand = new Command()
           updatedAt: initiative.updatedAt,
           owner: initiative.owner
             ? {
-                id: initiative.owner.id,
-                name: initiative.owner.name,
-                displayName: initiative.owner.displayName,
-              }
+              id: initiative.owner.id,
+              name: initiative.owner.name,
+              displayName: initiative.owner.displayName,
+            }
             : null,
           projects: (initiative.projects?.nodes || []).map((p) => ({
             id: p.id,
@@ -161,8 +161,8 @@ export const viewCommand = new Command()
       lines.push(`**URL:** ${initiative.url}`)
 
       // Status with color styling
-      const statusDisplay =
-        INITIATIVE_STATUS_DISPLAY[initiative.status] || initiative.status
+      const statusDisplay = INITIATIVE_STATUS_DISPLAY[initiative.status] ||
+        initiative.status
       const statusLine = `**Status:** ${statusDisplay}`
       if (Deno.stdout.isTerminal()) {
         const statusColor = STATUS_COLORS[initiative.status] || "#6B6F76"
@@ -225,7 +225,14 @@ export const viewCommand = new Command()
         }
 
         // Sort by status type priority
-        const statusOrder = ["started", "planned", "backlog", "paused", "completed", "canceled"]
+        const statusOrder = [
+          "started",
+          "planned",
+          "backlog",
+          "paused",
+          "completed",
+          "canceled",
+        ]
 
         for (const statusType of statusOrder) {
           const statusProjects = projectsByStatus[statusType]
@@ -238,7 +245,9 @@ export const viewCommand = new Command()
         }
 
         // Any remaining statuses not in our order
-        for (const [statusType, statusProjects] of Object.entries(projectsByStatus)) {
+        for (
+          const [statusType, statusProjects] of Object.entries(projectsByStatus)
+        ) {
           if (!statusOrder.includes(statusType)) {
             for (const project of statusProjects) {
               const statusName = project.status?.name || "Unknown"

@@ -120,7 +120,8 @@ async function handleSingleDelete(
     console.log(`\n⚠️  This action is PERMANENT and cannot be undone.\n`)
 
     const confirmed = await Confirm.prompt({
-      message: `Are you sure you want to permanently delete "${initiative.name}"?`,
+      message:
+        `Are you sure you want to permanently delete "${initiative.name}"?`,
       default: false,
     })
 

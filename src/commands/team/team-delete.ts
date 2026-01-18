@@ -102,7 +102,8 @@ export const deleteCommand = new Command()
     // Confirm deletion
     if (!force) {
       const confirmed = await Confirm.prompt({
-        message: `Are you sure you want to delete team "${team.key}: ${team.name}"?`,
+        message:
+          `Are you sure you want to delete team "${team.key}: ${team.name}"?`,
         default: false,
       })
 

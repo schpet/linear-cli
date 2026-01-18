@@ -225,7 +225,7 @@ export const removeProjectCommand = new Command()
         const link = linkResult.initiativeToProjects?.nodes?.find(
           (node) =>
             node.initiative?.id === initiative.id &&
-            node.project?.id === project.id
+            node.project?.id === project.id,
         )
         if (link) {
           linkId = link.id
@@ -236,14 +236,17 @@ export const removeProjectCommand = new Command()
       }
 
       if (!linkId) {
-        console.log(`Project "${project.name}" is not linked to initiative "${initiative.name}"`)
+        console.log(
+          `Project "${project.name}" is not linked to initiative "${initiative.name}"`,
+        )
         return
       }
 
       // Confirm removal
       if (!force) {
         const confirmed = await Confirm.prompt({
-          message: `Remove "${project.name}" from initiative "${initiative.name}"?`,
+          message:
+            `Remove "${project.name}" from initiative "${initiative.name}"?`,
           default: true,
         })
 
@@ -270,7 +273,9 @@ export const removeProjectCommand = new Command()
           Deno.exit(1)
         }
 
-        console.log(`✓ Removed "${project.name}" from initiative "${initiative.name}"`)
+        console.log(
+          `✓ Removed "${project.name}" from initiative "${initiative.name}"`,
+        )
       } catch (error) {
         spinner?.stop()
         console.error("Failed to remove project from initiative:", error)

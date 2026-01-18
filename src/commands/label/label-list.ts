@@ -136,9 +136,7 @@ export const listCommand = new Command()
         15,
         Math.max(
           4, // minimum width for "TEAM" header
-          ...sortedLabels.map((l) =>
-            unicodeWidth(l.team?.key || "Workspace")
-          ),
+          ...sortedLabels.map((l) => unicodeWidth(l.team?.key || "Workspace")),
         ),
       )
 

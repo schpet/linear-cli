@@ -35,7 +35,9 @@ export const unarchiveCommand = new Command()
 
     let initiativeDetails
     try {
-      initiativeDetails = await client.request(detailsQuery, { id: resolvedId })
+      initiativeDetails = await client.request(detailsQuery, {
+        id: resolvedId,
+      })
     } catch (error) {
       console.error("Failed to fetch initiative details:", error)
       Deno.exit(1)
@@ -88,7 +90,9 @@ export const unarchiveCommand = new Command()
     `)
 
     try {
-      const result = await client.request(unarchiveMutation, { id: resolvedId })
+      const result = await client.request(unarchiveMutation, {
+        id: resolvedId,
+      })
 
       spinner?.stop()
 

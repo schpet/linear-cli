@@ -52,10 +52,16 @@ export const createCommand = new Command()
     "-o, --owner <owner:string>",
     "Owner (username, email, or @me for yourself)",
   )
-  .option("--target-date <targetDate:string>", "Target completion date (YYYY-MM-DD)")
+  .option(
+    "--target-date <targetDate:string>",
+    "Target completion date (YYYY-MM-DD)",
+  )
   .option("-c, --color <color:string>", "Color hex code (e.g., #5E6AD2)")
   .option("--icon <icon:string>", "Icon name")
-  .option("-i, --interactive", "Interactive mode (default if no flags provided)")
+  .option(
+    "-i, --interactive",
+    "Interactive mode (default if no flags provided)",
+  )
   .option("--no-color", "Disable colored output")
   .action(async (options) => {
     const {
@@ -84,8 +90,8 @@ export const createCommand = new Command()
 
     // Determine if we should run in interactive mode
     const noFlagsProvided = !name
-    const isInteractive =
-      (noFlagsProvided || interactiveFlag) && Deno.stdout.isTerminal()
+    const isInteractive = (noFlagsProvided || interactiveFlag) &&
+      Deno.stdout.isTerminal()
 
     if (isInteractive) {
       console.log("\nCreate a new initiative\n")
@@ -175,11 +181,13 @@ export const createCommand = new Command()
     if (status) {
       const statusLower = status.toLowerCase()
       const statusEntry = INITIATIVE_STATUSES.find(
-        (s) => s.value.toLowerCase() === statusLower
+        (s) => s.value.toLowerCase() === statusLower,
       )
       if (!statusEntry) {
         console.error(
-          `Invalid status: ${status}. Valid values: ${INITIATIVE_STATUSES.map((s) => s.value.toLowerCase()).join(", ")}`,
+          `Invalid status: ${status}. Valid values: ${
+            INITIATIVE_STATUSES.map((s) => s.value.toLowerCase()).join(", ")
+          }`,
         )
         Deno.exit(1)
       }

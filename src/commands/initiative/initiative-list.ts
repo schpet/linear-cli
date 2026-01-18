@@ -118,7 +118,9 @@ export const listCommand = new Command()
         if (!apiStatus) {
           spinner?.stop()
           console.error(
-            `Invalid status: ${status}. Valid values: ${Object.keys(STATUS_INPUT_MAP).join(", ")}`,
+            `Invalid status: ${status}. Valid values: ${
+              Object.keys(STATUS_INPUT_MAP).join(", ")
+            }`,
           )
           Deno.exit(1)
         }
@@ -182,9 +184,9 @@ export const listCommand = new Command()
           targetDate: init.targetDate,
           owner: init.owner
             ? {
-                id: init.owner.id,
-                displayName: init.owner.displayName,
-              }
+              id: init.owner.id,
+              displayName: init.owner.displayName,
+            }
             : null,
           projectCount: init.projects?.nodes?.length || 0,
           url: init.url,
@@ -231,8 +233,7 @@ export const listCommand = new Command()
       )
 
       const SPACE_WIDTH = 6 // Space between columns
-      const fixed =
-        SLUG_WIDTH +
+      const fixed = SLUG_WIDTH +
         STATUS_WIDTH +
         HEALTH_WIDTH +
         OWNER_WIDTH +
@@ -272,8 +273,8 @@ export const listCommand = new Command()
 
       // Print each initiative
       for (const init of initiatives) {
-        const statusDisplay =
-          INITIATIVE_STATUS_DISPLAY[init.status] || init.status
+        const statusDisplay = INITIATIVE_STATUS_DISPLAY[init.status] ||
+          init.status
         const health = init.health || "-"
         const owner = init.owner?.initials || "-"
         const projectCount = String(init.projects?.nodes?.length || 0)
@@ -291,7 +292,13 @@ export const listCommand = new Command()
         const statusColor = statusColors[init.status] || "#6B6F76"
 
         console.log(
-          `${padDisplay(init.slugId, SLUG_WIDTH)} ${paddedName} %c${padDisplay(statusDisplay, STATUS_WIDTH)}%c ${padDisplay(health, HEALTH_WIDTH)} ${padDisplay(owner, OWNER_WIDTH)} ${padDisplay(projectCount, PROJECTS_WIDTH)} %c${padDisplay(target, TARGET_WIDTH)}%c`,
+          `${padDisplay(init.slugId, SLUG_WIDTH)} ${paddedName} %c${
+            padDisplay(statusDisplay, STATUS_WIDTH)
+          }%c ${padDisplay(health, HEALTH_WIDTH)} ${
+            padDisplay(owner, OWNER_WIDTH)
+          } ${padDisplay(projectCount, PROJECTS_WIDTH)} %c${
+            padDisplay(target, TARGET_WIDTH)
+          }%c`,
           `color: ${statusColor}`,
           "",
           "color: gray",
