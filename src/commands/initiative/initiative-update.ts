@@ -104,7 +104,7 @@ export const updateCommand = new Command()
         !colorHex &&
         !icon
 
-      if (noFlagsProvided && interactive) {
+      if (noFlagsProvided && isInteractive) {
         console.log(`\nUpdating initiative: ${initiative.name}\n`)
 
         // Prompt for name

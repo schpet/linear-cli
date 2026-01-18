@@ -95,11 +95,14 @@ export const listCommand = new Command()
       let after: string | null | undefined = undefined
 
       while (hasNextPage) {
-        const result: GetIssueLabelsQuery = await client.request(GetIssueLabels, {
-          filter: Object.keys(filter).length > 0 ? filter : undefined,
-          first: 100,
-          after,
-        })
+        const result: GetIssueLabelsQuery = await client.request(
+          GetIssueLabels,
+          {
+            filter: Object.keys(filter).length > 0 ? filter : undefined,
+            first: 100,
+            after,
+          },
+        )
 
         const labels = result.issueLabels?.nodes || []
         allLabels.push(...(labels as Label[]))

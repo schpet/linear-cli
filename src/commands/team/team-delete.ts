@@ -185,11 +185,14 @@ async function moveIssuesToTeam(
     let after: string | undefined = undefined
 
     while (hasNextPage) {
-      const result: TeamIssuesResult = await client.request(GetTeamIssuesForMove, {
-        teamId: sourceTeamId,
-        first: 100,
-        after,
-      })
+      const result: TeamIssuesResult = await client.request(
+        GetTeamIssuesForMove,
+        {
+          teamId: sourceTeamId,
+          first: 100,
+          after,
+        },
+      )
 
       const issues = result.team?.issues?.nodes || []
       allIssues.push(...issues)
