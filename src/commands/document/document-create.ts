@@ -6,7 +6,7 @@ import { getEditor, openEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
 
 /**
- * Read content from stdin if available (piped input)
+ * Read content from stdin if available (piped input, with timeout)
  */
 async function readContentFromStdin(): Promise<string | undefined> {
   // Check if stdin has data (not a TTY)
@@ -15,7 +15,13 @@ async function readContentFromStdin(): Promise<string | undefined> {
   }
 
   try {
-    const lines = await readIdsFromStdin()
+    // Use timeout to avoid hanging when stdin is not a terminal but has no data
+    // (e.g., in test subprocess environments)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("stdin timeout")), 100)
+    })
+
+    const lines = await Promise.race([readIdsFromStdin(), timeoutPromise])
     // Join back with newlines since it's content, not IDs
     const content = lines.join("\n")
     return content.length > 0 ? content : undefined

@@ -62,7 +62,7 @@ async function openEditorWithContent(
 }
 
 /**
- * Read content from stdin if available
+ * Read content from stdin if available (with timeout to avoid hanging)
  */
 async function readContentFromStdin(): Promise<string | undefined> {
   // Check if stdin has data (not a TTY)
@@ -71,7 +71,13 @@ async function readContentFromStdin(): Promise<string | undefined> {
   }
 
   try {
-    const ids = await readIdsFromStdin()
+    // Use timeout to avoid hanging when stdin is not a terminal but has no data
+    // (e.g., in test subprocess environments)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("stdin timeout")), 100)
+    })
+
+    const ids = await Promise.race([readIdsFromStdin(), timeoutPromise])
     // Join back with newlines since it's content, not IDs
     const content = ids.join("\n")
     return content.length > 0 ? content : undefined
@@ -177,8 +183,9 @@ export const updateCommand = new Command()
           console.log("No changes detected, update cancelled.")
           return
         }
-      } else if (!Deno.stdin.isTerminal()) {
-        // Try reading from stdin if piped
+      } else if (!Deno.stdin.isTerminal() && Object.keys(input).length === 0) {
+        // Only try reading from stdin if no other update fields were provided
+        // This avoids hanging when stdin is piped but has no data (e.g., in test environments)
         const stdinContent = await readContentFromStdin()
         if (stdinContent) {
           finalContent = stdinContent

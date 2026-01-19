@@ -107,7 +107,7 @@ await snapshotTest({
   name: "Document Delete Command - Bulk Delete",
   meta: import.meta,
   colors: false,
-  args: ["--bulk", "d4b93e3b2695", "25a3c439c040", "-y"],
+  args: ["-y", "--bulk", "d4b93e3b2695", "25a3c439c040"],
   denoArgs: commonDenoArgs,
   async fn() {
     const server = new MockLinearServer([

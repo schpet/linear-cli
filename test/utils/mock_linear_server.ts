@@ -130,11 +130,27 @@ export class MockLinearServer {
         return true
       }
 
-      // Check if all mock variables match the request variables
+      // Check if all mock variables match the request variables (deep comparison)
       return Object.entries(mock.variables).every(([key, value]) => {
-        return variables[key] === value
+        return this.deepEqual(variables[key], value)
       })
     })
+  }
+
+  private deepEqual(a: unknown, b: unknown): boolean {
+    if (a === b) return true
+    if (a == null || b == null) return a === b
+    if (typeof a !== typeof b) return false
+    if (typeof a !== "object") return a === b
+
+    const aObj = a as Record<string, unknown>
+    const bObj = b as Record<string, unknown>
+    const aKeys = Object.keys(aObj)
+    const bKeys = Object.keys(bObj)
+
+    if (aKeys.length !== bKeys.length) return false
+
+    return aKeys.every((key) => this.deepEqual(aObj[key], bObj[key]))
   }
 
   private extractQueryName(query: string): string {
