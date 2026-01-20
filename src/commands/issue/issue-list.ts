@@ -173,6 +173,7 @@ export const listCommand = new Command()
           allAssignees,
           limit === 0 ? undefined : limit,
           projectId,
+          sort,
         )
         spinner?.stop()
         const issues = result.issues?.nodes || []
