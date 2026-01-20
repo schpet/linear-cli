@@ -1,0 +1,121 @@
+export const snapshot = {};
+
+snapshot[`Document Create Command - Help Text 1`] = `
+stdout:
+"
+Usage: create
+
+Description:
+
+  Create a new document
+
+Options:
+
+  -h, --help                     - Show this help.                           
+  -t, --title         <title>    - Document title (required)                 
+  -c, --content       <content>  - Markdown content (inline)                 
+  -f, --content-file  <path>     - Read content from file                    
+  --project           <project>  - Attach to project (slug or ID)            
+  --issue             <issue>    - Attach to issue (identifier like TC-123)  
+  --icon              <icon>     - Document icon (emoji)                     
+  -i, --interactive              - Interactive mode with prompts             
+  --no-color                     - Disable colored output                    
+
+"
+stderr:
+""
+`;
+
+snapshot[`Document Create Command - With Inline Content 1`] = `
+stdout:
+"✓ Created document: Test Document
+https://linear.app/test/document/test-document-newd0c12345
+"
+stderr:
+""
+`;
+
+snapshot[`Document Create Command - Attached To Project 1`] = `
+stdout:
+"✓ Created document: Project Spec
+https://linear.app/test/document/project-spec-projd0c456
+"
+stderr:
+""
+`;
+
+snapshot[`Document Create Command - Attached To Issue 1`] = `
+stdout:
+"✓ Created document: Investigation
+https://linear.app/test/document/investigation-issued0c789
+"
+stderr:
+""
+`;
+
+snapshot[`Document Create Command - With Icon 1`] = `
+stdout:
+"✓ Created document: Design Doc
+https://linear.app/test/document/design-doc-icond0c000
+"
+stderr:
+""
+`;
+
+snapshot[`Document Create Command - Missing Title Error 1`] = `
+stdout:
+""
+stderr:
+"Title is required. Use --title or run with -i for interactive mode.
+"
+`;
+
+snapshot[`Document Create Command - API Error 1`] = `
+stdout:
+""
+stderr:
+\`Failed to create document: Error: You don't have permission to create documents: {"response":{"errors":[{"message":"You don't have permission to create documents","extensions":{"code":"FORBIDDEN"}}],"status":200,"headers":{}},"request":{"query":"mutation CreateDocument(\$input: DocumentCreateInput!) {\\\\n  documentCreate(input: \$input) {\\\\n    success\\\\n    document {\\\\n      id\\\\n      slugId\\\\n      title\\\\n      url\\\\n    }\\\\n  }\\\\n}","variables":{"input":{"title":"Test Doc","content":"# Test"}}}}
+    at runRequest (file:///Users/samgbafa/Library/Caches/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/helpers/runRequest.ts:105:12)
+    at eventLoopTick (ext:core/01_core.js:187:7)
+    at async GraphQLClient.request (file:///Users/samgbafa/Library/Caches/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/classes/GraphQLClient.ts:131:22)
+    at async createDocument (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/src/commands/document/document-create.ts:385:20)
+    at async Command.actionHandler (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/src/commands/document/document-create.ts:176:7)
+    at async Command.execute (https://jsr.io/@cliffy/command/1.0.0-rc.8/command.ts:1940:7)
+    at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0-rc.8/command.ts:1772:14)
+    at async Object.fn (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/test/commands/document/document-create.test.ts:284:7)
+    at async runTest (https://jsr.io/@cliffy/testing/1.0.0-rc.8/snapshot.ts:263:5)
+    at async snapshotTest (https://jsr.io/@cliffy/testing/1.0.0-rc.8/snapshot.ts:112:5) {
+  response: {
+    data: undefined,
+    errors: [
+      {
+        message: "You don't have permission to create documents",
+        extensions: { code: "FORBIDDEN" }
+      }
+    ],
+    extensions: undefined,
+    status: 200,
+    headers: Headers {
+      "access-control-allow-origin": "*",
+      "content-type": "application/json",
+      date: "Mon, 01 Jan 2024 00:00:00 GMT",
+      vary: "Accept-Encoding"
+    }
+  },
+  request: {
+    query: "mutation CreateDocument(\$input: DocumentCreateInput!) {\\\\n" +
+      "  documentCreate(input: \$input) {\\\\n" +
+      "    success\\\\n" +
+      "    document {\\\\n" +
+      "      id\\\\n" +
+      "      slugId\\\\n" +
+      "      title\\\\n" +
+      "      url\\\\n" +
+      "    }\\\\n" +
+      "  }\\\\n" +
+      "}",
+    variables: { input: { title: "Test Doc", content: "# Test" } }
+  }
+}
+\`
+`;

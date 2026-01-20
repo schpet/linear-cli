@@ -161,6 +161,7 @@ await snapshotTest({
   name: "Document View Command - Document Not Found",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: ["nonexistent123"],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -182,11 +183,7 @@ await snapshotTest({
       Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
       Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      try {
-        await viewCommand.parse()
-      } catch (error) {
-        console.log(`Error: ${(error as Error).message}`)
-      }
+      await viewCommand.parse()
     } finally {
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")

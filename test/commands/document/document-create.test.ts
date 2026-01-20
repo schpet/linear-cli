@@ -79,15 +79,22 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const server = new MockLinearServer([
+      // Mock project resolution query
       {
-        queryName: "CreateDocument",
-        variables: {
-          input: {
-            title: "Project Spec",
-            content: "# Spec",
-            projectId: "tinycloud-sdk",
+        queryName: "GetProjectForDocument",
+        variables: { slugId: "tinycloud-sdk" },
+        response: {
+          data: {
+            project: {
+              id: "project-uuid-123",
+              name: "TinyCloud SDK",
+            },
           },
         },
+      },
+      // Mock document create mutation
+      {
+        queryName: "CreateDocument",
         response: {
           data: {
             documentCreate: {
@@ -134,15 +141,22 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const server = new MockLinearServer([
+      // Mock issue resolution query
       {
-        queryName: "CreateDocument",
-        variables: {
-          input: {
-            title: "Investigation",
-            content: "# Notes",
-            issueId: "TC-123",
+        queryName: "GetIssueForDocument",
+        variables: { id: "TC-123" },
+        response: {
+          data: {
+            issue: {
+              id: "issue-uuid-456",
+              identifier: "TC-123",
+            },
           },
         },
+      },
+      // Mock document create mutation
+      {
+        queryName: "CreateDocument",
         response: {
           data: {
             documentCreate: {
@@ -227,14 +241,11 @@ await snapshotTest({
   name: "Document Create Command - Missing Title Error",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: ["--content", "# Content without title"],
   denoArgs: commonDenoArgs,
   async fn() {
-    try {
-      await createCommand.parse()
-    } catch (error) {
-      console.log(`Error: ${(error as Error).message}`)
-    }
+    await createCommand.parse()
   },
 })
 
@@ -243,6 +254,7 @@ await snapshotTest({
   name: "Document Create Command - API Error",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: ["--title", "Test Doc", "--content", "# Test"],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -269,11 +281,7 @@ await snapshotTest({
       Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
       Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      try {
-        await createCommand.parse()
-      } catch (error) {
-        console.log(`Error: ${(error as Error).message}`)
-      }
+      await createCommand.parse()
     } finally {
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")

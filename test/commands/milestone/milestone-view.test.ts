@@ -1,10 +1,10 @@
-import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
+import { snapshotTest } from "@cliffy/testing"
 import { viewCommand } from "../../../src/commands/milestone/milestone-view.ts"
 import { commonDenoArgs } from "../../utils/test-helpers.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
 // Test help output
-await cliffySnapshotTest({
+await snapshotTest({
   name: "Milestone View Command - Help Text",
   meta: import.meta,
   colors: false,
@@ -15,8 +15,8 @@ await cliffySnapshotTest({
   },
 })
 
-// Test with full milestone details
-await cliffySnapshotTest({
+// Test with full milestone details - use very old dates to get stable "long time ago" output
+await snapshotTest({
   name: "Milestone View Command - With Full Details",
   meta: import.meta,
   colors: false,
@@ -34,8 +34,8 @@ await cliffySnapshotTest({
               description: "First quarter objectives and key results",
               targetDate: "2026-03-31",
               sortOrder: 1,
-              createdAt: "2026-01-01T10:00:00Z",
-              updatedAt: "2026-01-15T14:30:00Z",
+              createdAt: "2020-01-01T10:00:00Z",
+              updatedAt: "2020-01-15T14:30:00Z",
               project: {
                 id: "project-456",
                 name: "Platform Infrastructure",
@@ -94,7 +94,7 @@ await cliffySnapshotTest({
 })
 
 // Test with minimal milestone (no description, no issues)
-await cliffySnapshotTest({
+await snapshotTest({
   name: "Milestone View Command - Minimal Details",
   meta: import.meta,
   colors: false,
@@ -112,8 +112,8 @@ await cliffySnapshotTest({
               description: null,
               targetDate: null,
               sortOrder: 2,
-              createdAt: "2026-01-10T08:00:00Z",
-              updatedAt: "2026-01-10T08:00:00Z",
+              createdAt: "2020-01-10T08:00:00Z",
+              updatedAt: "2020-01-10T08:00:00Z",
               project: {
                 id: "project-999",
                 name: "Test Project",
@@ -144,7 +144,7 @@ await cliffySnapshotTest({
 })
 
 // Test with many issues (>10)
-await cliffySnapshotTest({
+await snapshotTest({
   name: "Milestone View Command - Many Issues",
   meta: import.meta,
   colors: false,
@@ -162,8 +162,8 @@ await cliffySnapshotTest({
               description: "Major product release with many features",
               targetDate: "2026-06-30",
               sortOrder: 3,
-              createdAt: "2026-01-05T12:00:00Z",
-              updatedAt: "2026-01-20T16:45:00Z",
+              createdAt: "2020-01-05T12:00:00Z",
+              updatedAt: "2020-01-20T16:45:00Z",
               project: {
                 id: "project-555",
                 name: "Product Team",

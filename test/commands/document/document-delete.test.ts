@@ -69,6 +69,7 @@ await snapshotTest({
   name: "Document Delete Command - Document Not Found",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: ["nonexistent123", "-y"],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -89,11 +90,7 @@ await snapshotTest({
       Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
       Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      try {
-        await deleteCommand.parse()
-      } catch (error) {
-        console.log(`Error: ${(error as Error).message}`)
-      }
+      await deleteCommand.parse()
     } finally {
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
@@ -180,6 +177,7 @@ await snapshotTest({
   name: "Document Delete Command - Permission Error",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: ["d4b93e3b2695", "-y"],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -214,11 +212,7 @@ await snapshotTest({
       Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
       Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      try {
-        await deleteCommand.parse()
-      } catch (error) {
-        console.log(`Error: ${(error as Error).message}`)
-      }
+      await deleteCommand.parse()
     } finally {
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
@@ -232,13 +226,10 @@ await snapshotTest({
   name: "Document Delete Command - Missing ID",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: [],
   denoArgs: commonDenoArgs,
   async fn() {
-    try {
-      await deleteCommand.parse()
-    } catch (error) {
-      console.log(`Error: ${(error as Error).message}`)
-    }
+    await deleteCommand.parse()
   },
 })

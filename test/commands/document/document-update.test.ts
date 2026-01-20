@@ -176,6 +176,7 @@ await snapshotTest({
   name: "Document Update Command - Document Not Found",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: ["nonexistent123", "--title", "New Title"],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -202,11 +203,7 @@ await snapshotTest({
       Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
       Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      try {
-        await updateCommand.parse()
-      } catch (error) {
-        console.log(`Error: ${(error as Error).message}`)
-      }
+      await updateCommand.parse()
     } finally {
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
@@ -220,14 +217,11 @@ await snapshotTest({
   name: "Document Update Command - No Fields Provided",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: ["d4b93e3b2695"],
   denoArgs: commonDenoArgs,
   async fn() {
-    try {
-      await updateCommand.parse()
-    } catch (error) {
-      console.log(`Error: ${(error as Error).message}`)
-    }
+    await updateCommand.parse()
   },
 })
 
@@ -236,6 +230,7 @@ await snapshotTest({
   name: "Document Update Command - Permission Error",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: ["d4b93e3b2695", "--title", "Unauthorized Update"],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -262,11 +257,7 @@ await snapshotTest({
       Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
       Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      try {
-        await updateCommand.parse()
-      } catch (error) {
-        console.log(`Error: ${(error as Error).message}`)
-      }
+      await updateCommand.parse()
     } finally {
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")

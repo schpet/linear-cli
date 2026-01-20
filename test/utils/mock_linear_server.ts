@@ -70,6 +70,8 @@ export class MockLinearServer {
     const headers = {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
+      // Use fixed date header for deterministic snapshot tests
+      "Date": "Mon, 01 Jan 2024 00:00:00 GMT",
     }
 
     try {
