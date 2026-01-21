@@ -1,0 +1,83 @@
+export const snapshot = {};
+
+snapshot[`Document List Command - Help Text 1`] = `
+stdout:
+"
+Usage: list
+
+Description:
+
+  List documents
+
+Options:
+
+  -h, --help             - Show this help.                                        
+  --project   <project>  - Filter by project (slug or name)                       
+  --issue     <issue>    - Filter by issue (identifier like TC-123)               
+  --json                 - Output as JSON                                         
+  --limit     <limit>    - Limit results                             (Default: \\x1b[33m50\\x1b[39m)
+
+"
+stderr:
+""
+`;
+
+snapshot[`Document List Command - List All Documents 1`] = `
+stdout:
+"SLUG         TITLE                    ATTACHMENT    UPDATED   
+d4b93e3b2695 Delegation System Spec   TinyCloud SDK 2 days ago
+25a3c439c040 Refresh Token Design Doc -             3 days ago
+"
+stderr:
+""
+`;
+
+snapshot[`Document List Command - Filter By Project 1`] = `
+stdout:
+"SLUG         TITLE                  ATTACHMENT    UPDATED   
+d4b93e3b2695 Delegation System Spec TinyCloud SDK 2 days ago
+"
+stderr:
+""
+`;
+
+snapshot[`Document List Command - Filter By Issue 1`] = `
+stdout:
+"SLUG         TITLE               ATTACHMENT UPDATED   
+abc123def456 Investigation Notes TC-123     4 days ago
+"
+stderr:
+""
+`;
+
+snapshot[`Document List Command - JSON Output 1`] = `
+stdout:
+'[
+  {
+    "id": "doc-1",
+    "title": "Delegation System Spec",
+    "slugId": "d4b93e3b2695",
+    "url": "https://linear.app/test/document/delegation-system-spec-d4b93e3b2695",
+    "updatedAt": "2026-01-18T10:30:00Z",
+    "project": {
+      "name": "TinyCloud SDK",
+      "slugId": "tinycloud-sdk"
+    },
+    "issue": null,
+    "creator": {
+      "name": "John Doe"
+    }
+  }
+]
+'
+stderr:
+""
+`;
+
+snapshot[`Document List Command - Empty Results 1`] = `
+stdout:
+"No documents found.
+"
+stderr:
+""
+`;

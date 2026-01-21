@@ -156,6 +156,42 @@ linear milestone delete <milestoneId>           # delete a milestone
 linear m delete <milestoneId> --force           # delete without confirmation
 ```
 
+### document commands
+
+manage Linear documents from the command line. documents can be attached to projects or issues, or exist at the workspace level.
+
+```bash
+# list documents
+linear document list                            # list all accessible documents
+linear docs list                                # alias for document
+linear document list --project <projectId>      # filter by project
+linear document list --issue TC-123             # filter by issue
+linear document list --json                     # output as JSON
+
+# view a document
+linear document view <slug>                     # view document rendered in terminal
+linear document view <slug> --raw               # output raw markdown (for piping)
+linear document view <slug> --web               # open in browser
+linear document view <slug> --json              # output as JSON
+
+# create a document
+linear document create --title "My Doc" --content "# Hello"           # inline content
+linear document create --title "Spec" --content-file ./spec.md        # from file
+linear document create --title "Doc" --project <projectId>            # attach to project
+linear document create --title "Notes" --issue TC-123                 # attach to issue
+cat spec.md | linear document create --title "Spec"                   # from stdin
+
+# update a document
+linear document update <slug> --title "New Title"                     # update title
+linear document update <slug> --content-file ./updated.md             # update content
+linear document update <slug> --edit                                  # open in $EDITOR
+
+# delete a document
+linear document delete <slug>                   # soft delete (move to trash)
+linear document delete <slug> --permanent       # permanent delete
+linear document delete --bulk <slug1> <slug2>   # bulk delete
+```
+
 ### other commands
 
 ```bash
