@@ -2,10 +2,20 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- add TTY checks before interactive prompts to prevent hanging in non-interactive mode
+
 ### Added
 
 - global user config is now merged with project config (`~/.config/linear/linear.toml` on Unix, `%APPDATA%\linear\linear.toml` on Windows); project values override global, env vars override both
 - requests now include a User-Agent header (schpet-linear-cli/VERSION)
+- initiative management commands (list, view, create, archive, unarchive, update, delete, add-project, remove-project) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
+- label management commands (list, create, delete) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
+- project create command with team, lead, dates, status, and initiative linking ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
+- team delete command ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
+- bulk operations support for issue delete (--bulk flag) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
+- document management commands (list, view, create, update, delete) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
 
 ## [1.7.0] - 2026-01-09
 
