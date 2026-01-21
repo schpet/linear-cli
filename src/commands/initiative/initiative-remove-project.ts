@@ -244,6 +244,12 @@ export const removeProjectCommand = new Command()
 
       // Confirm removal
       if (!force) {
+        if (!Deno.stdin.isTerminal()) {
+          console.error(
+            "Interactive confirmation required. Use --force to skip.",
+          )
+          Deno.exit(1)
+        }
         const confirmed = await Confirm.prompt({
           message:
             `Remove "${project.name}" from initiative "${initiative.name}"?`,

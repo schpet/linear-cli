@@ -110,6 +110,10 @@ async function handleSingleArchive(
 
   // Confirm archival
   if (!force) {
+    if (!Deno.stdin.isTerminal()) {
+      console.error("Interactive confirmation required. Use --force to skip.")
+      Deno.exit(1)
+    }
     const confirmed = await Confirm.prompt({
       message: `Archive initiative "${initiative.name}"?`,
       default: true,
@@ -182,6 +186,10 @@ async function handleBulkArchive(
 
   // Confirm bulk operation
   if (!force) {
+    if (!Deno.stdin.isTerminal()) {
+      console.error("Interactive confirmation required. Use --force to skip.")
+      Deno.exit(1)
+    }
     const confirmed = await Confirm.prompt({
       message: `Archive ${ids.length} initiative(s)?`,
       default: false,

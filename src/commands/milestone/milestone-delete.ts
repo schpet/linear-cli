@@ -19,6 +19,10 @@ export const deleteCommand = new Command()
   .action(async ({ force }, id) => {
     // Confirmation prompt unless --force is used
     if (!force) {
+      if (!Deno.stdin.isTerminal()) {
+        console.error("Interactive confirmation required. Use --force to skip.")
+        Deno.exit(1)
+      }
       const confirmed = await Confirm.prompt({
         message: `Are you sure you want to delete milestone ${id}?`,
         default: false,

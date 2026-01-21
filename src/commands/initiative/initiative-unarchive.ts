@@ -58,6 +58,10 @@ export const unarchiveCommand = new Command()
 
     // Confirm unarchive
     if (!force) {
+      if (!Deno.stdin.isTerminal()) {
+        console.error("Interactive confirmation required. Use --force to skip.")
+        Deno.exit(1)
+      }
       const confirmed = await Confirm.prompt({
         message: `Are you sure you want to unarchive "${initiative.name}"?`,
         default: true,

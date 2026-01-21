@@ -117,6 +117,10 @@ async function handleSingleDelete(
 
   // Confirm deletion with typed confirmation for safety
   if (!force) {
+    if (!Deno.stdin.isTerminal()) {
+      console.error("Interactive confirmation required. Use --force to skip.")
+      Deno.exit(1)
+    }
     console.log(`\n⚠️  This action is PERMANENT and cannot be undone.\n`)
 
     const confirmed = await Confirm.prompt({
@@ -203,6 +207,10 @@ async function handleBulkDelete(
 
   // Confirm bulk operation
   if (!force) {
+    if (!Deno.stdin.isTerminal()) {
+      console.error("Interactive confirmation required. Use --force to skip.")
+      Deno.exit(1)
+    }
     const confirmed = await Confirm.prompt({
       message: `Permanently delete ${ids.length} initiative(s)?`,
       default: false,

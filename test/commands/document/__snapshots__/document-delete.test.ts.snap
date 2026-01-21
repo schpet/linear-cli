@@ -54,14 +54,14 @@ stdout:
 ""
 stderr:
 \`Failed to delete document: Error: You don't have permission to delete this document: {"response":{"errors":[{"message":"You don't have permission to delete this document","extensions":{"code":"FORBIDDEN"}}],"status":200,"headers":{}},"request":{"query":"mutation DeleteDocument(\$id: String!) {\\\\n  documentDelete(id: \$id) {\\\\n    success\\\\n  }\\\\n}","variables":{"id":"doc-uuid-123"}}}
-    at runRequest (file:///Users/samgbafa/Library/Caches/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/helpers/runRequest.ts:105:12)
+    at runRequest (file:///home/exedev/.cache/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/helpers/runRequest.ts:105:12)
     at eventLoopTick (ext:core/01_core.js:187:7)
-    at async GraphQLClient.request (file:///Users/samgbafa/Library/Caches/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/classes/GraphQLClient.ts:131:22)
-    at async handleSingleDelete (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/src/commands/document/document-delete.ts:121:20)
-    at async Command.actionHandler (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/src/commands/document/document-delete.ts:60:7)
+    at async GraphQLClient.request (file:///home/exedev/.cache/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/classes/GraphQLClient.ts:131:22)
+    at async handleSingleDelete (file:///home/exedev/workspace/linear-cli/src/commands/document/document-delete.ts:121:20)
+    at async Command.actionHandler (file:///home/exedev/workspace/linear-cli/src/commands/document/document-delete.ts:60:7)
     at async Command.execute (https://jsr.io/@cliffy/command/1.0.0-rc.8/command.ts:1940:7)
     at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0-rc.8/command.ts:1772:14)
-    at async Object.fn (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/test/commands/document/document-delete.test.ts:215:7)
+    at async Object.fn (file:///home/exedev/workspace/linear-cli/test/commands/document/document-delete.test.ts:215:7)
     at async runTest (https://jsr.io/@cliffy/testing/1.0.0-rc.8/snapshot.ts:263:5)
     at async snapshotTest (https://jsr.io/@cliffy/testing/1.0.0-rc.8/snapshot.ts:112:5) {
   response: {

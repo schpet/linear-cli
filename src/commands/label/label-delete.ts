@@ -106,7 +106,13 @@ async function resolveLabelId(
   }
 
   // If multiple labels with same name exist, let user choose
-  if (labels.length > 1 && Deno.stdout.isTerminal()) {
+  if (labels.length > 1) {
+    if (!Deno.stdin.isTerminal()) {
+      console.error(
+        `Multiple labels named "${nameOrId}" found. Use --team to disambiguate.`,
+      )
+      Deno.exit(1)
+    }
     const options = labels.map((l) => ({
       name: `${l.name} (${l.team?.key || "Workspace"}) - ${l.color}`,
       value: l.id,
@@ -154,6 +160,10 @@ export const deleteCommand = new Command()
 
     // Confirmation prompt unless --force is used
     if (!force) {
+      if (!Deno.stdin.isTerminal()) {
+        console.error("Interactive confirmation required. Use --force to skip.")
+        Deno.exit(1)
+      }
       const confirmed = await Confirm.prompt({
         message: `Are you sure you want to delete label "${labelDisplay}"?`,
         default: false,

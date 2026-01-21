@@ -56,16 +56,16 @@ stdout:
 ""
 stderr:
 'Failed to update document: Error: Document not found: nonexistent123: {"response":{"errors":[{"message":"Document not found: nonexistent123","extensions":{"code":"NOT_FOUND"}}],"status":200,"headers":{}},"request":{"query":"mutation UpdateDocument(\$id: String!, \$input: DocumentUpdateInput!) {\\\\n  documentUpdate(id: \$id, input: \$input) {\\\\n    success\\\\n    document {\\\\n      id\\\\n      slugId\\\\n      title\\\\n      url\\\\n      updatedAt\\\\n    }\\\\n  }\\\\n}","variables":{"id":"nonexistent123","input":{"title":"New Title"}}}}
-    at runRequest (file:///Users/samgbafa/Library/Caches/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/helpers/runRequest.ts:105:12)
+    at runRequest (file:///home/exedev/.cache/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/helpers/runRequest.ts:105:12)
     at eventLoopTick (ext:core/01_core.js:187:7)
-    at async GraphQLClient.request (file:///Users/samgbafa/Library/Caches/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/classes/GraphQLClient.ts:131:22)
-    at async Command.actionHandler (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/src/commands/document/document-update.ts:225:24)
+    at async GraphQLClient.request (file:///home/exedev/.cache/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/classes/GraphQLClient.ts:131:22)
+    at async Command.actionHandler (file:///home/exedev/workspace/linear-cli/src/commands/document/document-update.ts:225:24)
     at async Command.execute (https://jsr.io/@cliffy/command/1.0.0-rc.8/command.ts:1940:7)
     at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0-rc.8/command.ts:1772:14)
-    at async Object.fn (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/test/commands/document/document-update.test.ts:206:7)
+    at async Object.fn (file:///home/exedev/workspace/linear-cli/test/commands/document/document-update.test.ts:206:7)
     at async runTest (https://jsr.io/@cliffy/testing/1.0.0-rc.8/snapshot.ts:263:5)
     at async snapshotTest (https://jsr.io/@cliffy/testing/1.0.0-rc.8/snapshot.ts:112:5)
-    at async file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/test/commands/document/document-update.test.ts:175:1 {
+    at async file:///home/exedev/workspace/linear-cli/test/commands/document/document-update.test.ts:175:1 {
   response: {
     data: undefined,
     errors: [
@@ -115,16 +115,16 @@ stdout:
 ""
 stderr:
 \`Failed to update document: Error: You don't have permission to update this document: {"response":{"errors":[{"message":"You don't have permission to update this document","extensions":{"code":"FORBIDDEN"}}],"status":200,"headers":{}},"request":{"query":"mutation UpdateDocument(\$id: String!, \$input: DocumentUpdateInput!) {\\\\n  documentUpdate(id: \$id, input: \$input) {\\\\n    success\\\\n    document {\\\\n      id\\\\n      slugId\\\\n      title\\\\n      url\\\\n      updatedAt\\\\n    }\\\\n  }\\\\n}","variables":{"id":"d4b93e3b2695","input":{"title":"Unauthorized Update"}}}}
-    at runRequest (file:///Users/samgbafa/Library/Caches/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/helpers/runRequest.ts:105:12)
+    at runRequest (file:///home/exedev/.cache/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/helpers/runRequest.ts:105:12)
     at eventLoopTick (ext:core/01_core.js:187:7)
-    at async GraphQLClient.request (file:///Users/samgbafa/Library/Caches/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/classes/GraphQLClient.ts:131:22)
-    at async Command.actionHandler (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/src/commands/document/document-update.ts:225:24)
+    at async GraphQLClient.request (file:///home/exedev/.cache/deno/npm/registry.npmjs.org/graphql-request/7.2.0/src/legacy/classes/GraphQLClient.ts:131:22)
+    at async Command.actionHandler (file:///home/exedev/workspace/linear-cli/src/commands/document/document-update.ts:225:24)
     at async Command.execute (https://jsr.io/@cliffy/command/1.0.0-rc.8/command.ts:1940:7)
     at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0-rc.8/command.ts:1772:14)
-    at async Object.fn (file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/test/commands/document/document-update.test.ts:260:7)
+    at async Object.fn (file:///home/exedev/workspace/linear-cli/test/commands/document/document-update.test.ts:260:7)
     at async runTest (https://jsr.io/@cliffy/testing/1.0.0-rc.8/snapshot.ts:263:5)
     at async snapshotTest (https://jsr.io/@cliffy/testing/1.0.0-rc.8/snapshot.ts:112:5)
-    at async file:///Users/samgbafa/Documents/github/tinycloud/development/external/linear-cli/test/commands/document/document-update.test.ts:229:1 {
+    at async file:///home/exedev/workspace/linear-cli/test/commands/document/document-update.test.ts:229:1 {
   response: {
     data: undefined,
     errors: [
