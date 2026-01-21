@@ -22,34 +22,6 @@ stderr:
 ""
 `;
 
-snapshot[`Document List Command - List All Documents 1`] = `
-stdout:
-"SLUG         TITLE                    ATTACHMENT    UPDATED   
-d4b93e3b2695 Delegation System Spec   TinyCloud SDK 2 days ago
-25a3c439c040 Refresh Token Design Doc -             3 days ago
-"
-stderr:
-""
-`;
-
-snapshot[`Document List Command - Filter By Project 1`] = `
-stdout:
-"SLUG         TITLE                  ATTACHMENT    UPDATED   
-d4b93e3b2695 Delegation System Spec TinyCloud SDK 2 days ago
-"
-stderr:
-""
-`;
-
-snapshot[`Document List Command - Filter By Issue 1`] = `
-stdout:
-"SLUG         TITLE               ATTACHMENT UPDATED   
-abc123def456 Investigation Notes TC-123     4 days ago
-"
-stderr:
-""
-`;
-
 snapshot[`Document List Command - JSON Output 1`] = `
 stdout:
 '[

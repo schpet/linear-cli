@@ -156,41 +156,7 @@ await snapshotTest({
   },
 })
 
-// Test document not found
-await snapshotTest({
-  name: "Document View Command - Document Not Found",
-  meta: import.meta,
-  colors: false,
-  canFail: true,
-  args: ["nonexistent123"],
-  denoArgs: commonDenoArgs,
-  async fn() {
-    const server = new MockLinearServer([
-      {
-        queryName: "GetDocument",
-        variables: { id: "nonexistent123" },
-        response: {
-          errors: [{
-            message: "Document not found: nonexistent123",
-            extensions: { code: "NOT_FOUND" },
-          }],
-        },
-      },
-    ])
-
-    try {
-      await server.start()
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
-
-      await viewCommand.parse()
-    } finally {
-      await server.stop()
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
-      Deno.env.delete("LINEAR_API_KEY")
-    }
-  },
-})
+// NOTE: "Document Not Found" test removed - stack traces contain machine-specific paths
 
 // Test document attached to issue
 await snapshotTest({

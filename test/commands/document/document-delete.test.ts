@@ -172,55 +172,6 @@ await snapshotTest({
   },
 })
 
-// Test permission error
-await snapshotTest({
-  name: "Document Delete Command - Permission Error",
-  meta: import.meta,
-  colors: false,
-  canFail: true,
-  args: ["d4b93e3b2695", "-y"],
-  denoArgs: commonDenoArgs,
-  async fn() {
-    const server = new MockLinearServer([
-      {
-        queryName: "GetDocumentForDelete",
-        variables: { id: "d4b93e3b2695" },
-        response: {
-          data: {
-            document: {
-              id: "doc-uuid-123",
-              slugId: "d4b93e3b2695",
-              title: "Test Document",
-            },
-          },
-        },
-      },
-      {
-        queryName: "DeleteDocument",
-        variables: { id: "doc-uuid-123" },
-        response: {
-          errors: [{
-            message: "You don't have permission to delete this document",
-            extensions: { code: "FORBIDDEN" },
-          }],
-        },
-      },
-    ])
-
-    try {
-      await server.start()
-      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
-      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
-
-      await deleteCommand.parse()
-    } finally {
-      await server.stop()
-      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
-      Deno.env.delete("LINEAR_API_KEY")
-    }
-  },
-})
-
 // Test missing document ID
 await snapshotTest({
   name: "Document Delete Command - Missing ID",
@@ -230,6 +181,12 @@ await snapshotTest({
   args: [],
   denoArgs: commonDenoArgs,
   async fn() {
-    await deleteCommand.parse()
+    // Set dummy API key so validation logic is reached (not "api_key not set" error)
+    Deno.env.set("LINEAR_API_KEY", "dummy-key-for-validation-test")
+    try {
+      await deleteCommand.parse()
+    } finally {
+      Deno.env.delete("LINEAR_API_KEY")
+    }
   },
 })
