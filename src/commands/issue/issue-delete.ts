@@ -99,6 +99,10 @@ async function handleSingleDelete(
 
   // Show confirmation prompt unless --confirm flag is used
   if (!confirm) {
+    if (!Deno.stdin.isTerminal()) {
+      console.error("Interactive confirmation required. Use --confirm to skip.")
+      Deno.exit(1)
+    }
     const confirmed = await Confirm.prompt({
       message: `Are you sure you want to delete "${identifier}: ${title}"?`,
       default: false,
@@ -167,6 +171,10 @@ async function handleBulkDelete(
 
   // Confirm bulk operation
   if (!confirm) {
+    if (!Deno.stdin.isTerminal()) {
+      console.error("Interactive confirmation required. Use --confirm to skip.")
+      Deno.exit(1)
+    }
     const confirmed = await Confirm.prompt({
       message: `Delete ${ids.length} issue(s)?`,
       default: false,

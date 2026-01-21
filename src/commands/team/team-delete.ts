@@ -81,6 +81,13 @@ export const deleteCommand = new Command()
         "You must move these issues to another team before deletion.\n",
       )
 
+      if (!Deno.stdin.isTerminal()) {
+        console.error(
+          "Interactive selection required. Use --move-issues <teamKey> to specify target team.",
+        )
+        Deno.exit(1)
+      }
+
       const allTeams = await getAllTeams()
       const otherTeams = allTeams.filter((t) => t.id !== teamId)
 
@@ -118,6 +125,10 @@ export const deleteCommand = new Command()
 
     // Confirm deletion
     if (!force) {
+      if (!Deno.stdin.isTerminal()) {
+        console.error("Interactive confirmation required. Use --force to skip.")
+        Deno.exit(1)
+      }
       const confirmed = await Confirm.prompt({
         message:
           `Are you sure you want to delete team "${team.key}: ${team.name}"?`,
