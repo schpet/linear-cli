@@ -10,14 +10,14 @@
 
 ### Added
 
-- global user config is now merged with project config (`~/.config/linear/linear.toml` on Unix, `%APPDATA%\linear\linear.toml` on Windows); project values override global, env vars override both
+- global user config is now merged with project config (`~/.config/linear/linear.toml` on Unix, `%APPDATA%\linear\linear.toml` on Windows); project values override global, env vars override both ([#89](https://github.com/schpet/linear-cli/pull/89); thanks @kfrance)
 - requests now include a User-Agent header (schpet-linear-cli/VERSION)
-- initiative management commands (list, view, create, archive, unarchive, update, delete, add-project, remove-project) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
-- label management commands (list, create, delete) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
-- project create command with team, lead, dates, status, and initiative linking ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
-- team delete command ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
-- bulk operations support for issue delete (--bulk flag) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
-- document management commands (list, view, create, update, delete) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
+- initiative management commands (list, view, create, archive, unarchive, update, delete, add-project, remove-project) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks @skgbafa)
+- label management commands (list, create, delete) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks @skgbafa)
+- project create command with team, lead, dates, status, and initiative linking ([#95](https://github.com/schpet/linear-cli/pull/95); thanks @skgbafa)
+- team delete command ([#95](https://github.com/schpet/linear-cli/pull/95); thanks @skgbafa)
+- bulk operations support for issue delete (--bulk flag) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks @skgbafa)
+- document management commands (list, view, create, update, delete) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks @skgbafa)
 - auto-generate skill documentation from cli help output with deno task generate-skill-docs
 
 ## [1.7.0] - 2026-01-09
