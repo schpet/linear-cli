@@ -224,17 +224,6 @@ the config file can be placed at (checked in order, first found is used):
 - `$XDG_CONFIG_HOME/linear/linear.toml` or `~/.config/linear/linear.toml` (Unix)
 - `%APPDATA%\linear\linear.toml` (Windows)
 
-## why
-
-linear's UI is incredibly good but it slows me down. i find the following pretty grating to experience frequently:
-
-- switching context from my repo to linear
-- not being on the right view when i open linear
-- linear suggests a git branch, but i have to do the work of creating or switching to that branch
-- linear's suggested git branch doesn't account for it already existing or having a merged pull request
-
-this cli solves this. it knows what you're working on (via git branches or jj commit trailers), does the work of managing your version control state, and will write your pull request details for you.
-
 ## claude code skill
 
 linear-cli includes [a skill for claude code](https://code.claude.com/docs/en/skills) that helps claude use the CLI effectively. for use cases outside the CLI, it includes instructions to interact directly with the graphql api, including authentication.
@@ -247,6 +236,21 @@ linear-cli includes [a skill for claude code](https://code.claude.com/docs/en/sk
 # from bash
 claude plugin marketplace add schpet/linear-cli
 claude plugin install linear-cli@linear-cli
+
+# to update
+claude plugin marketplace update linear-cli
+claude plugin update linear-cli@linear-cli
 ```
+
+## why
+
+linear's UI is incredibly good but it slows me down. i find the following pretty grating to experience frequently:
+
+- switching context from my repo to linear
+- not being on the right view when i open linear
+- linear suggests a git branch, but i have to do the work of creating or switching to that branch
+- linear's suggested git branch doesn't account for it already existing or having a merged pull request
+
+this cli solves this. it knows what you're working on (via git branches or jj commit trailers), does the work of managing your version control state, and will write your pull request details for you.
 
 [^1]: creating an API key requires member access, it is not available for guest accounts.
