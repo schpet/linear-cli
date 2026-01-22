@@ -8,7 +8,7 @@ allowed-tools: Bash(linear:*), Bash(curl:*)
 
 A CLI to manage Linear issues from the command line, with git and jj integration.
 
-Generated from linear CLI v1.7.0
+Generated from linear CLI v{{VERSION}}
 
 ## Prerequisites
 
@@ -23,35 +23,11 @@ https://github.com/schpet/linear-cli?tab=readme-ov-file#install
 
 ## Available Commands
 
-```
-linear auth               # Manage Linear authentication
-linear issue              # Manage Linear issues
-linear team               # Manage Linear teams
-linear project            # Manage Linear projects
-linear project-update     # Manage project status updates
-linear milestone          # Manage Linear project milestones
-linear initiative         # Manage Linear initiatives
-linear initiative-update  # Manage initiative status updates (timeline posts)
-linear label              # Manage Linear issue labels
-linear document           # Manage Linear documents
-linear config             # Interactively generate .linear.toml configuration
-linear schema             # Print the GraphQL schema to stdout
-```
+{{COMMANDS}}
 
 ## Reference Documentation
 
-- [auth](references/auth.md) - Manage Linear authentication
-- [issue](references/issue.md) - Manage Linear issues
-- [team](references/team.md) - Manage Linear teams
-- [project](references/project.md) - Manage Linear projects
-- [project-update](references/project-update.md) - Manage project status updates
-- [milestone](references/milestone.md) - Manage Linear project milestones
-- [initiative](references/initiative.md) - Manage Linear initiatives
-- [initiative-update](references/initiative-update.md) - Manage initiative status updates (timeline posts)
-- [label](references/label.md) - Manage Linear issue labels
-- [document](references/document.md) - Manage Linear documents
-- [config](references/config.md) - Interactively generate .linear.toml configuration
-- [schema](references/schema.md) - Print the GraphQL schema to stdout
+{{REFERENCE_TOC}}
 
 For curated examples of organization features (initiatives, labels, projects, bulk operations), see **`references/organization-features.md`**.
 
