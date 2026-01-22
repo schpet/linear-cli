@@ -155,6 +155,14 @@ export const listCommand = new Command()
             console.error(`No projects found matching: ${project}`)
             Deno.exit(1)
           }
+          if (!Deno.stdin.isTerminal()) {
+            console.error(
+              `Project "${project}" not found. Similar projects: ${
+                Object.values(projectOptions).join(", ")
+              }`,
+            )
+            Deno.exit(1)
+          }
           projectId = await selectOption("Project", project, projectOptions)
         }
       }
