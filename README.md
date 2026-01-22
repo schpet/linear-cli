@@ -2,6 +2,8 @@
 
 a cli to list, start and create issues in the [linear](https://linear.app/) issue tracker. git and [jj](https://www.jj-vcs.dev/) aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
+**works great with AI agents** — the CLI includes a [skill for Claude Code](#claude-code-skill) that lets agents create issues, update status, and manage your Linear workflow alongside your code.
+
 here's how it works:
 
 ```bash
