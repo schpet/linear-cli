@@ -16,6 +16,7 @@
 - team delete command ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
 - bulk operations support for issue delete (--bulk flag) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
 - document management commands (list, view, create, update, delete) ([#95](https://github.com/schpet/linear-cli/pull/95); thanks [@skgbafa](https://github.com/skgbafa))
+- auto-generate skill documentation from cli help output with deno task generate-skill-docs
 
 ## [1.7.0] - 2026-01-09
 

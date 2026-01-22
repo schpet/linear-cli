@@ -14,7 +14,8 @@
     "test": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR,TMPDIR,TMP,TEMP,XDG_CONFIG_HOME,HOME,APPDATA,PATH,SystemRoot' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname --quiet",
     "snapshot": "deno test '--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,PAGER,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,NO_COLOR,TMPDIR,TMP,TEMP,XDG_CONFIG_HOME,HOME,APPDATA,PATH,SystemRoot' --allow-read --allow-write --allow-run --allow-net=api.linear.app,uploads.linear.app --allow-sys=hostname -- --update",
     "lefthook-install": "deno run --allow-run --allow-read --allow-write --allow-env npm:lefthook install",
-    "validate": "deno task check && deno fmt && deno lint"
+    "validate": "deno task check && deno fmt && deno lint",
+    "generate-skill-docs": "deno run --allow-run --allow-read --allow-write skills/linear-cli/scripts/generate-docs.ts"
   },
   "imports": {
     "@cliffy/ansi": "jsr:@cliffy/ansi@^1.0.0-rc.8",
