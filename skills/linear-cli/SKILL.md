@@ -8,7 +8,7 @@ allowed-tools: Bash(linear:*), Bash(curl:*)
 
 A CLI to manage Linear issues from the command line, with git and jj integration.
 
-Generated from linear CLI v1.7.0
+Generated from linear CLI v1.8.0
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ linear schema             # Print the GraphQL schema to stdout
 - [config](references/config.md) - Interactively generate .linear.toml configuration
 - [schema](references/schema.md) - Print the GraphQL schema to stdout
 
-For curated examples of organization features (initiatives, labels, projects, bulk operations), see **`references/organization-features.md`**.
+For curated examples of organization features (initiatives, labels, projects, bulk operations), see [organization-features](references/organization-features.md).
 
 ## Discovering Options
 

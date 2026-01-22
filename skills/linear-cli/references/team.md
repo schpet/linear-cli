@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear team
-Version: 1.7.0      
+Version: 1.8.0      
 
 Description:
 
@@ -34,7 +34,7 @@ Commands:
 
 ```
 Usage:   linear team create
-Version: 1.7.0             
+Version: 1.8.0             
 
 Description:
 
@@ -57,7 +57,7 @@ Options:
 
 ```
 Usage:   linear team delete <teamKey>
-Version: 1.7.0                       
+Version: 1.8.0                       
 
 Description:
 
@@ -76,7 +76,7 @@ Options:
 
 ```
 Usage:   linear team list
-Version: 1.7.0           
+Version: 1.8.0           
 
 Description:
 
@@ -95,7 +95,7 @@ Options:
 
 ```
 Usage:   linear team id
-Version: 1.7.0         
+Version: 1.8.0         
 
 Description:
 
@@ -112,7 +112,7 @@ Options:
 
 ```
 Usage:   linear team autolinks
-Version: 1.7.0                
+Version: 1.8.0                
 
 Description:
 
@@ -129,7 +129,7 @@ Options:
 
 ```
 Usage:   linear team members [teamKey]
-Version: 1.7.0                        
+Version: 1.8.0                        
 
 Description:
 

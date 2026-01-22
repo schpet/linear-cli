@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear initiative-update
-Version: 1.7.0                   
+Version: 1.8.0                   
 
 Description:
 
@@ -30,7 +30,7 @@ Commands:
 
 ```
 Usage:   linear initiative-update create <initiativeId>
-Version: 1.7.0                                         
+Version: 1.8.0                                         
 
 Description:
 
@@ -52,7 +52,7 @@ Options:
 
 ```
 Usage:   linear initiative-update list <initiativeId>
-Version: 1.7.0                                       
+Version: 1.8.0                                       
 
 Description:
 

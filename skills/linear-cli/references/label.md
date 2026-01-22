@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear label
-Version: 1.7.0       
+Version: 1.8.0       
 
 Description:
 
@@ -31,7 +31,7 @@ Commands:
 
 ```
 Usage:   linear label list
-Version: 1.7.0            
+Version: 1.8.0            
 
 Description:
 
@@ -52,7 +52,7 @@ Options:
 
 ```
 Usage:   linear label create
-Version: 1.7.0              
+Version: 1.8.0              
 
 Description:
 
@@ -74,7 +74,7 @@ Options:
 
 ```
 Usage:   linear label delete <nameOrId>
-Version: 1.7.0                         
+Version: 1.8.0                         
 
 Description:
 

@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear auth
-Version: 1.7.0      
+Version: 1.8.0      
 
 Description:
 
@@ -30,7 +30,7 @@ Commands:
 
 ```
 Usage:   linear auth token
-Version: 1.7.0            
+Version: 1.8.0            
 
 Description:
 
@@ -47,7 +47,7 @@ Options:
 
 ```
 Usage:   linear auth whoami
-Version: 1.7.0             
+Version: 1.8.0             
 
 Description:
 

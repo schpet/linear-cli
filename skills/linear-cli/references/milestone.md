@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear milestone
-Version: 1.7.0           
+Version: 1.8.0           
 
 Description:
 
@@ -33,7 +33,7 @@ Commands:
 
 ```
 Usage:   linear milestone list --project <projectId>
-Version: 1.7.0                                      
+Version: 1.8.0                                      
 
 Description:
 
@@ -51,7 +51,7 @@ Options:
 
 ```
 Usage:   linear milestone view <milestoneId>
-Version: 1.7.0                              
+Version: 1.8.0                              
 
 Description:
 
@@ -68,7 +68,7 @@ Options:
 
 ```
 Usage:   linear milestone create --project <projectId> --name <name>
-Version: 1.7.0                                                      
+Version: 1.8.0                                                      
 
 Description:
 
@@ -89,7 +89,7 @@ Options:
 
 ```
 Usage:   linear milestone update <id>
-Version: 1.7.0                       
+Version: 1.8.0                       
 
 Description:
 
@@ -110,7 +110,7 @@ Options:
 
 ```
 Usage:   linear milestone delete <id>
-Version: 1.7.0                       
+Version: 1.8.0                       
 
 Description:
 

@@ -29,7 +29,7 @@ https://github.com/schpet/linear-cli?tab=readme-ov-file#install
 
 {{REFERENCE_TOC}}
 
-For curated examples of organization features (initiatives, labels, projects, bulk operations), see **`references/organization-features.md`**.
+For curated examples of organization features (initiatives, labels, projects, bulk operations), see [organization-features](references/organization-features.md).
 
 ## Discovering Options
 

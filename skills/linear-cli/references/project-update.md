@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear project-update
-Version: 1.7.0                
+Version: 1.8.0                
 
 Description:
 
@@ -30,7 +30,7 @@ Commands:
 
 ```
 Usage:   linear project-update create <projectId>
-Version: 1.7.0                                   
+Version: 1.8.0                                   
 
 Description:
 
@@ -52,7 +52,7 @@ Options:
 
 ```
 Usage:   linear project-update list <projectId>
-Version: 1.7.0                                 
+Version: 1.8.0                                 
 
 Description:
 
