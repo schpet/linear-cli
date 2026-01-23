@@ -58,4 +58,3 @@ stderr:
 "No update fields provided. Use --title, --content, --content-file, --icon, or --edit.
 "
 `;
-

@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear project
-Version: 1.8.0         
+Version: 1.8.1         
 
 Description:
 
@@ -14,7 +14,8 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.  
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -31,7 +32,7 @@ Commands:
 
 ```
 Usage:   linear project list
-Version: 1.8.0              
+Version: 1.8.1              
 
 Description:
 
@@ -39,12 +40,13 @@ Description:
 
 Options:
 
-  -h, --help             - Show this help.               
-  --team       <team>    - Filter by team key            
-  --all-teams            - Show projects from all teams  
-  --status     <status>  - Filter by status name         
-  -w, --web              - Open in web browser           
-  -a, --app              - Open in Linear.app
+  -h, --help                 - Show this help.                      
+  -w, --workspace  <slug>    - Target workspace (uses credentials)  
+  --team           <team>    - Filter by team key                   
+  --all-teams                - Show projects from all teams         
+  --status         <status>  - Filter by status name                
+  -w, --web                  - Open in web browser                  
+  -a, --app                  - Open in Linear.app
 ```
 
 ### view
@@ -53,7 +55,7 @@ Options:
 
 ```
 Usage:   linear project view <projectId>
-Version: 1.8.0                          
+Version: 1.8.1                          
 
 Description:
 
@@ -61,9 +63,10 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.      
-  -w, --web   - Open in web browser  
-  -a, --app   - Open in Linear.app
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -w, --web                - Open in web browser                  
+  -a, --app                - Open in Linear.app
 ```
 
 ### create
@@ -72,7 +75,7 @@ Options:
 
 ```
 Usage:   linear project create
-Version: 1.8.0                
+Version: 1.8.1                
 
 Description:
 
@@ -81,6 +84,7 @@ Description:
 Options:
 
   -h, --help                        - Show this help.                                                          
+  -w, --workspace    <slug>         - Target workspace (uses credentials)                                      
   -n, --name         <name>         - Project name (required)                                                  
   -d, --description  <description>  - Project description                                                      
   -t, --team         <team>         - Team key (required, can be repeated for multiple teams)                  

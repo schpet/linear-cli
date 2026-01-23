@@ -13,14 +13,23 @@ import { labelCommand } from "./commands/label/label.ts"
 import { documentCommand } from "./commands/document/document.ts"
 import { configCommand } from "./commands/config.ts"
 import { schemaCommand } from "./commands/schema.ts"
+import { setCliWorkspace } from "./config.ts"
 
-// Import config setup
+// Import config and credentials setup
 import "./config.ts"
+import "./credentials.ts"
 
 await new Command()
   .name("linear")
   .version(denoConfig.version)
   .description("Handy linear commands from the command line")
+  .globalOption(
+    "-w, --workspace <slug:string>",
+    "Target workspace (uses credentials)",
+  )
+  .globalAction((options) => {
+    setCliWorkspace(options.workspace)
+  })
   .action(() => {
     console.log("Use --help to see available commands")
   })

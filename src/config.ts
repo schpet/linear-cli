@@ -162,3 +162,14 @@ export function getOption<T extends OptionName>(
   }
   return undefined as Options[T]
 }
+
+// CLI workspace set via --workspace flag
+let cliWorkspace: string | undefined
+
+export function setCliWorkspace(workspace: string | undefined) {
+  cliWorkspace = workspace
+}
+
+export function getCliWorkspace(): string | undefined {
+  return cliWorkspace
+}

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- built-in credential storage at `~/.config/linear/credentials.toml` for managing multiple Linear workspaces
+- `linear auth login` to add workspace credentials (auto-detects workspace from API key)
+- `linear auth logout` to remove workspace credentials
+- `linear auth list` to show configured workspaces with org/user info
+- `linear auth default` to set the default workspace
+- global `-w, --workspace` flag to target a specific workspace by slug
+
 ## [1.8.1] - 2026-01-23
 
 ### Fixed
