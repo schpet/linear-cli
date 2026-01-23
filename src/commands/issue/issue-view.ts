@@ -11,6 +11,7 @@ import { ensureDir } from "@std/fs"
 import { join } from "@std/path"
 import { encodeHex } from "@std/encoding/hex"
 import { getOption } from "../../config.ts"
+import { getResolvedApiKey } from "../../utils/graphql.ts"
 import sanitize from "sanitize-filename"
 import { unified } from "unified"
 import remarkParse from "remark-parse"
@@ -449,7 +450,7 @@ async function downloadImage(
 
   const headers: Record<string, string> = {}
   if (url.includes("uploads.linear.app")) {
-    const apiKey = getOption("api_key")
+    const apiKey = getResolvedApiKey()
     if (apiKey) {
       headers["Authorization"] = apiKey
     }

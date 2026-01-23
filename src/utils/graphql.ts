@@ -1,6 +1,7 @@
 import { ClientError, GraphQLClient } from "graphql-request"
 import { gray, setColorEnabled } from "@std/fmt/colors"
-import { getOption } from "../config.ts"
+import { getCliWorkspace, getOption } from "../config.ts"
+import { getCredentialApiKey } from "../credentials.ts"
 import denoConfig from "../../deno.json" with { type: "json" }
 
 export { ClientError }
@@ -35,21 +36,68 @@ export function logClientError(error: ClientError): void {
   console.error(gray(vars))
 }
 
-export function getGraphQLClient(): GraphQLClient {
-  const apiKey = getOption("api_key")
-  if (!apiKey) {
-    throw new Error(
-      "api_key is not set via command line, configuration file, or environment.",
-    )
+/**
+ * Get the resolved API key following the precedence chain:
+ * 1. --api-key CLI flag (explicit key)
+ * 2. LINEAR_API_KEY env var
+ * 3. api_key in project config
+ * 4. --workspace flag → credentials lookup
+ * 5. Project's workspace config → credentials lookup
+ * 6. default workspace from credentials file
+ */
+export function getResolvedApiKey(): string | undefined {
+  // 1-3: Check existing sources (CLI flag, env var, project config)
+  const configApiKey = getOption("api_key")
+  if (configApiKey) {
+    return configApiKey
   }
 
-  const endpoint = Deno.env.get("LINEAR_GRAPHQL_ENDPOINT") ||
-    "https://api.linear.app/graphql"
+  // 4: --workspace flag → credentials lookup
+  const cliWorkspace = getCliWorkspace()
+  if (cliWorkspace) {
+    const key = getCredentialApiKey(cliWorkspace)
+    if (key) return key
+  }
 
-  return new GraphQLClient(endpoint, {
+  // 5: Project's workspace config → credentials lookup
+  const projectWorkspace = getOption("workspace")
+  if (projectWorkspace) {
+    const key = getCredentialApiKey(projectWorkspace)
+    if (key) return key
+  }
+
+  // 6: Default workspace from credentials file
+  return getCredentialApiKey()
+}
+
+/**
+ * Get the GraphQL endpoint URL.
+ */
+export function getGraphQLEndpoint(): string {
+  return Deno.env.get("LINEAR_GRAPHQL_ENDPOINT") ||
+    "https://api.linear.app/graphql"
+}
+
+/**
+ * Create a GraphQL client with an explicit API key.
+ * Use this when you need to validate a specific key (e.g., during auth login).
+ */
+export function createGraphQLClient(apiKey: string): GraphQLClient {
+  return new GraphQLClient(getGraphQLEndpoint(), {
     headers: {
       Authorization: apiKey,
       "User-Agent": `schpet-linear-cli/${denoConfig.version}`,
     },
   })
+}
+
+export function getGraphQLClient(): GraphQLClient {
+  const apiKey = getResolvedApiKey()
+  if (!apiKey) {
+    throw new Error(
+      "No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.",
+    )
+  }
+
+  return createGraphQLClient(apiKey)
 }

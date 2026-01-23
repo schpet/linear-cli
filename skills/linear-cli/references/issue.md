@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear issue
-Version: 1.8.0       
+Version: 1.8.1       
 
 Description:
 
@@ -14,7 +14,8 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.  
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -41,7 +42,7 @@ Commands:
 
 ```
 Usage:   linear issue id
-Version: 1.8.0          
+Version: 1.8.1          
 
 Description:
 
@@ -49,7 +50,8 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### list
@@ -58,7 +60,7 @@ Options:
 
 ```
 Usage:   linear issue list
-Version: 1.8.0            
+Version: 1.8.1            
 
 Description:
 
@@ -67,6 +69,7 @@ Description:
 Options:
 
   -h, --help                       - Show this help.                                                                                                              
+  -w, --workspace      <slug>      - Target workspace (uses credentials)                                                                                          
   -s, --state          <state>     - Filter by issue state (can be repeated for multiple states)           (Default: [ "unstarted" ], Values: "triage", "backlog",
                                                                                                            "unstarted", "started", "completed", "canceled")       
   --all-states                     - Show issues from all states                                                                                                  
@@ -88,7 +91,7 @@ Options:
 
 ```
 Usage:   linear issue title [issueId]
-Version: 1.8.0                       
+Version: 1.8.1                       
 
 Description:
 
@@ -96,7 +99,8 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### start
@@ -105,7 +109,7 @@ Options:
 
 ```
 Usage:   linear issue start [issueId]
-Version: 1.8.0                       
+Version: 1.8.1                       
 
 Description:
 
@@ -114,6 +118,7 @@ Description:
 Options:
 
   -h, --help                      - Show this help.                                            
+  -w, --workspace      <slug>     - Target workspace (uses credentials)                        
   -A, --all-assignees             - Show issues for all assignees                              
   -U, --unassigned                - Show only unassigned issues                                
   -f, --from-ref       <fromRef>  - Git ref to create new branch from                          
@@ -126,7 +131,7 @@ Options:
 
 ```
 Usage:   linear issue view [issueId]
-Version: 1.8.0                      
+Version: 1.8.1                      
 
 Description:
 
@@ -134,13 +139,14 @@ Description:
 
 Options:
 
-  -h, --help     - Show this help.                                
-  -w, --web      - Open in web browser                            
-  -a, --app      - Open in Linear.app                             
-  --no-comments  - Exclude comments from the output               
-  --no-pager     - Disable automatic paging for long output       
-  -j, --json     - Output issue data as JSON                      
-  --no-download  - Keep remote URLs instead of downloading files
+  -h, --help               - Show this help.                                
+  -w, --workspace  <slug>  - Target workspace (uses credentials)            
+  -w, --web                - Open in web browser                            
+  -a, --app                - Open in Linear.app                             
+  --no-comments            - Exclude comments from the output               
+  --no-pager               - Disable automatic paging for long output       
+  -j, --json               - Output issue data as JSON                      
+  --no-download            - Keep remote URLs instead of downloading files
 ```
 
 ### url
@@ -149,7 +155,7 @@ Options:
 
 ```
 Usage:   linear issue url [issueId]
-Version: 1.8.0                     
+Version: 1.8.1                     
 
 Description:
 
@@ -157,7 +163,8 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### describe
@@ -166,7 +173,7 @@ Options:
 
 ```
 Usage:   linear issue describe [issueId]
-Version: 1.8.0                          
+Version: 1.8.1                          
 
 Description:
 
@@ -174,8 +181,9 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                                                
-  -r, --references, --ref  - Use 'References' instead of 'Fixes' for the Linear issue link
+  -h, --help                       - Show this help.                                                
+  -w, --workspace          <slug>  - Target workspace (uses credentials)                            
+  -r, --references, --ref          - Use 'References' instead of 'Fixes' for the Linear issue link
 ```
 
 ### commits
@@ -184,7 +192,7 @@ Options:
 
 ```
 Usage:   linear issue commits [issueId]
-Version: 1.8.0                         
+Version: 1.8.1                         
 
 Description:
 
@@ -192,7 +200,8 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### pull-request
@@ -201,7 +210,7 @@ Options:
 
 ```
 Usage:   linear issue pull-request [issueId]
-Version: 1.8.0                              
+Version: 1.8.1                              
 
 Description:
 
@@ -209,12 +218,13 @@ Description:
 
 Options:
 
-  -h, --help             - Show this help.                                                         
-  --base       <branch>  - The branch into which you want your code merged                         
-  --draft                - Create the pull request as a draft                                      
-  -t, --title  <title>   - Optional title for the pull request (Linear issue ID will be prefixed)  
-  --web                  - Open the pull request in the browser after creating it                  
-  --head       <branch>  - The branch that contains commits for your pull request
+  -h, --help                 - Show this help.                                                         
+  -w, --workspace  <slug>    - Target workspace (uses credentials)                                     
+  --base           <branch>  - The branch into which you want your code merged                         
+  --draft                    - Create the pull request as a draft                                      
+  -t, --title      <title>   - Optional title for the pull request (Linear issue ID will be prefixed)  
+  --web                      - Open the pull request in the browser after creating it                  
+  --head           <branch>  - The branch that contains commits for your pull request
 ```
 
 ### delete
@@ -223,7 +233,7 @@ Options:
 
 ```
 Usage:   linear issue delete [issueId]
-Version: 1.8.0                        
+Version: 1.8.1                        
 
 Description:
 
@@ -231,12 +241,13 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                                             
-  -y, --confirm            - Skip confirmation prompt                                    
-  --no-color               - Disable colored output                                      
-  --bulk         <ids...>  - Delete multiple issues by identifier (e.g., TC-123 TC-124)  
-  --bulk-file    <file>    - Read issue identifiers from a file (one per line)           
-  --bulk-stdin             - Read issue identifiers from stdin
+  -h, --help                 - Show this help.                                             
+  -w, --workspace  <slug>    - Target workspace (uses credentials)                         
+  -y, --confirm              - Skip confirmation prompt                                    
+  --no-color                 - Disable colored output                                      
+  --bulk           <ids...>  - Delete multiple issues by identifier (e.g., TC-123 TC-124)  
+  --bulk-file      <file>    - Read issue identifiers from a file (one per line)           
+  --bulk-stdin               - Read issue identifiers from stdin
 ```
 
 ### create
@@ -245,7 +256,7 @@ Options:
 
 ```
 Usage:   linear issue create
-Version: 1.8.0              
+Version: 1.8.1              
 
 Description:
 
@@ -254,6 +265,7 @@ Description:
 Options:
 
   -h, --help                                - Show this help.                                              
+  -w, --workspace            <slug>         - Target workspace (uses credentials)                          
   --start                                   - Start the issue after creation                               
   -a, --assignee             <assignee>     - Assign the issue to 'self' or someone (by username or name)  
   --due-date                 <dueDate>      - Due date of the issue                                        
@@ -277,7 +289,7 @@ Options:
 
 ```
 Usage:   linear issue update [issueId]
-Version: 1.8.0                        
+Version: 1.8.1                        
 
 Description:
 
@@ -286,6 +298,7 @@ Description:
 Options:
 
   -h, --help                        - Show this help.                                              
+  -w, --workspace    <slug>         - Target workspace (uses credentials)                          
   -a, --assignee     <assignee>     - Assign the issue to 'self' or someone (by username or name)  
   --due-date         <dueDate>      - Due date of the issue                                        
   -p, --parent       <parent>       - Parent issue (if any) as a team_number code                  
@@ -306,7 +319,7 @@ Options:
 
 ```
 Usage:   linear issue comment
-Version: 1.8.0               
+Version: 1.8.1               
 
 Description:
 
@@ -314,7 +327,8 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.  
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -329,7 +343,7 @@ Commands:
 
 ```
 Usage:   linear issue comment add [issueId]
-Version: 1.8.0                             
+Version: 1.8.1                             
 
 Description:
 
@@ -337,16 +351,17 @@ Description:
 
 Options:
 
-  -h, --help            - Show this help.                
-  -b, --body    <text>  - Comment body text              
-  -p, --parent  <id>    - Parent comment ID for replies
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -b, --body       <text>  - Comment body text                    
+  -p, --parent     <id>    - Parent comment ID for replies
 ```
 
 ##### update
 
 ```
 Usage:   linear issue comment update <commentId>
-Version: 1.8.0                                  
+Version: 1.8.1                                  
 
 Description:
 
@@ -354,15 +369,16 @@ Description:
 
 Options:
 
-  -h, --help          - Show this help.        
-  -b, --body  <text>  - New comment body text
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -b, --body       <text>  - New comment body text
 ```
 
 ##### list
 
 ```
 Usage:   linear issue comment list [issueId]
-Version: 1.8.0                              
+Version: 1.8.1                              
 
 Description:
 
@@ -370,6 +386,7 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.  
-  -j, --json  - Output as JSON
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json               - Output as JSON
 ```

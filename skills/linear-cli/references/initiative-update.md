@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear initiative-update
-Version: 1.8.0                   
+Version: 1.8.1                   
 
 Description:
 
@@ -14,7 +14,8 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.  
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -30,7 +31,7 @@ Commands:
 
 ```
 Usage:   linear initiative-update create <initiativeId>
-Version: 1.8.0                                         
+Version: 1.8.1                                         
 
 Description:
 
@@ -39,6 +40,7 @@ Description:
 Options:
 
   -h, --help                   - Show this help.                            
+  -w, --workspace    <slug>    - Target workspace (uses credentials)        
   --body             <body>    - Update content (markdown)                  
   --body-file        <path>    - Read content from file                     
   --health           <health>  - Health status (onTrack, atRisk, offTrack)  
@@ -52,7 +54,7 @@ Options:
 
 ```
 Usage:   linear initiative-update list <initiativeId>
-Version: 1.8.0                                       
+Version: 1.8.1                                       
 
 Description:
 
@@ -60,7 +62,8 @@ Description:
 
 Options:
 
-  -h, --help           - Show this help.               
-  -j, --json           - Output as JSON                
-  --limit     <limit>  - Limit results    (Default: 10)
+  -h, --help                - Show this help.                                   
+  -w, --workspace  <slug>   - Target workspace (uses credentials)               
+  -j, --json                - Output as JSON                                    
+  --limit          <limit>  - Limit results                        (Default: 10)
 ```

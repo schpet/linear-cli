@@ -66,24 +66,20 @@ deno task install
 
 1. create an API key at [linear.app/settings/account/security](https://linear.app/settings/account/security)[^1]
 
-2. add the API key to your shell environment:
+2. authenticate with the CLI:
 
    ```sh
-   # in ~/.bashrc or ~/.zshrc:
-   export LINEAR_API_KEY="lin_api_..."
-
-   # or in fish:
-   set -Ux LINEAR_API_KEY "lin_api_..."
+   linear auth login
    ```
 
-3. run the configuration wizard:
+3. configure your project:
 
    ```sh
    cd my-project-repo
    linear config
    ```
 
-   _this will create a `.linear.toml` config file in your repository with your workspace and team settings._
+see [docs/authentication.md](docs/authentication.md) for multi-workspace support and other authentication options.
 
 the CLI works with both git and jj version control systems:
 
@@ -209,8 +205,7 @@ the CLI supports configuration via environment variables or a `.linear.toml` con
 
 | option          | env var                  | toml key          | example                    | description                           |
 | --------------- | ------------------------ | ----------------- | -------------------------- | ------------------------------------- |
-| API key         | `LINEAR_API_KEY`         | `api_key`         | `"lin_api_..."`            | your Linear API key (required)        |
-| Team ID         | `LINEAR_TEAM_ID`         | `team_id`         | `"TEAM_abc123"`            | default team for operations           |
+| Team ID         | `LINEAR_TEAM_ID`         | `team_id`         | `"ENG"`                    | default team for operations           |
 | Workspace       | `LINEAR_WORKSPACE`       | `workspace`       | `"mycompany"`              | workspace slug for web/app URLs       |
 | Issue sort      | `LINEAR_ISSUE_SORT`      | `issue_sort`      | `"priority"` or `"manual"` | how to sort issue lists               |
 | VCS             | `LINEAR_VCS`             | `vcs`             | `"git"` or `"jj"`          | version control system (default: git) |

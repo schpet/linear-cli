@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear schema
-Version: 1.8.0        
+Version: 1.8.1        
 
 Description:
 
@@ -14,7 +14,8 @@ Description:
 
 Options:
 
-  -h, --help            - Show this help.                                     
-  --json                - Output as JSON introspection result instead of SDL  
-  -o, --output  <file>  - Write schema to file instead of stdout
+  -h, --help               - Show this help.                                     
+  -w, --workspace  <slug>  - Target workspace (uses credentials)                 
+  --json                   - Output as JSON introspection result instead of SDL  
+  -o, --output     <file>  - Write schema to file instead of stdout
 ```
