@@ -64,6 +64,9 @@ deno task install
 
 ## setup
 
+> [!WARNING]
+> The `linear auth login` command is new and may have issues. For stable release setup instructions, see the [v1.8.1 README](https://github.com/schpet/linear-cli/blob/v1.8.1/README.md).
+
 1. create an API key at [linear.app/settings/account/security](https://linear.app/settings/account/security)[^1]
 
 2. authenticate with the CLI:
