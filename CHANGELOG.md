@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-01-23
+
+### Fixed
+
+- sync deno permissions to compiled binaries ensuring uploads, public downloads, and config paths work correctly
+
 ## [1.8.0] - 2026-01-22
 
 ### Fixed
@@ -331,7 +337,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/schpet/linear-cli/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/schpet/linear-cli/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/schpet/linear-cli/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/schpet/linear-cli/compare/v1.5.0...v1.6.0
