@@ -361,11 +361,13 @@ export async function fetchIssuesForState(
   allAssignees = false,
   limit?: number,
   projectId?: string,
+  sortParam?: "manual" | "priority",
 ) {
-  const sort = getOption("issue_sort") as "manual" | "priority" | undefined
+  const sort = sortParam ??
+    getOption("issue_sort") as "manual" | "priority" | undefined
   if (!sort) {
     console.error(
-      "Sort must be provided via configuration file or LINEAR_ISSUE_SORT environment variable",
+      "Sort must be provided via --sort parameter, configuration file, or LINEAR_ISSUE_SORT environment variable",
     )
     Deno.exit(1)
   }
