@@ -3,6 +3,8 @@ import { prompt, Select } from "@cliffy/prompt"
 import { join } from "@std/path"
 import { gql } from "../__codegen__/gql.ts"
 import { getGraphQLClient } from "../utils/graphql.ts"
+import { getDefaultWorkspace, getWorkspaces } from "../credentials.ts"
+import { getCliWorkspace, getOption, setCliWorkspace } from "../config.ts"
 
 const configQuery = gql(`
   query Config {
@@ -33,15 +35,35 @@ export const configCommand = new Command()
 ███████ ██ ██   ████ ███████ ██   ██ ██   ██     ██████ ███████ ██
 `)
 
-    const apiKey = Deno.env.get("LINEAR_API_KEY")
-    if (!apiKey) {
-      console.error("The LINEAR_API_KEY environment variable is required.")
-      console.error(
-        "Create an API key at https://linear.app/settings/account/security",
-      )
-      console.error("For bash/zsh, run: export LINEAR_API_KEY=your_key")
-      console.error("For fish, run: set -gx LINEAR_API_KEY your_key")
-      Deno.exit(1)
+    // Check for explicit API key sources (env var, config, or --workspace flag)
+    const hasExplicitApiKey = Deno.env.get("LINEAR_API_KEY") ||
+      getOption("api_key") ||
+      getCliWorkspace()
+
+    if (!hasExplicitApiKey) {
+      const workspaces = getWorkspaces()
+      if (workspaces.length === 0) {
+        console.error("No authentication configured.")
+        console.error("Run `linear auth login` to add a workspace.")
+        Deno.exit(1)
+      }
+
+      if (workspaces.length === 1) {
+        // Single workspace - use automatically
+        setCliWorkspace(workspaces[0])
+      } else {
+        // Multiple workspaces - prompt to select
+        const defaultWorkspace = getDefaultWorkspace()
+        const selected = await Select.prompt({
+          message: "Select workspace:",
+          options: workspaces.map((ws) => ({
+            name: ws + (ws === defaultWorkspace ? " (default)" : ""),
+            value: ws,
+          })),
+          default: defaultWorkspace,
+        })
+        setCliWorkspace(selected)
+      }
     }
 
     const client = getGraphQLClient()
