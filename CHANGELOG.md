@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix `--assignee self` to correctly resolve to current user ([#104](https://github.com/schpet/linear-cli/pull/104); thanks @JustTrott)
+
 ### Added
 
 - built-in credential storage at `~/.config/linear/credentials.toml` for managing multiple Linear workspaces
