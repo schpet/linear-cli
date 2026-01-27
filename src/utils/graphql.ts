@@ -38,35 +38,54 @@ export function logClientError(error: ClientError): void {
 
 /**
  * Get the resolved API key following the precedence chain:
- * 1. --api-key CLI flag (explicit key)
- * 2. LINEAR_API_KEY env var
- * 3. api_key in project config
- * 4. --workspace flag → credentials lookup
- * 5. Project's workspace config → credentials lookup
- * 6. default workspace from credentials file
+ * 1. LINEAR_API_KEY env var (conflicts with --workspace)
+ * 2. api_key in project config
+ * 3. --workspace flag → credentials lookup
+ * 4. Project's workspace config → credentials lookup
+ * 5. default workspace from credentials file
  */
 export function getResolvedApiKey(): string | undefined {
-  // 1-3: Check existing sources (CLI flag, env var, project config)
+  const cliWorkspace = getCliWorkspace()
+  const envApiKey = Deno.env.get("LINEAR_API_KEY")
+
+  // Error if both LINEAR_API_KEY and --workspace are set
+  if (envApiKey && cliWorkspace) {
+    throw new Error(
+      "Cannot use --workspace flag when LINEAR_API_KEY environment variable is set. " +
+        "Either unset LINEAR_API_KEY or remove the --workspace flag.",
+    )
+  }
+
+  // 1: LINEAR_API_KEY env var
+  if (envApiKey) {
+    return envApiKey
+  }
+
+  // 2: api_key in project config
   const configApiKey = getOption("api_key")
   if (configApiKey) {
     return configApiKey
   }
 
-  // 4: --workspace flag → credentials lookup
-  const cliWorkspace = getCliWorkspace()
+  // 3: --workspace flag → credentials lookup
   if (cliWorkspace) {
     const key = getCredentialApiKey(cliWorkspace)
     if (key) return key
+    // Explicit --workspace flag must match a configured workspace
+    throw new Error(
+      `Workspace "${cliWorkspace}" not found in credentials. ` +
+        `Run \`linear auth login\` to add it, or \`linear auth list\` to see configured workspaces.`,
+    )
   }
 
-  // 5: Project's workspace config → credentials lookup
+  // 4: Project's workspace config → credentials lookup
   const projectWorkspace = getOption("workspace")
   if (projectWorkspace) {
     const key = getCredentialApiKey(projectWorkspace)
     if (key) return key
   }
 
-  // 6: Default workspace from credentials file
+  // 5: Default workspace from credentials file
   return getCredentialApiKey()
 }
 
