@@ -603,11 +603,11 @@ export async function searchTeamsByKeySubstring(
 
 export async function lookupUserId(
   /**
-   * email, username, display name, or '@me' for viewer
+   * email, username, display name, 'self', or '@me' for viewer
    */
-  input: "@me" | string,
+  input: "self" | "@me" | string,
 ): Promise<string | undefined> {
-  if (input === "@me") {
+  if (input === "@me" || input === "self") {
     const client = getGraphQLClient()
     const query = gql(/* GraphQL */ `
       query GetViewerId {

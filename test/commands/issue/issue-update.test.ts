@@ -51,19 +51,14 @@ await snapshotTest({
           },
         },
       },
-      // Mock response for lookupUserId("self")
+      // Mock response for lookupUserId("self") - resolves to viewer
       {
-        queryName: "LookupUser",
-        variables: { input: "self" },
+        queryName: "GetViewerId",
+        variables: {},
         response: {
           data: {
-            users: {
-              nodes: [{
-                id: "user-self-123",
-                email: "self@example.com",
-                displayName: "Self User",
-                name: "self",
-              }],
+            viewer: {
+              id: "user-self-123",
             },
           },
         },
