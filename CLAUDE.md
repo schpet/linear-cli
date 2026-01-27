@@ -15,6 +15,12 @@
 - see [docs/deno-permissions.md](docs/deno-permissions.md) for the full list of files to update when adding new permissions
 - key files: `deno.json` (tasks), `dist-workspace.toml` (release builds), test files
 
+## error handling
+
+- never fail silently - if something goes wrong or a lookup fails, throw an error with a helpful message
+- when user-provided input (flags, args) doesn't match expected values, error immediately with guidance on how to fix it
+- avoid falling back to defaults when explicit user input is invalid; explicit input should either work or error
+
 ## tests
 
 - tests on commands should mirror the directory structure of the src, e.g.
