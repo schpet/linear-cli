@@ -102,7 +102,7 @@ export const listCommand = new Command()
     ) => {
       const usePager = pager !== false
       if (web || app) {
-        await openTeamAssigneeView({ app: app })
+        await openTeamAssigneeView({ app: app, team })
         return
       }
 

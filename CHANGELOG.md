@@ -5,6 +5,7 @@
 ### Fixed
 
 - Fix `--assignee self` to correctly resolve to current user ([#104](https://github.com/schpet/linear-cli/pull/104); thanks @JustTrott)
+- issue list --web/--app now respects --team flag and works without workspace configured
 
 ### Added
 
