@@ -235,7 +235,11 @@ await snapshotTest({
       // Second page
       {
         queryName: "GetTeams",
-        variables: { filter: undefined, first: 100, after: "cursor-page-1-end" },
+        variables: {
+          filter: undefined,
+          first: 100,
+          after: "cursor-page-1-end",
+        },
         response: {
           data: {
             teams: {
