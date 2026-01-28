@@ -133,6 +133,18 @@ export const viewCommand = new Command()
         outputLines.push(...renderedHierarchy.split("\n"))
       }
 
+      // Add attachments (PRs, etc.)
+      const attachmentsMarkdown = formatAttachmentsAsMarkdown(
+        issueData.attachments,
+      )
+      if (attachmentsMarkdown) {
+        const renderedAttachments = renderMarkdown(attachmentsMarkdown, {
+          lineWidth: terminalWidth,
+          extensions,
+        })
+        outputLines.push(...renderedAttachments.split("\n"))
+      }
+
       // Add comments if enabled
       if (showComments && issueComments && issueComments.length > 0) {
         outputLines.push("") // Empty line before comments
@@ -159,6 +171,9 @@ export const viewCommand = new Command()
         issueData.parent,
         issueData.children,
       )
+
+      // Add attachments (PRs, etc.)
+      markdown += formatAttachmentsAsMarkdown(issueData.attachments)
 
       if (showComments && issueComments && issueComments.length > 0) {
         markdown += "\n\n## Comments\n\n"
@@ -195,6 +210,32 @@ function formatIssueHierarchyAsMarkdown(
       markdown +=
         `- **${child.identifier}**: ${child.title} _[${child.state.name}]_\n`
     }
+  }
+
+  return markdown
+}
+
+// Helper type for attachment display
+type AttachmentRef = {
+  title: string
+  url: string
+  sourceType?: string | null
+}
+
+// Helper function to format attachments as markdown
+function formatAttachmentsAsMarkdown(
+  attachments: AttachmentRef[] | undefined,
+): string {
+  if (!attachments || attachments.length === 0) {
+    return ""
+  }
+
+  let markdown = `\n\n## Attachments\n\n`
+  for (const attachment of attachments) {
+    const sourceLabel = attachment.sourceType
+      ? ` _[${attachment.sourceType}]_`
+      : ""
+    markdown += `- [${attachment.title}](${attachment.url})${sourceLabel}\n`
   }
 
   return markdown

@@ -176,6 +176,11 @@ export async function fetchIssueDetails(
     title: string
     state: { name: string; color: string }
   }>
+  attachments?: Array<{
+    title: string
+    url: string
+    sourceType?: string | null
+  }>
   comments?: Array<{
     id: string
     body: string
@@ -217,6 +222,13 @@ export async function fetchIssueDetails(
                 name
                 color
               }
+            }
+          }
+          attachments {
+            nodes {
+              title
+              url
+              sourceType
             }
           }
           comments(first: 50, orderBy: createdAt) {
@@ -271,6 +283,13 @@ export async function fetchIssueDetails(
               }
             }
           }
+          attachments {
+            nodes {
+              title
+              url
+              sourceType
+            }
+          }
         }
       }
     `)
@@ -283,6 +302,7 @@ export async function fetchIssueDetails(
       return {
         ...data.issue,
         children: data.issue.children?.nodes || [],
+        attachments: data.issue.attachments?.nodes || [],
         comments: data.issue.comments?.nodes || [],
       }
     } else {
@@ -291,6 +311,7 @@ export async function fetchIssueDetails(
       return {
         ...data.issue,
         children: data.issue.children?.nodes || [],
+        attachments: data.issue.attachments?.nodes || [],
       }
     }
   } catch (error) {
