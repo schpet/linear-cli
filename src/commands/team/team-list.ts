@@ -2,13 +2,14 @@ import { Command } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { open } from "@opensrc/deno-open"
 import { gql } from "../../__codegen__/gql.ts"
+import type { GetTeamsQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay } from "../../utils/display.ts"
 import { getOption } from "../../config.ts"
 
 const GetTeams = gql(`
-  query GetTeams($filter: TeamFilter) {
-    teams(filter: $filter) {
+  query GetTeams($filter: TeamFilter, $first: Int, $after: String) {
+    teams(filter: $filter, first: $first, after: $after) {
       nodes {
         id
         name
@@ -24,6 +25,10 @@ const GetTeams = gql(`
           id
           name
         }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }
@@ -57,13 +62,30 @@ export const listCommand = new Command()
 
     try {
       const client = getGraphQLClient()
-      const result = await client.request(GetTeams, { filter: undefined })
+
+      // Fetch all teams with pagination
+      const allTeams = []
+      let hasNextPage = true
+      let after: string | null | undefined = undefined
+
+      while (hasNextPage) {
+        const result: GetTeamsQuery = await client.request(GetTeams, {
+          filter: undefined,
+          first: 100,
+          after,
+        })
+
+        const teams = result.teams?.nodes || []
+        allTeams.push(...teams)
+
+        hasNextPage = result.teams?.pageInfo?.hasNextPage || false
+        after = result.teams?.pageInfo?.endCursor
+      }
+
       spinner?.stop()
 
-      let teams = result.teams?.nodes || []
-
       // Filter out archived teams
-      teams = teams.filter((team) => !team.archivedAt)
+      let teams = allTeams.filter((team) => !team.archivedAt)
 
       if (teams.length === 0) {
         console.log("No teams found.")
