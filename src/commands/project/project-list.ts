@@ -12,8 +12,8 @@ import { getTeamKey } from "../../utils/linear.ts"
 import { getOption } from "../../config.ts"
 
 const GetProjects = gql(`
-  query GetProjects($filter: ProjectFilter) {
-    projects(filter: $filter) {
+  query GetProjects($filter: ProjectFilter, $first: Int, $after: String) {
+    projects(filter: $filter, first: $first, after: $after) {
       nodes {
         id
         name
@@ -47,6 +47,10 @@ const GetProjects = gql(`
             key
           }
         }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }
@@ -116,12 +120,29 @@ export const listCommand = new Command()
       }
 
       const client = getGraphQLClient()
-      const result = await client.request(GetProjects, {
-        filter: Object.keys(filter).length > 0 ? filter : undefined,
-      })
+
+      // Fetch all projects with pagination
+      const allProjects: GetProjectsQuery["projects"]["nodes"] = []
+      let hasNextPage = true
+      let after: string | null | undefined = undefined
+
+      while (hasNextPage) {
+        const result: GetProjectsQuery = await client.request(GetProjects, {
+          filter: Object.keys(filter).length > 0 ? filter : undefined,
+          first: 100,
+          after,
+        })
+
+        const projects = result.projects?.nodes || []
+        allProjects.push(...projects)
+
+        hasNextPage = result.projects?.pageInfo?.hasNextPage || false
+        after = result.projects?.pageInfo?.endCursor
+      }
+
       spinner?.stop()
 
-      let projects = result.projects?.nodes || []
+      let projects = allProjects
 
       if (projects.length === 0) {
         console.log("No projects found.")
