@@ -614,6 +614,7 @@ type AttachmentInfo = {
   title: string
   url: string
   subtitle?: string | null
+  sourceType?: string | null
   metadata: Record<string, unknown>
   createdAt: string
 }
@@ -711,11 +712,14 @@ function formatAttachmentsAsMarkdown(
 
   for (const attachment of attachments) {
     const localPath = localPaths?.get(attachment.url)
+    const sourceLabel = attachment.sourceType
+      ? ` _[${attachment.sourceType}]_`
+      : ""
 
     if (localPath) {
-      markdown += `- **${attachment.title}**: ${localPath}\n`
+      markdown += `- **${attachment.title}**: ${localPath}${sourceLabel}\n`
     } else {
-      markdown += `- **${attachment.title}**: ${attachment.url}\n`
+      markdown += `- **${attachment.title}**: ${attachment.url}${sourceLabel}\n`
     }
 
     if (attachment.subtitle) {

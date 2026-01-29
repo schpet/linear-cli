@@ -189,6 +189,7 @@ export async function fetchIssueDetails(
     title: string
     url: string
     subtitle?: string | null
+    sourceType?: string | null
     metadata: Record<string, unknown>
     createdAt: string
   }>
@@ -251,6 +252,7 @@ export async function fetchIssueDetails(
               title
               url
               subtitle
+              sourceType
               metadata
               createdAt
             }
@@ -295,6 +297,7 @@ export async function fetchIssueDetails(
               title
               url
               subtitle
+              sourceType
               metadata
               createdAt
             }
