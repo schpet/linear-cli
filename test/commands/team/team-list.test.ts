@@ -4,14 +4,7 @@ import { listCommand } from "../../../src/commands/team/team-list.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
 // Common Deno args for permissions
-const denoArgs = [
-  "--allow-env=GITHUB_*,GH_*,LINEAR_*,NODE_ENV,EDITOR,SNAPSHOT_TEST_NAME,CLIFFY_SNAPSHOT_FAKE_TIME,XDG_CONFIG_HOME,HOME,APPDATA",
-  "--allow-read",
-  "--allow-write",
-  "--allow-run",
-  "--allow-net",
-  "--quiet",
-]
+const denoArgs = ["--allow-all", "--quiet"]
 
 // Test help output
 await cliffySnapshotTest({

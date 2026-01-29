@@ -174,10 +174,7 @@ async function executeTest(
     if (options.denoArgs) {
       denoArgs = options.denoArgs
     } else {
-      denoArgs = [
-        "--quiet",
-        "--allow-env=SNAPSHOT_TEST_NAME,XDG_CONFIG_HOME,HOME,APPDATA",
-      ]
+      denoArgs = ["--allow-all", "--quiet"]
     }
 
     // Add FakeTime env var permission if needed
