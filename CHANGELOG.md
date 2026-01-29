@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-01-29
+
+### Fixed
+
+- switched to --allow-all for Deno permissions since --allow-run was already unrestricted (making granular permissions ineffective) and the permission flags frequently caused issues when downloading images from arbitrary domains in Linear comments
+
 ## [1.9.0] - 2026-01-29
 
 ### Fixed
@@ -360,7 +366,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.9.1...HEAD
+[1.9.1]: https://github.com/schpet/linear-cli/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/schpet/linear-cli/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/schpet/linear-cli/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/schpet/linear-cli/compare/v1.7.0...v1.8.0
