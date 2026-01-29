@@ -142,7 +142,8 @@ export const listCommand = new Command()
 
       spinner?.stop()
 
-      let projects = allProjects
+      type Project = GetProjectsQuery["projects"]["nodes"][number]
+      let projects: Project[] = allProjects
 
       if (projects.length === 0) {
         console.log("No projects found.")

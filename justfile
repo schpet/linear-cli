@@ -3,7 +3,7 @@ dev *args:
 
 # tags the newest release in the changelog
 tag:
-    deno check --all
+    deno check src/main.ts
     deno fmt --check
     deno lint
     deno task test

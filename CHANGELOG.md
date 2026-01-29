@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-01-29
+
 ### Fixed
 
 - Fix `--assignee self` to correctly resolve to current user ([#104](https://github.com/schpet/linear-cli/pull/104); thanks @JustTrott)
+- add pagination to `project list` command ([#109](https://github.com/schpet/linear-cli/pull/109); thanks @andrew-kline)
+- add pagination to `team list` command ([#107](https://github.com/schpet/linear-cli/pull/107); thanks @andrew-kline)
+- error when `--workspace` flag specifies unknown workspace
+- `--sort` flag now works correctly after interactive prompts ([#96](https://github.com/schpet/linear-cli/pull/96); thanks @paymog)
 
 ### Added
 
@@ -14,6 +20,7 @@
 - `linear auth list` to show configured workspaces with org/user info
 - `linear auth default` to set the default workspace
 - global `-w, --workspace` flag to target a specific workspace by slug
+- `--project` filter for `issue list` command ([#94](https://github.com/schpet/linear-cli/pull/94); thanks @paymog)
 
 ## [1.8.1] - 2026-01-23
 
@@ -353,7 +360,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.8.1...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/schpet/linear-cli/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/schpet/linear-cli/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/schpet/linear-cli/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/schpet/linear-cli/compare/v1.6.0...v1.7.0

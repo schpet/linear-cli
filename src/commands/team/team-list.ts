@@ -64,7 +64,7 @@ export const listCommand = new Command()
       const client = getGraphQLClient()
 
       // Fetch all teams with pagination
-      const allTeams = []
+      const allTeams: GetTeamsQuery["teams"]["nodes"] = []
       let hasNextPage = true
       let after: string | null | undefined = undefined
 
