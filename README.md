@@ -2,7 +2,7 @@
 
 a cli to list, start and create issues in the [linear](https://linear.app/) issue tracker. git and [jj](https://www.jj-vcs.dev/) aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
 
-**works great with AI agents** — the CLI includes a [skill for Claude Code](#claude-code-skill) that lets agents create issues, update status, and manage your Linear workflow alongside your code.
+**works great with AI agents** — the CLI includes a [skill](#skills) that lets agents create issues, update status, and manage your Linear workflow alongside your code.
 
 here's how it works:
 
@@ -222,9 +222,13 @@ the config file can be placed at (checked in order, first found is used):
 - `$XDG_CONFIG_HOME/linear/linear.toml` or `~/.config/linear/linear.toml` (Unix)
 - `%APPDATA%\linear\linear.toml` (Windows)
 
-## claude code skill
+## skills
 
-linear-cli includes [a skill for claude code](https://code.claude.com/docs/en/skills) that helps claude use the CLI effectively. for use cases outside the CLI, it includes instructions to interact directly with the graphql api, including authentication.
+linear-cli includes a skill that helps AI agents use the CLI effectively. for use cases outside the CLI, it includes instructions to interact directly with the graphql api, including authentication.
+
+### claude code
+
+install the skill using [claude code's plugin system](https://code.claude.com/docs/en/skills):
 
 ```bash
 # from claude code
@@ -239,6 +243,16 @@ claude plugin install linear-cli@linear-cli
 claude plugin marketplace update linear-cli
 claude plugin update linear-cli@linear-cli
 ```
+
+### skills.sh for other agents
+
+install the skill using [skills.sh](https://skills.sh):
+
+```bash
+npx skills add schpet/linear-cli
+```
+
+view the skill at [skills.sh/schpet/linear-cli/linear-cli](https://skills.sh/schpet/linear-cli/linear-cli)
 
 ## why
 
