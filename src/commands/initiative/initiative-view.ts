@@ -4,6 +4,7 @@ import { open } from "@opensrc/deno-open"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const GetInitiativeDetails = gql(`
   query GetInitiativeDetails($id: String!) {
@@ -98,7 +99,7 @@ export const viewCommand = new Command()
     }
 
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal() && !json
+    const showSpinner = shouldShowSpinner() && !json
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

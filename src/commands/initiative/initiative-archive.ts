@@ -9,6 +9,7 @@ import {
   isBulkMode,
   printBulkSummary,
 } from "../../utils/bulk.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 interface InitiativeArchiveResult extends BulkOperationResult {
   name: string
@@ -19,7 +20,6 @@ export const archiveCommand = new Command()
   .description("Archive a Linear initiative")
   .arguments("[initiativeId:string]")
   .option("-y, --force", "Skip confirmation prompt")
-  .option("--no-color", "Disable colored output")
   .option(
     "--bulk <ids...:string>",
     "Archive multiple initiatives by ID, slug, or name",
@@ -31,7 +31,7 @@ export const archiveCommand = new Command()
   .option("--bulk-stdin", "Read initiative IDs from stdin")
   .action(
     async (
-      { force, color: colorEnabled, bulk, bulkFile, bulkStdin },
+      { force, bulk, bulkFile, bulkStdin },
       initiativeId,
     ) => {
       const client = getGraphQLClient()
@@ -43,7 +43,6 @@ export const archiveCommand = new Command()
           bulkFile,
           bulkStdin,
           force,
-          colorEnabled,
         })
         return
       }
@@ -56,7 +55,7 @@ export const archiveCommand = new Command()
         Deno.exit(1)
       }
 
-      await handleSingleArchive(client, initiativeId, { force, colorEnabled })
+      await handleSingleArchive(client, initiativeId, { force })
     },
   )
 
@@ -64,9 +63,9 @@ async function handleSingleArchive(
   // deno-lint-ignore no-explicit-any
   client: any,
   initiativeId: string,
-  options: { force?: boolean; colorEnabled?: boolean },
+  options: { force?: boolean },
 ): Promise<void> {
-  const { force, colorEnabled } = options
+  const { force } = options
 
   // Resolve initiative ID
   const resolvedId = await resolveInitiativeId(client, initiativeId)
@@ -126,7 +125,7 @@ async function handleSingleArchive(
   }
 
   const { Spinner } = await import("@std/cli/unstable-spinner")
-  const showSpinner = colorEnabled && Deno.stdout.isTerminal()
+  const showSpinner = shouldShowSpinner()
   const spinner = showSpinner ? new Spinner() : null
   spinner?.start()
 
@@ -165,10 +164,9 @@ async function handleBulkArchive(
     bulkFile?: string
     bulkStdin?: boolean
     force?: boolean
-    colorEnabled?: boolean
   },
 ): Promise<void> {
-  const { force, colorEnabled = true } = options
+  const { force } = options
 
   // Collect all IDs
   const ids = await collectBulkIds({
@@ -280,14 +278,12 @@ async function handleBulkArchive(
   // Execute bulk operation
   const summary = await executeBulkOperations(ids, archiveOperation, {
     showProgress: true,
-    colorEnabled,
   })
 
   // Print summary
   printBulkSummary(summary, {
     entityName: "initiative",
     operationName: "archived",
-    colorEnabled,
     showDetails: true,
   })
 

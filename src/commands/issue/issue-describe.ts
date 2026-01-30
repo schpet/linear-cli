@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { formatIssueDescription } from "../../utils/jj.ts"
 import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 export const describeCommand = new Command()
   .name("describe")
@@ -20,7 +21,7 @@ export const describeCommand = new Command()
 
     const { title, url } = await fetchIssueDetails(
       resolvedId,
-      Deno.stdout.isTerminal(),
+      shouldShowSpinner(),
     )
 
     const magicWord = options.references ? "References" : "Fixes"

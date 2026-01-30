@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 export const createCommand = new Command()
   .name("create")
@@ -13,7 +14,6 @@ export const createCommand = new Command()
     "Team key (if not provided, will be generated from name)",
   )
   .option("--private", "Make the team private")
-  .option("--no-color", "Disable colored output")
   .option("--no-interactive", "Disable interactive prompts")
   .action(
     async ({
@@ -21,7 +21,6 @@ export const createCommand = new Command()
       description,
       key,
       private: isPrivate,
-      color: colorEnabled,
       interactive,
     }) => {
       interactive = interactive && Deno.stdout.isTerminal()
@@ -114,7 +113,7 @@ export const createCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = colorEnabled && interactive
+      const showSpinner = shouldShowSpinner() && interactive
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 

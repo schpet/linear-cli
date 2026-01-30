@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { Confirm } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const GetInitiativeToProjects = gql(`
   query GetInitiativeToProjects($first: Int) {
@@ -190,10 +191,9 @@ export const removeProjectCommand = new Command()
   .description("Unlink a project from an initiative")
   .arguments("<initiative:string> <project:string>")
   .option("-y, --force", "Skip confirmation prompt")
-  .option("--no-color", "Disable colored output")
   .action(
     async (
-      { force, color: colorEnabled },
+      { force },
       initiativeArg,
       projectArg,
     ) => {
@@ -263,7 +263,7 @@ export const removeProjectCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = colorEnabled && Deno.stdout.isTerminal()
+      const showSpinner = shouldShowSpinner()
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 

@@ -19,7 +19,6 @@ Options:
   --issue             <issue>    - Attach to issue (identifier like TC-123)  
   --icon              <icon>     - Document icon (emoji)                     
   -i, --interactive              - Interactive mode with prompts             
-  --no-color                     - Disable colored output                    
 
 "
 stderr:

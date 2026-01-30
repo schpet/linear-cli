@@ -6,6 +6,7 @@ import {
   padDisplay,
   truncateText,
 } from "../../utils/display.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 /**
  * Resolve initiative ID from UUID, slug, or name
@@ -91,7 +92,7 @@ export const listCommand = new Command()
   .option("--limit <limit:number>", "Limit results", { default: 10 })
   .action(async ({ json, limit }, initiativeId) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal() && !json
+    const showSpinner = shouldShowSpinner() && !json
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

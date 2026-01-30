@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 export const pullRequestCommand = new Command()
   .name("pull-request")
@@ -35,7 +36,7 @@ export const pullRequestCommand = new Command()
     }
     const { title, url } = await fetchIssueDetails(
       resolvedId,
-      Deno.stdout.isTerminal(),
+      shouldShowSpinner(),
     )
 
     const process = new Deno.Command("gh", {
