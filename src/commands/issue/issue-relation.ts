@@ -133,9 +133,9 @@ const addRelationCommand = new Command()
     }
   })
 
-const removeRelationCommand = new Command()
-  .name("remove")
-  .description("Remove a relation between two issues")
+const deleteRelationCommand = new Command()
+  .name("delete")
+  .description("Delete a relation between two issues")
   .arguments("<issueId:string> <relationType:string> <relatedIssueId:string>")
   .option("--no-color", "Disable colored output")
   .action(async ({ color }, issueIdArg, relationTypeArg, relatedIssueIdArg) => {
@@ -244,10 +244,10 @@ const removeRelationCommand = new Command()
       }
 
       console.log(
-        `✓ Removed relation: ${issueIdentifier} ${relationType} ${relatedIssueIdentifier}`,
+        `✓ Deleted relation: ${issueIdentifier} ${relationType} ${relatedIssueIdentifier}`,
       )
     } catch (error) {
-      console.error("Failed to remove relation:", error)
+      console.error("Failed to delete relation:", error)
       Deno.exit(1)
     }
   })
@@ -360,5 +360,5 @@ export const relationCommand = new Command()
     this.showHelp()
   })
   .command("add", addRelationCommand)
-  .command("remove", removeRelationCommand)
+  .command("delete", deleteRelationCommand)
   .command("list", listRelationsCommand)
