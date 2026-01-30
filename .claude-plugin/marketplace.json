@@ -4,12 +4,12 @@
     "name": "schpet"
   },
   "description": "marketplace for linear-cli claude code plugin",
-  "version": "1.8.0",
+  "version": "1.9.1",
   "plugins": [
     {
       "name": "linear-cli",
       "description": "skill for using the linear-cli to manage Linear issues",
-      "version": "1.8.0",
+      "version": "1.9.1",
       "author": {
         "name": "schpet"
       },

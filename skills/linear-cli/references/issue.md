@@ -19,19 +19,20 @@ Options:
 
 Commands:
 
-  id                           - Print the issue based on the current git branch    
-  list                         - List your issues                                   
-  title             [issueId]  - Print the issue title                              
-  start             [issueId]  - Start working on an issue                          
-  view, v           [issueId]  - View issue details (default) or open in browser/app
-  url               [issueId]  - Print the issue URL                                
-  describe          [issueId]  - Print the issue title and Linear-issue trailer     
-  commits           [issueId]  - Show all commits for a Linear issue (jj only)      
-  pull-request, pr  [issueId]  - Create a GitHub pull request with issue details    
-  delete, d         [issueId]  - Delete an issue                                    
-  create                       - Create a linear issue                              
-  update            [issueId]  - Update a linear issue                              
-  comment                      - Manage issue comments
+  id                                      - Print the issue based on the current git branch    
+  list                                    - List your issues                                   
+  title             [issueId]             - Print the issue title                              
+  start             [issueId]             - Start working on an issue                          
+  view, v           [issueId]             - View issue details (default) or open in browser/app
+  url               [issueId]             - Print the issue URL                                
+  describe          [issueId]             - Print the issue title and Linear-issue trailer     
+  commits           [issueId]             - Show all commits for a Linear issue (jj only)      
+  pull-request, pr  [issueId]             - Create a GitHub pull request with issue details    
+  delete, d         [issueId]             - Delete an issue                                    
+  create                                  - Create a linear issue                              
+  update            [issueId]             - Update a linear issue                              
+  comment                                 - Manage issue comments                              
+  attach            <issueId> <filepath>  - Attach a file to an issue
 ```
 
 ## Subcommands
@@ -351,10 +352,11 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -b, --body       <text>  - Comment body text                    
-  -p, --parent     <id>    - Parent comment ID for replies
+  -h, --help                   - Show this help.                                            
+  -w, --workspace  <slug>      - Target workspace (uses credentials)                        
+  -b, --body       <text>      - Comment body text                                          
+  -p, --parent     <id>        - Parent comment ID for replies                              
+  -a, --attach     <filepath>  - Attach a file to the comment (can be used multiple times)
 ```
 
 ##### update
@@ -389,4 +391,24 @@ Options:
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)  
   -j, --json               - Output as JSON
+```
+
+### attach
+
+> Attach a file to an issue
+
+```
+Usage:   linear issue attach <issueId> <filepath>
+Version: 1.8.1                                   
+
+Description:
+
+  Attach a file to an issue
+
+Options:
+
+  -h, --help                - Show this help.                              
+  -w, --workspace  <slug>   - Target workspace (uses credentials)          
+  -t, --title      <title>  - Custom title for the attachment              
+  -c, --comment    <body>   - Add a comment body linked to the attachment
 ```
