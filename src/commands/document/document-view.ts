@@ -4,6 +4,7 @@ import { open } from "@opensrc/deno-open"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const GetDocument = gql(`
   query GetDocument($id: String!) {
@@ -41,7 +42,7 @@ export const viewCommand = new Command()
   .option("--json", "Output full document as JSON")
   .action(async ({ raw, web, json }, id) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal() && !raw && !json
+    const showSpinner = shouldShowSpinner() && !raw && !json
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

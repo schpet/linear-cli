@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay } from "../../utils/display.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const ListDocuments = gql(`
   query ListDocuments($filter: DocumentFilter, $first: Int) {
@@ -42,7 +43,7 @@ export const listCommand = new Command()
   .option("--limit <limit:number>", "Limit results", { default: 50 })
   .action(async ({ project, issue, json, limit }) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal() && !json
+    const showSpinner = shouldShowSpinner() && !json
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

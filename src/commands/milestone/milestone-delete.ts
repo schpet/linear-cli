@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { Confirm } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const DeleteProjectMilestone = gql(`
   mutation DeleteProjectMilestone($id: String!) {
@@ -35,7 +36,7 @@ export const deleteCommand = new Command()
     }
 
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal()
+    const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

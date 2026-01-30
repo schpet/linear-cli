@@ -4,6 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { openProjectPage } from "../../utils/actions.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const GetProjectDetails = gql(`
   query GetProjectDetails($id: String!) {
@@ -85,7 +86,7 @@ export const viewCommand = new Command()
     }
 
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal()
+    const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

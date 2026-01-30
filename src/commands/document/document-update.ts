@@ -99,10 +99,9 @@ export const updateCommand = new Command()
   )
   .option("--icon <icon:string>", "New icon (emoji)")
   .option("-e, --edit", "Open current content in $EDITOR for editing")
-  .option("--no-color", "Disable colored output")
   .action(
     async (
-      { title, content, contentFile, icon, edit, color: _colorEnabled },
+      { title, content, contentFile, icon, edit },
       documentId,
     ) => {
       const client = getGraphQLClient()

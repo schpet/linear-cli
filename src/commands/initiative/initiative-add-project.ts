@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const AddProjectToInitiative = gql(`
   mutation AddProjectToInitiative($input: InitiativeToProjectCreateInput!) {
@@ -176,10 +177,9 @@ export const addProjectCommand = new Command()
   .description("Link a project to an initiative")
   .arguments("<initiative:string> <project:string>")
   .option("--sort-order <sortOrder:number>", "Sort order within initiative")
-  .option("--no-color", "Disable colored output")
   .action(
     async (
-      { sortOrder, color: colorEnabled },
+      { sortOrder },
       initiativeArg,
       projectArg,
     ) => {
@@ -200,7 +200,7 @@ export const addProjectCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = colorEnabled && Deno.stdout.isTerminal()
+      const showSpinner = shouldShowSpinner()
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 
