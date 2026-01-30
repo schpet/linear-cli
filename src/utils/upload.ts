@@ -192,7 +192,8 @@ export async function uploadFile(
 
   const client = getGraphQLClient()
   const { Spinner } = await import("@std/cli/unstable-spinner")
-  const spinner = showProgress
+  const { shouldShowSpinner } = await import("./hyperlink.ts")
+  const spinner = showProgress && shouldShowSpinner()
     ? new Spinner({ message: `Uploading ${filename}...` })
     : null
   spinner?.start()

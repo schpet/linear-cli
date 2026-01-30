@@ -173,10 +173,13 @@ async function moveIssuesToTeam(
   issueCount: number,
 ) {
   const { Spinner } = await import("@std/cli/unstable-spinner")
-  const spinner = new Spinner({
-    message: `Moving ${issueCount} issue(s) to target team...`,
-  })
-  spinner.start()
+  const { shouldShowSpinner } = await import("../../utils/hyperlink.ts")
+  const spinner = shouldShowSpinner()
+    ? new Spinner({
+      message: `Moving ${issueCount} issue(s) to target team...`,
+    })
+    : null
+  spinner?.start()
 
   try {
     // Fetch all issues from source team
@@ -228,13 +231,15 @@ async function moveIssuesToTeam(
         teamId: targetTeamId,
       })
       movedCount++
-      spinner.message = `Moving issues... (${movedCount}/${allIssues.length})`
+      if (spinner) {
+        spinner.message = `Moving issues... (${movedCount}/${allIssues.length})`
+      }
     }
 
-    spinner.stop()
+    spinner?.stop()
     console.log(`✓ Moved ${movedCount} issue(s) to target team`)
   } catch (error) {
-    spinner.stop()
+    spinner?.stop()
     console.error("Failed to move issues:", error)
     Deno.exit(1)
   }

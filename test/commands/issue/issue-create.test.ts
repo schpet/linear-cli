@@ -36,7 +36,6 @@ await snapshotTest({
     "--team",
     "ENG",
     "--no-interactive",
-    "--no-color",
   ],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -110,7 +109,6 @@ await snapshotTest({
     "--team",
     "ENG",
     "--no-interactive",
-    "--no-color",
   ],
   denoArgs: commonDenoArgs,
   async fn() {
