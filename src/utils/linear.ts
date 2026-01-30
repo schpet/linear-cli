@@ -157,7 +157,7 @@ export async function updateIssueState(
 
 export async function fetchIssueDetails(
   issueId: string,
-  showSpinner = false,
+  _showSpinner = false,
   includeComments = false,
 ): Promise<{
   identifier: string
@@ -195,7 +195,8 @@ export async function fetchIssueDetails(
   }>
 }> {
   const { Spinner } = await import("@std/cli/unstable-spinner")
-  const spinner = showSpinner ? new Spinner() : null
+  const { shouldShowSpinner } = await import("./hyperlink.ts")
+  const spinner = shouldShowSpinner() ? new Spinner() : null
   spinner?.start()
   try {
     const queryWithComments = gql(/* GraphQL */ `

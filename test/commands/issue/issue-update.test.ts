@@ -34,7 +34,6 @@ await snapshotTest({
     "1",
     "--estimate",
     "5",
-    "--no-color",
   ],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -100,7 +99,6 @@ await snapshotTest({
     "ENG-123",
     "--label",
     "FRONTEND", // uppercase label that should match "frontend" label
-    "--no-color",
   ],
   denoArgs: commonDenoArgs,
   async fn() {

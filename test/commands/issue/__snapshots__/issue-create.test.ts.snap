@@ -24,7 +24,6 @@ Options:
   --project                  <project>      - Name of the project with the issue                           
   -s, --state                <state>        - Workflow state for the issue (by name or type)               
   --no-use-default-template                 - Do not use default template for the issue                    
-  --no-color                                - Disable colored output                                       
   --no-interactive                          - Disable interactive prompts                                  
   -t, --title                <title>        - Title of the issue                                           
 

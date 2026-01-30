@@ -35,8 +35,7 @@ const addRelationCommand = new Command()
     "Mark issue as duplicate",
     "linear issue relation add ENG-123 duplicate ENG-100",
   )
-  .option("--no-color", "Disable colored output")
-  .action(async ({ color }, issueIdArg, relationTypeArg, relatedIssueIdArg) => {
+  .action(async (_options, issueIdArg, relationTypeArg, relatedIssueIdArg) => {
     try {
       // Validate relation type
       const relationType = relationTypeArg.toLowerCase() as RelationType
@@ -65,8 +64,8 @@ const addRelationCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = color
-      const spinner = showSpinner ? new Spinner() : null
+      const { shouldShowSpinner } = await import("../../utils/hyperlink.ts")
+      const spinner = shouldShowSpinner() ? new Spinner() : null
       spinner?.start()
 
       // Get issue IDs
@@ -137,8 +136,7 @@ const deleteRelationCommand = new Command()
   .name("delete")
   .description("Delete a relation between two issues")
   .arguments("<issueId:string> <relationType:string> <relatedIssueId:string>")
-  .option("--no-color", "Disable colored output")
-  .action(async ({ color }, issueIdArg, relationTypeArg, relatedIssueIdArg) => {
+  .action(async (_options, issueIdArg, relationTypeArg, relatedIssueIdArg) => {
     try {
       // Validate relation type
       const relationType = relationTypeArg.toLowerCase() as RelationType
@@ -167,8 +165,8 @@ const deleteRelationCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = color
-      const spinner = showSpinner ? new Spinner() : null
+      const { shouldShowSpinner } = await import("../../utils/hyperlink.ts")
+      const spinner = shouldShowSpinner() ? new Spinner() : null
       spinner?.start()
 
       // Get issue IDs
@@ -256,8 +254,7 @@ const listRelationsCommand = new Command()
   .name("list")
   .description("List relations for an issue")
   .arguments("[issueId:string]")
-  .option("--no-color", "Disable colored output")
-  .action(async ({ color }, issueIdArg) => {
+  .action(async (_options, issueIdArg) => {
     try {
       const issueIdentifier = await getIssueIdentifier(issueIdArg)
       if (!issueIdentifier) {
@@ -268,8 +265,8 @@ const listRelationsCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = color
-      const spinner = showSpinner ? new Spinner() : null
+      const { shouldShowSpinner } = await import("../../utils/hyperlink.ts")
+      const spinner = shouldShowSpinner() ? new Spinner() : null
       spinner?.start()
 
       const listRelationsQuery = gql(`
