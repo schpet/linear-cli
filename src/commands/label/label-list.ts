@@ -5,6 +5,7 @@ import type { GetIssueLabelsQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
 import { getTeamKey } from "../../utils/linear.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const GetIssueLabels = gql(`
   query GetIssueLabels($filter: IssueLabelFilter, $first: Int, $after: String) {
@@ -53,7 +54,7 @@ export const listCommand = new Command()
   .option("-j, --json", "Output as JSON")
   .action(async ({ team: teamKey, workspace, all, json }) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = !json && Deno.stdout.isTerminal()
+    const showSpinner = !json && shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

@@ -5,6 +5,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay, truncateText } from "../../utils/display.ts"
 import { getOption } from "../../config.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const GetInitiatives = gql(`
   query GetInitiatives($filter: InitiativeFilter, $includeArchived: Boolean) {
@@ -102,7 +103,7 @@ export const listCommand = new Command()
     }
 
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal() && !json
+    const showSpinner = shouldShowSpinner() && !json
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

@@ -5,6 +5,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor, openEditor } from "../../utils/editor.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 type ProjectUpdateHealth = "onTrack" | "atRisk" | "offTrack"
 
@@ -58,10 +59,9 @@ export const createCommand = new Command()
     "Project health status (onTrack, atRisk, offTrack)",
   )
   .option("-i, --interactive", "Interactive mode with prompts")
-  .option("--no-color", "Disable colored output")
   .action(
     async (
-      { body, bodyFile, health, interactive, color: _colorEnabled },
+      { body, bodyFile, health, interactive },
       projectId,
     ) => {
       const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -183,7 +183,7 @@ export const createCommand = new Command()
         input.health = validatedHealth
       }
 
-      const showSpinner = Deno.stdout.isTerminal()
+      const showSpinner = shouldShowSpinner()
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 

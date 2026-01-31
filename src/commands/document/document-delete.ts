@@ -20,7 +20,6 @@ export const deleteCommand = new Command()
   .alias("d")
   .arguments("[documentId:string]")
   .option("-y, --yes", "Skip confirmation prompt")
-  .option("--no-color", "Disable colored output")
   .option(
     "--bulk <ids...:string>",
     "Delete multiple documents by slug or ID",
@@ -32,7 +31,7 @@ export const deleteCommand = new Command()
   .option("--bulk-stdin", "Read document slugs/IDs from stdin")
   .action(
     async (
-      { yes, color: colorEnabled, bulk, bulkFile, bulkStdin },
+      { yes, bulk, bulkFile, bulkStdin },
       documentId,
     ) => {
       const client = getGraphQLClient()
@@ -44,7 +43,6 @@ export const deleteCommand = new Command()
           bulkFile,
           bulkStdin,
           yes,
-          colorEnabled,
         })
         return
       }
@@ -57,7 +55,7 @@ export const deleteCommand = new Command()
         Deno.exit(1)
       }
 
-      await handleSingleDelete(client, documentId, { yes, colorEnabled })
+      await handleSingleDelete(client, documentId, { yes })
     },
   )
 
@@ -65,7 +63,7 @@ async function handleSingleDelete(
   // deno-lint-ignore no-explicit-any
   client: any,
   documentId: string,
-  options: { yes?: boolean; colorEnabled?: boolean },
+  options: { yes?: boolean },
 ): Promise<void> {
   const { yes } = options
 
@@ -144,10 +142,9 @@ async function handleBulkDelete(
     bulkFile?: string
     bulkStdin?: boolean
     yes?: boolean
-    colorEnabled?: boolean
   },
 ): Promise<void> {
-  const { yes, colorEnabled = true } = options
+  const { yes } = options
 
   // Collect all IDs
   const ids = await collectBulkIds({
@@ -245,14 +242,12 @@ async function handleBulkDelete(
   // Execute bulk operation
   const summary = await executeBulkOperations(ids, deleteOperation, {
     showProgress: true,
-    colorEnabled,
   })
 
   // Print summary
   printBulkSummary(summary, {
     entityName: "document",
     operationName: "deleted",
-    colorEnabled,
     showDetails: true,
   })
 

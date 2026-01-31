@@ -19,7 +19,6 @@ Deno.test("team create command", async (t) => {
     assertEquals(optionNames.includes("description"), true)
     assertEquals(optionNames.includes("key"), true)
     assertEquals(optionNames.includes("private"), true)
-    assertEquals(optionNames.includes("no-color"), true)
     assertEquals(optionNames.includes("no-interactive"), true)
   })
 })

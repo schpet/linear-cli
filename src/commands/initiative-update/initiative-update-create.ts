@@ -4,6 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor, openEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const HEALTH_VALUES = ["onTrack", "atRisk", "offTrack"] as const
 type HealthValue = (typeof HEALTH_VALUES)[number]
@@ -101,10 +102,9 @@ export const createCommand = new Command()
     "Health status (onTrack, atRisk, offTrack)",
   )
   .option("-i, --interactive", "Interactive mode with prompts")
-  .option("--no-color", "Disable colored output")
   .action(
     async (
-      { body, bodyFile, health, interactive, color: colorEnabled },
+      { body, bodyFile, health, interactive },
       initiativeId,
     ) => {
       const client = getGraphQLClient()
@@ -152,7 +152,6 @@ export const createCommand = new Command()
           initiativeId: resolvedId,
           body: result.body,
           health: result.health,
-          colorEnabled: colorEnabled !== false,
         })
         return
       }
@@ -211,7 +210,6 @@ export const createCommand = new Command()
         initiativeId: resolvedId,
         body: finalBody,
         health: validatedHealth,
-        colorEnabled: colorEnabled !== false,
       })
     },
   )
@@ -293,13 +291,12 @@ async function createInitiativeUpdate(
     initiativeId: string
     body?: string
     health?: HealthValue
-    colorEnabled: boolean
   },
 ): Promise<void> {
-  const { initiativeId, body, health, colorEnabled } = options
+  const { initiativeId, body, health } = options
 
   const { Spinner } = await import("@std/cli/unstable-spinner")
-  const showSpinner = colorEnabled && Deno.stdout.isTerminal()
+  const showSpinner = shouldShowSpinner()
   const spinner = showSpinner ? new Spinner() : null
   spinner?.start()
 

@@ -8,6 +8,7 @@ import {
   getTeamKey,
   lookupUserId,
 } from "../../utils/linear.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const CreateProject = gql(`
   mutation CreateProject($input: ProjectCreateInput!) {
@@ -133,7 +134,6 @@ export const createCommand = new Command()
     "-i, --interactive",
     "Interactive mode (default if no flags provided)",
   )
-  .option("--no-color", "Disable colored output")
   .action(
     async (options) => {
       const {
@@ -146,7 +146,6 @@ export const createCommand = new Command()
         targetDate: providedTargetDate,
         initiative: providedInitiative,
         interactive: interactiveFlag,
-        color: colorEnabled,
       } = options
 
       const client = getGraphQLClient()
@@ -355,7 +354,7 @@ export const createCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = colorEnabled && Deno.stdout.isTerminal()
+      const showSpinner = shouldShowSpinner()
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 

@@ -489,7 +489,6 @@ export const createCommand = new Command()
     "--no-use-default-template",
     "Do not use default template for the issue",
   )
-  .option("--no-color", "Disable colored output")
   .option("--no-interactive", "Disable interactive prompts")
   .option("-t, --title <title:string>", "Title of the issue")
   .action(
@@ -507,7 +506,6 @@ export const createCommand = new Command()
         team,
         project,
         state,
-        color,
         interactive,
         title,
       },
@@ -622,8 +620,8 @@ export const createCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = color && interactive
-      const spinner = showSpinner ? new Spinner() : null
+      const { shouldShowSpinner } = await import("../../utils/hyperlink.ts")
+      const spinner = shouldShowSpinner() ? new Spinner() : null
       spinner?.start()
       try {
         team = (team == null) ? getTeamKey() : team.toUpperCase()

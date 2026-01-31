@@ -31,6 +31,25 @@ export function shouldEnableHyperlinks(): boolean {
 }
 
 /**
+ * Check if spinners should be shown based on environment
+ * Spinners are disabled when:
+ * - NO_COLOR environment variable is set
+ * - stdout is not a terminal (e.g., piped output)
+ *
+ * This prevents garbled spinner output when the CLI is used with
+ * other tools that capture output (e.g., AI assistants, scripts).
+ */
+export function shouldShowSpinner(): boolean {
+  if (Deno.env.get("NO_COLOR") != null) {
+    return false
+  }
+  if (!Deno.stdout.isTerminal()) {
+    return false
+  }
+  return true
+}
+
+/**
  * Resolve "default" hyperlink format to the actual format string
  */
 export function resolveHyperlinkFormat(format: string): string {

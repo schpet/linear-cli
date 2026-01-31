@@ -17,7 +17,6 @@ Options:
   -f, --content-file  <path>     - Read new content from file                   
   --icon              <icon>     - New icon (emoji)                             
   -e, --edit                     - Open current content in \$EDITOR for editing  
-  --no-color                     - Disable colored output                       
 
 "
 stderr:

@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay, truncateText } from "../../utils/display.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 interface ProjectUpdateNode {
   id: string
@@ -56,7 +57,7 @@ export const listCommand = new Command()
   .option("--limit <limit:number>", "Limit results", { default: 10 })
   .action(async ({ json, limit }, projectId) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal() && !json
+    const showSpinner = shouldShowSpinner() && !json
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

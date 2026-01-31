@@ -9,6 +9,7 @@ import {
   uploadFile,
   validateFilePath,
 } from "../../utils/upload.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 export const commentAddCommand = new Command()
   .name("add")
@@ -48,7 +49,7 @@ export const commentAddCommand = new Command()
         // Upload files
         for (const filepath of attachments) {
           const result = await uploadFile(filepath, {
-            showProgress: Deno.stdout.isTerminal(),
+            showProgress: shouldShowSpinner(),
           })
           uploadedFiles.push({
             filename: result.filename,

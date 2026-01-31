@@ -18,6 +18,7 @@ import {
 import { openTeamAssigneeView } from "../../utils/actions.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { header, muted } from "../../utils/styling.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const SortType = new EnumType(["manual", "priority"])
 const StateType = new EnumType([
@@ -168,7 +169,7 @@ export const listCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = Deno.stdout.isTerminal()
+      const showSpinner = shouldShowSpinner()
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 

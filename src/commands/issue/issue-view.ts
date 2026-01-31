@@ -18,7 +18,10 @@ import remarkParse from "remark-parse"
 import remarkStringify from "remark-stringify"
 import { visit } from "unist-util-visit"
 import type { Image, Link, Root } from "mdast"
-import { shouldEnableHyperlinks } from "../../utils/hyperlink.ts"
+import {
+  shouldEnableHyperlinks,
+  shouldShowSpinner,
+} from "../../utils/hyperlink.ts"
 import { createHyperlinkExtension } from "../../utils/charmd-hyperlink-extension.ts"
 
 export const viewCommand = new Command()
@@ -50,7 +53,7 @@ export const viewCommand = new Command()
 
     const issueData = await fetchIssueDetails(
       resolvedId,
-      Deno.stdout.isTerminal() && !json,
+      shouldShowSpinner() && !json,
       showComments,
     )
 

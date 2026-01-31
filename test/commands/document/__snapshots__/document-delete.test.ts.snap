@@ -13,7 +13,6 @@ Options:
 
   -h, --help              - Show this help.                                     
   -y, --yes               - Skip confirmation prompt                            
-  --no-color              - Disable colored output                              
   --bulk        <ids...>  - Delete multiple documents by slug or ID             
   --bulk-file   <file>    - Read document slugs/IDs from a file (one per line)  
   --bulk-stdin            - Read document slugs/IDs from stdin                  

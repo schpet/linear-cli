@@ -3,6 +3,7 @@ import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { lookupUserId } from "../../utils/linear.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 // Initiative status options from Linear API
 const INITIATIVE_STATUSES = [
@@ -30,7 +31,6 @@ export const updateCommand = new Command()
   .option("--color <color:string>", "Initiative color (hex, e.g., #5E6AD2)")
   .option("--icon <icon:string>", "Initiative icon name")
   .option("-i, --interactive", "Interactive mode for updates")
-  .option("--no-color", "Disable colored output")
   .action(
     async (
       options,
@@ -45,9 +45,7 @@ export const updateCommand = new Command()
       const color = options.color
       const icon = options.icon
       const interactive = options.interactive
-      // color can be a string (hex color) or boolean (from --no-color flag)
-      let colorHex = typeof color === "string" ? color : undefined
-      const colorEnabled = color !== false
+      let colorHex = color
       const client = getGraphQLClient()
 
       // Resolve initiative ID
@@ -185,7 +183,7 @@ export const updateCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = colorEnabled && Deno.stdout.isTerminal()
+      const showSpinner = shouldShowSpinner()
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 

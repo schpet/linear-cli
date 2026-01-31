@@ -4,6 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import type { InitiativeStatus } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { lookupUserId } from "../../utils/linear.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const CreateInitiative = gql(`
   mutation CreateInitiative($input: InitiativeCreateInput!) {
@@ -63,7 +64,6 @@ export const createCommand = new Command()
     "-i, --interactive",
     "Interactive mode (default if no flags provided)",
   )
-  .option("--no-color", "Disable colored output")
   .action(async (options) => {
     const {
       name: providedName,
@@ -75,9 +75,6 @@ export const createCommand = new Command()
       icon: providedIcon,
       interactive: interactiveFlag,
     } = options
-
-    // Note: --no-color flag is separate from --color (hex color) flag
-    // When checking showSpinner, we use Deno.stdout.isTerminal() as the primary check
 
     const client = getGraphQLClient()
     const icon = providedIcon
@@ -228,7 +225,7 @@ export const createCommand = new Command()
     }
 
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal()
+    const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

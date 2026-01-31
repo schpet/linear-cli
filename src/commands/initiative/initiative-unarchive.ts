@@ -2,14 +2,14 @@ import { Command } from "@cliffy/command"
 import { Confirm } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 export const unarchiveCommand = new Command()
   .name("unarchive")
   .description("Unarchive a Linear initiative")
   .arguments("<initiativeId:string>")
   .option("-y, --force", "Skip confirmation prompt")
-  .option("--no-color", "Disable colored output")
-  .action(async ({ force, color: colorEnabled }, initiativeId) => {
+  .action(async ({ force }, initiativeId) => {
     const client = getGraphQLClient()
 
     // Resolve initiative ID
@@ -74,7 +74,7 @@ export const unarchiveCommand = new Command()
     }
 
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = colorEnabled && Deno.stdout.isTerminal()
+    const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

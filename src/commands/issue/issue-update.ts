@@ -56,7 +56,6 @@ export const updateCommand = new Command()
     "-s, --state <state:string>",
     "Workflow state for the issue (by name or type)",
   )
-  .option("--no-color", "Disable colored output")
   .option("-t, --title <title:string>", "Title of the issue")
   .action(
     async (
@@ -71,7 +70,6 @@ export const updateCommand = new Command()
         team,
         project,
         state,
-        color,
         title,
       },
       issueIdArg,
@@ -87,8 +85,8 @@ export const updateCommand = new Command()
         }
 
         const { Spinner } = await import("@std/cli/unstable-spinner")
-        const showSpinner = color
-        const spinner = showSpinner ? new Spinner() : null
+        const { shouldShowSpinner } = await import("../../utils/hyperlink.ts")
+        const spinner = shouldShowSpinner() ? new Spinner() : null
         spinner?.start()
 
         // Extract team from issue ID if not provided

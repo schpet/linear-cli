@@ -5,6 +5,8 @@
  * across multiple commands (initiative archive/delete, issue archive/delete, label delete, etc.)
  */
 
+import { shouldShowSpinner } from "./hyperlink.ts"
+
 /**
  * Result of a single bulk operation
  */
@@ -154,9 +156,11 @@ export async function executeBulkOperations<T extends BulkOperationResult>(
     batches.push(ids.slice(i, i + concurrency))
   }
 
+  const spinnerEnabled = shouldShowSpinner()
+
   // Progress display helper
   const updateProgress = () => {
-    if (showProgress && Deno.stdout.isTerminal()) {
+    if (showProgress && spinnerEnabled) {
       const percent = Math.round((completed / total) * 100)
       const succeeded = results.filter((r) => r.success).length
       const failed = completed - succeeded
@@ -191,7 +195,7 @@ export async function executeBulkOperations<T extends BulkOperationResult>(
   }
 
   // Clear progress line
-  if (showProgress && Deno.stdout.isTerminal()) {
+  if (showProgress && spinnerEnabled) {
     Deno.stdout.writeSync(
       new TextEncoder().encode("\r" + " ".repeat(80) + "\r"),
     )

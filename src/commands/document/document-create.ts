@@ -41,7 +41,6 @@ export const createCommand = new Command()
   .option("--issue <issue:string>", "Attach to issue (identifier like TC-123)")
   .option("--icon <icon:string>", "Document icon (emoji)")
   .option("-i, --interactive", "Interactive mode with prompts")
-  .option("--no-color", "Disable colored output")
   .action(
     async ({
       title,
@@ -51,7 +50,6 @@ export const createCommand = new Command()
       issue,
       icon,
       interactive,
-      color: _colorEnabled,
     }) => {
       const client = getGraphQLClient()
 

@@ -3,6 +3,7 @@ import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getAllTeams, getTeamIdByKey, getTeamKey } from "../../utils/linear.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const CreateIssueLabel = gql(`
   mutation CreateIssueLabel($input: IssueLabelCreateInput!) {
@@ -188,7 +189,7 @@ export const createCommand = new Command()
     }
 
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal()
+    const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 

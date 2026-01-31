@@ -22,7 +22,6 @@ Options:
   --team             <team>         - Team associated with the issue (if not your default team)    
   --project          <project>      - Name of the project with the issue                           
   -s, --state        <state>        - Workflow state for the issue (by name or type)               
-  --no-color                        - Disable colored output                                       
   -t, --title        <title>        - Title of the issue                                           
 
 "

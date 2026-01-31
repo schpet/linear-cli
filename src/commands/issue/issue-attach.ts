@@ -6,6 +6,7 @@ import { getIssueId, getIssueIdentifier } from "../../utils/linear.ts"
 import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import { uploadFile, validateFilePath } from "../../utils/upload.ts"
 import { basename } from "@std/path"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 export const attachCommand = new Command()
   .name("attach")
@@ -38,7 +39,7 @@ export const attachCommand = new Command()
 
       // Upload the file
       const uploadResult = await uploadFile(filepath, {
-        showProgress: Deno.stdout.isTerminal(),
+        showProgress: shouldShowSpinner(),
       })
       console.log(`✓ Uploaded ${uploadResult.filename}`)
 

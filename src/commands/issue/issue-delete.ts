@@ -21,7 +21,6 @@ export const deleteCommand = new Command()
   .alias("d")
   .arguments("[issueId:string]")
   .option("-y, --confirm", "Skip confirmation prompt")
-  .option("--no-color", "Disable colored output")
   .option(
     "--bulk <ids...:string>",
     "Delete multiple issues by identifier (e.g., TC-123 TC-124)",
@@ -33,7 +32,7 @@ export const deleteCommand = new Command()
   .option("--bulk-stdin", "Read issue identifiers from stdin")
   .action(
     async (
-      { confirm, color: colorEnabled, bulk, bulkFile, bulkStdin },
+      { confirm, bulk, bulkFile, bulkStdin },
       issueId,
     ) => {
       const client = getGraphQLClient()
@@ -45,7 +44,6 @@ export const deleteCommand = new Command()
           bulkFile,
           bulkStdin,
           confirm,
-          colorEnabled,
         })
         return
       }
@@ -56,7 +54,7 @@ export const deleteCommand = new Command()
         Deno.exit(1)
       }
 
-      await handleSingleDelete(client, issueId, { confirm, colorEnabled })
+      await handleSingleDelete(client, issueId, { confirm })
     },
   )
 
@@ -64,7 +62,7 @@ async function handleSingleDelete(
   // deno-lint-ignore no-explicit-any
   client: any,
   issueId: string,
-  options: { confirm?: boolean; colorEnabled?: boolean },
+  options: { confirm?: boolean },
 ): Promise<void> {
   const { confirm } = options
 
@@ -150,10 +148,9 @@ async function handleBulkDelete(
     bulkFile?: string
     bulkStdin?: boolean
     confirm?: boolean
-    colorEnabled?: boolean
   },
 ): Promise<void> {
-  const { confirm, colorEnabled = true } = options
+  const { confirm } = options
 
   // Collect all IDs
   const ids = await collectBulkIds({
@@ -253,14 +250,12 @@ async function handleBulkDelete(
   // Execute bulk operation
   const summary = await executeBulkOperations(ids, deleteOperation, {
     showProgress: true,
-    colorEnabled,
   })
 
   // Print summary
   printBulkSummary(summary, {
     entityName: "issue",
     operationName: "deleted",
-    colorEnabled,
     showDetails: true,
   })
 

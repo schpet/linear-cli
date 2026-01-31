@@ -3,6 +3,7 @@ import { renderMarkdown } from "@littletof/charmd"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const GetMilestoneDetails = gql(`
   query GetMilestoneDetails($id: String!) {
@@ -42,7 +43,7 @@ export const viewCommand = new Command()
   .arguments("<milestoneId:string>")
   .action(async (_options, milestoneId) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = Deno.stdout.isTerminal()
+    const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 
