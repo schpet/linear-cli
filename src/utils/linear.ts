@@ -11,6 +11,7 @@ import { Select } from "@cliffy/prompt"
 import { getOption } from "../config.ts"
 import { getGraphQLClient } from "./graphql.ts"
 import { getCurrentIssueFromVcs } from "./vcs.ts"
+import { NotFoundError, ValidationError } from "./errors.ts"
 
 function isValidLinearIdentifier(id: string): boolean {
   return /^[a-zA-Z0-9]+-[1-9][0-9]*$/i.test(id)
@@ -329,7 +330,7 @@ export async function fetchIssueDetails(
     }
   } catch (error) {
     spinner?.stop()
-    console.error("✗ Failed to fetch issue details")
+    // Re-throw to let caller handle with proper context
     throw error
   }
 }
@@ -349,8 +350,8 @@ export async function fetchParentIssueTitle(
     const client = getGraphQLClient()
     const data = await client.request(query, { id: parentId })
     return `${data.issue.identifier}: ${data.issue.title}`
-  } catch (_error) {
-    console.error("✗ Failed to fetch parent issue details")
+  } catch {
+    // Silently fail for optional parent lookup - caller handles display
     return null
   }
 }
@@ -381,8 +382,8 @@ export async function fetchParentIssueData(parentId: string): Promise<
       identifier: data.issue.identifier,
       projectId: data.issue.project?.id || null,
     }
-  } catch (_error) {
-    console.error("✗ Failed to fetch parent issue details")
+  } catch {
+    // Silently fail for optional parent lookup - caller handles display
     return null
   }
 }
@@ -400,10 +401,13 @@ export async function fetchIssuesForState(
   const sort = sortParam ??
     getOption("issue_sort") as "manual" | "priority" | undefined
   if (!sort) {
-    console.error(
-      "Sort must be provided via --sort parameter, configuration file, or LINEAR_ISSUE_SORT environment variable",
+    throw new ValidationError(
+      "Sort must be provided",
+      {
+        suggestion:
+          "Use --sort parameter, set in configuration file, or set LINEAR_ISSUE_SORT environment variable",
+      },
     )
-    Deno.exit(1)
   }
 
   const filter: IssueFilter = {
@@ -421,7 +425,7 @@ export async function fetchIssuesForState(
   } else if (assignee) {
     const userId = await lookupUserId(assignee)
     if (!userId) {
-      throw new Error(`User not found: ${assignee}`)
+      throw new NotFoundError("User", assignee)
     }
     filter.assignee = { id: { eq: userId } }
   } else {
@@ -482,7 +486,9 @@ export async function fetchIssuesForState(
       ]
       break
     default:
-      throw new Error(`Unknown sort type: ${sort}`)
+      throw new ValidationError(`Unknown sort type: ${sort}`, {
+        suggestion: "Use 'manual' or 'priority'",
+      })
   }
 
   const client = getGraphQLClient()
@@ -565,7 +571,7 @@ export async function resolveProjectId(
   const projectId = data.projects?.nodes[0]?.id
 
   if (!projectId) {
-    throw new Error(`Project not found with slug or ID: ${projectIdOrSlug}`)
+    throw new NotFoundError("Project", projectIdOrSlug)
   }
 
   return projectId

@@ -103,6 +103,7 @@ await snapshotTest({
   name: "Issue Describe Command - Issue Not Found",
   meta: import.meta,
   colors: false,
+  canFail: true,
   args: ["TEST-999"],
   denoArgs,
   async fn() {
@@ -124,11 +125,7 @@ await snapshotTest({
       Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
       Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
 
-      try {
-        await describeCommand.parse()
-      } catch (error) {
-        console.log(`Error: ${(error as Error).message}`)
-      }
+      await describeCommand.parse()
     } finally {
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")

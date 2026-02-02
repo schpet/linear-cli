@@ -1,6 +1,7 @@
 import { gql } from "../__codegen__/gql.ts"
 import { getGraphQLClient } from "./graphql.ts"
 import { basename, extname } from "@std/path"
+import { CliError, NotFoundError, ValidationError } from "./errors.ts"
 
 /**
  * MIME type mapping for common file extensions
@@ -158,15 +159,18 @@ export async function uploadFile(
   // Read file and get metadata
   const fileInfo = await Deno.stat(filepath)
   if (!fileInfo.isFile) {
-    throw new Error(`Not a file: ${filepath}`)
+    throw new ValidationError(`Not a file: ${filepath}`, {
+      suggestion: "Please provide a path to a valid file",
+    })
   }
 
   const size = fileInfo.size
   if (size > MAX_FILE_SIZE) {
-    throw new Error(
+    throw new ValidationError(
       `File too large: ${(size / 1024 / 1024).toFixed(2)}MB exceeds limit of ${
         MAX_FILE_SIZE / 1024 / 1024
       }MB`,
+      { suggestion: "Please upload a file smaller than 100MB" },
     )
   }
 
@@ -210,7 +214,7 @@ export async function uploadFile(
     })
 
     if (!data.fileUpload.success || !data.fileUpload.uploadFile) {
-      throw new Error("Failed to get upload URL from Linear")
+      throw new CliError("Failed to get upload URL from Linear")
     }
 
     const { assetUrl, uploadUrl, headers } = data.fileUpload.uploadFile
@@ -236,7 +240,7 @@ export async function uploadFile(
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(
+      throw new CliError(
         `Failed to upload file: ${response.status} ${response.statusText} - ${errorText}`,
       )
     }
@@ -283,11 +287,13 @@ export async function validateFilePath(filepath: string): Promise<void> {
   try {
     const info = await Deno.stat(filepath)
     if (!info.isFile) {
-      throw new Error(`Not a file: ${filepath}`)
+      throw new ValidationError(`Not a file: ${filepath}`, {
+        suggestion: "Please provide a path to a valid file",
+      })
     }
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      throw new Error(`File not found: ${filepath}`)
+      throw new NotFoundError("File", filepath)
     }
     throw error
   }

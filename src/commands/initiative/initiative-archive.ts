@@ -10,6 +10,12 @@ import {
   printBulkSummary,
 } from "../../utils/bulk.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 interface InitiativeArchiveResult extends BulkOperationResult {
   name: string
@@ -49,10 +55,9 @@ export const archiveCommand = new Command()
 
       // Single mode requires initiativeId
       if (!initiativeId) {
-        console.error(
+        throw new ValidationError(
           "Initiative ID required. Use --bulk for multiple initiatives.",
         )
-        Deno.exit(1)
       }
 
       await handleSingleArchive(client, initiativeId, { force })
@@ -70,8 +75,7 @@ async function handleSingleArchive(
   // Resolve initiative ID
   const resolvedId = await resolveInitiativeId(client, initiativeId)
   if (!resolvedId) {
-    console.error(`Initiative not found: ${initiativeId}`)
-    Deno.exit(1)
+    throw new NotFoundError("Initiative", initiativeId)
   }
 
   // Get initiative details for confirmation message
@@ -90,13 +94,11 @@ async function handleSingleArchive(
   try {
     initiativeDetails = await client.request(detailsQuery, { id: resolvedId })
   } catch (error) {
-    console.error("Failed to fetch initiative details:", error)
-    Deno.exit(1)
+    handleError(error, "Failed to fetch initiative details")
   }
 
   if (!initiativeDetails?.initiative) {
-    console.error(`Initiative not found: ${initiativeId}`)
-    Deno.exit(1)
+    throw new NotFoundError("Initiative", initiativeId)
   }
 
   const initiative = initiativeDetails.initiative
@@ -110,8 +112,9 @@ async function handleSingleArchive(
   // Confirm archival
   if (!force) {
     if (!Deno.stdin.isTerminal()) {
-      console.error("Interactive confirmation required. Use --force to skip.")
-      Deno.exit(1)
+      throw new ValidationError(
+        "Interactive confirmation required. Use --force to skip.",
+      )
     }
     const confirmed = await Confirm.prompt({
       message: `Archive initiative "${initiative.name}"?`,
@@ -144,15 +147,13 @@ async function handleSingleArchive(
     spinner?.stop()
 
     if (!result.initiativeArchive.success) {
-      console.error("Failed to archive initiative")
-      Deno.exit(1)
+      throw new CliError("Failed to archive initiative")
     }
 
     console.log(`✓ Archived initiative: ${initiative.name}`)
   } catch (error) {
     spinner?.stop()
-    console.error("Failed to archive initiative:", error)
-    Deno.exit(1)
+    handleError(error, "Failed to archive initiative")
   }
 }
 
@@ -176,8 +177,7 @@ async function handleBulkArchive(
   })
 
   if (ids.length === 0) {
-    console.error("No initiative IDs provided for bulk archive.")
-    Deno.exit(1)
+    throw new ValidationError("No initiative IDs provided for bulk archive.")
   }
 
   console.log(`Found ${ids.length} initiative(s) to archive.`)
@@ -185,8 +185,9 @@ async function handleBulkArchive(
   // Confirm bulk operation
   if (!force) {
     if (!Deno.stdin.isTerminal()) {
-      console.error("Interactive confirmation required. Use --force to skip.")
-      Deno.exit(1)
+      throw new ValidationError(
+        "Interactive confirmation required. Use --force to skip.",
+      )
     }
     const confirmed = await Confirm.prompt({
       message: `Archive ${ids.length} initiative(s)?`,

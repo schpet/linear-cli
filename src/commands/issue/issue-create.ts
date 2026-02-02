@@ -24,6 +24,12 @@ import {
   type WorkflowState,
 } from "../../utils/linear.ts"
 import { startWorkOnIssue } from "../../utils/actions.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 type IssueLabel = { id: string; name: string; color: string }
 
@@ -310,8 +316,7 @@ async function promptInteractiveIssueCreation(
     const team = teams.find((t) => t.id === selectedTeamId)
 
     if (!team) {
-      console.error(`Could not find team: ${selectedTeamId}`)
-      Deno.exit(1)
+      throw new NotFoundError("Team", selectedTeamId)
     }
 
     teamId = team.id
@@ -532,17 +537,13 @@ export const createCommand = new Command()
               parentIdentifier,
             )
             if (!parentIdentifierResolved) {
-              console.error(
-                `✗ Could not resolve parent issue identifier: ${parentIdentifier}`,
+              throw new ValidationError(
+                `Could not resolve parent issue identifier: ${parentIdentifier}`,
               )
-              Deno.exit(1)
             }
             parentId = await getIssueId(parentIdentifierResolved)
             if (!parentId) {
-              console.error(
-                `✗ Could not resolve parent issue ID: ${parentIdentifierResolved}`,
-              )
-              Deno.exit(1)
+              throw new NotFoundError("Parent issue", parentIdentifierResolved)
             }
 
             // Fetch parent issue data including project
@@ -585,11 +586,11 @@ export const createCommand = new Command()
           })
 
           if (!data.issueCreate.success) {
-            throw "query failed"
+            throw new CliError("Issue creation failed")
           }
           const issue = data.issueCreate.issue
           if (!issue) {
-            throw "Issue creation failed - no issue returned"
+            throw new CliError("Issue creation failed - no issue returned")
           }
           const issueId = issue.id
           console.log(
@@ -606,17 +607,19 @@ export const createCommand = new Command()
           }
           return
         } catch (error) {
-          console.error("✗ Failed to create issue", error)
-          Deno.exit(1)
+          handleError(error, "Failed to create issue")
         }
       }
 
       // Fallback to flag-based mode
       if (!title) {
-        console.error(
-          "Title is required when not using interactive mode. Use --title or run without any flags (or only --parent) for interactive mode.",
+        throw new ValidationError(
+          "Title is required when not using interactive mode",
+          {
+            suggestion:
+              "Use --title or run without any flags (or only --parent) for interactive mode.",
+          },
         )
-        Deno.exit(1)
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -626,8 +629,7 @@ export const createCommand = new Command()
       try {
         team = (team == null) ? getTeamKey() : team.toUpperCase()
         if (!team) {
-          console.error("Could not determine team key")
-          Deno.exit(1)
+          throw new ValidationError("Could not determine team key")
         }
 
         // For functions that need actual team IDs (like createIssue), get the ID
@@ -639,14 +641,15 @@ export const createCommand = new Command()
           spinner?.start()
         }
         if (!teamId) {
-          console.error(`Could not determine team ID for team ${team}`)
-          Deno.exit(1)
+          throw new NotFoundError("Team", team)
         }
         if (start && assignee === undefined) {
           assignee = "self"
         }
         if (start && assignee !== undefined && assignee !== "self") {
-          console.error("Cannot use --start and a non-self --assignee")
+          throw new ValidationError(
+            "Cannot use --start and a non-self --assignee",
+          )
         }
         let stateId: string | undefined
         if (state) {
@@ -655,10 +658,10 @@ export const createCommand = new Command()
             state,
           )
           if (!workflowState) {
-            console.error(
-              `Could not find workflow state '${state}' for team ${team}`,
+            throw new NotFoundError(
+              "Workflow state",
+              `'${state}' for team ${team}`,
             )
-            Deno.exit(1)
           }
           stateId = workflowState.id
         }
@@ -668,10 +671,7 @@ export const createCommand = new Command()
         if (assignee) {
           assigneeId = await lookupUserId(assignee)
           if (assigneeId == null) {
-            console.error(
-              `Could not determine user ID for assignee ${assignee}`,
-            )
-            Deno.exit(1)
+            throw new NotFoundError("User", assignee)
           }
         }
 
@@ -690,10 +690,7 @@ export const createCommand = new Command()
               spinner?.start()
             }
             if (!labelId) {
-              console.error(
-                `Could not determine ID for issue label ${label}`,
-              )
-              Deno.exit(1)
+              throw new NotFoundError("Issue label", label)
             }
             labelIds.push(labelId)
           }
@@ -708,8 +705,7 @@ export const createCommand = new Command()
             spinner?.start()
           }
           if (projectId === undefined) {
-            console.error(`Could not determine ID for project ${project}`)
-            Deno.exit(1)
+            throw new NotFoundError("Project", project)
           }
         }
 
@@ -727,17 +723,13 @@ export const createCommand = new Command()
             parentIdentifier,
           )
           if (!parentIdentifierResolved) {
-            console.error(
-              `✗ Could not resolve parent issue identifier: ${parentIdentifier}`,
+            throw new ValidationError(
+              `Could not resolve parent issue identifier: ${parentIdentifier}`,
             )
-            Deno.exit(1)
           }
           parentId = await getIssueId(parentIdentifierResolved)
           if (!parentId) {
-            console.error(
-              `✗ Could not resolve parent issue ID: ${parentIdentifierResolved}`,
-            )
-            Deno.exit(1)
+            throw new NotFoundError("Parent issue", parentIdentifierResolved)
           }
 
           // Fetch parent issue data including project
@@ -775,11 +767,11 @@ export const createCommand = new Command()
         const client = getGraphQLClient()
         const data = await client.request(createIssueMutation, { input })
         if (!data.issueCreate.success) {
-          throw "query failed"
+          throw new CliError("Issue creation failed")
         }
         const issue = data.issueCreate.issue
         if (!issue) {
-          throw "Issue creation failed - no issue returned"
+          throw new CliError("Issue creation failed - no issue returned")
         }
         const issueId = issue.id
         spinner?.stop()
@@ -790,8 +782,7 @@ export const createCommand = new Command()
         }
       } catch (error) {
         spinner?.stop()
-        console.error("✗ Failed to create issue", error)
-        Deno.exit(1)
+        handleError(error, "Failed to create issue")
       }
     },
   )

@@ -3,37 +3,33 @@ import { gray, setColorEnabled } from "@std/fmt/colors"
 import { getCliWorkspace, getOption } from "../config.ts"
 import { getCredentialApiKey } from "../credentials.ts"
 import denoConfig from "../../deno.json" with { type: "json" }
+import { extractGraphQLMessage, isDebugMode } from "./errors.ts"
 
 export { ClientError }
 
-/**
- * Checks if an error is a GraphQL ClientError
- */
-export function isClientError(error: unknown): error is ClientError {
-  return error instanceof ClientError
-}
+// Re-export error utilities for backward compatibility
+export { isClientError } from "./errors.ts"
 
 /**
- * Logs a GraphQL ClientError formatted for display to the user
+ * Logs a GraphQL ClientError formatted for display to the user.
+ * @deprecated Use handleError from errors.ts for consistent error handling
  */
 export function logClientError(error: ClientError): void {
-  const userMessage = error.response?.errors?.[0]?.extensions
-    ?.userPresentableMessage as
-      | string
-      | undefined
-  const message = userMessage?.toLowerCase() ?? error.message
-
+  const message = extractGraphQLMessage(error)
   console.error(`✗ ${message}\n`)
 
-  const rawQuery = error.request?.query
-  const query = typeof rawQuery === "string" ? rawQuery.trim() : rawQuery
-  const vars = JSON.stringify(error.request?.variables, null, 2)
+  // Only show query details in debug mode
+  if (isDebugMode()) {
+    setColorEnabled(Deno.stderr.isTerminal())
 
-  setColorEnabled(Deno.stderr.isTerminal())
+    const rawQuery = error.request?.query
+    const query = typeof rawQuery === "string" ? rawQuery.trim() : rawQuery
+    const vars = JSON.stringify(error.request?.variables, null, 2)
 
-  console.error(gray(String(query)))
-  console.error("")
-  console.error(gray(vars))
+    console.error(gray(String(query)))
+    console.error("")
+    console.error(gray(vars))
+  }
 }
 
 /**

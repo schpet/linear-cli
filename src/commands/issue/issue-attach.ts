@@ -3,10 +3,17 @@ import { gql } from "../../__codegen__/gql.ts"
 import type { AttachmentCreateInput } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getIssueId, getIssueIdentifier } from "../../utils/linear.ts"
-import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import { uploadFile, validateFilePath } from "../../utils/upload.ts"
 import { basename } from "@std/path"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  CliError,
+  handleError,
+  isClientError,
+  isNotFoundError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 export const attachCommand = new Command()
   .name("attach")
@@ -23,18 +30,27 @@ export const attachCommand = new Command()
     try {
       const resolvedIdentifier = await getIssueIdentifier(issueId)
       if (!resolvedIdentifier) {
-        console.error(getNoIssueFoundMessage())
-        Deno.exit(1)
+        throw new ValidationError(
+          "Could not determine issue ID",
+          { suggestion: "Please provide an issue ID like 'ENG-123'." },
+        )
       }
 
       // Validate file exists
       await validateFilePath(filepath)
 
       // Get the issue UUID (attachmentCreate needs UUID, not identifier)
-      const issueUuid = await getIssueId(resolvedIdentifier)
+      let issueUuid: string | undefined
+      try {
+        issueUuid = await getIssueId(resolvedIdentifier)
+      } catch (error) {
+        if (isClientError(error) && isNotFoundError(error)) {
+          throw new NotFoundError("Issue", resolvedIdentifier)
+        }
+        throw error
+      }
       if (!issueUuid) {
-        console.error(`✗ Issue not found: ${resolvedIdentifier}`)
-        Deno.exit(1)
+        throw new NotFoundError("Issue", resolvedIdentifier)
       }
 
       // Upload the file
@@ -70,14 +86,13 @@ export const attachCommand = new Command()
       const data = await client.request(mutation, { input })
 
       if (!data.attachmentCreate.success) {
-        throw new Error("Failed to create attachment")
+        throw new CliError("Failed to create attachment")
       }
 
       const attachment = data.attachmentCreate.attachment
       console.log(`✓ Attachment created: ${attachment.title}`)
       console.log(attachment.url)
     } catch (error) {
-      console.error("✗ Failed to attach file", error)
-      Deno.exit(1)
+      handleError(error, "Failed to attach file")
     }
   })

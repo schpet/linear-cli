@@ -24,15 +24,6 @@ stderr:
 ""
 `;
 
-snapshot[`Issue View Command - With Issue ID 1`] = `
-stdout:
-"Error: error sending request for url (http://127.0.0.1:PORT/graphql): client error (Connect): tcp connect error: Connection refused
-"
-stderr:
-"✗ Failed to fetch issue details
-"
-`;
-
 snapshot[`Issue View Command - With Mock Server Terminal No Comments 1`] = `
 stdout:
 "# TEST-123: Fix authentication bug in login flow
@@ -93,15 +84,6 @@ Users are experiencing issues logging in when their session expires.
 "
 stderr:
 ""
-`;
-
-snapshot[`Issue View Command - Issue Not Found 1`] = `
-stdout:
-'Error: Issue not found: TEST-999: {"response":{"errors":[{"message":"Issue not found: TEST-999","extensions":{"code":"NOT_FOUND"}}],"status":200,"headers":{}},"request":{"query":"query GetIssueDetailsWithComments(\$id: String!) {\\\\n  issue(id: \$id) {\\\\n    identifier\\\\n    title\\\\n    description\\\\n    url\\\\n    branchName\\\\n    state {\\\\n      name\\\\n      color\\\\n    }\\\\n    parent {\\\\n      identifier\\\\n      title\\\\n      state {\\\\n        name\\\\n        color\\\\n      }\\\\n    }\\\\n    children {\\\\n      nodes {\\\\n        identifier\\\\n        title\\\\n        state {\\\\n          name\\\\n          color\\\\n        }\\\\n      }\\\\n    }\\\\n    comments(first: 50, orderBy: createdAt) {\\\\n      nodes {\\\\n        id\\\\n        body\\\\n        createdAt\\\\n        user {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        externalUser {\\\\n          name\\\\n          displayName\\\\n        }\\\\n        parent {\\\\n          id\\\\n        }\\\\n      }\\\\n    }\\\\n    attachments(first: 50) {\\\\n      nodes {\\\\n        id\\\\n        title\\\\n        url\\\\n        subtitle\\\\n        sourceType\\\\n        metadata\\\\n        createdAt\\\\n      }\\\\n    }\\\\n  }\\\\n}","variables":{"id":"TEST-999"}}}
-'
-stderr:
-"✗ Failed to fetch issue details
-"
 `;
 
 snapshot[`Issue View Command - JSON Output No Comments 1`] = `
@@ -170,6 +152,14 @@ stdout:
 \`
 stderr:
 ""
+`;
+
+snapshot[`Issue View Command - Issue Not Found 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to view issue: Issue not found: TEST-999
+"
 `;
 
 snapshot[`Issue View Command - With Parent And Sub-issues 1`] = `

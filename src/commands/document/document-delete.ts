@@ -9,6 +9,12 @@ import {
   isBulkMode,
   printBulkSummary,
 } from "../../utils/bulk.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 interface DocumentDeleteResult extends BulkOperationResult {
   title?: string
@@ -34,28 +40,31 @@ export const deleteCommand = new Command()
       { yes, bulk, bulkFile, bulkStdin },
       documentId,
     ) => {
-      const client = getGraphQLClient()
+      try {
+        const client = getGraphQLClient()
 
-      // Check if bulk mode
-      if (isBulkMode({ bulk, bulkFile, bulkStdin })) {
-        await handleBulkDelete(client, {
-          bulk,
-          bulkFile,
-          bulkStdin,
-          yes,
-        })
-        return
+        // Check if bulk mode
+        if (isBulkMode({ bulk, bulkFile, bulkStdin })) {
+          await handleBulkDelete(client, {
+            bulk,
+            bulkFile,
+            bulkStdin,
+            yes,
+          })
+          return
+        }
+
+        // Single mode requires documentId
+        if (!documentId) {
+          throw new ValidationError("Document ID required", {
+            suggestion: "Use --bulk for multiple documents.",
+          })
+        }
+
+        await handleSingleDelete(client, documentId, { yes })
+      } catch (error) {
+        handleError(error, "Failed to delete document")
       }
-
-      // Single mode requires documentId
-      if (!documentId) {
-        console.error(
-          "Document ID required. Use --bulk for multiple documents.",
-        )
-        Deno.exit(1)
-      }
-
-      await handleSingleDelete(client, documentId, { yes })
     },
   )
 
@@ -78,17 +87,10 @@ async function handleSingleDelete(
     }
   `)
 
-  let documentDetails
-  try {
-    documentDetails = await client.request(detailsQuery, { id: documentId })
-  } catch (error) {
-    console.error("Failed to fetch document details:", error)
-    Deno.exit(1)
-  }
+  const documentDetails = await client.request(detailsQuery, { id: documentId })
 
   if (!documentDetails?.document) {
-    console.error(`Document not found: ${documentId}`)
-    Deno.exit(1)
+    throw new NotFoundError("Document", documentId)
   }
 
   const document = documentDetails.document
@@ -96,8 +98,9 @@ async function handleSingleDelete(
   // Confirm deletion
   if (!yes) {
     if (!Deno.stdin.isTerminal()) {
-      console.error("Interactive confirmation required. Use --yes to skip.")
-      Deno.exit(1)
+      throw new ValidationError("Interactive confirmation required", {
+        suggestion: "Use --yes to skip.",
+      })
     }
     const confirmed = await Confirm.prompt({
       message: `Are you sure you want to delete "${document.title}"?`,
@@ -119,19 +122,13 @@ async function handleSingleDelete(
     }
   `)
 
-  try {
-    const result = await client.request(deleteMutation, { id: document.id })
+  const result = await client.request(deleteMutation, { id: document.id })
 
-    if (result.documentDelete.success) {
-      console.log(`✓ Deleted document: ${document.title}`)
-    } else {
-      console.error("Failed to delete document")
-      Deno.exit(1)
-    }
-  } catch (error) {
-    console.error("Failed to delete document:", error)
-    Deno.exit(1)
+  if (!result.documentDelete.success) {
+    throw new CliError("Delete operation failed")
   }
+
+  console.log(`✓ Deleted document: ${document.title}`)
 }
 
 async function handleBulkDelete(
@@ -154,8 +151,7 @@ async function handleBulkDelete(
   })
 
   if (ids.length === 0) {
-    console.error("No document IDs provided for bulk delete.")
-    Deno.exit(1)
+    throw new ValidationError("No document IDs provided for bulk delete")
   }
 
   console.log(`Found ${ids.length} document(s) to delete.`)
@@ -163,8 +159,9 @@ async function handleBulkDelete(
   // Confirm bulk operation
   if (!yes) {
     if (!Deno.stdin.isTerminal()) {
-      console.error("Interactive confirmation required. Use --yes to skip.")
-      Deno.exit(1)
+      throw new ValidationError("Interactive confirmation required", {
+        suggestion: "Use --yes to skip.",
+      })
     }
     const confirmed = await Confirm.prompt({
       message: `Delete ${ids.length} document(s)?`,

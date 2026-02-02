@@ -3,6 +3,12 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 /**
  * Open editor with initial content and return the edited content
@@ -12,10 +18,10 @@ async function openEditorWithContent(
 ): Promise<string | undefined> {
   const editor = await getEditor()
   if (!editor) {
-    console.error(
-      "No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>",
-    )
-    return undefined
+    throw new ValidationError("No editor found", {
+      suggestion:
+        "Set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>",
+    })
   }
 
   // Create a temporary file with initial content
@@ -36,8 +42,7 @@ async function openEditorWithContent(
     const { success } = await process.output()
 
     if (!success) {
-      console.error("Editor exited with an error")
-      return undefined
+      throw new CliError("Editor exited with an error")
     }
 
     // Read the content back
@@ -46,11 +51,15 @@ async function openEditorWithContent(
 
     return cleaned.length > 0 ? cleaned : undefined
   } catch (error) {
-    console.error(
-      "Failed to open editor:",
-      error instanceof Error ? error.message : String(error),
+    if (error instanceof CliError || error instanceof ValidationError) {
+      throw error
+    }
+    throw new CliError(
+      `Failed to open editor: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
     )
-    return undefined
   } finally {
     // Clean up the temporary file
     try {
@@ -104,45 +113,46 @@ export const updateCommand = new Command()
       { title, content, contentFile, icon, edit },
       documentId,
     ) => {
-      const client = getGraphQLClient()
+      try {
+        const client = getGraphQLClient()
 
-      // Build the update input
-      const input: Record<string, string> = {}
+        // Build the update input
+        const input: Record<string, string> = {}
 
-      // Add title if provided
-      if (title) {
-        input.title = title
-      }
+        // Add title if provided
+        if (title) {
+          input.title = title
+        }
 
-      // Add icon if provided
-      if (icon) {
-        input.icon = icon
-      }
+        // Add icon if provided
+        if (icon) {
+          input.icon = icon
+        }
 
-      // Resolve content from various sources
-      let finalContent: string | undefined
+        // Resolve content from various sources
+        let finalContent: string | undefined
 
-      if (content) {
-        // Content provided inline
-        finalContent = content
-      } else if (contentFile) {
-        // Content from file
-        try {
-          finalContent = await Deno.readTextFile(contentFile)
-        } catch (error) {
-          if (error instanceof Deno.errors.NotFound) {
-            console.error(`File not found: ${contentFile}`)
-          } else {
-            console.error(
-              "Failed to read content file:",
-              error instanceof Error ? error.message : String(error),
+        if (content) {
+          // Content provided inline
+          finalContent = content
+        } else if (contentFile) {
+          // Content from file
+          try {
+            finalContent = await Deno.readTextFile(contentFile)
+          } catch (error) {
+            if (error instanceof Deno.errors.NotFound) {
+              throw new NotFoundError("File", contentFile)
+            }
+            throw new CliError(
+              `Failed to read content file: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              { cause: error },
             )
           }
-          Deno.exit(1)
-        }
-      } else if (edit) {
-        // Edit mode: fetch current content and open in editor
-        const getDocumentQuery = gql(`
+        } else if (edit) {
+          // Edit mode: fetch current content and open in editor
+          const getDocumentQuery = gql(`
           query GetDocumentForEdit($id: String!) {
             document(id: $id) {
               id
@@ -152,60 +162,55 @@ export const updateCommand = new Command()
           }
         `)
 
-        let documentData
-        try {
-          documentData = await client.request(getDocumentQuery, {
+          const documentData = await client.request(getDocumentQuery, {
             id: documentId,
           })
-        } catch (error) {
-          console.error("Failed to fetch document:", error)
-          Deno.exit(1)
+
+          if (!documentData?.document) {
+            throw new NotFoundError("Document", documentId)
+          }
+
+          const currentContent = documentData.document.content || ""
+          console.log(`Opening ${documentData.document.title} in editor...`)
+
+          finalContent = await openEditorWithContent(currentContent)
+
+          if (finalContent === undefined) {
+            console.log("No changes made, update cancelled.")
+            return
+          }
+
+          // Check if content actually changed
+          if (finalContent === currentContent) {
+            console.log("No changes detected, update cancelled.")
+            return
+          }
+        } else if (
+          !Deno.stdin.isTerminal() && Object.keys(input).length === 0
+        ) {
+          // Only try reading from stdin if no other update fields were provided
+          // This avoids hanging when stdin is piped but has no data (e.g., in test environments)
+          const stdinContent = await readContentFromStdin()
+          if (stdinContent) {
+            finalContent = stdinContent
+          }
         }
 
-        if (!documentData?.document) {
-          console.error(`Document not found: ${documentId}`)
-          Deno.exit(1)
+        // Add content to input if resolved
+        if (finalContent !== undefined) {
+          input.content = finalContent
         }
 
-        const currentContent = documentData.document.content || ""
-        console.log(`Opening ${documentData.document.title} in editor...`)
-
-        finalContent = await openEditorWithContent(currentContent)
-
-        if (finalContent === undefined) {
-          console.log("No changes made, update cancelled.")
-          return
+        // Validate that at least one field is being updated
+        if (Object.keys(input).length === 0) {
+          throw new ValidationError("No update fields provided", {
+            suggestion:
+              "Use --title, --content, --content-file, --icon, or --edit.",
+          })
         }
 
-        // Check if content actually changed
-        if (finalContent === currentContent) {
-          console.log("No changes detected, update cancelled.")
-          return
-        }
-      } else if (!Deno.stdin.isTerminal() && Object.keys(input).length === 0) {
-        // Only try reading from stdin if no other update fields were provided
-        // This avoids hanging when stdin is piped but has no data (e.g., in test environments)
-        const stdinContent = await readContentFromStdin()
-        if (stdinContent) {
-          finalContent = stdinContent
-        }
-      }
-
-      // Add content to input if resolved
-      if (finalContent !== undefined) {
-        input.content = finalContent
-      }
-
-      // Validate that at least one field is being updated
-      if (Object.keys(input).length === 0) {
-        console.error(
-          "No update fields provided. Use --title, --content, --content-file, --icon, or --edit.",
-        )
-        Deno.exit(1)
-      }
-
-      // Execute the update
-      const updateMutation = gql(`
+        // Execute the update
+        const updateMutation = gql(`
         mutation UpdateDocument($id: String!, $input: DocumentUpdateInput!) {
           documentUpdate(id: $id, input: $input) {
             success
@@ -220,28 +225,24 @@ export const updateCommand = new Command()
         }
       `)
 
-      try {
         const result = await client.request(updateMutation, {
           id: documentId,
           input,
         })
 
         if (!result.documentUpdate.success) {
-          console.error("Failed to update document")
-          Deno.exit(1)
+          throw new CliError("Document update failed")
         }
 
         const document = result.documentUpdate.document
         if (!document) {
-          console.error("Document update failed - no document returned")
-          Deno.exit(1)
+          throw new CliError("Document update failed - no document returned")
         }
 
         console.log(`✓ Updated document: ${document.title}`)
         console.log(document.url)
       } catch (error) {
-        console.error("Failed to update document:", error)
-        Deno.exit(1)
+        handleError(error, "Failed to update document")
       }
     },
   )

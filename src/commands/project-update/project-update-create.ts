@@ -6,6 +6,12 @@ import { getEditor, openEditor } from "../../utils/editor.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 type ProjectUpdateHealth = "onTrack" | "atRisk" | "offTrack"
 
@@ -67,34 +73,94 @@ export const createCommand = new Command()
       const { Spinner } = await import("@std/cli/unstable-spinner")
       const client = getGraphQLClient()
 
-      // Resolve project ID
-      let resolvedProjectId: string
       try {
-        resolvedProjectId = await resolveProjectId(projectId)
-      } catch (error) {
-        console.error(
-          error instanceof Error
-            ? error.message
-            : `Could not resolve project: ${projectId}`,
-        )
-        Deno.exit(1)
-      }
+        // Resolve project ID
+        const resolvedProjectId = await resolveProjectId(projectId)
 
-      // Determine if we should use interactive mode
-      let useInteractive = interactive && Deno.stdout.isTerminal()
+        // Determine if we should use interactive mode
+        let useInteractive = interactive && Deno.stdout.isTerminal()
 
-      // If no flags provided and is TTY, enter interactive mode
-      const noFlagsProvided = !body && !bodyFile && !health
-      if (
-        noFlagsProvided && Deno.stdout.isTerminal() && Deno.stdin.isTerminal()
-      ) {
-        useInteractive = true
-      }
+        // If no flags provided and is TTY, enter interactive mode
+        const noFlagsProvided = !body && !bodyFile && !health
+        if (
+          noFlagsProvided && Deno.stdout.isTerminal() && Deno.stdin.isTerminal()
+        ) {
+          useInteractive = true
+        }
 
-      // Interactive mode
-      if (useInteractive) {
-        const result = await promptInteractiveCreate()
+        // Interactive mode
+        if (useInteractive) {
+          const result = await promptInteractiveCreate()
 
+          const input: {
+            projectId: string
+            body?: string
+            health?: ProjectUpdateHealth
+          } = {
+            projectId: resolvedProjectId,
+          }
+
+          if (result.body) {
+            input.body = result.body
+          }
+
+          if (result.health) {
+            input.health = result.health
+          }
+
+          await createProjectUpdate(client, input)
+          return
+        }
+
+        // Non-interactive mode: resolve content from various sources
+        let finalBody: string | undefined
+
+        if (body) {
+          // Content provided inline via --body
+          finalBody = body
+        } else if (bodyFile) {
+          // Content from file via --body-file
+          try {
+            finalBody = await Deno.readTextFile(bodyFile)
+          } catch (error) {
+            if (error instanceof Deno.errors.NotFound) {
+              throw new NotFoundError("File", bodyFile)
+            } else {
+              throw new CliError(
+                `Failed to read body file: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              )
+            }
+          }
+        } else if (!Deno.stdin.isTerminal()) {
+          // Try reading from stdin if piped
+          const stdinContent = await readContentFromStdin()
+          if (stdinContent) {
+            finalBody = stdinContent
+          }
+        } else if (Deno.stdout.isTerminal()) {
+          // No content provided, open editor
+          console.log("Opening editor for update content...")
+          finalBody = await openEditor()
+          if (!finalBody) {
+            console.log("No content entered.")
+          }
+        }
+
+        // Validate health value if provided
+        let validatedHealth: ProjectUpdateHealth | undefined
+        if (health) {
+          const validHealthValues = ["onTrack", "atRisk", "offTrack"]
+          if (!validHealthValues.includes(health)) {
+            throw new ValidationError(`Invalid health value: ${health}`, {
+              suggestion: `Must be one of: ${validHealthValues.join(", ")}`,
+            })
+          }
+          validatedHealth = health as ProjectUpdateHealth
+        }
+
+        // Build input
         const input: {
           projectId: string
           body?: string
@@ -103,94 +169,25 @@ export const createCommand = new Command()
           projectId: resolvedProjectId,
         }
 
-        if (result.body) {
-          input.body = result.body
+        if (finalBody) {
+          input.body = finalBody
         }
 
-        if (result.health) {
-          input.health = result.health
+        if (validatedHealth) {
+          input.health = validatedHealth
         }
 
-        await createProjectUpdate(client, input)
-        return
-      }
+        const showSpinner = shouldShowSpinner()
+        const spinner = showSpinner ? new Spinner() : null
+        spinner?.start()
 
-      // Non-interactive mode: resolve content from various sources
-      let finalBody: string | undefined
-
-      if (body) {
-        // Content provided inline via --body
-        finalBody = body
-      } else if (bodyFile) {
-        // Content from file via --body-file
         try {
-          finalBody = await Deno.readTextFile(bodyFile)
-        } catch (error) {
-          if (error instanceof Deno.errors.NotFound) {
-            console.error(`File not found: ${bodyFile}`)
-          } else {
-            console.error(
-              "Failed to read body file:",
-              error instanceof Error ? error.message : String(error),
-            )
-          }
-          Deno.exit(1)
+          await createProjectUpdate(client, input)
+        } finally {
+          spinner?.stop()
         }
-      } else if (!Deno.stdin.isTerminal()) {
-        // Try reading from stdin if piped
-        const stdinContent = await readContentFromStdin()
-        if (stdinContent) {
-          finalBody = stdinContent
-        }
-      } else if (Deno.stdout.isTerminal()) {
-        // No content provided, open editor
-        console.log("Opening editor for update content...")
-        finalBody = await openEditor()
-        if (!finalBody) {
-          console.log("No content entered.")
-        }
-      }
-
-      // Validate health value if provided
-      let validatedHealth: ProjectUpdateHealth | undefined
-      if (health) {
-        const validHealthValues = ["onTrack", "atRisk", "offTrack"]
-        if (!validHealthValues.includes(health)) {
-          console.error(
-            `Invalid health value: ${health}. Must be one of: ${
-              validHealthValues.join(", ")
-            }`,
-          )
-          Deno.exit(1)
-        }
-        validatedHealth = health as ProjectUpdateHealth
-      }
-
-      // Build input
-      const input: {
-        projectId: string
-        body?: string
-        health?: ProjectUpdateHealth
-      } = {
-        projectId: resolvedProjectId,
-      }
-
-      if (finalBody) {
-        input.body = finalBody
-      }
-
-      if (validatedHealth) {
-        input.health = validatedHealth
-      }
-
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
-      try {
-        await createProjectUpdate(client, input)
-      } finally {
-        spinner?.stop()
+      } catch (error) {
+        handleError(error, "Failed to create project update")
       }
     },
   )
@@ -249,10 +246,15 @@ async function promptInteractiveCreate(): Promise<{
     try {
       body = await Deno.readTextFile(filePath)
     } catch (error) {
-      console.error(
-        "Failed to read file:",
-        error instanceof Error ? error.message : String(error),
-      )
+      if (error instanceof Deno.errors.NotFound) {
+        throw new NotFoundError("File", filePath)
+      } else {
+        throw new CliError(
+          `Failed to read file: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        )
+      }
     }
   }
 
@@ -275,14 +277,12 @@ async function createProjectUpdate(
     const result = await client.request(CreateProjectUpdate, { input })
 
     if (!result.projectUpdateCreate.success) {
-      console.error("Failed to create project update")
-      Deno.exit(1)
+      throw new CliError("Failed to create project update")
     }
 
     const projectUpdate = result.projectUpdateCreate.projectUpdate
     if (!projectUpdate) {
-      console.error("Project update creation failed - no update returned")
-      Deno.exit(1)
+      throw new CliError("Project update creation failed - no update returned")
     }
 
     const projectName = projectUpdate.project?.name || "Unknown project"
@@ -292,7 +292,6 @@ async function createProjectUpdate(
     }
     console.log(projectUpdate.url)
   } catch (error) {
-    console.error("Failed to create project update:", error)
-    Deno.exit(1)
+    handleError(error, "Failed to create project update")
   }
 }

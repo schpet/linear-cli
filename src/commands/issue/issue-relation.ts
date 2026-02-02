@@ -2,6 +2,13 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getIssueId, getIssueIdentifier } from "../../utils/linear.ts"
+import {
+  handleError,
+  isClientError,
+  isNotFoundError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 const RELATION_TYPES = ["blocks", "blocked-by", "related", "duplicate"] as const
 type RelationType = (typeof RELATION_TYPES)[number]
@@ -40,27 +47,25 @@ const addRelationCommand = new Command()
       // Validate relation type
       const relationType = relationTypeArg.toLowerCase() as RelationType
       if (!RELATION_TYPES.includes(relationType)) {
-        console.error(
-          `Invalid relation type: ${relationTypeArg}. Must be one of: ${
-            RELATION_TYPES.join(", ")
-          }`,
+        throw new ValidationError(
+          `Invalid relation type: ${relationTypeArg}`,
+          { suggestion: `Must be one of: ${RELATION_TYPES.join(", ")}` },
         )
-        Deno.exit(1)
       }
 
       // Get issue identifiers
       const issueIdentifier = await getIssueIdentifier(issueIdArg)
       if (!issueIdentifier) {
-        console.error(`Could not resolve issue identifier: ${issueIdArg}`)
-        Deno.exit(1)
+        throw new ValidationError(
+          `Could not resolve issue identifier: ${issueIdArg}`,
+        )
       }
 
       const relatedIssueIdentifier = await getIssueIdentifier(relatedIssueIdArg)
       if (!relatedIssueIdentifier) {
-        console.error(
-          `Could not resolve related issue identifier: ${relatedIssueIdArg}`,
+        throw new ValidationError(
+          `Could not resolve issue identifier: ${relatedIssueIdArg}`,
         )
-        Deno.exit(1)
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -69,18 +74,34 @@ const addRelationCommand = new Command()
       spinner?.start()
 
       // Get issue IDs
-      const issueId = await getIssueId(issueIdentifier)
+      let issueId: string | undefined
+      try {
+        issueId = await getIssueId(issueIdentifier)
+      } catch (error) {
+        spinner?.stop()
+        if (isClientError(error) && isNotFoundError(error)) {
+          throw new NotFoundError("Issue", issueIdentifier)
+        }
+        throw error
+      }
       if (!issueId) {
         spinner?.stop()
-        console.error(`Could not find issue: ${issueIdentifier}`)
-        Deno.exit(1)
+        throw new NotFoundError("Issue", issueIdentifier)
       }
 
-      const relatedIssueId = await getIssueId(relatedIssueIdentifier)
+      let relatedIssueId: string | undefined
+      try {
+        relatedIssueId = await getIssueId(relatedIssueIdentifier)
+      } catch (error) {
+        spinner?.stop()
+        if (isClientError(error) && isNotFoundError(error)) {
+          throw new NotFoundError("Issue", relatedIssueIdentifier)
+        }
+        throw error
+      }
       if (!relatedIssueId) {
         spinner?.stop()
-        console.error(`Could not find related issue: ${relatedIssueIdentifier}`)
-        Deno.exit(1)
+        throw new NotFoundError("Issue", relatedIssueIdentifier)
       }
 
       // For "blocked-by", we swap the issues so the relation is correct
@@ -116,8 +137,7 @@ const addRelationCommand = new Command()
       spinner?.stop()
 
       if (!data.issueRelationCreate.success) {
-        console.error("Failed to create relation")
-        Deno.exit(1)
+        throw new Error("Failed to create relation")
       }
 
       const relation = data.issueRelationCreate.issueRelation
@@ -127,8 +147,7 @@ const addRelationCommand = new Command()
         )
       }
     } catch (error) {
-      console.error("Failed to create relation:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to create relation")
     }
   })
 
@@ -141,27 +160,25 @@ const deleteRelationCommand = new Command()
       // Validate relation type
       const relationType = relationTypeArg.toLowerCase() as RelationType
       if (!RELATION_TYPES.includes(relationType)) {
-        console.error(
-          `Invalid relation type: ${relationTypeArg}. Must be one of: ${
-            RELATION_TYPES.join(", ")
-          }`,
+        throw new ValidationError(
+          `Invalid relation type: ${relationTypeArg}`,
+          { suggestion: `Must be one of: ${RELATION_TYPES.join(", ")}` },
         )
-        Deno.exit(1)
       }
 
       // Get issue identifiers
       const issueIdentifier = await getIssueIdentifier(issueIdArg)
       if (!issueIdentifier) {
-        console.error(`Could not resolve issue identifier: ${issueIdArg}`)
-        Deno.exit(1)
+        throw new ValidationError(
+          `Could not resolve issue identifier: ${issueIdArg}`,
+        )
       }
 
       const relatedIssueIdentifier = await getIssueIdentifier(relatedIssueIdArg)
       if (!relatedIssueIdentifier) {
-        console.error(
-          `Could not resolve related issue identifier: ${relatedIssueIdArg}`,
+        throw new ValidationError(
+          `Could not resolve issue identifier: ${relatedIssueIdArg}`,
         )
-        Deno.exit(1)
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -170,18 +187,34 @@ const deleteRelationCommand = new Command()
       spinner?.start()
 
       // Get issue IDs
-      const issueId = await getIssueId(issueIdentifier)
+      let issueId: string | undefined
+      try {
+        issueId = await getIssueId(issueIdentifier)
+      } catch (error) {
+        spinner?.stop()
+        if (isClientError(error) && isNotFoundError(error)) {
+          throw new NotFoundError("Issue", issueIdentifier)
+        }
+        throw error
+      }
       if (!issueId) {
         spinner?.stop()
-        console.error(`Could not find issue: ${issueIdentifier}`)
-        Deno.exit(1)
+        throw new NotFoundError("Issue", issueIdentifier)
       }
 
-      const relatedIssueId = await getIssueId(relatedIssueIdentifier)
+      let relatedIssueId: string | undefined
+      try {
+        relatedIssueId = await getIssueId(relatedIssueIdentifier)
+      } catch (error) {
+        spinner?.stop()
+        if (isClientError(error) && isNotFoundError(error)) {
+          throw new NotFoundError("Issue", relatedIssueIdentifier)
+        }
+        throw error
+      }
       if (!relatedIssueId) {
         spinner?.stop()
-        console.error(`Could not find related issue: ${relatedIssueIdentifier}`)
-        Deno.exit(1)
+        throw new NotFoundError("Issue", relatedIssueIdentifier)
       }
 
       // Find the relation
@@ -216,10 +249,10 @@ const deleteRelationCommand = new Command()
 
       if (!relation) {
         spinner?.stop()
-        console.error(
-          `No ${relationType} relation found between ${issueIdentifier} and ${relatedIssueIdentifier}`,
+        throw new NotFoundError(
+          "Relation",
+          `${relationType} between ${issueIdentifier} and ${relatedIssueIdentifier}`,
         )
-        Deno.exit(1)
       }
 
       const deleteRelationMutation = gql(`
@@ -237,16 +270,14 @@ const deleteRelationCommand = new Command()
       spinner?.stop()
 
       if (!deleteData.issueRelationDelete.success) {
-        console.error("Failed to delete relation")
-        Deno.exit(1)
+        throw new Error("Failed to delete relation")
       }
 
       console.log(
         `✓ Deleted relation: ${issueIdentifier} ${relationType} ${relatedIssueIdentifier}`,
       )
     } catch (error) {
-      console.error("Failed to delete relation:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to delete relation")
     }
   })
 
@@ -258,10 +289,10 @@ const listRelationsCommand = new Command()
     try {
       const issueIdentifier = await getIssueIdentifier(issueIdArg)
       if (!issueIdentifier) {
-        console.error(
-          "Could not determine issue ID. Please provide an issue ID like 'ENG-123'.",
+        throw new ValidationError(
+          "Could not determine issue ID",
+          { suggestion: "Please provide an issue ID like 'ENG-123'." },
         )
-        Deno.exit(1)
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -299,15 +330,23 @@ const listRelationsCommand = new Command()
       `)
 
       const client = getGraphQLClient()
-      const data = await client.request(listRelationsQuery, {
-        issueId: issueIdentifier,
-      })
+      let data
+      try {
+        data = await client.request(listRelationsQuery, {
+          issueId: issueIdentifier,
+        })
+      } catch (error) {
+        spinner?.stop()
+        if (isClientError(error) && isNotFoundError(error)) {
+          throw new NotFoundError("Issue", issueIdentifier)
+        }
+        throw error
+      }
 
       spinner?.stop()
 
       if (!data.issue) {
-        console.error(`Issue not found: ${issueIdentifier}`)
-        Deno.exit(1)
+        throw new NotFoundError("Issue", issueIdentifier)
       }
 
       const { identifier, title, relations, inverseRelations } = data.issue
@@ -344,8 +383,7 @@ const listRelationsCommand = new Command()
         }
       }
     } catch (error) {
-      console.error("Failed to list relations:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to list relations")
     }
   })
 

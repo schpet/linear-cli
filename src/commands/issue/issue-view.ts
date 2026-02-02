@@ -6,7 +6,6 @@ import { openIssuePage } from "../../utils/actions.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { bold, underline } from "@std/fmt/colors"
-import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import { ensureDir } from "@std/fs"
 import { join } from "@std/path"
 import { encodeHex } from "@std/encoding/hex"
@@ -23,6 +22,7 @@ import {
   shouldShowSpinner,
 } from "../../utils/hyperlink.ts"
 import { createHyperlinkExtension } from "../../utils/charmd-hyperlink-extension.ts"
+import { handleError, ValidationError } from "../../utils/errors.ts"
 
 export const viewCommand = new Command()
   .name("view")
@@ -45,165 +45,171 @@ export const viewCommand = new Command()
       return
     }
 
-    const resolvedId = await getIssueIdentifier(issueId)
-    if (!resolvedId) {
-      console.error(getNoIssueFoundMessage())
-      Deno.exit(1)
-    }
-
-    const issueData = await fetchIssueDetails(
-      resolvedId,
-      shouldShowSpinner() && !json,
-      showComments,
-    )
-
-    let urlToPath: Map<string, string> | undefined
-    const shouldDownload = download && getOption("download_images") !== false
-    if (shouldDownload) {
-      urlToPath = await downloadIssueImages(
-        issueData.description,
-        issueData.comments,
-      )
-    }
-
-    // Download attachments if enabled
-    let attachmentPaths: Map<string, string> | undefined
-    const shouldDownloadAttachments = shouldDownload &&
-      getOption("auto_download_attachments") !== false
-    if (
-      shouldDownloadAttachments && issueData.attachments &&
-      issueData.attachments.length > 0
-    ) {
-      attachmentPaths = await downloadAttachments(
-        issueData.identifier,
-        issueData.attachments,
-      )
-    }
-
-    // Handle JSON output
-    if (json) {
-      console.log(JSON.stringify(issueData, null, 2))
-      return
-    }
-
-    // Determine hyperlink format (only if enabled and environment supports it)
-    const configuredHyperlinkFormat = getOption("hyperlink_format")
-    const hyperlinkFormat =
-      configuredHyperlinkFormat && shouldEnableHyperlinks()
-        ? configuredHyperlinkFormat
-        : undefined
-
-    let { description } = issueData
-    let { comments: issueComments } = issueData
-    const { title } = issueData
-
-    if (urlToPath && urlToPath.size > 0) {
-      // Replace URLs with local paths in markdown
-      if (description) {
-        description = await replaceImageUrls(description, urlToPath)
-      }
-
-      if (issueComments) {
-        issueComments = await Promise.all(
-          issueComments.map(async (comment) => ({
-            ...comment,
-            body: await replaceImageUrls(comment.body, urlToPath),
-          })),
+    try {
+      const resolvedId = await getIssueIdentifier(issueId)
+      if (!resolvedId) {
+        throw new ValidationError(
+          "Could not determine issue ID",
+          { suggestion: "Please provide an issue ID like 'ENG-123'." },
         )
       }
-    }
 
-    const { identifier } = issueData
-    let markdown = `# ${identifier}: ${title}${
-      description ? "\n\n" + description : ""
-    }`
-
-    if (Deno.stdout.isTerminal()) {
-      const { columns: terminalWidth } = Deno.consoleSize()
-
-      // Build charmd extensions array
-      const extensions = hyperlinkFormat
-        ? [createHyperlinkExtension(hyperlinkFormat)]
-        : []
-
-      const renderedMarkdown = renderMarkdown(markdown, {
-        lineWidth: terminalWidth,
-        extensions,
-      })
-
-      // Capture all output in an array to count lines
-      const outputLines: string[] = []
-
-      // Add the rendered markdown lines
-      outputLines.push(...renderedMarkdown.split("\n"))
-
-      // Add parent/children hierarchy (rendered as markdown for consistency)
-      const hierarchyMarkdown = formatIssueHierarchyAsMarkdown(
-        issueData.parent,
-        issueData.children,
+      const issueData = await fetchIssueDetails(
+        resolvedId,
+        shouldShowSpinner() && !json,
+        showComments,
       )
-      if (hierarchyMarkdown) {
-        const renderedHierarchy = renderMarkdown(hierarchyMarkdown, {
-          lineWidth: terminalWidth,
-          extensions,
-        })
-        outputLines.push(...renderedHierarchy.split("\n"))
+
+      let urlToPath: Map<string, string> | undefined
+      const shouldDownload = download && getOption("download_images") !== false
+      if (shouldDownload) {
+        urlToPath = await downloadIssueImages(
+          issueData.description,
+          issueData.comments,
+        )
       }
 
-      // Add attachments section
-      if (issueData.attachments && issueData.attachments.length > 0) {
-        const attachmentsMarkdown = formatAttachmentsAsMarkdown(
+      // Download attachments if enabled
+      let attachmentPaths: Map<string, string> | undefined
+      const shouldDownloadAttachments = shouldDownload &&
+        getOption("auto_download_attachments") !== false
+      if (
+        shouldDownloadAttachments && issueData.attachments &&
+        issueData.attachments.length > 0
+      ) {
+        attachmentPaths = await downloadAttachments(
+          issueData.identifier,
           issueData.attachments,
-          attachmentPaths,
         )
-        const renderedAttachments = renderMarkdown(attachmentsMarkdown, {
+      }
+
+      // Handle JSON output
+      if (json) {
+        console.log(JSON.stringify(issueData, null, 2))
+        return
+      }
+
+      // Determine hyperlink format (only if enabled and environment supports it)
+      const configuredHyperlinkFormat = getOption("hyperlink_format")
+      const hyperlinkFormat =
+        configuredHyperlinkFormat && shouldEnableHyperlinks()
+          ? configuredHyperlinkFormat
+          : undefined
+
+      let { description } = issueData
+      let { comments: issueComments } = issueData
+      const { title } = issueData
+
+      if (urlToPath && urlToPath.size > 0) {
+        // Replace URLs with local paths in markdown
+        if (description) {
+          description = await replaceImageUrls(description, urlToPath)
+        }
+
+        if (issueComments) {
+          issueComments = await Promise.all(
+            issueComments.map(async (comment) => ({
+              ...comment,
+              body: await replaceImageUrls(comment.body, urlToPath),
+            })),
+          )
+        }
+      }
+
+      const { identifier } = issueData
+      let markdown = `# ${identifier}: ${title}${
+        description ? "\n\n" + description : ""
+      }`
+
+      if (Deno.stdout.isTerminal()) {
+        const { columns: terminalWidth } = Deno.consoleSize()
+
+        // Build charmd extensions array
+        const extensions = hyperlinkFormat
+          ? [createHyperlinkExtension(hyperlinkFormat)]
+          : []
+
+        const renderedMarkdown = renderMarkdown(markdown, {
           lineWidth: terminalWidth,
           extensions,
         })
-        outputLines.push(...renderedAttachments.split("\n"))
-      }
 
-      // Add comments if enabled
-      if (showComments && issueComments && issueComments.length > 0) {
-        outputLines.push("") // Empty line before comments
-        const commentsOutput = captureCommentsForTerminal(
-          issueComments,
-          terminalWidth,
-          extensions,
+        // Capture all output in an array to count lines
+        const outputLines: string[] = []
+
+        // Add the rendered markdown lines
+        outputLines.push(...renderedMarkdown.split("\n"))
+
+        // Add parent/children hierarchy (rendered as markdown for consistency)
+        const hierarchyMarkdown = formatIssueHierarchyAsMarkdown(
+          issueData.parent,
+          issueData.children,
         )
-        outputLines.push(...commentsOutput)
-      }
+        if (hierarchyMarkdown) {
+          const renderedHierarchy = renderMarkdown(hierarchyMarkdown, {
+            lineWidth: terminalWidth,
+            extensions,
+          })
+          outputLines.push(...renderedHierarchy.split("\n"))
+        }
 
-      const finalOutput = outputLines.join("\n")
+        // Add attachments section
+        if (issueData.attachments && issueData.attachments.length > 0) {
+          const attachmentsMarkdown = formatAttachmentsAsMarkdown(
+            issueData.attachments,
+            attachmentPaths,
+          )
+          const renderedAttachments = renderMarkdown(attachmentsMarkdown, {
+            lineWidth: terminalWidth,
+            extensions,
+          })
+          outputLines.push(...renderedAttachments.split("\n"))
+        }
 
-      // Check if output exceeds terminal height and use pager if necessary
-      if (shouldUsePager(outputLines, usePager)) {
-        await pipeToUserPager(finalOutput)
+        // Add comments if enabled
+        if (showComments && issueComments && issueComments.length > 0) {
+          outputLines.push("") // Empty line before comments
+          const commentsOutput = captureCommentsForTerminal(
+            issueComments,
+            terminalWidth,
+            extensions,
+          )
+          outputLines.push(...commentsOutput)
+        }
+
+        const finalOutput = outputLines.join("\n")
+
+        // Check if output exceeds terminal height and use pager if necessary
+        if (shouldUsePager(outputLines, usePager)) {
+          await pipeToUserPager(finalOutput)
+        } else {
+          // Print directly for shorter output
+          console.log(finalOutput)
+        }
       } else {
-        // Print directly for shorter output
-        console.log(finalOutput)
-      }
-    } else {
-      // Add parent/children hierarchy
-      markdown += formatIssueHierarchyAsMarkdown(
-        issueData.parent,
-        issueData.children,
-      )
-
-      // Add attachments
-      if (issueData.attachments && issueData.attachments.length > 0) {
-        markdown += formatAttachmentsAsMarkdown(
-          issueData.attachments,
-          attachmentPaths,
+        // Add parent/children hierarchy
+        markdown += formatIssueHierarchyAsMarkdown(
+          issueData.parent,
+          issueData.children,
         )
-      }
 
-      if (showComments && issueComments && issueComments.length > 0) {
-        markdown += "\n\n## Comments\n\n"
-        markdown += formatCommentsAsMarkdown(issueComments)
-      }
+        // Add attachments
+        if (issueData.attachments && issueData.attachments.length > 0) {
+          markdown += formatAttachmentsAsMarkdown(
+            issueData.attachments,
+            attachmentPaths,
+          )
+        }
 
-      console.log(markdown)
+        if (showComments && issueComments && issueComments.length > 0) {
+          markdown += "\n\n## Comments\n\n"
+          markdown += formatCommentsAsMarkdown(issueComments)
+        }
+
+        console.log(markdown)
+      }
+    } catch (error) {
+      handleError(error, "Failed to view issue")
     }
   })
 

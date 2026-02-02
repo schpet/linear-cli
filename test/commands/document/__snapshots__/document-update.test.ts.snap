@@ -54,6 +54,7 @@ snapshot[`Document Update Command - No Fields Provided 1`] = `
 stdout:
 ""
 stderr:
-"No update fields provided. Use --title, --content, --content-file, --icon, or --edit.
+"✗ Failed to update document: No update fields provided
+  Use --title, --content, --content-file, --icon, or --edit.
 "
 `;

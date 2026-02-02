@@ -3,6 +3,12 @@ import { Confirm } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 export const unarchiveCommand = new Command()
   .name("unarchive")
@@ -15,8 +21,7 @@ export const unarchiveCommand = new Command()
     // Resolve initiative ID
     const resolvedId = await resolveInitiativeId(client, initiativeId)
     if (!resolvedId) {
-      console.error(`Initiative not found: ${initiativeId}`)
-      Deno.exit(1)
+      throw new NotFoundError("Initiative", initiativeId)
     }
 
     // Get initiative details for confirmation message (must include archived)
@@ -39,13 +44,11 @@ export const unarchiveCommand = new Command()
         id: resolvedId,
       })
     } catch (error) {
-      console.error("Failed to fetch initiative details:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch initiative details")
     }
 
     if (!initiativeDetails?.initiatives?.nodes?.length) {
-      console.error(`Initiative not found: ${initiativeId}`)
-      Deno.exit(1)
+      throw new NotFoundError("Initiative", initiativeId)
     }
 
     const initiative = initiativeDetails.initiatives.nodes[0]
@@ -59,8 +62,9 @@ export const unarchiveCommand = new Command()
     // Confirm unarchive
     if (!force) {
       if (!Deno.stdin.isTerminal()) {
-        console.error("Interactive confirmation required. Use --force to skip.")
-        Deno.exit(1)
+        throw new ValidationError(
+          "Interactive confirmation required. Use --force to skip.",
+        )
       }
       const confirmed = await Confirm.prompt({
         message: `Are you sure you want to unarchive "${initiative.name}"?`,
@@ -101,8 +105,7 @@ export const unarchiveCommand = new Command()
       spinner?.stop()
 
       if (!result.initiativeUnarchive.success) {
-        console.error("Failed to unarchive initiative")
-        Deno.exit(1)
+        throw new CliError("Failed to unarchive initiative")
       }
 
       const unarchived = result.initiativeUnarchive.entity
@@ -112,8 +115,7 @@ export const unarchiveCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to unarchive initiative:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to unarchive initiative")
     }
   })
 

@@ -4,6 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError, NotFoundError } from "../../utils/errors.ts"
 
 const GetMilestoneDetails = gql(`
   query GetMilestoneDetails($id: String!) {
@@ -56,8 +57,7 @@ export const viewCommand = new Command()
 
       const milestone = result.projectMilestone
       if (!milestone) {
-        console.error(`Milestone with ID "${milestoneId}" not found.`)
-        Deno.exit(1)
+        throw new NotFoundError("Milestone", milestoneId)
       }
 
       // Build the display
@@ -156,7 +156,6 @@ export const viewCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch milestone details:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch milestone details")
     }
   })

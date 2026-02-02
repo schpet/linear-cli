@@ -4,6 +4,12 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTeamKey } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 const DeleteIssueLabel = gql(`
   mutation DeleteIssueLabel($id: String!) {
@@ -109,10 +115,10 @@ async function resolveLabelId(
   // If multiple labels with same name exist, let user choose
   if (labels.length > 1) {
     if (!Deno.stdin.isTerminal()) {
-      console.error(
-        `Multiple labels named "${nameOrId}" found. Use --team to disambiguate.`,
+      throw new ValidationError(
+        `Multiple labels named "${nameOrId}" found`,
+        { suggestion: "Use --team to disambiguate." },
       )
-      Deno.exit(1)
     }
     const options = labels.map((l) => ({
       name: `${l.name} (${l.team?.key || "Workspace"}) - ${l.color}`,
@@ -141,61 +147,63 @@ export const deleteCommand = new Command()
   )
   .option("-f, --force", "Skip confirmation prompt")
   .action(async ({ team: teamKey, force }, nameOrId) => {
-    const client = getGraphQLClient()
-
-    // Use configured team if not specified
-    const effectiveTeamKey = teamKey || getTeamKey()
-
-    // Resolve label
-    const label = await resolveLabelId(client, nameOrId, effectiveTeamKey)
-
-    if (!label) {
-      console.error(`Label not found: ${nameOrId}`)
-      if (effectiveTeamKey) {
-        console.error(`(searched in team ${effectiveTeamKey} and workspace)`)
-      }
-      Deno.exit(1)
-    }
-
-    const labelDisplay = `${label.name} (${label.team?.key || "Workspace"})`
-
-    // Confirmation prompt unless --force is used
-    if (!force) {
-      if (!Deno.stdin.isTerminal()) {
-        console.error("Interactive confirmation required. Use --force to skip.")
-        Deno.exit(1)
-      }
-      const confirmed = await Confirm.prompt({
-        message: `Are you sure you want to delete label "${labelDisplay}"?`,
-        default: false,
-      })
-
-      if (!confirmed) {
-        console.log("Deletion canceled")
-        return
-      }
-    }
-
-    const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = shouldShowSpinner()
-    const spinner = showSpinner ? new Spinner() : null
-    spinner?.start()
-
     try {
-      const result = await client.request(DeleteIssueLabel, {
-        id: label.id,
-      })
-      spinner?.stop()
+      const client = getGraphQLClient()
 
-      if (result.issueLabelDelete.success) {
-        console.log(`✓ Deleted label: ${labelDisplay}`)
-      } else {
-        console.error("✗ Failed to delete label")
-        Deno.exit(1)
+      // Use configured team if not specified
+      const effectiveTeamKey = teamKey || getTeamKey()
+
+      // Resolve label
+      const label = await resolveLabelId(client, nameOrId, effectiveTeamKey)
+
+      if (!label) {
+        const suggestion = effectiveTeamKey
+          ? `Searched in team ${effectiveTeamKey} and workspace.`
+          : undefined
+        throw new NotFoundError("Label", nameOrId, { suggestion })
+      }
+
+      const labelDisplay = `${label.name} (${label.team?.key || "Workspace"})`
+
+      // Confirmation prompt unless --force is used
+      if (!force) {
+        if (!Deno.stdin.isTerminal()) {
+          throw new ValidationError("Interactive confirmation required", {
+            suggestion: "Use --force to skip confirmation.",
+          })
+        }
+        const confirmed = await Confirm.prompt({
+          message: `Are you sure you want to delete label "${labelDisplay}"?`,
+          default: false,
+        })
+
+        if (!confirmed) {
+          console.log("Deletion canceled")
+          return
+        }
+      }
+
+      const { Spinner } = await import("@std/cli/unstable-spinner")
+      const showSpinner = shouldShowSpinner()
+      const spinner = showSpinner ? new Spinner() : null
+      spinner?.start()
+
+      try {
+        const result = await client.request(DeleteIssueLabel, {
+          id: label.id,
+        })
+        spinner?.stop()
+
+        if (result.issueLabelDelete.success) {
+          console.log(`✓ Deleted label: ${labelDisplay}`)
+        } else {
+          throw new CliError("Failed to delete label")
+        }
+      } catch (error) {
+        spinner?.stop()
+        throw error
       }
     } catch (error) {
-      spinner?.stop()
-      console.error("Failed to delete label:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to delete label")
     }
   })

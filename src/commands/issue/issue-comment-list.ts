@@ -2,9 +2,9 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getIssueIdentifier } from "../../utils/linear.ts"
-import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { bold } from "@std/fmt/colors"
+import { handleError, ValidationError } from "../../utils/errors.ts"
 
 export const commentListCommand = new Command()
   .name("list")
@@ -17,8 +17,10 @@ export const commentListCommand = new Command()
     try {
       const resolvedIdentifier = await getIssueIdentifier(issueId)
       if (!resolvedIdentifier) {
-        console.error(getNoIssueFoundMessage())
-        Deno.exit(1)
+        throw new ValidationError(
+          "Could not determine issue ID",
+          { suggestion: "Please provide an issue ID like 'ENG-123'." },
+        )
       }
 
       const query = gql(`
@@ -138,7 +140,6 @@ export const commentListCommand = new Command()
         console.log("")
       }
     } catch (error) {
-      console.error("✗ Failed to list comments", error)
-      Deno.exit(1)
+      handleError(error, "Failed to list comments")
     }
   })

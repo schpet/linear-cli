@@ -34,7 +34,7 @@ snapshot[`Document Delete Command - Document Not Found 1`] = `
 stdout:
 ""
 stderr:
-"Document not found: nonexistent123
+"✗ Failed to delete document: Document not found: nonexistent123
 "
 `;
 
@@ -52,6 +52,7 @@ snapshot[`Document Delete Command - Missing ID 1`] = `
 stdout:
 ""
 stderr:
-"Document ID required. Use --bulk for multiple documents.
+"✗ Failed to delete document: Document ID required
+  Use --bulk for multiple documents.
 "
 `;

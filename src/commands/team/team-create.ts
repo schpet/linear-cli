@@ -3,6 +3,7 @@ import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 
 export const createCommand = new Command()
   .name("create")
@@ -29,8 +30,12 @@ export const createCommand = new Command()
       const noFlagsProvided = !name && !description && !key &&
         isPrivate === undefined
 
-      if (noFlagsProvided && interactive) {
-        try {
+      const { Spinner } = await import("@std/cli/unstable-spinner")
+      const showSpinner = shouldShowSpinner() && interactive
+      const spinner = showSpinner ? new Spinner() : null
+
+      try {
+        if (noFlagsProvided && interactive) {
           console.log("Creating a new team...\n")
 
           // Prompt for name
@@ -88,36 +93,29 @@ export const createCommand = new Command()
           })
 
           if (!data.teamCreate.success) {
-            throw "Team creation failed"
+            throw new CliError("Team creation failed")
           }
 
           const team = data.teamCreate.team
           if (!team) {
-            throw "Team creation failed - no team returned"
+            throw new CliError("Team creation failed - no team returned")
           }
 
           console.log(`✓ Created team ${team.key}: ${team.name}`)
           return
-        } catch (error) {
-          console.error("✗ Failed to create team", error)
-          Deno.exit(1)
         }
-      }
 
-      // Fallback to flag-based mode
-      if (!name) {
-        console.error(
-          "Team name is required when not using interactive mode. Use --name or run without any flags for interactive mode.",
-        )
-        Deno.exit(1)
-      }
+        // Fallback to flag-based mode
+        if (!name) {
+          throw new ValidationError(
+            "Team name is required when not using interactive mode",
+            {
+              suggestion:
+                "Use --name or run without any flags for interactive mode.",
+            },
+          )
+        }
 
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner() && interactive
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
-      try {
         console.log(`Creating team "${name}"`)
         spinner?.start()
 
@@ -141,20 +139,19 @@ export const createCommand = new Command()
         })
 
         if (!data.teamCreate.success) {
-          throw "Team creation failed"
+          throw new CliError("Team creation failed")
         }
 
         const team = data.teamCreate.team
         if (!team) {
-          throw "Team creation failed - no team returned"
+          throw new CliError("Team creation failed - no team returned")
         }
 
         spinner?.stop()
         console.log(`✓ Created team ${team.key}: ${team.name}`)
       } catch (error) {
         spinner?.stop()
-        console.error("✗ Failed to create team", error)
-        Deno.exit(1)
+        handleError(error, "Failed to create team")
       }
     },
   )

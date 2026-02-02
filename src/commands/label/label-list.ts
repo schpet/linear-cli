@@ -6,6 +6,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
 import { getTeamKey } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError } from "../../utils/errors.ts"
 
 const GetIssueLabels = gql(`
   query GetIssueLabels($filter: IssueLabelFilter, $first: Int, $after: String) {
@@ -193,7 +194,6 @@ export const listCommand = new Command()
       console.log(`\n${sortedLabels.length} labels found.`)
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch labels:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch labels")
     }
   })

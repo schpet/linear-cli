@@ -4,6 +4,12 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor, openEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 /**
  * Read content from stdin if available (piped input, with timeout)
@@ -51,33 +57,121 @@ export const createCommand = new Command()
       icon,
       interactive,
     }) => {
-      const client = getGraphQLClient()
+      try {
+        const client = getGraphQLClient()
 
-      // Determine if we should use interactive mode
-      let useInteractive = interactive && Deno.stdout.isTerminal()
+        // Determine if we should use interactive mode
+        let useInteractive = interactive && Deno.stdout.isTerminal()
 
-      // If no title and not interactive, check if we should enter interactive mode
-      const noFlagsProvided = !title && !content && !contentFile && !project &&
-        !issue && !icon
-      if (noFlagsProvided && Deno.stdout.isTerminal()) {
-        useInteractive = true
-      }
-
-      // Interactive mode
-      if (useInteractive) {
-        const result = await promptInteractiveCreate()
-
-        if (!result.title) {
-          console.error("Title is required")
-          Deno.exit(1)
+        // If no title and not interactive, check if we should enter interactive mode
+        const noFlagsProvided = !title && !content && !contentFile &&
+          !project &&
+          !issue && !icon
+        if (noFlagsProvided && Deno.stdout.isTerminal()) {
+          useInteractive = true
         }
 
+        // Interactive mode
+        if (useInteractive) {
+          const result = await promptInteractiveCreate()
+
+          if (!result.title) {
+            throw new ValidationError("Title is required")
+          }
+
+          const input: Record<string, string | undefined> = {
+            title: result.title,
+            content: result.content,
+            icon: result.icon,
+            projectId: result.projectId,
+            issueId: result.issueId,
+          }
+
+          // Remove undefined values
+          Object.keys(input).forEach((key) => {
+            if (input[key] === undefined) {
+              delete input[key]
+            }
+          })
+
+          await createDocument(client, input)
+          return
+        }
+
+        // Non-interactive mode requires title
+        if (!title) {
+          throw new ValidationError("Title is required", {
+            suggestion: "Use --title or run with -i for interactive mode.",
+          })
+        }
+
+        // Resolve content from various sources
+        let finalContent: string | undefined
+
+        if (content) {
+          // Content provided inline via --content
+          finalContent = content
+        } else if (contentFile) {
+          // Content from file via --content-file
+          try {
+            finalContent = await Deno.readTextFile(contentFile)
+          } catch (error) {
+            if (error instanceof Deno.errors.NotFound) {
+              throw new NotFoundError("File", contentFile)
+            }
+            throw new CliError(
+              `Failed to read content file: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+              { cause: error },
+            )
+          }
+        } else if (!Deno.stdin.isTerminal()) {
+          // Try reading from stdin if piped
+          const stdinContent = await readContentFromStdin()
+          if (stdinContent) {
+            finalContent = stdinContent
+          }
+        } else if (Deno.stdout.isTerminal()) {
+          // No content provided, open editor
+          console.log("Opening editor for document content...")
+          finalContent = await openEditor()
+          if (!finalContent) {
+            console.log(
+              "No content entered. Creating document without content.",
+            )
+          }
+        }
+
+        // Resolve project ID if provided
+        let projectId: string | undefined
+        if (project) {
+          projectId = await resolveProjectId(client, project)
+          if (!projectId) {
+            throw new NotFoundError("Project", project, {
+              suggestion: "Provide a valid project slug or ID.",
+            })
+          }
+        }
+
+        // Resolve issue ID if provided
+        let issueId: string | undefined
+        if (issue) {
+          issueId = await resolveIssueId(client, issue)
+          if (!issueId) {
+            throw new NotFoundError("Issue", issue, {
+              suggestion: "Provide a valid issue identifier (e.g., TC-123).",
+            })
+          }
+        }
+
+        // Build input
         const input: Record<string, string | undefined> = {
-          title: result.title,
-          content: result.content,
-          icon: result.icon,
-          projectId: result.projectId,
-          issueId: result.issueId,
+          title,
+          content: finalContent,
+          icon,
+          projectId,
+          issueId,
         }
 
         // Remove undefined values
@@ -88,90 +182,9 @@ export const createCommand = new Command()
         })
 
         await createDocument(client, input)
-        return
+      } catch (error) {
+        handleError(error, "Failed to create document")
       }
-
-      // Non-interactive mode requires title
-      if (!title) {
-        console.error(
-          "Title is required. Use --title or run with -i for interactive mode.",
-        )
-        Deno.exit(1)
-      }
-
-      // Resolve content from various sources
-      let finalContent: string | undefined
-
-      if (content) {
-        // Content provided inline via --content
-        finalContent = content
-      } else if (contentFile) {
-        // Content from file via --content-file
-        try {
-          finalContent = await Deno.readTextFile(contentFile)
-        } catch (error) {
-          if (error instanceof Deno.errors.NotFound) {
-            console.error(`File not found: ${contentFile}`)
-          } else {
-            console.error(
-              "Failed to read content file:",
-              error instanceof Error ? error.message : String(error),
-            )
-          }
-          Deno.exit(1)
-        }
-      } else if (!Deno.stdin.isTerminal()) {
-        // Try reading from stdin if piped
-        const stdinContent = await readContentFromStdin()
-        if (stdinContent) {
-          finalContent = stdinContent
-        }
-      } else if (Deno.stdout.isTerminal()) {
-        // No content provided, open editor
-        console.log("Opening editor for document content...")
-        finalContent = await openEditor()
-        if (!finalContent) {
-          console.log("No content entered. Creating document without content.")
-        }
-      }
-
-      // Resolve project ID if provided
-      let projectId: string | undefined
-      if (project) {
-        projectId = await resolveProjectId(client, project)
-        if (!projectId) {
-          console.error(`Could not resolve project: ${project}`)
-          Deno.exit(1)
-        }
-      }
-
-      // Resolve issue ID if provided
-      let issueId: string | undefined
-      if (issue) {
-        issueId = await resolveIssueId(client, issue)
-        if (!issueId) {
-          console.error(`Could not resolve issue: ${issue}`)
-          Deno.exit(1)
-        }
-      }
-
-      // Build input
-      const input: Record<string, string | undefined> = {
-        title,
-        content: finalContent,
-        icon,
-        projectId,
-        issueId,
-      }
-
-      // Remove undefined values
-      Object.keys(input).forEach((key) => {
-        if (input[key] === undefined) {
-          delete input[key]
-        }
-      })
-
-      await createDocument(client, input)
     },
   )
 
@@ -226,9 +239,14 @@ async function promptInteractiveCreate(): Promise<{
     try {
       content = await Deno.readTextFile(filePath)
     } catch (error) {
-      console.error(
-        "Failed to read file:",
-        error instanceof Error ? error.message : String(error),
+      if (error instanceof Deno.errors.NotFound) {
+        throw new NotFoundError("File", filePath)
+      }
+      throw new CliError(
+        `Failed to read file: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { cause: error },
       )
     }
   }
@@ -260,7 +278,9 @@ async function promptInteractiveCreate(): Promise<{
     const client = getGraphQLClient()
     projectId = await resolveProjectId(client, projectInput)
     if (!projectId) {
-      console.error(`Could not resolve project: ${projectInput}`)
+      throw new NotFoundError("Project", projectInput, {
+        suggestion: "Provide a valid project slug or ID.",
+      })
     }
   } else if (attachTo === "issue") {
     const issueInput = await Input.prompt({
@@ -269,7 +289,9 @@ async function promptInteractiveCreate(): Promise<{
     const client = getGraphQLClient()
     issueId = await resolveIssueId(client, issueInput)
     if (!issueId) {
-      console.error(`Could not resolve issue: ${issueInput}`)
+      throw new NotFoundError("Issue", issueInput, {
+        suggestion: "Provide a valid issue identifier (e.g., TC-123).",
+      })
     }
   }
 
@@ -379,24 +401,17 @@ async function createDocument(
     }
   `)
 
-  try {
-    const result = await client.request(createMutation, { input })
+  const result = await client.request(createMutation, { input })
 
-    if (!result.documentCreate.success) {
-      console.error("Failed to create document")
-      Deno.exit(1)
-    }
-
-    const document = result.documentCreate.document
-    if (!document) {
-      console.error("Document creation failed - no document returned")
-      Deno.exit(1)
-    }
-
-    console.log(`✓ Created document: ${document.title}`)
-    console.log(document.url)
-  } catch (error) {
-    console.error("Failed to create document:", error)
-    Deno.exit(1)
+  if (!result.documentCreate.success) {
+    throw new CliError("Document creation failed")
   }
+
+  const document = result.documentCreate.document
+  if (!document) {
+    throw new CliError("Document creation failed - no document returned")
+  }
+
+  console.log(`✓ Created document: ${document.title}`)
+  console.log(document.url)
 }

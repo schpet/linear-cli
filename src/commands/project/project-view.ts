@@ -5,6 +5,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { openProjectPage } from "../../utils/actions.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError, NotFoundError } from "../../utils/errors.ts"
 
 const GetProjectDetails = gql(`
   query GetProjectDetails($id: String!) {
@@ -97,8 +98,7 @@ export const viewCommand = new Command()
 
       const project = result.project
       if (!project) {
-        console.error(`Project with ID "${projectId}" not found.`)
-        Deno.exit(1)
+        throw new NotFoundError("Project", projectId)
       }
 
       // Build the display
@@ -249,7 +249,6 @@ export const viewCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch project details:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch project details")
     }
   })

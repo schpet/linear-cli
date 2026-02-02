@@ -5,6 +5,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError, NotFoundError } from "../../utils/errors.ts"
 
 const GetInitiativeDetails = gql(`
   query GetInitiativeDetails($id: String!) {
@@ -76,8 +77,7 @@ export const viewCommand = new Command()
     // Resolve initiative ID (can be UUID, slug, or name)
     const resolvedId = await resolveInitiativeId(client, initiativeId)
     if (!resolvedId) {
-      console.error(`Initiative not found: ${initiativeId}`)
-      Deno.exit(1)
+      throw new NotFoundError("Initiative", initiativeId)
     }
 
     // Handle open in browser/app
@@ -88,8 +88,7 @@ export const viewCommand = new Command()
       })
       const initiative = result.initiative
       if (!initiative?.url) {
-        console.error(`Initiative not found: ${initiativeId}`)
-        Deno.exit(1)
+        throw new NotFoundError("Initiative", initiativeId)
       }
 
       const destination = app ? "Linear.app" : "web browser"
@@ -111,8 +110,7 @@ export const viewCommand = new Command()
 
       const initiative = result.initiative
       if (!initiative) {
-        console.error(`Initiative with ID "${initiativeId}" not found.`)
-        Deno.exit(1)
+        throw new NotFoundError("Initiative", initiativeId)
       }
 
       // JSON output
@@ -273,8 +271,7 @@ export const viewCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch initiative details:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch initiative details")
     }
   })
 

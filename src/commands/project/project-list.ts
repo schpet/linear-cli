@@ -11,6 +11,7 @@ import { getTimeAgo, padDisplay } from "../../utils/display.ts"
 import { getTeamKey } from "../../utils/linear.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError, ValidationError } from "../../utils/errors.ts"
 
 const GetProjects = gql(`
   query GetProjects($filter: ProjectFilter, $first: Int, $after: String) {
@@ -102,8 +103,9 @@ export const listCommand = new Command()
     try {
       // Validate conflicting flags
       if (team && allTeams) {
-        console.error("Cannot use both --team and --all-teams flags")
-        Deno.exit(1)
+        throw new ValidationError(
+          "Cannot use both --team and --all-teams flags",
+        )
       }
 
       // Determine team to filter by
@@ -332,7 +334,6 @@ export const listCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch projects:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch projects")
     }
   })

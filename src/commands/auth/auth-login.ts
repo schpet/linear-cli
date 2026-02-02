@@ -7,6 +7,12 @@ import {
   getWorkspaces,
   hasWorkspace,
 } from "../../credentials.ts"
+import {
+  AuthError,
+  CliError,
+  handleError,
+  ValidationError,
+} from "../../utils/errors.ts"
 import { createGraphQLClient } from "../../utils/graphql.ts"
 
 const viewerQuery = gql(`
@@ -27,68 +33,76 @@ export const loginCommand = new Command()
   .description("Add a workspace credential")
   .option("-k, --key <key:string>", "API key (prompted if not provided)")
   .action(async (options) => {
-    let apiKey = options.key
-
-    if (!apiKey) {
-      apiKey = await Secret.prompt({
-        message: "Enter your Linear API key",
-        hint: "Create one at https://linear.app/settings/api",
-      })
-    }
-
-    if (!apiKey) {
-      console.error("No API key provided")
-      Deno.exit(1)
-    }
-
-    // Validate the API key by querying the API
-    const client = createGraphQLClient(apiKey)
-
     try {
-      const result = await client.request(viewerQuery)
-      const viewer = result.viewer
-      const org = viewer.organization
-      const workspace = org.urlKey
+      let apiKey = options.key
 
-      const alreadyExists = hasWorkspace(workspace)
-      await addCredential(workspace, apiKey)
-
-      const existingCount = getWorkspaces().length
-
-      if (alreadyExists) {
-        console.log(
-          `Updated credentials for workspace: ${org.name} (${workspace})`,
-        )
-      } else {
-        console.log(`Logged in to workspace: ${org.name} (${workspace})`)
-      }
-      console.log(`  User: ${viewer.name} <${viewer.email}>`)
-
-      if (existingCount === 1) {
-        console.log(`  Set as default workspace`)
+      if (!apiKey) {
+        apiKey = await Secret.prompt({
+          message: "Enter your Linear API key",
+          hint: "Create one at https://linear.app/settings/api",
+        })
       }
 
-      // Warn if LINEAR_API_KEY is set
-      if (Deno.env.get("LINEAR_API_KEY")) {
-        console.log()
-        console.log(
-          yellow("Warning: LINEAR_API_KEY environment variable is set."),
-        )
-        console.log(yellow("It takes precedence over stored credentials."))
-        console.log(
-          yellow(
-            "Remove it from your shell config to use multi-workspace auth.",
-          ),
+      if (!apiKey) {
+        throw new ValidationError("No API key provided", {
+          suggestion: "Create one at https://linear.app/settings/api",
+        })
+      }
+
+      // Validate the API key by querying the API
+      const client = createGraphQLClient(apiKey)
+
+      try {
+        const result = await client.request(viewerQuery)
+        const viewer = result.viewer
+        const org = viewer.organization
+        const workspace = org.urlKey
+
+        const alreadyExists = hasWorkspace(workspace)
+        await addCredential(workspace, apiKey)
+
+        const existingCount = getWorkspaces().length
+
+        if (alreadyExists) {
+          console.log(
+            `Updated credentials for workspace: ${org.name} (${workspace})`,
+          )
+        } else {
+          console.log(`Logged in to workspace: ${org.name} (${workspace})`)
+        }
+        console.log(`  User: ${viewer.name} <${viewer.email}>`)
+
+        if (existingCount === 1) {
+          console.log(`  Set as default workspace`)
+        }
+
+        // Warn if LINEAR_API_KEY is set
+        if (Deno.env.get("LINEAR_API_KEY")) {
+          console.log()
+          console.log(
+            yellow("Warning: LINEAR_API_KEY environment variable is set."),
+          )
+          console.log(yellow("It takes precedence over stored credentials."))
+          console.log(
+            yellow(
+              "Remove it from your shell config to use multi-workspace auth.",
+            ),
+          )
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("401")) {
+          throw new AuthError("Invalid API key", {
+            suggestion: "Check that your API key is correct and not expired.",
+          })
+        }
+        throw new CliError(
+          `Failed to authenticate: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          { cause: error },
         )
       }
     } catch (error) {
-      if (error instanceof Error && error.message.includes("401")) {
-        console.error("Invalid API key")
-      } else if (error instanceof Error) {
-        console.error(`Failed to authenticate: ${error.message}`)
-      } else {
-        console.error("Failed to authenticate")
-      }
-      Deno.exit(1)
+      handleError(error, "Failed to login")
     }
   })

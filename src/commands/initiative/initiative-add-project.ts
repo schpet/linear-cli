@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { CliError, handleError, NotFoundError } from "../../utils/errors.ts"
 
 const AddProjectToInitiative = gql(`
   mutation AddProjectToInitiative($input: InitiativeToProjectCreateInput!) {
@@ -188,15 +189,13 @@ export const addProjectCommand = new Command()
       // Resolve initiative
       const initiative = await resolveInitiativeId(client, initiativeArg)
       if (!initiative) {
-        console.error(`Initiative not found: ${initiativeArg}`)
-        Deno.exit(1)
+        throw new NotFoundError("Initiative", initiativeArg)
       }
 
       // Resolve project
       const project = await resolveProjectId(client, projectArg)
       if (!project) {
-        console.error(`Project not found: ${projectArg}`)
-        Deno.exit(1)
+        throw new NotFoundError("Project", projectArg)
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -217,8 +216,7 @@ export const addProjectCommand = new Command()
         spinner?.stop()
 
         if (!result.initiativeToProjectCreate.success) {
-          console.error("Failed to add project to initiative")
-          Deno.exit(1)
+          throw new CliError("Failed to add project to initiative")
         }
 
         console.log(
@@ -236,8 +234,7 @@ export const addProjectCommand = new Command()
             `Project "${project.name}" is already linked to initiative "${initiative.name}"`,
           )
         } else {
-          console.error("Failed to add project to initiative:", error)
-          Deno.exit(1)
+          handleError(error, "Failed to add project to initiative")
         }
       }
     },

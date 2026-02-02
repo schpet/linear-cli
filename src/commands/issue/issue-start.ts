@@ -7,6 +7,11 @@ import {
   getTeamKey,
 } from "../../utils/linear.ts"
 import { startWorkOnIssue as startIssue } from "../../utils/actions.ts"
+import {
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 export const startCommand = new Command()
   .name("start")
@@ -29,23 +34,23 @@ export const startCommand = new Command()
     "Custom branch name to use instead of the issue identifier",
   )
   .action(async ({ allAssignees, unassigned, fromRef, branch }, issueId) => {
-    const teamId = getTeamKey()
-    if (!teamId) {
-      console.error("Could not determine team ID")
-      Deno.exit(1)
-    }
+    try {
+      const teamId = getTeamKey()
+      if (!teamId) {
+        throw new ValidationError("Could not determine team ID")
+      }
 
-    // Validate that conflicting flags are not used together
-    if (allAssignees && unassigned) {
-      console.error("Cannot specify both --all-assignees and --unassigned")
-      Deno.exit(1)
-    }
+      // Validate that conflicting flags are not used together
+      if (allAssignees && unassigned) {
+        throw new ValidationError(
+          "Cannot specify both --all-assignees and --unassigned",
+        )
+      }
 
-    // Only resolve the provided issueId, don't infer from VCS
-    // (start should pick from a list, not continue on current issue)
-    let resolvedId = issueId ? await getIssueIdentifier(issueId) : undefined
-    if (!resolvedId) {
-      try {
+      // Only resolve the provided issueId, don't infer from VCS
+      // (start should pick from a list, not continue on current issue)
+      let resolvedId = issueId ? await getIssueIdentifier(issueId) : undefined
+      if (!resolvedId) {
         const result = await fetchIssuesForState(
           teamId,
           ["unstarted"],
@@ -56,8 +61,7 @@ export const startCommand = new Command()
         const issues = result.issues?.nodes || []
 
         if (issues.length === 0) {
-          console.error("No unstarted issues found.")
-          Deno.exit(1)
+          throw new NotFoundError("Unstarted issues", teamId)
         }
 
         const answer = await Select.prompt({
@@ -74,15 +78,13 @@ export const startCommand = new Command()
         })
 
         resolvedId = answer as string
-      } catch (error) {
-        console.error("Failed to fetch issues:", error)
-        Deno.exit(1)
       }
-    }
 
-    if (!resolvedId) {
-      console.error("No issue ID resolved")
-      Deno.exit(1)
+      if (!resolvedId) {
+        throw new ValidationError("No issue ID resolved")
+      }
+      await startIssue(resolvedId, teamId, fromRef, branch)
+    } catch (error) {
+      handleError(error, "Failed to start issue")
     }
-    await startIssue(resolvedId, teamId, fromRef, branch)
   })

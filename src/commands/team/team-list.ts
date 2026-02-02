@@ -7,6 +7,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay } from "../../utils/display.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError, ValidationError } from "../../utils/errors.ts"
 
 const GetTeams = gql(`
   query GetTeams($filter: TeamFilter, $first: Int, $after: String) {
@@ -41,27 +42,28 @@ export const listCommand = new Command()
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
   .action(async ({ web, app }) => {
-    if (web || app) {
-      const workspace = getOption("workspace")
-      if (!workspace) {
-        console.error(
-          "workspace is not set via command line, configuration file, or environment.",
-        )
-        Deno.exit(1)
-      }
-
-      const url = `https://linear.app/${workspace}/settings/teams`
-      const destination = app ? "Linear.app" : "web browser"
-      console.log(`Opening ${url} in ${destination}`)
-      await open(url, app ? { app: { name: "Linear" } } : undefined)
-      return
-    }
     const { Spinner } = await import("@std/cli/unstable-spinner")
     const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
-    spinner?.start()
 
     try {
+      if (web || app) {
+        const workspace = getOption("workspace")
+        if (!workspace) {
+          throw new ValidationError(
+            "workspace is not set via command line, configuration file, or environment",
+          )
+        }
+
+        const url = `https://linear.app/${workspace}/settings/teams`
+        const destination = app ? "Linear.app" : "web browser"
+        console.log(`Opening ${url} in ${destination}`)
+        await open(url, app ? { app: { name: "Linear" } } : undefined)
+        return
+      }
+
+      spinner?.start()
+
       const client = getGraphQLClient()
 
       // Fetch all teams with pagination
@@ -174,7 +176,6 @@ export const listCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch teams:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch teams")
     }
   })
