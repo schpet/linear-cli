@@ -3,6 +3,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { CliError, handleError } from "../../utils/errors.ts"
 
 const CreateProjectMilestone = gql(`
   mutation CreateProjectMilestone($input: ProjectMilestoneCreateInput!) {
@@ -61,13 +62,11 @@ export const createCommand = new Command()
             console.log(`  Project: ${milestone.project.name}`)
           }
         } else {
-          console.error("✗ Failed to create milestone")
-          Deno.exit(1)
+          throw new CliError("Failed to create milestone")
         }
       } catch (error) {
         spinner?.stop()
-        console.error("Failed to create milestone:", error)
-        Deno.exit(1)
+        handleError(error, "Failed to create milestone")
       }
     },
   )

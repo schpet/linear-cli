@@ -1,9 +1,15 @@
 import { Command } from "@cliffy/command"
 import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
-import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getEditor, openEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
+import { getEditor, openEditor } from "../../utils/editor.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
+import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 const HEALTH_VALUES = ["onTrack", "atRisk", "offTrack"] as const
@@ -102,18 +108,14 @@ export const createCommand = new Command()
     "Health status (onTrack, atRisk, offTrack)",
   )
   .option("-i, --interactive", "Interactive mode with prompts")
-  .action(
-    async (
-      { body, bodyFile, health, interactive },
-      initiativeId,
-    ) => {
+  .action(async ({ body, bodyFile, health, interactive }, initiativeId) => {
+    try {
       const client = getGraphQLClient()
 
       // Resolve initiative ID
       const resolvedId = await resolveInitiativeId(client, initiativeId)
       if (!resolvedId) {
-        console.error(`Initiative not found: ${initiativeId}`)
-        Deno.exit(1)
+        throw new NotFoundError("Initiative", initiativeId)
       }
 
       // Get initiative name for display
@@ -168,14 +170,14 @@ export const createCommand = new Command()
           finalBody = await Deno.readTextFile(bodyFile)
         } catch (error) {
           if (error instanceof Deno.errors.NotFound) {
-            console.error(`File not found: ${bodyFile}`)
-          } else {
-            console.error(
-              "Failed to read body file:",
-              error instanceof Error ? error.message : String(error),
-            )
+            throw new NotFoundError("File", bodyFile)
           }
-          Deno.exit(1)
+          throw new CliError(
+            `Failed to read body file: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            { cause: error },
+          )
         }
       } else if (!Deno.stdin.isTerminal()) {
         // Try reading from stdin if piped
@@ -196,12 +198,9 @@ export const createCommand = new Command()
       let validatedHealth: HealthValue | undefined
       if (health) {
         if (!HEALTH_VALUES.includes(health as HealthValue)) {
-          console.error(
-            `Invalid health value: ${health}. Valid values: ${
-              HEALTH_VALUES.join(", ")
-            }`,
-          )
-          Deno.exit(1)
+          throw new ValidationError(`Invalid health value: ${health}`, {
+            suggestion: `Valid values: ${HEALTH_VALUES.join(", ")}`,
+          })
         }
         validatedHealth = health as HealthValue
       }
@@ -211,8 +210,10 @@ export const createCommand = new Command()
         body: finalBody,
         health: validatedHealth,
       })
-    },
-  )
+    } catch (error) {
+      handleError(error, "Failed to create initiative status update")
+    }
+  })
 
 async function promptInteractiveCreate(initiativeName: string): Promise<{
   body?: string
@@ -274,9 +275,11 @@ async function promptInteractiveCreate(initiativeName: string): Promise<{
     try {
       body = await Deno.readTextFile(filePath)
     } catch (error) {
-      console.error(
-        "Failed to read file:",
-        error instanceof Error ? error.message : String(error),
+      throw new CliError(
+        `Failed to read file: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { cause: error },
       )
     }
   }
@@ -333,33 +336,25 @@ async function createInitiativeUpdate(
     input.health = health
   }
 
-  try {
-    const result = await client.request(createMutation, { input })
+  const result = await client.request(createMutation, { input })
 
-    spinner?.stop()
+  spinner?.stop()
 
-    if (!result.initiativeUpdateCreate.success) {
-      console.error("Failed to create initiative status update")
-      Deno.exit(1)
-    }
+  if (!result.initiativeUpdateCreate.success) {
+    throw new CliError("Failed to create initiative status update")
+  }
 
-    const update = result.initiativeUpdateCreate.initiativeUpdate
-    if (!update) {
-      console.error("Initiative update creation failed - no update returned")
-      Deno.exit(1)
-    }
+  const update = result.initiativeUpdateCreate.initiativeUpdate
+  if (!update) {
+    throw new CliError("Initiative update creation failed - no update returned")
+  }
 
-    const initiativeName = update.initiative?.name || "Unknown"
-    console.log(`Created status update for: ${initiativeName}`)
-    if (update.health) {
-      console.log(`Health: ${update.health}`)
-    }
-    if (update.url) {
-      console.log(update.url)
-    }
-  } catch (error) {
-    spinner?.stop()
-    console.error("Failed to create initiative status update:", error)
-    Deno.exit(1)
+  const initiativeName = update.initiative?.name || "Unknown"
+  console.log(`Created status update for: ${initiativeName}`)
+  if (update.health) {
+    console.log(`Health: ${update.health}`)
+  }
+  if (update.url) {
+    console.log(update.url)
   }
 }

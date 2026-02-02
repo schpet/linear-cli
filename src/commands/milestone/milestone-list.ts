@@ -5,6 +5,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError } from "../../utils/errors.ts"
 
 const GetProjectMilestones = gql(`
   query GetProjectMilestones($projectId: String!) {
@@ -129,7 +130,6 @@ export const listCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch milestones:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch milestones")
     }
   })

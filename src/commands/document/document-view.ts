@@ -5,6 +5,12 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  handleError,
+  isClientError,
+  isNotFoundError,
+  NotFoundError,
+} from "../../utils/errors.ts"
 
 const GetDocument = gql(`
   query GetDocument($id: String!) {
@@ -53,8 +59,7 @@ export const viewCommand = new Command()
 
       const document = result.document
       if (!document) {
-        console.error(`Document not found: ${id}`)
-        Deno.exit(1)
+        throw new NotFoundError("Document", id)
       }
 
       // Open in browser if requested
@@ -119,14 +124,9 @@ export const viewCommand = new Command()
       console.log(renderMarkdown(markdown, { lineWidth: terminalWidth }))
     } catch (error) {
       spinner?.stop()
-      if (
-        error instanceof Error &&
-        error.message.includes("Entity not found")
-      ) {
-        console.error(`Document not found: ${id}`)
-        Deno.exit(1)
+      if (isClientError(error) && isNotFoundError(error)) {
+        throw new NotFoundError("Document", id)
       }
-      console.error("Failed to fetch document:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to view document")
     }
   })

@@ -3,6 +3,12 @@ import { Confirm } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 const GetInitiativeToProjects = gql(`
   query GetInitiativeToProjects($first: Int) {
@@ -202,15 +208,13 @@ export const removeProjectCommand = new Command()
       // Resolve initiative
       const initiative = await resolveInitiativeId(client, initiativeArg)
       if (!initiative) {
-        console.error(`Initiative not found: ${initiativeArg}`)
-        Deno.exit(1)
+        throw new NotFoundError("Initiative", initiativeArg)
       }
 
       // Resolve project
       const project = await resolveProjectId(client, projectArg)
       if (!project) {
-        console.error(`Project not found: ${projectArg}`)
-        Deno.exit(1)
+        throw new NotFoundError("Project", projectArg)
       }
 
       // Find the initiative-to-project link
@@ -231,8 +235,7 @@ export const removeProjectCommand = new Command()
           linkId = link.id
         }
       } catch (error) {
-        console.error("Failed to find project link:", error)
-        Deno.exit(1)
+        handleError(error, "Failed to find project link")
       }
 
       if (!linkId) {
@@ -245,10 +248,9 @@ export const removeProjectCommand = new Command()
       // Confirm removal
       if (!force) {
         if (!Deno.stdin.isTerminal()) {
-          console.error(
+          throw new ValidationError(
             "Interactive confirmation required. Use --force to skip.",
           )
-          Deno.exit(1)
         }
         const confirmed = await Confirm.prompt({
           message:
@@ -275,8 +277,7 @@ export const removeProjectCommand = new Command()
         spinner?.stop()
 
         if (!result.initiativeToProjectDelete.success) {
-          console.error("Failed to remove project from initiative")
-          Deno.exit(1)
+          throw new CliError("Failed to remove project from initiative")
         }
 
         console.log(
@@ -284,8 +285,7 @@ export const removeProjectCommand = new Command()
         )
       } catch (error) {
         spinner?.stop()
-        console.error("Failed to remove project from initiative:", error)
-        Deno.exit(1)
+        handleError(error, "Failed to remove project from initiative")
       }
     },
   )

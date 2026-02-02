@@ -3,6 +3,12 @@ import { Confirm, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getAllTeams, getTeamIdByKey } from "../../utils/linear.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 const GetTeamIssuesForMove = gql(`
   query GetTeamIssuesForMove($teamId: String!, $first: Int, $after: String) {
@@ -31,137 +37,128 @@ export const deleteCommand = new Command()
   )
   .option("-y, --force", "Skip confirmation prompt")
   .action(async ({ moveIssues, force }, teamKey) => {
-    const client = getGraphQLClient()
+    try {
+      const client = getGraphQLClient()
 
-    // Resolve the team ID from the key
-    const teamId = await getTeamIdByKey(teamKey.toUpperCase())
-    if (!teamId) {
-      console.error(`Team not found: ${teamKey}`)
-      Deno.exit(1)
-    }
+      // Resolve the team ID from the key
+      const teamId = await getTeamIdByKey(teamKey.toUpperCase())
+      if (!teamId) {
+        throw new NotFoundError("Team", teamKey)
+      }
 
-    // Get team details for confirmation message
-    const teamDetailsQuery = gql(`
-      query GetTeamDetails($id: String!) {
-        team(id: $id) {
-          id
-          key
-          name
-          issues {
-            nodes {
-              id
+      // Get team details for confirmation message
+      const teamDetailsQuery = gql(`
+        query GetTeamDetails($id: String!) {
+          team(id: $id) {
+            id
+            key
+            name
+            issues {
+              nodes {
+                id
+              }
             }
           }
         }
+      `)
+
+      const teamDetails = await client.request(teamDetailsQuery, { id: teamId })
+
+      if (!teamDetails?.team) {
+        throw new NotFoundError("Team", teamKey)
       }
-    `)
 
-    let teamDetails
-    try {
-      teamDetails = await client.request(teamDetailsQuery, { id: teamId })
-    } catch (error) {
-      console.error("Failed to fetch team details:", error)
-      Deno.exit(1)
-    }
+      const team = teamDetails.team
+      const issueCount = team.issues?.nodes?.length || 0
 
-    if (!teamDetails?.team) {
-      console.error(`Team not found: ${teamKey}`)
-      Deno.exit(1)
-    }
-
-    const team = teamDetails.team
-    const issueCount = team.issues?.nodes?.length || 0
-
-    // If the team has issues, require --move-issues or prompt
-    if (issueCount > 0 && !moveIssues) {
-      console.log(
-        `\n⚠️  Team ${team.key} (${team.name}) has ${issueCount} issue(s).`,
-      )
-      console.log(
-        "You must move these issues to another team before deletion.\n",
-      )
-
-      if (!Deno.stdin.isTerminal()) {
-        console.error(
-          "Interactive selection required. Use --move-issues <teamKey> to specify target team.",
+      // If the team has issues, require --move-issues or prompt
+      if (issueCount > 0 && !moveIssues) {
+        console.log(
+          `\n⚠️  Team ${team.key} (${team.name}) has ${issueCount} issue(s).`,
         )
-        Deno.exit(1)
+        console.log(
+          "You must move these issues to another team before deletion.\n",
+        )
+
+        if (!Deno.stdin.isTerminal()) {
+          throw new ValidationError(
+            "Interactive selection required",
+            {
+              suggestion: "Use --move-issues <teamKey> to specify target team.",
+            },
+          )
+        }
+
+        const allTeams = await getAllTeams()
+        const otherTeams = allTeams.filter((t) => t.id !== teamId)
+
+        if (otherTeams.length === 0) {
+          throw new CliError("No other teams available to move issues to")
+        }
+
+        const targetTeamId = await Select.prompt({
+          message: "Select a team to move issues to:",
+          options: otherTeams.map((t) => ({
+            name: `${t.name} (${t.key})`,
+            value: t.id,
+          })),
+        })
+
+        // Move all issues to target team
+        await moveIssuesToTeam(client, teamId, targetTeamId, issueCount)
+      } else if (issueCount > 0 && moveIssues) {
+        // Resolve the target team
+        const targetTeamId = await getTeamIdByKey(moveIssues.toUpperCase())
+        if (!targetTeamId) {
+          throw new NotFoundError("Target team", moveIssues)
+        }
+
+        if (targetTeamId === teamId) {
+          throw new ValidationError("Cannot move issues to the same team")
+        }
+
+        // Move all issues to target team
+        await moveIssuesToTeam(client, teamId, targetTeamId, issueCount)
       }
 
-      const allTeams = await getAllTeams()
-      const otherTeams = allTeams.filter((t) => t.id !== teamId)
+      // Confirm deletion
+      if (!force) {
+        if (!Deno.stdin.isTerminal()) {
+          throw new ValidationError(
+            "Interactive confirmation required",
+            { suggestion: "Use --force to skip." },
+          )
+        }
+        const confirmed = await Confirm.prompt({
+          message:
+            `Are you sure you want to delete team "${team.key}: ${team.name}"?`,
+          default: false,
+        })
 
-      if (otherTeams.length === 0) {
-        console.error("No other teams available to move issues to.")
-        Deno.exit(1)
-      }
-
-      const targetTeamId = await Select.prompt({
-        message: "Select a team to move issues to:",
-        options: otherTeams.map((t) => ({
-          name: `${t.name} (${t.key})`,
-          value: t.id,
-        })),
-      })
-
-      // Move all issues to target team
-      await moveIssuesToTeam(client, teamId, targetTeamId, issueCount)
-    } else if (issueCount > 0 && moveIssues) {
-      // Resolve the target team
-      const targetTeamId = await getTeamIdByKey(moveIssues.toUpperCase())
-      if (!targetTeamId) {
-        console.error(`Target team not found: ${moveIssues}`)
-        Deno.exit(1)
-      }
-
-      if (targetTeamId === teamId) {
-        console.error("Cannot move issues to the same team")
-        Deno.exit(1)
-      }
-
-      // Move all issues to target team
-      await moveIssuesToTeam(client, teamId, targetTeamId, issueCount)
-    }
-
-    // Confirm deletion
-    if (!force) {
-      if (!Deno.stdin.isTerminal()) {
-        console.error("Interactive confirmation required. Use --force to skip.")
-        Deno.exit(1)
-      }
-      const confirmed = await Confirm.prompt({
-        message:
-          `Are you sure you want to delete team "${team.key}: ${team.name}"?`,
-        default: false,
-      })
-
-      if (!confirmed) {
-        console.log("Delete cancelled.")
-        return
-      }
-    }
-
-    // Delete the team
-    const deleteTeamMutation = gql(`
-      mutation DeleteTeam($id: String!) {
-        teamDelete(id: $id) {
-          success
+        if (!confirmed) {
+          console.log("Delete cancelled.")
+          return
         }
       }
-    `)
 
-    try {
+      // Delete the team
+      const deleteTeamMutation = gql(`
+        mutation DeleteTeam($id: String!) {
+          teamDelete(id: $id) {
+            success
+          }
+        }
+      `)
+
       const result = await client.request(deleteTeamMutation, { id: teamId })
 
       if (result.teamDelete.success) {
         console.log(`✓ Successfully deleted team: ${team.key}: ${team.name}`)
       } else {
-        console.error("Failed to delete team")
-        Deno.exit(1)
+        throw new CliError("Failed to delete team")
       }
     } catch (error) {
-      console.error("Failed to delete team:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to delete team")
     }
   })
 
@@ -240,7 +237,6 @@ async function moveIssuesToTeam(
     console.log(`✓ Moved ${movedCount} issue(s) to target team`)
   } catch (error) {
     spinner?.stop()
-    console.error("Failed to move issues:", error)
-    Deno.exit(1)
+    handleError(error, "Failed to move issues")
   }
 }

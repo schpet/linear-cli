@@ -6,6 +6,11 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay, truncateText } from "../../utils/display.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 const GetInitiatives = gql(`
   query GetInitiatives($filter: InitiativeFilter, $includeArchived: Boolean) {
@@ -118,12 +123,11 @@ export const listCommand = new Command()
         const apiStatus = STATUS_INPUT_MAP[statusLower]
         if (!apiStatus) {
           spinner?.stop()
-          console.error(
+          throw new ValidationError(
             `Invalid status: ${status}. Valid values: ${
               Object.keys(STATUS_INPUT_MAP).join(", ")
             }`,
           )
-          Deno.exit(1)
         }
         filter.status = { eq: apiStatus }
       } else if (!allStatuses) {
@@ -137,8 +141,7 @@ export const listCommand = new Command()
         const ownerId = await lookupUserId(owner)
         if (!ownerId) {
           spinner?.stop()
-          console.error(`Owner not found: ${owner}`)
-          Deno.exit(1)
+          throw new NotFoundError("Owner", owner)
         }
         filter.owner = { id: { eq: ownerId } }
       }
@@ -308,7 +311,6 @@ export const listCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch initiatives:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch initiatives")
     }
   })

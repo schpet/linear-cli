@@ -4,6 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { lookupUserId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { CliError, handleError, NotFoundError } from "../../utils/errors.ts"
 
 // Initiative status options from Linear API
 const INITIATIVE_STATUSES = [
@@ -36,26 +37,7 @@ export const updateCommand = new Command()
       options,
       initiativeId,
     ) => {
-      // Extract options - use let for variables that may be reassigned in interactive mode
-      let name = options.name
-      let description = options.description
-      let status = options.status
-      const owner = options.owner
-      let targetDate = options.targetDate
-      const color = options.color
-      const icon = options.icon
-      const interactive = options.interactive
-      let colorHex = color
-      const client = getGraphQLClient()
-
-      // Resolve initiative ID
-      const resolvedId = await resolveInitiativeId(client, initiativeId)
-      if (!resolvedId) {
-        console.error(`Initiative not found: ${initiativeId}`)
-        Deno.exit(1)
-      }
-
-      // Get current initiative details
+      // Define GraphQL queries at top level for proper type inference
       const detailsQuery = gql(`
         query GetInitiativeForUpdate($id: String!) {
           initiative(id: $id) {
@@ -75,19 +57,50 @@ export const updateCommand = new Command()
         }
       `)
 
+      const updateMutation = gql(`
+        mutation UpdateInitiative($id: String!, $input: InitiativeUpdateInput!) {
+          initiativeUpdate(id: $id, input: $input) {
+            success
+            initiative {
+              id
+              slugId
+              name
+              url
+            }
+          }
+        }
+      `)
+
+      // Extract options - use let for variables that may be reassigned in interactive mode
+      let name = options.name
+      let description = options.description
+      let status = options.status
+      const owner = options.owner
+      let targetDate = options.targetDate
+      const color = options.color
+      const icon = options.icon
+      const interactive = options.interactive
+      let colorHex = color
+      const client = getGraphQLClient()
+
+      // Resolve initiative ID
+      const resolvedId = await resolveInitiativeId(client, initiativeId)
+      if (!resolvedId) {
+        throw new NotFoundError("Initiative", initiativeId)
+      }
+
+      // Get current initiative details
       let initiativeDetails
       try {
         initiativeDetails = await client.request(detailsQuery, {
           id: resolvedId,
         })
       } catch (error) {
-        console.error("Failed to fetch initiative details:", error)
-        Deno.exit(1)
+        handleError(error, "Failed to fetch initiative details")
       }
 
       if (!initiativeDetails?.initiative) {
-        console.error(`Initiative not found: ${initiativeId}`)
-        Deno.exit(1)
+        throw new NotFoundError("Initiative", initiativeId)
       }
 
       const initiative = initiativeDetails.initiative
@@ -170,8 +183,7 @@ export const updateCommand = new Command()
       if (owner !== undefined) {
         const ownerId = await lookupUserId(owner)
         if (!ownerId) {
-          console.error(`Owner not found: ${owner}`)
-          Deno.exit(1)
+          throw new NotFoundError("Owner", owner)
         }
         input.ownerId = ownerId
       }
@@ -188,20 +200,6 @@ export const updateCommand = new Command()
       spinner?.start()
 
       // Update the initiative
-      const updateMutation = gql(`
-        mutation UpdateInitiative($id: String!, $input: InitiativeUpdateInput!) {
-          initiativeUpdate(id: $id, input: $input) {
-            success
-            initiative {
-              id
-              slugId
-              name
-              url
-            }
-          }
-        }
-      `)
-
       try {
         const result = await client.request(updateMutation, {
           id: resolvedId,
@@ -211,8 +209,7 @@ export const updateCommand = new Command()
         spinner?.stop()
 
         if (!result.initiativeUpdate.success) {
-          console.error("Failed to update initiative")
-          Deno.exit(1)
+          throw new CliError("Failed to update initiative")
         }
 
         const updated = result.initiativeUpdate.initiative
@@ -222,8 +219,7 @@ export const updateCommand = new Command()
         }
       } catch (error) {
         spinner?.stop()
-        console.error("Failed to update initiative:", error)
-        Deno.exit(1)
+        handleError(error, "Failed to update initiative")
       }
     },
   )

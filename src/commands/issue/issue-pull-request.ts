@@ -1,7 +1,7 @@
 import { Command } from "@cliffy/command"
 import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
-import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 
 export const pullRequestCommand = new Command()
   .name("pull-request")
@@ -29,37 +29,42 @@ export const pullRequestCommand = new Command()
   )
   .arguments("[issueId:string]")
   .action(async ({ base, draft, title: customTitle, web, head }, issueId) => {
-    const resolvedId = await getIssueIdentifier(issueId)
-    if (!resolvedId) {
-      console.error(getNoIssueFoundMessage())
-      Deno.exit(1)
-    }
-    const { title, url } = await fetchIssueDetails(
-      resolvedId,
-      shouldShowSpinner(),
-    )
+    try {
+      const resolvedId = await getIssueIdentifier(issueId)
+      if (!resolvedId) {
+        throw new ValidationError(
+          "Could not determine issue ID",
+          { suggestion: "Please provide an issue ID like 'ENG-123'." },
+        )
+      }
+      const { title, url } = await fetchIssueDetails(
+        resolvedId,
+        shouldShowSpinner(),
+      )
 
-    const process = new Deno.Command("gh", {
-      args: [
-        "pr",
-        "create",
-        "--title",
-        `${resolvedId} ${customTitle ?? title}`,
-        "--body",
-        url,
-        ...(base ? ["--base", base] : []),
-        ...(head ? ["--head", head] : []),
-        ...(draft ? ["--draft"] : []),
-        ...(web ? ["--web"] : []),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    })
+      const process = new Deno.Command("gh", {
+        args: [
+          "pr",
+          "create",
+          "--title",
+          `${resolvedId} ${customTitle ?? title}`,
+          "--body",
+          url,
+          ...(base ? ["--base", base] : []),
+          ...(head ? ["--head", head] : []),
+          ...(draft ? ["--draft"] : []),
+          ...(web ? ["--web"] : []),
+        ],
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+      })
 
-    const status = await process.spawn().status
-    if (!status.success) {
-      console.error("Failed to create pull request")
-      Deno.exit(1)
+      const status = await process.spawn().status
+      if (!status.success) {
+        throw new CliError("Failed to create pull request")
+      }
+    } catch (error) {
+      handleError(error, "Failed to create pull request")
     }
   })

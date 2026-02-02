@@ -10,6 +10,12 @@ import {
   getWorkflowStateByNameOrType,
   lookupUserId,
 } from "../../utils/linear.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 export const updateCommand = new Command()
   .name("update")
@@ -78,10 +84,13 @@ export const updateCommand = new Command()
         // Get the issue ID - either from argument or infer from current context
         const issueId = await getIssueIdentifier(issueIdArg)
         if (!issueId) {
-          console.error(
-            "Could not determine issue ID. Please provide an issue ID like 'ENG-123' or run from a branch with an issue ID.",
+          throw new ValidationError(
+            "Could not determine issue ID",
+            {
+              suggestion:
+                "Please provide an issue ID like 'ENG-123' or run from a branch with an issue ID.",
+            },
           )
-          Deno.exit(1)
         }
 
         const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -96,15 +105,15 @@ export const updateCommand = new Command()
           teamKey = match?.[1]
         }
         if (!teamKey) {
-          console.error("Could not determine team key from issue ID")
-          Deno.exit(1)
+          throw new ValidationError(
+            "Could not determine team key from issue ID",
+          )
         }
 
         // Convert team key to team ID for some operations
         const teamId = await getTeamIdByKey(teamKey)
         if (!teamId) {
-          console.error(`Could not determine team ID for team ${teamKey}`)
-          Deno.exit(1)
+          throw new NotFoundError("Team", teamKey)
         }
 
         let stateId: string | undefined
@@ -114,10 +123,10 @@ export const updateCommand = new Command()
             state,
           )
           if (!workflowState) {
-            console.error(
-              `Could not find workflow state '${state}' for team ${teamKey}`,
+            throw new NotFoundError(
+              "Workflow state",
+              `'${state}' for team ${teamKey}`,
             )
-            Deno.exit(1)
           }
           stateId = workflowState.id
         }
@@ -126,10 +135,7 @@ export const updateCommand = new Command()
         if (assignee !== undefined) {
           assigneeId = await lookupUserId(assignee)
           if (!assigneeId) {
-            console.error(
-              `Could not determine user ID for assignee ${assignee}`,
-            )
-            Deno.exit(1)
+            throw new NotFoundError("User", assignee)
           }
         }
 
@@ -138,10 +144,7 @@ export const updateCommand = new Command()
           for (const label of labels) {
             const labelId = await getIssueLabelIdByNameForTeam(label, teamKey)
             if (!labelId) {
-              console.error(
-                `Could not determine ID for issue label ${label}`,
-              )
-              Deno.exit(1)
+              throw new NotFoundError("Issue label", label)
             }
             labelIds.push(labelId)
           }
@@ -151,8 +154,7 @@ export const updateCommand = new Command()
         if (project !== undefined) {
           projectId = await getProjectIdByName(project)
           if (projectId === undefined) {
-            console.error(`Could not determine ID for project ${project}`)
-            Deno.exit(1)
+            throw new NotFoundError("Project", project)
           }
         }
 
@@ -165,17 +167,13 @@ export const updateCommand = new Command()
         if (parent !== undefined) {
           const parentIdentifier = await getIssueIdentifier(parent)
           if (!parentIdentifier) {
-            console.error(
+            throw new ValidationError(
               `Could not resolve parent issue identifier: ${parent}`,
             )
-            Deno.exit(1)
           }
           const parentId = await getIssueId(parentIdentifier)
           if (!parentId) {
-            console.error(
-              `Could not resolve parent issue ID: ${parentIdentifier}`,
-            )
-            Deno.exit(1)
+            throw new NotFoundError("Parent issue", parentIdentifier)
           }
           input.parentId = parentId
         }
@@ -208,20 +206,19 @@ export const updateCommand = new Command()
         })
 
         if (!data.issueUpdate.success) {
-          throw "Update query failed"
+          throw new CliError("Issue update failed")
         }
 
         const issue = data.issueUpdate.issue
         if (!issue) {
-          throw "Issue update failed - no issue returned"
+          throw new CliError("Issue update failed - no issue returned")
         }
 
         spinner?.stop()
         console.log(`✓ Updated issue ${issue.identifier}: ${issue.title}`)
         console.log(issue.url)
       } catch (error) {
-        console.error("✗ Failed to update issue", error)
-        Deno.exit(1)
+        handleError(error, "Failed to update issue")
       }
     },
   )

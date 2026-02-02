@@ -6,49 +6,54 @@ import {
   hasWorkspace,
   setDefaultWorkspace,
 } from "../../credentials.ts"
+import { AuthError, handleError, NotFoundError } from "../../utils/errors.ts"
 
 export const defaultCommand = new Command()
   .name("default")
   .description("Set the default workspace")
   .arguments("[workspace:string]")
   .action(async (_options, workspace?: string) => {
-    const workspaces = getWorkspaces()
+    try {
+      const workspaces = getWorkspaces()
 
-    if (workspaces.length === 0) {
-      console.error("No workspaces configured")
-      console.error("Run `linear auth login` to add a workspace")
-      Deno.exit(1)
+      if (workspaces.length === 0) {
+        throw new AuthError("No workspaces configured", {
+          suggestion: "Run `linear auth login` to add a workspace",
+        })
+      }
+
+      if (workspaces.length === 1) {
+        console.log(`Only one workspace configured: ${workspaces[0]}`)
+        return
+      }
+
+      const currentDefault = getDefaultWorkspace()
+
+      // If no workspace specified, prompt to select one
+      if (!workspace) {
+        workspace = await Select.prompt({
+          message: "Select default workspace",
+          options: workspaces.map((ws) => ({
+            name: ws === currentDefault ? `${ws} (current)` : ws,
+            value: ws,
+          })),
+        })
+      }
+
+      if (!hasWorkspace(workspace)) {
+        throw new NotFoundError("Workspace", workspace, {
+          suggestion: `Available workspaces: ${workspaces.join(", ")}`,
+        })
+      }
+
+      if (workspace === currentDefault) {
+        console.log(`"${workspace}" is already the default workspace`)
+        return
+      }
+
+      await setDefaultWorkspace(workspace)
+      console.log(`Default workspace set to: ${workspace}`)
+    } catch (error) {
+      handleError(error, "Failed to set default workspace")
     }
-
-    if (workspaces.length === 1) {
-      console.log(`Only one workspace configured: ${workspaces[0]}`)
-      return
-    }
-
-    const currentDefault = getDefaultWorkspace()
-
-    // If no workspace specified, prompt to select one
-    if (!workspace) {
-      workspace = await Select.prompt({
-        message: "Select default workspace",
-        options: workspaces.map((ws) => ({
-          name: ws === currentDefault ? `${ws} (current)` : ws,
-          value: ws,
-        })),
-      })
-    }
-
-    if (!hasWorkspace(workspace)) {
-      console.error(`Workspace "${workspace}" not found`)
-      console.error(`Available workspaces: ${workspaces.join(", ")}`)
-      Deno.exit(1)
-    }
-
-    if (workspace === currentDefault) {
-      console.log(`"${workspace}" is already the default workspace`)
-      return
-    }
-
-    await setDefaultWorkspace(workspace)
-    console.log(`Default workspace set to: ${workspace}`)
   })

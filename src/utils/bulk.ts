@@ -6,6 +6,7 @@
  */
 
 import { shouldShowSpinner } from "./hyperlink.ts"
+import { NotFoundError } from "./errors.ts"
 
 /**
  * Result of a single bulk operation
@@ -76,7 +77,7 @@ export async function readIdsFromFile(filePath: string): Promise<string[]> {
     return parseIds(content)
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      throw new Error(`File not found: ${filePath}`)
+      throw new NotFoundError("File", filePath)
     }
     throw error
   }

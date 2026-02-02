@@ -65,6 +65,7 @@ snapshot[`Document Create Command - Missing Title Error 1`] = `
 stdout:
 ""
 stderr:
-"Title is required. Use --title or run with -i for interactive mode.
+"✗ Failed to create document: Title is required
+  Use --title or run with -i for interactive mode.
 "
 `;

@@ -9,6 +9,12 @@ import {
   lookupUserId,
 } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 const CreateProject = gql(`
   mutation CreateProject($input: ProjectCreateInput!) {
@@ -261,8 +267,9 @@ export const createCommand = new Command()
 
       // Validate required fields
       if (!name) {
-        console.error("Project name is required. Use --name or -n flag.")
-        Deno.exit(1)
+        throw new ValidationError("Project name is required", {
+          suggestion: "Use --name or -n flag to specify a project name.",
+        })
       }
 
       if (teams.length === 0) {
@@ -271,10 +278,9 @@ export const createCommand = new Command()
         if (defaultTeam) {
           teams = [defaultTeam]
         } else {
-          console.error(
-            "At least one team is required. Use --team or -t flag.",
-          )
-          Deno.exit(1)
+          throw new ValidationError("At least one team is required", {
+            suggestion: "Use --team or -t flag to specify a team.",
+          })
         }
       }
 
@@ -283,8 +289,7 @@ export const createCommand = new Command()
       for (const teamKey of teams) {
         const teamId = await getTeamIdByKey(teamKey.toUpperCase())
         if (!teamId) {
-          console.error(`Team not found: ${teamKey}`)
-          Deno.exit(1)
+          throw new NotFoundError("Team", teamKey)
         }
         teamIds.push(teamId)
       }
@@ -294,8 +299,7 @@ export const createCommand = new Command()
       if (lead) {
         leadId = await lookupUserId(lead)
         if (!leadId) {
-          console.error(`Lead not found: ${lead}`)
-          Deno.exit(1)
+          throw new NotFoundError("Lead", lead)
         }
       }
 
@@ -314,10 +318,10 @@ export const createCommand = new Command()
         }
         const apiStatusType = statusTypeMapping[statusLower]
         if (!apiStatusType) {
-          console.error(
-            `Invalid status: ${status}. Valid values: planned, started, paused, completed, canceled, backlog`,
-          )
-          Deno.exit(1)
+          throw new ValidationError(`Invalid status: ${status}`, {
+            suggestion:
+              "Valid values: planned, started, paused, completed, canceled, backlog",
+          })
         }
 
         // Look up the actual status ID from the organization's project statuses
@@ -327,20 +331,17 @@ export const createCommand = new Command()
           (s: { type: string }) => s.type === apiStatusType,
         )
         if (!matchingStatus) {
-          console.error(`Project status not found for type: ${apiStatusType}`)
-          Deno.exit(1)
+          throw new NotFoundError("Project status", apiStatusType)
         }
         statusId = matchingStatus.id
       }
 
       if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
-        console.error("Start date must be in YYYY-MM-DD format")
-        Deno.exit(1)
+        throw new ValidationError("Start date must be in YYYY-MM-DD format")
       }
 
       if (targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-        console.error("Target date must be in YYYY-MM-DD format")
-        Deno.exit(1)
+        throw new ValidationError("Target date must be in YYYY-MM-DD format")
       }
 
       const input = {
@@ -363,16 +364,14 @@ export const createCommand = new Command()
 
         if (!result.projectCreate.success) {
           spinner?.stop()
-          console.error("Failed to create project")
-          Deno.exit(1)
+          throw new CliError("Failed to create project")
         }
 
         const project = result.projectCreate.project
         spinner?.stop()
 
         if (!project) {
-          console.error("Failed to create project: no project returned")
-          Deno.exit(1)
+          throw new CliError("Failed to create project: no project returned")
         }
 
         console.log(`✓ Created project: ${project.name}`)
@@ -411,8 +410,7 @@ export const createCommand = new Command()
         }
       } catch (error) {
         spinner?.stop()
-        console.error("Failed to create project:", error)
-        Deno.exit(1)
+        handleError(error, "Failed to create project")
       }
     },
   )

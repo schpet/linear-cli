@@ -10,6 +10,12 @@ import {
   printBulkSummary,
 } from "../../utils/bulk.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 interface InitiativeDeleteResult extends BulkOperationResult {
   name: string
@@ -49,10 +55,9 @@ export const deleteCommand = new Command()
 
       // Single mode requires initiativeId
       if (!initiativeId) {
-        console.error(
+        throw new ValidationError(
           "Initiative ID required. Use --bulk for multiple initiatives.",
         )
-        Deno.exit(1)
       }
 
       await handleSingleDelete(client, initiativeId, { force })
@@ -70,8 +75,7 @@ async function handleSingleDelete(
   // Resolve initiative ID
   const resolvedId = await resolveInitiativeId(client, initiativeId)
   if (!resolvedId) {
-    console.error(`Initiative not found: ${initiativeId}`)
-    Deno.exit(1)
+    throw new NotFoundError("Initiative", initiativeId)
   }
 
   // Get initiative details for confirmation message
@@ -94,13 +98,11 @@ async function handleSingleDelete(
   try {
     initiativeDetails = await client.request(detailsQuery, { id: resolvedId })
   } catch (error) {
-    console.error("Failed to fetch initiative details:", error)
-    Deno.exit(1)
+    handleError(error, "Failed to fetch initiative details")
   }
 
   if (!initiativeDetails?.initiative) {
-    console.error(`Initiative not found: ${initiativeId}`)
-    Deno.exit(1)
+    throw new NotFoundError("Initiative", initiativeId)
   }
 
   const initiative = initiativeDetails.initiative
@@ -117,8 +119,9 @@ async function handleSingleDelete(
   // Confirm deletion with typed confirmation for safety
   if (!force) {
     if (!Deno.stdin.isTerminal()) {
-      console.error("Interactive confirmation required. Use --force to skip.")
-      Deno.exit(1)
+      throw new ValidationError(
+        "Interactive confirmation required. Use --force to skip.",
+      )
     }
     console.log(`\n⚠️  This action is PERMANENT and cannot be undone.\n`)
 
@@ -164,15 +167,13 @@ async function handleSingleDelete(
     spinner?.stop()
 
     if (!result.initiativeDelete.success) {
-      console.error("Failed to delete initiative")
-      Deno.exit(1)
+      throw new CliError("Failed to delete initiative")
     }
 
     console.log(`✓ Permanently deleted initiative: ${initiative.name}`)
   } catch (error) {
     spinner?.stop()
-    console.error("Failed to delete initiative:", error)
-    Deno.exit(1)
+    handleError(error, "Failed to delete initiative")
   }
 }
 
@@ -196,8 +197,7 @@ async function handleBulkDelete(
   })
 
   if (ids.length === 0) {
-    console.error("No initiative IDs provided for bulk delete.")
-    Deno.exit(1)
+    throw new ValidationError("No initiative IDs provided for bulk delete.")
   }
 
   console.log(`Found ${ids.length} initiative(s) to delete.`)
@@ -206,8 +206,9 @@ async function handleBulkDelete(
   // Confirm bulk operation
   if (!force) {
     if (!Deno.stdin.isTerminal()) {
-      console.error("Interactive confirmation required. Use --force to skip.")
-      Deno.exit(1)
+      throw new ValidationError(
+        "Interactive confirmation required. Use --force to skip.",
+      )
     }
     const confirmed = await Confirm.prompt({
       message: `Permanently delete ${ids.length} initiative(s)?`,

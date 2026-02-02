@@ -1,8 +1,8 @@
 import { Command } from "@cliffy/command"
 import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { formatIssueDescription } from "../../utils/jj.ts"
-import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError, ValidationError } from "../../utils/errors.ts"
 
 export const describeCommand = new Command()
   .name("describe")
@@ -13,17 +13,23 @@ export const describeCommand = new Command()
     "Use 'References' instead of 'Fixes' for the Linear issue link",
   )
   .action(async (options, issueId) => {
-    const resolvedId = await getIssueIdentifier(issueId)
-    if (!resolvedId) {
-      console.error(getNoIssueFoundMessage())
-      Deno.exit(1)
+    try {
+      const resolvedId = await getIssueIdentifier(issueId)
+      if (!resolvedId) {
+        throw new ValidationError(
+          "Could not determine issue ID",
+          { suggestion: "Please provide an issue ID like 'ENG-123'." },
+        )
+      }
+
+      const { title, url } = await fetchIssueDetails(
+        resolvedId,
+        shouldShowSpinner(),
+      )
+
+      const magicWord = options.references ? "References" : "Fixes"
+      console.log(formatIssueDescription(resolvedId, title, url, magicWord))
+    } catch (error) {
+      handleError(error, "Failed to get issue description")
     }
-
-    const { title, url } = await fetchIssueDetails(
-      resolvedId,
-      shouldShowSpinner(),
-    )
-
-    const magicWord = options.references ? "References" : "Fixes"
-    console.log(formatIssueDescription(resolvedId, title, url, magicWord))
   })

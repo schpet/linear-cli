@@ -3,6 +3,7 @@ import { Confirm } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 
 const DeleteProjectMilestone = gql(`
   mutation DeleteProjectMilestone($id: String!) {
@@ -21,8 +22,9 @@ export const deleteCommand = new Command()
     // Confirmation prompt unless --force is used
     if (!force) {
       if (!Deno.stdin.isTerminal()) {
-        console.error("Interactive confirmation required. Use --force to skip.")
-        Deno.exit(1)
+        throw new ValidationError("Interactive confirmation required", {
+          suggestion: "Use --force to skip confirmation.",
+        })
       }
       const confirmed = await Confirm.prompt({
         message: `Are you sure you want to delete milestone ${id}?`,
@@ -50,12 +52,10 @@ export const deleteCommand = new Command()
       if (result.projectMilestoneDelete.success) {
         console.log(`✓ Deleted milestone ${id}`)
       } else {
-        console.error("✗ Failed to delete milestone")
-        Deno.exit(1)
+        throw new CliError("Failed to delete milestone")
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to delete milestone:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to delete milestone")
     }
   })

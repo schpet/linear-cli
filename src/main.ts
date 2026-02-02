@@ -22,7 +22,12 @@ import "./credentials.ts"
 await new Command()
   .name("linear")
   .version(denoConfig.version)
-  .description("Handy linear commands from the command line")
+  .description(
+    `Handy linear commands from the command line.
+
+Environment Variables:
+  LINEAR_DEBUG=1    Show full error details including stack traces`,
+  )
   .globalOption(
     "-w, --workspace <slug:string>",
     "Target workspace (uses credentials)",

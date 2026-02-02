@@ -6,6 +6,7 @@ import {
   lexicographicSortSchema,
   printSchema,
 } from "graphql"
+import { handleError } from "../utils/errors.ts"
 import { getGraphQLClient } from "../utils/graphql.ts"
 
 export const schemaCommand = new Command()
@@ -17,24 +18,30 @@ export const schemaCommand = new Command()
     "Write schema to file instead of stdout",
   )
   .action(async (options) => {
-    const { json, output } = options
+    try {
+      const { json, output } = options
 
-    const client = getGraphQLClient()
-    const introspectionQuery = getIntrospectionQuery()
-    const result = await client.request<IntrospectionQuery>(introspectionQuery)
+      const client = getGraphQLClient()
+      const introspectionQuery = getIntrospectionQuery()
+      const result = await client.request<IntrospectionQuery>(
+        introspectionQuery,
+      )
 
-    let content: string
-    if (json) {
-      content = JSON.stringify(result, null, 2)
-    } else {
-      const schema = lexicographicSortSchema(buildClientSchema(result))
-      content = printSchema(schema)
-    }
+      let content: string
+      if (json) {
+        content = JSON.stringify(result, null, 2)
+      } else {
+        const schema = lexicographicSortSchema(buildClientSchema(result))
+        content = printSchema(schema)
+      }
 
-    if (output) {
-      await Deno.writeTextFile(output, content + "\n")
-      console.log(`Schema written to ${output}`)
-    } else {
-      console.log(content)
+      if (output) {
+        await Deno.writeTextFile(output, content + "\n")
+        console.log(`Schema written to ${output}`)
+      } else {
+        console.log(content)
+      }
+    } catch (error) {
+      handleError(error, "Failed to fetch schema")
     }
   })

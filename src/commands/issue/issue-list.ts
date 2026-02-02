@@ -19,6 +19,11 @@ import { openTeamAssigneeView } from "../../utils/actions.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { header, muted } from "../../utils/styling.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 const SortType = new EnumType(["manual", "priority"])
 const StateType = new EnumType([
@@ -107,73 +112,68 @@ export const listCommand = new Command()
         return
       }
 
-      const assigneeFilterCount =
-        [assignee, allAssignees, unassigned].filter(Boolean).length
-      if (assigneeFilterCount > 1) {
-        console.error(
-          "Cannot specify multiple assignee filters (--assignee, --all-assignees, --unassigned)",
-        )
-        Deno.exit(1)
-      }
-
-      const stateArray: string[] = Array.isArray(state) ? state.flat() : [state]
-
-      if (
-        allStates && (stateArray.length > 1 || stateArray[0] !== "unstarted")
-      ) {
-        console.error(
-          "Cannot use --all-states with --state flag",
-        )
-        Deno.exit(1)
-      }
-
-      const sort = sortFlag ||
-        getOption("issue_sort") as "manual" | "priority" | undefined
-      if (!sort) {
-        console.error(
-          "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
-        )
-        Deno.exit(1)
-      }
-      if (!SortType.values().includes(sort)) {
-        console.error(`Sort must be one of: ${SortType.values().join(", ")}`)
-        Deno.exit(1)
-      }
-      const teamKey = team || getTeamKey()
-      if (!teamKey) {
-        console.error(
-          "Could not determine team key from directory name or team flag.",
-        )
-        Deno.exit(1)
-      }
-
-      let projectId: string | undefined
-      if (project != null) {
-        projectId = await getProjectIdByName(project)
-        if (projectId == null) {
-          const projectOptions = await getProjectOptionsByName(project)
-          if (Object.keys(projectOptions).length === 0) {
-            console.error(`No projects found matching: ${project}`)
-            Deno.exit(1)
-          }
-          if (!Deno.stdin.isTerminal()) {
-            console.error(
-              `Project "${project}" not found. Similar projects: ${
-                Object.values(projectOptions).join(", ")
-              }`,
-            )
-            Deno.exit(1)
-          }
-          projectId = await selectOption("Project", project, projectOptions)
-        }
-      }
-
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
       try {
+        const assigneeFilterCount =
+          [assignee, allAssignees, unassigned].filter(Boolean).length
+        if (assigneeFilterCount > 1) {
+          throw new ValidationError(
+            "Cannot specify multiple assignee filters (--assignee, --all-assignees, --unassigned)",
+          )
+        }
+
+        const stateArray: string[] = Array.isArray(state)
+          ? state.flat()
+          : [state]
+
+        if (
+          allStates && (stateArray.length > 1 || stateArray[0] !== "unstarted")
+        ) {
+          throw new ValidationError("Cannot use --all-states with --state flag")
+        }
+
+        const sort = sortFlag ||
+          getOption("issue_sort") as "manual" | "priority" | undefined
+        if (!sort) {
+          throw new ValidationError(
+            "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
+          )
+        }
+        if (!SortType.values().includes(sort)) {
+          throw new ValidationError(
+            `Sort must be one of: ${SortType.values().join(", ")}`,
+          )
+        }
+        const teamKey = team || getTeamKey()
+        if (!teamKey) {
+          throw new ValidationError(
+            "Could not determine team key from directory name or team flag",
+          )
+        }
+
+        let projectId: string | undefined
+        if (project != null) {
+          projectId = await getProjectIdByName(project)
+          if (projectId == null) {
+            const projectOptions = await getProjectOptionsByName(project)
+            if (Object.keys(projectOptions).length === 0) {
+              throw new NotFoundError("Project", project)
+            }
+            if (!Deno.stdin.isTerminal()) {
+              throw new ValidationError(
+                `Project "${project}" not found. Similar projects: ${
+                  Object.values(projectOptions).join(", ")
+                }`,
+              )
+            }
+            projectId = await selectOption("Project", project, projectOptions)
+          }
+        }
+
+        const { Spinner } = await import("@std/cli/unstable-spinner")
+        const showSpinner = shouldShowSpinner()
+        const spinner = showSpinner ? new Spinner() : null
+        spinner?.start()
+
         const result = await fetchIssuesForState(
           teamKey,
           allStates ? undefined : stateArray,
@@ -380,15 +380,7 @@ export const listCommand = new Command()
           outputLines.forEach((line) => console.log(line))
         }
       } catch (error) {
-        spinner?.stop()
-        if (
-          error instanceof Error && error.message.startsWith("User not found:")
-        ) {
-          console.error(error.message)
-        } else {
-          console.error("Failed to fetch issues:", error)
-        }
-        Deno.exit(1)
+        handleError(error, "Failed to list issues")
       }
     },
   )

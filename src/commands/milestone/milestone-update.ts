@@ -3,6 +3,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 
 const UpdateProjectMilestone = gql(`
   mutation UpdateProjectMilestone($id: String!, $input: ProjectMilestoneUpdateInput!) {
@@ -33,11 +34,13 @@ export const updateCommand = new Command()
     async ({ name, description, targetDate, project: projectIdOrSlug }, id) => {
       // Check if at least one update option is provided
       if (!name && !description && !targetDate && !projectIdOrSlug) {
-        console.error("✗ At least one update option must be provided")
-        console.error(
-          "  Use --name, --description, --target-date, or --project",
+        throw new ValidationError(
+          "At least one update option must be provided",
+          {
+            suggestion:
+              "Use --name, --description, --target-date, or --project",
+          },
         )
-        Deno.exit(1)
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -74,13 +77,11 @@ export const updateCommand = new Command()
             console.log(`  Project: ${milestone.project.name}`)
           }
         } else {
-          console.error("✗ Failed to update milestone")
-          Deno.exit(1)
+          throw new CliError("Failed to update milestone")
         }
       } catch (error) {
         spinner?.stop()
-        console.error("Failed to update milestone:", error)
-        Deno.exit(1)
+        handleError(error, "Failed to update milestone")
       }
     },
   )

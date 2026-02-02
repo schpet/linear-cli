@@ -5,6 +5,12 @@ import type { InitiativeStatus } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { lookupUserId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 const CreateInitiative = gql(`
   mutation CreateInitiative($input: InitiativeCreateInput!) {
@@ -171,8 +177,9 @@ export const createCommand = new Command()
 
     // Validate required fields
     if (!name) {
-      console.error("Initiative name is required. Use --name or -n flag.")
-      Deno.exit(1)
+      throw new ValidationError(
+        "Initiative name is required. Use --name or -n flag.",
+      )
     }
 
     // Validate status if provided (user can input lowercase, we convert to API format)
@@ -182,26 +189,25 @@ export const createCommand = new Command()
         (s) => s.value.toLowerCase() === statusLower,
       )
       if (!statusEntry) {
-        console.error(
+        throw new ValidationError(
           `Invalid status: ${status}. Valid values: ${
             INITIATIVE_STATUSES.map((s) => s.value.toLowerCase()).join(", ")
           }`,
         )
-        Deno.exit(1)
       }
       status = statusEntry.value
     }
 
     // Validate color format if provided
     if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
-      console.error("Color must be a valid hex code (e.g., #5E6AD2)")
-      Deno.exit(1)
+      throw new ValidationError(
+        "Color must be a valid hex code (e.g., #5E6AD2)",
+      )
     }
 
     // Validate target date format if provided
     if (targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-      console.error("Target date must be in YYYY-MM-DD format")
-      Deno.exit(1)
+      throw new ValidationError("Target date must be in YYYY-MM-DD format")
     }
 
     // Build input
@@ -209,8 +215,7 @@ export const createCommand = new Command()
     if (owner) {
       ownerId = await lookupUserId(owner)
       if (!ownerId) {
-        console.error(`Owner not found: ${owner}`)
-        Deno.exit(1)
+        throw new NotFoundError("Owner", owner)
       }
     }
 
@@ -234,8 +239,7 @@ export const createCommand = new Command()
 
       if (!result.initiativeCreate.success) {
         spinner?.stop()
-        console.error("Failed to create initiative")
-        Deno.exit(1)
+        throw new CliError("Failed to create initiative")
       }
 
       const initiative = result.initiativeCreate.initiative
@@ -248,7 +252,6 @@ export const createCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to create initiative:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to create initiative")
     }
   })

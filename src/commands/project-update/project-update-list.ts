@@ -3,6 +3,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay, truncateText } from "../../utils/display.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError, NotFoundError } from "../../utils/errors.ts"
 
 interface ProjectUpdateNode {
   id: string
@@ -63,18 +64,7 @@ export const listCommand = new Command()
 
     try {
       // Resolve project ID
-      let resolvedProjectId: string
-      try {
-        resolvedProjectId = await resolveProjectId(projectId)
-      } catch (error) {
-        spinner?.stop()
-        console.error(
-          error instanceof Error
-            ? error.message
-            : `Could not resolve project: ${projectId}`,
-        )
-        Deno.exit(1)
-      }
+      const resolvedProjectId = await resolveProjectId(projectId)
 
       const client = getGraphQLClient()
       const result = await client.request<ListProjectUpdatesQueryResult>(
@@ -88,8 +78,7 @@ export const listCommand = new Command()
 
       const project = result.project
       if (!project) {
-        console.error(`Project not found: ${projectId}`)
-        Deno.exit(1)
+        throw new NotFoundError("Project", projectId)
       }
 
       const updates = project.projectUpdates?.nodes || []
@@ -219,7 +208,6 @@ export const listCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch project updates:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch project updates")
     }
   })

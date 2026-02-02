@@ -1,11 +1,12 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
-import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
   formatRelativeTime,
   padDisplay,
   truncateText,
 } from "../../utils/display.ts"
+import { handleError, NotFoundError } from "../../utils/errors.ts"
+import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 
 /**
@@ -103,8 +104,7 @@ export const listCommand = new Command()
       const resolvedId = await resolveInitiativeId(client, initiativeId)
       if (!resolvedId) {
         spinner?.stop()
-        console.error(`Initiative not found: ${initiativeId}`)
-        Deno.exit(1)
+        throw new NotFoundError("Initiative", initiativeId)
       }
 
       const listQuery = gql(`
@@ -137,8 +137,7 @@ export const listCommand = new Command()
 
       const initiative = result.initiative
       if (!initiative) {
-        console.error(`Initiative not found: ${initiativeId}`)
-        Deno.exit(1)
+        throw new NotFoundError("Initiative", initiativeId)
       }
 
       const updates = initiative.initiativeUpdates?.nodes || []
@@ -260,7 +259,6 @@ export const listCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch initiative updates:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to fetch initiative updates")
     }
   })

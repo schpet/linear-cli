@@ -3,6 +3,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { handleError } from "../../utils/errors.ts"
 
 const ListDocuments = gql(`
   query ListDocuments($filter: DocumentFilter, $first: Int) {
@@ -161,7 +162,6 @@ export const listCommand = new Command()
       }
     } catch (error) {
       spinner?.stop()
-      console.error("Failed to fetch documents:", error)
-      Deno.exit(1)
+      handleError(error, "Failed to list documents")
     }
   })

@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { Input } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 
 export const commentUpdateCommand = new Command()
   .name("update")
@@ -38,8 +39,7 @@ export const commentUpdateCommand = new Command()
         })
 
         if (!newBody.trim()) {
-          console.error("Comment body cannot be empty")
-          Deno.exit(1)
+          throw new ValidationError("Comment body cannot be empty")
         }
       }
 
@@ -70,18 +70,17 @@ export const commentUpdateCommand = new Command()
       })
 
       if (!data.commentUpdate.success) {
-        throw new Error("Failed to update comment")
+        throw new CliError("Failed to update comment")
       }
 
       const comment = data.commentUpdate.comment
       if (!comment) {
-        throw new Error("Comment update failed - no comment returned")
+        throw new CliError("Comment update failed - no comment returned")
       }
 
       console.log("✓ Comment updated")
       console.log(comment.url)
     } catch (error) {
-      console.error("✗ Failed to update comment", error)
-      Deno.exit(1)
+      handleError(error, "Failed to update comment")
     }
   })

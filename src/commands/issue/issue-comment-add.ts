@@ -3,13 +3,13 @@ import { Input } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getIssueIdentifier } from "../../utils/linear.ts"
-import { getNoIssueFoundMessage } from "../../utils/vcs.ts"
 import {
   formatAsMarkdownLink,
   uploadFile,
   validateFilePath,
 } from "../../utils/upload.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 
 export const commentAddCommand = new Command()
   .name("add")
@@ -28,8 +28,10 @@ export const commentAddCommand = new Command()
     try {
       const resolvedIdentifier = await getIssueIdentifier(issueId)
       if (!resolvedIdentifier) {
-        console.error(getNoIssueFoundMessage())
-        Deno.exit(1)
+        throw new ValidationError(
+          "Could not determine issue ID",
+          { suggestion: "Please provide an issue ID like 'ENG-123'." },
+        )
       }
 
       // Validate and upload attachments first
@@ -70,8 +72,7 @@ export const commentAddCommand = new Command()
         })
 
         if (!commentBody.trim()) {
-          console.error("Comment body cannot be empty")
-          Deno.exit(1)
+          throw new ValidationError("Comment body cannot be empty")
         }
       }
 
@@ -128,18 +129,17 @@ export const commentAddCommand = new Command()
       })
 
       if (!data.commentCreate.success) {
-        throw new Error("Failed to create comment")
+        throw new CliError("Failed to create comment")
       }
 
       const comment = data.commentCreate.comment
       if (!comment) {
-        throw new Error("Comment creation failed - no comment returned")
+        throw new CliError("Comment creation failed - no comment returned")
       }
 
       console.log(`✓ Comment added to ${resolvedIdentifier}`)
       console.log(comment.url)
     } catch (error) {
-      console.error("✗ Failed to add comment", error)
-      Deno.exit(1)
+      handleError(error, "Failed to add comment")
     }
   })

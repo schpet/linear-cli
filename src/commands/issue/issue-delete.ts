@@ -10,6 +10,12 @@ import {
   isBulkMode,
   printBulkSummary,
 } from "../../utils/bulk.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 interface IssueDeleteResult extends BulkOperationResult {
   identifier?: string
@@ -35,26 +41,32 @@ export const deleteCommand = new Command()
       { confirm, bulk, bulkFile, bulkStdin },
       issueId,
     ) => {
-      const client = getGraphQLClient()
+      try {
+        const client = getGraphQLClient()
 
-      // Check if bulk mode
-      if (isBulkMode({ bulk, bulkFile, bulkStdin })) {
-        await handleBulkDelete(client, {
-          bulk,
-          bulkFile,
-          bulkStdin,
-          confirm,
-        })
-        return
+        // Check if bulk mode
+        if (isBulkMode({ bulk, bulkFile, bulkStdin })) {
+          await handleBulkDelete(client, {
+            bulk,
+            bulkFile,
+            bulkStdin,
+            confirm,
+          })
+          return
+        }
+
+        // Single mode requires issueId
+        if (!issueId) {
+          throw new ValidationError(
+            "Issue ID required",
+            { suggestion: "Use --bulk for multiple issues." },
+          )
+        }
+
+        await handleSingleDelete(client, issueId, { confirm })
+      } catch (error) {
+        handleError(error, "Failed to delete issue")
       }
-
-      // Single mode requires issueId
-      if (!issueId) {
-        console.error("Issue ID required. Use --bulk for multiple issues.")
-        Deno.exit(1)
-      }
-
-      await handleSingleDelete(client, issueId, { confirm })
     },
   )
 
@@ -69,8 +81,7 @@ async function handleSingleDelete(
   // First resolve the issue ID to get the issue details
   const resolvedId = await getIssueIdentifier(issueId)
   if (!resolvedId) {
-    console.error("Could not find issue with ID:", issueId)
-    Deno.exit(1)
+    throw new NotFoundError("Issue", issueId)
   }
 
   // Get issue details to show title in confirmation
@@ -80,17 +91,10 @@ async function handleSingleDelete(
     }
   `)
 
-  let issueDetails
-  try {
-    issueDetails = await client.request(detailsQuery, { id: resolvedId })
-  } catch (error) {
-    console.error("Failed to fetch issue details:", error)
-    Deno.exit(1)
-  }
+  const issueDetails = await client.request(detailsQuery, { id: resolvedId })
 
   if (!issueDetails?.issue) {
-    console.error("Issue not found:", resolvedId)
-    Deno.exit(1)
+    throw new NotFoundError("Issue", resolvedId)
   }
 
   const { title, identifier } = issueDetails.issue
@@ -98,8 +102,10 @@ async function handleSingleDelete(
   // Show confirmation prompt unless --confirm flag is used
   if (!confirm) {
     if (!Deno.stdin.isTerminal()) {
-      console.error("Interactive confirmation required. Use --confirm to skip.")
-      Deno.exit(1)
+      throw new ValidationError(
+        "Interactive confirmation required",
+        { suggestion: "Use --confirm to skip." },
+      )
     }
     const confirmed = await Confirm.prompt({
       message: `Are you sure you want to delete "${identifier}: ${title}"?`,
@@ -125,18 +131,12 @@ async function handleSingleDelete(
     }
   `)
 
-  try {
-    const result = await client.request(deleteQuery, { id: resolvedId })
+  const result = await client.request(deleteQuery, { id: resolvedId })
 
-    if (result.issueDelete.success) {
-      console.log(`✓ Successfully deleted issue: ${identifier}: ${title}`)
-    } else {
-      console.error("Failed to delete issue")
-      Deno.exit(1)
-    }
-  } catch (error) {
-    console.error("Failed to delete issue:", error)
-    Deno.exit(1)
+  if (result.issueDelete.success) {
+    console.log(`✓ Successfully deleted issue: ${identifier}: ${title}`)
+  } else {
+    throw new CliError("Failed to delete issue")
   }
 }
 
@@ -160,8 +160,7 @@ async function handleBulkDelete(
   })
 
   if (ids.length === 0) {
-    console.error("No issue identifiers provided for bulk delete.")
-    Deno.exit(1)
+    throw new ValidationError("No issue identifiers provided for bulk delete")
   }
 
   console.log(`Found ${ids.length} issue(s) to delete.`)
@@ -169,8 +168,10 @@ async function handleBulkDelete(
   // Confirm bulk operation
   if (!confirm) {
     if (!Deno.stdin.isTerminal()) {
-      console.error("Interactive confirmation required. Use --confirm to skip.")
-      Deno.exit(1)
+      throw new ValidationError(
+        "Interactive confirmation required",
+        { suggestion: "Use --confirm to skip." },
+      )
     }
     const confirmed = await Confirm.prompt({
       message: `Delete ${ids.length} issue(s)?`,
