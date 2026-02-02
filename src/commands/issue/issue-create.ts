@@ -30,6 +30,10 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import {
+  buildBodyFields,
+  processTextWithMentions,
+} from "../../utils/mentions.ts"
 
 type IssueLabel = { id: string; name: string; color: string }
 
@@ -558,6 +562,14 @@ export const createCommand = new Command()
           console.log(`Creating issue...`)
           console.log()
 
+          // Process @mentions in the description
+          const descriptionFields = interactiveData.description
+            ? buildBodyFields(
+              await processTextWithMentions(interactiveData.description),
+              "description",
+            )
+            : {}
+
           const createIssueMutation = gql(`
             mutation CreateIssue($input: IssueCreateInput!) {
               issueCreate(input: $input) {
@@ -568,21 +580,22 @@ export const createCommand = new Command()
           `)
 
           const client = getGraphQLClient()
+          const baseInput = {
+            title: interactiveData.title,
+            assigneeId: interactiveData.assigneeId,
+            dueDate: undefined,
+            parentId: interactiveData.parentId,
+            priority: interactiveData.priority,
+            estimate: interactiveData.estimate,
+            labelIds: interactiveData.labelIds,
+            teamId: interactiveData.teamId,
+            projectId: interactiveData.projectId,
+            stateId: interactiveData.stateId,
+            useDefaultTemplate,
+            ...descriptionFields,
+          }
           const data = await client.request(createIssueMutation, {
-            input: {
-              title: interactiveData.title,
-              assigneeId: interactiveData.assigneeId,
-              dueDate: undefined,
-              parentId: interactiveData.parentId,
-              priority: interactiveData.priority,
-              estimate: interactiveData.estimate,
-              labelIds: interactiveData.labelIds,
-              teamId: interactiveData.teamId,
-              projectId: interactiveData.projectId,
-              stateId: interactiveData.stateId,
-              useDefaultTemplate,
-              description: interactiveData.description,
-            },
+            input: baseInput,
           })
 
           if (!data.issueCreate.success) {
@@ -736,6 +749,14 @@ export const createCommand = new Command()
           parentData = await fetchParentIssueData(parentId)
         }
 
+        // Process @mentions in the description
+        const descriptionFields = description
+          ? buildBodyFields(
+            await processTextWithMentions(description),
+            "description",
+          )
+          : {}
+
         const input = {
           title,
           assigneeId,
@@ -748,7 +769,7 @@ export const createCommand = new Command()
           projectId: projectId || parentData?.projectId,
           stateId,
           useDefaultTemplate,
-          description,
+          ...descriptionFields,
         }
         spinner?.stop()
         console.log(`Creating issue in ${team}`)

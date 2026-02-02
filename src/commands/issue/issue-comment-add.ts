@@ -10,6 +10,10 @@ import {
 } from "../../utils/upload.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import {
+  buildBodyFields,
+  processTextWithMentions,
+} from "../../utils/mentions.ts"
 
 export const commentAddCommand = new Command()
   .name("add")
@@ -114,14 +118,15 @@ export const commentAddCommand = new Command()
         }
       `)
 
-      const client = getGraphQLClient()
-      const input: Record<string, unknown> = {
-        body: commentBody,
-        issueId: resolvedIdentifier,
-      }
+      // Process @mentions in the comment body
+      const mentionResult = await processTextWithMentions(commentBody || "")
+      const bodyFields = buildBodyFields(mentionResult, "body")
 
-      if (parent) {
-        input.parentId = parent
+      const client = getGraphQLClient()
+      const input = {
+        issueId: resolvedIdentifier,
+        ...bodyFields,
+        ...(parent ? { parentId: parent } : {}),
       }
 
       const data = await client.request(mutation, {

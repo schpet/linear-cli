@@ -16,6 +16,10 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import {
+  buildBodyFields,
+  processTextWithMentions,
+} from "../../utils/mentions.ts"
 
 export const updateCommand = new Command()
   .name("update")
@@ -179,7 +183,14 @@ export const updateCommand = new Command()
         }
         if (priority !== undefined) input.priority = priority
         if (estimate !== undefined) input.estimate = estimate
-        if (description !== undefined) input.description = description
+        if (description !== undefined) {
+          // Process @mentions in the description
+          const descriptionFields = buildBodyFields(
+            await processTextWithMentions(description),
+            "description",
+          )
+          Object.assign(input, descriptionFields)
+        }
         if (labelIds.length > 0) input.labelIds = labelIds
         if (teamId !== undefined) input.teamId = teamId
         if (projectId !== undefined) input.projectId = projectId

@@ -3,6 +3,10 @@ import { Input } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import {
+  buildBodyFields,
+  processTextWithMentions,
+} from "../../utils/mentions.ts"
 
 export const commentUpdateCommand = new Command()
   .name("update")
@@ -61,12 +65,14 @@ export const commentUpdateCommand = new Command()
         }
       `)
 
+      // Process @mentions in the comment body
+      const mentionResult = await processTextWithMentions(newBody)
+      const input = buildBodyFields(mentionResult, "body")
+
       const client = getGraphQLClient()
       const data = await client.request(mutation, {
         id: commentId,
-        input: {
-          body: newBody,
-        },
+        input,
       })
 
       if (!data.commentUpdate.success) {
