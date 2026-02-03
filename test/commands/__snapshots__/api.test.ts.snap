@@ -1,0 +1,61 @@
+export const snapshot = {};
+
+snapshot[`API Command - Help Text 1`] = `
+stdout:
+"
+Usage: api [query]
+
+Description:
+
+  Make a raw GraphQL API request
+
+Options:
+
+  -h, --help                  - Show this help.                                                       
+  -f, --field        <field>  - String variable in key=value format                                   
+  -F, --typed-field  <field>  - Typed variable in key=value format (coerces booleans, numbers, null)  
+
+"
+stderr:
+""
+`;
+
+snapshot[`API Command - Basic Query 1`] = `
+stdout:
+'{"data":{"viewer":{"id":"user-1","name":"Test User"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - String Variables 1`] = `
+stdout:
+'{"data":{"team":{"name":"Backend Team"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Typed Variables 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[{"title":"Issue One"},{"title":"Issue Two"}]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - No Query Error 1`] = `
+stdout:
+""
+stderr:
+"✗ API request failed: No query provided
+  Provide a query as an argument: linear api '{ viewer { id } }'
+  Or pipe from stdin: echo '{ viewer { id } }' | linear api
+"
+`;
+
+snapshot[`API Command - Invalid Variable Format 1`] = `
+stdout:
+""
+stderr:
+"✗ API request failed: Invalid variable format: badformat
+  Variables must be in key=value format, e.g. -f teamId=abc
+"
+`;

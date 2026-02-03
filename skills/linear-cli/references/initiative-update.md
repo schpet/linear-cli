@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear initiative-update
-Version: 1.8.1                   
+Version: 1.9.1                   
 
 Description:
 
@@ -31,7 +31,7 @@ Commands:
 
 ```
 Usage:   linear initiative-update create <initiativeId>
-Version: 1.8.1                                         
+Version: 1.9.1                                         
 
 Description:
 
@@ -44,8 +44,7 @@ Options:
   --body             <body>    - Update content (markdown)                  
   --body-file        <path>    - Read content from file                     
   --health           <health>  - Health status (onTrack, atRisk, offTrack)  
-  -i, --interactive            - Interactive mode with prompts              
-  --no-color                   - Disable colored output
+  -i, --interactive            - Interactive mode with prompts
 ```
 
 ### list
@@ -54,7 +53,7 @@ Options:
 
 ```
 Usage:   linear initiative-update list <initiativeId>
-Version: 1.8.1                                       
+Version: 1.9.1                                       
 
 Description:
 

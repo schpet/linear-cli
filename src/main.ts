@@ -13,6 +13,7 @@ import { labelCommand } from "./commands/label/label.ts"
 import { documentCommand } from "./commands/document/document.ts"
 import { configCommand } from "./commands/config.ts"
 import { schemaCommand } from "./commands/schema.ts"
+import { apiCommand } from "./commands/api.ts"
 import { setCliWorkspace } from "./config.ts"
 
 // Import config and credentials setup
@@ -59,4 +60,5 @@ Environment Variables:
   .command("completions", new CompletionsCommand())
   .command("config", configCommand)
   .command("schema", schemaCommand)
+  .command("api", apiCommand)
   .parse(Deno.args)
