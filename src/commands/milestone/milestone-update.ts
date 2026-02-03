@@ -13,6 +13,7 @@ const UpdateProjectMilestone = gql(`
         id
         name
         targetDate
+        sortOrder
         project {
           id
           name
@@ -29,16 +30,25 @@ export const updateCommand = new Command()
   .option("--name <name:string>", "Milestone name")
   .option("--description <description:string>", "Milestone description")
   .option("--target-date <date:string>", "Target date (YYYY-MM-DD)")
+  .option(
+    "--sort-order <value:number>",
+    "Sort order relative to other milestones",
+  )
   .option("--project <projectId:string>", "Move to a different project")
   .action(
-    async ({ name, description, targetDate, project: projectIdOrSlug }, id) => {
-      // Check if at least one update option is provided
-      if (!name && !description && !targetDate && !projectIdOrSlug) {
+    async (
+      { name, description, targetDate, sortOrder, project: projectIdOrSlug },
+      id,
+    ) => {
+      if (
+        !name && !description && !targetDate && sortOrder == null &&
+        !projectIdOrSlug
+      ) {
         throw new ValidationError(
           "At least one update option must be provided",
           {
             suggestion:
-              "Use --name, --description, --target-date, or --project",
+              "Use --name, --description, --target-date, --sort-order, or --project",
           },
         )
       }
@@ -55,6 +65,7 @@ export const updateCommand = new Command()
         if (name) input.name = name
         if (description) input.description = description
         if (targetDate) input.targetDate = targetDate
+        if (sortOrder != null) input.sortOrder = sortOrder
         if (projectIdOrSlug) {
           // Resolve project slug to full UUID
           input.projectId = await resolveProjectId(projectIdOrSlug)
@@ -74,6 +85,7 @@ export const updateCommand = new Command()
             if (milestone.targetDate) {
               console.log(`  Target Date: ${milestone.targetDate}`)
             }
+            console.log(`  Sort Order: ${milestone.sortOrder}`)
             console.log(`  Project: ${milestone.project.name}`)
           }
         } else {
