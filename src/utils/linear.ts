@@ -220,7 +220,7 @@ export async function fetchIssueDetails(
               color
             }
           }
-          children {
+          children(first: 250) {
             nodes {
               identifier
               title
@@ -283,7 +283,7 @@ export async function fetchIssueDetails(
               color
             }
           }
-          children {
+          children(first: 250) {
             nodes {
               identifier
               title
