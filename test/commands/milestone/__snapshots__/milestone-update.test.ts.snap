@@ -11,11 +11,12 @@ Description:
 
 Options:
 
-  -h, --help                    - Show this help.              
-  --name         <name>         - Milestone name               
-  --description  <description>  - Milestone description        
-  --target-date  <date>         - Target date (YYYY-MM-DD)     
-  --project      <projectId>    - Move to a different project  
+  -h, --help                    - Show this help.                          
+  --name         <name>         - Milestone name                           
+  --description  <description>  - Milestone description                    
+  --target-date  <date>         - Target date (YYYY-MM-DD)                 
+  --sort-order   <value>        - Sort order relative to other milestones  
+  --project      <projectId>    - Move to a different project              
 
 "
 stderr:
@@ -27,6 +28,7 @@ stdout:
 "✓ Updated milestone: Updated Milestone Name
   ID: milestone-123
   Target Date: 2026-03-31
+  Sort Order: 0
   Project: Test Project
 "
 stderr:
@@ -38,7 +40,32 @@ stdout:
 "✓ Updated milestone: Q2 Goals
   ID: milestone-456
   Target Date: 2026-06-30
+  Sort Order: 1
   Project: Another Project
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone Update Command - Update Sort Order 1`] = `
+stdout:
+"✓ Updated milestone: Sorted Milestone
+  ID: milestone-sort
+  Target Date: 2026-06-15
+  Sort Order: 5
+  Project: Test Project
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone Update Command - Update Sort Order Zero 1`] = `
+stdout:
+"✓ Updated milestone: First Milestone
+  ID: milestone-zero
+  Target Date: 2026-01-15
+  Sort Order: 0
+  Project: Test Project
 "
 stderr:
 ""
@@ -49,6 +76,7 @@ stdout:
 "✓ Updated milestone: Existing Milestone
   ID: milestone-789
   Target Date: 2026-12-31
+  Sort Order: 2
   Project: Final Project
 "
 stderr:

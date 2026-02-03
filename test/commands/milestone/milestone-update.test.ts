@@ -38,6 +38,7 @@ await cliffySnapshotTest({
                 id: "milestone-123",
                 name: "Updated Milestone Name",
                 targetDate: "2026-03-31",
+                sortOrder: 0,
                 project: {
                   id: "project-123",
                   name: "Test Project",
@@ -90,9 +91,108 @@ await cliffySnapshotTest({
                 id: "milestone-456",
                 name: "Q2 Goals",
                 targetDate: "2026-06-30",
+                sortOrder: 1,
                 project: {
                   id: "project-789",
                   name: "Another Project",
+                },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test milestone update - sort order only
+await cliffySnapshotTest({
+  name: "Milestone Update Command - Update Sort Order",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "milestone-sort",
+    "--sort-order",
+    "5",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "UpdateProjectMilestone",
+        response: {
+          data: {
+            projectMilestoneUpdate: {
+              success: true,
+              projectMilestone: {
+                id: "milestone-sort",
+                name: "Sorted Milestone",
+                targetDate: "2026-06-15",
+                sortOrder: 5,
+                project: {
+                  id: "project-123",
+                  name: "Test Project",
+                },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test milestone update - sort order zero (guards against truthiness-check regression)
+await cliffySnapshotTest({
+  name: "Milestone Update Command - Update Sort Order Zero",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "milestone-zero",
+    "--sort-order",
+    "0",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "UpdateProjectMilestone",
+        response: {
+          data: {
+            projectMilestoneUpdate: {
+              success: true,
+              projectMilestone: {
+                id: "milestone-zero",
+                name: "First Milestone",
+                targetDate: "2026-01-15",
+                sortOrder: 0,
+                project: {
+                  id: "project-123",
+                  name: "Test Project",
                 },
               },
             },
@@ -138,6 +238,7 @@ await cliffySnapshotTest({
                 id: "milestone-789",
                 name: "Existing Milestone",
                 targetDate: "2026-12-31",
+                sortOrder: 2,
                 project: {
                   id: "project-999",
                   name: "Final Project",

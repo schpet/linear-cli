@@ -86,6 +86,14 @@ stderr:
 ""
 `;
 
+snapshot[`Issue View Command - Issue Not Found 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to view issue: Issue not found: TEST-999
+"
+`;
+
 snapshot[`Issue View Command - JSON Output No Comments 1`] = `
 stdout:
 '{
@@ -152,14 +160,6 @@ stdout:
 \`
 stderr:
 ""
-`;
-
-snapshot[`Issue View Command - Issue Not Found 1`] = `
-stdout:
-""
-stderr:
-"✗ Failed to view issue: Issue not found: TEST-999
-"
 `;
 
 snapshot[`Issue View Command - With Parent And Sub-issues 1`] = `
