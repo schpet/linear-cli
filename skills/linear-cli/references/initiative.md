@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear initiative
-Version: 1.9.1            
+Version: 1.8.1            
 
 Description:
 
@@ -38,7 +38,7 @@ Commands:
 
 ```
 Usage:   linear initiative list
-Version: 1.9.1                 
+Version: 1.8.1                 
 
 Description:
 
@@ -63,7 +63,7 @@ Options:
 
 ```
 Usage:   linear initiative view <initiativeId>
-Version: 1.9.1                                
+Version: 1.8.1                                
 
 Description:
 
@@ -84,7 +84,7 @@ Options:
 
 ```
 Usage:   linear initiative create
-Version: 1.9.1                   
+Version: 1.8.1                   
 
 Description:
 
@@ -101,7 +101,8 @@ Options:
   --target-date      <targetDate>   - Target completion date (YYYY-MM-DD)                    
   -c, --color        <color>        - Color hex code (e.g., #5E6AD2)                         
   --icon             <icon>         - Icon name                                              
-  -i, --interactive                 - Interactive mode (default if no flags provided)
+  -i, --interactive                 - Interactive mode (default if no flags provided)        
+  --no-color                        - Disable colored output
 ```
 
 ### archive
@@ -110,7 +111,7 @@ Options:
 
 ```
 Usage:   linear initiative archive [initiativeId]
-Version: 1.9.1                                   
+Version: 1.8.1                                   
 
 Description:
 
@@ -121,6 +122,7 @@ Options:
   -h, --help                 - Show this help.                                    
   -w, --workspace  <slug>    - Target workspace (uses credentials)                
   -y, --force                - Skip confirmation prompt                           
+  --no-color                 - Disable colored output                             
   --bulk           <ids...>  - Archive multiple initiatives by ID, slug, or name  
   --bulk-file      <file>    - Read initiative IDs from a file (one per line)     
   --bulk-stdin               - Read initiative IDs from stdin
@@ -132,7 +134,7 @@ Options:
 
 ```
 Usage:   linear initiative update <initiativeId>
-Version: 1.9.1                                  
+Version: 1.8.1                                  
 
 Description:
 
@@ -149,7 +151,8 @@ Options:
   --target-date      <targetDate>   - Target completion date (YYYY-MM-DD)              
   --color            <color>        - Initiative color (hex, e.g., #5E6AD2)            
   --icon             <icon>         - Initiative icon name                             
-  -i, --interactive                 - Interactive mode for updates
+  -i, --interactive                 - Interactive mode for updates                     
+  --no-color                        - Disable colored output
 ```
 
 ### unarchive
@@ -158,7 +161,7 @@ Options:
 
 ```
 Usage:   linear initiative unarchive <initiativeId>
-Version: 1.9.1                                     
+Version: 1.8.1                                     
 
 Description:
 
@@ -168,7 +171,8 @@ Options:
 
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -y, --force              - Skip confirmation prompt
+  -y, --force              - Skip confirmation prompt             
+  --no-color               - Disable colored output
 ```
 
 ### delete
@@ -177,7 +181,7 @@ Options:
 
 ```
 Usage:   linear initiative delete [initiativeId]
-Version: 1.9.1                                  
+Version: 1.8.1                                  
 
 Description:
 
@@ -188,6 +192,7 @@ Options:
   -h, --help                 - Show this help.                                   
   -w, --workspace  <slug>    - Target workspace (uses credentials)               
   -y, --force                - Skip confirmation prompt                          
+  --no-color                 - Disable colored output                            
   --bulk           <ids...>  - Delete multiple initiatives by ID, slug, or name  
   --bulk-file      <file>    - Read initiative IDs from a file (one per line)    
   --bulk-stdin               - Read initiative IDs from stdin
@@ -199,7 +204,7 @@ Options:
 
 ```
 Usage:   linear initiative add-project <initiative> <project>
-Version: 1.9.1                                               
+Version: 1.8.1                                               
 
 Description:
 
@@ -209,7 +214,8 @@ Options:
 
   -h, --help                    - Show this help.                      
   -w, --workspace  <slug>       - Target workspace (uses credentials)  
-  --sort-order     <sortOrder>  - Sort order within initiative
+  --sort-order     <sortOrder>  - Sort order within initiative         
+  --no-color                    - Disable colored output
 ```
 
 ### remove-project
@@ -218,7 +224,7 @@ Options:
 
 ```
 Usage:   linear initiative remove-project <initiative> <project>
-Version: 1.9.1                                                  
+Version: 1.8.1                                                  
 
 Description:
 
@@ -228,5 +234,6 @@ Options:
 
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -y, --force              - Skip confirmation prompt
+  -y, --force              - Skip confirmation prompt             
+  --no-color               - Disable colored output
 ```

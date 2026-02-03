@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear project-update
-Version: 1.9.1                
+Version: 1.8.1                
 
 Description:
 
@@ -31,7 +31,7 @@ Commands:
 
 ```
 Usage:   linear project-update create <projectId>
-Version: 1.9.1                                   
+Version: 1.8.1                                   
 
 Description:
 
@@ -44,7 +44,8 @@ Options:
   --body             <body>    - Update content (inline)                            
   --body-file        <path>    - Read content from file                             
   --health           <health>  - Project health status (onTrack, atRisk, offTrack)  
-  -i, --interactive            - Interactive mode with prompts
+  -i, --interactive            - Interactive mode with prompts                      
+  --no-color                   - Disable colored output
 ```
 
 ### list
@@ -53,7 +54,7 @@ Options:
 
 ```
 Usage:   linear project-update list <projectId>
-Version: 1.9.1                                 
+Version: 1.8.1                                 
 
 Description:
 

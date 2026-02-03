@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear document
-Version: 1.9.1          
+Version: 1.8.1          
 
 Description:
 
@@ -34,7 +34,7 @@ Commands:
 
 ```
 Usage:   linear document list
-Version: 1.9.1               
+Version: 1.8.1               
 
 Description:
 
@@ -56,7 +56,7 @@ Options:
 
 ```
 Usage:   linear document view <id>
-Version: 1.9.1                    
+Version: 1.8.1                    
 
 Description:
 
@@ -77,7 +77,7 @@ Options:
 
 ```
 Usage:   linear document create
-Version: 1.9.1                 
+Version: 1.8.1                 
 
 Description:
 
@@ -93,7 +93,8 @@ Options:
   --project           <project>  - Attach to project (slug or ID)            
   --issue             <issue>    - Attach to issue (identifier like TC-123)  
   --icon              <icon>     - Document icon (emoji)                     
-  -i, --interactive              - Interactive mode with prompts
+  -i, --interactive              - Interactive mode with prompts             
+  --no-color                     - Disable colored output
 ```
 
 ### update
@@ -102,7 +103,7 @@ Options:
 
 ```
 Usage:   linear document update <documentId>
-Version: 1.9.1                              
+Version: 1.8.1                              
 
 Description:
 
@@ -116,7 +117,8 @@ Options:
   -c, --content       <content>  - New markdown content (inline)                
   -f, --content-file  <path>     - Read new content from file                   
   --icon              <icon>     - New icon (emoji)                             
-  -e, --edit                     - Open current content in $EDITOR for editing
+  -e, --edit                     - Open current content in $EDITOR for editing  
+  --no-color                     - Disable colored output
 ```
 
 ### delete
@@ -125,7 +127,7 @@ Options:
 
 ```
 Usage:   linear document delete [documentId]
-Version: 1.9.1                              
+Version: 1.8.1                              
 
 Description:
 
@@ -136,6 +138,7 @@ Options:
   -h, --help                 - Show this help.                                     
   -w, --workspace  <slug>    - Target workspace (uses credentials)                 
   -y, --yes                  - Skip confirmation prompt                            
+  --no-color                 - Disable colored output                              
   --bulk           <ids...>  - Delete multiple documents by slug or ID             
   --bulk-file      <file>    - Read document slugs/IDs from a file (one per line)  
   --bulk-stdin               - Read document slugs/IDs from stdin

@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear auth
-Version: 1.9.1      
+Version: 1.8.1      
 
 Description:
 
@@ -35,7 +35,7 @@ Commands:
 
 ```
 Usage:   linear auth login
-Version: 1.9.1            
+Version: 1.8.1            
 
 Description:
 
@@ -54,7 +54,7 @@ Options:
 
 ```
 Usage:   linear auth logout [workspace]
-Version: 1.9.1                         
+Version: 1.8.1                         
 
 Description:
 
@@ -73,7 +73,7 @@ Options:
 
 ```
 Usage:   linear auth list
-Version: 1.9.1           
+Version: 1.8.1           
 
 Description:
 
@@ -91,7 +91,7 @@ Options:
 
 ```
 Usage:   linear auth default [workspace]
-Version: 1.9.1                          
+Version: 1.8.1                          
 
 Description:
 
@@ -109,7 +109,7 @@ Options:
 
 ```
 Usage:   linear auth token
-Version: 1.9.1            
+Version: 1.8.1            
 
 Description:
 
@@ -127,7 +127,7 @@ Options:
 
 ```
 Usage:   linear auth whoami
-Version: 1.9.1             
+Version: 1.8.1             
 
 Description:
 
