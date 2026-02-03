@@ -281,7 +281,7 @@ await cliffySnapshotTest({
   meta: import.meta,
   colors: false,
   args: [
-    "query GetIssues($endCursor: String) { issues(first: 2, after: $endCursor) { nodes { title } pageInfo { hasNextPage endCursor } } }",
+    "query GetIssues($after: String) { issues(first: 2, after: $after) { nodes { title } pageInfo { hasNextPage endCursor } } }",
     "--paginate",
   ],
   denoArgs,
@@ -289,7 +289,7 @@ await cliffySnapshotTest({
     const server = new MockLinearServer([
       {
         queryName: "GetIssues",
-        variables: { endCursor: null },
+        variables: { after: null },
         response: {
           data: {
             issues: {
@@ -307,7 +307,7 @@ await cliffySnapshotTest({
       },
       {
         queryName: "GetIssues",
-        variables: { endCursor: "cursor-1" },
+        variables: { after: "cursor-1" },
         response: {
           data: {
             issues: {
@@ -333,6 +333,195 @@ await cliffySnapshotTest({
     } finally {
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - No API Key",
+  meta: import.meta,
+  colors: false,
+  args: ["query GetViewer { viewer { id } }"],
+  denoArgs,
+  canFail: true,
+  async fn() {
+    Deno.env.delete("LINEAR_API_KEY")
+    await apiCommand.parse()
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Typed Variable Coercion Null And False",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetIssues($active: Boolean, $label: String) { issues(filter: { active: $active, label: $label }) { nodes { title } } }",
+    "-F",
+    "active=false",
+    "-F",
+    "label=null",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssues",
+        variables: { active: false, label: null },
+        response: {
+          data: {
+            issues: { nodes: [] },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Value Containing Equals Sign",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetIssues($filter: String!) { issues(filter: $filter) { nodes { title } } }",
+    "-f",
+    "filter=name eq backend",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssues",
+        variables: { filter: "name eq backend" },
+        response: {
+          data: {
+            issues: { nodes: [{ title: "Test" }] },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Paginate Single Page",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetIssues($after: String) { issues(first: 10, after: $after) { nodes { title } pageInfo { hasNextPage endCursor } } }",
+    "--paginate",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssues",
+        variables: { after: null },
+        response: {
+          data: {
+            issues: {
+              nodes: [
+                { title: "Only Issue" },
+              ],
+              pageInfo: {
+                hasNextPage: false,
+                endCursor: null,
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Paginate Non-Connection Query",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetViewer($after: String) { viewer { id name } }",
+    "--paginate",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetViewer",
+        response: {
+          data: {
+            viewer: { id: "user-1", name: "Test" },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - File Not Found For Typed Variable",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetTeam { team { name } }",
+    "-F",
+    "filter=@/nonexistent/path.json",
+  ],
+  denoArgs,
+  canFail: true,
+  async fn() {
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    try {
+      await apiCommand.parse()
+    } finally {
       Deno.env.delete("LINEAR_API_KEY")
     }
   },

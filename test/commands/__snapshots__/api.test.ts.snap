@@ -90,3 +90,48 @@ stdout:
 stderr:
 ""
 `;
+
+snapshot[`API Command - No API Key 1`] = `
+stdout:
+""
+stderr:
+"✗ API request failed: No API key configured
+  Set LINEAR_API_KEY, add api_key to .linear.toml, or run \`linear auth login\`.
+"
+`;
+
+snapshot[`API Command - Typed Variable Coercion Null And False 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Value Containing Equals Sign 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[{"title":"Test"}]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Paginate Single Page 1`] = `
+stdout:
+'[{"title":"Only Issue"}]'
+stderr:
+""
+`;
+
+snapshot[`API Command - Paginate Non-Connection Query 1`] = `
+stdout:
+'{"data":{"viewer":{"id":"user-1","name":"Test"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - File Not Found For Typed Variable 1`] = `
+stdout:
+""
+stderr:
+"✗ API request failed: File not found: /nonexistent/path.json
+"
+`;

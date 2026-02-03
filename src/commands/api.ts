@@ -116,7 +116,7 @@ async function executePaginated(
   let cursor: string | undefined
 
   for (;;) {
-    const vars = { ...variables, endCursor: cursor ?? null }
+    const vars = { ...variables, after: cursor ?? null }
 
     const body: Record<string, unknown> = { query }
     if (Object.keys(vars).length > 0) {
