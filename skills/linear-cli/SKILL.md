@@ -72,8 +72,7 @@ Each command has detailed help output describing all available flags and options
 
 ## Using the Linear GraphQL API Directly
 
-**Prefer the CLI for all supported operations.** The `api` command should only be
-used as a fallback for queries not covered by the CLI.
+**Prefer the CLI for all supported operations.** The `api` command should only be used as a fallback for queries not covered by the CLI.
 
 ### Check the schema for available types and fields
 
