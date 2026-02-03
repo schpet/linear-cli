@@ -166,3 +166,174 @@ await cliffySnapshotTest({
     }
   },
 })
+
+await cliffySnapshotTest({
+  name: "API Command - GraphQL Errors Exit Non-Zero",
+  meta: import.meta,
+  colors: false,
+  args: ["query BadQuery { nonexistent { id } }"],
+  denoArgs,
+  canFail: true,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "BadQuery",
+        response: {
+          data: null,
+          errors: [
+            {
+              message: "Cannot query field 'nonexistent' on type 'Query'",
+            },
+          ],
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Silent Flag",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetViewer { viewer { id } }",
+    "--silent",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetViewer",
+        response: {
+          data: {
+            viewer: { id: "user-1" },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Typed Variable From File",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetTeam($filter: TeamFilter!) { teams(filter: $filter) { nodes { name } } }",
+    "-F",
+    `filter=@${Deno.cwd()}/test/commands/fixtures/api-filter.json`,
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetTeam",
+        response: {
+          data: {
+            teams: {
+              nodes: [{ name: "Backend" }],
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Paginate",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetIssues($endCursor: String) { issues(first: 2, after: $endCursor) { nodes { title } pageInfo { hasNextPage endCursor } } }",
+    "--paginate",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssues",
+        variables: { endCursor: null },
+        response: {
+          data: {
+            issues: {
+              nodes: [
+                { title: "Issue 1" },
+                { title: "Issue 2" },
+              ],
+              pageInfo: {
+                hasNextPage: true,
+                endCursor: "cursor-1",
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetIssues",
+        variables: { endCursor: "cursor-1" },
+        response: {
+          data: {
+            issues: {
+              nodes: [
+                { title: "Issue 3" },
+              ],
+              pageInfo: {
+                hasNextPage: false,
+                endCursor: null,
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})

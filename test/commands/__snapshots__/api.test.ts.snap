@@ -11,9 +11,12 @@ Description:
 
 Options:
 
-  -h, --help                  - Show this help.                                                       
-  -f, --field        <field>  - String variable in key=value format                                   
-  -F, --typed-field  <field>  - Typed variable in key=value format (coerces booleans, numbers, null)  
+  -h, --help                  - Show this help.                                                                   
+  -f, --field        <field>  - String variable in key=value format                                               
+  -F, --typed-field  <field>  - Typed variable in key=value format (coerces booleans, numbers, null; @file reads  
+                                from path)                                                                        
+  --paginate                  - Automatically fetch all pages using cursor pagination                             
+  --silent                    - Suppress response output (exit code still reflects errors)                        
 
 "
 stderr:
@@ -58,4 +61,32 @@ stderr:
 "✗ API request failed: Invalid variable format: badformat
   Variables must be in key=value format, e.g. -f teamId=abc
 "
+`;
+
+snapshot[`API Command - GraphQL Errors Exit Non-Zero 1`] = `
+stdout:
+\`{"data":null,"errors":[{"message":"Cannot query field 'nonexistent' on type 'Query'"}]}\`
+stderr:
+""
+`;
+
+snapshot[`API Command - Silent Flag 1`] = `
+stdout:
+""
+stderr:
+""
+`;
+
+snapshot[`API Command - Typed Variable From File 1`] = `
+stdout:
+'{"data":{"teams":{"nodes":[{"name":"Backend"}]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Paginate 1`] = `
+stdout:
+'[{"title":"Issue 1"},{"title":"Issue 2"},{"title":"Issue 3"}]'
+stderr:
+""
 `;
