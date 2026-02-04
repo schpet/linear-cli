@@ -11,12 +11,12 @@ Description:
 
 Options:
 
-  -h, --help                  - Show this help.                                                                   
-  -f, --field        <field>  - String variable in key=value format                                               
-  -F, --typed-field  <field>  - Typed variable in key=value format (coerces booleans, numbers, null; @file reads  
-                                from path)                                                                        
-  --paginate                  - Automatically fetch all pages using cursor pagination                             
-  --silent                    - Suppress response output (exit code still reflects errors)                        
+  -h, --help                    - Show this help.                                                                  
+  --variable        <variable>  - Variable in key=value format (coerces booleans, numbers, null; @file reads from  
+                                  path)                                                                            
+  --variables-json  <json>      - JSON object of variables (merged with --variable, which takes precedence)        
+  --paginate                    - Automatically fetch all pages using cursor pagination                            
+  --silent                      - Suppress response output (exit code still reflects errors)                       
 
 "
 stderr:
@@ -30,14 +30,14 @@ stderr:
 ""
 `;
 
-snapshot[`API Command - String Variables 1`] = `
+snapshot[`API Command - Variable Flag 1`] = `
 stdout:
 '{"data":{"team":{"name":"Backend Team"}}}'
 stderr:
 ""
 `;
 
-snapshot[`API Command - Typed Variables 1`] = `
+snapshot[`API Command - Variable Type Coercion 1`] = `
 stdout:
 '{"data":{"issues":{"nodes":[{"title":"Issue One"},{"title":"Issue Two"}]}}}'
 stderr:
@@ -56,10 +56,26 @@ stderr:
 
 snapshot[`API Command - Invalid Variable Format 1`] = `
 stdout:
-""
+"
+Usage: api [query]
+
+Description:
+
+  Make a raw GraphQL API request
+
+Options:
+
+  -h, --help                    - Show this help.                                                                  
+  --variable        <variable>  - Variable in key=value format (coerces booleans, numbers, null; @file reads from  
+                                  path)                                                                            
+  --variables-json  <json>      - JSON object of variables (merged with --variable, which takes precedence)        
+  --paginate                    - Automatically fetch all pages using cursor pagination                            
+  --silent                      - Suppress response output (exit code still reflects errors)                       
+
+"
 stderr:
-"✗ API request failed: Invalid variable format: badformat
-  Variables must be in key=value format, e.g. -f teamId=abc
+"  error: Invalid variable format: badformat. Variables must be in key=value format, e.g. --variable teamId=abc
+
 "
 `;
 
@@ -77,7 +93,7 @@ stderr:
 ""
 `;
 
-snapshot[`API Command - Typed Variable From File 1`] = `
+snapshot[`API Command - Variable From File 1`] = `
 stdout:
 '{"data":{"teams":{"nodes":[{"name":"Backend"}]}}}'
 stderr:
@@ -100,7 +116,7 @@ stderr:
 "
 `;
 
-snapshot[`API Command - Typed Variable Coercion Null And False 1`] = `
+snapshot[`API Command - Variable Coercion Null And False 1`] = `
 stdout:
 '{"data":{"issues":{"nodes":[]}}}'
 stderr:
@@ -128,10 +144,42 @@ stderr:
 ""
 `;
 
-snapshot[`API Command - File Not Found For Typed Variable 1`] = `
+snapshot[`API Command - File Not Found For Variable 1`] = `
 stdout:
 ""
 stderr:
 "✗ API request failed: File not found: /nonexistent/path.json
 "
+`;
+
+snapshot[`API Command - Variables JSON 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[{"title":"Issue One"},{"title":"Issue Two"}]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Variables JSON Malformed 1`] = `
+stdout:
+""
+stderr:
+\`✗ API request failed: Invalid JSON for --variables-json: {bad json
+  Provide a valid JSON object, e.g. --variables-json '{"key": "value"}'
+\`
+`;
+
+snapshot[`API Command - Variables JSON Non-Object 1`] = `
+stdout:
+""
+stderr:
+\`✗ API request failed: --variables-json must be a JSON object, got array
+  Provide a JSON object, e.g. --variables-json '{"key": "value"}'
+\`
+`;
+
+snapshot[`API Command - Variable Overrides Variables JSON 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[{"title":"Issue One"}]}}}'
+stderr:
+""
 `;

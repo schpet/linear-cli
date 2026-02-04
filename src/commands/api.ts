@@ -1,21 +1,42 @@
-import { Command } from "@cliffy/command"
+import {
+  type ArgumentValue,
+  Command,
+  Type,
+  ValidationError,
+} from "@cliffy/command"
 import denoConfig from "../../deno.json" with { type: "json" }
 import { getGraphQLEndpoint, getResolvedApiKey } from "../utils/graphql.ts"
-import { CliError, handleError, ValidationError } from "../utils/errors.ts"
+import {
+  CliError,
+  handleError,
+  ValidationError as AppValidationError,
+} from "../utils/errors.ts"
+
+class VariableType extends Type<[string, string]> {
+  parse({ value }: ArgumentValue): [string, string] {
+    const [key, ...rest] = value.split("=")
+    if (rest.length === 0) {
+      throw new ValidationError(
+        `Invalid variable format: ${value}. Variables must be in key=value format, e.g. --variable teamId=abc`,
+      )
+    }
+    return [key, rest.join("=")]
+  }
+}
 
 export const apiCommand = new Command()
   .name("api")
   .description("Make a raw GraphQL API request")
+  .type("variable", new VariableType())
   .arguments("[query:string]")
   .option(
-    "-f, --field <field:string>",
-    "String variable in key=value format",
+    "--variable <variable:variable>",
+    "Variable in key=value format (coerces booleans, numbers, null; @file reads from path)",
     { collect: true },
   )
   .option(
-    "-F, --typed-field <field:string>",
-    "Typed variable in key=value format (coerces booleans, numbers, null; @file reads from path)",
-    { collect: true },
+    "--variables-json <json:string>",
+    "JSON object of variables (merged with --variable, which takes precedence)",
   )
   .option("--paginate", "Automatically fetch all pages using cursor pagination")
   .option(
@@ -25,11 +46,14 @@ export const apiCommand = new Command()
   .action(async (options, query?: string) => {
     try {
       const resolvedQuery = await resolveQuery(query)
-      const variables = await buildVariables(options.field, options.typedField)
+      const variables = await buildVariables(
+        options.variable,
+        options.variablesJson,
+      )
 
       const apiKey = getResolvedApiKey()
       if (!apiKey) {
-        throw new ValidationError(
+        throw new AppValidationError(
           "No API key configured",
           {
             suggestion:
@@ -250,7 +274,7 @@ async function resolveQuery(positionalArg?: string): Promise<string> {
     }
   }
 
-  throw new ValidationError("No query provided", {
+  throw new AppValidationError("No query provided", {
     suggestion:
       "Provide a query as an argument: linear api '{ viewer { id } }'\n  Or pipe from stdin: echo '{ viewer { id } }' | linear api",
   })
@@ -289,21 +313,40 @@ function concatChunks(chunks: Uint8Array[]): Uint8Array {
 }
 
 async function buildVariables(
-  fields?: string[],
-  typedFields?: string[],
+  variableEntries?: [string, string][],
+  variablesJson?: string,
 ): Promise<Record<string, unknown>> {
   const variables: Record<string, unknown> = {}
 
-  if (fields) {
-    for (const entry of fields) {
-      const [key, value] = parseFieldEntry(entry)
-      variables[key] = value
+  if (variablesJson) {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(variablesJson)
+    } catch {
+      throw new AppValidationError(
+        `Invalid JSON for --variables-json: ${variablesJson}`,
+        {
+          suggestion:
+            'Provide a valid JSON object, e.g. --variables-json \'{"key": "value"}\'',
+        },
+      )
     }
+    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new AppValidationError(
+        `--variables-json must be a JSON object, got ${
+          Array.isArray(parsed) ? "array" : typeof parsed
+        }`,
+        {
+          suggestion:
+            'Provide a JSON object, e.g. --variables-json \'{"key": "value"}\'',
+        },
+      )
+    }
+    Object.assign(variables, parsed)
   }
 
-  if (typedFields) {
-    for (const entry of typedFields) {
-      const [key, rawValue] = parseFieldEntry(entry)
+  if (variableEntries) {
+    for (const [key, rawValue] of variableEntries) {
       variables[key] = await resolveTypedValue(rawValue)
     }
   }
@@ -311,24 +354,11 @@ async function buildVariables(
   return variables
 }
 
-function parseFieldEntry(entry: string): [string, string] {
-  const eqIndex = entry.indexOf("=")
-  if (eqIndex === -1) {
-    throw new ValidationError(
-      `Invalid variable format: ${entry}`,
-      {
-        suggestion: "Variables must be in key=value format, e.g. -f teamId=abc",
-      },
-    )
-  }
-  return [entry.slice(0, eqIndex), entry.slice(eqIndex + 1)]
-}
-
 async function resolveTypedValue(value: string): Promise<unknown> {
   if (value === "@-") {
     const content = await readAllStdin()
     if (content == null) {
-      throw new ValidationError("No data on stdin for @- value")
+      throw new AppValidationError("No data on stdin for @- value")
     }
     return parseJSONOrString(content)
   }
@@ -340,7 +370,7 @@ async function resolveTypedValue(value: string): Promise<unknown> {
       return parseJSONOrString(content.trim())
     } catch (error) {
       if (error instanceof Deno.errors.NotFound) {
-        throw new ValidationError(`File not found: ${filePath}`)
+        throw new AppValidationError(`File not found: ${filePath}`)
       }
       throw new CliError(
         `Failed to read file: ${filePath}`,

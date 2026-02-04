@@ -64,11 +64,15 @@ grep -A 30 "^type Issue " "${TMPDIR:-/tmp}/linear-schema.graphql"
 # Simple query
 linear api '{ viewer { id name email } }'
 
-# Query with string variables
-linear api 'query($teamId: String!) { team(id: $teamId) { name } }' -f teamId=abc123
+# Query with variables (coerces types: booleans, numbers, null)
+linear api 'query($teamId: String!) { team(id: $teamId) { name } }' --variable teamId=abc123
 
-# Typed variables (numbers, booleans)
-linear api 'query($first: Int!) { issues(first: $first) { nodes { title } } }' -F first=5
+# Numeric and boolean variables
+linear api 'query($first: Int!) { issues(first: $first) { nodes { title } } }' --variable first=5
+
+# Complex variables via JSON
+linear api 'query($filter: IssueFilter!) { issues(filter: $filter) { nodes { title } } }' \
+  --variables-json '{"filter": {"state": {"name": {"eq": "In Progress"}}}}'
 
 # Read query from stdin
 echo '{ viewer { id } }' | linear api

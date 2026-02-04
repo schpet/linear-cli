@@ -51,12 +51,12 @@ await cliffySnapshotTest({
 })
 
 await cliffySnapshotTest({
-  name: "API Command - String Variables",
+  name: "API Command - Variable Flag",
   meta: import.meta,
   colors: false,
   args: [
     "query GetTeam($teamId: String!) { team(id: $teamId) { name } }",
-    "-f",
+    "--variable",
     "teamId=abc123",
   ],
   denoArgs,
@@ -90,14 +90,14 @@ await cliffySnapshotTest({
 })
 
 await cliffySnapshotTest({
-  name: "API Command - Typed Variables",
+  name: "API Command - Variable Type Coercion",
   meta: import.meta,
   colors: false,
   args: [
     "query GetIssues($first: Int!, $active: Boolean!) { issues(first: $first, filter: { active: $active }) { nodes { title } } }",
-    "-F",
+    "--variable",
     "first=5",
-    "-F",
+    "--variable",
     "active=true",
   ],
   denoArgs,
@@ -154,7 +154,7 @@ await cliffySnapshotTest({
   name: "API Command - Invalid Variable Format",
   meta: import.meta,
   colors: false,
-  args: ["query GetViewer { viewer { id } }", "-f", "badformat"],
+  args: ["query GetViewer { viewer { id } }", "--variable", "badformat"],
   denoArgs,
   canFail: true,
   async fn() {
@@ -239,12 +239,12 @@ await cliffySnapshotTest({
 })
 
 await cliffySnapshotTest({
-  name: "API Command - Typed Variable From File",
+  name: "API Command - Variable From File",
   meta: import.meta,
   colors: false,
   args: [
     "query GetTeam($filter: TeamFilter!) { teams(filter: $filter) { nodes { name } } }",
-    "-F",
+    "--variable",
     `filter=@${Deno.cwd()}/test/commands/fixtures/api-filter.json`,
   ],
   denoArgs,
@@ -352,14 +352,14 @@ await cliffySnapshotTest({
 })
 
 await cliffySnapshotTest({
-  name: "API Command - Typed Variable Coercion Null And False",
+  name: "API Command - Variable Coercion Null And False",
   meta: import.meta,
   colors: false,
   args: [
     "query GetIssues($active: Boolean, $label: String) { issues(filter: { active: $active, label: $label }) { nodes { title } } }",
-    "-F",
+    "--variable",
     "active=false",
-    "-F",
+    "--variable",
     "label=null",
   ],
   denoArgs,
@@ -396,7 +396,7 @@ await cliffySnapshotTest({
   colors: false,
   args: [
     "query GetIssues($filter: String!) { issues(filter: $filter) { nodes { title } } }",
-    "-f",
+    "--variable",
     "filter=name eq backend",
   ],
   denoArgs,
@@ -507,12 +507,12 @@ await cliffySnapshotTest({
 })
 
 await cliffySnapshotTest({
-  name: "API Command - File Not Found For Typed Variable",
+  name: "API Command - File Not Found For Variable",
   meta: import.meta,
   colors: false,
   args: [
     "query GetTeam { team { name } }",
-    "-F",
+    "--variable",
     "filter=@/nonexistent/path.json",
   ],
   denoArgs,
@@ -522,6 +522,133 @@ await cliffySnapshotTest({
     try {
       await apiCommand.parse()
     } finally {
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Variables JSON",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetIssues($first: Int!, $active: Boolean!) { issues(first: $first, filter: { active: $active }) { nodes { title } } }",
+    "--variables-json",
+    '{"first": 5, "active": true}',
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssues",
+        variables: { first: 5, active: true },
+        response: {
+          data: {
+            issues: {
+              nodes: [
+                { title: "Issue One" },
+                { title: "Issue Two" },
+              ],
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Variables JSON Malformed",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetViewer { viewer { id } }",
+    "--variables-json",
+    "{bad json",
+  ],
+  denoArgs,
+  canFail: true,
+  async fn() {
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    try {
+      await apiCommand.parse()
+    } finally {
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Variables JSON Non-Object",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetViewer { viewer { id } }",
+    "--variables-json",
+    "[1, 2, 3]",
+  ],
+  denoArgs,
+  canFail: true,
+  async fn() {
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    try {
+      await apiCommand.parse()
+    } finally {
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Variable Overrides Variables JSON",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetIssues($first: Int!, $active: Boolean!) { issues(first: $first, filter: { active: $active }) { nodes { title } } }",
+    "--variables-json",
+    '{"first": 10, "active": false}',
+    "--variable",
+    "first=5",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssues",
+        variables: { first: 5, active: false },
+        response: {
+          data: {
+            issues: {
+              nodes: [
+                { title: "Issue One" },
+              ],
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
       Deno.env.delete("LINEAR_API_KEY")
     }
   },
