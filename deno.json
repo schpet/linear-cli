@@ -62,7 +62,7 @@
   "fmt": {
     "exclude": [
       ".github/workflows/release.yml",
-      ".github/workflows/build-setup.yml",
+      ".github/build-setup.yml",
       "__generated__/",
       "src/__codegen__/"
     ],

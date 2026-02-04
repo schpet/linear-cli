@@ -33,7 +33,7 @@ publish-jobs = ["homebrew"]
 # Which actions to run on pull requests
 # pr-run-mode = "upload"
 # https://opensource.axo.dev/cargo-dist/book/ci/customizing.html#customizing-build-setup
-github-build-setup = "build-setup.yml"
+github-build-setup = ".github/build-setup.yml"
 # Path that installers should place binaries in
 install-path = "CARGO_HOME"
 # Whether to install an updater program
