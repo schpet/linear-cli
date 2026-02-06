@@ -108,7 +108,9 @@ async function executeSingle(
   const text = await response.text()
 
   if (response.status >= 400) {
-    console.error(text)
+    if (!silent) {
+      console.error(text)
+    }
     Deno.exit(1)
   }
 
@@ -156,7 +158,9 @@ async function executePaginated(
     const text = await response.text()
 
     if (response.status >= 400) {
-      console.error(text)
+      if (!silent) {
+        console.error(text)
+      }
       Deno.exit(1)
     }
 

@@ -612,6 +612,44 @@ await cliffySnapshotTest({
 })
 
 await cliffySnapshotTest({
+  name: "API Command - Silent Flag With HTTP Error",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query BadQuery { nonexistent { id } }",
+    "--silent",
+  ],
+  denoArgs,
+  canFail: true,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "BadQuery",
+        status: 400,
+        response: {
+          errors: [{
+            message: "Cannot query field 'nonexistent' on type 'Query'",
+            extensions: { code: "GRAPHQL_VALIDATION_FAILED" },
+          }],
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
   name: "API Command - Variable Overrides Variables JSON",
   meta: import.meta,
   colors: false,

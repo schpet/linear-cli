@@ -15,6 +15,7 @@ interface MockResponse {
   queryName: string
   variables?: Record<string, unknown>
   response: Record<string, unknown>
+  status?: number
 }
 
 export class MockLinearServer {
@@ -84,7 +85,7 @@ export class MockLinearServer {
       if (mockResponse) {
         return new Response(
           JSON.stringify(mockResponse.response),
-          { status: 200, headers },
+          { status: mockResponse.status ?? 200, headers },
         )
       }
 

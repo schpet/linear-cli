@@ -177,6 +177,13 @@ stderr:
 \`
 `;
 
+snapshot[`API Command - Silent Flag With HTTP Error 1`] = `
+stdout:
+""
+stderr:
+""
+`;
+
 snapshot[`API Command - Variable Overrides Variables JSON 1`] = `
 stdout:
 '{"data":{"issues":{"nodes":[{"title":"Issue One"}]}}}'
