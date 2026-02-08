@@ -724,6 +724,97 @@ await cliffySnapshotTest({
 })
 
 await cliffySnapshotTest({
+  name: "API Command - Paginate Multiple Connections Error",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetAll($after: String) { issues(first: 10, after: $after) { nodes { title } pageInfo { hasNextPage endCursor } } projects(first: 10, after: $after) { nodes { name } pageInfo { hasNextPage endCursor } } }",
+    "--paginate",
+  ],
+  denoArgs,
+  canFail: true,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetAll",
+        variables: { after: null },
+        response: {
+          data: {
+            issues: {
+              nodes: [{ title: "Issue 1" }],
+              pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+            },
+            projects: {
+              nodes: [{ name: "Project 1" }],
+              pageInfo: { hasNextPage: true, endCursor: "cursor-2" },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Paginate With Nested Connections",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetIssues($after: String) { issues(first: 2, after: $after) { nodes { title subIssues { nodes { title } pageInfo { hasNextPage endCursor } } } pageInfo { hasNextPage endCursor } } }",
+    "--paginate",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssues",
+        variables: { after: null },
+        response: {
+          data: {
+            issues: {
+              nodes: [
+                {
+                  title: "Parent Issue",
+                  subIssues: {
+                    nodes: [{ title: "Child Issue" }],
+                    pageInfo: { hasNextPage: false, endCursor: null },
+                  },
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
   name: "API Command - Variable Overrides Variables JSON",
   meta: import.meta,
   colors: false,

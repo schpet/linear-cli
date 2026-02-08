@@ -38,7 +38,10 @@ export const apiCommand = new Command()
     "--variables-json <json:string>",
     "JSON object of variables (merged with --variable, which takes precedence)",
   )
-  .option("--paginate", "Automatically fetch all pages using cursor pagination")
+  .option(
+    "--paginate",
+    "Auto-paginate a single connection field using cursor pagination",
+  )
   .option(
     "--silent",
     "Suppress response output (exit code still reflects errors)",
@@ -181,6 +184,16 @@ async function executePaginated(
       Deno.exit(1)
     }
 
+    if (allNodes.length === 0 && countConnections(parsed.data) > 1) {
+      throw new AppValidationError(
+        "--paginate does not support queries with multiple paginated connections",
+        {
+          suggestion:
+            "Use cursor-based pagination manually with $after and pageInfo { hasNextPage endCursor }.",
+        },
+      )
+    }
+
     const pageResult = extractPageInfo(parsed)
 
     if (!pageResult) {
@@ -246,6 +259,23 @@ function findPageInfo(
   }
 
   return null
+}
+
+function countConnections(obj: unknown): number {
+  if (obj == null || typeof obj !== "object") return 0
+
+  const record = obj as Record<string, unknown>
+
+  if ("pageInfo" in record && "nodes" in record) {
+    return 1
+  }
+
+  let count = 0
+  for (const value of Object.values(record)) {
+    count += countConnections(value)
+  }
+
+  return count
 }
 
 function outputJSON(parsed: unknown, rawText: string): void {

@@ -15,7 +15,7 @@ Options:
   --variable        <variable>  - Variable in key=value format (coerces booleans, numbers, null; @file reads from  
                                   path)                                                                            
   --variables-json  <json>      - JSON object of variables (merged with --variable, which takes precedence)        
-  --paginate                    - Automatically fetch all pages using cursor pagination                            
+  --paginate                    - Auto-paginate a single connection field using cursor pagination                  
   --silent                      - Suppress response output (exit code still reflects errors)                       
 
 "
@@ -69,7 +69,7 @@ Options:
   --variable        <variable>  - Variable in key=value format (coerces booleans, numbers, null; @file reads from  
                                   path)                                                                            
   --variables-json  <json>      - JSON object of variables (merged with --variable, which takes precedence)        
-  --paginate                    - Automatically fetch all pages using cursor pagination                            
+  --paginate                    - Auto-paginate a single connection field using cursor pagination                  
   --silent                      - Suppress response output (exit code still reflects errors)                       
 
 "
@@ -194,6 +194,22 @@ stderr:
 snapshot[`API Command - Variable Coercion Preserves Scientific Notation 1`] = `
 stdout:
 '{"data":{"issue":{"title":"Issue 1e5"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Paginate Multiple Connections Error 1`] = `
+stdout:
+""
+stderr:
+"✗ API request failed: --paginate does not support queries with multiple paginated connections
+  Use cursor-based pagination manually with \$after and pageInfo { hasNextPage endCursor }.
+"
+`;
+
+snapshot[`API Command - Paginate With Nested Connections 1`] = `
+stdout:
+'[{"title":"Parent Issue","subIssues":{"nodes":[{"title":"Child Issue"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}]'
 stderr:
 ""
 `;
