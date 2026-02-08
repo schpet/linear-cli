@@ -1,0 +1,222 @@
+export const snapshot = {};
+
+snapshot[`API Command - Help Text 1`] = `
+stdout:
+"
+Usage: api [query]
+
+Description:
+
+  Make a raw GraphQL API request
+
+Options:
+
+  -h, --help                    - Show this help.                                                                  
+  --variable        <variable>  - Variable in key=value format (coerces booleans, numbers, null; @file reads from  
+                                  path)                                                                            
+  --variables-json  <json>      - JSON object of variables (merged with --variable, which takes precedence)        
+  --paginate                    - Auto-paginate a single connection field using cursor pagination                  
+  --silent                      - Suppress response output (exit code still reflects errors)                       
+
+"
+stderr:
+""
+`;
+
+snapshot[`API Command - Basic Query 1`] = `
+stdout:
+'{"data":{"viewer":{"id":"user-1","name":"Test User"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Variable Flag 1`] = `
+stdout:
+'{"data":{"team":{"name":"Backend Team"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Variable Type Coercion 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[{"title":"Issue One"},{"title":"Issue Two"}]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - No Query Error 1`] = `
+stdout:
+""
+stderr:
+"✗ API request failed: No query provided
+  Provide a query as an argument: linear api '{ viewer { id } }'
+  Or pipe from stdin: echo '{ viewer { id } }' | linear api
+"
+`;
+
+snapshot[`API Command - Invalid Variable Format 1`] = `
+stdout:
+"
+Usage: api [query]
+
+Description:
+
+  Make a raw GraphQL API request
+
+Options:
+
+  -h, --help                    - Show this help.                                                                  
+  --variable        <variable>  - Variable in key=value format (coerces booleans, numbers, null; @file reads from  
+                                  path)                                                                            
+  --variables-json  <json>      - JSON object of variables (merged with --variable, which takes precedence)        
+  --paginate                    - Auto-paginate a single connection field using cursor pagination                  
+  --silent                      - Suppress response output (exit code still reflects errors)                       
+
+"
+stderr:
+"  error: Invalid variable format: badformat. Variables must be in key=value format, e.g. --variable teamId=abc
+
+"
+`;
+
+snapshot[`API Command - GraphQL Errors Exit Non-Zero 1`] = `
+stdout:
+\`{"data":null,"errors":[{"message":"Cannot query field 'nonexistent' on type 'Query'"}]}\`
+stderr:
+""
+`;
+
+snapshot[`API Command - Silent Flag 1`] = `
+stdout:
+""
+stderr:
+""
+`;
+
+snapshot[`API Command - Variable From File 1`] = `
+stdout:
+'{"data":{"teams":{"nodes":[{"name":"Backend"}]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Paginate 1`] = `
+stdout:
+'[{"title":"Issue 1"},{"title":"Issue 2"},{"title":"Issue 3"}]'
+stderr:
+""
+`;
+
+snapshot[`API Command - No API Key 1`] = `
+stdout:
+""
+stderr:
+"✗ API request failed: No API key configured
+  Set LINEAR_API_KEY, add api_key to .linear.toml, or run \`linear auth login\`.
+"
+`;
+
+snapshot[`API Command - Variable Coercion Null And False 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Value Containing Equals Sign 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[{"title":"Test"}]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Paginate Single Page 1`] = `
+stdout:
+'[{"title":"Only Issue"}]'
+stderr:
+""
+`;
+
+snapshot[`API Command - Paginate Non-Connection Query 1`] = `
+stdout:
+'{"data":{"viewer":{"id":"user-1","name":"Test"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - File Not Found For Variable 1`] = `
+stdout:
+""
+stderr:
+"✗ API request failed: File not found: /nonexistent/path.json
+"
+`;
+
+snapshot[`API Command - Variables JSON 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[{"title":"Issue One"},{"title":"Issue Two"}]}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Variables JSON Malformed 1`] = `
+stdout:
+""
+stderr:
+\`✗ API request failed: Invalid JSON for --variables-json: {bad json
+  Provide a valid JSON object, e.g. --variables-json '{"key": "value"}'
+\`
+`;
+
+snapshot[`API Command - Variables JSON Non-Object 1`] = `
+stdout:
+""
+stderr:
+\`✗ API request failed: --variables-json must be a JSON object, got array
+  Provide a JSON object, e.g. --variables-json '{"key": "value"}'
+\`
+`;
+
+snapshot[`API Command - Silent Flag With HTTP Error 1`] = `
+stdout:
+""
+stderr:
+""
+`;
+
+snapshot[`API Command - Variable Coercion Preserves Leading Zeros 1`] = `
+stdout:
+'{"data":{"issue":{"title":"Issue 007"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Variable Coercion Preserves Scientific Notation 1`] = `
+stdout:
+'{"data":{"issue":{"title":"Issue 1e5"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Paginate Multiple Connections Error 1`] = `
+stdout:
+""
+stderr:
+"✗ API request failed: --paginate does not support queries with multiple paginated connections
+  Use cursor-based pagination manually with \$after and pageInfo { hasNextPage endCursor }.
+"
+`;
+
+snapshot[`API Command - Paginate With Nested Connections 1`] = `
+stdout:
+'[{"title":"Parent Issue","subIssues":{"nodes":[{"title":"Child Issue"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}]'
+stderr:
+""
+`;
+
+snapshot[`API Command - Variable Overrides Variables JSON 1`] = `
+stdout:
+'{"data":{"issues":{"nodes":[{"title":"Issue One"}]}}}'
+stderr:
+""
+`;
