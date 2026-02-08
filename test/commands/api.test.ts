@@ -650,6 +650,80 @@ await cliffySnapshotTest({
 })
 
 await cliffySnapshotTest({
+  name: "API Command - Variable Coercion Preserves Leading Zeros",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetIssue($id: String!) { issue(id: $id) { title } }",
+    "--variable",
+    "id=007",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssue",
+        variables: { id: "007" },
+        response: {
+          data: {
+            issue: { title: "Issue 007" },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
+  name: "API Command - Variable Coercion Preserves Scientific Notation",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "query GetIssue($id: String!) { issue(id: $id) { title } }",
+    "--variable",
+    "id=1e5",
+  ],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssue",
+        variables: { id: "1e5" },
+        response: {
+          data: {
+            issue: { title: "Issue 1e5" },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await apiCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await cliffySnapshotTest({
   name: "API Command - Variable Overrides Variables JSON",
   meta: import.meta,
   colors: false,

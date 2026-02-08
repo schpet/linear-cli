@@ -184,6 +184,20 @@ stderr:
 ""
 `;
 
+snapshot[`API Command - Variable Coercion Preserves Leading Zeros 1`] = `
+stdout:
+'{"data":{"issue":{"title":"Issue 007"}}}'
+stderr:
+""
+`;
+
+snapshot[`API Command - Variable Coercion Preserves Scientific Notation 1`] = `
+stdout:
+'{"data":{"issue":{"title":"Issue 1e5"}}}'
+stderr:
+""
+`;
+
 snapshot[`API Command - Variable Overrides Variables JSON 1`] = `
 stdout:
 '{"data":{"issues":{"nodes":[{"title":"Issue One"}]}}}'

@@ -400,7 +400,7 @@ function coerceValue(value: string): unknown {
   if (value === "null") return null
 
   const num = Number(value)
-  if (value !== "" && !isNaN(num)) return num
+  if (value !== "" && !isNaN(num) && String(num) === value) return num
 
   return value
 }
