@@ -8,7 +8,7 @@ allowed-tools: Bash(linear:*), Bash(curl:*)
 
 A CLI to manage Linear issues from the command line, with git and jj integration.
 
-Generated from linear CLI v1.8.1
+Generated from linear CLI v1.9.1
 
 ## Prerequisites
 
@@ -36,6 +36,7 @@ linear label              # Manage Linear issue labels
 linear document           # Manage Linear documents
 linear config             # Interactively generate .linear.toml configuration
 linear schema             # Print the GraphQL schema to stdout
+linear api                # Make a raw GraphQL API request
 ```
 
 ## Reference Documentation
@@ -52,6 +53,7 @@ linear schema             # Print the GraphQL schema to stdout
 - [document](references/document.md) - Manage Linear documents
 - [config](references/config.md) - Interactively generate .linear.toml configuration
 - [schema](references/schema.md) - Print the GraphQL schema to stdout
+- [api](references/api.md) - Make a raw GraphQL API request
 
 For curated examples of organization features (initiatives, labels, projects, bulk operations), see [organization-features](references/organization-features.md).
 
@@ -70,47 +72,48 @@ Each command has detailed help output describing all available flags and options
 
 ## Using the Linear GraphQL API Directly
 
-**Prefer the CLI for all supported operations.** Direct API calls via curl are slower and should only be used as a fallback for advanced queries not covered by the CLI. For complex queries involving multiple calls, write and execute a script.
+**Prefer the CLI for all supported operations.** The `api` command should only be used as a fallback for queries not covered by the CLI.
 
-To make direct API calls, use `linear schema` and `linear auth token`:
-
-### 1. Check the schema for available types and fields
+### Check the schema for available types and fields
 
 Write the schema to a tempfile, then search it:
 
 ```bash
-# Write schema to a tempfile (cross-platform)
 linear schema -o "${TMPDIR:-/tmp}/linear-schema.graphql"
-
-# Search for specific types or fields
 grep -i "cycle" "${TMPDIR:-/tmp}/linear-schema.graphql"
 grep -A 30 "^type Issue " "${TMPDIR:-/tmp}/linear-schema.graphql"
-
-# View filter options
-grep -A 50 "^input IssueFilter" "${TMPDIR:-/tmp}/linear-schema.graphql"
 ```
 
-### 2. Get the auth token
+### Make a GraphQL request
 
 ```bash
-linear auth token
+# Simple query
+linear api '{ viewer { id name email } }'
+
+# Query with variables (coerces types: booleans, numbers, null)
+linear api 'query($teamId: String!) { team(id: $teamId) { name } }' --variable teamId=abc123
+
+# Numeric and boolean variables
+linear api 'query($first: Int!) { issues(first: $first) { nodes { title } } }' --variable first=5
+
+# Complex variables via JSON
+linear api 'query($filter: IssueFilter!) { issues(filter: $filter) { nodes { title } } }' \
+  --variables-json '{"filter": {"state": {"name": {"eq": "In Progress"}}}}'
+
+# Read query from stdin
+echo '{ viewer { id } }' | linear api
+
+# Pipe to jq for filtering
+linear api '{ issues(first: 5) { nodes { identifier title } } }' | jq '.data.issues.nodes[].title'
 ```
 
-### 3. Make a curl request
+### Advanced: Using curl directly
+
+For cases where you need full HTTP control, use `linear auth token`:
 
 ```bash
 curl -s -X POST https://api.linear.app/graphql \
   -H "Content-Type: application/json" \
   -H "Authorization: $(linear auth token)" \
-  -d '{"query": "{ issues(filter: { team: { key: { eq: \"CLI\" } } }, first: 5) { nodes { identifier title state { name } } } }"}'
-```
-
-### Example queries
-
-```bash
-# Get issues assigned to current user
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Content-Type: application/json" \
-  -H "Authorization: $(linear auth token)" \
-  -d '{"query": "{ viewer { assignedIssues(first: 10) { nodes { identifier title state { name } } } } }"}'
+  -d '{"query": "{ viewer { id } }"}'
 ```

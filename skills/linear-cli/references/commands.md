@@ -1,6 +1,6 @@
 # Linear CLI Command Reference
 
-Generated from linear CLI v1.8.1
+Generated from linear CLI v1.9.1
 
 ## Commands
 
@@ -16,6 +16,7 @@ Generated from linear CLI v1.8.1
 - [document](./document.md) - Manage Linear documents
 - [config](./config.md) - Interactively generate .linear.toml configuration
 - [schema](./schema.md) - Print the GraphQL schema to stdout
+- [api](./api.md) - Make a raw GraphQL API request
 
 ## Quick Reference
 
