@@ -23,6 +23,7 @@
     "@cliffy/internal": "jsr:@cliffy/internal@^1.0.0-rc.8",
     "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.8",
     "@cliffy/testing": "jsr:@cliffy/testing@^1.0.0-rc.8",
+    "@deno/dnt": "jsr:@deno/dnt@0.41.3",
     "@graphql-codegen/cli": "npm:@graphql-codegen/cli@^5.0.7",
     "@graphql-typed-document-node/core": "npm:@graphql-typed-document-node/core@^3.2.0",
     "@littletof/charmd": "jsr:@littletof/charmd@^0.1.2",
