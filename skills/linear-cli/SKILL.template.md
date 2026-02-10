@@ -98,22 +98,31 @@ grep -A 30 "^type Issue " "${TMPDIR:-/tmp}/linear-schema.graphql"
 
 ### Make a GraphQL request
 
+**Important:** GraphQL queries containing non-null type markers (e.g. `String` followed by an exclamation mark) must be passed via heredoc stdin to avoid escaping issues. Simple queries without those markers can be passed inline.
+
 ```bash
-# Simple query
+# Simple query (no type markers, so inline is fine)
 linear api '{ viewer { id name email } }'
 
-# Query with variables (coerces types: booleans, numbers, null)
-linear api 'query($teamId: String!) { team(id: $teamId) { name } }' --variable teamId=abc123
+# Query with variables — use heredoc to avoid escaping issues
+linear api --variable teamId=abc123 <<'GRAPHQL'
+query($teamId: String!) { team(id: $teamId) { name } }
+GRAPHQL
+
+# Search issues by text
+linear api --variable term=onboarding <<'GRAPHQL'
+query($term: String!) { searchIssues(term: $term, first: 20) { nodes { identifier title state { name } } } }
+GRAPHQL
 
 # Numeric and boolean variables
-linear api 'query($first: Int!) { issues(first: $first) { nodes { title } } }' --variable first=5
+linear api --variable first=5 <<'GRAPHQL'
+query($first: Int!) { issues(first: $first) { nodes { title } } }
+GRAPHQL
 
 # Complex variables via JSON
-linear api 'query($filter: IssueFilter!) { issues(filter: $filter) { nodes { title } } }' \
-  --variables-json '{"filter": {"state": {"name": {"eq": "In Progress"}}}}'
-
-# Read query from stdin
-echo '{ viewer { id } }' | linear api
+linear api --variables-json '{"filter": {"state": {"name": {"eq": "In Progress"}}}}' <<'GRAPHQL'
+query($filter: IssueFilter!) { issues(filter: $filter) { nodes { title } } }
+GRAPHQL
 
 # Pipe to jq for filtering
 linear api '{ issues(first: 5) { nodes { identifier title } } }' | jq '.data.issues.nodes[].title'
