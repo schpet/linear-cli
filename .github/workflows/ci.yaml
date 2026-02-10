@@ -15,7 +15,9 @@ jobs:
           deno-version: v2.x
 
       - name: Generate GraphQL code
-        run: deno task codegen
+        run: |
+          deno task codegen
+          sed -i "s|from './graphql';|from './graphql.ts';|g" src/__codegen__/gql.ts
 
       - name: Check formatting
         run: deno fmt --check
@@ -28,3 +30,43 @@ jobs:
 
       - name: Run tests
         run: deno task test
+
+  npm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Generate GraphQL code
+        run: |
+          deno task codegen
+          sed -i "s|from './graphql';|from './graphql.ts';|g" src/__codegen__/gql.ts
+
+      - name: Build npm package
+        run: deno run -A scripts/build_npm.ts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+
+      - name: Test with npm
+        run: |
+          cd npm
+          npm install
+          npx linear --help
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Test with bun
+        run: |
+          cd npm
+          rm -rf node_modules bun.lockb
+          bun install
+          bun run esm/src/main.js --help
