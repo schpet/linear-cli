@@ -274,6 +274,7 @@ Options:
   --priority                 <priority>     - Priority of the issue (1-4, descending priority)             
   --estimate                 <estimate>     - Points estimate of the issue                                 
   -d, --description          <description>  - Description of the issue                                     
+  --description-file         <path>         - Read description from file                                   
   -l, --label                <label>        - Issue label associated with the issue. May be repeated.      
   --team                     <team>         - Team associated with the issue (if not your default team)    
   --project                  <project>      - Name of the project with the issue                           
@@ -297,19 +298,20 @@ Description:
 
 Options:
 
-  -h, --help                        - Show this help.                                              
-  -w, --workspace    <slug>         - Target workspace (uses credentials)                          
-  -a, --assignee     <assignee>     - Assign the issue to 'self' or someone (by username or name)  
-  --due-date         <dueDate>      - Due date of the issue                                        
-  -p, --parent       <parent>       - Parent issue (if any) as a team_number code                  
-  --priority         <priority>     - Priority of the issue (1-4, descending priority)             
-  --estimate         <estimate>     - Points estimate of the issue                                 
-  -d, --description  <description>  - Description of the issue                                     
-  -l, --label        <label>        - Issue label associated with the issue. May be repeated.      
-  --team             <team>         - Team associated with the issue (if not your default team)    
-  --project          <project>      - Name of the project with the issue                           
-  -s, --state        <state>        - Workflow state for the issue (by name or type)               
-  -t, --title        <title>        - Title of the issue
+  -h, --help                         - Show this help.
+  -w, --workspace     <slug>         - Target workspace (uses credentials)
+  -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)
+  --due-date          <dueDate>      - Due date of the issue
+  -p, --parent        <parent>       - Parent issue (if any) as a team_number code
+  --priority          <priority>     - Priority of the issue (1-4, descending priority)
+  --estimate          <estimate>     - Points estimate of the issue
+  -d, --description   <description>  - Description of the issue
+  --description-file  <path>         - Read description from file
+  -l, --label         <label>        - Issue label associated with the issue. May be repeated.
+  --team              <team>         - Team associated with the issue (if not your default team)
+  --project           <project>      - Name of the project with the issue
+  -s, --state         <state>        - Workflow state for the issue (by name or type)
+  -t, --title         <title>        - Title of the issue
 ```
 
 ### comment
@@ -353,6 +355,7 @@ Options:
   -h, --help                   - Show this help.                                            
   -w, --workspace  <slug>      - Target workspace (uses credentials)                        
   -b, --body       <text>      - Comment body text                                          
+  --body-file      <path>      - Read comment body from file                                
   -p, --parent     <id>        - Parent comment ID for replies                              
   -a, --attach     <filepath>  - Attach a file to the comment (can be used multiple times)
 ```
@@ -371,7 +374,8 @@ Options:
 
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -b, --body       <text>  - New comment body text
+  -b, --body       <text>  - New comment body text                
+  --body-file      <path>  - Read comment body from file
 ```
 
 ##### list

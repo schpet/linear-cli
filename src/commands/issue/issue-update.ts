@@ -17,6 +17,51 @@ import {
   ValidationError,
 } from "../../utils/errors.ts"
 
+/**
+ * Helper function to read description from file
+ */
+async function readDescriptionFromFile(filePath: string): Promise<string> {
+  try {
+    return await Deno.readTextFile(filePath)
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new NotFoundError("File", filePath)
+    }
+    throw new CliError(
+      `Failed to read description file: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
+    )
+  }
+}
+
+/**
+ * Warn if the description contains literal escaped newlines (\n as two characters)
+ * without actual line breaks, which can indicate improper shell escaping
+ */
+function warnIfLiteralEscapedNewlines(description: string): void {
+  // Check for literal backslash-n sequences that don't represent actual newlines
+  // This pattern matches \n that aren't preceded by another backslash
+  const hasLiteralBackslashN = /(?<!\\)\\n/.test(description)
+
+  // Also check if the description has very few actual newlines relative to the \n occurrences
+  const backslashNCount = (description.match(/\\n/g) || []).length
+  const actualNewlineCount = (description.match(/\n/g) || []).length
+
+  if (hasLiteralBackslashN && backslashNCount > actualNewlineCount) {
+    console.warn(
+      "⚠️  Warning: Your description contains literal '\\n' sequences that may not render as line breaks.",
+    )
+    console.warn(
+      "   For multiline descriptions, consider using --description-file or shell-specific syntax:",
+    )
+    console.warn("   • Bash: --description $'line 1\\nline 2'")
+    console.warn("   • Or save to a file: --description-file description.md")
+    console.warn()
+  }
+}
+
 export const updateCommand = new Command()
   .name("update")
   .description("Update a linear issue")
@@ -46,6 +91,10 @@ export const updateCommand = new Command()
     "Description of the issue",
   )
   .option(
+    "--description-file <path:string>",
+    "Read description from file",
+  )
+  .option(
     "-l, --label <label:string>",
     "Issue label associated with the issue. May be repeated.",
     { collect: true },
@@ -72,6 +121,7 @@ export const updateCommand = new Command()
         priority,
         estimate,
         description,
+        descriptionFile,
         label: labels,
         team,
         project,
@@ -91,6 +141,27 @@ export const updateCommand = new Command()
                 "Please provide an issue ID like 'ENG-123' or run from a branch with an issue ID.",
             },
           )
+        }
+
+        // Validate that both --description and --description-file are not used together
+        if (description && descriptionFile) {
+          throw new ValidationError(
+            "Cannot use both --description and --description-file",
+            {
+              suggestion: "Choose one method to provide the description.",
+            },
+          )
+        }
+
+        // Read description from file if --description-file is provided
+        let finalDescription = description
+        if (descriptionFile) {
+          finalDescription = await readDescriptionFromFile(descriptionFile)
+        }
+
+        // Warn if description contains literal \n sequences
+        if (finalDescription) {
+          warnIfLiteralEscapedNewlines(finalDescription)
         }
 
         const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -179,7 +250,7 @@ export const updateCommand = new Command()
         }
         if (priority !== undefined) input.priority = priority
         if (estimate !== undefined) input.estimate = estimate
-        if (description !== undefined) input.description = description
+        if (finalDescription !== undefined) input.description = finalDescription
         if (labelIds.length > 0) input.labelIds = labelIds
         if (teamId !== undefined) input.teamId = teamId
         if (projectId !== undefined) input.projectId = projectId

@@ -19,6 +19,7 @@ Options:
   --priority                 <priority>     - Priority of the issue (1-4, descending priority)             
   --estimate                 <estimate>     - Points estimate of the issue                                 
   -d, --description          <description>  - Description of the issue                                     
+  --description-file         <path>         - Read description from file                                   
   -l, --label                <label>        - Issue label associated with the issue. May be repeated.      
   --team                     <team>         - Team associated with the issue (if not your default team)    
   --project                  <project>      - Name of the project with the issue                           

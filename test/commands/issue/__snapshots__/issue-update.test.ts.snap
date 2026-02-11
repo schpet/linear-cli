@@ -11,18 +11,19 @@ Description:
 
 Options:
 
-  -h, --help                        - Show this help.                                              
-  -a, --assignee     <assignee>     - Assign the issue to 'self' or someone (by username or name)  
-  --due-date         <dueDate>      - Due date of the issue                                        
-  -p, --parent       <parent>       - Parent issue (if any) as a team_number code                  
-  --priority         <priority>     - Priority of the issue (1-4, descending priority)             
-  --estimate         <estimate>     - Points estimate of the issue                                 
-  -d, --description  <description>  - Description of the issue                                     
-  -l, --label        <label>        - Issue label associated with the issue. May be repeated.      
-  --team             <team>         - Team associated with the issue (if not your default team)    
-  --project          <project>      - Name of the project with the issue                           
-  -s, --state        <state>        - Workflow state for the issue (by name or type)               
-  -t, --title        <title>        - Title of the issue                                           
+  -h, --help                         - Show this help.                                              
+  -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)  
+  --due-date          <dueDate>      - Due date of the issue                                        
+  -p, --parent        <parent>       - Parent issue (if any) as a team_number code                  
+  --priority          <priority>     - Priority of the issue (1-4, descending priority)             
+  --estimate          <estimate>     - Points estimate of the issue                                 
+  -d, --description   <description>  - Description of the issue                                     
+  --description-file  <path>         - Read description from file                                   
+  -l, --label         <label>        - Issue label associated with the issue. May be repeated.      
+  --team              <team>         - Team associated with the issue (if not your default team)    
+  --project           <project>      - Name of the project with the issue                           
+  -s, --state         <state>        - Workflow state for the issue (by name or type)               
+  -t, --title         <title>        - Title of the issue                                           
 
 "
 stderr:

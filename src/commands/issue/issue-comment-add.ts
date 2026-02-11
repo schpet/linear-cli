@@ -9,13 +9,64 @@ import {
   validateFilePath,
 } from "../../utils/upload.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
-import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
+
+/**
+ * Helper function to read body from file
+ */
+async function readBodyFromFile(filePath: string): Promise<string> {
+  try {
+    return await Deno.readTextFile(filePath)
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new NotFoundError("File", filePath)
+    }
+    throw new CliError(
+      `Failed to read body file: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
+    )
+  }
+}
+
+/**
+ * Warn if the body contains literal escaped newlines (\n as two characters)
+ * without actual line breaks, which can indicate improper shell escaping
+ */
+function warnIfLiteralEscapedNewlines(body: string): void {
+  // Check for literal backslash-n sequences that don't represent actual newlines
+  // This pattern matches \n that aren't preceded by another backslash
+  const hasLiteralBackslashN = /(?<!\\)\\n/.test(body)
+
+  // Also check if the body has very few actual newlines relative to the \n occurrences
+  const backslashNCount = (body.match(/\\n/g) || []).length
+  const actualNewlineCount = (body.match(/\n/g) || []).length
+
+  if (hasLiteralBackslashN && backslashNCount > actualNewlineCount) {
+    console.warn(
+      "⚠️  Warning: Your comment contains literal '\\n' sequences that may not render as line breaks.",
+    )
+    console.warn(
+      "   For multiline comments, consider using --body-file or shell-specific syntax:",
+    )
+    console.warn("   • Bash: --body $'line 1\\nline 2'")
+    console.warn("   • Or save to a file: --body-file comment.md")
+    console.warn()
+  }
+}
 
 export const commentAddCommand = new Command()
   .name("add")
   .description("Add a comment to an issue or reply to a comment")
   .arguments("[issueId:string]")
   .option("-b, --body <text:string>", "Comment body text")
+  .option("--body-file <path:string>", "Read comment body from file")
   .option("-p, --parent <id:string>", "Parent comment ID for replies")
   .option(
     "-a, --attach <filepath:string>",
@@ -23,7 +74,7 @@ export const commentAddCommand = new Command()
     { collect: true },
   )
   .action(async (options, issueId) => {
-    const { body, parent, attach } = options
+    const { body, bodyFile, parent, attach } = options
 
     try {
       const resolvedIdentifier = await getIssueIdentifier(issueId)
@@ -31,6 +82,16 @@ export const commentAddCommand = new Command()
         throw new ValidationError(
           "Could not determine issue ID",
           { suggestion: "Please provide an issue ID like 'ENG-123'." },
+        )
+      }
+
+      // Validate that both --body and --body-file are not used together
+      if (body && bodyFile) {
+        throw new ValidationError(
+          "Cannot use both --body and --body-file",
+          {
+            suggestion: "Choose one method to provide the comment body.",
+          },
         )
       }
 
@@ -62,7 +123,16 @@ export const commentAddCommand = new Command()
         }
       }
 
+      // Read body from file if --body-file is provided
       let commentBody = body
+      if (bodyFile) {
+        commentBody = await readBodyFromFile(bodyFile)
+      }
+
+      // Warn if body contains literal \n sequences
+      if (commentBody) {
+        warnIfLiteralEscapedNewlines(commentBody)
+      }
 
       // If no body provided and no attachments, prompt for it
       if (!commentBody && uploadedFiles.length === 0) {
