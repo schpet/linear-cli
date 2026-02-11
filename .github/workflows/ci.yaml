@@ -28,3 +28,18 @@ jobs:
 
       - name: Run tests
         run: deno task test
+
+      - name: Install linear-cli for skill generation
+        run: deno task install
+
+      - name: Check skill docs are up-to-date
+        run: |
+          deno task generate-skill-docs
+          if ! git diff --exit-code skills/; then
+            echo "Error: Generated skill documentation is out of date"
+            echo "Please run: deno task generate-skill-docs"
+            echo ""
+            echo "Changes needed:"
+            git diff skills/
+            exit 1
+          fi

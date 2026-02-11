@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear team
-Version: 1.8.1      
+Version: 1.9.1      
 
 Description:
 
@@ -35,7 +35,7 @@ Commands:
 
 ```
 Usage:   linear team create
-Version: 1.8.1             
+Version: 1.9.1             
 
 Description:
 
@@ -49,7 +49,6 @@ Options:
   -d, --description  <description>  - Description of the team                                  
   -k, --key          <key>          - Team key (if not provided, will be generated from name)  
   --private                         - Make the team private                                    
-  --no-color                        - Disable colored output                                   
   --no-interactive                  - Disable interactive prompts
 ```
 
@@ -59,7 +58,7 @@ Options:
 
 ```
 Usage:   linear team delete <teamKey>
-Version: 1.8.1                       
+Version: 1.9.1                       
 
 Description:
 
@@ -79,7 +78,7 @@ Options:
 
 ```
 Usage:   linear team list
-Version: 1.8.1           
+Version: 1.9.1           
 
 Description:
 
@@ -99,7 +98,7 @@ Options:
 
 ```
 Usage:   linear team id
-Version: 1.8.1         
+Version: 1.9.1         
 
 Description:
 
@@ -117,7 +116,7 @@ Options:
 
 ```
 Usage:   linear team autolinks
-Version: 1.8.1                
+Version: 1.9.1                
 
 Description:
 
@@ -135,7 +134,7 @@ Options:
 
 ```
 Usage:   linear team members [teamKey]
-Version: 1.8.1                        
+Version: 1.9.1                        
 
 Description:
 

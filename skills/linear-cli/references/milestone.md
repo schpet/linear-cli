@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear milestone
-Version: 1.8.1           
+Version: 1.9.1           
 
 Description:
 
@@ -34,7 +34,7 @@ Commands:
 
 ```
 Usage:   linear milestone list --project <projectId>
-Version: 1.8.1                                      
+Version: 1.9.1                                      
 
 Description:
 
@@ -53,7 +53,7 @@ Options:
 
 ```
 Usage:   linear milestone view <milestoneId>
-Version: 1.8.1                              
+Version: 1.9.1                              
 
 Description:
 
@@ -71,7 +71,7 @@ Options:
 
 ```
 Usage:   linear milestone create --project <projectId> --name <name>
-Version: 1.8.1                                                      
+Version: 1.9.1                                                      
 
 Description:
 
@@ -93,7 +93,7 @@ Options:
 
 ```
 Usage:   linear milestone update <id>
-Version: 1.8.1                       
+Version: 1.9.1                       
 
 Description:
 
@@ -101,11 +101,12 @@ Description:
 
 Options:
 
-  -h, --help                      - Show this help.                      
-  -w, --workspace  <slug>         - Target workspace (uses credentials)  
-  --name           <name>         - Milestone name                       
-  --description    <description>  - Milestone description                
-  --target-date    <date>         - Target date (YYYY-MM-DD)             
+  -h, --help                      - Show this help.                          
+  -w, --workspace  <slug>         - Target workspace (uses credentials)      
+  --name           <name>         - Milestone name                           
+  --description    <description>  - Milestone description                    
+  --target-date    <date>         - Target date (YYYY-MM-DD)                 
+  --sort-order     <value>        - Sort order relative to other milestones  
   --project        <projectId>    - Move to a different project
 ```
 
@@ -115,7 +116,7 @@ Options:
 
 ```
 Usage:   linear milestone delete <id>
-Version: 1.8.1                       
+Version: 1.9.1                       
 
 Description:
 
