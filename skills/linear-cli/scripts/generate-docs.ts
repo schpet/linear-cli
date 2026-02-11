@@ -256,6 +256,18 @@ async function main() {
   await Deno.writeTextFile(SKILL_MD, skillContent)
   console.log("  Generated: SKILL.md")
 
+  // Format all generated files
+  console.log("\nFormatting generated files...")
+  const fmtResult = await run([
+    "deno",
+    "fmt",
+    SKILL_DIR,
+  ])
+  if (!fmtResult.success) {
+    console.error("Warning: Failed to format generated files")
+    console.error(fmtResult.stderr)
+  }
+
   console.log(`\nDone! Generated ${commands.length + 2} files.`)
 }
 

@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear issue
-Version: 1.8.1       
+Version: 1.9.1       
 
 Description:
 
@@ -32,7 +32,8 @@ Commands:
   create                                  - Create a linear issue                              
   update            [issueId]             - Update a linear issue                              
   comment                                 - Manage issue comments                              
-  attach            <issueId> <filepath>  - Attach a file to an issue
+  attach            <issueId> <filepath>  - Attach a file to an issue                          
+  relation                                - Manage issue relations (dependencies)
 ```
 
 ## Subcommands
@@ -43,7 +44,7 @@ Commands:
 
 ```
 Usage:   linear issue id
-Version: 1.8.1          
+Version: 1.9.1          
 
 Description:
 
@@ -61,7 +62,7 @@ Options:
 
 ```
 Usage:   linear issue list
-Version: 1.8.1            
+Version: 1.9.1            
 
 Description:
 
@@ -92,7 +93,7 @@ Options:
 
 ```
 Usage:   linear issue title [issueId]
-Version: 1.8.1                       
+Version: 1.9.1                       
 
 Description:
 
@@ -110,7 +111,7 @@ Options:
 
 ```
 Usage:   linear issue start [issueId]
-Version: 1.8.1                       
+Version: 1.9.1                       
 
 Description:
 
@@ -132,7 +133,7 @@ Options:
 
 ```
 Usage:   linear issue view [issueId]
-Version: 1.8.1                      
+Version: 1.9.1                      
 
 Description:
 
@@ -156,7 +157,7 @@ Options:
 
 ```
 Usage:   linear issue url [issueId]
-Version: 1.8.1                     
+Version: 1.9.1                     
 
 Description:
 
@@ -174,7 +175,7 @@ Options:
 
 ```
 Usage:   linear issue describe [issueId]
-Version: 1.8.1                          
+Version: 1.9.1                          
 
 Description:
 
@@ -193,7 +194,7 @@ Options:
 
 ```
 Usage:   linear issue commits [issueId]
-Version: 1.8.1                         
+Version: 1.9.1                         
 
 Description:
 
@@ -211,7 +212,7 @@ Options:
 
 ```
 Usage:   linear issue pull-request [issueId]
-Version: 1.8.1                              
+Version: 1.9.1                              
 
 Description:
 
@@ -234,7 +235,7 @@ Options:
 
 ```
 Usage:   linear issue delete [issueId]
-Version: 1.8.1                        
+Version: 1.9.1                        
 
 Description:
 
@@ -245,7 +246,6 @@ Options:
   -h, --help                 - Show this help.                                             
   -w, --workspace  <slug>    - Target workspace (uses credentials)                         
   -y, --confirm              - Skip confirmation prompt                                    
-  --no-color                 - Disable colored output                                      
   --bulk           <ids...>  - Delete multiple issues by identifier (e.g., TC-123 TC-124)  
   --bulk-file      <file>    - Read issue identifiers from a file (one per line)           
   --bulk-stdin               - Read issue identifiers from stdin
@@ -257,7 +257,7 @@ Options:
 
 ```
 Usage:   linear issue create
-Version: 1.8.1              
+Version: 1.9.1              
 
 Description:
 
@@ -279,7 +279,6 @@ Options:
   --project                  <project>      - Name of the project with the issue                           
   -s, --state                <state>        - Workflow state for the issue (by name or type)               
   --no-use-default-template                 - Do not use default template for the issue                    
-  --no-color                                - Disable colored output                                       
   --no-interactive                          - Disable interactive prompts                                  
   -t, --title                <title>        - Title of the issue
 ```
@@ -290,7 +289,7 @@ Options:
 
 ```
 Usage:   linear issue update [issueId]
-Version: 1.8.1                        
+Version: 1.9.1                        
 
 Description:
 
@@ -310,7 +309,6 @@ Options:
   --team             <team>         - Team associated with the issue (if not your default team)    
   --project          <project>      - Name of the project with the issue                           
   -s, --state        <state>        - Workflow state for the issue (by name or type)               
-  --no-color                        - Disable colored output                                       
   -t, --title        <title>        - Title of the issue
 ```
 
@@ -320,7 +318,7 @@ Options:
 
 ```
 Usage:   linear issue comment
-Version: 1.8.1               
+Version: 1.9.1               
 
 Description:
 
@@ -344,7 +342,7 @@ Commands:
 
 ```
 Usage:   linear issue comment add [issueId]
-Version: 1.8.1                             
+Version: 1.9.1                             
 
 Description:
 
@@ -363,7 +361,7 @@ Options:
 
 ```
 Usage:   linear issue comment update <commentId>
-Version: 1.8.1                                  
+Version: 1.9.1                                  
 
 Description:
 
@@ -380,7 +378,7 @@ Options:
 
 ```
 Usage:   linear issue comment list [issueId]
-Version: 1.8.1                              
+Version: 1.9.1                              
 
 Description:
 
@@ -399,7 +397,7 @@ Options:
 
 ```
 Usage:   linear issue attach <issueId> <filepath>
-Version: 1.8.1                                   
+Version: 1.9.1                                   
 
 Description:
 
@@ -411,4 +409,85 @@ Options:
   -w, --workspace  <slug>   - Target workspace (uses credentials)          
   -t, --title      <title>  - Custom title for the attachment              
   -c, --comment    <body>   - Add a comment body linked to the attachment
+```
+
+### relation
+
+> Manage issue relations (dependencies)
+
+```
+Usage:   linear issue relation
+Version: 1.9.1                
+
+Description:
+
+  Manage issue relations (dependencies)
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+
+Commands:
+
+  add     <issueId> <relationType> <relatedIssueId>  - Add a relation between two issues   
+  delete  <issueId> <relationType> <relatedIssueId>  - Delete a relation between two issues
+  list    [issueId]                                  - List relations for an issue
+```
+
+#### relation subcommands
+
+##### add
+
+```
+Usage:   linear issue relation add <issueId> <relationType> <relatedIssueId>
+Version: 1.9.1                                                              
+
+Description:
+
+  Add a relation between two issues
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+
+Examples:
+
+  Mark issue as blocked by another linear issue relation add ENG-123 blocked-by ENG-100
+  Mark issue as blocking another   linear issue relation add ENG-123 blocks ENG-456    
+  Mark issues as related           linear issue relation add ENG-123 related ENG-456   
+  Mark issue as duplicate          linear issue relation add ENG-123 duplicate ENG-100
+```
+
+##### delete
+
+```
+Usage:   linear issue relation delete <issueId> <relationType> <relatedIssueId>
+Version: 1.9.1                                                                 
+
+Description:
+
+  Delete a relation between two issues
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
+```
+
+##### list
+
+```
+Usage:   linear issue relation list [issueId]
+Version: 1.9.1                               
+
+Description:
+
+  List relations for an issue
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
 ```

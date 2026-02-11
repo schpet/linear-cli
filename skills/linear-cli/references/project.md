@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear project
-Version: 1.8.1         
+Version: 1.9.1         
 
 Description:
 
@@ -32,7 +32,7 @@ Commands:
 
 ```
 Usage:   linear project list
-Version: 1.8.1              
+Version: 1.9.1              
 
 Description:
 
@@ -55,7 +55,7 @@ Options:
 
 ```
 Usage:   linear project view <projectId>
-Version: 1.8.1                          
+Version: 1.9.1                          
 
 Description:
 
@@ -75,7 +75,7 @@ Options:
 
 ```
 Usage:   linear project create
-Version: 1.8.1                
+Version: 1.9.1                
 
 Description:
 
@@ -93,6 +93,5 @@ Options:
   --start-date       <startDate>    - Start date (YYYY-MM-DD)                                                  
   --target-date      <targetDate>   - Target completion date (YYYY-MM-DD)                                      
   --initiative       <initiative>   - Add to initiative immediately (ID, slug, or name)                        
-  -i, --interactive                 - Interactive mode (default if no flags provided)                          
-  --no-color                        - Disable colored output
+  -i, --interactive                 - Interactive mode (default if no flags provided)
 ```

@@ -251,6 +251,34 @@ npx skills add schpet/linear-cli
 
 view the skill at [skills.sh/schpet/linear-cli/linear-cli](https://skills.sh/schpet/linear-cli/linear-cli)
 
+## development
+
+### updating skill documentation
+
+the skill documentation in `skills/linear-cli/` is automatically generated from the CLI help text. after making changes to commands or help text, regenerate the docs:
+
+```bash
+deno task generate-skill-docs
+```
+
+this will:
+
+- discover all commands and subcommands from `linear --help`
+- generate reference documentation for each command
+- update the `SKILL.md` file from `SKILL.template.md`
+
+**important:** the CI checks will fail if the generated docs are out of date, so make sure to run this before committing changes that affect command structure or help text.
+
+### code formatting
+
+ensure code is formatted consistently:
+
+```bash
+deno fmt
+```
+
+the project uses deno's built-in formatter with configuration in `deno.json`. formatting is checked in CI.
+
 ## why
 
 linear's UI is incredibly good but it slows me down. i find the following pretty grating to experience frequently:
