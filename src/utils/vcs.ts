@@ -1,7 +1,6 @@
 import { getOption } from "../config.ts"
 import { fetchIssueDetails } from "./linear.ts"
 import {
-  createJjNewChange,
   formatIssueDescription,
   getJjLinearIssue,
   prepareJjWorkingState,
@@ -132,9 +131,6 @@ export async function startVcsWork(
       const { title, url } = await fetchIssueDetails(issueId, false)
       const description = formatIssueDescription(issueId, title, url)
       await setJjDescription(description)
-
-      // Create a new empty change to work on
-      await createJjNewChange()
 
       console.log(`✓ Prepared jj change for issue ${issueId}`)
       break
