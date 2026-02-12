@@ -21,6 +21,44 @@ linear --version
 If not installed, follow the instructions at:\
 https://github.com/schpet/linear-cli?tab=readme-ov-file#install
 
+## Best Practices for Markdown Content
+
+When working with issue descriptions or comment bodies that contain markdown, **always prefer using file-based flags** instead of passing content as command-line arguments:
+
+- Use `--description-file` for `issue create` and `issue update` commands
+- Use `--body-file` for `comment add` and `comment update` commands
+
+**Why use file-based flags:**
+
+- Ensures proper formatting in the Linear web UI
+- Avoids shell escaping issues with newlines and special characters
+- Prevents literal `\n` sequences from appearing in markdown
+- Makes it easier to work with multi-line content
+
+**Example workflow:**
+
+```bash
+# Write markdown to a temporary file
+cat > /tmp/description.md <<'EOF'
+## Summary
+
+- First item
+- Second item
+
+## Details
+
+This is a detailed description with proper formatting.
+EOF
+
+# Create issue using the file
+linear issue create --title "My Issue" --description-file /tmp/description.md
+
+# Or for comments
+linear issue comment add ENG-123 --body-file /tmp/comment.md
+```
+
+**Only use inline flags** (`--description`, `--body`) for simple, single-line content.
+
 ## Available Commands
 
 ```

@@ -46,6 +46,10 @@ export const updateCommand = new Command()
     "Description of the issue",
   )
   .option(
+    "--description-file <path:string>",
+    "Read description from a file (preferred for markdown content)",
+  )
+  .option(
     "-l, --label <label:string>",
     "Issue label associated with the issue. May be repeated.",
     { collect: true },
@@ -72,6 +76,7 @@ export const updateCommand = new Command()
         priority,
         estimate,
         description,
+        descriptionFile,
         label: labels,
         team,
         project,
@@ -81,6 +86,30 @@ export const updateCommand = new Command()
       issueIdArg,
     ) => {
       try {
+        // Validate that description and descriptionFile are not both provided
+        if (description && descriptionFile) {
+          throw new ValidationError(
+            "Cannot specify both --description and --description-file",
+          )
+        }
+
+        // Read description from file if provided
+        let finalDescription = description
+        if (descriptionFile) {
+          try {
+            finalDescription = await Deno.readTextFile(descriptionFile)
+          } catch (error) {
+            throw new ValidationError(
+              `Failed to read description file: ${descriptionFile}`,
+              {
+                suggestion: `Error: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            )
+          }
+        }
+
         // Get the issue ID - either from argument or infer from current context
         const issueId = await getIssueIdentifier(issueIdArg)
         if (!issueId) {
@@ -179,7 +208,7 @@ export const updateCommand = new Command()
         }
         if (priority !== undefined) input.priority = priority
         if (estimate !== undefined) input.estimate = estimate
-        if (description !== undefined) input.description = description
+        if (finalDescription !== undefined) input.description = finalDescription
         if (labelIds.length > 0) input.labelIds = labelIds
         if (teamId !== undefined) input.teamId = teamId
         if (projectId !== undefined) input.projectId = projectId

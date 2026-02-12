@@ -9,11 +9,38 @@ export const commentUpdateCommand = new Command()
   .description("Update an existing comment")
   .arguments("<commentId:string>")
   .option("-b, --body <text:string>", "New comment body text")
+  .option(
+    "--body-file <path:string>",
+    "Read comment body from a file (preferred for markdown content)",
+  )
   .action(async (options, commentId) => {
-    const { body } = options
+    const { body, bodyFile } = options
 
     try {
+      // Validate that body and bodyFile are not both provided
+      if (body && bodyFile) {
+        throw new ValidationError(
+          "Cannot specify both --body and --body-file",
+        )
+      }
+
+      // Read body from file if provided
       let newBody = body
+      if (bodyFile) {
+        try {
+          newBody = await Deno.readTextFile(bodyFile)
+        } catch (error) {
+          throw new ValidationError(
+            `Failed to read body file: ${bodyFile}`,
+            {
+              suggestion: `Error: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            },
+          )
+        }
+      }
+
       let existingBody = ""
 
       // If no body provided, fetch existing comment to show as default
