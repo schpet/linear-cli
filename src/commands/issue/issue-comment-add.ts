@@ -16,6 +16,10 @@ export const commentAddCommand = new Command()
   .description("Add a comment to an issue or reply to a comment")
   .arguments("[issueId:string]")
   .option("-b, --body <text:string>", "Comment body text")
+  .option(
+    "--body-file <path:string>",
+    "Read comment body from a file (preferred for markdown content)",
+  )
   .option("-p, --parent <id:string>", "Parent comment ID for replies")
   .option(
     "-a, --attach <filepath:string>",
@@ -23,9 +27,33 @@ export const commentAddCommand = new Command()
     { collect: true },
   )
   .action(async (options, issueId) => {
-    const { body, parent, attach } = options
+    const { body, bodyFile, parent, attach } = options
 
     try {
+      // Validate that body and bodyFile are not both provided
+      if (body && bodyFile) {
+        throw new ValidationError(
+          "Cannot specify both --body and --body-file",
+        )
+      }
+
+      // Read body from file if provided
+      let commentBody = body
+      if (bodyFile) {
+        try {
+          commentBody = await Deno.readTextFile(bodyFile)
+        } catch (error) {
+          throw new ValidationError(
+            `Failed to read body file: ${bodyFile}`,
+            {
+              suggestion: `Error: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            },
+          )
+        }
+      }
+
       const resolvedIdentifier = await getIssueIdentifier(issueId)
       if (!resolvedIdentifier) {
         throw new ValidationError(
@@ -61,8 +89,6 @@ export const commentAddCommand = new Command()
           console.log(`✓ Uploaded ${result.filename}`)
         }
       }
-
-      let commentBody = body
 
       // If no body provided and no attachments, prompt for it
       if (!commentBody && uploadedFiles.length === 0) {

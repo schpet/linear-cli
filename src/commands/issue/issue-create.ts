@@ -474,6 +474,10 @@ export const createCommand = new Command()
     "Description of the issue",
   )
   .option(
+    "--description-file <path:string>",
+    "Read description from a file (preferred for markdown content)",
+  )
+  .option(
     "-l, --label <label:string>",
     "Issue label associated with the issue. May be repeated.",
     { collect: true },
@@ -507,6 +511,7 @@ export const createCommand = new Command()
         priority,
         estimate,
         description,
+        descriptionFile,
         label: labels,
         team,
         project,
@@ -517,9 +522,33 @@ export const createCommand = new Command()
     ) => {
       interactive = interactive && Deno.stdout.isTerminal()
 
+      // Validate that description and descriptionFile are not both provided
+      if (description && descriptionFile) {
+        throw new ValidationError(
+          "Cannot specify both --description and --description-file",
+        )
+      }
+
+      // Read description from file if provided
+      let finalDescription = description
+      if (descriptionFile) {
+        try {
+          finalDescription = await Deno.readTextFile(descriptionFile)
+        } catch (error) {
+          throw new ValidationError(
+            `Failed to read description file: ${descriptionFile}`,
+            {
+              suggestion: `Error: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            },
+          )
+        }
+      }
+
       // If no flags are provided (or only parent is provided), use interactive mode
       const noFlagsProvided = !title && !assignee && !dueDate &&
-        priority === undefined && estimate === undefined && !description &&
+        priority === undefined && estimate === undefined && !finalDescription &&
         (!labels || labels.length === 0) &&
         !team && !project && !state && !start
 
@@ -748,7 +777,7 @@ export const createCommand = new Command()
           projectId: projectId || parentData?.projectId,
           stateId,
           useDefaultTemplate,
-          description,
+          description: finalDescription,
         }
         spinner?.stop()
         console.log(`Creating issue in ${team}`)
