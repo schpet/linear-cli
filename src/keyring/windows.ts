@@ -86,7 +86,7 @@ function credGet(account: string): string | null {
   const ok = lib.symbols.CredReadW(target, CRED_TYPE_GENERIC, 0, outBuf)
   if (!ok) {
     const err = getLastError()
-    if (err === ERROR_NOT_FOUND) return null
+    if (err === ERROR_NOT_FOUND || err === 0) return null
     throw new Error(`CredReadW failed (error ${err})`)
   }
 
@@ -138,7 +138,7 @@ function credDelete(account: string): void {
   const ok = lib.symbols.CredDeleteW(target, CRED_TYPE_GENERIC, 0)
   if (!ok) {
     const err = getLastError()
-    if (err === ERROR_NOT_FOUND) return
+    if (err === ERROR_NOT_FOUND || err === 0) return
     throw new Error(`CredDeleteW failed (error ${err})`)
   }
 }
