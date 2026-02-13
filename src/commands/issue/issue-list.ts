@@ -76,6 +76,10 @@ export const listCommand = new Command()
     "Team to list issues for (if not your default team)",
   )
   .option(
+    "--all-teams",
+    "Show issues from all teams in the workspace",
+  )
+  .option(
     "--project <project:string>",
     "Filter by project name",
   )
@@ -101,6 +105,7 @@ export const listCommand = new Command()
         app,
         allStates,
         team,
+        allTeams,
         project,
         limit,
         pager,
@@ -131,6 +136,10 @@ export const listCommand = new Command()
           throw new ValidationError("Cannot use --all-states with --state flag")
         }
 
+        if (allTeams && team) {
+          throw new ValidationError("Cannot use --all-teams with --team flag")
+        }
+
         const sort = sortFlag ||
           getOption("issue_sort") as "manual" | "priority" | undefined
         if (!sort) {
@@ -143,11 +152,17 @@ export const listCommand = new Command()
             `Sort must be one of: ${SortType.values().join(", ")}`,
           )
         }
-        const teamKey = team || getTeamKey()
-        if (!teamKey) {
-          throw new ValidationError(
-            "Could not determine team key from directory name or team flag",
-          )
+
+        let teamKey: string | undefined
+        if (allTeams) {
+          teamKey = undefined
+        } else {
+          teamKey = team || getTeamKey()
+          if (!teamKey) {
+            throw new ValidationError(
+              "Could not determine team key from directory name or team flag",
+            )
+          }
         }
 
         let projectId: string | undefined
@@ -184,7 +199,9 @@ export const listCommand = new Command()
           projectId,
           sort,
         )
+
         spinner?.stop()
+
         const issues = result.issues?.nodes || []
 
         if (issues.length === 0) {

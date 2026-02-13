@@ -20,6 +20,7 @@ Options:
   -U, --unassigned                 - Show only unassigned issues                                                                                                  
   --sort               <sort>      - Sort order (can also be set via LINEAR_ISSUE_SORT)                    (Values: \\x1b[32m"manual"\\x1b[39m, \\x1b[32m"priority"\\x1b[39m)                         
   --team               <team>      - Team to list issues for (if not your default team)                                                                           
+  --all-teams                      - Show issues from all teams in the workspace                                                                                  
   --project            <project>   - Filter by project name                                                                                                       
   --limit              <limit>     - Maximum number of issues to fetch (default: 50, use 0 for unlimited)  (Default: \\x1b[33m50\\x1b[39m)                                          
   -w, --web                        - Open in web browser                                                                                                          
@@ -27,6 +28,17 @@ Options:
   --no-pager                       - Disable automatic paging for long output                                                                                     
 
 '
+stderr:
+""
+`;
+
+snapshot[`Issue List Command - All Teams 1`] = `
+stdout:
+"◌   ID           TITLE                  LABELS  E STATE       UPDATED     
+⚠⚠⚠ BACKEND-123  Fix authentication bug bug     3 In Progress 759 days ago
+▄▆█ FRONTEND-456 Update user interface  feature 5 To Do       760 days ago
+--- SEC-789      Security audit review          - Backlog     761 days ago
+"
 stderr:
 ""
 `;
