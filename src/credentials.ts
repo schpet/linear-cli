@@ -86,8 +86,9 @@ function parseKeyringCredentials(parsed: Record<string, unknown>): Credentials {
   const defaultWs = typeof parsed.default === "string"
     ? parsed.default
     : undefined
+  const defaultIsValid = defaultWs != null && workspaces.includes(defaultWs)
 
-  if (defaultWs != null && !workspaces.includes(defaultWs)) {
+  if (defaultWs != null && !defaultIsValid) {
     console.error(
       yellow(
         `Warning: Default workspace "${defaultWs}" is not in the workspaces list. ` +
@@ -97,9 +98,7 @@ function parseKeyringCredentials(parsed: Record<string, unknown>): Credentials {
   }
 
   return {
-    default: defaultWs != null && workspaces.includes(defaultWs)
-      ? defaultWs
-      : undefined,
+    default: defaultIsValid ? defaultWs : undefined,
     workspaces,
   }
 }
