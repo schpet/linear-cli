@@ -48,7 +48,7 @@ export const windowsBackend: KeyringBackend = {
   async delete(account) {
     const target = escapePowerShell(`${SERVICE}:${account}`)
     const script =
-      `Import-Module CredentialManager; Remove-StoredCredential -Target '${target}'`
+      `Import-Module CredentialManager; $c = Get-StoredCredential -Target '${target}'; if ($c) { Remove-StoredCredential -Target '${target}' }`
     const result = await run([
       "powershell",
       "-NoProfile",

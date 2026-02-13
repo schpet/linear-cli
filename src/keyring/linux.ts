@@ -53,7 +53,8 @@ export const linuxBackend: KeyringBackend = {
       "account",
       account,
     ])
-    if (!result.success) {
+    // secret-tool clear returns exit 1 when no matching items are found
+    if (!result.success && result.code !== 1) {
       throw new Error(
         `secret-tool clear failed (exit ${result.code}): ${result.stderr}`,
       )
