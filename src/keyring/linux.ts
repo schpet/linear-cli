@@ -1,7 +1,5 @@
 import type { KeyringBackend } from "./index.ts"
-import { run } from "./index.ts"
-
-const SERVICE = "linear-cli"
+import { run, SERVICE } from "./index.ts"
 
 export const linuxBackend: KeyringBackend = {
   async get(account) {

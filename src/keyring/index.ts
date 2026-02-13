@@ -2,6 +2,8 @@ import { macosBackend } from "./macos.ts"
 import { linuxBackend } from "./linux.ts"
 import { windowsBackend } from "./windows.ts"
 
+export const SERVICE = "linear-cli"
+
 export interface KeyringBackend {
   get(account: string): Promise<string | null>
   set(account: string, password: string): Promise<void>
