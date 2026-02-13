@@ -19,7 +19,7 @@ export const macosBackend: KeyringBackend = {
         `security find-generic-password failed (exit ${result.code}): ${result.stderr}`,
       )
     }
-    return result.stdout
+    return result.stdout || null
   },
 
   async set(account, password) {
