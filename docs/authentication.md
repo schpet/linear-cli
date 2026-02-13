@@ -11,7 +11,7 @@ the CLI supports multiple authentication methods with the following precedence:
 
 ## stored credentials (recommended)
 
-credentials are stored in `~/.config/linear/credentials.toml` and support multiple workspaces.
+API keys are stored in your system's native keyring (macOS Keychain, Linux libsecret, Windows CredentialManager). workspace metadata is stored in `~/.config/linear/credentials.toml`.
 
 ### commands
 
@@ -71,9 +71,24 @@ linear -w acme issue create --title "Bug fix"
 ```toml
 # ~/.config/linear/credentials.toml
 default = "acme"
-acme = "lin_api_xxx"
-side-project = "lin_api_yyy"
+workspaces = ["acme", "side-project"]
 ```
+
+API keys are not stored in this file. they are stored in the system keyring and loaded at startup.
+
+### platform requirements
+
+- **macOS**: uses Keychain via `/usr/bin/security` (built-in)
+- **Linux**: requires `secret-tool` from libsecret
+  - Debian/Ubuntu: `apt install libsecret-tools`
+  - Arch: `pacman -S libsecret`
+- **Windows**: uses CredentialManager via PowerShell (built-in)
+
+if the keyring is unavailable, set `LINEAR_API_KEY` as a fallback.
+
+### migrating from plaintext credentials
+
+older versions stored API keys directly in the TOML file. if the CLI detects this format, it will continue to work but print a warning. run `linear auth login` for each workspace to migrate keys to the system keyring.
 
 ## environment variable
 
