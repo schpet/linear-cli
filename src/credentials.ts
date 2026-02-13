@@ -4,6 +4,10 @@ import { ensureDir } from "@std/fs"
 import { yellow } from "@std/fmt/colors"
 import { deletePassword, getPassword, setPassword } from "./keyring/index.ts"
 
+function errorDetail(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 export interface Credentials {
   default?: string
   workspaces: string[]
@@ -117,7 +121,7 @@ async function populateKeyringCache(workspaces: string[]): Promise<void> {
       console.error(
         yellow(
           `Warning: Failed to read keyring for workspace "${ws}": ${
-            error instanceof Error ? error.message : String(error)
+            errorDetail(error)
           }`,
         ),
       )
@@ -142,9 +146,7 @@ export async function loadCredentials(): Promise<Credentials> {
       return { workspaces: [] }
     }
     throw new Error(
-      `Failed to read credentials file at ${path}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      `Failed to read credentials file at ${path}: ${errorDetail(error)}`,
     )
   }
 
@@ -155,9 +157,7 @@ export async function loadCredentials(): Promise<Credentials> {
     throw new Error(
       `Failed to parse credentials file at ${path}. The file may be corrupted.\n` +
         `You can delete it and re-authenticate with \`linear auth login\`.\n` +
-        `Parse error: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Parse error: ${errorDetail(error)}`,
     )
   }
 
@@ -217,7 +217,7 @@ export async function addCredential(
   } catch (error) {
     throw new Error(
       `Failed to store API key in system keyring for workspace "${workspace}": ${
-        error instanceof Error ? error.message : String(error)
+        errorDetail(error)
       }`,
     )
   }
@@ -246,7 +246,7 @@ export async function removeCredential(workspace: string): Promise<void> {
   } catch (error) {
     throw new Error(
       `Failed to remove API key from system keyring for workspace "${workspace}": ${
-        error instanceof Error ? error.message : String(error)
+        errorDetail(error)
       }`,
     )
   }
