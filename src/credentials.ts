@@ -255,11 +255,7 @@ export async function removeCredential(workspace: string): Promise<void> {
 
   // If we removed the default, reassign it
   if (credentials.default === workspace) {
-    if (credentials.workspaces.length > 0) {
-      credentials.default = credentials.workspaces[0]
-    } else {
-      credentials.default = undefined
-    }
+    credentials.default = credentials.workspaces[0]
   }
 
   await saveCredentials()
