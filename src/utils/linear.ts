@@ -389,7 +389,7 @@ export async function fetchParentIssueData(parentId: string): Promise<
 }
 
 export async function fetchIssuesForState(
-  teamKey: string,
+  teamKey: string | undefined,
   state: string[] | undefined,
   assignee?: string,
   unassigned = false,
@@ -410,8 +410,10 @@ export async function fetchIssuesForState(
     )
   }
 
-  const filter: IssueFilter = {
-    team: { key: { eq: teamKey } },
+  const filter: IssueFilter = {}
+
+  if (teamKey) {
+    filter.team = { key: { eq: teamKey } }
   }
 
   if (state) {
