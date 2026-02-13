@@ -35,10 +35,18 @@ When working with issue descriptions or comment bodies that contain markdown, **
 - Prevents literal `\n` sequences from appearing in markdown
 - Makes it easier to work with multi-line content
 
+### Recommended workflow for agents
+
+When creating or updating issues/comments with markdown content:
+
+1. **Always write content to a temporary file first**, then use the `*-file` flag
+2. **Use heredoc syntax** with single quotes to preserve formatting
+3. **Never use escaped newlines** (`\n`) in command arguments - they render as literal text
+
 **Example workflow:**
 
 ```bash
-# Write markdown to a temporary file
+# Write markdown to a temporary file using heredoc
 cat > /tmp/description.md <<'EOF'
 ## Summary
 
@@ -57,7 +65,36 @@ linear issue create --title "My Issue" --description-file /tmp/description.md
 linear issue comment add ENG-123 --body-file /tmp/comment.md
 ```
 
-**Only use inline flags** (`--description`, `--body`) for simple, single-line content.
+### Anti-patterns to avoid
+
+**❌ DON'T** use escaped newlines in command arguments:
+```bash
+# This creates broken markdown with literal \n characters
+linear issue create --title "Test" --description "## Summary\n\n- one\n- two"
+```
+
+**❌ DON'T** try to pass multiline strings directly:
+```bash
+# Shell escaping makes this error-prone
+linear issue create --title "Test" --description "## Summary
+
+- one
+- two"
+```
+
+**✅ DO** use file-based flags for any markdown:
+```bash
+# Write to temp file, then use --description-file
+cat > /tmp/desc.md <<'EOF'
+## Summary
+
+- one
+- two
+EOF
+linear issue create --title "Test" --description-file /tmp/desc.md
+```
+
+**Only use inline flags** (`--description`, `--body`) for simple, single-line content without special formatting.
 
 ## Available Commands
 
