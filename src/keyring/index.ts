@@ -24,7 +24,7 @@ function platformHint(): string {
       return "Could not find secret-tool. Install libsecret (e.g. apt install libsecret-tools, pacman -S libsecret).\n" +
         "Alternatively, set the LINEAR_API_KEY environment variable."
     case "windows":
-      return "Could not run PowerShell. Ensure PowerShell is available."
+      return "Could not load advapi32.dll. Is this a Windows system?"
     default:
       return `Unsupported platform: ${Deno.build.os}`
   }
