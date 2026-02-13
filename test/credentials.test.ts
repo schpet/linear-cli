@@ -114,12 +114,12 @@ Deno.test("credentials - addCredential creates file and sets default", async () 
     const code = `
       ${
       mockBackendAndImport(
-        "addCredential, getApiKeyForWorkspace, getDefaultWorkspace",
+        "addCredential, getCredentialApiKey, getDefaultWorkspace",
       )
     }
       await addCredential("test-workspace", "lin_api_test123");
       console.log(JSON.stringify({
-        apiKey: getApiKeyForWorkspace("test-workspace"),
+        apiKey: getCredentialApiKey("test-workspace"),
         default: getDefaultWorkspace()
       }));
     `
@@ -223,12 +223,12 @@ Deno.test("credentials - removeCredential cleans up cache", async () => {
     const code = `
       ${
       mockBackendAndImport(
-        "addCredential, removeCredential, getApiKeyForWorkspace",
+        "addCredential, removeCredential, getCredentialApiKey",
       )
     }
       await addCredential("workspace-a", "lin_api_a");
       await removeCredential("workspace-a");
-      console.log(getApiKeyForWorkspace("workspace-a") ?? "undefined");
+      console.log(getCredentialApiKey("workspace-a") ?? "undefined");
     `
 
     const output = await runWithCredentials(tempDir, code)
@@ -312,14 +312,14 @@ Deno.test("credentials - getCredentialApiKey returns undefined for unknown works
   }
 })
 
-Deno.test("credentials - getApiKeyForWorkspace reads from cache", async () => {
+Deno.test("credentials - getCredentialApiKey reads from cache", async () => {
   const tempDir = await Deno.makeTempDir()
 
   try {
     const code = `
-      ${mockBackendAndImport("addCredential, getApiKeyForWorkspace")}
+      ${mockBackendAndImport("addCredential, getCredentialApiKey")}
       await addCredential("ws", "lin_api_cached");
-      console.log(getApiKeyForWorkspace("ws"));
+      console.log(getCredentialApiKey("ws"));
     `
 
     const output = await runWithCredentials(tempDir, code)
@@ -366,13 +366,13 @@ Deno.test("credentials - old format TOML backward compatibility", async () => {
     const code = `
       ${
       mockBackendAndImport(
-        "getDefaultWorkspace, getWorkspaces, getApiKeyForWorkspace, getCredentialApiKey",
+        "getDefaultWorkspace, getWorkspaces, getCredentialApiKey",
       )
     }
       console.log(JSON.stringify({
         default: getDefaultWorkspace(),
         workspaces: getWorkspaces(),
-        apiKey: getApiKeyForWorkspace("preexisting"),
+        apiKey: getCredentialApiKey("preexisting"),
         credApiKey: getCredentialApiKey(),
       }));
     `
@@ -403,14 +403,14 @@ Deno.test("credentials - old format with multiple workspaces", async () => {
     const code = `
       ${
       mockBackendAndImport(
-        "getDefaultWorkspace, getWorkspaces, getApiKeyForWorkspace",
+        "getDefaultWorkspace, getWorkspaces, getCredentialApiKey",
       )
     }
       console.log(JSON.stringify({
         default: getDefaultWorkspace(),
         workspaces: getWorkspaces().sort(),
-        apiKeyA: getApiKeyForWorkspace("ws-a"),
-        apiKeyB: getApiKeyForWorkspace("ws-b"),
+        apiKeyA: getCredentialApiKey("ws-a"),
+        apiKeyB: getCredentialApiKey("ws-b"),
       }));
     `
 
@@ -460,7 +460,7 @@ _setBackend({
   set(_account: string, _password: string) { return Promise.reject(new Error("keyring locked")) },
   delete(_account: string) { return Promise.resolve() },
 });
-const { addCredential, getWorkspaces, getApiKeyForWorkspace } = await import("${credentialsUrl}");
+const { addCredential, getWorkspaces, getCredentialApiKey } = await import("${credentialsUrl}");
 try {
   await addCredential("ws", "lin_api_key");
   console.log("no-error");
@@ -468,7 +468,7 @@ try {
   console.log(JSON.stringify({
     error: e.message,
     workspaces: getWorkspaces(),
-    cached: getApiKeyForWorkspace("ws") ?? "undefined",
+    cached: getCredentialApiKey("ws") ?? "undefined",
   }));
 }
     `
@@ -504,11 +504,11 @@ _setBackend({
   set(_a: string, _p: string) { return Promise.resolve() },
   delete(_a: string) { return Promise.resolve() },
 });
-const { getWorkspaces, getApiKeyForWorkspace } = await import("${credentialsUrl}");
+const { getWorkspaces, getCredentialApiKey } = await import("${credentialsUrl}");
 console.log(JSON.stringify({
   workspaces: getWorkspaces(),
-  okKey: getApiKeyForWorkspace("ws-ok"),
-  failKey: getApiKeyForWorkspace("ws-fail") ?? "undefined",
+  okKey: getCredentialApiKey("ws-ok"),
+  failKey: getCredentialApiKey("ws-fail") ?? "undefined",
 }));
     `
 
@@ -534,7 +534,7 @@ _setBackend({
   set(account: string, password: string) { _store.set(account, password); return Promise.resolve() },
   delete(_account: string) { return Promise.reject(new Error("keyring locked")) },
 });
-const { addCredential, removeCredential, getWorkspaces, getApiKeyForWorkspace } = await import("${credentialsUrl}");
+const { addCredential, removeCredential, getWorkspaces, getCredentialApiKey } = await import("${credentialsUrl}");
 await addCredential("ws", "lin_api_key");
 try {
   await removeCredential("ws");
@@ -543,7 +543,7 @@ try {
   console.log(JSON.stringify({
     error: e.message,
     workspaces: getWorkspaces(),
-    cached: getApiKeyForWorkspace("ws") ?? "undefined",
+    cached: getCredentialApiKey("ws") ?? "undefined",
   }));
 }
     `
@@ -579,11 +579,11 @@ _setBackend({
   set(_a: string, _p: string) { return Promise.resolve() },
   delete(_a: string) { return Promise.resolve() },
 });
-const { getWorkspaces, getApiKeyForWorkspace } = await import("${credentialsUrl}");
+const { getWorkspaces, getCredentialApiKey } = await import("${credentialsUrl}");
 console.log(JSON.stringify({
   workspaces: getWorkspaces(),
-  aKey: getApiKeyForWorkspace("ws-a"),
-  missingKey: getApiKeyForWorkspace("ws-missing") ?? "undefined",
+  aKey: getCredentialApiKey("ws-a"),
+  missingKey: getCredentialApiKey("ws-missing") ?? "undefined",
 }));
     `
 

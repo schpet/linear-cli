@@ -306,11 +306,5 @@ export function hasWorkspace(workspace: string): boolean {
   return credentials.workspaces.includes(workspace)
 }
 
-export function getApiKeyForWorkspace(
-  workspace: string,
-): string | undefined {
-  return apiKeyCache.get(workspace)
-}
-
 // Load credentials at startup
 await loadCredentials()

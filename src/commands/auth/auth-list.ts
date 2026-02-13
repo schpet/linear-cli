@@ -2,7 +2,7 @@ import { Command } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { gql } from "../../__codegen__/gql.ts"
 import {
-  getApiKeyForWorkspace,
+  getCredentialApiKey,
   getDefaultWorkspace,
   getWorkspaces,
 } from "../../credentials.ts"
@@ -83,7 +83,7 @@ export const listCommand = new Command()
 
       // Fetch info for all workspaces in parallel
       const infoPromises = workspaces.map((ws) => {
-        const apiKey = getApiKeyForWorkspace(ws)
+        const apiKey = getCredentialApiKey(ws)
         if (apiKey == null) {
           const info: WorkspaceInfo = {
             workspace: ws,
