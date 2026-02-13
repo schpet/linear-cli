@@ -68,6 +68,9 @@ export async function run(
       await writer.write(new TextEncoder().encode(options.stdin))
       await writer.close()
     } catch (error) {
+      try {
+        process.kill()
+      } catch { /* already exited */ }
       const detail = error instanceof Error ? error.message : String(error)
       throw new Error(`Failed to write to stdin of ${cmd[0]}: ${detail}`)
     }
