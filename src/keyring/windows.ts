@@ -4,6 +4,12 @@ import { SERVICE } from "./index.ts"
 const ERROR_NOT_FOUND = 1168
 const CRED_TYPE_GENERIC = 1
 const CRED_PERSIST_LOCAL_MACHINE = 2
+// CREDENTIALW struct layout on 64-bit Windows (80 bytes):
+//   0: Flags (u32)        4: Type (u32)           8: TargetName (ptr)
+//  16: Comment (ptr)      24: LastWritten (i64)   32: CredentialBlobSize (u32)
+//  36: (padding)          40: CredentialBlob (ptr) 48: Persist (u32)
+//  52: AttributeCount     56: Attributes (ptr)    64: TargetAlias (ptr)
+//  72: UserName (ptr)
 const CREDENTIAL_SIZE = 80
 
 type FfiBuffer = Uint8Array<ArrayBuffer>
@@ -86,6 +92,9 @@ function credGet(account: string): string | null {
   const ok = lib.symbols.CredReadW(target, CRED_TYPE_GENERIC, 0, outBuf)
   if (!ok) {
     const err = getLastError()
+    // Deno's FFI boundary clobbers the Win32 thread-local error before
+    // GetLastError can read it through a separate dlopen call. Treat 0
+    // (no error set) as "not found" since that's the only expected failure.
     if (err === ERROR_NOT_FOUND || err === 0) return null
     throw new Error(`CredReadW failed (error ${err})`)
   }
@@ -138,6 +147,7 @@ function credDelete(account: string): void {
   const ok = lib.symbols.CredDeleteW(target, CRED_TYPE_GENERIC, 0)
   if (!ok) {
     const err = getLastError()
+    // See credGet for why err === 0 is treated as "not found"
     if (err === ERROR_NOT_FOUND || err === 0) return
     throw new Error(`CredDeleteW failed (error ${err})`)
   }

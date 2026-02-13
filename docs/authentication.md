@@ -82,7 +82,7 @@ API keys are not stored in this file. they are stored in the system keyring and 
 - **Linux**: requires `secret-tool` from libsecret
   - Debian/Ubuntu: `apt install libsecret-tools`
   - Arch: `pacman -S libsecret`
-- **Windows**: uses CredentialManager via PowerShell (built-in)
+- **Windows**: uses Credential Manager via `advapi32.dll` (built-in)
 
 if the keyring is unavailable, set `LINEAR_API_KEY` as a fallback.
 

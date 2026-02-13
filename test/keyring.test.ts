@@ -4,6 +4,19 @@ import { fromFileUrl } from "@std/path"
 const keyringUrl = new URL("../src/keyring/index.ts", import.meta.url)
 const denoJsonPath = fromFileUrl(new URL("../deno.json", import.meta.url))
 
+const MOCK_BACKEND = `
+const _store = new Map();
+_setBackend({
+  get(account) { return Promise.resolve(_store.get(account) ?? null) },
+  set(account, password) { _store.set(account, password); return Promise.resolve() },
+  delete(account) { _store.delete(account); return Promise.resolve() },
+});
+`.trim()
+
+function mockAndImport(imports: string): string {
+  return `import { ${imports}, _setBackend } from "${keyringUrl}";\n${MOCK_BACKEND}`
+}
+
 async function runWithKeyring(code: string): Promise<string> {
   const command = new Deno.Command("deno", {
     args: [
@@ -28,13 +41,7 @@ async function runWithKeyring(code: string): Promise<string> {
 
 Deno.test("keyring - getPassword returns null when not set", async () => {
   const code = `
-    import { getPassword, _setBackend } from "${keyringUrl}";
-    _setBackend({
-      store: new Map(),
-      get(account) { return Promise.resolve(this.store.get(account) ?? null) },
-      set(account, password) { this.store.set(account, password); return Promise.resolve() },
-      delete(account) { this.store.delete(account); return Promise.resolve() },
-    });
+    ${mockAndImport("getPassword")}
     const result = await getPassword("missing");
     console.log(result === null ? "null" : result);
   `
@@ -44,13 +51,7 @@ Deno.test("keyring - getPassword returns null when not set", async () => {
 
 Deno.test("keyring - setPassword and getPassword round-trip", async () => {
   const code = `
-    import { getPassword, setPassword, _setBackend } from "${keyringUrl}";
-    _setBackend({
-      store: new Map(),
-      get(account) { return Promise.resolve(this.store.get(account) ?? null) },
-      set(account, password) { this.store.set(account, password); return Promise.resolve() },
-      delete(account) { this.store.delete(account); return Promise.resolve() },
-    });
+    ${mockAndImport("getPassword, setPassword")}
     await setPassword("my-account", "secret123");
     const result = await getPassword("my-account");
     console.log(result);
@@ -61,13 +62,7 @@ Deno.test("keyring - setPassword and getPassword round-trip", async () => {
 
 Deno.test("keyring - deletePassword removes stored password", async () => {
   const code = `
-    import { getPassword, setPassword, deletePassword, _setBackend } from "${keyringUrl}";
-    _setBackend({
-      store: new Map(),
-      get(account) { return Promise.resolve(this.store.get(account) ?? null) },
-      set(account, password) { this.store.set(account, password); return Promise.resolve() },
-      delete(account) { this.store.delete(account); return Promise.resolve() },
-    });
+    ${mockAndImport("getPassword, setPassword, deletePassword")}
     await setPassword("my-account", "secret123");
     await deletePassword("my-account");
     const result = await getPassword("my-account");
@@ -79,13 +74,7 @@ Deno.test("keyring - deletePassword removes stored password", async () => {
 
 Deno.test("keyring - setPassword overwrites existing value", async () => {
   const code = `
-    import { getPassword, setPassword, _setBackend } from "${keyringUrl}";
-    _setBackend({
-      store: new Map(),
-      get(account) { return Promise.resolve(this.store.get(account) ?? null) },
-      set(account, password) { this.store.set(account, password); return Promise.resolve() },
-      delete(account) { this.store.delete(account); return Promise.resolve() },
-    });
+    ${mockAndImport("getPassword, setPassword")}
     await setPassword("my-account", "first");
     await setPassword("my-account", "second");
     const result = await getPassword("my-account");
@@ -97,13 +86,7 @@ Deno.test("keyring - setPassword overwrites existing value", async () => {
 
 Deno.test("keyring - multiple accounts are independent", async () => {
   const code = `
-    import { getPassword, setPassword, _setBackend } from "${keyringUrl}";
-    _setBackend({
-      store: new Map(),
-      get(account) { return Promise.resolve(this.store.get(account) ?? null) },
-      set(account, password) { this.store.set(account, password); return Promise.resolve() },
-      delete(account) { this.store.delete(account); return Promise.resolve() },
-    });
+    ${mockAndImport("getPassword, setPassword")}
     await setPassword("account-a", "password-a");
     await setPassword("account-b", "password-b");
     const a = await getPassword("account-a");
@@ -118,13 +101,7 @@ Deno.test("keyring - multiple accounts are independent", async () => {
 
 Deno.test("keyring - deletePassword on missing account is a no-op", async () => {
   const code = `
-    import { deletePassword, _setBackend } from "${keyringUrl}";
-    _setBackend({
-      store: new Map(),
-      get(account) { return Promise.resolve(this.store.get(account) ?? null) },
-      set(account, password) { this.store.set(account, password); return Promise.resolve() },
-      delete(account) { this.store.delete(account); return Promise.resolve() },
-    });
+    ${mockAndImport("deletePassword")}
     await deletePassword("nonexistent");
     console.log("ok");
   `
