@@ -9,7 +9,6 @@ const TEST_ACCOUNT = `linear-cli-integration-test-${Date.now()}`
 
 Deno.test({
   name: "keyring integration - set, get, and delete round-trip",
-  ignore: Deno.build.os === "windows",
   fn: async () => {
     try {
       assertEquals(await getPassword(TEST_ACCOUNT), null)
