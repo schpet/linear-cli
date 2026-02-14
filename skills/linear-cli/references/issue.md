@@ -21,6 +21,7 @@ Commands:
 
   id                                      - Print the issue based on the current git branch    
   list                                    - List your issues                                   
+  search            <query>               - Search issues by text in title and description     
   title             [issueId]             - Print the issue title                              
   start             [issueId]             - Start working on an issue                          
   view, v           [issueId]             - View issue details (default) or open in browser/app
@@ -85,6 +86,27 @@ Options:
   -w, --web                        - Open in web browser                                                                                                          
   -a, --app                        - Open in Linear.app                                                                                                           
   --no-pager                       - Disable automatic paging for long output
+```
+
+### search
+
+> Search issues by text in title and description
+
+```
+Usage:   linear issue search <query>
+Version: 1.9.1                      
+
+Description:
+
+  Search issues by text in title and description
+
+Options:
+
+  -h, --help                - Show this help.                                                                    
+  -w, --workspace  <slug>   - Target workspace (uses credentials)                                                
+  --team           <team>   - Team to search issues in (if not your default team)                                
+  --limit          <limit>  - Maximum number of issues to fetch (default: 50, use 0 for unlimited)  (Default: 50)
+  --no-pager                - Disable automatic paging for long output
 ```
 
 ### title
