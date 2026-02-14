@@ -80,6 +80,7 @@ Options:
   -U, --unassigned                 - Show only unassigned issues                                                                                                  
   --sort               <sort>      - Sort order (can also be set via LINEAR_ISSUE_SORT)                    (Values: "manual", "priority")                         
   --team               <team>      - Team to list issues for (if not your default team)                                                                           
+  --all-teams                      - Show issues from all teams in the workspace                                                                                  
   --project            <project>   - Filter by project name                                                                                                       
   --limit              <limit>     - Maximum number of issues to fetch (default: 50, use 0 for unlimited)  (Default: 50)                                          
   -w, --web                        - Open in web browser                                                                                                          
