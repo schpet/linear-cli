@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-02-17
+
+### Fixed
+
+- issue start command no longer creates extra commit after describing
+- spinners now properly disabled in non-TTY environments
+- correct API key creation URL in auth login ([#146](https://github.com/schpet/linear-cli/pull/146); thanks @srgfrancisco)
+
+### Changed
+
+- increased sub-issues display limit from 50 to 250 in issue view ([#124](https://github.com/schpet/linear-cli/pull/124); thanks @paymog)
+- attachment view now shows sourceType (e.g., Slack, GitHub) ([#111](https://github.com/schpet/linear-cli/pull/111); thanks @paymog)
+
+### Added
+
+- raw GraphQL API access via new `api` subcommand ([#121](https://github.com/schpet/linear-cli/pull/121); thanks @bendrucker)
+- issue relation command for managing dependencies between issues ([#115](https://github.com/schpet/linear-cli/pull/115); thanks @ztrayner)
+- `--sort-order` flag to milestone update command ([#120](https://github.com/schpet/linear-cli/pull/120); thanks @bendrucker)
+- user-friendly error handling with LINEAR_DEBUG environment variable for troubleshooting
+
 ## [1.9.1] - 2026-01-29
 
 ### Fixed
@@ -366,7 +386,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.9.1...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/schpet/linear-cli/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/schpet/linear-cli/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/schpet/linear-cli/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/schpet/linear-cli/compare/v1.8.0...v1.8.1
