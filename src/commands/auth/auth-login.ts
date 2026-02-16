@@ -45,7 +45,8 @@ export const loginCommand = new Command()
 
       if (!apiKey) {
         throw new ValidationError("No API key provided", {
-          suggestion: "Create one at https://linear.app/settings/account/security",
+          suggestion:
+            "Create one at https://linear.app/settings/account/security",
         })
       }
 
