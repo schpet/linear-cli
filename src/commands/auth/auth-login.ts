@@ -39,13 +39,13 @@ export const loginCommand = new Command()
       if (!apiKey) {
         apiKey = await Secret.prompt({
           message: "Enter your Linear API key",
-          hint: "Create one at https://linear.app/settings/api",
+          hint: "Create one at https://linear.app/settings/account/security",
         })
       }
 
       if (!apiKey) {
         throw new ValidationError("No API key provided", {
-          suggestion: "Create one at https://linear.app/settings/api",
+          suggestion: "Create one at https://linear.app/settings/account/security",
         })
       }
 
