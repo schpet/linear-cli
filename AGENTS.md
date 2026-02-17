@@ -20,6 +20,13 @@
 - never fail silently - if something goes wrong or a lookup fails, throw an error with a helpful message
 - when user-provided input (flags, args) doesn't match expected values, error immediately with guidance on how to fix it
 - avoid falling back to defaults when explicit user input is invalid; explicit input should either work or error
+- use custom error classes from src/utils/errors.ts:
+  - `ValidationError(message, { suggestion })` for bad input
+  - `NotFoundError(entityType, identifier)` for missing entities
+  - `AuthError(message)` for auth issues
+  - `CliError(userMessage, { suggestion, cause })` for others
+- wrap command actions in try-catch with `handleError(error, "Failed to <action>")`
+- errors display clean messages to stderr with ✗ prefix, stack traces only shown when `LINEAR_DEBUG=1`
 
 ## tests
 
