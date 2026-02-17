@@ -150,7 +150,13 @@ After the changelog is released, execute the complete tag process from the justf
    svbump write "$DENO_VERSION" package.version dist-workspace.toml
    ```
 
-3. **Create commit and tag:**
+3. **Regenerate skill documentation:**
+   ```bash
+   # Generate updated skill docs (includes version from deno.json)
+   deno task generate-skill-docs
+   ```
+
+4. **Create commit and tag:**
    ```bash
    # Get the final version
    FINAL_VERSION=$(svbump read version deno.json)
@@ -165,7 +171,7 @@ After the changelog is released, execute the complete tag process from the justf
    jj tag set "v$FINAL_VERSION" -r @-
    ```
 
-4. **Push to remote:**
+5. **Push to remote:**
    ```bash
    # Push the bookmark
    jj git push --bookmark main
@@ -174,7 +180,7 @@ After the changelog is released, execute the complete tag process from the justf
    git push origin --tags
    ```
 
-5. **Report completion:**
+6. **Report completion:**
    ```
    Released v$FINAL_VERSION successfully!
    ```
