@@ -8,7 +8,7 @@ allowed-tools: Bash(linear:*), Bash(curl:*)
 
 A CLI to manage Linear issues from the command line, with git and jj integration.
 
-Generated from linear CLI v1.9.1
+Generated from linear CLI v1.10.0
 
 ## Prerequisites
 

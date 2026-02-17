@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear issue
-Version: 1.9.1       
+Version: 1.10.0      
 
 Description:
 
@@ -44,7 +44,7 @@ Commands:
 
 ```
 Usage:   linear issue id
-Version: 1.9.1          
+Version: 1.10.0         
 
 Description:
 
@@ -62,7 +62,7 @@ Options:
 
 ```
 Usage:   linear issue list
-Version: 1.9.1            
+Version: 1.10.0           
 
 Description:
 
@@ -93,7 +93,7 @@ Options:
 
 ```
 Usage:   linear issue title [issueId]
-Version: 1.9.1                       
+Version: 1.10.0                      
 
 Description:
 
@@ -111,7 +111,7 @@ Options:
 
 ```
 Usage:   linear issue start [issueId]
-Version: 1.9.1                       
+Version: 1.10.0                      
 
 Description:
 
@@ -133,7 +133,7 @@ Options:
 
 ```
 Usage:   linear issue view [issueId]
-Version: 1.9.1                      
+Version: 1.10.0                     
 
 Description:
 
@@ -157,7 +157,7 @@ Options:
 
 ```
 Usage:   linear issue url [issueId]
-Version: 1.9.1                     
+Version: 1.10.0                    
 
 Description:
 
@@ -175,7 +175,7 @@ Options:
 
 ```
 Usage:   linear issue describe [issueId]
-Version: 1.9.1                          
+Version: 1.10.0                         
 
 Description:
 
@@ -194,7 +194,7 @@ Options:
 
 ```
 Usage:   linear issue commits [issueId]
-Version: 1.9.1                         
+Version: 1.10.0                        
 
 Description:
 
@@ -212,7 +212,7 @@ Options:
 
 ```
 Usage:   linear issue pull-request [issueId]
-Version: 1.9.1                              
+Version: 1.10.0                             
 
 Description:
 
@@ -235,7 +235,7 @@ Options:
 
 ```
 Usage:   linear issue delete [issueId]
-Version: 1.9.1                        
+Version: 1.10.0                       
 
 Description:
 
@@ -257,7 +257,7 @@ Options:
 
 ```
 Usage:   linear issue create
-Version: 1.9.1              
+Version: 1.10.0             
 
 Description:
 
@@ -290,7 +290,7 @@ Options:
 
 ```
 Usage:   linear issue update [issueId]
-Version: 1.9.1                        
+Version: 1.10.0                       
 
 Description:
 
@@ -320,7 +320,7 @@ Options:
 
 ```
 Usage:   linear issue comment
-Version: 1.9.1               
+Version: 1.10.0              
 
 Description:
 
@@ -344,7 +344,7 @@ Commands:
 
 ```
 Usage:   linear issue comment add [issueId]
-Version: 1.9.1                             
+Version: 1.10.0                            
 
 Description:
 
@@ -364,7 +364,7 @@ Options:
 
 ```
 Usage:   linear issue comment update <commentId>
-Version: 1.9.1                                  
+Version: 1.10.0                                 
 
 Description:
 
@@ -382,7 +382,7 @@ Options:
 
 ```
 Usage:   linear issue comment list [issueId]
-Version: 1.9.1                              
+Version: 1.10.0                             
 
 Description:
 
@@ -401,7 +401,7 @@ Options:
 
 ```
 Usage:   linear issue attach <issueId> <filepath>
-Version: 1.9.1                                   
+Version: 1.10.0                                  
 
 Description:
 
@@ -421,7 +421,7 @@ Options:
 
 ```
 Usage:   linear issue relation
-Version: 1.9.1                
+Version: 1.10.0               
 
 Description:
 
@@ -445,7 +445,7 @@ Commands:
 
 ```
 Usage:   linear issue relation add <issueId> <relationType> <relatedIssueId>
-Version: 1.9.1                                                              
+Version: 1.10.0                                                             
 
 Description:
 
@@ -468,7 +468,7 @@ Examples:
 
 ```
 Usage:   linear issue relation delete <issueId> <relationType> <relatedIssueId>
-Version: 1.9.1                                                                 
+Version: 1.10.0                                                                
 
 Description:
 
@@ -484,7 +484,7 @@ Options:
 
 ```
 Usage:   linear issue relation list [issueId]
-Version: 1.9.1                               
+Version: 1.10.0                              
 
 Description:
 

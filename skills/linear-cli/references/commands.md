@@ -1,6 +1,6 @@
 # Linear CLI Command Reference
 
-Generated from linear CLI v1.9.1
+Generated from linear CLI v1.10.0
 
 ## Commands
 
