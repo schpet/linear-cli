@@ -27,7 +27,7 @@ jobs:
         run: deno task check
 
       - name: Run tests
-        run: deno task test
+        run: deno task test --ignore=test/keyring.integration.test.ts
 
       - name: Install linear-cli for skill generation
         run: deno task install
@@ -43,3 +43,29 @@ jobs:
             git diff skills/
             exit 1
           fi
+
+  keyring-integration:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+          - os: ubuntu-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Set up Secret Service
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-tools dbus-x11
+          eval "$(dbus-launch --sh-syntax)"
+          echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" >> $GITHUB_ENV
+          echo "test-password" | gnome-keyring-daemon --unlock --components=secrets
+
+      - name: Keyring Integration
+        run: deno task test test/keyring.integration.test.ts
