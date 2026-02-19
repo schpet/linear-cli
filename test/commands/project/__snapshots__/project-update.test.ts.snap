@@ -1,0 +1,53 @@
+export const snapshot = {};
+
+snapshot[`Project Update Command - Help Text 1`] = `
+stdout:
+"
+\\x1b[1mUsage:\\x1b[22m \\x1b[95mupdate \\x1b[33m<\\x1b[95m\\x1b[95mprojectId\\x1b[95m\\x1b[33m>\\x1b[95m\\x1b[39m
+
+\\x1b[1mDescription:\\x1b[22m
+
+  Update a Linear project
+
+\\x1b[1mOptions:\\x1b[22m
+
+  \\x1b[94m-h\\x1b[39m, \\x1b[94m--help\\x1b[39m                        \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Show this help.                                                  
+  \\x1b[94m-n\\x1b[39m, \\x1b[94m--name\\x1b[39m         \\x1b[33m<\\x1b[39m\\x1b[95mname\\x1b[39m\\x1b[33m>\\x1b[39m         \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Project name                                                     
+  \\x1b[94m-d\\x1b[39m, \\x1b[94m--description\\x1b[39m  \\x1b[33m<\\x1b[39m\\x1b[95mdescription\\x1b[39m\\x1b[33m>\\x1b[39m  \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Project description                                              
+  \\x1b[94m-s\\x1b[39m, \\x1b[94m--status\\x1b[39m       \\x1b[33m<\\x1b[39m\\x1b[95mstatus\\x1b[39m\\x1b[33m>\\x1b[39m       \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Status (planned, started, paused, completed, canceled, backlog)  
+  \\x1b[94m-l\\x1b[39m, \\x1b[94m--lead\\x1b[39m         \\x1b[33m<\\x1b[39m\\x1b[95mlead\\x1b[39m\\x1b[33m>\\x1b[39m         \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Project lead (username, email, or @me)                           
+  \\x1b[94m--start-date\\x1b[39m       \\x1b[33m<\\x1b[39m\\x1b[95mstartDate\\x1b[39m\\x1b[33m>\\x1b[39m    \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Start date (YYYY-MM-DD)                                          
+  \\x1b[94m--target-date\\x1b[39m      \\x1b[33m<\\x1b[39m\\x1b[95mtargetDate\\x1b[39m\\x1b[33m>\\x1b[39m   \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Target date (YYYY-MM-DD)                                         
+  \\x1b[94m-t\\x1b[39m, \\x1b[94m--team\\x1b[39m         \\x1b[33m<\\x1b[39m\\x1b[95mteam\\x1b[39m\\x1b[33m>\\x1b[39m         \\x1b[31m\\x1b[1m-\\x1b[22m\\x1b[39m Team key (can be repeated for multiple teams)                    
+
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Update Name 1`] = `
+stdout:
+"✓ Updated project: Updated Project Name
+https://linear.app/test/project/updated-proj
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Update Description 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-desc
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Update Status 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-status
+"
+stderr:
+""
+`;
