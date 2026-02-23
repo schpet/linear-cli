@@ -879,6 +879,54 @@ export async function getTeamMembers(teamKey: string) {
   )
 }
 
+export async function getIssueProjectId(
+  issueIdentifier: string,
+): Promise<string | undefined> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetIssueProjectId($id: String!) {
+      issue(id: $id) {
+        project {
+          id
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { id: issueIdentifier })
+  return data.issue?.project?.id ?? undefined
+}
+
+export async function getMilestoneIdByName(
+  milestoneName: string,
+  projectId: string,
+): Promise<string> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectMilestonesForLookup($projectId: String!) {
+      project(id: $projectId) {
+        projectMilestones {
+          nodes {
+            id
+            name
+          }
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { projectId })
+  if (!data.project) {
+    throw new NotFoundError("Project", projectId)
+  }
+  const milestones = data.project.projectMilestones?.nodes || []
+  const match = milestones.find(
+    (m) => m.name.toLowerCase() === milestoneName.toLowerCase(),
+  )
+  if (!match) {
+    throw new NotFoundError("Milestone", milestoneName)
+  }
+  return match.id
+}
+
 export async function selectOption(
   dataName: string,
   originalValue: string,

@@ -90,6 +90,89 @@ await snapshotTest({
   },
 })
 
+// Test updating an issue with milestone
+await snapshotTest({
+  name: "Issue Update Command - With Milestone",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "ENG-123",
+    "--project",
+    "My Project",
+    "--milestone",
+    "Phase 1",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey()
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getProjectIdByName()
+      {
+        queryName: "GetProjectIdByName",
+        variables: { name: "My Project" },
+        response: {
+          data: {
+            projects: {
+              nodes: [{ id: "project-123" }],
+            },
+          },
+        },
+      },
+      // Mock response for getMilestoneIdByName()
+      {
+        queryName: "GetProjectMilestonesForLookup",
+        variables: { projectId: "project-123" },
+        response: {
+          data: {
+            project: {
+              projectMilestones: {
+                nodes: [
+                  { id: "milestone-1", name: "Phase 1" },
+                  { id: "milestone-2", name: "Phase 2" },
+                ],
+              },
+            },
+          },
+        },
+      },
+      // Mock response for the update issue mutation
+      {
+        queryName: "UpdateIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/test-issue",
+                title: "Test Issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
 // Test updating an issue with case-insensitive label matching
 await snapshotTest({
   name: "Issue Update Command - Case Insensitive Label Matching",

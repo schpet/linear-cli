@@ -5,6 +5,8 @@ import {
   getIssueId,
   getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
+  getIssueProjectId,
+  getMilestoneIdByName,
   getProjectIdByName,
   getTeamIdByKey,
   getWorkflowStateByNameOrType,
@@ -66,6 +68,10 @@ export const updateCommand = new Command()
     "-s, --state <state:string>",
     "Workflow state for the issue (by name or type)",
   )
+  .option(
+    "--milestone <milestone:string>",
+    "Name of the project milestone",
+  )
   .option("-t, --title <title:string>", "Title of the issue")
   .action(
     async (
@@ -81,6 +87,7 @@ export const updateCommand = new Command()
         team,
         project,
         state,
+        milestone,
         title,
       },
       issueIdArg,
@@ -187,6 +194,25 @@ export const updateCommand = new Command()
           }
         }
 
+        let projectMilestoneId: string | undefined
+        if (milestone != null) {
+          const milestoneProjectId = projectId ??
+            await getIssueProjectId(issueId)
+          if (milestoneProjectId == null) {
+            throw new ValidationError(
+              "--milestone requires --project to be set (issue has no existing project)",
+              {
+                suggestion:
+                  "Use --project to specify the project for the milestone.",
+              },
+            )
+          }
+          projectMilestoneId = await getMilestoneIdByName(
+            milestone,
+            milestoneProjectId,
+          )
+        }
+
         // Build the update input object, only including fields that were provided
         const input: Record<string, string | number | string[] | undefined> = {}
 
@@ -212,6 +238,9 @@ export const updateCommand = new Command()
         if (labelIds.length > 0) input.labelIds = labelIds
         if (teamId !== undefined) input.teamId = teamId
         if (projectId !== undefined) input.projectId = projectId
+        if (projectMilestoneId !== undefined) {
+          input.projectMilestoneId = projectMilestoneId
+        }
         if (stateId !== undefined) input.stateId = stateId
 
         spinner?.stop()

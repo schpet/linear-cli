@@ -23,6 +23,7 @@ Options:
   --team              <team>         - Team associated with the issue (if not your default team)      
   --project           <project>      - Name of the project with the issue                             
   -s, --state         <state>        - Workflow state for the issue (by name or type)                 
+  --milestone         <milestone>    - Name of the project milestone                                  
   -t, --title         <title>        - Title of the issue                                             
 
 "
@@ -36,6 +37,17 @@ stdout:
 
 ✓ Updated issue ENG-123: Updated authentication bug fix
 https://linear.app/test-team/issue/ENG-123/updated-authentication-bug-fix
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - With Milestone 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Test Issue
+https://linear.app/test-team/issue/ENG-123/test-issue
 "
 stderr:
 ""

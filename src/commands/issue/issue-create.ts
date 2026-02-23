@@ -12,6 +12,7 @@ import {
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
   getLabelsForTeam,
+  getMilestoneIdByName,
   getProjectIdByName,
   getProjectOptionsByName,
   getTeamIdByKey,
@@ -495,6 +496,10 @@ export const createCommand = new Command()
     "Workflow state for the issue (by name or type)",
   )
   .option(
+    "--milestone <milestone:string>",
+    "Name of the project milestone",
+  )
+  .option(
     "--no-use-default-template",
     "Do not use default template for the issue",
   )
@@ -516,6 +521,7 @@ export const createCommand = new Command()
         team,
         project,
         state,
+        milestone,
         interactive,
         title,
       },
@@ -550,7 +556,7 @@ export const createCommand = new Command()
       const noFlagsProvided = !title && !assignee && !dueDate &&
         priority === undefined && estimate === undefined && !finalDescription &&
         (!labels || labels.length === 0) &&
-        !team && !project && !state && !start
+        !team && !project && !state && !milestone && !start
 
       if (noFlagsProvided && interactive) {
         try {
@@ -738,6 +744,23 @@ export const createCommand = new Command()
           }
         }
 
+        let projectMilestoneId: string | undefined
+        if (milestone != null) {
+          if (projectId == null) {
+            throw new ValidationError(
+              "--milestone requires --project to be set",
+              {
+                suggestion:
+                  "Use --project to specify which project the milestone belongs to.",
+              },
+            )
+          }
+          projectMilestoneId = await getMilestoneIdByName(
+            milestone,
+            projectId,
+          )
+        }
+
         // Date validation done at graphql level
 
         // Convert parent identifier if provided and fetch parent data
@@ -775,6 +798,7 @@ export const createCommand = new Command()
           labelIds,
           teamId: teamId,
           projectId: projectId || parentData?.projectId,
+          projectMilestoneId,
           stateId,
           useDefaultTemplate,
           description: finalDescription,
