@@ -117,7 +117,20 @@ export const viewCommand = new Command()
       }
 
       const { identifier } = issueData
-      let markdown = `# ${identifier}: ${title}${
+
+      // Build metadata line with project and milestone
+      const metaParts: string[] = []
+      if (issueData.project) {
+        metaParts.push(`**Project:** ${issueData.project.name}`)
+      }
+      if (issueData.projectMilestone) {
+        metaParts.push(`**Milestone:** ${issueData.projectMilestone.name}`)
+      }
+      const metaLine = metaParts.length > 0
+        ? "\n\n" + metaParts.join(" | ")
+        : ""
+
+      let markdown = `# ${identifier}: ${title}${metaLine}${
         description ? "\n\n" + description : ""
       }`
 

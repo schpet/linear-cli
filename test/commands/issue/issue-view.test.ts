@@ -48,6 +48,8 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              project: null,
+              projectMilestone: null,
               parent: null,
               children: {
                 nodes: [],
@@ -104,6 +106,8 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              project: null,
+              projectMilestone: null,
               parent: null,
               children: {
                 nodes: [],
@@ -157,6 +161,8 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              project: null,
+              projectMilestone: null,
               parent: null,
               children: {
                 nodes: [],
@@ -355,6 +361,8 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              project: null,
+              projectMilestone: null,
               parent: null,
               children: {
                 nodes: [],
@@ -437,6 +445,8 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              project: null,
+              projectMilestone: null,
               parent: {
                 identifier: "TEST-100",
                 title: "Epic: Security Improvements",
@@ -472,6 +482,64 @@ await snapshotTest({
                     },
                   },
                 ],
+              },
+              attachments: {
+                nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test with project and milestone
+await snapshotTest({
+  name: "Issue View Command - With Project And Milestone",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-789", "--no-comments"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        variables: { id: "TEST-789" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-789",
+              title: "Add monitoring dashboards",
+              description: "Set up Datadog dashboards for the new service.",
+              url:
+                "https://linear.app/test-team/issue/TEST-789/add-monitoring-dashboards",
+              branchName: "feat/test-789-monitoring",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
+              project: {
+                name: "Platform Infrastructure Q1",
+              },
+              projectMilestone: {
+                name: "Phase 2: Observability",
+              },
+              parent: null,
+              children: {
+                nodes: [],
               },
               attachments: {
                 nodes: [],

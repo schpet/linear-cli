@@ -127,6 +127,8 @@ stdout:
     "name": "In Progress",
     "color": "#f87462"
   },
+  "project": null,
+  "projectMilestone": null,
   "parent": null,
   "children": [],
   "comments": [
@@ -179,6 +181,18 @@ Add user authentication to the application.
 - **TEST-458**: Add password reset flow _[Todo]_
 - **TEST-459**: Add OAuth support _[In Progress]_
 
+"
+stderr:
+""
+`;
+
+snapshot[`Issue View Command - With Project And Milestone 1`] = `
+stdout:
+"# TEST-789: Add monitoring dashboards
+
+**Project:** Platform Infrastructure Q1 | **Milestone:** Phase 2: Observability
+
+Set up Datadog dashboards for the new service.
 "
 stderr:
 ""

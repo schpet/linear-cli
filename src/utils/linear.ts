@@ -167,6 +167,8 @@ export async function fetchIssueDetails(
   url: string
   branchName: string
   state: { name: string; color: string }
+  project?: { name: string } | null
+  projectMilestone?: { name: string } | null
   parent?: {
     identifier: string
     title: string
@@ -211,6 +213,12 @@ export async function fetchIssueDetails(
           state {
             name
             color
+          }
+          project {
+            name
+          }
+          projectMilestone {
+            name
           }
           parent {
             identifier
@@ -274,6 +282,12 @@ export async function fetchIssueDetails(
           state {
             name
             color
+          }
+          project {
+            name
+          }
+          projectMilestone {
+            name
           }
           parent {
             identifier
