@@ -126,6 +126,11 @@ export const viewCommand = new Command()
       if (issueData.projectMilestone) {
         metaParts.push(`**Milestone:** ${issueData.projectMilestone.name}`)
       }
+      if (issueData.cycle) {
+        const cycleName = issueData.cycle.name ??
+          `Cycle ${issueData.cycle.number}`
+        metaParts.push(`**Cycle:** ${cycleName}`)
+      }
       const metaLine = metaParts.length > 0
         ? "\n\n" + metaParts.join(" | ")
         : ""

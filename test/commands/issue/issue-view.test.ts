@@ -563,3 +563,63 @@ await snapshotTest({
     }
   },
 })
+
+// Test with cycle
+await snapshotTest({
+  name: "Issue View Command - With Cycle",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-890", "--no-comments"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        variables: { id: "TEST-890" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-890",
+              title: "Implement rate limiting",
+              description: "Add rate limiting to the API gateway.",
+              url:
+                "https://linear.app/test-team/issue/TEST-890/implement-rate-limiting",
+              branchName: "feat/test-890-rate-limiting",
+              state: {
+                name: "Todo",
+                color: "#e2e2e2",
+              },
+              project: {
+                name: "API Gateway v2",
+              },
+              projectMilestone: null,
+              cycle: {
+                name: "Sprint 7",
+                number: 7,
+              },
+              parent: null,
+              children: {
+                nodes: [],
+              },
+              attachments: {
+                nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})

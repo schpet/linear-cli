@@ -259,3 +259,80 @@ await snapshotTest({
     }
   },
 })
+
+// Test creating an issue with cycle
+await snapshotTest({
+  name: "Issue Create Command - With Cycle",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Test cycle feature",
+    "--team",
+    "ENG",
+    "--cycle",
+    "active",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey()
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getCycleIdByNameOrNumber("active")
+      {
+        queryName: "GetTeamCyclesForLookup",
+        variables: { teamId: "team-eng-id" },
+        response: {
+          data: {
+            team: {
+              cycles: {
+                nodes: [
+                  { id: "cycle-1", number: 7, name: "Sprint 7" },
+                  { id: "cycle-2", number: 8, name: "Sprint 8" },
+                ],
+              },
+              activeCycle: { id: "cycle-1", number: 7, name: "Sprint 7" },
+            },
+          },
+        },
+      },
+      // Mock response for the create issue mutation
+      {
+        queryName: "CreateIssue",
+        response: {
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-new-cycle",
+                identifier: "ENG-890",
+                url:
+                  "https://linear.app/test-team/issue/ENG-890/test-cycle-feature",
+                team: {
+                  key: "ENG",
+                },
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})

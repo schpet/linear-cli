@@ -7,6 +7,7 @@ import { getPriorityDisplay } from "../../utils/display.ts"
 import {
   fetchParentIssueData,
   getAllTeams,
+  getCycleIdByNameOrNumber,
   getIssueId,
   getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
@@ -500,6 +501,10 @@ export const createCommand = new Command()
     "Name of the project milestone",
   )
   .option(
+    "--cycle <cycle:string>",
+    "Cycle name, number, or 'active'",
+  )
+  .option(
     "--no-use-default-template",
     "Do not use default template for the issue",
   )
@@ -522,6 +527,7 @@ export const createCommand = new Command()
         project,
         state,
         milestone,
+        cycle,
         interactive,
         title,
       },
@@ -556,7 +562,7 @@ export const createCommand = new Command()
       const noFlagsProvided = !title && !assignee && !dueDate &&
         priority === undefined && estimate === undefined && !finalDescription &&
         (!labels || labels.length === 0) &&
-        !team && !project && !state && !milestone && !start
+        !team && !project && !state && !milestone && !cycle && !start
 
       if (noFlagsProvided && interactive) {
         try {
@@ -761,6 +767,11 @@ export const createCommand = new Command()
           )
         }
 
+        let cycleId: string | undefined
+        if (cycle != null) {
+          cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
+        }
+
         // Date validation done at graphql level
 
         // Convert parent identifier if provided and fetch parent data
@@ -799,6 +810,7 @@ export const createCommand = new Command()
           teamId: teamId,
           projectId: projectId || parentData?.projectId,
           projectMilestoneId,
+          cycleId,
           stateId,
           useDefaultTemplate,
           description: finalDescription,

@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
+  getCycleIdByNameOrNumber,
   getIssueId,
   getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
@@ -72,6 +73,10 @@ export const updateCommand = new Command()
     "--milestone <milestone:string>",
     "Name of the project milestone",
   )
+  .option(
+    "--cycle <cycle:string>",
+    "Cycle name, number, or 'active'",
+  )
   .option("-t, --title <title:string>", "Title of the issue")
   .action(
     async (
@@ -88,6 +93,7 @@ export const updateCommand = new Command()
         project,
         state,
         milestone,
+        cycle,
         title,
       },
       issueIdArg,
@@ -213,6 +219,11 @@ export const updateCommand = new Command()
           )
         }
 
+        let cycleId: string | undefined
+        if (cycle != null) {
+          cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
+        }
+
         // Build the update input object, only including fields that were provided
         const input: Record<string, string | number | string[] | undefined> = {}
 
@@ -241,6 +252,7 @@ export const updateCommand = new Command()
         if (projectMilestoneId !== undefined) {
           input.projectMilestoneId = projectMilestoneId
         }
+        if (cycleId !== undefined) input.cycleId = cycleId
         if (stateId !== undefined) input.stateId = stateId
 
         spinner?.stop()

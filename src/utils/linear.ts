@@ -169,6 +169,7 @@ export async function fetchIssueDetails(
   state: { name: string; color: string }
   project?: { name: string } | null
   projectMilestone?: { name: string } | null
+  cycle?: { name?: string | null; number: number } | null
   parent?: {
     identifier: string
     title: string
@@ -219,6 +220,10 @@ export async function fetchIssueDetails(
           }
           projectMilestone {
             name
+          }
+          cycle {
+            name
+            number
           }
           parent {
             identifier
@@ -288,6 +293,10 @@ export async function fetchIssueDetails(
           }
           projectMilestone {
             name
+          }
+          cycle {
+            name
+            number
           }
           parent {
             identifier
@@ -937,6 +946,54 @@ export async function getMilestoneIdByName(
   )
   if (!match) {
     throw new NotFoundError("Milestone", milestoneName)
+  }
+  return match.id
+}
+
+export async function getCycleIdByNameOrNumber(
+  cycleNameOrNumber: string,
+  teamId: string,
+): Promise<string> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetTeamCyclesForLookup($teamId: String!) {
+      team(id: $teamId) {
+        cycles {
+          nodes {
+            id
+            number
+            name
+          }
+        }
+        activeCycle {
+          id
+          number
+          name
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { teamId })
+  if (!data.team) {
+    throw new NotFoundError("Team", teamId)
+  }
+
+  if (cycleNameOrNumber.toLowerCase() === "active") {
+    if (!data.team.activeCycle) {
+      throw new NotFoundError("Active cycle", teamId)
+    }
+    return data.team.activeCycle.id
+  }
+
+  const cycles = data.team.cycles?.nodes || []
+  const match = cycles.find(
+    (c) =>
+      (c.name != null &&
+        c.name.toLowerCase() === cycleNameOrNumber.toLowerCase()) ||
+      String(c.number) === cycleNameOrNumber,
+  )
+  if (!match) {
+    throw new NotFoundError("Cycle", cycleNameOrNumber)
   }
   return match.id
 }

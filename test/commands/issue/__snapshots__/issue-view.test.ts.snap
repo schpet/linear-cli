@@ -197,3 +197,15 @@ Set up Datadog dashboards for the new service.
 stderr:
 ""
 `;
+
+snapshot[`Issue View Command - With Cycle 1`] = `
+stdout:
+"# TEST-890: Implement rate limiting
+
+**Project:** API Gateway v2 | **Cycle:** Sprint 7
+
+Add rate limiting to the API gateway.
+"
+stderr:
+""
+`;

@@ -239,3 +239,73 @@ await snapshotTest({
     }
   },
 })
+
+// Test updating an issue with cycle
+await snapshotTest({
+  name: "Issue Update Command - With Cycle",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "ENG-123",
+    "--cycle",
+    "Sprint 7",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey()
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getCycleIdByNameOrNumber()
+      {
+        queryName: "GetTeamCyclesForLookup",
+        variables: { teamId: "team-eng-id" },
+        response: {
+          data: {
+            team: {
+              cycles: {
+                nodes: [
+                  { id: "cycle-1", number: 7, name: "Sprint 7" },
+                  { id: "cycle-2", number: 8, name: "Sprint 8" },
+                ],
+              },
+              activeCycle: { id: "cycle-1", number: 7, name: "Sprint 7" },
+            },
+          },
+        },
+      },
+      // Mock response for the update issue mutation
+      {
+        queryName: "UpdateIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/test-issue",
+                title: "Test Issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})

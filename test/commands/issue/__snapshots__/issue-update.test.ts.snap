@@ -24,6 +24,7 @@ Options:
   --project           <project>      - Name of the project with the issue                             
   -s, --state         <state>        - Workflow state for the issue (by name or type)                 
   --milestone         <milestone>    - Name of the project milestone                                  
+  --cycle             <cycle>        - Cycle name, number, or 'active'                                
   -t, --title         <title>        - Title of the issue                                             
 
 "
@@ -54,6 +55,17 @@ stderr:
 `;
 
 snapshot[`Issue Update Command - Case Insensitive Label Matching 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Test Issue
+https://linear.app/test-team/issue/ENG-123/test-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - With Cycle 1`] = `
 stdout:
 "Updating issue ENG-123
 
