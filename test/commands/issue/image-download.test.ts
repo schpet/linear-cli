@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert"
 import {
   extractImageInfo,
+  extractLinearLinkInfo,
   getUrlHash,
   replaceImageUrls,
 } from "../../../src/commands/issue/issue-view.ts"
@@ -107,6 +108,25 @@ Deno.test("replaceImageUrls - handles empty map", async () => {
   const urlToPath = new Map<string, string>()
   const result = await replaceImageUrls(markdown, urlToPath)
   assertEquals(result.includes("https://example.com/img.png"), true)
+})
+
+Deno.test("extractLinearLinkInfo - extracts Linear upload links", () => {
+  const md = "See [file](https://uploads.linear.app/abc/doc.pdf)"
+  const links = extractLinearLinkInfo(md)
+  assertEquals(links.length, 1)
+  assertEquals(links[0].url, "https://uploads.linear.app/abc/doc.pdf")
+})
+
+Deno.test("extractLinearLinkInfo - ignores spoofed domain in path", () => {
+  const md = "See [file](https://example.com/uploads.linear.app/doc.pdf)"
+  const links = extractLinearLinkInfo(md)
+  assertEquals(links.length, 0)
+})
+
+Deno.test("extractLinearLinkInfo - ignores spoofed subdomain", () => {
+  const md = "See [file](https://uploads.linear.app.example.com/doc.pdf)"
+  const links = extractLinearLinkInfo(md)
+  assertEquals(links.length, 0)
 })
 
 // Hyperlink utility tests
