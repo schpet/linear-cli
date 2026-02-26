@@ -8,6 +8,7 @@ import type {
 } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay } from "../../utils/display.ts"
+import { LINEAR_WEB_BASE_URL } from "../../const.ts"
 import { getTeamKey } from "../../utils/linear.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
@@ -88,8 +89,8 @@ export const listCommand = new Command()
       // Determine team to filter by for URL construction
       const teamKey = allTeams ? null : (team?.toUpperCase() || getTeamKey())
       const url = teamKey
-        ? `https://linear.app/${workspace}/team/${teamKey}/projects/all`
-        : `https://linear.app/${workspace}/projects/all`
+        ? `${LINEAR_WEB_BASE_URL}/${workspace}/team/${teamKey}/projects/all`
+        : `${LINEAR_WEB_BASE_URL}/${workspace}/projects/all`
       const destination = app ? "Linear.app" : "web browser"
       console.log(`Opening ${url} in ${destination}`)
       await open(url, app ? { app: { name: "Linear" } } : undefined)

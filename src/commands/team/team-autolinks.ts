@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { getTeamKey } from "../../utils/linear.ts"
 import { getOption } from "../../config.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import { LINEAR_WEB_BASE_URL } from "../../const.ts"
 
 export const autolinksCommand = new Command()
   .name("autolinks")
@@ -32,7 +33,7 @@ export const autolinksCommand = new Command()
           "-f",
           `key_prefix=${teamId}-`,
           "-f",
-          `url_template=https://linear.app/${workspace}/issue/${teamId}-<num>`,
+          `url_template=${LINEAR_WEB_BASE_URL}/${workspace}/issue/${teamId}-<num>`,
         ],
         stdin: "inherit",
         stdout: "inherit",

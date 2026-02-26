@@ -9,6 +9,7 @@ import {
 import { getOption } from "../config.ts"
 import { encodeBase64 } from "@std/encoding/base64"
 import { getNoIssueFoundMessage, startVcsWork } from "./vcs.ts"
+import { LINEAR_WEB_BASE_URL } from "../const.ts"
 
 export async function openIssuePage(
   providedId?: string,
@@ -28,7 +29,7 @@ export async function openIssuePage(
     Deno.exit(1)
   }
 
-  const url = `https://linear.app/${workspace}/issue/${issueId}`
+  const url = `${LINEAR_WEB_BASE_URL}/${workspace}/issue/${issueId}`
   const destination = options.app ? "Linear.app" : "web browser"
   console.log(`Opening ${url} in ${destination}`)
   await open(url, options.app ? { app: { name: "Linear" } } : undefined)
@@ -46,7 +47,7 @@ export async function openProjectPage(
     Deno.exit(1)
   }
 
-  const url = `https://linear.app/${workspace}/project/${projectId}`
+  const url = `${LINEAR_WEB_BASE_URL}/${workspace}/project/${projectId}`
   const destination = options.app ? "Linear.app" : "web browser"
   console.log(`Opening ${url} in ${destination}`)
   await open(url, options.app ? { app: { name: "Linear" } } : undefined)
@@ -74,7 +75,7 @@ export async function openTeamAssigneeView(options: { app?: boolean } = {}) {
   }
   const filter = encodeBase64(JSON.stringify(filterObj)).replace(/=/g, "")
   const url =
-    `https://linear.app/${workspace}/team/${teamId}/active?filter=${filter}`
+    `${LINEAR_WEB_BASE_URL}/${workspace}/team/${teamId}/active?filter=${filter}`
   await open(url, options.app ? { app: { name: "Linear" } } : undefined)
 }
 
