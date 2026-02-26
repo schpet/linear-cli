@@ -6,6 +6,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay, truncateText } from "../../utils/display.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { LINEAR_WEB_BASE_URL } from "../../const.ts"
 import {
   handleError,
   NotFoundError,
@@ -100,7 +101,7 @@ export const listCommand = new Command()
         workspace = result.viewer.organization.urlKey
       }
 
-      const url = `https://linear.app/${workspace}/initiatives`
+      const url = `${LINEAR_WEB_BASE_URL}/${workspace}/initiatives`
       const destination = app ? "Linear.app" : "web browser"
       console.log(`Opening ${url} in ${destination}`)
       await open(url, app ? { app: { name: "Linear" } } : undefined)

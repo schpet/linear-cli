@@ -8,6 +8,7 @@ import { getTimeAgo, padDisplay } from "../../utils/display.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { handleError, ValidationError } from "../../utils/errors.ts"
+import { LINEAR_WEB_BASE_URL } from "../../const.ts"
 
 const GetTeams = gql(`
   query GetTeams($filter: TeamFilter, $first: Int, $after: String) {
@@ -55,7 +56,7 @@ export const listCommand = new Command()
           )
         }
 
-        const url = `https://linear.app/${workspace}/settings/teams`
+        const url = `${LINEAR_WEB_BASE_URL}/${workspace}/settings/teams`
         const destination = app ? "Linear.app" : "web browser"
         console.log(`Opening ${url} in ${destination}`)
         await open(url, app ? { app: { name: "Linear" } } : undefined)

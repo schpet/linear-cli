@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { handleError } from "../../utils/errors.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { LINEAR_WEB_BASE_URL } from "../../const.ts"
 
 const viewerQuery = gql(`
   query AuthStatus {
@@ -33,7 +34,7 @@ export const whoamiCommand = new Command()
 
       console.log(`Workspace: ${org.name}`)
       console.log(`  Slug: ${org.urlKey}`)
-      console.log(`  URL: https://linear.app/${org.urlKey}`)
+      console.log(`  URL: ${LINEAR_WEB_BASE_URL}/${org.urlKey}`)
 
       console.log(`User: ${viewer.name}`)
       if (viewer.displayName !== viewer.name) {
