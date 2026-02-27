@@ -117,9 +117,6 @@ const addRelationCommand = new Command()
             success
             issueRelation {
               id
-              type
-              issue { identifier }
-              relatedIssue { identifier }
             }
           }
         }
@@ -140,10 +137,9 @@ const addRelationCommand = new Command()
         throw new Error("Failed to create relation")
       }
 
-      const relation = data.issueRelationCreate.issueRelation
-      if (relation) {
+      if (data.issueRelationCreate.issueRelation) {
         console.log(
-          `✓ Created relation: ${relation.issue.identifier} ${relationType} ${relation.relatedIssue.identifier}`,
+          `✓ Created relation: ${issueIdentifier} ${relationType} ${relatedIssueIdentifier}`,
         )
       }
     } catch (error) {
