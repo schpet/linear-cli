@@ -490,7 +490,7 @@ export const createCommand = new Command()
   )
   .option(
     "--project <project:string>",
-    "Name of the project with the issue",
+    "Name or slug ID of the project with the issue",
   )
   .option(
     "-s, --state <state:string>",

@@ -563,7 +563,24 @@ export async function getProjectIdByName(
     }
   `)
   const data = await client.request(query, { name })
-  return data.projects?.nodes[0]?.id
+  const projectId = data.projects?.nodes[0]?.id
+  if (projectId) return projectId
+
+  // Fall back to matching by slugId (the 12-char hex string visible in
+  // `project list` output and Linear URLs). This provides a reliable
+  // alternative when project names contain special characters that the
+  // exact-match name filter doesn't handle well.
+  const slugQuery = gql(/* GraphQL */ `
+    query GetProjectIdBySlugId($slugId: String!) {
+      projects(filter: { slugId: { eq: $slugId } }) {
+        nodes {
+          id
+        }
+      }
+    }
+  `)
+  const slugData = await client.request(slugQuery, { slugId: name })
+  return slugData.projects?.nodes[0]?.id
 }
 
 export async function resolveProjectId(
