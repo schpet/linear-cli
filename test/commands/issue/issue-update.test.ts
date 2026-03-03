@@ -240,6 +240,72 @@ await snapshotTest({
   },
 })
 
+// Test that -p is priority (not parent), resolving the flag conflict
+await snapshotTest({
+  name: "Issue Update Command - Short Flag -p Is Priority",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "ENG-123",
+    "-p",
+    "2",
+    "--parent",
+    "ENG-220",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey()
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getIssueId("ENG-220") - resolves parent identifier to ID
+      {
+        queryName: "GetIssueId",
+        variables: { id: "ENG-220" },
+        response: {
+          data: {
+            issue: {
+              id: "parent-issue-id",
+            },
+          },
+        },
+      },
+      // Mock response for the update issue mutation
+      {
+        queryName: "UpdateIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/test-issue",
+                title: "Test Issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
 // Test updating an issue with cycle
 await snapshotTest({
   name: "Issue Update Command - With Cycle",
