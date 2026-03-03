@@ -33,11 +33,11 @@ export const updateCommand = new Command()
     "Due date of the issue",
   )
   .option(
-    "-p, --parent <parent:string>",
+    "--parent <parent:string>",
     "Parent issue (if any) as a team_number code",
   )
   .option(
-    "--priority <priority:number>",
+    "-p, --priority <priority:number>",
     "Priority of the issue (1-4, descending priority)",
   )
   .option(

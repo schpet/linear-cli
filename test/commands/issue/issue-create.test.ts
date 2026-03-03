@@ -260,6 +260,93 @@ await snapshotTest({
   },
 })
 
+// Test that -p is priority (not parent), resolving the flag conflict
+await snapshotTest({
+  name: "Issue Create Command - Short Flag -p Is Priority",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Test priority flag",
+    "--team",
+    "ENG",
+    "-p",
+    "2",
+    "--parent",
+    "ENG-220",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey()
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getIssueId("ENG-220") - resolves parent identifier to ID
+      {
+        queryName: "GetIssueId",
+        variables: { id: "ENG-220" },
+        response: {
+          data: {
+            issue: {
+              id: "parent-issue-id",
+            },
+          },
+        },
+      },
+      // Mock response for fetchParentIssueData("parent-issue-id")
+      {
+        queryName: "GetParentIssueData",
+        variables: { id: "parent-issue-id" },
+        response: {
+          data: {
+            issue: {
+              title: "Parent Issue",
+              identifier: "ENG-220",
+              project: null,
+            },
+          },
+        },
+      },
+      // Mock response for the create issue mutation
+      {
+        queryName: "CreateIssue",
+        response: {
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-new-priority",
+                identifier: "ENG-999",
+                url:
+                  "https://linear.app/test-team/issue/ENG-999/test-priority-flag",
+                team: {
+                  key: "ENG",
+                },
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
 // Test creating an issue with cycle
 await snapshotTest({
   name: "Issue Create Command - With Cycle",
