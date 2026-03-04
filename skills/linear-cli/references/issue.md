@@ -338,6 +338,7 @@ Options:
 Commands:
 
   add     [issueId]    - Add a comment to an issue or reply to a comment
+  delete  <commentId>  - Delete a comment                               
   update  <commentId>  - Update an existing comment                     
   list    [issueId]    - List comments for an issue
 ```
@@ -362,6 +363,22 @@ Options:
   --body-file      <path>      - Read comment body from a file (preferred for markdown content)  
   -p, --parent     <id>        - Parent comment ID for replies                                   
   -a, --attach     <filepath>  - Attach a file to the comment (can be used multiple times)
+```
+
+##### delete
+
+```
+Usage:   linear issue comment delete <commentId>
+Version: 1.10.0                                 
+
+Description:
+
+  Delete a comment
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ##### update
