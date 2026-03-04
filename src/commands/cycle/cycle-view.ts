@@ -141,6 +141,8 @@ export const viewCommand = new Command()
         const backlog = issuesByState.backlog || 0
         const triage = issuesByState.triage || 0
 
+        const pct = Math.round((completed / total) * 100)
+        lines.push(`**Progress:** ${completed}/${total} (${pct}%)`)
         lines.push(`**Total Issues:** ${total}`)
         if (completed > 0) lines.push(`**Completed:** ${completed}`)
         if (started > 0) lines.push(`**In Progress:** ${started}`)

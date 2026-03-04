@@ -130,15 +130,21 @@ export const listCommand = new Command()
           : padDisplay(name, nameWidth)
 
         const status = getCycleStatus(cycle)
-        const statusDisplay = status === "Active"
-          ? green(padDisplay(status, STATUS_WIDTH))
-          : padDisplay(status, STATUS_WIDTH)
+        const statusStr = padDisplay(status, STATUS_WIDTH)
+        let statusDisplay: string
+        if (cycle.isActive) {
+          statusDisplay = green(statusStr)
+        } else if (cycle.isPast || cycle.completedAt != null) {
+          statusDisplay = muted(statusStr)
+        } else {
+          statusDisplay = statusStr
+        }
 
         const line = `${
           padDisplay(String(cycle.number), NUMBER_WIDTH)
         } ${truncName} ${padDisplay(formatDate(cycle.startsAt), START_WIDTH)} ${
           padDisplay(formatDate(cycle.endsAt), END_WIDTH)
-        } ${cycle.isActive ? statusDisplay : muted(statusDisplay)}`
+        } ${statusDisplay}`
         console.log(line)
       }
     } catch (error) {
