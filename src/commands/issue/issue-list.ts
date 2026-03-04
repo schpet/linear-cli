@@ -10,8 +10,10 @@ import {
 } from "../../utils/display.ts"
 import {
   fetchIssuesForState,
+  getCycleIdByNameOrNumber,
   getProjectIdByName,
   getProjectOptionsByName,
+  getTeamIdByKey,
   getTeamKey,
   selectOption,
 } from "../../utils/linear.ts"
@@ -80,6 +82,10 @@ export const listCommand = new Command()
     "Filter by project name",
   )
   .option(
+    "--cycle <cycle:string>",
+    "Filter by cycle name, number, or 'active'",
+  )
+  .option(
     "--limit <limit:number>",
     "Maximum number of issues to fetch (default: 50, use 0 for unlimited)",
     {
@@ -102,6 +108,7 @@ export const listCommand = new Command()
         allStates,
         team,
         project,
+        cycle,
         limit,
         pager,
       },
@@ -169,6 +176,15 @@ export const listCommand = new Command()
           }
         }
 
+        let cycleId: string | undefined
+        if (cycle != null) {
+          const teamId = await getTeamIdByKey(teamKey)
+          if (!teamId) {
+            throw new NotFoundError("Team", teamKey)
+          }
+          cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
+        }
+
         const { Spinner } = await import("@std/cli/unstable-spinner")
         const showSpinner = shouldShowSpinner()
         const spinner = showSpinner ? new Spinner() : null
@@ -183,6 +199,7 @@ export const listCommand = new Command()
           limit === 0 ? undefined : limit,
           projectId,
           sort,
+          cycleId,
         )
         spinner?.stop()
         const issues = result.issues?.nodes || []

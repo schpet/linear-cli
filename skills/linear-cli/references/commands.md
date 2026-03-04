@@ -9,6 +9,7 @@ Generated from linear CLI v1.10.0
 - [team](./team.md) - Manage Linear teams
 - [project](./project.md) - Manage Linear projects
 - [project-update](./project-update.md) - Manage project status updates
+- [cycle](./cycle.md) - Manage Linear team cycles
 - [milestone](./milestone.md) - Manage Linear project milestones
 - [initiative](./initiative.md) - Manage Linear initiatives
 - [initiative-update](./initiative-update.md) - Manage initiative status updates (timeline posts)

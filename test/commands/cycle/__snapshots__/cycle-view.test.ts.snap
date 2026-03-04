@@ -1,0 +1,118 @@
+export const snapshot = {};
+
+snapshot[`Cycle View Command - Help Text 1`] = `
+stdout:
+"
+Usage: view <cycleRef>
+
+Description:
+
+  View cycle details
+
+Options:
+
+  -h, --help          - Show this help.                      
+  --team      <team>  - Team key (defaults to current team)  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle View Command - Active Cycle With Issues 1`] = `
+stdout:
+"# Sprint 13
+
+**Number:** 13
+**Start:** 2026-02-24
+**End:** 2026-03-10
+**Status:** Active
+**Team:** Engineering (ENG)
+
+**Created:** 1/1/2020
+**Updated:** 1/15/2020
+
+## Description
+
+Focus on performance improvements
+
+## Issues
+
+**Progress:** 1/3 (33%)
+**Total Issues:** 3
+**Completed:** 1
+**In Progress:** 1
+**To Do:** 1
+
+**Issues:**
+
+- ENG-412: Fix auth token refresh (In Progress)
+- ENG-398: Add dark mode toggle (Todo)
+- ENG-401: Update onboarding flow (Done)
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle View Command - Cycle With No Issues 1`] = `
+stdout:
+"# Sprint 14
+
+**Number:** 14
+**Start:** 2026-03-10
+**End:** 2026-03-24
+**Status:** Upcoming
+**Team:** Engineering (ENG)
+
+**Created:** 1/1/2020
+**Updated:** 1/1/2020
+
+_No issues in this cycle yet._
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle View Command - Many Issues Truncated 1`] = `
+stdout:
+"# Sprint 12
+
+**Number:** 12
+**Start:** 2026-02-10
+**End:** 2026-02-24
+**Status:** Completed
+**Team:** Engineering (ENG)
+
+**Created:** 1/1/2020
+**Updated:** 1/20/2020
+
+## Description
+
+Completed sprint
+
+## Issues
+
+**Progress:** 8/15 (53%)
+**Total Issues:** 15
+**Completed:** 8
+**In Progress:** 4
+**To Do:** 3
+
+**Issues:**
+
+- ENG-100: Task 1 (Done)
+- ENG-101: Task 2 (Done)
+- ENG-102: Task 3 (Done)
+- ENG-103: Task 4 (Done)
+- ENG-104: Task 5 (Done)
+- ENG-105: Task 6 (Done)
+- ENG-106: Task 7 (Done)
+- ENG-107: Task 8 (Done)
+- ENG-108: Task 9 (In Progress)
+- ENG-109: Task 10 (In Progress)
+
+_...and 5 more issues_
+"
+stderr:
+""
+`;
