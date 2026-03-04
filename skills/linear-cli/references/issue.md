@@ -81,6 +81,7 @@ Options:
   --sort               <sort>      - Sort order (can also be set via LINEAR_ISSUE_SORT)                    (Values: "manual", "priority")                         
   --team               <team>      - Team to list issues for (if not your default team)                                                                           
   --project            <project>   - Filter by project name                                                                                                       
+  --cycle              <cycle>     - Filter by cycle name, number, or 'active'                                                                                    
   --limit              <limit>     - Maximum number of issues to fetch (default: 50, use 0 for unlimited)  (Default: 50)                                          
   -w, --web                        - Open in web browser                                                                                                          
   -a, --app                        - Open in Linear.app                                                                                                           

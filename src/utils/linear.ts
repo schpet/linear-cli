@@ -420,6 +420,7 @@ export async function fetchIssuesForState(
   limit?: number,
   projectId?: string,
   sortParam?: "manual" | "priority",
+  cycleId?: string,
 ) {
   const sort = sortParam ??
     getOption("issue_sort") as "manual" | "priority" | undefined
@@ -457,6 +458,10 @@ export async function fetchIssuesForState(
 
   if (projectId) {
     filter.project = { id: { eq: projectId } }
+  }
+
+  if (cycleId) {
+    filter.cycle = { id: { eq: cycleId } }
   }
 
   const query = gql(/* GraphQL */ `
