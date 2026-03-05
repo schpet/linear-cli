@@ -83,33 +83,33 @@ export const updateCommand = new Command()
       },
       projectId,
     ) => {
-      if (
-        !name && description == null && !status && !lead &&
-        !startDate && !targetDate && (!teams || teams.length === 0)
-      ) {
-        throw new ValidationError(
-          "At least one update option must be provided",
-          {
-            suggestion:
-              "Use --name, --description, --status, --lead, --start-date, --target-date, or --team",
-          },
-        )
-      }
-
-      if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
-        throw new ValidationError("Start date must be in YYYY-MM-DD format")
-      }
-
-      if (targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-        throw new ValidationError("Target date must be in YYYY-MM-DD format")
-      }
-
       const { Spinner } = await import("@std/cli/unstable-spinner")
       const showSpinner = shouldShowSpinner()
       const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
 
       try {
+        if (
+          !name && description == null && !status && !lead &&
+          !startDate && !targetDate && (!teams || teams.length === 0)
+        ) {
+          throw new ValidationError(
+            "At least one update option must be provided",
+            {
+              suggestion:
+                "Use --name, --description, --status, --lead, --start-date, --target-date, or --team",
+            },
+          )
+        }
+
+        if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+          throw new ValidationError("Start date must be in YYYY-MM-DD format")
+        }
+
+        if (targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+          throw new ValidationError("Target date must be in YYYY-MM-DD format")
+        }
+
+        spinner?.start()
         const client = getGraphQLClient()
         const resolvedId = await resolveProjectId(projectId)
 
