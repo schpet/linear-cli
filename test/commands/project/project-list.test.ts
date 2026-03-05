@@ -200,6 +200,119 @@ await cliffySnapshotTest({
   },
 })
 
+// Test with empty projects list and --json
+await cliffySnapshotTest({
+  name: "Project List Command - No Projects Found JSON",
+  meta: import.meta,
+  colors: false,
+  args: ["--all-teams", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetProjects",
+        variables: { filter: undefined, first: 100, after: undefined },
+        response: {
+          data: {
+            projects: {
+              nodes: [],
+              pageInfo: {
+                hasNextPage: false,
+                endCursor: null,
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await listCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test with projects and --json
+await cliffySnapshotTest({
+  name: "Project List Command - With JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["--all-teams", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetProjects",
+        variables: { filter: undefined, first: 100, after: undefined },
+        response: {
+          data: {
+            projects: {
+              nodes: [
+                {
+                  id: "project-json-1",
+                  name: "JSON Test Project",
+                  description: "A project for JSON output",
+                  slugId: "json-proj",
+                  icon: null,
+                  color: "#3b82f6",
+                  status: {
+                    id: "status-1",
+                    name: "In Progress",
+                    color: "#f59e0b",
+                    type: "started",
+                  },
+                  lead: {
+                    name: "test.user",
+                    displayName: "Test User",
+                    initials: "TU",
+                  },
+                  priority: 2,
+                  health: "onTrack",
+                  startDate: "2024-01-15",
+                  targetDate: "2024-03-30",
+                  startedAt: "2024-01-16T09:00:00Z",
+                  completedAt: null,
+                  canceledAt: null,
+                  createdAt: "2024-01-10T10:00:00Z",
+                  updatedAt: "2024-01-20T15:30:00Z",
+                  url: "https://linear.app/test/project/json-proj",
+                  teams: {
+                    nodes: [{ key: "ENG" }],
+                  },
+                },
+              ],
+              pageInfo: {
+                hasNextPage: false,
+                endCursor: null,
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await listCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
 // Test pagination - multiple pages
 await snapshotTest({
   name: "Project List Command - Pagination (Multiple Pages)",
