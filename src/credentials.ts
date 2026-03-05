@@ -2,12 +2,7 @@ import { parse, stringify } from "@std/toml"
 import { dirname, join } from "@std/path"
 import { ensureDir } from "@std/fs"
 import { yellow } from "@std/fmt/colors"
-import {
-  deletePassword,
-  getPassword,
-  isKeyringAvailable,
-  setPassword,
-} from "./keyring/index.ts"
+import { deletePassword, getPassword, setPassword } from "./keyring/index.ts"
 
 function errorDetail(error: unknown): string {
   return error instanceof Error ? error.message : String(error)

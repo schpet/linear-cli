@@ -23,9 +23,7 @@ async function security(...args: string[]) {
 }
 
 export const macosBackend: KeyringBackend = {
-  async isAvailable() {
-    return true
-  },
+  isAvailable: () => Promise.resolve(true),
 
   async get(account) {
     const result = await security(

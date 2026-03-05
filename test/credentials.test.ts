@@ -19,9 +19,10 @@ function mockBackendAndImport(imports: string): string {
 import { _setBackend } from "${keyringUrl}";
 const _store = new Map<string, string>();
 _setBackend({
-  get(account: string) { return Promise.resolve(_store.get(account) ?? null) },
-  set(account: string, password: string) { _store.set(account, password); return Promise.resolve() },
-  delete(account: string) { _store.delete(account); return Promise.resolve() },
+  async get(account: string) { return _store.get(account) ?? null },
+  async set(account: string, password: string) { _store.set(account, password) },
+  async delete(account: string) { _store.delete(account) },
+  async isAvailable() { return true },
 });
 const { ${imports} } = await import("${credentialsUrl}");
 `
@@ -456,9 +457,10 @@ Deno.test("credentials - addCredential throws when keyring write fails", async (
     const code = `
 import { _setBackend } from "${keyringUrl}";
 _setBackend({
-  get(_account: string) { return Promise.resolve(null) },
-  set(_account: string, _password: string) { return Promise.reject(new Error("keyring locked")) },
-  delete(_account: string) { return Promise.resolve() },
+  async get(_account: string) { return null },
+  async set(_account: string, _password: string) { throw new Error("keyring locked") },
+  async delete(_account: string) {},
+  async isAvailable() { return true },
 });
 const { addCredential, getWorkspaces, getCredentialApiKey } = await import("${credentialsUrl}");
 try {
@@ -497,12 +499,13 @@ Deno.test("credentials - loadCredentials warns but continues when keyring fails 
     const code = `
 import { _setBackend } from "${keyringUrl}";
 _setBackend({
-  get(account: string) {
-    if (account === "ws-fail") return Promise.reject(new Error("keyring error"));
-    return Promise.resolve("lin_api_ok");
+  async get(account: string) {
+    if (account === "ws-fail") throw new Error("keyring error");
+    return "lin_api_ok";
   },
-  set(_a: string, _p: string) { return Promise.resolve() },
-  delete(_a: string) { return Promise.resolve() },
+  async set(_a: string, _p: string) {},
+  async delete(_a: string) {},
+  async isAvailable() { return true },
 });
 const { getWorkspaces, getCredentialApiKey } = await import("${credentialsUrl}");
 console.log(JSON.stringify({
@@ -530,9 +533,10 @@ Deno.test("credentials - removeCredential throws when keyring delete fails", asy
 import { _setBackend } from "${keyringUrl}";
 const _store = new Map<string, string>();
 _setBackend({
-  get(account: string) { return Promise.resolve(_store.get(account) ?? null) },
-  set(account: string, password: string) { _store.set(account, password); return Promise.resolve() },
-  delete(_account: string) { return Promise.reject(new Error("keyring locked")) },
+  async get(account: string) { return _store.get(account) ?? null },
+  async set(account: string, password: string) { _store.set(account, password) },
+  async delete(_account: string) { throw new Error("keyring locked") },
+  async isAvailable() { return true },
 });
 const { addCredential, removeCredential, getWorkspaces, getCredentialApiKey } = await import("${credentialsUrl}");
 await addCredential("ws", "lin_api_key");
@@ -572,12 +576,13 @@ Deno.test("credentials - loadCredentials warns when keyring returns null for wor
     const code = `
 import { _setBackend } from "${keyringUrl}";
 _setBackend({
-  get(account: string) {
-    if (account === "ws-missing") return Promise.resolve(null);
-    return Promise.resolve("lin_api_a");
+  async get(account: string) {
+    if (account === "ws-missing") return null;
+    return "lin_api_a";
   },
-  set(_a: string, _p: string) { return Promise.resolve() },
-  delete(_a: string) { return Promise.resolve() },
+  async set(_a: string, _p: string) {},
+  async delete(_a: string) {},
+  async isAvailable() { return true },
 });
 const { getWorkspaces, getCredentialApiKey } = await import("${credentialsUrl}");
 console.log(JSON.stringify({
@@ -644,9 +649,10 @@ Deno.test("credentials - dangling default is dropped on load", async () => {
     const code = `
 import { _setBackend } from "${keyringUrl}";
 _setBackend({
-  get(_account: string) { return Promise.resolve("lin_api_real") },
-  set(_a: string, _p: string) { return Promise.resolve() },
-  delete(_a: string) { return Promise.resolve() },
+  async get(_account: string) { return "lin_api_real" },
+  async set(_a: string, _p: string) {},
+  async delete(_a: string) {},
+  async isAvailable() { return true },
 });
 const { getDefaultWorkspace, getWorkspaces } = await import("${credentialsUrl}");
 console.log(JSON.stringify({
@@ -659,6 +665,112 @@ console.log(JSON.stringify({
     const result = JSON.parse(output)
     assertEquals(result.default, "undefined")
     assertEquals(result.workspaces, ["real"])
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("credentials - loading inline credentials does not print warning to stderr", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const configDir = `${tempDir}/linear`
+    await Deno.mkdir(configDir, { recursive: true })
+    await Deno.writeTextFile(
+      `${configDir}/credentials.toml`,
+      `default = "my-ws"\nmy-ws = "lin_api_key"\n`,
+    )
+
+    const isWindows = Deno.build.os === "windows"
+    const env: Record<string, string> = isWindows
+      ? { APPDATA: tempDir, SystemRoot: Deno.env.get("SystemRoot") ?? "" }
+      : {
+        HOME: tempDir,
+        XDG_CONFIG_HOME: tempDir,
+        DENO_DIR: denoDir,
+        PATH: Deno.env.get("PATH") ?? "",
+      }
+
+    const code = `
+import { _setBackend } from "${keyringUrl}";
+_setBackend({
+  async get(_account: string) { return null },
+  async set(_account: string, _password: string) {},
+  async delete(_account: string) {},
+  async isAvailable() { return true },
+});
+const { getCredentialApiKey } = await import("${credentialsUrl}");
+console.log(getCredentialApiKey("my-ws"));
+    `
+
+    const command = new Deno.Command("deno", {
+      args: ["eval", `--config=${denoJsonPath}`, code],
+      cwd: tempDir,
+      env,
+      stdout: "piped",
+      stderr: "piped",
+    })
+
+    const { stdout, stderr } = await command.output()
+    const output = new TextDecoder().decode(stdout).trim()
+    const errorOutput = new TextDecoder().decode(stderr)
+
+    assertEquals(output, "lin_api_key")
+    assertEquals(errorOutput.includes("Warning"), false)
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("credentials - addCredential with plaintext writes key to TOML file", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const code = `
+      ${
+      mockBackendAndImport(
+        "addCredential, getCredentialsPath, getCredentialApiKey",
+      )
+    }
+      await addCredential("my-ws", "lin_api_plain", { plaintext: true });
+      const toml = await Deno.readTextFile(getCredentialsPath()!);
+      console.log(JSON.stringify({
+        apiKey: getCredentialApiKey("my-ws"),
+        hasInlineKey: toml.includes("lin_api_plain"),
+        hasWorkspacesArray: toml.includes("workspaces"),
+      }));
+    `
+
+    const output = await runWithCredentials(tempDir, code)
+    const result = JSON.parse(output)
+
+    assertEquals(result.apiKey, "lin_api_plain")
+    assertEquals(result.hasInlineKey, true)
+    assertEquals(result.hasWorkspacesArray, false)
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("credentials - addCredential without plaintext uses keyring", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const code = `
+      ${mockBackendAndImport("addCredential, getCredentialsPath")}
+      await addCredential("my-ws", "lin_api_secret");
+      const toml = await Deno.readTextFile(getCredentialsPath()!);
+      console.log(JSON.stringify({
+        hasInlineKey: toml.includes("lin_api_secret"),
+        hasWorkspacesArray: toml.includes("workspaces"),
+      }));
+    `
+
+    const output = await runWithCredentials(tempDir, code)
+    const result = JSON.parse(output)
+
+    assertEquals(result.hasInlineKey, false)
+    assertEquals(result.hasWorkspacesArray, true)
   } finally {
     await Deno.remove(tempDir, { recursive: true })
   }

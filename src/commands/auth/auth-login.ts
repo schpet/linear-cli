@@ -63,7 +63,7 @@ export const loginCommand = new Command()
         const org = viewer.organization
         const workspace = org.urlKey
 
-        let plaintext = options.plaintext ?? false
+        const plaintext = options.plaintext ?? false
         if (!plaintext) {
           const keyringOk = await isKeyringAvailable()
           if (!keyringOk) {

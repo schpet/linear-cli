@@ -154,9 +154,7 @@ function credDelete(account: string): void {
 }
 
 export const windowsBackend: KeyringBackend = {
-  async isAvailable() {
-    return true
-  },
+  isAvailable: () => Promise.resolve(true),
 
   get: (account) => Promise.resolve(credGet(account)),
   set: (account, password) => Promise.resolve(credSet(account, password)),
