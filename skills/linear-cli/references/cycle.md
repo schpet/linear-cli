@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear cycle
-Version: 1.10.0      
+Version: 1.11.0      
 
 Description:
 
@@ -31,7 +31,7 @@ Commands:
 
 ```
 Usage:   linear cycle list
-Version: 1.10.0           
+Version: 1.11.0           
 
 Description:
 
@@ -50,7 +50,7 @@ Options:
 
 ```
 Usage:   linear cycle view <cycleRef>
-Version: 1.10.0                      
+Version: 1.11.0                      
 
 Description:
 

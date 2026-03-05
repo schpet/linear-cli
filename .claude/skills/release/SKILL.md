@@ -52,13 +52,13 @@ For each commit identified above, evaluate whether it warrants a changelog entry
 - Build/CI configuration changes
 - Chore commits (unless significant)
 
-Use the changelog CLI to add entries. For PR attribution, manually add PR links and author credits, but exclude users 'schpet' and 'schpetbot' from attribution:
+Use the changelog CLI to add entries. Use `--attribute-pr` with the commit SHA to automatically look up the associated PR and add attribution, excluding `schpet` and `schpetbot`:
 
 ```bash
-changelog add --type <type> "<description>"
+changelog add --type <type> "<description>" --attribute-pr <commit-sha> --exclude-users schpet,schpetbot
 ```
 
-When a PR should be attributed (i.e., the author is not schpet or schpetbot), manually add the PR number and author to the changelog entry after adding it.
+Omit `--attribute-pr` for commits without an associated PR or when attribution isn't relevant.
 
 Types match Keep a Changelog categories:
 

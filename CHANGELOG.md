@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-03-05
+
+### Added
+
+- project update and delete commands, plus --json flag for project commands ([#148](https://github.com/schpet/linear-cli/pull/148); thanks @chronosis)
+- cycle list and view commands, plus --cycle filter for issue list ([#162](https://github.com/schpet/linear-cli/pull/162); thanks @regaw-leinad)
+- issue comment delete command
+- cycle support for issue create and update commands ([#150](https://github.com/schpet/linear-cli/pull/150); thanks @jholm117)
+- milestone support for issue create and update commands ([#149](https://github.com/schpet/linear-cli/pull/149); thanks @jholm117)
+
+### Fixed
+
+- project update date validation now works correctly when combined with other flags
+- issue view no longer sends auth headers to non-Linear image domains ([#154](https://github.com/schpet/linear-cli/pull/154); thanks @hmnd)
+- project lookup now falls back to slug ID when name match fails
+- success message order corrected for 'blocked-by' issue relations
+- git command errors now report more helpful messages
+
 ## [1.10.0] - 2026-02-17
 
 ### Fixed
@@ -386,7 +404,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/schpet/linear-cli/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/schpet/linear-cli/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/schpet/linear-cli/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/schpet/linear-cli/compare/v1.8.1...v1.9.0

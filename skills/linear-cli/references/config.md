@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear config
-Version: 1.10.0       
+Version: 1.11.0       
 
 Description:
 
