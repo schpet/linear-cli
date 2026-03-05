@@ -8,7 +8,7 @@
 
 - project update and delete commands, plus --json flag for project commands ([#148](https://github.com/schpet/linear-cli/pull/148); thanks @chronosis)
 - cycle list and view commands, plus --cycle filter for issue list ([#162](https://github.com/schpet/linear-cli/pull/162); thanks @regaw-leinad)
-- issue comment delete command
+- issue comment delete command ([#161](https://github.com/schpet/linear-cli/pull/161); thanks @jholm117)
 - cycle support for issue create and update commands ([#150](https://github.com/schpet/linear-cli/pull/150); thanks @jholm117)
 - milestone support for issue create and update commands ([#149](https://github.com/schpet/linear-cli/pull/149); thanks @jholm117)
 
@@ -16,7 +16,7 @@
 
 - project update date validation now works correctly when combined with other flags
 - issue view no longer sends auth headers to non-Linear image domains ([#154](https://github.com/schpet/linear-cli/pull/154); thanks @hmnd)
-- project lookup now falls back to slug ID when name match fails
+- project lookup now falls back to slug ID when name match fails ([#158](https://github.com/schpet/linear-cli/pull/158); thanks @mipearson)
 - success message order corrected for 'blocked-by' issue relations
 - git command errors now report more helpful messages
 
