@@ -2,7 +2,12 @@ import { parse, stringify } from "@std/toml"
 import { dirname, join } from "@std/path"
 import { ensureDir } from "@std/fs"
 import { yellow } from "@std/fmt/colors"
-import { deletePassword, getPassword, setPassword } from "./keyring/index.ts"
+import {
+  deletePassword,
+  getPassword,
+  isKeyringAvailable,
+  setPassword,
+} from "./keyring/index.ts"
 
 function errorDetail(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -164,12 +169,6 @@ export async function loadCredentials(): Promise<Credentials> {
 
   if (hasInlineKeys(parsed)) {
     credentials = parseInlineCredentials(parsed)
-    console.error(
-      yellow(
-        "Warning: Credentials file uses inline plaintext format. " +
-          "Run `linear auth login` for each workspace to migrate to the system keyring.",
-      ),
-    )
     return credentials
   }
 
@@ -204,22 +203,59 @@ async function saveCredentials(): Promise<void> {
 }
 
 /**
+ * Save credentials in inline (plaintext) format, storing the API key
+ * directly in the TOML file rather than in the system keyring.
+ */
+async function saveInlineCredentials(
+  workspace: string,
+  apiKey: string,
+): Promise<void> {
+  const path = getCredentialsPath()
+  if (!path) {
+    throw new Error("Could not determine credentials path")
+  }
+
+  const dir = dirname(path)
+  await ensureDir(dir)
+
+  const ordered: Record<string, string> = {}
+  if (credentials.default != null) {
+    ordered.default = credentials.default
+  }
+  for (const ws of [...credentials.workspaces].sort()) {
+    const key = ws === workspace ? apiKey : apiKeyCache.get(ws)
+    if (key != null) {
+      ordered[ws] = key
+    }
+  }
+
+  await Deno.writeTextFile(path, stringify(ordered))
+}
+
+/**
  * Add or update a credential.
  * If this is the first workspace, it becomes the default.
+ * When `plaintext` is true, the key is stored directly in the TOML file.
  */
 export async function addCredential(
   workspace: string,
   apiKey: string,
+  options?: { plaintext?: boolean },
 ): Promise<void> {
-  try {
-    await setPassword(workspace, apiKey)
-  } catch (error) {
-    throw new Error(
-      `Failed to store API key in system keyring for workspace "${workspace}": ${
-        errorDetail(error)
-      }`,
-    )
+  const plaintext = options?.plaintext ?? false
+
+  if (!plaintext) {
+    try {
+      await setPassword(workspace, apiKey)
+    } catch (error) {
+      throw new Error(
+        `Failed to store API key in system keyring for workspace "${workspace}": ${
+          errorDetail(error)
+        }`,
+      )
+    }
   }
+
   apiKeyCache.set(workspace, apiKey)
 
   const isNew = !credentials.workspaces.includes(workspace)
@@ -232,7 +268,11 @@ export async function addCredential(
     credentials.default = workspace
   }
 
-  await saveCredentials()
+  if (plaintext) {
+    await saveInlineCredentials(workspace, apiKey)
+  } else {
+    await saveCredentials()
+  }
 }
 
 /**

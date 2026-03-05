@@ -8,6 +8,7 @@ export interface KeyringBackend {
   get(account: string): Promise<string | null>
   set(account: string, password: string): Promise<void>
   delete(account: string): Promise<void>
+  isAvailable(): Promise<boolean>
 }
 
 let backend: KeyringBackend | null = null
@@ -43,4 +44,12 @@ export async function setPassword(
 
 export async function deletePassword(account: string): Promise<void> {
   await getBackend().delete(account)
+}
+
+export async function isKeyringAvailable(): Promise<boolean> {
+  try {
+    return await getBackend().isAvailable()
+  } catch {
+    return false
+  }
 }

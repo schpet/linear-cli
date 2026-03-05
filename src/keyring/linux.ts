@@ -51,6 +51,19 @@ async function secretTool(
 }
 
 export const linuxBackend: KeyringBackend = {
+  async isAvailable() {
+    try {
+      const result = await new Deno.Command("secret-tool", {
+        args: ["--version"],
+        stdout: "piped",
+        stderr: "piped",
+      }).output()
+      return result.success
+    } catch {
+      return false
+    }
+  },
+
   async get(account) {
     const result = await secretTool([
       "lookup",

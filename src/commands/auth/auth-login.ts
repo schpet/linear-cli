@@ -7,6 +7,7 @@ import {
   getWorkspaces,
   hasWorkspace,
 } from "../../credentials.ts"
+import { isKeyringAvailable } from "../../keyring/index.ts"
 import {
   AuthError,
   CliError,
@@ -32,6 +33,10 @@ export const loginCommand = new Command()
   .name("login")
   .description("Add a workspace credential")
   .option("-k, --key <key:string>", "API key (prompted if not provided)")
+  .option(
+    "--plaintext",
+    "Store API key in credentials file instead of system keyring",
+  )
   .action(async (options) => {
     try {
       let apiKey = options.key
@@ -58,8 +63,18 @@ export const loginCommand = new Command()
         const org = viewer.organization
         const workspace = org.urlKey
 
+        let plaintext = options.plaintext ?? false
+        if (!plaintext) {
+          const keyringOk = await isKeyringAvailable()
+          if (!keyringOk) {
+            throw new CliError(
+              "No system keyring found. Use `--plaintext` to store credentials in the config file, or set `LINEAR_API_KEY`.",
+            )
+          }
+        }
+
         const alreadyExists = hasWorkspace(workspace)
-        await addCredential(workspace, apiKey)
+        await addCredential(workspace, apiKey, { plaintext })
 
         const existingCount = getWorkspaces().length
 
