@@ -11,6 +11,7 @@ import {
 import {
   fetchIssuesForState,
   getCycleIdByNameOrNumber,
+  getMilestoneIdByName,
   getProjectIdByName,
   getProjectOptionsByName,
   getTeamIdByKey,
@@ -86,6 +87,10 @@ export const listCommand = new Command()
     "Filter by cycle name, number, or 'active'",
   )
   .option(
+    "--milestone <milestone:string>",
+    "Filter by project milestone name (requires --project)",
+  )
+  .option(
     "--limit <limit:number>",
     "Maximum number of issues to fetch (default: 50, use 0 for unlimited)",
     {
@@ -109,6 +114,7 @@ export const listCommand = new Command()
         team,
         project,
         cycle,
+        milestone,
         limit,
         pager,
       },
@@ -185,6 +191,20 @@ export const listCommand = new Command()
           cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
         }
 
+        let milestoneId: string | undefined
+        if (milestone != null) {
+          if (projectId == null) {
+            throw new ValidationError(
+              "--milestone requires --project to be set",
+              {
+                suggestion:
+                  "Use --project to specify which project the milestone belongs to.",
+              },
+            )
+          }
+          milestoneId = await getMilestoneIdByName(milestone, projectId)
+        }
+
         const { Spinner } = await import("@std/cli/unstable-spinner")
         const showSpinner = shouldShowSpinner()
         const spinner = showSpinner ? new Spinner() : null
@@ -200,6 +220,7 @@ export const listCommand = new Command()
           projectId,
           sort,
           cycleId,
+          milestoneId,
         )
         spinner?.stop()
         const issues = result.issues?.nodes || []
