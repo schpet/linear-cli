@@ -6,6 +6,7 @@ import { issueCommand } from "./commands/issue/issue.ts"
 import { teamCommand } from "./commands/team/team.ts"
 import { projectCommand } from "./commands/project/project.ts"
 import { projectUpdateCommand } from "./commands/project-update/project-update.ts"
+import { cycleCommand } from "./commands/cycle/cycle.ts"
 import { milestoneCommand } from "./commands/milestone/milestone.ts"
 import { initiativeCommand } from "./commands/initiative/initiative.ts"
 import { initiativeUpdateCommand } from "./commands/initiative-update/initiative-update.ts"
@@ -48,6 +49,8 @@ Environment Variables:
   .alias("p")
   .command("project-update", projectUpdateCommand)
   .alias("pu")
+  .command("cycle", cycleCommand)
+  .alias("cy")
   .command("milestone", milestoneCommand)
   .alias("m")
   .command("initiative", initiativeCommand)

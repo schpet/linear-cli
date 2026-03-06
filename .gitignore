@@ -2,3 +2,4 @@
 .config/linear.toml
 
 src/__codegen__/
+npm

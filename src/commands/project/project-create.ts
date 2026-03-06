@@ -140,6 +140,7 @@ export const createCommand = new Command()
     "-i, --interactive",
     "Interactive mode (default if no flags provided)",
   )
+  .option("-j, --json", "Output created project as JSON")
   .action(
     async (options) => {
       const {
@@ -152,6 +153,7 @@ export const createCommand = new Command()
         targetDate: providedTargetDate,
         initiative: providedInitiative,
         interactive: interactiveFlag,
+        json: jsonOutput,
       } = options
 
       const client = getGraphQLClient()
@@ -374,13 +376,7 @@ export const createCommand = new Command()
           throw new CliError("Failed to create project: no project returned")
         }
 
-        console.log(`✓ Created project: ${project.name}`)
-        console.log(`  Slug: ${project.slugId}`)
-        if (project.url) {
-          console.log(`  URL: ${project.url}`)
-        }
-
-        // Add to initiative if specified
+        // Add to initiative if specified (before JSON output so warnings go to stderr)
         if (initiative) {
           const initiativeId = await resolveInitiativeId(client, initiative)
           if (!initiativeId) {
@@ -395,9 +391,11 @@ export const createCommand = new Command()
                 },
               })
 
-              if (linkResult.initiativeToProjectCreate.success) {
+              if (linkResult.initiativeToProjectCreate.success && !jsonOutput) {
                 console.log(`✓ Added to initiative: ${initiative}`)
-              } else {
+              } else if (
+                !linkResult.initiativeToProjectCreate.success
+              ) {
                 console.error(`\nWarning: Failed to add project to initiative`)
               }
             } catch (error) {
@@ -406,6 +404,27 @@ export const createCommand = new Command()
                 error,
               )
             }
+          }
+        }
+
+        if (jsonOutput) {
+          console.log(
+            JSON.stringify(
+              {
+                id: project.id,
+                slugId: project.slugId,
+                name: project.name,
+                url: project.url,
+              },
+              null,
+              2,
+            ),
+          )
+        } else {
+          console.log(`✓ Created project: ${project.name}`)
+          console.log(`  Slug: ${project.slugId}`)
+          if (project.url) {
+            console.log(`  URL: ${project.url}`)
           }
         }
       } catch (error) {

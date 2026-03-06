@@ -23,6 +23,10 @@ import {
 } from "../../utils/hyperlink.ts"
 import { createHyperlinkExtension } from "../../utils/charmd-hyperlink-extension.ts"
 import { handleError, ValidationError } from "../../utils/errors.ts"
+import {
+  LINEAR_PRIVATE_UPLOAD_HOST,
+  LINEAR_UPLOAD_HOSTNAMES,
+} from "../../const.ts"
 
 export const viewCommand = new Command()
   .name("view")
@@ -117,7 +121,25 @@ export const viewCommand = new Command()
       }
 
       const { identifier } = issueData
-      let markdown = `# ${identifier}: ${title}${
+
+      // Build metadata line with project and milestone
+      const metaParts: string[] = []
+      if (issueData.project) {
+        metaParts.push(`**Project:** ${issueData.project.name}`)
+      }
+      if (issueData.projectMilestone) {
+        metaParts.push(`**Milestone:** ${issueData.projectMilestone.name}`)
+      }
+      if (issueData.cycle) {
+        const cycleName = issueData.cycle.name ??
+          `Cycle ${issueData.cycle.number}`
+        metaParts.push(`**Cycle:** ${cycleName}`)
+      }
+      const metaLine = metaParts.length > 0
+        ? "\n\n" + metaParts.join(" | ")
+        : ""
+
+      let markdown = `# ${identifier}: ${title}${metaLine}${
         description ? "\n\n" + description : ""
       }`
 
@@ -458,11 +480,7 @@ export function extractLinearLinkInfo(
 
   visit(tree, "link", (node: Link) => {
     // Only extract links to Linear uploads
-    if (
-      node.url &&
-      (node.url.includes("uploads.linear.app") ||
-        node.url.includes("public.linear.app"))
-    ) {
+    if (node.url && getLinearUploadHost(node.url)) {
       // Get link text from first child if it's a text node
       const textNode = node.children[0]
       const text = textNode && textNode.type === "text" ? textNode.value : null
@@ -515,6 +533,15 @@ export async function getUrlHash(url: string): Promise<string> {
   return encodeHex(hashArray).substring(0, 16)
 }
 
+export function getLinearUploadHost(url: string): string | null {
+  try {
+    const { hostname } = new URL(url)
+    return LINEAR_UPLOAD_HOSTNAMES.includes(hostname) ? hostname : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * download an image to the cache directory if not already cached
  * returns the local file path
@@ -538,7 +565,7 @@ async function downloadImage(
   }
 
   const headers: Record<string, string> = {}
-  if (url.includes("uploads.linear.app")) {
+  if (getLinearUploadHost(url) === LINEAR_PRIVATE_UPLOAD_HOST) {
     const apiKey = getResolvedApiKey()
     if (apiKey) {
       headers["Authorization"] = apiKey
@@ -656,10 +683,8 @@ async function downloadAttachments(
   for (const attachment of attachments) {
     try {
       // Skip non-file URLs (e.g., external links)
-      // Linear uses uploads.linear.app for private and public.linear.app for public images
-      const isLinearUpload = attachment.url.includes("uploads.linear.app") ||
-        attachment.url.includes("public.linear.app")
-      if (!isLinearUpload) {
+      const uploadHost = getLinearUploadHost(attachment.url)
+      if (!uploadHost) {
         continue
       }
 
@@ -676,8 +701,7 @@ async function downloadAttachments(
       }
 
       const headers: Record<string, string> = {}
-      // Only add auth header for private uploads, not public URLs
-      if (attachment.url.includes("uploads.linear.app")) {
+      if (uploadHost === LINEAR_PRIVATE_UPLOAD_HOST) {
         const apiKey = getResolvedApiKey()
         if (apiKey) {
           headers["Authorization"] = apiKey

@@ -7,11 +7,13 @@ import { getPriorityDisplay } from "../../utils/display.ts"
 import {
   fetchParentIssueData,
   getAllTeams,
+  getCycleIdByNameOrNumber,
   getIssueId,
   getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
   getLabelsForTeam,
+  getMilestoneIdByName,
   getProjectIdByName,
   getProjectOptionsByName,
   getTeamIdByKey,
@@ -458,11 +460,11 @@ export const createCommand = new Command()
     "Due date of the issue",
   )
   .option(
-    "-p, --parent <parent:string>",
+    "--parent <parent:string>",
     "Parent issue (if any) as a team_number code",
   )
   .option(
-    "--priority <priority:number>",
+    "-p, --priority <priority:number>",
     "Priority of the issue (1-4, descending priority)",
   )
   .option(
@@ -488,11 +490,19 @@ export const createCommand = new Command()
   )
   .option(
     "--project <project:string>",
-    "Name of the project with the issue",
+    "Name or slug ID of the project with the issue",
   )
   .option(
     "-s, --state <state:string>",
     "Workflow state for the issue (by name or type)",
+  )
+  .option(
+    "--milestone <milestone:string>",
+    "Name of the project milestone",
+  )
+  .option(
+    "--cycle <cycle:string>",
+    "Cycle name, number, or 'active'",
   )
   .option(
     "--no-use-default-template",
@@ -516,6 +526,8 @@ export const createCommand = new Command()
         team,
         project,
         state,
+        milestone,
+        cycle,
         interactive,
         title,
       },
@@ -550,7 +562,7 @@ export const createCommand = new Command()
       const noFlagsProvided = !title && !assignee && !dueDate &&
         priority === undefined && estimate === undefined && !finalDescription &&
         (!labels || labels.length === 0) &&
-        !team && !project && !state && !start
+        !team && !project && !state && !milestone && !cycle && !start
 
       if (noFlagsProvided && interactive) {
         try {
@@ -738,6 +750,28 @@ export const createCommand = new Command()
           }
         }
 
+        let projectMilestoneId: string | undefined
+        if (milestone != null) {
+          if (projectId == null) {
+            throw new ValidationError(
+              "--milestone requires --project to be set",
+              {
+                suggestion:
+                  "Use --project to specify which project the milestone belongs to.",
+              },
+            )
+          }
+          projectMilestoneId = await getMilestoneIdByName(
+            milestone,
+            projectId,
+          )
+        }
+
+        let cycleId: string | undefined
+        if (cycle != null) {
+          cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
+        }
+
         // Date validation done at graphql level
 
         // Convert parent identifier if provided and fetch parent data
@@ -775,6 +809,8 @@ export const createCommand = new Command()
           labelIds,
           teamId: teamId,
           projectId: projectId || parentData?.projectId,
+          projectMilestoneId,
+          cycleId,
           stateId,
           useDefaultTemplate,
           description: finalDescription,

@@ -1,0 +1,53 @@
+export const snapshot = {};
+
+snapshot[`Project Update Command - Help Text 1`] = `
+stdout:
+"
+Usage: update <projectId>
+
+Description:
+
+  Update a Linear project
+
+Options:
+
+  -h, --help                        - Show this help.                                                  
+  -n, --name         <name>         - Project name                                                     
+  -d, --description  <description>  - Project description                                              
+  -s, --status       <status>       - Status (planned, started, paused, completed, canceled, backlog)  
+  -l, --lead         <lead>         - Project lead (username, email, or @me)                           
+  --start-date       <startDate>    - Start date (YYYY-MM-DD)                                          
+  --target-date      <targetDate>   - Target date (YYYY-MM-DD)                                         
+  -t, --team         <team>         - Team key (can be repeated for multiple teams)                    
+
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Update Name 1`] = `
+stdout:
+"✓ Updated project: Updated Project Name
+https://linear.app/test/project/updated-proj
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Update Description 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-desc
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Update Status 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-status
+"
+stderr:
+""
+`;

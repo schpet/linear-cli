@@ -8,6 +8,7 @@ import {
 } from "./jj.ts"
 import { getCurrentBranch } from "./git.ts"
 import { Select } from "@cliffy/prompt"
+import { CliError } from "./errors.ts"
 
 export type VcsType = "git" | "jj"
 
@@ -34,11 +35,21 @@ export function getNoIssueFoundMessage(): string {
  * Checks if a git branch exists
  */
 async function gitBranchExists(branchName: string): Promise<boolean> {
-  const process = await new Deno.Command("git", {
-    args: ["rev-parse", "--verify", branchName],
-  }).output()
+  try {
+    const process = await new Deno.Command("git", {
+      args: ["rev-parse", "--verify", branchName],
+      stderr: "piped",
+    }).output()
 
-  return process.success
+    return process.success
+  } catch (error) {
+    throw new CliError(
+      `Failed to check if branch exists: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
+    )
+  }
 }
 
 /**
@@ -96,8 +107,15 @@ export async function startVcsWork(
         if (answer === "switch") {
           const process = new Deno.Command("git", {
             args: ["checkout", branchName],
+            stderr: "piped",
           })
-          await process.output()
+          const { success, stderr } = await process.output()
+          if (!success) {
+            const errorMsg = new TextDecoder().decode(stderr).trim()
+            throw new CliError(
+              `Failed to switch to branch '${branchName}': ${errorMsg}`,
+            )
+          }
           console.log(`✓ Switched to '${branchName}'`)
         } else {
           // Find next available suffix
@@ -110,16 +128,30 @@ export async function startVcsWork(
 
           const process = new Deno.Command("git", {
             args: ["checkout", "-b", newBranch, gitSourceRef || "HEAD"],
+            stderr: "piped",
           })
-          await process.output()
+          const { success, stderr } = await process.output()
+          if (!success) {
+            const errorMsg = new TextDecoder().decode(stderr).trim()
+            throw new CliError(
+              `Failed to create branch '${newBranch}': ${errorMsg}`,
+            )
+          }
           console.log(`✓ Created and switched to branch '${newBranch}'`)
         }
       } else {
         // Create and checkout the branch
         const process = new Deno.Command("git", {
           args: ["checkout", "-b", branchName, gitSourceRef || "HEAD"],
+          stderr: "piped",
         })
-        await process.output()
+        const { success, stderr } = await process.output()
+        if (!success) {
+          const errorMsg = new TextDecoder().decode(stderr).trim()
+          throw new CliError(
+            `Failed to create branch '${branchName}': ${errorMsg}`,
+          )
+        }
         console.log(`✓ Created and switched to branch '${branchName}'`)
       }
       break

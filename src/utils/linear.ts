@@ -167,6 +167,9 @@ export async function fetchIssueDetails(
   url: string
   branchName: string
   state: { name: string; color: string }
+  project?: { name: string } | null
+  projectMilestone?: { name: string } | null
+  cycle?: { name?: string | null; number: number } | null
   parent?: {
     identifier: string
     title: string
@@ -211,6 +214,16 @@ export async function fetchIssueDetails(
           state {
             name
             color
+          }
+          project {
+            name
+          }
+          projectMilestone {
+            name
+          }
+          cycle {
+            name
+            number
           }
           parent {
             identifier
@@ -274,6 +287,16 @@ export async function fetchIssueDetails(
           state {
             name
             color
+          }
+          project {
+            name
+          }
+          projectMilestone {
+            name
+          }
+          cycle {
+            name
+            number
           }
           parent {
             identifier
@@ -397,6 +420,8 @@ export async function fetchIssuesForState(
   limit?: number,
   projectId?: string,
   sortParam?: "manual" | "priority",
+  cycleId?: string,
+  milestoneId?: string,
 ) {
   const sort = sortParam ??
     getOption("issue_sort") as "manual" | "priority" | undefined
@@ -434,6 +459,14 @@ export async function fetchIssuesForState(
 
   if (projectId) {
     filter.project = { id: { eq: projectId } }
+  }
+
+  if (cycleId) {
+    filter.cycle = { id: { eq: cycleId } }
+  }
+
+  if (milestoneId) {
+    filter.projectMilestone = { id: { eq: milestoneId } }
   }
 
   const query = gql(/* GraphQL */ `
@@ -540,7 +573,24 @@ export async function getProjectIdByName(
     }
   `)
   const data = await client.request(query, { name })
-  return data.projects?.nodes[0]?.id
+  const projectId = data.projects?.nodes[0]?.id
+  if (projectId) return projectId
+
+  // Fall back to matching by slugId (the 12-char hex string visible in
+  // `project list` output and Linear URLs). This provides a reliable
+  // alternative when project names contain special characters that the
+  // exact-match name filter doesn't handle well.
+  const slugQuery = gql(/* GraphQL */ `
+    query GetProjectIdBySlugId($slugId: String!) {
+      projects(filter: { slugId: { eq: $slugId } }) {
+        nodes {
+          id
+        }
+      }
+    }
+  `)
+  const slugData = await client.request(slugQuery, { slugId: name })
+  return slugData.projects?.nodes[0]?.id
 }
 
 export async function resolveProjectId(
@@ -877,6 +927,102 @@ export async function getTeamMembers(teamKey: string) {
   return allMembers.sort((a, b) =>
     a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
   )
+}
+
+export async function getIssueProjectId(
+  issueIdentifier: string,
+): Promise<string | undefined> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetIssueProjectId($id: String!) {
+      issue(id: $id) {
+        project {
+          id
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { id: issueIdentifier })
+  return data.issue?.project?.id ?? undefined
+}
+
+export async function getMilestoneIdByName(
+  milestoneName: string,
+  projectId: string,
+): Promise<string> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectMilestonesForLookup($projectId: String!) {
+      project(id: $projectId) {
+        projectMilestones {
+          nodes {
+            id
+            name
+          }
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { projectId })
+  if (!data.project) {
+    throw new NotFoundError("Project", projectId)
+  }
+  const milestones = data.project.projectMilestones?.nodes || []
+  const match = milestones.find(
+    (m) => m.name.toLowerCase() === milestoneName.toLowerCase(),
+  )
+  if (!match) {
+    throw new NotFoundError("Milestone", milestoneName)
+  }
+  return match.id
+}
+
+export async function getCycleIdByNameOrNumber(
+  cycleNameOrNumber: string,
+  teamId: string,
+): Promise<string> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetTeamCyclesForLookup($teamId: String!) {
+      team(id: $teamId) {
+        cycles {
+          nodes {
+            id
+            number
+            name
+          }
+        }
+        activeCycle {
+          id
+          number
+          name
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { teamId })
+  if (!data.team) {
+    throw new NotFoundError("Team", teamId)
+  }
+
+  if (cycleNameOrNumber.toLowerCase() === "active") {
+    if (!data.team.activeCycle) {
+      throw new NotFoundError("Active cycle", teamId)
+    }
+    return data.team.activeCycle.id
+  }
+
+  const cycles = data.team.cycles?.nodes || []
+  const match = cycles.find(
+    (c) =>
+      (c.name != null &&
+        c.name.toLowerCase() === cycleNameOrNumber.toLowerCase()) ||
+      String(c.number) === cycleNameOrNumber,
+  )
+  if (!match) {
+    throw new NotFoundError("Cycle", cycleNameOrNumber)
+  }
+  return match.id
 }
 
 export async function selectOption(

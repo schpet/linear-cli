@@ -2,9 +2,12 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
+  getCycleIdByNameOrNumber,
   getIssueId,
   getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
+  getIssueProjectId,
+  getMilestoneIdByName,
   getProjectIdByName,
   getTeamIdByKey,
   getWorkflowStateByNameOrType,
@@ -30,11 +33,11 @@ export const updateCommand = new Command()
     "Due date of the issue",
   )
   .option(
-    "-p, --parent <parent:string>",
+    "--parent <parent:string>",
     "Parent issue (if any) as a team_number code",
   )
   .option(
-    "--priority <priority:number>",
+    "-p, --priority <priority:number>",
     "Priority of the issue (1-4, descending priority)",
   )
   .option(
@@ -60,11 +63,19 @@ export const updateCommand = new Command()
   )
   .option(
     "--project <project:string>",
-    "Name of the project with the issue",
+    "Name or slug ID of the project with the issue",
   )
   .option(
     "-s, --state <state:string>",
     "Workflow state for the issue (by name or type)",
+  )
+  .option(
+    "--milestone <milestone:string>",
+    "Name of the project milestone",
+  )
+  .option(
+    "--cycle <cycle:string>",
+    "Cycle name, number, or 'active'",
   )
   .option("-t, --title <title:string>", "Title of the issue")
   .action(
@@ -81,6 +92,8 @@ export const updateCommand = new Command()
         team,
         project,
         state,
+        milestone,
+        cycle,
         title,
       },
       issueIdArg,
@@ -187,6 +200,30 @@ export const updateCommand = new Command()
           }
         }
 
+        let projectMilestoneId: string | undefined
+        if (milestone != null) {
+          const milestoneProjectId = projectId ??
+            await getIssueProjectId(issueId)
+          if (milestoneProjectId == null) {
+            throw new ValidationError(
+              "--milestone requires --project to be set (issue has no existing project)",
+              {
+                suggestion:
+                  "Use --project to specify the project for the milestone.",
+              },
+            )
+          }
+          projectMilestoneId = await getMilestoneIdByName(
+            milestone,
+            milestoneProjectId,
+          )
+        }
+
+        let cycleId: string | undefined
+        if (cycle != null) {
+          cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
+        }
+
         // Build the update input object, only including fields that were provided
         const input: Record<string, string | number | string[] | undefined> = {}
 
@@ -212,6 +249,10 @@ export const updateCommand = new Command()
         if (labelIds.length > 0) input.labelIds = labelIds
         if (teamId !== undefined) input.teamId = teamId
         if (projectId !== undefined) input.projectId = projectId
+        if (projectMilestoneId !== undefined) {
+          input.projectMilestoneId = projectMilestoneId
+        }
+        if (cycleId !== undefined) input.cycleId = cycleId
         if (stateId !== undefined) input.stateId = stateId
 
         spinner?.stop()

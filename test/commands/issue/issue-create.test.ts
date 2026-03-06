@@ -94,6 +94,96 @@ await snapshotTest({
   },
 })
 
+// Test creating an issue with milestone
+await snapshotTest({
+  name: "Issue Create Command - With Milestone",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Test milestone feature",
+    "--team",
+    "ENG",
+    "--project",
+    "My Project",
+    "--milestone",
+    "Phase 1",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey()
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getProjectIdByName()
+      {
+        queryName: "GetProjectIdByName",
+        variables: { name: "My Project" },
+        response: {
+          data: {
+            projects: {
+              nodes: [{ id: "project-123" }],
+            },
+          },
+        },
+      },
+      // Mock response for getMilestoneIdByName()
+      {
+        queryName: "GetProjectMilestonesForLookup",
+        variables: { projectId: "project-123" },
+        response: {
+          data: {
+            project: {
+              projectMilestones: {
+                nodes: [
+                  { id: "milestone-1", name: "Phase 1" },
+                  { id: "milestone-2", name: "Phase 2" },
+                ],
+              },
+            },
+          },
+        },
+      },
+      // Mock response for the create issue mutation
+      {
+        queryName: "CreateIssue",
+        response: {
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-new-milestone",
+                identifier: "ENG-789",
+                url:
+                  "https://linear.app/test-team/issue/ENG-789/test-milestone-feature",
+                team: {
+                  key: "ENG",
+                },
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
 // Test creating an issue with case-insensitive label matching
 await snapshotTest({
   name: "Issue Create Command - Case Insensitive Label Matching",
@@ -152,6 +242,170 @@ await snapshotTest({
                 identifier: "ENG-456",
                 url:
                   "https://linear.app/test-team/issue/ENG-456/test-case-insensitive-labels",
+                team: {
+                  key: "ENG",
+                },
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Test that -p is priority (not parent), resolving the flag conflict
+await snapshotTest({
+  name: "Issue Create Command - Short Flag -p Is Priority",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Test priority flag",
+    "--team",
+    "ENG",
+    "-p",
+    "2",
+    "--parent",
+    "ENG-220",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey()
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getIssueId("ENG-220") - resolves parent identifier to ID
+      {
+        queryName: "GetIssueId",
+        variables: { id: "ENG-220" },
+        response: {
+          data: {
+            issue: {
+              id: "parent-issue-id",
+            },
+          },
+        },
+      },
+      // Mock response for fetchParentIssueData("parent-issue-id")
+      {
+        queryName: "GetParentIssueData",
+        variables: { id: "parent-issue-id" },
+        response: {
+          data: {
+            issue: {
+              title: "Parent Issue",
+              identifier: "ENG-220",
+              project: null,
+            },
+          },
+        },
+      },
+      // Mock response for the create issue mutation
+      {
+        queryName: "CreateIssue",
+        response: {
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-new-priority",
+                identifier: "ENG-999",
+                url:
+                  "https://linear.app/test-team/issue/ENG-999/test-priority-flag",
+                team: {
+                  key: "ENG",
+                },
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Test creating an issue with cycle
+await snapshotTest({
+  name: "Issue Create Command - With Cycle",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Test cycle feature",
+    "--team",
+    "ENG",
+    "--cycle",
+    "active",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey()
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for getCycleIdByNameOrNumber("active")
+      {
+        queryName: "GetTeamCyclesForLookup",
+        variables: { teamId: "team-eng-id" },
+        response: {
+          data: {
+            team: {
+              cycles: {
+                nodes: [
+                  { id: "cycle-1", number: 7, name: "Sprint 7" },
+                  { id: "cycle-2", number: 8, name: "Sprint 8" },
+                ],
+              },
+              activeCycle: { id: "cycle-1", number: 7, name: "Sprint 7" },
+            },
+          },
+        },
+      },
+      // Mock response for the create issue mutation
+      {
+        queryName: "CreateIssue",
+        response: {
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-new-cycle",
+                identifier: "ENG-890",
+                url:
+                  "https://linear.app/test-team/issue/ENG-890/test-cycle-feature",
                 team: {
                   key: "ENG",
                 },

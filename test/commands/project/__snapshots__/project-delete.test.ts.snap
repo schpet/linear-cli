@@ -1,0 +1,28 @@
+export const snapshot = {};
+
+snapshot[`Project Delete Command - Help Text 1`] = `
+stdout:
+"
+Usage: delete <projectId>
+
+Description:
+
+  Delete (trash) a Linear project
+
+Options:
+
+  -h, --help   - Show this help.           
+  -f, --force  - Skip confirmation prompt  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Project Delete Command - With Force Flag 1`] = `
+stdout:
+"✓ Deleted project: Deleted Project
+"
+stderr:
+""
+`;

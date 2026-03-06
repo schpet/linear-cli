@@ -4,6 +4,7 @@ import { getCliWorkspace, getOption } from "../config.ts"
 import { getCredentialApiKey } from "../credentials.ts"
 import denoConfig from "../../deno.json" with { type: "json" }
 import { extractGraphQLMessage, isDebugMode } from "./errors.ts"
+import { LINEAR_API_ENDPOINT } from "../const.ts"
 
 export { ClientError }
 
@@ -89,8 +90,7 @@ export function getResolvedApiKey(): string | undefined {
  * Get the GraphQL endpoint URL.
  */
 export function getGraphQLEndpoint(): string {
-  return Deno.env.get("LINEAR_GRAPHQL_ENDPOINT") ||
-    "https://api.linear.app/graphql"
+  return Deno.env.get("LINEAR_GRAPHQL_ENDPOINT") || LINEAR_API_ENDPOINT
 }
 
 /**

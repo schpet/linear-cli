@@ -8,6 +8,7 @@ import type {
 } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay } from "../../utils/display.ts"
+import { LINEAR_WEB_BASE_URL } from "../../const.ts"
 import { getTeamKey } from "../../utils/linear.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
@@ -66,7 +67,8 @@ export const listCommand = new Command()
   .option("--status <status:string>", "Filter by status name")
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
-  .action(async ({ team, allTeams, status, web, app }) => {
+  .option("-j, --json", "Output as JSON")
+  .action(async ({ team, allTeams, status, web, app, json }) => {
     if (web || app) {
       let workspace = getOption("workspace")
       if (!workspace) {
@@ -88,15 +90,15 @@ export const listCommand = new Command()
       // Determine team to filter by for URL construction
       const teamKey = allTeams ? null : (team?.toUpperCase() || getTeamKey())
       const url = teamKey
-        ? `https://linear.app/${workspace}/team/${teamKey}/projects/all`
-        : `https://linear.app/${workspace}/projects/all`
+        ? `${LINEAR_WEB_BASE_URL}/${workspace}/team/${teamKey}/projects/all`
+        : `${LINEAR_WEB_BASE_URL}/${workspace}/projects/all`
       const destination = app ? "Linear.app" : "web browser"
       console.log(`Opening ${url} in ${destination}`)
       await open(url, app ? { app: { name: "Linear" } } : undefined)
       return
     }
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = shouldShowSpinner()
+    const showSpinner = shouldShowSpinner() && !json
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 
@@ -149,7 +151,11 @@ export const listCommand = new Command()
       let projects: Project[] = allProjects
 
       if (projects.length === 0) {
-        console.log("No projects found.")
+        if (json) {
+          console.log("[]")
+        } else {
+          console.log("No projects found.")
+        }
         return
       }
 
@@ -177,6 +183,38 @@ export const listCommand = new Command()
         // Then sort alphabetically by name
         return a.name.localeCompare(b.name)
       })
+
+      // JSON output
+      if (json) {
+        const jsonOutput = projects.map((project) => ({
+          id: project.id,
+          slugId: project.slugId,
+          name: project.name,
+          description: project.description,
+          status: {
+            id: project.status.id,
+            name: project.status.name,
+            type: project.status.type,
+          },
+          lead: project.lead
+            ? {
+              name: project.lead.name,
+              displayName: project.lead.displayName,
+              initials: project.lead.initials,
+            }
+            : null,
+          teams: project.teams.nodes.map((t) => t.key),
+          priority: project.priority,
+          health: project.health,
+          startDate: project.startDate,
+          targetDate: project.targetDate,
+          url: project.url,
+          createdAt: project.createdAt,
+          updatedAt: project.updatedAt,
+        }))
+        console.log(JSON.stringify(jsonOutput, null, 2))
+        return
+      }
 
       // Helper function to get the most relevant date to display
       const getDisplayDate = (

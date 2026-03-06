@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
   "name": "@schpet/linear-cli",
-  "version": "1.9.1",
+  "version": "1.11.0",
   "exports": "./src/main.ts",
   "license": "MIT",
   "tasks": {
@@ -62,7 +62,7 @@
   "fmt": {
     "exclude": [
       ".github/workflows/release.yml",
-      ".github/workflows/build-setup.yml",
+      ".github/build-setup.yml",
       "__generated__/",
       "src/__codegen__/"
     ],

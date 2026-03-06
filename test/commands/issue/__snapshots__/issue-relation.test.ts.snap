@@ -1,0 +1,42 @@
+export const snapshot = {};
+
+snapshot[`Issue Relation Add Command - Help Text 1`] = `
+stdout:
+"
+Usage: relation add <issueId> <relationType> <relatedIssueId>
+
+Description:
+
+  Add a relation between two issues
+
+Options:
+
+  -h, --help  - Show this help.  
+
+Examples:
+
+  Mark issue as blocked by another linear issue relation add ENG-123 blocked-by ENG-100
+  Mark issue as blocking another   linear issue relation add ENG-123 blocks ENG-456    
+  Mark issues as related           linear issue relation add ENG-123 related ENG-456   
+  Mark issue as duplicate          linear issue relation add ENG-123 duplicate ENG-100 
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Relation Add Command - blocks 1`] = `
+stdout:
+"✓ Created relation: ENG-123 blocks ENG-456
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Relation Add Command - blocked-by shows correct order 1`] = `
+stdout:
+"✓ Created relation: ENG-123 blocked-by ENG-456
+"
+stderr:
+""
+`;

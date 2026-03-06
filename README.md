@@ -108,12 +108,15 @@ linear issue title     # prints just the issue title
 linear issue url       # prints the Linear.app URL for the issue
 linear issue pr        # creates a GitHub PR with issue details via `gh pr create`
 linear issue list      # list your issues in a table view (supports -s/--state and --sort)
+linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
 linear issue list -w   # open issue list in web browser
 linear issue list -a   # open issue list in Linear.app
 linear issue start     # create/switch to issue branch and mark as started
 linear issue create    # create a new issue (interactive prompts)
 linear issue create -t "title" -d "description"  # create with flags
+linear issue create --project "My Project" --milestone "Phase 1"  # create with milestone
 linear issue update    # update an issue (interactive prompts)
+linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing issue
 linear issue delete    # delete an issue
 linear issue comment list          # list comments on current issue
 linear issue comment add           # add a comment to current issue

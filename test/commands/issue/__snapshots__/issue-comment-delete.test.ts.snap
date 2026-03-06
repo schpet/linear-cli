@@ -1,0 +1,9 @@
+export const snapshot = {};
+
+snapshot[`Issue Comment Delete Command - Success 1`] = `
+stdout:
+"✓ Comment deleted
+"
+stderr:
+""
+`;
