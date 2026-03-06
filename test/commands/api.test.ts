@@ -346,8 +346,15 @@ await cliffySnapshotTest({
   denoArgs,
   canFail: true,
   async fn() {
-    Deno.env.delete("LINEAR_API_KEY")
-    await apiCommand.parse()
+    const tmpDir = await Deno.makeTempDir()
+    try {
+      Deno.env.delete("LINEAR_API_KEY")
+      Deno.env.set("XDG_CONFIG_HOME", tmpDir)
+      await apiCommand.parse()
+    } finally {
+      Deno.env.delete("XDG_CONFIG_HOME")
+      await Deno.remove(tmpDir, { recursive: true })
+    }
   },
 })
 

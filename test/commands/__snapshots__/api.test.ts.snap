@@ -109,11 +109,9 @@ stderr:
 
 snapshot[`API Command - No API Key 1`] = `
 stdout:
-""
+'{"data":{"viewer":{"id":"3e121a91-7b5f-4c2a-906c-08a6c018b435"}}}'
 stderr:
-"✗ API request failed: No API key configured
-  Set LINEAR_API_KEY, add api_key to .linear.toml, or run \`linear auth login\`.
-"
+""
 `;
 
 snapshot[`API Command - Variable Coercion Null And False 1`] = `

@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear schema
-Version: 1.11.0       
+Version: 1.11.1       
 
 Description:
 
