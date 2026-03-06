@@ -602,7 +602,7 @@ console.log(JSON.stringify({
   }
 })
 
-Deno.test("credentials - addCredential on inline-format file rewrites to keyring format", async () => {
+Deno.test("credentials - addCredential on inline-format file preserves inline format", async () => {
   const tempDir = await Deno.makeTempDir()
 
   try {
@@ -615,7 +615,9 @@ Deno.test("credentials - addCredential on inline-format file rewrites to keyring
 
     const code = `
       ${
-      mockBackendAndImport("addCredential, getCredentialsPath, getWorkspaces")
+      mockBackendAndImport(
+        "addCredential, getCredentialsPath, getWorkspaces, getCredentialApiKey",
+      )
     }
       await addCredential("new-ws", "lin_api_new");
       const toml = await Deno.readTextFile(getCredentialsPath()!);
@@ -623,13 +625,17 @@ Deno.test("credentials - addCredential on inline-format file rewrites to keyring
         workspaces: getWorkspaces(),
         hasWorkspacesKey: toml.includes("workspaces"),
         hasInlineKey: toml.includes("lin_api"),
+        oldKeyPreserved: toml.includes("lin_api_old"),
+        newKeyPresent: toml.includes("lin_api_new"),
       }));
     `
 
     const output = await runWithCredentials(tempDir, code)
     const result = JSON.parse(output)
-    assertEquals(result.hasWorkspacesKey, true)
-    assertEquals(result.hasInlineKey, false)
+    assertEquals(result.hasWorkspacesKey, false)
+    assertEquals(result.hasInlineKey, true)
+    assertEquals(result.oldKeyPreserved, true)
+    assertEquals(result.newKeyPresent, true)
   } finally {
     await Deno.remove(tempDir, { recursive: true })
   }
@@ -771,6 +777,265 @@ Deno.test("credentials - addCredential without plaintext uses keyring", async ()
 
     assertEquals(result.hasInlineKey, false)
     assertEquals(result.hasWorkspacesArray, true)
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("credentials - migrateToKeyring moves inline keys to keyring", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const configDir = `${tempDir}/linear`
+    await Deno.mkdir(configDir, { recursive: true })
+    await Deno.writeTextFile(
+      `${configDir}/credentials.toml`,
+      `default = "ws-a"\nws-a = "lin_api_a"\nws-b = "lin_api_b"\n`,
+    )
+
+    const code = `
+      ${
+      mockBackendAndImport(
+        "migrateToKeyring, isUsingInlineFormat, getCredentialsPath, getCredentialApiKey",
+      )
+    }
+      const wasinline = isUsingInlineFormat();
+      const migrated = await migrateToKeyring();
+      const toml = await Deno.readTextFile(getCredentialsPath()!);
+      console.log(JSON.stringify({
+        wasinline,
+        isInlineAfter: isUsingInlineFormat(),
+        migrated: migrated.sort(),
+        hasWorkspacesArray: toml.includes("workspaces"),
+        hasInlineKey: toml.includes("lin_api"),
+        keyA: getCredentialApiKey("ws-a"),
+        keyB: getCredentialApiKey("ws-b"),
+      }));
+    `
+
+    const output = await runWithCredentials(tempDir, code)
+    const result = JSON.parse(output)
+
+    assertEquals(result.wasinline, true)
+    assertEquals(result.isInlineAfter, false)
+    assertEquals(result.migrated, ["ws-a", "ws-b"])
+    assertEquals(result.hasWorkspacesArray, true)
+    assertEquals(result.hasInlineKey, false)
+    assertEquals(result.keyA, "lin_api_a")
+    assertEquals(result.keyB, "lin_api_b")
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("credentials - removeCredential on inline-format file preserves inline format", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const configDir = `${tempDir}/linear`
+    await Deno.mkdir(configDir, { recursive: true })
+    await Deno.writeTextFile(
+      `${configDir}/credentials.toml`,
+      `default = "ws-a"\nws-a = "lin_api_a"\nws-b = "lin_api_b"\n`,
+    )
+
+    const code = `
+      ${
+      mockBackendAndImport(
+        "removeCredential, getCredentialsPath, getWorkspaces, getCredentialApiKey, isUsingInlineFormat",
+      )
+    }
+      await removeCredential("ws-a");
+      const toml = await Deno.readTextFile(getCredentialsPath()!);
+      console.log(JSON.stringify({
+        workspaces: getWorkspaces(),
+        isInline: isUsingInlineFormat(),
+        hasWorkspacesArray: toml.includes("workspaces"),
+        hasInlineKeyB: toml.includes("lin_api_b"),
+        hasInlineKeyA: toml.includes("lin_api_a"),
+        keyB: getCredentialApiKey("ws-b"),
+      }));
+    `
+
+    const output = await runWithCredentials(tempDir, code)
+    const result = JSON.parse(output)
+    assertEquals(result.workspaces, ["ws-b"])
+    assertEquals(result.isInline, true)
+    assertEquals(result.hasWorkspacesArray, false)
+    assertEquals(result.hasInlineKeyB, true)
+    assertEquals(result.hasInlineKeyA, false)
+    assertEquals(result.keyB, "lin_api_b")
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("credentials - setDefaultWorkspace on inline-format file preserves inline format", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const configDir = `${tempDir}/linear`
+    await Deno.mkdir(configDir, { recursive: true })
+    await Deno.writeTextFile(
+      `${configDir}/credentials.toml`,
+      `default = "ws-a"\nws-a = "lin_api_a"\nws-b = "lin_api_b"\n`,
+    )
+
+    const code = `
+      ${
+      mockBackendAndImport(
+        "setDefaultWorkspace, getCredentialsPath, getDefaultWorkspace, getCredentialApiKey, isUsingInlineFormat",
+      )
+    }
+      await setDefaultWorkspace("ws-b");
+      const toml = await Deno.readTextFile(getCredentialsPath()!);
+      console.log(JSON.stringify({
+        default: getDefaultWorkspace(),
+        isInline: isUsingInlineFormat(),
+        hasWorkspacesArray: toml.includes("workspaces"),
+        hasInlineKeyA: toml.includes("lin_api_a"),
+        hasInlineKeyB: toml.includes("lin_api_b"),
+        keyA: getCredentialApiKey("ws-a"),
+        keyB: getCredentialApiKey("ws-b"),
+      }));
+    `
+
+    const output = await runWithCredentials(tempDir, code)
+    const result = JSON.parse(output)
+    assertEquals(result.default, "ws-b")
+    assertEquals(result.isInline, true)
+    assertEquals(result.hasWorkspacesArray, false)
+    assertEquals(result.hasInlineKeyA, true)
+    assertEquals(result.hasInlineKeyB, true)
+    assertEquals(result.keyA, "lin_api_a")
+    assertEquals(result.keyB, "lin_api_b")
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("credentials - addCredential with plaintext false on inline file migrates all keys to keyring", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const configDir = `${tempDir}/linear`
+    await Deno.mkdir(configDir, { recursive: true })
+    await Deno.writeTextFile(
+      `${configDir}/credentials.toml`,
+      `default = "ws-a"\nws-a = "lin_api_a"\n`,
+    )
+
+    const code = `
+      ${
+      mockBackendAndImport(
+        "addCredential, getCredentialsPath, getCredentialApiKey, isUsingInlineFormat",
+      )
+    }
+      await addCredential("ws-b", "lin_api_b", { plaintext: false });
+      const toml = await Deno.readTextFile(getCredentialsPath()!);
+      console.log(JSON.stringify({
+        isInline: isUsingInlineFormat(),
+        hasWorkspacesArray: toml.includes("workspaces"),
+        hasInlineKeyA: toml.includes("lin_api_a"),
+        hasInlineKeyB: toml.includes("lin_api_b"),
+        keyA: getCredentialApiKey("ws-a"),
+        keyB: getCredentialApiKey("ws-b"),
+      }));
+    `
+
+    const output = await runWithCredentials(tempDir, code)
+    const result = JSON.parse(output)
+    assertEquals(result.isInline, false)
+    assertEquals(result.hasWorkspacesArray, true)
+    assertEquals(result.hasInlineKeyA, false)
+    assertEquals(result.hasInlineKeyB, false)
+    assertEquals(result.keyA, "lin_api_a")
+    assertEquals(result.keyB, "lin_api_b")
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("credentials - migrateToKeyring rolls back on partial failure", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const configDir = `${tempDir}/linear`
+    await Deno.mkdir(configDir, { recursive: true })
+    await Deno.writeTextFile(
+      `${configDir}/credentials.toml`,
+      `default = "ws-a"\nws-a = "lin_api_a"\nws-b = "lin_api_b"\n`,
+    )
+
+    const code = `
+import { _setBackend } from "${keyringUrl}";
+const _store = new Map<string, string>();
+_setBackend({
+  async get(account: string) { return _store.get(account) ?? null },
+  async set(account: string, password: string) {
+    if (account === "ws-b") throw new Error("keyring locked");
+    _store.set(account, password);
+  },
+  async delete(account: string) { _store.delete(account) },
+  async isAvailable() { return true },
+});
+const { migrateToKeyring, isUsingInlineFormat, getCredentialsPath, getCredentialApiKey } = await import("${credentialsUrl}");
+let error = "";
+try {
+  await migrateToKeyring();
+} catch (e) {
+  error = e.message;
+}
+const toml = await Deno.readTextFile(getCredentialsPath()!);
+console.log(JSON.stringify({
+  error,
+  isInline: isUsingInlineFormat(),
+  hasInlineKeyA: toml.includes("lin_api_a"),
+  hasInlineKeyB: toml.includes("lin_api_b"),
+  hasWorkspacesArray: toml.includes("workspaces"),
+  keyA: getCredentialApiKey("ws-a"),
+  keyB: getCredentialApiKey("ws-b"),
+}));
+    `
+
+    const output = await runWithCredentials(tempDir, code)
+    const result = JSON.parse(output)
+    assertEquals(result.error.includes("keyring locked"), true)
+    assertEquals(result.error.includes("Rolled back"), true)
+    assertEquals(result.isInline, true)
+    assertEquals(result.hasInlineKeyA, true)
+    assertEquals(result.hasInlineKeyB, true)
+    assertEquals(result.hasWorkspacesArray, false)
+    assertEquals(result.keyA, "lin_api_a")
+    assertEquals(result.keyB, "lin_api_b")
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("credentials - migrateToKeyring is no-op when already using keyring", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const code = `
+      ${
+      mockBackendAndImport(
+        "addCredential, migrateToKeyring, isUsingInlineFormat",
+      )
+    }
+      await addCredential("my-ws", "lin_api_key");
+      const migrated = await migrateToKeyring();
+      console.log(JSON.stringify({
+        isInline: isUsingInlineFormat(),
+        migrated,
+      }));
+    `
+
+    const output = await runWithCredentials(tempDir, code)
+    const result = JSON.parse(output)
+
+    assertEquals(result.isInline, false)
+    assertEquals(result.migrated, [])
   } finally {
     await Deno.remove(tempDir, { recursive: true })
   }
