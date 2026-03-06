@@ -1,3 +1,4 @@
+import { yellow } from "@std/fmt/colors"
 import { macosBackend } from "./macos.ts"
 import { linuxBackend } from "./linux.ts"
 import { windowsBackend } from "./windows.ts"
@@ -46,10 +47,14 @@ export async function deletePassword(account: string): Promise<void> {
   await getBackend().delete(account)
 }
 
-export async function isKeyringAvailable(): Promise<boolean> {
+export async function isAvailable(): Promise<boolean> {
   try {
     return await getBackend().isAvailable()
-  } catch {
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    console.error(
+      yellow(`Warning: Keyring availability check failed: ${detail}`),
+    )
     return false
   }
 }

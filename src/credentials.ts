@@ -14,6 +14,7 @@ export interface Credentials {
 }
 
 let credentials: Credentials = { workspaces: [] }
+let isInlineFormat = false
 
 const apiKeyCache = new Map<string, string>()
 
@@ -163,9 +164,12 @@ export async function loadCredentials(): Promise<Credentials> {
   apiKeyCache.clear()
 
   if (hasInlineKeys(parsed)) {
+    isInlineFormat = true
     credentials = parseInlineCredentials(parsed)
     return credentials
   }
+
+  isInlineFormat = false
 
   credentials = parseKeyringCredentials(parsed)
   await populateKeyringCache(credentials.workspaces)
@@ -219,27 +223,138 @@ async function saveInlineCredentials(
   }
   for (const ws of [...credentials.workspaces].sort()) {
     const key = ws === workspace ? apiKey : apiKeyCache.get(ws)
-    if (key != null) {
-      ordered[ws] = key
+    if (key == null) {
+      throw new Error(
+        `Cannot save inline credentials: API key for workspace "${ws}" is missing from cache`,
+      )
     }
+    ordered[ws] = key
   }
 
   await Deno.writeTextFile(path, stringify(ordered))
 }
 
 /**
+ * Save all current inline credentials from cache.
+ * Used when modifying the workspace list (remove, set default) in inline mode.
+ */
+async function saveAllInlineCredentials(): Promise<void> {
+  const path = getCredentialsPath()
+  if (!path) {
+    throw new Error("Could not determine credentials path")
+  }
+
+  const dir = dirname(path)
+  await ensureDir(dir)
+
+  const ordered: Record<string, string> = {}
+  if (credentials.default != null) {
+    ordered.default = credentials.default
+  }
+  for (const ws of [...credentials.workspaces].sort()) {
+    const key = apiKeyCache.get(ws)
+    if (key == null) {
+      throw new Error(
+        `Cannot save inline credentials: API key for workspace "${ws}" is missing from cache`,
+      )
+    }
+    ordered[ws] = key
+  }
+
+  await Deno.writeTextFile(path, stringify(ordered))
+}
+
+/**
+ * Migrate all inline (plaintext) credentials to the system keyring.
+ * Returns the list of workspaces that were migrated.
+ */
+export async function migrateToKeyring(): Promise<string[]> {
+  if (!isInlineFormat) {
+    return []
+  }
+
+  const migrated: string[] = []
+  for (const ws of credentials.workspaces) {
+    const key = apiKeyCache.get(ws)
+    if (key == null) continue
+    try {
+      await setPassword(ws, key)
+      migrated.push(ws)
+    } catch (error) {
+      // Roll back already-written keyring entries (best effort)
+      for (const written of migrated) {
+        try {
+          await deletePassword(written)
+        } catch {
+          // best effort cleanup
+        }
+      }
+      throw new Error(
+        `Failed to store API key in system keyring for workspace "${ws}": ${
+          errorDetail(error)
+        }. Rolled back ${migrated.length} already-written entries.`,
+      )
+    }
+  }
+
+  isInlineFormat = false
+  await saveCredentials()
+  return migrated
+}
+
+/**
+ * Check whether the current credentials file uses inline (plaintext) format.
+ */
+export function isUsingInlineFormat(): boolean {
+  return isInlineFormat
+}
+
+/**
  * Add or update a credential.
  * If this is the first workspace, it becomes the default.
  * When `plaintext` is true, the key is stored directly in the TOML file.
+ * When not specified, preserves the current credential format.
  */
 export async function addCredential(
   workspace: string,
   apiKey: string,
   options?: { plaintext?: boolean },
 ): Promise<void> {
-  const plaintext = options?.plaintext ?? false
+  const useInline = options?.plaintext ?? isInlineFormat
 
-  if (!plaintext) {
+  // When explicitly requesting keyring storage while currently in inline format,
+  // migrate all existing keys to keyring first to avoid data loss.
+  if (options?.plaintext === false && isInlineFormat) {
+    apiKeyCache.set(workspace, apiKey)
+    const isNew = !credentials.workspaces.includes(workspace)
+    if (isNew) {
+      credentials.workspaces.push(workspace)
+    }
+    if (isNew && credentials.workspaces.length === 1) {
+      credentials.default = workspace
+    }
+
+    // Migrate all keys (including the new one) to keyring
+    for (const ws of credentials.workspaces) {
+      const key = apiKeyCache.get(ws)
+      if (key == null) continue
+      try {
+        await setPassword(ws, key)
+      } catch (error) {
+        throw new Error(
+          `Failed to store API key in system keyring for workspace "${ws}": ${
+            errorDetail(error)
+          }`,
+        )
+      }
+    }
+
+    isInlineFormat = false
+    await saveCredentials()
+    return
+  }
+
+  if (!useInline) {
     try {
       await setPassword(workspace, apiKey)
     } catch (error) {
@@ -263,7 +378,7 @@ export async function addCredential(
     credentials.default = workspace
   }
 
-  if (plaintext) {
+  if (useInline) {
     await saveInlineCredentials(workspace, apiKey)
   } else {
     await saveCredentials()
@@ -275,14 +390,16 @@ export async function addCredential(
  * If removing the default, reassign to another workspace or clear.
  */
 export async function removeCredential(workspace: string): Promise<void> {
-  try {
-    await deletePassword(workspace)
-  } catch (error) {
-    throw new Error(
-      `Failed to remove API key from system keyring for workspace "${workspace}": ${
-        errorDetail(error)
-      }`,
-    )
+  if (!isInlineFormat) {
+    try {
+      await deletePassword(workspace)
+    } catch (error) {
+      throw new Error(
+        `Failed to remove API key from system keyring for workspace "${workspace}": ${
+          errorDetail(error)
+        }`,
+      )
+    }
   }
   apiKeyCache.delete(workspace)
 
@@ -293,7 +410,11 @@ export async function removeCredential(workspace: string): Promise<void> {
     credentials.default = credentials.workspaces[0]
   }
 
-  await saveCredentials()
+  if (isInlineFormat) {
+    await saveAllInlineCredentials()
+  } else {
+    await saveCredentials()
+  }
 }
 
 /**
@@ -304,7 +425,12 @@ export async function setDefaultWorkspace(workspace: string): Promise<void> {
     throw new Error(`Workspace "${workspace}" not found in credentials`)
   }
   credentials.default = workspace
-  await saveCredentials()
+
+  if (isInlineFormat) {
+    await saveAllInlineCredentials()
+  } else {
+    await saveCredentials()
+  }
 }
 
 /**
