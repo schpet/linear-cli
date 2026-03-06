@@ -50,6 +50,29 @@ brew install schpet/tap/linear
 deno install -A --reload -f -g -n linear jsr:@schpet/linear-cli
 ```
 
+### npm / bun / pnpm
+
+install as a dev dependency to pin a version in your project:
+
+```bash
+npm install -D @schpet/linear-cli
+# or
+bun add -D @schpet/linear-cli
+# or
+pnpm add -D @schpet/linear-cli
+```
+
+then run via your package manager:
+
+```bash
+npx linear issue list
+bunx linear issue list
+```
+
+> **note:** this package ships pre-built binaries
+
+package on npm: [@schpet/linear-cli](https://www.npmjs.com/package/@schpet/linear-cli)
+
 ### binaries
 
 https://github.com/schpet/linear-cli/releases/latest

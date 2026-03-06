@@ -1,5 +1,6 @@
 import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
 import { apiCommand } from "../../src/commands/api.ts"
+import { loadCredentials } from "../../src/credentials.ts"
 import { MockLinearServer } from "../utils/mock_linear_server.ts"
 
 const denoArgs = ["--allow-all", "--quiet"]
@@ -349,10 +350,15 @@ await cliffySnapshotTest({
     const tmpDir = await Deno.makeTempDir()
     try {
       Deno.env.delete("LINEAR_API_KEY")
+      // Write an empty credentials file so loadCredentials() resets the cached credentials
+      await Deno.mkdir(`${tmpDir}/linear`, { recursive: true })
+      await Deno.writeTextFile(`${tmpDir}/linear/credentials.toml`, "")
       Deno.env.set("XDG_CONFIG_HOME", tmpDir)
+      await loadCredentials()
       await apiCommand.parse()
     } finally {
       Deno.env.delete("XDG_CONFIG_HOME")
+      await loadCredentials() // restore credentials from real path
       await Deno.remove(tmpDir, { recursive: true })
     }
   },
