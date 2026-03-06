@@ -291,16 +291,64 @@ function generateIndex(commands: CommandInfo[]): string {
   return lines.join("\n") + "\n"
 }
 
+function extractCompactFlags(helpText: string): string {
+  const flagParts: string[] = []
+  const lines = helpText.split("\n")
+  let inOptions = false
+
+  for (const line of lines) {
+    if (/^Options:/.test(line)) {
+      inOptions = true
+      continue
+    }
+    if (inOptions) {
+      if (/^(Commands:|Examples:|Arguments:)/.test(line)) break
+      if (!line.match(/^ {2}-/)) continue
+      // Match: "-X, --long-name" or "--long-name" or "-X" optionally followed by <arg>
+      const m = line.match(
+        /^ {2,}(-[a-zA-Z](?:,\s+--[-a-zA-Z0-9]+)*|--[-a-zA-Z0-9]+)(?:\s+<([^>]+)>)?/,
+      )
+      if (!m) continue
+      const flagStr = m[1].trim()
+      const argStr = m[2]
+      // Skip universal flags: -h/--help and --workspace
+      if (flagStr.includes("--help")) continue
+      if (flagStr.includes("--workspace")) continue
+      // Prefer long form for readability
+      const longMatch = flagStr.match(/--[-a-zA-Z0-9]+/)
+      const primaryFlag = longMatch
+        ? longMatch[0]
+        : flagStr.split(",")[0].trim()
+      const part = argStr ? `${primaryFlag} <${argStr}>` : primaryFlag
+      flagParts.push(`[${part}]`)
+    }
+  }
+
+  return flagParts.join(" ")
+}
+
+function getAllLeafCommands(
+  cmd: CommandInfo,
+): { name: string; description: string; help: string }[] {
+  if (cmd.subcommands.length === 0) {
+    return [{ name: cmd.name, description: cmd.description, help: cmd.help }]
+  }
+  return cmd.subcommands.flatMap(getAllLeafCommands)
+}
+
 function generateCommandsSection(commands: CommandInfo[]): string {
   const lines: string[] = []
   lines.push("```")
 
-  // Find max command name length for alignment
-  const maxLen = Math.max(...commands.map((c) => c.name.length))
-
   for (const cmd of commands) {
-    const padding = " ".repeat(maxLen - cmd.name.length + 2)
-    lines.push(`linear ${cmd.name}${padding}# ${cmd.description}`)
+    const leafCmds = getAllLeafCommands(cmd)
+    for (const leaf of leafCmds) {
+      const flags = extractCompactFlags(leaf.help)
+      const cmdStr = flags
+        ? `linear ${leaf.name} ${flags}`
+        : `linear ${leaf.name}`
+      lines.push(`${cmdStr}  # ${leaf.description}`)
+    }
   }
 
   lines.push("```")

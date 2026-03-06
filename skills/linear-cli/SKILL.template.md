@@ -57,7 +57,9 @@ linear issue comment add ENG-123 --body-file /tmp/comment.md
 
 **Only use inline flags** (`--description`, `--body`) for simple, single-line content.
 
-## Available Commands
+## Command Reference
+
+All subcommands with flags (omitting universal `-h/--help` and `-w/--workspace`):
 
 {{COMMANDS}}
 
