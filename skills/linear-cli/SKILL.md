@@ -8,7 +8,7 @@ allowed-tools: Bash(linear:*), Bash(curl:*)
 
 A CLI to manage Linear issues from the command line, with git and jj integration.
 
-Generated from linear CLI v1.9.1
+Generated from linear CLI v1.11.0
 
 ## Prerequisites
 
@@ -67,6 +67,7 @@ linear issue              # Manage Linear issues
 linear team               # Manage Linear teams
 linear project            # Manage Linear projects
 linear project-update     # Manage project status updates
+linear cycle              # Manage Linear team cycles
 linear milestone          # Manage Linear project milestones
 linear initiative         # Manage Linear initiatives
 linear initiative-update  # Manage initiative status updates (timeline posts)
@@ -84,6 +85,7 @@ linear api                # Make a raw GraphQL API request
 - [team](references/team.md) - Manage Linear teams
 - [project](references/project.md) - Manage Linear projects
 - [project-update](references/project-update.md) - Manage project status updates
+- [cycle](references/cycle.md) - Manage Linear team cycles
 - [milestone](references/milestone.md) - Manage Linear project milestones
 - [initiative](references/initiative.md) - Manage Linear initiatives
 - [initiative-update](references/initiative-update.md) - Manage initiative status updates (timeline posts)

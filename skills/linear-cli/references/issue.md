@@ -6,7 +6,7 @@
 
 ```
 Usage:   linear issue
-Version: 1.9.1       
+Version: 1.11.0      
 
 Description:
 
@@ -44,7 +44,7 @@ Commands:
 
 ```
 Usage:   linear issue id
-Version: 1.9.1          
+Version: 1.11.0         
 
 Description:
 
@@ -62,7 +62,7 @@ Options:
 
 ```
 Usage:   linear issue list
-Version: 1.9.1            
+Version: 1.11.0           
 
 Description:
 
@@ -81,6 +81,7 @@ Options:
   --sort               <sort>      - Sort order (can also be set via LINEAR_ISSUE_SORT)                    (Values: "manual", "priority")                         
   --team               <team>      - Team to list issues for (if not your default team)                                                                           
   --project            <project>   - Filter by project name                                                                                                       
+  --cycle              <cycle>     - Filter by cycle name, number, or 'active'                                                                                    
   --limit              <limit>     - Maximum number of issues to fetch (default: 50, use 0 for unlimited)  (Default: 50)                                          
   -w, --web                        - Open in web browser                                                                                                          
   -a, --app                        - Open in Linear.app                                                                                                           
@@ -93,7 +94,7 @@ Options:
 
 ```
 Usage:   linear issue title [issueId]
-Version: 1.9.1                       
+Version: 1.11.0                      
 
 Description:
 
@@ -111,7 +112,7 @@ Options:
 
 ```
 Usage:   linear issue start [issueId]
-Version: 1.9.1                       
+Version: 1.11.0                      
 
 Description:
 
@@ -133,7 +134,7 @@ Options:
 
 ```
 Usage:   linear issue view [issueId]
-Version: 1.9.1                      
+Version: 1.11.0                     
 
 Description:
 
@@ -157,7 +158,7 @@ Options:
 
 ```
 Usage:   linear issue url [issueId]
-Version: 1.9.1                     
+Version: 1.11.0                    
 
 Description:
 
@@ -175,7 +176,7 @@ Options:
 
 ```
 Usage:   linear issue describe [issueId]
-Version: 1.9.1                          
+Version: 1.11.0                         
 
 Description:
 
@@ -194,7 +195,7 @@ Options:
 
 ```
 Usage:   linear issue commits [issueId]
-Version: 1.9.1                         
+Version: 1.11.0                        
 
 Description:
 
@@ -212,7 +213,7 @@ Options:
 
 ```
 Usage:   linear issue pull-request [issueId]
-Version: 1.9.1                              
+Version: 1.11.0                             
 
 Description:
 
@@ -235,7 +236,7 @@ Options:
 
 ```
 Usage:   linear issue delete [issueId]
-Version: 1.9.1                        
+Version: 1.11.0                       
 
 Description:
 
@@ -257,7 +258,7 @@ Options:
 
 ```
 Usage:   linear issue create
-Version: 1.9.1              
+Version: 1.11.0             
 
 Description:
 
@@ -270,15 +271,17 @@ Options:
   --start                                   - Start the issue after creation                                 
   -a, --assignee             <assignee>     - Assign the issue to 'self' or someone (by username or name)    
   --due-date                 <dueDate>      - Due date of the issue                                          
-  -p, --parent               <parent>       - Parent issue (if any) as a team_number code                    
-  --priority                 <priority>     - Priority of the issue (1-4, descending priority)               
+  --parent                   <parent>       - Parent issue (if any) as a team_number code                    
+  -p, --priority             <priority>     - Priority of the issue (1-4, descending priority)               
   --estimate                 <estimate>     - Points estimate of the issue                                   
   -d, --description          <description>  - Description of the issue                                       
   --description-file         <path>         - Read description from a file (preferred for markdown content)  
   -l, --label                <label>        - Issue label associated with the issue. May be repeated.        
   --team                     <team>         - Team associated with the issue (if not your default team)      
-  --project                  <project>      - Name of the project with the issue                             
+  --project                  <project>      - Name or slug ID of the project with the issue                  
   -s, --state                <state>        - Workflow state for the issue (by name or type)                 
+  --milestone                <milestone>    - Name of the project milestone                                  
+  --cycle                    <cycle>        - Cycle name, number, or 'active'                                
   --no-use-default-template                 - Do not use default template for the issue                      
   --no-interactive                          - Disable interactive prompts                                    
   -t, --title                <title>        - Title of the issue
@@ -290,7 +293,7 @@ Options:
 
 ```
 Usage:   linear issue update [issueId]
-Version: 1.9.1                        
+Version: 1.11.0                       
 
 Description:
 
@@ -302,15 +305,17 @@ Options:
   -w, --workspace     <slug>         - Target workspace (uses credentials)                            
   -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)    
   --due-date          <dueDate>      - Due date of the issue                                          
-  -p, --parent        <parent>       - Parent issue (if any) as a team_number code                    
-  --priority          <priority>     - Priority of the issue (1-4, descending priority)               
+  --parent            <parent>       - Parent issue (if any) as a team_number code                    
+  -p, --priority      <priority>     - Priority of the issue (1-4, descending priority)               
   --estimate          <estimate>     - Points estimate of the issue                                   
   -d, --description   <description>  - Description of the issue                                       
   --description-file  <path>         - Read description from a file (preferred for markdown content)  
   -l, --label         <label>        - Issue label associated with the issue. May be repeated.        
   --team              <team>         - Team associated with the issue (if not your default team)      
-  --project           <project>      - Name of the project with the issue                             
+  --project           <project>      - Name or slug ID of the project with the issue                  
   -s, --state         <state>        - Workflow state for the issue (by name or type)                 
+  --milestone         <milestone>    - Name of the project milestone                                  
+  --cycle             <cycle>        - Cycle name, number, or 'active'                                
   -t, --title         <title>        - Title of the issue
 ```
 
@@ -320,7 +325,7 @@ Options:
 
 ```
 Usage:   linear issue comment
-Version: 1.9.1               
+Version: 1.11.0              
 
 Description:
 
@@ -334,6 +339,7 @@ Options:
 Commands:
 
   add     [issueId]    - Add a comment to an issue or reply to a comment
+  delete  <commentId>  - Delete a comment                               
   update  <commentId>  - Update an existing comment                     
   list    [issueId]    - List comments for an issue
 ```
@@ -344,7 +350,7 @@ Commands:
 
 ```
 Usage:   linear issue comment add [issueId]
-Version: 1.9.1                             
+Version: 1.11.0                            
 
 Description:
 
@@ -360,11 +366,27 @@ Options:
   -a, --attach     <filepath>  - Attach a file to the comment (can be used multiple times)
 ```
 
+##### delete
+
+```
+Usage:   linear issue comment delete <commentId>
+Version: 1.11.0                                 
+
+Description:
+
+  Delete a comment
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
+```
+
 ##### update
 
 ```
 Usage:   linear issue comment update <commentId>
-Version: 1.9.1                                  
+Version: 1.11.0                                 
 
 Description:
 
@@ -382,7 +404,7 @@ Options:
 
 ```
 Usage:   linear issue comment list [issueId]
-Version: 1.9.1                              
+Version: 1.11.0                             
 
 Description:
 
@@ -401,7 +423,7 @@ Options:
 
 ```
 Usage:   linear issue attach <issueId> <filepath>
-Version: 1.9.1                                   
+Version: 1.11.0                                  
 
 Description:
 
@@ -421,7 +443,7 @@ Options:
 
 ```
 Usage:   linear issue relation
-Version: 1.9.1                
+Version: 1.11.0               
 
 Description:
 
@@ -445,7 +467,7 @@ Commands:
 
 ```
 Usage:   linear issue relation add <issueId> <relationType> <relatedIssueId>
-Version: 1.9.1                                                              
+Version: 1.11.0                                                             
 
 Description:
 
@@ -468,7 +490,7 @@ Examples:
 
 ```
 Usage:   linear issue relation delete <issueId> <relationType> <relatedIssueId>
-Version: 1.9.1                                                                 
+Version: 1.11.0                                                                
 
 Description:
 
@@ -484,7 +506,7 @@ Options:
 
 ```
 Usage:   linear issue relation list [issueId]
-Version: 1.9.1                               
+Version: 1.11.0                              
 
 Description:
 
