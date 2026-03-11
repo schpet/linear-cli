@@ -691,23 +691,36 @@ export async function searchTeamsByKeySubstring(
   )
 }
 
-export async function lookupUserId(
+export async function lookupUser(
   /**
    * email, username, display name, 'self', or '@me' for viewer
    */
   input: "self" | "@me" | string,
-): Promise<string | undefined> {
+): Promise<
+  | {
+    id: string
+    email?: string | null
+    displayName?: string | null
+    name: string
+    app: boolean
+  }
+  | undefined
+> {
   if (input === "@me" || input === "self") {
     const client = getGraphQLClient()
     const query = gql(/* GraphQL */ `
       query GetViewerId {
         viewer {
           id
+          email
+          displayName
+          name
+          app
         }
       }
     `)
     const data = await client.request(query, {})
-    return data.viewer.id
+    return data.viewer
   } else {
     const client = getGraphQLClient()
     const query = gql(/* GraphQL */ `
@@ -726,6 +739,7 @@ export async function lookupUserId(
             email
             displayName
             name
+            app
           }
         }
       }
@@ -738,18 +752,28 @@ export async function lookupUserId(
 
     for (const user of data.users.nodes) {
       if (user.email?.toLowerCase() === input.toLowerCase()) {
-        return user.id
+        return user
       }
     }
 
     for (const user of data.users.nodes) {
       if (user.displayName?.toLowerCase() === input.toLowerCase()) {
-        return user.id
+        return user
       }
     }
 
-    return data.users.nodes[0]?.id
+    return data.users.nodes[0]
   }
+}
+
+export async function lookupUserId(
+  /**
+   * email, username, display name, 'self', or '@me' for viewer
+   */
+  input: "self" | "@me" | string,
+): Promise<string | undefined> {
+  const user = await lookupUser(input)
+  return user?.id
 }
 
 export async function getIssueLabelIdByNameForTeam(

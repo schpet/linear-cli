@@ -11,7 +11,7 @@ import {
   getProjectIdByName,
   getTeamIdByKey,
   getWorkflowStateByNameOrType,
-  lookupUserId,
+  lookupUser,
 } from "../../utils/linear.ts"
 import {
   CliError,
@@ -27,6 +27,10 @@ export const updateCommand = new Command()
   .option(
     "-a, --assignee <assignee:string>",
     "Assign the issue to 'self' or someone (by username or name)",
+  )
+  .option(
+    "--delegate <delegate:string>",
+    "Delegate the issue to an agent user (by username or name)",
   )
   .option(
     "--due-date <dueDate:string>",
@@ -82,6 +86,7 @@ export const updateCommand = new Command()
     async (
       {
         assignee,
+        delegate,
         dueDate,
         parent,
         priority,
@@ -175,10 +180,38 @@ export const updateCommand = new Command()
 
         let assigneeId: string | undefined
         if (assignee !== undefined) {
-          assigneeId = await lookupUserId(assignee)
-          if (!assigneeId) {
+          const resolvedAssignee = await lookupUser(assignee)
+          if (!resolvedAssignee) {
             throw new NotFoundError("User", assignee)
           }
+          if (resolvedAssignee.app) {
+            throw new ValidationError(
+              `Cannot use --assignee with app user '${assignee}'`,
+              {
+                suggestion:
+                  `Use --delegate ${assignee} to delegate the issue to an agent user.`,
+              },
+            )
+          }
+          assigneeId = resolvedAssignee.id
+        }
+
+        let delegateId: string | undefined
+        if (delegate !== undefined) {
+          const resolvedDelegate = await lookupUser(delegate)
+          if (!resolvedDelegate) {
+            throw new NotFoundError("User", delegate)
+          }
+          if (!resolvedDelegate.app) {
+            throw new ValidationError(
+              `Cannot use --delegate with human user '${delegate}'`,
+              {
+                suggestion:
+                  `Use --assignee ${delegate} to assign the issue to a human user.`,
+              },
+            )
+          }
+          delegateId = resolvedDelegate.id
         }
 
         const labelIds = []
@@ -229,6 +262,7 @@ export const updateCommand = new Command()
 
         if (title !== undefined) input.title = title
         if (assigneeId !== undefined) input.assigneeId = assigneeId
+        if (delegateId !== undefined) input.delegateId = delegateId
         if (dueDate !== undefined) input.dueDate = dueDate
         if (parent !== undefined) {
           const parentIdentifier = await getIssueIdentifier(parent)

@@ -58,6 +58,10 @@ await snapshotTest({
           data: {
             viewer: {
               id: "user-self-123",
+              email: "me@example.com",
+              displayName: "me",
+              name: "Me",
+              app: false,
             },
           },
         },
@@ -76,6 +80,123 @@ await snapshotTest({
                   "https://linear.app/test-team/issue/ENG-123/updated-authentication-bug-fix",
                 title: "Updated authentication bug fix",
               },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Update Command - Delegate Happy Path",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "ENG-123",
+    "--delegate",
+    "rowan",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "LookupUser",
+        variables: { input: "rowan" },
+        response: {
+          data: {
+            users: {
+              nodes: [{
+                id: "user-rowan-123",
+                email: "rowan@oauthapp.linear.app",
+                displayName: "rowan",
+                name: "Rowan",
+                app: true,
+              }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/test-issue",
+                title: "Test Issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Update Command - Assignee Rejects App User",
+  meta: import.meta,
+  colors: false,
+  canFail: true,
+  args: [
+    "ENG-123",
+    "--assignee",
+    "rowan",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "LookupUser",
+        variables: { input: "rowan" },
+        response: {
+          data: {
+            users: {
+              nodes: [{
+                id: "user-rowan-123",
+                email: "rowan@oauthapp.linear.app",
+                displayName: "rowan",
+                name: "Rowan",
+                app: true,
+              }],
             },
           },
         },
