@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-03-06
+
+### Added
+
+- publish to npm as @schpet/linear-cli, enabling installation via npm/bun as a dev dependency
+
 ## [1.11.0] - 2026-03-05
 
 ### Added
@@ -404,7 +410,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/schpet/linear-cli/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/schpet/linear-cli/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/schpet/linear-cli/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/schpet/linear-cli/compare/v1.9.0...v1.9.1

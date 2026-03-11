@@ -41,13 +41,13 @@ export const loginCommand = new Command()
   )
   .action(async (options) => {
     try {
-      let apiKey = options.key
+      let apiKey = options.key?.trim()
 
       if (!apiKey) {
-        apiKey = await Secret.prompt({
+        apiKey = (await Secret.prompt({
           message: "Enter your Linear API key",
           hint: "Create one at https://linear.app/settings/account/security",
-        })
+        }))?.trim()
       }
 
       if (!apiKey) {
@@ -56,6 +56,9 @@ export const loginCommand = new Command()
             "Create one at https://linear.app/settings/account/security",
         })
       }
+
+      // Strip stray characters that some terminals (e.g. Windows) inject around pasted text
+      apiKey = apiKey.replace(/^[^a-zA-Z0-9_]+|[^a-zA-Z0-9_]+$/g, "")
 
       // Validate the API key by querying the API
       const client = createGraphQLClient(apiKey)
