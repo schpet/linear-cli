@@ -6,7 +6,6 @@
 
 ```
 Usage:   linear api [query]
-Version: 1.11.1            
 
 Description:
 

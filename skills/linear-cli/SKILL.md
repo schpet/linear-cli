@@ -8,8 +8,6 @@ allowed-tools: Bash(linear:*), Bash(curl:*)
 
 A CLI to manage Linear issues from the command line, with git and jj integration.
 
-Generated from linear CLI v1.11.1
-
 ## Prerequisites
 
 The `linear` command must be available on PATH. To check:

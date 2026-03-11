@@ -49,6 +49,11 @@ function stripAnsi(str: string): string {
   return str.replace(/\x1b\[[0-9;]*m/g, "")
 }
 
+function stripVersion(str: string): string {
+  // Remove "Version: X.Y.Z" lines from help output to avoid churn on version bumps
+  return str.replace(/^Version:.*\n?/gm, "").replace(/\n+$/, "")
+}
+
 function parseCommands(helpText: string): string[] {
   const commands: string[] = []
   const lines = helpText.split("\n")
@@ -84,7 +89,7 @@ async function getCommandHelp(cmdPath: string[]): Promise<string> {
   if (!result.success) {
     return result.stderr || "Command help not available"
   }
-  return stripAnsi(result.stdout)
+  return stripVersion(stripAnsi(result.stdout))
 }
 
 async function discoverCommand(cmdPath: string[]): Promise<CommandInfo> {
@@ -180,14 +185,6 @@ function generateCommandDoc(cmd: CommandInfo): string {
   return lines.join("\n")
 }
 
-async function getLinearVersion(): Promise<string> {
-  const result = await run(["linear", "--version"])
-  if (!result.success) return "unknown"
-  // Parse "1.7.0" from version output
-  const match = stripAnsi(result.stdout).match(/(\d+\.\d+\.\d+)/)
-  return match ? match[1] : "unknown"
-}
-
 async function main() {
   console.log("Generating Linear CLI documentation...")
 
@@ -197,9 +194,7 @@ async function main() {
     console.error("Error: linear CLI not found. Is it installed?")
     Deno.exit(1)
   }
-
-  const version = await getLinearVersion()
-  console.log(`Linear CLI version: ${version}`)
+  console.log(`Linear CLI: ${stripAnsi(versionResult.stdout)}`)
 
   // Auto-discover top-level commands from `linear --help`
   console.log("Discovering commands...")
@@ -246,13 +241,13 @@ async function main() {
   }
 
   // Generate index file
-  const indexContent = generateIndex(commands, version)
+  const indexContent = generateIndex(commands)
   await Deno.writeTextFile(join(REFERENCES_DIR, "commands.md"), indexContent)
   console.log("  Generated: commands.md")
 
   // Generate SKILL.md from template
   console.log("Generating SKILL.md from template...")
-  const skillContent = await generateSkillMd(commands, version)
+  const skillContent = await generateSkillMd(commands)
   await Deno.writeTextFile(SKILL_MD, skillContent)
   console.log("  Generated: SKILL.md")
 
@@ -271,12 +266,10 @@ async function main() {
   console.log(`\nDone! Generated ${commands.length + 2} files.`)
 }
 
-function generateIndex(commands: CommandInfo[], version: string): string {
+function generateIndex(commands: CommandInfo[]): string {
   const lines: string[] = []
 
   lines.push("# Linear CLI Command Reference")
-  lines.push("")
-  lines.push(`Generated from linear CLI v${version}`)
   lines.push("")
   lines.push("## Commands")
   lines.push("")
@@ -328,13 +321,11 @@ function generateReferenceToc(commands: CommandInfo[]): string {
 
 async function generateSkillMd(
   commands: CommandInfo[],
-  version: string,
 ): Promise<string> {
   const template = await Deno.readTextFile(SKILL_TEMPLATE)
   return template
     .replace("{{COMMANDS}}", generateCommandsSection(commands))
     .replace("{{REFERENCE_TOC}}", generateReferenceToc(commands))
-    .replace("{{VERSION}}", version)
 }
 
 main()

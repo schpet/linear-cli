@@ -1,12 +1,15 @@
 import { Command } from "@cliffy/command"
-import { Secret } from "@cliffy/prompt"
+import { Confirm, Secret } from "@cliffy/prompt"
 import { yellow } from "@std/fmt/colors"
 import { gql } from "../../__codegen__/gql.ts"
 import {
   addCredential,
   getWorkspaces,
   hasWorkspace,
+  isUsingInlineFormat,
+  migrateToKeyring,
 } from "../../credentials.ts"
+import * as keyring from "../../keyring/index.ts"
 import {
   AuthError,
   CliError,
@@ -32,6 +35,10 @@ export const loginCommand = new Command()
   .name("login")
   .description("Add a workspace credential")
   .option("-k, --key <key:string>", "API key (prompted if not provided)")
+  .option(
+    "--plaintext",
+    "Store API key in credentials file instead of system keyring",
+  )
   .action(async (options) => {
     try {
       let apiKey = options.key?.trim()
@@ -62,8 +69,20 @@ export const loginCommand = new Command()
         const org = viewer.organization
         const workspace = org.urlKey
 
+        // Require keyring when not using plaintext and not already in inline format
+        if (!options.plaintext && !isUsingInlineFormat()) {
+          const keyringOk = await keyring.isAvailable()
+          if (!keyringOk) {
+            throw new CliError(
+              "No system keyring found. Use `--plaintext` to store credentials in the config file, or set `LINEAR_API_KEY`.",
+            )
+          }
+        }
+
         const alreadyExists = hasWorkspace(workspace)
-        await addCredential(workspace, apiKey)
+        await addCredential(workspace, apiKey, {
+          plaintext: options.plaintext,
+        })
 
         const existingCount = getWorkspaces().length
 
@@ -80,6 +99,38 @@ export const loginCommand = new Command()
           console.log(`  Set as default workspace`)
         }
 
+        if (!options.plaintext && isUsingInlineFormat()) {
+          console.log(
+            yellow(
+              "Note: Credential stored as plaintext to match existing format.",
+            ),
+          )
+        }
+
+        // Prompt to migrate inline credentials to keyring
+        if (isUsingInlineFormat()) {
+          const keyringOk = await keyring.isAvailable()
+          if (keyringOk) {
+            console.log()
+            console.log(
+              yellow(
+                "Your credentials are stored as plaintext in the credentials file.",
+              ),
+            )
+            const migrate = await Confirm.prompt({
+              message:
+                "Migrate all credentials to the system keyring for better security?",
+              default: true,
+            })
+            if (migrate) {
+              const migrated = await migrateToKeyring()
+              console.log(
+                `Migrated ${migrated.length} workspace(s) to system keyring.`,
+              )
+            }
+          }
+        }
+
         // Warn if LINEAR_API_KEY is set
         if (Deno.env.get("LINEAR_API_KEY")) {
           console.log()
@@ -94,6 +145,12 @@ export const loginCommand = new Command()
           )
         }
       } catch (error) {
+        if (
+          error instanceof CliError || error instanceof AuthError ||
+          error instanceof ValidationError
+        ) {
+          throw error
+        }
         if (error instanceof Error && error.message.includes("401")) {
           throw new AuthError("Invalid API key", {
             suggestion: "Check that your API key is correct and not expired.",
