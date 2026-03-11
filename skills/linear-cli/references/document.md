@@ -6,7 +6,6 @@
 
 ```
 Usage:   linear document
-Version: 1.11.1         
 
 Description:
 
@@ -34,7 +33,6 @@ Commands:
 
 ```
 Usage:   linear document list
-Version: 1.11.1              
 
 Description:
 
@@ -56,7 +54,6 @@ Options:
 
 ```
 Usage:   linear document view <id>
-Version: 1.11.1                   
 
 Description:
 
@@ -77,7 +74,6 @@ Options:
 
 ```
 Usage:   linear document create
-Version: 1.11.1                
 
 Description:
 
@@ -102,7 +98,6 @@ Options:
 
 ```
 Usage:   linear document update <documentId>
-Version: 1.11.1                             
 
 Description:
 
@@ -125,7 +120,6 @@ Options:
 
 ```
 Usage:   linear document delete [documentId]
-Version: 1.11.1                             
 
 Description:
 
