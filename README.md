@@ -137,10 +137,8 @@ linear issue list -a   # open issue list in Linear.app
 linear issue start     # create/switch to issue branch and mark as started
 linear issue create    # create a new issue (interactive prompts)
 linear issue create -t "title" -d "description"  # create with flags
-linear issue create --delegate rowan --team ENG --title "Investigate sync drift"  # delegate to an agent user
 linear issue create --project "My Project" --milestone "Phase 1"  # create with milestone
 linear issue update    # update an issue (interactive prompts)
-linear issue update ENG-123 --delegate rowan  # delegate an existing issue to an agent user
 linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing issue
 linear issue delete    # delete an issue
 linear issue comment list          # list comments on current issue
