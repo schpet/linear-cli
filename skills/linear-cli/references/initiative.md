@@ -6,7 +6,6 @@
 
 ```
 Usage:   linear initiative
-Version: 1.11.1           
 
 Description:
 
@@ -38,7 +37,6 @@ Commands:
 
 ```
 Usage:   linear initiative list
-Version: 1.11.1                
 
 Description:
 
@@ -63,7 +61,6 @@ Options:
 
 ```
 Usage:   linear initiative view <initiativeId>
-Version: 1.11.1                               
 
 Description:
 
@@ -84,7 +81,6 @@ Options:
 
 ```
 Usage:   linear initiative create
-Version: 1.11.1                  
 
 Description:
 
@@ -110,7 +106,6 @@ Options:
 
 ```
 Usage:   linear initiative archive [initiativeId]
-Version: 1.11.1                                  
 
 Description:
 
@@ -132,7 +127,6 @@ Options:
 
 ```
 Usage:   linear initiative update <initiativeId>
-Version: 1.11.1                                 
 
 Description:
 
@@ -158,7 +152,6 @@ Options:
 
 ```
 Usage:   linear initiative unarchive <initiativeId>
-Version: 1.11.1                                    
 
 Description:
 
@@ -177,7 +170,6 @@ Options:
 
 ```
 Usage:   linear initiative delete [initiativeId]
-Version: 1.11.1                                 
 
 Description:
 
@@ -199,7 +191,6 @@ Options:
 
 ```
 Usage:   linear initiative add-project <initiative> <project>
-Version: 1.11.1                                              
 
 Description:
 
@@ -218,7 +209,6 @@ Options:
 
 ```
 Usage:   linear initiative remove-project <initiative> <project>
-Version: 1.11.1                                                 
 
 Description:
 

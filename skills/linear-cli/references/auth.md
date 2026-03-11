@@ -6,7 +6,6 @@
 
 ```
 Usage:   linear auth
-Version: 1.11.1     
 
 Description:
 
@@ -19,12 +18,13 @@ Options:
 
 Commands:
 
-  login                 - Add a workspace credential                    
-  logout   [workspace]  - Remove a workspace credential                 
-  list                  - List configured workspaces                    
-  default  [workspace]  - Set the default workspace                     
-  token                 - Print the configured API token                
-  whoami                - Print information about the authenticated user
+  login                 - Add a workspace credential                     
+  logout   [workspace]  - Remove a workspace credential                  
+  list                  - List configured workspaces                     
+  default  [workspace]  - Set the default workspace                      
+  token                 - Print the configured API token                 
+  whoami                - Print information about the authenticated user 
+  migrate               - Migrate plaintext credentials to system keyring
 ```
 
 ## Subcommands
@@ -35,7 +35,6 @@ Commands:
 
 ```
 Usage:   linear auth login
-Version: 1.11.1           
 
 Description:
 
@@ -43,9 +42,10 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -k, --key        <key>   - API key (prompted if not provided)
+  -h, --help               - Show this help.                                              
+  -w, --workspace  <slug>  - Target workspace (uses credentials)                          
+  -k, --key        <key>   - API key (prompted if not provided)                           
+  --plaintext              - Store API key in credentials file instead of system keyring
 ```
 
 ### logout
@@ -54,7 +54,6 @@ Options:
 
 ```
 Usage:   linear auth logout [workspace]
-Version: 1.11.1                        
 
 Description:
 
@@ -73,7 +72,6 @@ Options:
 
 ```
 Usage:   linear auth list
-Version: 1.11.1          
 
 Description:
 
@@ -91,7 +89,6 @@ Options:
 
 ```
 Usage:   linear auth default [workspace]
-Version: 1.11.1                         
 
 Description:
 
@@ -109,7 +106,6 @@ Options:
 
 ```
 Usage:   linear auth token
-Version: 1.11.1           
 
 Description:
 
@@ -127,11 +123,27 @@ Options:
 
 ```
 Usage:   linear auth whoami
-Version: 1.11.1            
 
 Description:
 
   Print information about the authenticated user
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
+```
+
+### migrate
+
+> Migrate plaintext credentials to system keyring
+
+```
+Usage:   linear auth migrate
+
+Description:
+
+  Migrate plaintext credentials to system keyring
 
 Options:
 
