@@ -17,6 +17,10 @@ export const migrateCommand = new Command()
       if (!keyringOk) {
         throw new CliError(
           "No system keyring found. Cannot migrate credentials.",
+          {
+            suggestion:
+              "Install libsecret (e.g. `apt install libsecret-tools` or `pacman -S libsecret`), or set `LINEAR_API_KEY` instead.",
+          },
         )
       }
 
