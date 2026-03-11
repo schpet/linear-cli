@@ -6,7 +6,6 @@
 
 ```
 Usage:   linear project
-Version: 1.11.1        
 
 Description:
 
@@ -34,7 +33,6 @@ Commands:
 
 ```
 Usage:   linear project list
-Version: 1.11.1             
 
 Description:
 
@@ -58,7 +56,6 @@ Options:
 
 ```
 Usage:   linear project view <projectId>
-Version: 1.11.1                         
 
 Description:
 
@@ -78,7 +75,6 @@ Options:
 
 ```
 Usage:   linear project create
-Version: 1.11.1               
 
 Description:
 
@@ -106,7 +102,6 @@ Options:
 
 ```
 Usage:   linear project update <projectId>
-Version: 1.11.1                           
 
 Description:
 
@@ -131,7 +126,6 @@ Options:
 
 ```
 Usage:   linear project delete <projectId>
-Version: 1.11.1                           
 
 Description:
 

@@ -1,7 +1,5 @@
 # Linear CLI Command Reference
 
-Generated from linear CLI v1.11.1
-
 ## Commands
 
 - [auth](./auth.md) - Manage Linear authentication
