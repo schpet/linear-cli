@@ -59,8 +59,8 @@ snapshot[`Issue Update Command - Assignee Rejects App User 1`] = `
 stdout:
 ""
 stderr:
-"✗ Failed to update issue: Cannot use --assignee with app user 'rowan'
-  Use --delegate rowan to delegate the issue to an agent user.
+"✗ Failed to update issue: Cannot use --assignee with app user 'agent-name'
+  Use --delegate agent-name to delegate the issue to an agent user.
 "
 `;
 

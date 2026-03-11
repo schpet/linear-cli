@@ -101,7 +101,7 @@ await snapshotTest({
   args: [
     "ENG-123",
     "--delegate",
-    "rowan",
+    "agent-name",
   ],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -119,15 +119,15 @@ await snapshotTest({
       },
       {
         queryName: "LookupUser",
-        variables: { input: "rowan" },
+        variables: { input: "agent-name" },
         response: {
           data: {
             users: {
               nodes: [{
-                id: "user-rowan-123",
-                email: "rowan@oauthapp.linear.app",
-                displayName: "rowan",
-                name: "Rowan",
+                id: "user-agent-123",
+                email: "agent-name@oauthapp.linear.app",
+                displayName: "agent-name",
+                name: "Agent Name",
                 app: true,
               }],
             },
@@ -168,7 +168,7 @@ await snapshotTest({
   args: [
     "ENG-123",
     "--assignee",
-    "rowan",
+    "agent-name",
   ],
   denoArgs: commonDenoArgs,
   async fn() {
@@ -186,15 +186,15 @@ await snapshotTest({
       },
       {
         queryName: "LookupUser",
-        variables: { input: "rowan" },
+        variables: { input: "agent-name" },
         response: {
           data: {
             users: {
               nodes: [{
-                id: "user-rowan-123",
-                email: "rowan@oauthapp.linear.app",
-                displayName: "rowan",
-                name: "Rowan",
+                id: "user-agent-123",
+                email: "agent-name@oauthapp.linear.app",
+                displayName: "agent-name",
+                name: "Agent Name",
                 app: true,
               }],
             },

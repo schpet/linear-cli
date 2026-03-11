@@ -130,7 +130,7 @@ linear issue create --title "Fix bug" --description "Description here"
 linear issue create --assignee self
 
 # Create and delegate to an agent user
-linear issue create --delegate rowan
+linear issue create --delegate agent-name
 
 # Create with priority (1-4, where 1 is highest)
 linear issue create --priority 1
@@ -162,7 +162,7 @@ update a specific issue:
 linear issue update TEAM-123
 
 # Delegate an existing issue to an agent user
-linear issue update TEAM-123 --delegate rowan
+linear issue update TEAM-123 --delegate agent-name
 ```
 
 #### other issue commands
