@@ -65,6 +65,16 @@ stderr:
 "
 `;
 
+snapshot[`Issue Create Command - Assignee Rejects Ambiguous Mixed Matches 1`] = `
+stdout:
+"Creating issue in ENG
+
+"
+stderr:
+"✗ Failed to create issue: No mock response configured for this query
+"
+`;
+
 snapshot[`Issue Create Command - With Milestone 1`] = `
 stdout:
 "Creating issue in ENG

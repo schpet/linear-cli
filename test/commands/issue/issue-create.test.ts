@@ -126,7 +126,7 @@ await snapshotTest({
         },
       },
       {
-        queryName: "LookupUser",
+        queryName: "LookupUsersForIssueResolution",
         variables: { input: "agent-name" },
         response: {
           data: {
@@ -200,7 +200,7 @@ await snapshotTest({
         },
       },
       {
-        queryName: "LookupUser",
+        queryName: "LookupUsersForIssueResolution",
         variables: { input: "agent-name" },
         response: {
           data: {
@@ -212,6 +212,70 @@ await snapshotTest({
                 name: "Agent Name",
                 app: true,
               }],
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Create Command - Assignee Rejects Ambiguous Mixed Matches",
+  meta: import.meta,
+  colors: false,
+  canFail: true,
+  args: [
+    "--title",
+    "Delegate agent work",
+    "--assignee",
+    "agent-name",
+    "--team",
+    "ENG",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "LookupUsersForIssueResolution",
+        variables: { input: "agent-name" },
+        response: {
+          data: {
+            users: {
+              nodes: [
+                {
+                  id: "user-human-123",
+                  email: "person@example.com",
+                  displayName: "person-one",
+                  name: "Agent Name Builder",
+                  app: false,
+                },
+                {
+                  id: "user-agent-123",
+                  email: "agent-one@oauthapp.linear.app",
+                  displayName: "agent-one",
+                  name: "Agent Name Runner",
+                  app: true,
+                },
+              ],
             },
           },
         },

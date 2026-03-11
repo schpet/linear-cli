@@ -11,7 +11,7 @@ import {
   getProjectIdByName,
   getTeamIdByKey,
   getWorkflowStateByNameOrType,
-  lookupUser,
+  resolveIssueUser,
 } from "../../utils/linear.ts"
 import {
   CliError,
@@ -180,11 +180,20 @@ export const updateCommand = new Command()
 
         let assigneeId: string | undefined
         if (assignee !== undefined) {
-          const resolvedAssignee = await lookupUser(assignee)
-          if (!resolvedAssignee) {
+          const resolvedAssignee = await resolveIssueUser(assignee, false)
+          if (resolvedAssignee.kind === "not_found") {
             throw new NotFoundError("User", assignee)
           }
-          if (resolvedAssignee.app) {
+          if (resolvedAssignee.kind === "ambiguous") {
+            throw new ValidationError(
+              `Ambiguous user lookup for '${assignee}'`,
+              {
+                suggestion:
+                  "Use a more specific username, display name, or email address.",
+              },
+            )
+          }
+          if (resolvedAssignee.kind === "wrong_type") {
             throw new ValidationError(
               `Cannot use --assignee with app user '${assignee}'`,
               {
@@ -193,16 +202,25 @@ export const updateCommand = new Command()
               },
             )
           }
-          assigneeId = resolvedAssignee.id
+          assigneeId = resolvedAssignee.user.id
         }
 
         let delegateId: string | undefined
         if (delegate !== undefined) {
-          const resolvedDelegate = await lookupUser(delegate)
-          if (!resolvedDelegate) {
+          const resolvedDelegate = await resolveIssueUser(delegate, true)
+          if (resolvedDelegate.kind === "not_found") {
             throw new NotFoundError("User", delegate)
           }
-          if (!resolvedDelegate.app) {
+          if (resolvedDelegate.kind === "ambiguous") {
+            throw new ValidationError(
+              `Ambiguous user lookup for '${delegate}'`,
+              {
+                suggestion:
+                  "Use a more specific username, display name, or email address.",
+              },
+            )
+          }
+          if (resolvedDelegate.kind === "wrong_type") {
             throw new ValidationError(
               `Cannot use --delegate with human user '${delegate}'`,
               {
@@ -211,7 +229,7 @@ export const updateCommand = new Command()
               },
             )
           }
-          delegateId = resolvedDelegate.id
+          delegateId = resolvedDelegate.user.id
         }
 
         const labelIds = []

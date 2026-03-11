@@ -64,6 +64,16 @@ stderr:
 "
 `;
 
+snapshot[`Issue Update Command - Delegate Rejects Ambiguous Mixed Matches 1`] = `
+stdout:
+"Updating issue ENG-123
+
+"
+stderr:
+"✗ Failed to update issue: No mock response configured for this query
+"
+`;
+
 snapshot[`Issue Update Command - With Milestone 1`] = `
 stdout:
 "Updating issue ENG-123
