@@ -21,6 +21,7 @@ import {
   getWorkflowStateByNameOrType,
   getWorkflowStates,
   lookupUserId,
+  resolveIssueUser,
   searchTeamsByKeySubstring,
   selectOption,
   type WorkflowState,
@@ -456,6 +457,10 @@ export const createCommand = new Command()
     "Assign the issue to 'self' or someone (by username or name)",
   )
   .option(
+    "--delegate <delegate:string>",
+    "Delegate the issue to an agent user (by username or name)",
+  )
+  .option(
     "--due-date <dueDate:string>",
     "Due date of the issue",
   )
@@ -515,6 +520,7 @@ export const createCommand = new Command()
       {
         start,
         assignee,
+        delegate,
         dueDate,
         useDefaultTemplate,
         parent: parentIdentifier,
@@ -559,7 +565,7 @@ export const createCommand = new Command()
       }
 
       // If no flags are provided (or only parent is provided), use interactive mode
-      const noFlagsProvided = !title && !assignee && !dueDate &&
+      const noFlagsProvided = !title && !assignee && !delegate && !dueDate &&
         priority === undefined && estimate === undefined && !finalDescription &&
         (!labels || labels.length === 0) &&
         !team && !project && !state && !milestone && !cycle && !start
@@ -710,10 +716,56 @@ export const createCommand = new Command()
         let assigneeId = undefined
 
         if (assignee) {
-          assigneeId = await lookupUserId(assignee)
-          if (assigneeId == null) {
+          const resolvedAssignee = await resolveIssueUser(assignee, false)
+          if (resolvedAssignee.kind === "not_found") {
             throw new NotFoundError("User", assignee)
           }
+          if (resolvedAssignee.kind === "ambiguous") {
+            throw new ValidationError(
+              `Ambiguous user lookup for '${assignee}'`,
+              {
+                suggestion:
+                  "Use a more specific username, display name, or email address.",
+              },
+            )
+          }
+          if (resolvedAssignee.kind === "wrong_type") {
+            throw new ValidationError(
+              `Cannot use --assignee with app user '${assignee}'`,
+              {
+                suggestion:
+                  `Use --delegate ${assignee} to delegate the issue to an agent user.`,
+              },
+            )
+          }
+          assigneeId = resolvedAssignee.user.id
+        }
+
+        let delegateId: string | undefined
+        if (delegate) {
+          const resolvedDelegate = await resolveIssueUser(delegate, true)
+          if (resolvedDelegate.kind === "not_found") {
+            throw new NotFoundError("User", delegate)
+          }
+          if (resolvedDelegate.kind === "ambiguous") {
+            throw new ValidationError(
+              `Ambiguous user lookup for '${delegate}'`,
+              {
+                suggestion:
+                  "Use a more specific username, display name, or email address.",
+              },
+            )
+          }
+          if (resolvedDelegate.kind === "wrong_type") {
+            throw new ValidationError(
+              `Cannot use --delegate with human user '${delegate}'`,
+              {
+                suggestion:
+                  `Use --assignee ${delegate} to assign the issue to a human user.`,
+              },
+            )
+          }
+          delegateId = resolvedDelegate.user.id
         }
 
         const labelIds = []
@@ -802,6 +854,7 @@ export const createCommand = new Command()
         const input = {
           title,
           assigneeId,
+          delegateId,
           dueDate,
           parentId,
           priority,

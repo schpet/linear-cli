@@ -6,7 +6,10 @@ import type {
   GetTeamMembersQuery,
   IssueFilter,
   IssueSortInput,
+  LookupUsersForIssueResolutionQuery,
+  LookupUsersForIssueResolutionQueryVariables,
 } from "../__codegen__/graphql.ts"
+import { LookupUsersForIssueResolutionDocument } from "../__codegen__/graphql.ts"
 import { Select } from "@cliffy/prompt"
 import { getOption } from "../config.ts"
 import { getGraphQLClient } from "./graphql.ts"
@@ -691,23 +694,36 @@ export async function searchTeamsByKeySubstring(
   )
 }
 
-export async function lookupUserId(
+export async function lookupUser(
   /**
    * email, username, display name, 'self', or '@me' for viewer
    */
   input: "self" | "@me" | string,
-): Promise<string | undefined> {
+): Promise<
+  | {
+    id: string
+    email?: string | null
+    displayName?: string | null
+    name: string
+    app: boolean
+  }
+  | undefined
+> {
   if (input === "@me" || input === "self") {
     const client = getGraphQLClient()
     const query = gql(/* GraphQL */ `
       query GetViewerId {
         viewer {
           id
+          email
+          displayName
+          name
+          app
         }
       }
     `)
     const data = await client.request(query, {})
-    return data.viewer.id
+    return data.viewer
   } else {
     const client = getGraphQLClient()
     const query = gql(/* GraphQL */ `
@@ -726,6 +742,7 @@ export async function lookupUserId(
             email
             displayName
             name
+            app
           }
         }
       }
@@ -738,18 +755,104 @@ export async function lookupUserId(
 
     for (const user of data.users.nodes) {
       if (user.email?.toLowerCase() === input.toLowerCase()) {
-        return user.id
+        return user
       }
     }
 
     for (const user of data.users.nodes) {
       if (user.displayName?.toLowerCase() === input.toLowerCase()) {
-        return user.id
+        return user
       }
     }
 
-    return data.users.nodes[0]?.id
+    return data.users.nodes[0]
   }
+}
+
+type LookupUserResult =
+  | { kind: "match"; user: NonNullable<Awaited<ReturnType<typeof lookupUser>>> }
+  | {
+    kind: "wrong_type"
+    user: NonNullable<Awaited<ReturnType<typeof lookupUser>>>
+  }
+  | { kind: "ambiguous" }
+  | { kind: "not_found" }
+
+function selectTypedUserMatch(
+  users: Array<NonNullable<Awaited<ReturnType<typeof lookupUser>>>>,
+  expectedApp: boolean,
+): LookupUserResult | null {
+  if (users.length === 0) {
+    return null
+  }
+
+  const expectedType = users.filter((user) => user.app === expectedApp)
+  if (expectedType.length === 1) {
+    return { kind: "match", user: expectedType[0] }
+  }
+  if (expectedType.length > 1) {
+    return { kind: "ambiguous" }
+  }
+
+  const oppositeType = users.filter((user) => user.app !== expectedApp)
+  if (oppositeType.length === 1) {
+    return { kind: "wrong_type", user: oppositeType[0] }
+  }
+
+  return { kind: "ambiguous" }
+}
+
+export async function resolveIssueUser(
+  input: "self" | "@me" | string,
+  expectedApp: boolean,
+): Promise<LookupUserResult> {
+  const exactSelf = input === "@me" || input === "self"
+    ? await lookupUser(input)
+    : undefined
+
+  if (exactSelf) {
+    return exactSelf.app === expectedApp
+      ? { kind: "match", user: exactSelf }
+      : { kind: "wrong_type", user: exactSelf }
+  }
+
+  const client = getGraphQLClient()
+  const data: LookupUsersForIssueResolutionQuery = await client.request(
+    LookupUsersForIssueResolutionDocument,
+    { input } satisfies LookupUsersForIssueResolutionQueryVariables,
+  )
+  const users = data.users?.nodes ?? []
+
+  if (users.length === 0) {
+    return { kind: "not_found" }
+  }
+
+  const normalizedInput = input.toLowerCase()
+  const exactEmail = users.filter((user) =>
+    user.email?.toLowerCase() === normalizedInput
+  )
+  const exactDisplayName = users.filter((user) =>
+    user.displayName?.toLowerCase() === normalizedInput
+  )
+  const exactName = users.filter((user) =>
+    user.name.toLowerCase() === normalizedInput
+  )
+
+  return selectTypedUserMatch(exactEmail, expectedApp) ??
+    selectTypedUserMatch(exactDisplayName, expectedApp) ??
+    selectTypedUserMatch(exactName, expectedApp) ??
+    selectTypedUserMatch(users, expectedApp) ??
+    { kind: "not_found" }
+}
+
+export async function lookupUserId(
+  /**
+   * email, username, display name, 'self', or '@me' for viewer
+   */
+  input: "self" | "@me" | string,
+): Promise<string | undefined> {
+  const user = await lookupUser(input)
+  return user?.id
 }
 
 export async function getIssueLabelIdByNameForTeam(

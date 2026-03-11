@@ -13,6 +13,7 @@ Options:
 
   -h, --help                         - Show this help.                                                
   -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)    
+  --delegate          <delegate>     - Delegate the issue to an agent user (by username or name)      
   --due-date          <dueDate>      - Due date of the issue                                          
   --parent            <parent>       - Parent issue (if any) as a team_number code                    
   -p, --priority      <priority>     - Priority of the issue (1-4, descending priority)               
@@ -41,6 +42,36 @@ https://linear.app/test-team/issue/ENG-123/updated-authentication-bug-fix
 "
 stderr:
 ""
+`;
+
+snapshot[`Issue Update Command - Delegate Happy Path 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Test Issue
+https://linear.app/test-team/issue/ENG-123/test-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Assignee Rejects App User 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Cannot use --assignee with app user 'agent-name'
+  Use --delegate agent-name to delegate the issue to an agent user.
+"
+`;
+
+snapshot[`Issue Update Command - Delegate Rejects Ambiguous Mixed Matches 1`] = `
+stdout:
+"Updating issue ENG-123
+
+"
+stderr:
+"✗ Failed to update issue: No mock response configured for this query
+"
 `;
 
 snapshot[`Issue Update Command - With Milestone 1`] = `
