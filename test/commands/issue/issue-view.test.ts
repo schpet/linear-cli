@@ -60,6 +60,9 @@ await snapshotTest({
               attachments: {
                 nodes: [],
               },
+              labels: {
+                nodes: [],
+              },
             },
           },
         },
@@ -113,6 +116,9 @@ await snapshotTest({
                 nodes: [],
               },
               attachments: {
+                nodes: [],
+              },
+              labels: {
                 nodes: [],
               },
             },
@@ -314,6 +320,73 @@ await snapshotTest({
               },
               attachments: {
                 nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test JSON output with labels
+await snapshotTest({
+  name: "Issue View Command - JSON Output With Labels",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-123", "--json", "--no-comments"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        variables: { id: "TEST-123" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-123",
+              title: "Fix authentication bug in login flow",
+              description:
+                "Users are experiencing issues logging in when their session expires.",
+              url:
+                "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
+              branchName: "fix/test-123-auth-bug",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
+              parent: null,
+              children: {
+                nodes: [],
+              },
+              attachments: {
+                nodes: [],
+              },
+              labels: {
+                nodes: [
+                  {
+                    id: "label-1",
+                    name: "bug",
+                    color: "#e5484d",
+                  },
+                  {
+                    id: "label-2",
+                    name: "priority:high",
+                    color: "#f5a524",
+                  },
+                ],
               },
             },
           },
