@@ -21,7 +21,9 @@ Commands:
   list                 - List cycles for a team                  
   view, v  <cycleRef>  - View cycle details                      
   current              - Show the current active cycle for a team
-  add      <issueId>   - Add an issue to a cycle
+  next                 - Show the next upcoming cycle for a team 
+  add      <issueId>   - Add an issue to a cycle                 
+  remove   <issueId>   - Remove an issue from its cycle
 ```
 
 ## Subcommands
@@ -80,6 +82,24 @@ Options:
   --team           <team>  - Team key (defaults to current team)
 ```
 
+### next
+
+> Show the next upcoming cycle for a team
+
+```
+Usage:   linear cycle next
+
+Description:
+
+  Show the next upcoming cycle for a team
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  --team           <team>  - Team key (defaults to current team)
+```
+
 ### add
 
 > Add an issue to a cycle
@@ -97,4 +117,21 @@ Options:
   -w, --workspace  <slug>   - Target workspace (uses credentials)                                 
   --team           <team>   - Team key (defaults to current team)                                 
   --cycle          <cycle>  - Cycle name or number (defaults to active cycle)  (Default: "active")
+```
+
+### remove
+
+> Remove an issue from its cycle
+
+```
+Usage:   linear cycle remove <issueId>
+
+Description:
+
+  Remove an issue from its cycle
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)
 ```

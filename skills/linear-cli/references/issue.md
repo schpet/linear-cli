@@ -31,6 +31,7 @@ Commands:
   delete, d         [issueId]             - Delete an issue                                    
   create                                  - Create a linear issue                              
   update            [issueId]             - Update a linear issue                              
+  move              <issueId> <state>     - Move an issue to a different workflow state        
   comment                                 - Manage issue comments                              
   attach            <issueId> <filepath>  - Attach a file to an issue                          
   relation                                - Manage issue relations (dependencies)
@@ -325,6 +326,29 @@ Options:
   --milestone         <milestone>    - Name of the project milestone                                  
   --cycle             <cycle>        - Cycle name, number, or 'active'                                
   -t, --title         <title>        - Title of the issue
+```
+
+### move
+
+> Move an issue to a different workflow state
+
+```
+Usage:   linear issue move <issueId> <state>
+
+Description:
+
+  Move an issue to a different workflow state
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+
+Examples:
+
+  Move to In Progress linear issue move ENG-123 'In Progress'
+  Move to Done        linear issue move ENG-123 Done         
+  Move by state type  linear issue move ENG-123 completed
 ```
 
 ### comment
