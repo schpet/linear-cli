@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command"
 import { Checkbox, Input, Select } from "@cliffy/prompt"
+import { getOption } from "../../config.ts"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor, openEditor } from "../../utils/editor.ts"
@@ -737,16 +738,18 @@ export const createCommand = new Command()
           }
         }
         let projectId: string | undefined = undefined
-        if (project !== undefined) {
-          projectId = await getProjectIdByName(project)
+        // Use provided project, or fall back to default_project from config
+        const effectiveProject = project ?? getOption("default_project")
+        if (effectiveProject !== undefined) {
+          projectId = await getProjectIdByName(effectiveProject)
           if (projectId === undefined && interactive) {
-            const projectIds = await getProjectOptionsByName(project)
+            const projectIds = await getProjectOptionsByName(effectiveProject)
             spinner?.stop()
-            projectId = await selectOption("Project", project, projectIds)
+            projectId = await selectOption("Project", effectiveProject, projectIds)
             spinner?.start()
           }
           if (projectId === undefined) {
-            throw new NotFoundError("Project", project)
+            throw new NotFoundError("Project", effectiveProject)
           }
         }
 

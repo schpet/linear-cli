@@ -142,6 +142,7 @@ const OptionsSchema = v.object({
   hyperlink_format: v.optional(v.string()),
   attachment_dir: v.optional(v.string()),
   auto_download_attachments: v.optional(BooleanLike),
+  default_project: v.optional(v.string()),
 })
 
 export type Options = v.InferOutput<typeof OptionsSchema>
