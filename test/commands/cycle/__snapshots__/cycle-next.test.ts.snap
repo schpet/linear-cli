@@ -1,0 +1,49 @@
+export const snapshot = {};
+
+snapshot[`Cycle Next Command - Help Text 1`] = `
+stdout:
+"
+Usage: next
+
+Description:
+
+  Show the next upcoming cycle for a team
+
+Options:
+
+  -h, --help          - Show this help.                      
+  --team      <team>  - Team key (defaults to current team)  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle Next Command - Shows Upcoming Cycle 1`] = `
+stdout:
+"# Sprint 43
+
+Number: 43
+Starts: 1/27/2026
+Ends: 2/10/2026
+
+## Description
+
+Planning for Q2 features
+
+
+## Issues (1)
+
+- ENG-200: Plan Q2 roadmap [Todo]
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle Next Command - No Upcoming Cycle 1`] = `
+stdout:
+"No upcoming cycle found for team ENG
+"
+stderr:
+""
+`;
