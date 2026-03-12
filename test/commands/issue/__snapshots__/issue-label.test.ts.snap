@@ -1,0 +1,40 @@
+export const snapshot = {};
+
+snapshot[`Issue Label Command - Help Text 1`] = `
+stdout:
+"
+Usage: label
+
+Description:
+
+  Manage issue labels
+
+Options:
+
+  -h, --help  - Show this help.  
+
+Commands:
+
+  add     <issueId> <label>  - Add a label to an issue     
+  remove  <issueId> <label>  - Remove a label from an issue
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Label Command - Add Label 1`] = `
+stdout:
+'✓ Added label "bug" to ENG-123
+'
+stderr:
+""
+`;
+
+snapshot[`Issue Label Command - Remove Label 1`] = `
+stdout:
+'✓ Removed label "bug" from ENG-123
+'
+stderr:
+""
+`;

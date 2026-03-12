@@ -7,6 +7,7 @@ import { deleteCommand } from "./issue-delete.ts"
 import { describeCommand } from "./issue-describe.ts"
 import { commitsCommand } from "./issue-commits.ts"
 import { idCommand } from "./issue-id.ts"
+import { labelCommand } from "./issue-label.ts"
 import { listCommand } from "./issue-list.ts"
 import { moveCommand } from "./issue-move.ts"
 import { pullRequestCommand } from "./issue-pull-request.ts"
@@ -38,6 +39,7 @@ export const issueCommand = new Command()
   .command("update", updateCommand)
   .command("move", moveCommand)
   .command("assign", assignCommand)
+  .command("label", labelCommand)
   .command("comment", commentCommand)
   .command("attach", attachCommand)
   .command("relation", relationCommand)
