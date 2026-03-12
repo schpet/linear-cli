@@ -3,12 +3,25 @@ import { getRuntimeName } from "@cliffy/internal/runtime/runtime-name"
 import { test } from "@cliffy/internal/testing/test"
 // Simple quote string implementation - wraps strings in quotes for snapshot output
 function quoteString(str: string): string {
-  return `"${str.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+  const normalized = str.replaceAll("\\", "\\\\").replaceAll("\x1b", "\\x1b")
+
+  if (!str.includes('"')) {
+    return `"${normalized}"`
+  }
+
+  if (!str.includes("'")) {
+    return `'${normalized}'`
+  }
+
+  if (!str.includes("`")) {
+    return `\`${normalized}\``
+  }
+
+  return `"${normalized.replaceAll('"', '\\"')}"`
 }
 import { red } from "@std/fmt/colors"
 import { assertSnapshot } from "@std/testing/snapshot"
 import { AssertionError } from "@std/assert/assertion-error"
-import { FakeTime } from "@std/testing/time"
 
 /** Snapshot test step options. */
 export interface SnapshotTestStep {
@@ -178,7 +191,7 @@ async function executeTest(
     }
 
     // Add FakeTime env var permission if needed
-    if (options.fakeTime) {
+    if (options.fakeTime && !denoArgs.includes("--allow-all")) {
       const envArgs = denoArgs.find((arg) => arg.startsWith("--allow-env="))
       if (envArgs) {
         denoArgs = denoArgs.map((arg) =>
@@ -193,10 +206,12 @@ async function executeTest(
 
     const env: Record<string, string> = {
       SNAPSHOT_TEST_NAME: options.name,
+      TZ: Deno.env.get("TZ") ?? "UTC",
       ...options.colors ? {} : { NO_COLOR: "true" },
     }
 
-    // Add fake time to environment if specified
+    // Add fake time to environment if specified. When --allow-all is used, no
+    // extra --allow-env flag is needed because env access is already granted.
     if (options.fakeTime) {
       const fakeTimeValue = options.fakeTime instanceof Date
         ? options.fakeTime.toISOString()
@@ -275,24 +290,7 @@ function addLineBreaks(str: string) {
 async function runTest(options: SnapshotTestWithFakeTimeOptions) {
   const testName = Deno.env.get("SNAPSHOT_TEST_NAME")
   if (testName === options.name) {
-    // Set up FakeTime if environment variable is present
-    const fakeTimeEnv = Deno.env.get("CLIFFY_SNAPSHOT_FAKE_TIME")
-    let fakeTime: FakeTime | undefined
-
-    if (fakeTimeEnv) {
-      const fakeTimeValue = isNaN(Number(fakeTimeEnv))
-        ? fakeTimeEnv
-        : Number(fakeTimeEnv)
-      fakeTime = new FakeTime(fakeTimeValue)
-    }
-
-    try {
-      await options.fn()
-    } finally {
-      if (fakeTime) {
-        fakeTime.restore()
-      }
-    }
+    await options.fn()
   }
 }
 

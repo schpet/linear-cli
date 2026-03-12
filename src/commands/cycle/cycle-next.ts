@@ -3,7 +3,7 @@ import { renderMarkdown } from "@littletof/charmd"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTeamIdByKey, requireTeamKey } from "../../utils/linear.ts"
-import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { withSpinner } from "../../utils/spinner.ts"
 import { handleError, NotFoundError } from "../../utils/errors.ts"
 
 const GetUpcomingCycles = gql(`
@@ -47,17 +47,15 @@ export const nextCommand = new Command()
         throw new NotFoundError("Team", teamKey)
       }
 
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
       const client = getGraphQLClient()
-      const result = await client.request(GetUpcomingCycles, { teamId })
-      spinner?.stop()
+      const result = await withSpinner(() =>
+        client.request(GetUpcomingCycles, { teamId })
+      )
 
       const cycles = (result.team?.cycles?.nodes || [])
-        .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+        .sort((a, b) =>
+          new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
+        )
       const cycle = cycles[0]
 
       if (!cycle) {
@@ -91,7 +89,9 @@ export const nextCommand = new Command()
         console.log(`## Issues (${issues.length})`)
         console.log("")
         for (const issue of issues) {
-          console.log(`- ${issue.identifier}: ${issue.title} [${issue.state.name}]`)
+          console.log(
+            `- ${issue.identifier}: ${issue.title} [${issue.state.name}]`,
+          )
         }
       }
     } catch (error) {

@@ -1,12 +1,14 @@
-import { snapshotTest } from "@cliffy/testing"
+import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
+import { snapshotTest } from "../../utils/snapshot_with_fake_time.ts"
 import { viewCommand } from "../../../src/commands/project/project-view.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
 // Common Deno args for permissions
 const denoArgs = ["--allow-all", "--quiet"]
+const fakeTime = "2025-08-17T15:30:00Z"
 
 // Test help output
-await snapshotTest({
+await cliffySnapshotTest({
   name: "Project View Command - Help Text",
   meta: import.meta,
   colors: false,
@@ -24,6 +26,7 @@ await snapshotTest({
   colors: false,
   args: ["project-123"],
   denoArgs,
+  fakeTime,
   async fn() {
     const server = new MockLinearServer([
       {
@@ -154,6 +157,7 @@ await snapshotTest({
   colors: false,
   args: ["minimal-project"],
   denoArgs,
+  fakeTime,
   async fn() {
     const server = new MockLinearServer([
       {

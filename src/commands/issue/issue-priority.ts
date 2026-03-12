@@ -1,11 +1,8 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import {
-  getIssueId,
-  getIssueIdentifier,
-} from "../../utils/linear.ts"
-import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { getIssueId, getIssueIdentifier } from "../../utils/linear.ts"
+import { withSpinner } from "../../utils/spinner.ts"
 import { green } from "@std/fmt/colors"
 import {
   handleError,
@@ -51,7 +48,8 @@ export const priorityCommand = new Command()
         throw new ValidationError(
           `Invalid priority: ${priority}`,
           {
-            suggestion: "Use 0 (none), 1 (urgent), 2 (high), 3 (medium), or 4 (low)",
+            suggestion:
+              "Use 0 (none), 1 (urgent), 2 (high), 3 (medium), or 4 (low)",
           },
         )
       }
@@ -73,17 +71,13 @@ export const priorityCommand = new Command()
         throw new NotFoundError("Issue", resolvedIssueId)
       }
 
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
       const client = getGraphQLClient()
-      const result = await client.request(UpdateIssuePriority, {
-        issueId: issueInternalId,
-        priority,
-      })
-      spinner?.stop()
+      const result = await withSpinner(() =>
+        client.request(UpdateIssuePriority, {
+          issueId: issueInternalId,
+          priority,
+        })
+      )
 
       if (!result.issueUpdate.success) {
         throw new Error("Failed to update priority")

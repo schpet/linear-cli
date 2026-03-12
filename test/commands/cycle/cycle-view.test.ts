@@ -1,9 +1,12 @@
-import { snapshotTest } from "@cliffy/testing"
+import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
+import { snapshotTest } from "../../utils/snapshot_with_fake_time.ts"
 import { viewCommand } from "../../../src/commands/cycle/cycle-view.ts"
 import { commonDenoArgs } from "../../utils/test-helpers.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
-await snapshotTest({
+const fakeTime = "2025-08-17T15:30:00Z"
+
+await cliffySnapshotTest({
   name: "Cycle View Command - Help Text",
   meta: import.meta,
   colors: false,
@@ -20,6 +23,7 @@ await snapshotTest({
   colors: false,
   args: ["active", "--team", "ENG"],
   denoArgs: commonDenoArgs,
+  fakeTime,
   async fn() {
     const server = new MockLinearServer([
       {
@@ -119,6 +123,7 @@ await snapshotTest({
   colors: false,
   args: ["14", "--team", "ENG"],
   denoArgs: commonDenoArgs,
+  fakeTime,
   async fn() {
     const server = new MockLinearServer([
       {
@@ -198,6 +203,7 @@ await snapshotTest({
   colors: false,
   args: ["12", "--team", "ENG"],
   denoArgs: commonDenoArgs,
+  fakeTime,
   async fn() {
     const server = new MockLinearServer([
       {

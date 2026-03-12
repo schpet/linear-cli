@@ -8,7 +8,7 @@ import {
   getTeamIdByKey,
   requireTeamKey,
 } from "../../utils/linear.ts"
-import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { withSpinner } from "../../utils/spinner.ts"
 import { green } from "@std/fmt/colors"
 import {
   handleError,
@@ -58,7 +58,8 @@ export const addCommand = new Command()
         throw new ValidationError(
           `Could not resolve issue identifier: ${issueId}`,
           {
-            suggestion: "Use a full issue identifier like 'ENG-123' or just the number like '123'",
+            suggestion:
+              "Use a full issue identifier like 'ENG-123' or just the number like '123'",
           },
         )
       }
@@ -72,17 +73,13 @@ export const addCommand = new Command()
       // Resolve cycle
       const cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
 
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
       const client = getGraphQLClient()
-      const result = await client.request(UpdateIssueCycle, {
-        issueId: issueInternalId,
-        cycleId,
-      })
-      spinner?.stop()
+      const result = await withSpinner(() =>
+        client.request(UpdateIssueCycle, {
+          issueId: issueInternalId,
+          cycleId,
+        })
+      )
 
       if (!result.issueUpdate.success) {
         throw new Error("Failed to update issue cycle")

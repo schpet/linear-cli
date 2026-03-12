@@ -9,7 +9,7 @@ import {
   padDisplay,
   truncateText,
 } from "../../utils/display.ts"
-import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { withSpinner } from "../../utils/spinner.ts"
 import { header, muted } from "../../utils/styling.ts"
 import { handleError, ValidationError } from "../../utils/errors.ts"
 
@@ -52,19 +52,14 @@ export const searchCommand = new Command()
         throw new ValidationError("Search query cannot be empty")
       }
 
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
       const client = getGraphQLClient()
-      const result = await client.request(IssueSearchQuery, {
-        query: query.trim(),
-        first: limit,
-        includeArchived: includeArchived ?? false,
-      })
-
-      spinner?.stop()
+      const result = await withSpinner(() =>
+        client.request(IssueSearchQuery, {
+          query: query.trim(),
+          first: limit,
+          includeArchived: includeArchived ?? false,
+        })
+      )
 
       const issues = result.issueSearch.nodes
 
@@ -116,14 +111,21 @@ export const searchCommand = new Command()
         const title = truncateText(issue.title, titleWidth)
         const paddedTitle = padDisplay(title, titleWidth)
         const state = padDisplay(issue.state.name, STATE_WIDTH)
-        const stateColored = rgb24(state, parseInt(issue.state.color.slice(1), 16))
-        const ago = muted(padDisplay(getTimeAgo(new Date(issue.updatedAt)), AGO_WIDTH))
+        const stateColored = rgb24(
+          state,
+          parseInt(issue.state.color.slice(1), 16),
+        )
+        const ago = muted(
+          padDisplay(getTimeAgo(new Date(issue.updatedAt)), AGO_WIDTH),
+        )
 
         console.log(`${id} ${pri} ${paddedTitle} ${stateColored} ${ago}`)
       }
 
       console.log("")
-      console.log(muted(`Found ${issues.length} issue${issues.length === 1 ? "" : "s"}`))
+      console.log(
+        muted(`Found ${issues.length} issue${issues.length === 1 ? "" : "s"}`),
+      )
     } catch (error) {
       handleError(error, "Failed to search issues")
     }

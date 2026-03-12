@@ -8,7 +8,7 @@ import {
   getTeamIdByKey,
   requireTeamKey,
 } from "../../utils/linear.ts"
-import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { withSpinner } from "../../utils/spinner.ts"
 import { handleError, NotFoundError } from "../../utils/errors.ts"
 
 const GetCycleDetails = gql(`
@@ -62,14 +62,10 @@ export const viewCommand = new Command()
 
       const cycleId = await getCycleIdByNameOrNumber(cycleRef, teamId)
 
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
       const client = getGraphQLClient()
-      const result = await client.request(GetCycleDetails, { id: cycleId })
-      spinner?.stop()
+      const result = await withSpinner(() =>
+        client.request(GetCycleDetails, { id: cycleId })
+      )
 
       const cycle = result.cycle
       if (!cycle) {
