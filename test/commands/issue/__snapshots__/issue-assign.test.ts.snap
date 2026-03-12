@@ -1,0 +1,42 @@
+export const snapshot = {};
+
+snapshot[`Issue Assign Command - Help Text 1`] = `
+stdout:
+"
+Usage: assign <issueId> [assignee]
+
+Description:
+
+  Assign an issue to a user
+
+Options:
+
+  -h, --help  - Show this help.              
+  --unassign  - Remove the current assignee  
+
+Examples:
+
+  Assign to self linear issue assign ENG-123 self      
+  Assign to user linear issue assign ENG-123 john      
+  Unassign       linear issue assign ENG-123 --unassign
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Assign Command - Assign to Self 1`] = `
+stdout:
+"✓ Assigned ENG-123 to John
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Assign Command - Unassign 1`] = `
+stdout:
+"✓ Unassigned ENG-123
+"
+stderr:
+""
+`;

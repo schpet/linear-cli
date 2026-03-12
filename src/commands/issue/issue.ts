@@ -1,4 +1,5 @@
 import { Command } from "@cliffy/command"
+import { assignCommand } from "./issue-assign.ts"
 import { attachCommand } from "./issue-attach.ts"
 import { commentCommand } from "./issue-comment.ts"
 import { createCommand } from "./issue-create.ts"
@@ -36,6 +37,7 @@ export const issueCommand = new Command()
   .command("create", createCommand)
   .command("update", updateCommand)
   .command("move", moveCommand)
+  .command("assign", assignCommand)
   .command("comment", commentCommand)
   .command("attach", attachCommand)
   .command("relation", relationCommand)
