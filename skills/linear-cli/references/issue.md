@@ -20,6 +20,7 @@ Commands:
 
   id                                      - Print the issue based on the current git branch    
   list                                    - List your issues                                   
+  search            <query>               - Search for issues using semantic search            
   title             [issueId]             - Print the issue title                              
   start             [issueId]             - Start working on an issue                          
   view, v           [issueId]             - View issue details (default) or open in browser/app
@@ -84,6 +85,25 @@ Options:
   -w, --web                         - Open in web browser                                                                                                          
   -a, --app                         - Open in Linear.app                                                                                                           
   --no-pager                        - Disable automatic paging for long output
+```
+
+### search
+
+> Search for issues using semantic search
+
+```
+Usage:   linear issue search <query>
+
+Description:
+
+  Search for issues using semantic search
+
+Options:
+
+  -h, --help                       - Show this help.                                   
+  -w, --workspace         <slug>   - Target workspace (uses credentials)               
+  -n, --limit             <limit>  - Maximum number of results            (Default: 20)
+  -a, --include-archived           - Include archived issues in results
 ```
 
 ### title
