@@ -33,6 +33,8 @@ Commands:
   update            [issueId]             - Update a linear issue                              
   move              <issueId> <state>     - Move an issue to a different workflow state        
   assign            <issueId> [assignee]  - Assign an issue to a user                          
+  priority          <issueId> <priority>  - Set the priority of an issue                       
+  estimate          <issueId> [points]    - Set the estimate (points) of an issue              
   label                                   - Manage issue labels                                
   comment                                 - Manage issue comments                              
   attach            <issueId> <filepath>  - Attach a file to an issue                          
@@ -375,6 +377,55 @@ Examples:
   Assign to self linear issue assign ENG-123 self      
   Assign to user linear issue assign ENG-123 john      
   Unassign       linear issue assign ENG-123 --unassign
+```
+
+### priority
+
+> Set the priority of an issue
+
+```
+Usage:   linear issue priority <issueId> <priority>
+
+Description:
+
+  Set the priority of an issue
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+
+Examples:
+
+  Set urgent     linear issue priority ENG-123 1
+  Set high       linear issue priority ENG-123 2
+  Set medium     linear issue priority ENG-123 3
+  Set low        linear issue priority ENG-123 4
+  Clear priority linear issue priority ENG-123 0
+```
+
+### estimate
+
+> Set the estimate (points) of an issue
+
+```
+Usage:   linear issue estimate <issueId> [points]
+
+Description:
+
+  Set the estimate (points) of an issue
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  --clear                  - Clear the estimate                   
+
+Examples:
+
+  Set 3 points   linear issue estimate ENG-123 3      
+  Set 5 points   linear issue estimate ENG-123 5      
+  Clear estimate linear issue estimate ENG-123 --clear
 ```
 
 ### label
