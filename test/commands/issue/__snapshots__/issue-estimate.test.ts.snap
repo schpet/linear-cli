@@ -1,0 +1,42 @@
+export const snapshot = {};
+
+snapshot[`Issue Estimate Command - Help Text 1`] = `
+stdout:
+"
+Usage: estimate <issueId> [points]
+
+Description:
+
+  Set the estimate (points) of an issue
+
+Options:
+
+  -h, --help  - Show this help.     
+  --clear     - Clear the estimate  
+
+Examples:
+
+  Set 3 points   linear issue estimate ENG-123 3      
+  Set 5 points   linear issue estimate ENG-123 5      
+  Clear estimate linear issue estimate ENG-123 --clear
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Estimate Command - Set Points 1`] = `
+stdout:
+"✓ Set ENG-123 estimate to 3 points
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Estimate Command - Clear 1`] = `
+stdout:
+"✓ Cleared estimate for ENG-123
+"
+stderr:
+""
+`;
