@@ -1,0 +1,27 @@
+export const snapshot = {};
+
+snapshot[`Cycle Remove Command - Help Text 1`] = `
+stdout:
+"
+Usage: remove <issueId>
+
+Description:
+
+  Remove an issue from its cycle
+
+Options:
+
+  -h, --help  - Show this help.  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle Remove Command - Remove Issue from Cycle 1`] = `
+stdout:
+"✓ Removed ENG-123 from cycle
+"
+stderr:
+""
+`;
