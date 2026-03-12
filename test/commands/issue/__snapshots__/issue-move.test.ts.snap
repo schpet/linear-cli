@@ -1,0 +1,33 @@
+export const snapshot = {};
+
+snapshot[`Issue Move Command - Help Text 1`] = `
+stdout:
+"
+Usage: move <issueId> <state>
+
+Description:
+
+  Move an issue to a different workflow state
+
+Options:
+
+  -h, --help  - Show this help.  
+
+Examples:
+
+  Move to In Progress linear issue move ENG-123 'In Progress'
+  Move to Done        linear issue move ENG-123 Done         
+  Move by state type  linear issue move ENG-123 completed    
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Move Command - Move to In Progress 1`] = `
+stdout:
+"✓ Moved ENG-123 to In Progress
+"
+stderr:
+""
+`;
