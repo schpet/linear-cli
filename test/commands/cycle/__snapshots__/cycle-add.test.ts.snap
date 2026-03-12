@@ -19,3 +19,11 @@ Options:
 stderr:
 ""
 `;
+
+snapshot[`Cycle Add Command - Add Issue to Active Cycle 1`] = `
+stdout:
+"✓ Added ENG-123 to Sprint 42
+"
+stderr:
+""
+`;

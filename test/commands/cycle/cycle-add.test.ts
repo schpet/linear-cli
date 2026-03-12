@@ -35,7 +35,7 @@ await snapshotTest({
         },
       },
       {
-        queryName: "GetIssueIdByIdentifier",
+        queryName: "GetIssueId",
         response: {
           data: {
             issue: {
