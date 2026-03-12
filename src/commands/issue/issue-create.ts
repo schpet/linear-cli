@@ -745,7 +745,11 @@ export const createCommand = new Command()
           if (projectId === undefined && interactive) {
             const projectIds = await getProjectOptionsByName(effectiveProject)
             spinner?.stop()
-            projectId = await selectOption("Project", effectiveProject, projectIds)
+            projectId = await selectOption(
+              "Project",
+              effectiveProject,
+              projectIds,
+            )
             spinner?.start()
           }
           if (projectId === undefined) {

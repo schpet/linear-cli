@@ -6,7 +6,7 @@ import {
   getIssueIdentifier,
   lookupUserId,
 } from "../../utils/linear.ts"
-import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { withSpinner } from "../../utils/spinner.ts"
 import { green } from "@std/fmt/colors"
 import {
   handleError,
@@ -58,7 +58,8 @@ export const assignCommand = new Command()
         throw new ValidationError(
           `Could not resolve issue identifier: ${issueId}`,
           {
-            suggestion: "Use a full issue identifier like 'ENG-123' or just the number like '123'",
+            suggestion:
+              "Use a full issue identifier like 'ENG-123' or just the number like '123'",
           },
         )
       }
@@ -78,17 +79,13 @@ export const assignCommand = new Command()
         }
       }
 
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
       const client = getGraphQLClient()
-      const result = await client.request(AssignIssue, {
-        issueId: issueInternalId,
-        assigneeId,
-      })
-      spinner?.stop()
+      const result = await withSpinner(() =>
+        client.request(AssignIssue, {
+          issueId: issueInternalId,
+          assigneeId,
+        })
+      )
 
       if (!result.issueUpdate.success) {
         throw new Error("Failed to assign issue")
@@ -98,7 +95,9 @@ export const assignCommand = new Command()
       if (issue?.assignee) {
         console.log(
           green("✓") +
-            ` Assigned ${issue.identifier} to ${issue.assignee.displayName || issue.assignee.name}`,
+            ` Assigned ${issue.identifier} to ${
+              issue.assignee.displayName || issue.assignee.name
+            }`,
         )
       } else {
         console.log(

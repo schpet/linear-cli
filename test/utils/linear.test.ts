@@ -1,6 +1,5 @@
-import { assertEquals, assertThrows } from "@std/assert"
+import { assertEquals } from "@std/assert"
 import { getIssueIdentifier, requireTeamKey } from "../../src/utils/linear.ts"
-import { ValidationError } from "../../src/utils/errors.ts"
 
 Deno.test("getIssueId - handles full issue identifiers", async () => {
   const result = await getIssueIdentifier("ABC-123")

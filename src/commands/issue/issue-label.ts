@@ -97,8 +97,10 @@ const addLabelCommand = new Command()
         issueId: issueInternalId,
       })
 
-      const existingLabelIds = currentLabels.issue?.labels?.nodes?.map((l) => l.id) || []
-      
+      const existingLabelIds = currentLabels.issue?.labels?.nodes?.map((l) =>
+        l.id
+      ) || []
+
       // Check if already has the label
       if (existingLabelIds.includes(labelId)) {
         spinner?.stop()
@@ -178,8 +180,10 @@ const removeLabelCommand = new Command()
         issueId: issueInternalId,
       })
 
-      const existingLabelIds = currentLabels.issue?.labels?.nodes?.map((l) => l.id) || []
-      
+      const existingLabelIds = currentLabels.issue?.labels?.nodes?.map((l) =>
+        l.id
+      ) || []
+
       // Check if has the label
       if (!existingLabelIds.includes(labelId)) {
         spinner?.stop()

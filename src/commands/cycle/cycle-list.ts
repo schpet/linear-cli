@@ -5,7 +5,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
 import { getTeamIdByKey, requireTeamKey } from "../../utils/linear.ts"
-import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { withSpinner } from "../../utils/spinner.ts"
 import { header, muted } from "../../utils/styling.ts"
 import { handleError, NotFoundError } from "../../utils/errors.ts"
 
@@ -60,14 +60,10 @@ export const listCommand = new Command()
         throw new NotFoundError("Team", teamKey)
       }
 
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
       const client = getGraphQLClient()
-      const result = await client.request(GetTeamCycles, { teamId })
-      spinner?.stop()
+      const result = await withSpinner(() =>
+        client.request(GetTeamCycles, { teamId })
+      )
 
       const cycles = result.team?.cycles?.nodes || []
 

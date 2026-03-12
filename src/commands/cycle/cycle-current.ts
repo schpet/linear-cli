@@ -2,9 +2,8 @@ import { Command } from "@cliffy/command"
 import { renderMarkdown } from "@littletof/charmd"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { formatRelativeTime } from "../../utils/display.ts"
 import { getTeamIdByKey, requireTeamKey } from "../../utils/linear.ts"
-import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { withSpinner } from "../../utils/spinner.ts"
 import { handleError, NotFoundError } from "../../utils/errors.ts"
 
 const GetActiveCycle = gql(`
@@ -48,14 +47,10 @@ export const currentCommand = new Command()
         throw new NotFoundError("Team", teamKey)
       }
 
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
       const client = getGraphQLClient()
-      const result = await client.request(GetActiveCycle, { teamId })
-      spinner?.stop()
+      const result = await withSpinner(() =>
+        client.request(GetActiveCycle, { teamId })
+      )
 
       const cycle = result.team?.activeCycle
 
@@ -93,7 +88,9 @@ export const currentCommand = new Command()
         console.log(`## Issues (${issues.length})`)
         console.log("")
         for (const issue of issues) {
-          console.log(`- ${issue.identifier}: ${issue.title} [${issue.state.name}]`)
+          console.log(
+            `- ${issue.identifier}: ${issue.title} [${issue.state.name}]`,
+          )
         }
       }
     } catch (error) {

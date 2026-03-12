@@ -1,5 +1,10 @@
 import { unicodeWidth } from "@std/cli"
 
+function getCurrentTime(): Date {
+  const fakeTime = Deno.env.get("CLIFFY_SNAPSHOT_FAKE_TIME")
+  return fakeTime != null ? new Date(fakeTime) : new Date()
+}
+
 export function padDisplay(s: string, width: number): string {
   const w = unicodeWidth(s)
   return s + " ".repeat(Math.max(0, width - w))
@@ -16,7 +21,7 @@ export function padDisplayFormatted(s: string, width: number): string {
 }
 
 export function getTimeAgo(date: Date): string {
-  const now = new Date()
+  const now = getCurrentTime()
   const diffMs = now.getTime() - date.getTime()
   const diffMins = Math.floor(diffMs / 60000)
   const diffHours = Math.floor(diffMins / 60)
@@ -72,7 +77,7 @@ export function getPriorityDisplay(priority: number): string {
 }
 
 export function formatRelativeTime(dateString: string): string {
-  const now = new Date()
+  const now = getCurrentTime()
   const commentDate = new Date(dateString)
   const diffMs = now.getTime() - commentDate.getTime()
   const diffMinutes = Math.floor(diffMs / (1000 * 60))

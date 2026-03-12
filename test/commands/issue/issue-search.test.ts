@@ -1,10 +1,13 @@
-import { snapshotTest } from "@cliffy/testing"
+import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
+import { snapshotTest } from "../../utils/snapshot_with_fake_time.ts"
 import { searchCommand } from "../../../src/commands/issue/issue-search.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 import { commonDenoArgs } from "../../utils/test-helpers.ts"
 
+const fakeTime = "2026-03-11T15:30:00Z"
+
 // Test help output
-await snapshotTest({
+await cliffySnapshotTest({
   name: "Issue Search Command - Help Text",
   meta: import.meta,
   colors: false,
@@ -22,6 +25,7 @@ await snapshotTest({
   colors: false,
   args: ["login bug"],
   denoArgs: commonDenoArgs,
+  fakeTime,
   async fn() {
     const server = new MockLinearServer([
       {

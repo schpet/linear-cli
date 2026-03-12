@@ -20,7 +20,16 @@ await snapshotTest({
   name: "Cycle Create Command - Create Cycle",
   meta: import.meta,
   colors: false,
-  args: ["--team", "ENG", "--starts", "2026-01-15", "--ends", "2026-01-29", "--name", "Sprint 10"],
+  args: [
+    "--team",
+    "ENG",
+    "--starts",
+    "2026-01-15",
+    "--ends",
+    "2026-01-29",
+    "--name",
+    "Sprint 10",
+  ],
   denoArgs: commonDenoArgs,
   async fn() {
     const server = new MockLinearServer([
