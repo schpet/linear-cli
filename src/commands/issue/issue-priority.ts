@@ -1,0 +1,101 @@
+import { Command } from "@cliffy/command"
+import { gql } from "../../__codegen__/gql.ts"
+import { getGraphQLClient } from "../../utils/graphql.ts"
+import {
+  getIssueId,
+  getIssueIdentifier,
+} from "../../utils/linear.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { green } from "@std/fmt/colors"
+import {
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
+
+const UpdateIssuePriority = gql(`
+  mutation UpdateIssuePriority($issueId: String!, $priority: Int!) {
+    issueUpdate(id: $issueId, input: { priority: $priority }) {
+      success
+      issue {
+        id
+        identifier
+        title
+        priority
+      }
+    }
+  }
+`)
+
+const PRIORITY_LABELS: Record<number, string> = {
+  0: "No priority",
+  1: "Urgent",
+  2: "High",
+  3: "Medium",
+  4: "Low",
+}
+
+export const priorityCommand = new Command()
+  .name("priority")
+  .description("Set the priority of an issue")
+  .arguments("<issueId:string> <priority:number>")
+  .example("Set urgent", "linear issue priority ENG-123 1")
+  .example("Set high", "linear issue priority ENG-123 2")
+  .example("Set medium", "linear issue priority ENG-123 3")
+  .example("Set low", "linear issue priority ENG-123 4")
+  .example("Clear priority", "linear issue priority ENG-123 0")
+  .action(async (_options, issueId, priority) => {
+    try {
+      // Validate priority
+      if (priority < 0 || priority > 4) {
+        throw new ValidationError(
+          `Invalid priority: ${priority}`,
+          {
+            suggestion: "Use 0 (none), 1 (urgent), 2 (high), 3 (medium), or 4 (low)",
+          },
+        )
+      }
+
+      // Resolve issue identifier
+      const resolvedIssueId = await getIssueIdentifier(issueId)
+      if (!resolvedIssueId) {
+        throw new ValidationError(
+          `Could not resolve issue identifier: ${issueId}`,
+          {
+            suggestion: "Use a full issue identifier like 'ENG-123'",
+          },
+        )
+      }
+
+      // Get the issue's internal ID
+      const issueInternalId = await getIssueId(resolvedIssueId)
+      if (!issueInternalId) {
+        throw new NotFoundError("Issue", resolvedIssueId)
+      }
+
+      const { Spinner } = await import("@std/cli/unstable-spinner")
+      const showSpinner = shouldShowSpinner()
+      const spinner = showSpinner ? new Spinner() : null
+      spinner?.start()
+
+      const client = getGraphQLClient()
+      const result = await client.request(UpdateIssuePriority, {
+        issueId: issueInternalId,
+        priority,
+      })
+      spinner?.stop()
+
+      if (!result.issueUpdate.success) {
+        throw new Error("Failed to update priority")
+      }
+
+      const issue = result.issueUpdate.issue
+      const priorityLabel = PRIORITY_LABELS[issue?.priority ?? 0]
+      console.log(
+        green("✓") +
+          ` Set ${issue?.identifier} priority to ${priorityLabel}`,
+      )
+    } catch (error) {
+      handleError(error, "Failed to set priority")
+    }
+  })

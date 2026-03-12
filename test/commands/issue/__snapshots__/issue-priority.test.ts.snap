@@ -1,0 +1,35 @@
+export const snapshot = {};
+
+snapshot[`Issue Priority Command - Help Text 1`] = `
+stdout:
+"
+Usage: priority <issueId> <priority>
+
+Description:
+
+  Set the priority of an issue
+
+Options:
+
+  -h, --help  - Show this help.  
+
+Examples:
+
+  Set urgent     linear issue priority ENG-123 1
+  Set high       linear issue priority ENG-123 2
+  Set medium     linear issue priority ENG-123 3
+  Set low        linear issue priority ENG-123 4
+  Clear priority linear issue priority ENG-123 0
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Priority Command - Set Urgent 1`] = `
+stdout:
+"✓ Set ENG-123 priority to Urgent
+"
+stderr:
+""
+`;

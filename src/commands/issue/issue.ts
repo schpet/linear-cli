@@ -10,6 +10,7 @@ import { idCommand } from "./issue-id.ts"
 import { labelCommand } from "./issue-label.ts"
 import { listCommand } from "./issue-list.ts"
 import { moveCommand } from "./issue-move.ts"
+import { priorityCommand } from "./issue-priority.ts"
 import { pullRequestCommand } from "./issue-pull-request.ts"
 import { relationCommand } from "./issue-relation.ts"
 import { searchCommand } from "./issue-search.ts"
@@ -39,6 +40,7 @@ export const issueCommand = new Command()
   .command("update", updateCommand)
   .command("move", moveCommand)
   .command("assign", assignCommand)
+  .command("priority", priorityCommand)
   .command("label", labelCommand)
   .command("comment", commentCommand)
   .command("attach", attachCommand)
