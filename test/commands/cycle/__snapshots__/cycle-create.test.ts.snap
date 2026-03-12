@@ -1,0 +1,37 @@
+export const snapshot = {};
+
+snapshot[`Cycle Create Command - Help Text 1`] = `
+stdout:
+"
+Usage: create --starts <date> --ends <date>
+
+Description:
+
+  Create a new cycle
+
+Options:
+
+  -h, --help                    - Show this help.                                
+  --team         <team>         - Team key (defaults to current team)            
+  --name         <name>         - Custom name for the cycle                      
+  --description  <description>  - Description of the cycle                       
+  --starts       <date>         - Start date (YYYY-MM-DD)              (required)
+  --ends         <date>         - End date (YYYY-MM-DD)                (required)
+
+Examples:
+
+  Create 2-week cycle linear cycle create --starts 2026-01-15 --ends 2026-01-29                   
+  Create named cycle  linear cycle create --starts 2026-01-15 --ends 2026-01-29 --name 'Sprint 10'
+
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle Create Command - Create Cycle 1`] = `
+stdout:
+"✓ Created Sprint 10 (1/15/2026 - 1/29/2026)
+"
+stderr:
+""
+`;

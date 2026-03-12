@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command"
 import { addCommand } from "./cycle-add.ts"
+import { createCommand } from "./cycle-create.ts"
 import { currentCommand } from "./cycle-current.ts"
 import { listCommand } from "./cycle-list.ts"
 import { nextCommand } from "./cycle-next.ts"
@@ -15,5 +16,6 @@ export const cycleCommand = new Command()
   .command("view", viewCommand)
   .command("current", currentCommand)
   .command("next", nextCommand)
+  .command("create", createCommand)
   .command("add", addCommand)
   .command("remove", removeCommand)
