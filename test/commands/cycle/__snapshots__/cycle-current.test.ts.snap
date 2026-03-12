@@ -1,0 +1,51 @@
+export const snapshot = {};
+
+snapshot[`Cycle Current Command - Help Text 1`] = `
+stdout:
+"
+Usage: current
+
+Description:
+
+  Show the current active cycle for a team
+
+Options:
+
+  -h, --help          - Show this help.                      
+  --team      <team>  - Team key (defaults to current team)  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle Current Command - Shows Active Cycle 1`] = `
+stdout:
+"# Sprint 42
+
+Number: 42
+Start: 1/13/2026
+End: 1/27/2026
+Progress: 35%
+
+## Description
+
+Working on authentication improvements
+
+
+## Issues (2)
+
+- ENG-123: Fix login bug [In Progress]
+- ENG-124: Add SSO support [Todo]
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle Current Command - No Active Cycle 1`] = `
+stdout:
+"No active cycle found for team ENG
+"
+stderr:
+""
+`;
