@@ -31,7 +31,7 @@ Environment Variables:
   LINEAR_DEBUG=1    Show full error details including stack traces`,
   )
   .globalOption(
-    "-w, --workspace <slug:string>",
+    "--workspace <slug:string>",
     "Target workspace (uses credentials)",
   )
   .globalAction((options) => {
