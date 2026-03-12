@@ -32,6 +32,8 @@ Commands:
   create                                  - Create a linear issue                              
   update            [issueId]             - Update a linear issue                              
   move              <issueId> <state>     - Move an issue to a different workflow state        
+  assign            <issueId> [assignee]  - Assign an issue to a user                          
+  label                                   - Manage issue labels                                
   comment                                 - Manage issue comments                              
   attach            <issueId> <filepath>  - Attach a file to an issue                          
   relation                                - Manage issue relations (dependencies)
@@ -349,6 +351,92 @@ Examples:
   Move to In Progress linear issue move ENG-123 'In Progress'
   Move to Done        linear issue move ENG-123 Done         
   Move by state type  linear issue move ENG-123 completed
+```
+
+### assign
+
+> Assign an issue to a user
+
+```
+Usage:   linear issue assign <issueId> [assignee]
+
+Description:
+
+  Assign an issue to a user
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  --unassign               - Remove the current assignee          
+
+Examples:
+
+  Assign to self linear issue assign ENG-123 self      
+  Assign to user linear issue assign ENG-123 john      
+  Unassign       linear issue assign ENG-123 --unassign
+```
+
+### label
+
+> Manage issue labels
+
+```
+Usage:   linear issue label
+
+Description:
+
+  Manage issue labels
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+
+Commands:
+
+  add     <issueId> <label>  - Add a label to an issue     
+  remove  <issueId> <label>  - Remove a label from an issue
+```
+
+#### label subcommands
+
+##### add
+
+```
+Usage:   linear issue label add <issueId> <label>
+
+Description:
+
+  Add a label to an issue
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+
+Examples:
+
+  Add bug label linear issue label add ENG-123 bug
+```
+
+##### remove
+
+```
+Usage:   linear issue label remove <issueId> <label>
+
+Description:
+
+  Remove a label from an issue
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+
+Examples:
+
+  Remove bug label linear issue label remove ENG-123 bug
 ```
 
 ### comment

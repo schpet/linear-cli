@@ -22,6 +22,7 @@ Commands:
   view, v  <cycleRef>  - View cycle details                      
   current              - Show the current active cycle for a team
   next                 - Show the next upcoming cycle for a team 
+  create               - Create a new cycle                      
   add      <issueId>   - Add an issue to a cycle                 
   remove   <issueId>   - Remove an issue from its cycle
 ```
@@ -98,6 +99,33 @@ Options:
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)  
   --team           <team>  - Team key (defaults to current team)
+```
+
+### create
+
+> Create a new cycle
+
+```
+Usage:   linear cycle create --starts <date> --ends <date>
+
+Description:
+
+  Create a new cycle
+
+Options:
+
+  -h, --help                      - Show this help.                                
+  -w, --workspace  <slug>         - Target workspace (uses credentials)            
+  --team           <team>         - Team key (defaults to current team)            
+  --name           <name>         - Custom name for the cycle                      
+  --description    <description>  - Description of the cycle                       
+  --starts         <date>         - Start date (YYYY-MM-DD)              (required)
+  --ends           <date>         - End date (YYYY-MM-DD)                (required)
+
+Examples:
+
+  Create 2-week cycle linear cycle create --starts 2026-01-15 --ends 2026-01-29                   
+  Create named cycle  linear cycle create --starts 2026-01-15 --ends 2026-01-29 --name 'Sprint 10'
 ```
 
 ### add
