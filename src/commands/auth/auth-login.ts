@@ -4,6 +4,7 @@ import { yellow } from "@std/fmt/colors"
 import { gql } from "../../__codegen__/gql.ts"
 import {
   addCredential,
+  addManagedCredential,
   getWorkspaces,
   hasWorkspace,
   isUsingInlineFormat,
@@ -16,7 +17,10 @@ import {
   handleError,
   ValidationError,
 } from "../../utils/errors.ts"
-import { createGraphQLClient } from "../../utils/graphql.ts"
+import {
+  createGraphQLClient,
+  createManagedGraphQLClient,
+} from "../../utils/graphql.ts"
 
 const viewerQuery = gql(`
   query AuthLoginViewer {
@@ -35,12 +39,98 @@ export const loginCommand = new Command()
   .name("login")
   .description("Add a workspace credential")
   .option("-k, --key <key:string>", "API key (prompted if not provided)")
+  .option("--managed", "Use managed relay auth instead of an API key")
+  .option(
+    "--account-id <id:string>",
+    "Managed relay account id (defaults to LINEAR_RELAY_ACCOUNT_ID)",
+  )
+  .option(
+    "--relay-base-url <url:string>",
+    "Managed relay base URL (defaults to LINEAR_RELAY_BASE_URL)",
+  )
   .option(
     "--plaintext",
     "Store API key in credentials file instead of system keyring",
   )
   .action(async (options) => {
     try {
+      if (options.managed) {
+        if (options.plaintext) {
+          throw new ValidationError(
+            "`--plaintext` cannot be used with `--managed`.",
+            {
+              suggestion:
+                "Managed auth stores only workspace metadata locally.",
+            },
+          )
+        }
+        if (options.key) {
+          throw new ValidationError("`--key` cannot be used with `--managed`.")
+        }
+
+        const accountId = options.accountId?.trim() ??
+          Deno.env.get("LINEAR_RELAY_ACCOUNT_ID")?.trim()
+        const relayBaseUrl = options.relayBaseUrl?.trim() ??
+          Deno.env.get("LINEAR_RELAY_BASE_URL")?.trim()
+
+        if (!accountId) {
+          throw new ValidationError("No managed account id provided", {
+            suggestion:
+              "Pass `--account-id` or set LINEAR_RELAY_ACCOUNT_ID.",
+          })
+        }
+
+        if (!relayBaseUrl) {
+          throw new ValidationError("No managed relay base URL provided", {
+            suggestion:
+              "Pass `--relay-base-url` or set LINEAR_RELAY_BASE_URL.",
+          })
+        }
+
+        const client = createManagedGraphQLClient({
+          accountId,
+          relayBaseUrl,
+        })
+        const result = await client.request(viewerQuery)
+        const viewer = result.viewer
+        const org = viewer.organization
+        const workspace = org.urlKey
+        const alreadyExists = hasWorkspace(workspace)
+
+        await addManagedCredential(workspace, {
+          accountId,
+          relayBaseUrl,
+        })
+
+        const existingCount = getWorkspaces().length
+        if (alreadyExists) {
+          console.log(
+            `Updated credentials for workspace: ${org.name} (${workspace})`,
+          )
+        } else {
+          console.log(`Logged in to workspace: ${org.name} (${workspace})`)
+        }
+        console.log(`  User: ${viewer.name} <${viewer.email}>`)
+
+        if (existingCount === 1) {
+          console.log(`  Set as default workspace`)
+        }
+
+        if (Deno.env.get("LINEAR_API_KEY")) {
+          console.log()
+          console.log(
+            yellow("Warning: LINEAR_API_KEY environment variable is set."),
+          )
+          console.log(yellow("It takes precedence over stored credentials."))
+          console.log(
+            yellow(
+              "Remove it from your shell config to use managed workspace auth.",
+            ),
+          )
+        }
+        return
+      }
+
       let apiKey = options.key?.trim()
 
       if (!apiKey) {

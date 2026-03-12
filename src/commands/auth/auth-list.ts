@@ -2,13 +2,17 @@ import { Command } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { gql } from "../../__codegen__/gql.ts"
 import {
-  getCredentialApiKey,
   getDefaultWorkspace,
+  getCredentialApiKey,
+  getManagedCredential,
   getWorkspaces,
 } from "../../credentials.ts"
 import { padDisplay } from "../../utils/display.ts"
 import { handleError, isClientError } from "../../utils/errors.ts"
-import { createGraphQLClient } from "../../utils/graphql.ts"
+import {
+  createGraphQLClient,
+  createManagedGraphQLClient,
+} from "../../utils/graphql.ts"
 
 const viewerQuery = gql(`
   query AuthListViewer {
@@ -34,10 +38,20 @@ interface WorkspaceInfo {
 
 async function fetchWorkspaceInfo(
   workspace: string,
-  apiKey: string,
 ): Promise<WorkspaceInfo> {
   const isDefault = getDefaultWorkspace() === workspace
-  const client = createGraphQLClient(apiKey)
+  const managed = getManagedCredential(workspace)
+  const apiKey = getCredentialApiKey(workspace)
+  if (!managed && apiKey == null) {
+    return {
+      workspace,
+      isDefault,
+      error: "missing credentials",
+    }
+  }
+  const client = managed
+    ? createManagedGraphQLClient(managed)
+    : createGraphQLClient(apiKey!)
 
   try {
     const result = await client.request(viewerQuery)
@@ -82,18 +96,7 @@ export const listCommand = new Command()
       }
 
       // Fetch info for all workspaces in parallel
-      const infoPromises = workspaces.map((ws) => {
-        const apiKey = getCredentialApiKey(ws)
-        if (apiKey == null) {
-          const info: WorkspaceInfo = {
-            workspace: ws,
-            isDefault: getDefaultWorkspace() === ws,
-            error: "missing credentials",
-          }
-          return Promise.resolve(info)
-        }
-        return fetchWorkspaceInfo(ws, apiKey)
-      })
+      const infoPromises = workspaces.map((ws) => fetchWorkspaceInfo(ws))
       const infos = await Promise.all(infoPromises)
 
       // Calculate column widths

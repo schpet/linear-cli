@@ -87,22 +87,25 @@ deno task install
 
 ## setup
 
-1. create an API key at [linear.app/settings/account/security](https://linear.app/settings/account/security)[^1]
-
-2. authenticate with the CLI:
+1. choose an auth mode:
 
    ```sh
+   # API key (traditional mode)
+   # create one at https://linear.app/settings/account/security
    linear auth login
+
+   # managed relay + mTLS (no local API key)
+   linear auth login --managed --account-id <id> --relay-base-url <url>
    ```
 
-3. configure your project:
+2. configure your project:
 
    ```sh
    cd my-project-repo
    linear config
    ```
 
-see [docs/authentication.md](docs/authentication.md) for multi-workspace support and other authentication options.
+for managed relay auth, set `LINEAR_MTLS_SHARED_SECRET` and `LINEAR_SANDBOX_ID` in the environment before running the CLI. see [docs/authentication.md](docs/authentication.md) for multi-workspace support and the full auth matrix.
 
 the CLI works with both git and jj version control systems:
 

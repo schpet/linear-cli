@@ -4,8 +4,7 @@ import {
   Type,
   ValidationError,
 } from "@cliffy/command"
-import denoConfig from "../../deno.json" with { type: "json" }
-import { getGraphQLEndpoint, getResolvedApiKey } from "../utils/graphql.ts"
+import { getResolvedGraphQLRequest } from "../utils/graphql.ts"
 import {
   CliError,
   handleError,
@@ -53,26 +52,32 @@ export const apiCommand = new Command()
         options.variable,
         options.variablesJson,
       )
-
-      const apiKey = getResolvedApiKey()
-      if (!apiKey) {
-        throw new AppValidationError(
-          "No API key configured",
-          {
-            suggestion:
-              "Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.",
-          },
-        )
+      let request
+      try {
+        request = getResolvedGraphQLRequest()
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.startsWith("No authentication configured")
+        ) {
+          throw new AppValidationError(
+            "No API key configured",
+            {
+              suggestion:
+                "Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.",
+            },
+          )
+        }
+        throw error
       }
-
       const headers = {
         "Content-Type": "application/json",
-        Authorization: apiKey,
-        "User-Agent": `schpet-linear-cli/${denoConfig.version}`,
+        ...request.headers,
       }
 
       if (options.paginate) {
         await executePaginated(
+          request.endpoint,
           resolvedQuery,
           variables,
           headers,
@@ -80,6 +85,7 @@ export const apiCommand = new Command()
         )
       } else {
         await executeSingle(
+          request.endpoint,
           resolvedQuery,
           variables,
           headers,
@@ -92,6 +98,7 @@ export const apiCommand = new Command()
   })
 
 async function executeSingle(
+  endpoint: string,
   query: string,
   variables: Record<string, unknown>,
   headers: Record<string, string>,
@@ -102,7 +109,7 @@ async function executeSingle(
     body.variables = variables
   }
 
-  const response = await fetch(getGraphQLEndpoint(), {
+  const response = await fetch(endpoint, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -136,6 +143,7 @@ async function executeSingle(
 }
 
 async function executePaginated(
+  endpoint: string,
   query: string,
   variables: Record<string, unknown>,
   headers: Record<string, string>,
@@ -152,7 +160,7 @@ async function executePaginated(
       body.variables = vars
     }
 
-    const response = await fetch(getGraphQLEndpoint(), {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify(body),

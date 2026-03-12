@@ -1040,3 +1040,47 @@ Deno.test("credentials - migrateToKeyring is no-op when already using keyring", 
     await Deno.remove(tempDir, { recursive: true })
   }
 })
+
+Deno.test("credentials - addManagedCredential stores managed binding metadata", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const code = `
+      ${
+      mockBackendAndImport(
+        "addManagedCredential, getManagedCredential, getWorkspaces, getDefaultWorkspace, getCredentialsPath",
+      )
+    }
+      await addManagedCredential("acme", {
+        accountId: "acc-123",
+        relayBaseUrl: "https://relay.example",
+      });
+      const binding = getManagedCredential("acme");
+      const toml = await Deno.readTextFile(getCredentialsPath()!);
+      console.log(JSON.stringify({
+        workspace: binding?.workspace,
+        accountId: binding?.accountId,
+        relayBaseUrl: binding?.relayBaseUrl,
+        workspaces: getWorkspaces(),
+        default: getDefaultWorkspace(),
+        hasAccountId: toml.includes("acc-123"),
+        hasRelayBaseUrl: toml.includes("https://relay.example"),
+        hasApiKey: toml.includes("lin_api_"),
+      }));
+    `
+
+    const output = await runWithCredentials(tempDir, code)
+    const result = JSON.parse(output)
+
+    assertEquals(result.workspace, "acme")
+    assertEquals(result.accountId, "acc-123")
+    assertEquals(result.relayBaseUrl, "https://relay.example")
+    assertEquals(result.workspaces, ["acme"])
+    assertEquals(result.default, "acme")
+    assertEquals(result.hasAccountId, true)
+    assertEquals(result.hasRelayBaseUrl, true)
+    assertEquals(result.hasApiKey, false)
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})

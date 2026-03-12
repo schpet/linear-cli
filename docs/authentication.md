@@ -5,19 +5,21 @@ the CLI supports multiple authentication methods with the following precedence:
 1. `--api-key` flag (explicit key for single command)
 2. `LINEAR_API_KEY` environment variable
 3. `api_key` in project `.linear.toml` config
-4. `--workspace` / `-w` flag → stored credentials lookup
-5. project's `workspace` config → stored credentials lookup
-6. default workspace from stored credentials
+4. `--workspace` / `-w` flag → stored credentials lookup (API key or managed relay)
+5. project's `workspace` config → stored credentials lookup (API key or managed relay)
+6. managed relay environment (`LINEAR_RELAY_BASE_URL` + `LINEAR_RELAY_ACCOUNT_ID`)
+7. default workspace from stored credentials
 
 ## stored credentials (recommended)
 
-API keys are stored in your system's native keyring (macOS Keychain, Linux libsecret, Windows CredentialManager). workspace metadata is stored in `~/.config/linear/credentials.toml`.
+API keys are stored in your system's native keyring (macOS Keychain, Linux libsecret, Windows CredentialManager). workspace metadata, including managed relay bindings, is stored in `~/.config/linear/credentials.toml`.
 
 ### commands
 
 ```bash
 linear auth login              # add a workspace (prompts for API key)
 linear auth login --key <key>  # add with key directly (for scripts)
+linear auth login --managed --account-id <id> --relay-base-url <url>
 linear auth list               # list configured workspaces
 linear auth default            # interactively set default workspace
 linear auth default <slug>     # set default workspace directly
@@ -55,6 +57,35 @@ $ linear auth list
 
 the `*` indicates the default workspace.
 
+### managed relay auth (mTLS)
+
+for sandboxed/managed environments, the CLI can skip local API keys and authenticate through a relay that trusts your mTLS sandbox identity. this is designed for setups similar to the google-cli and slack managed flows.
+
+required environment:
+
+```bash
+export LINEAR_MTLS_SHARED_SECRET="..."
+export LINEAR_SANDBOX_ID="sandbox-123"
+```
+
+to log in and persist the relay binding locally:
+
+```bash
+linear auth login \
+  --managed \
+  --account-id acc-123 \
+  --relay-base-url https://relay.example
+```
+
+or set the binding via env for ephemeral sessions:
+
+```bash
+export LINEAR_RELAY_BASE_URL="https://relay.example"
+export LINEAR_RELAY_ACCOUNT_ID="acc-123"
+```
+
+managed auth stores the workspace slug, relay base URL, and account id locally, but it does **not** store an API key. `linear auth token` therefore only works for API-key workspaces.
+
 ### switching workspaces
 
 ```bash
@@ -72,9 +103,13 @@ linear -w acme issue create --title "Bug fix"
 # ~/.config/linear/credentials.toml
 default = "acme"
 workspaces = ["acme", "side-project"]
+
+[managed.acme]
+account_id = "acc-123"
+relay_base_url = "https://relay.example"
 ```
 
-API keys are not stored in this file. they are stored in the system keyring and loaded at startup.
+API keys are not stored in this file. they are stored in the system keyring and loaded at startup. managed relay bindings are stored here because they only contain routing metadata, not secrets.
 
 ### platform requirements
 

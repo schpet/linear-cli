@@ -13,10 +13,17 @@ export interface Credentials {
   workspaces: string[]
 }
 
+export interface ManagedCredential {
+  workspace: string
+  accountId: string
+  relayBaseUrl: string
+}
+
 let credentials: Credentials = { workspaces: [] }
 let isInlineFormat = false
 
 const apiKeyCache = new Map<string, string>()
+const managedCredentialCache = new Map<string, ManagedCredential>()
 
 /**
  * Get the path to the credentials file.
@@ -46,6 +53,11 @@ interface InlineCredentials {
   [workspace: string]: string | undefined
 }
 
+interface ManagedCredentialRecord {
+  account_id?: string
+  relay_base_url?: string
+}
+
 // The inline format stores API keys directly in the TOML file as
 // `workspace-name = "lin_api_..."`. The keyring format uses a `workspaces`
 // array and stores keys in the OS keyring instead.
@@ -53,17 +65,58 @@ function hasInlineKeys(
   parsed: Record<string, unknown>,
 ): parsed is InlineCredentials {
   for (const [key, value] of Object.entries(parsed)) {
-    if (key === "default") continue
+    if (key === "default" || key === "managed") continue
     if (key === "workspaces") return false
     if (typeof value === "string") return true
   }
   return false
 }
 
-function parseInlineCredentials(parsed: InlineCredentials): Credentials {
+function parseManagedCredentials(
+  raw: unknown,
+): Map<string, ManagedCredential> {
+  const managed = new Map<string, ManagedCredential>()
+
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return managed
+  }
+
+  for (const [workspace, value] of Object.entries(raw)) {
+    if (value == null || typeof value !== "object" || Array.isArray(value)) {
+      continue
+    }
+
+    const record = value as ManagedCredentialRecord
+    const accountId = record.account_id?.trim()
+    const relayBaseUrl = record.relay_base_url?.trim()
+    if (!workspace || !accountId || !relayBaseUrl) {
+      continue
+    }
+
+    managed.set(workspace, {
+      workspace,
+      accountId,
+      relayBaseUrl,
+    })
+  }
+
+  return managed
+}
+
+function mergeWorkspaceLists(
+  workspaces: string[],
+  managed: Map<string, ManagedCredential>,
+): string[] {
+  return [...new Set([...workspaces, ...managed.keys()])]
+}
+
+function parseInlineCredentials(
+  parsed: InlineCredentials,
+  managed: Map<string, ManagedCredential>,
+): Credentials {
   const workspaces: string[] = []
   for (const [key, value] of Object.entries(parsed)) {
-    if (key === "default") continue
+    if (key === "default" || key === "managed") continue
     if (typeof value === "string") {
       workspaces.push(key)
       apiKeyCache.set(key, value)
@@ -71,18 +124,23 @@ function parseInlineCredentials(parsed: InlineCredentials): Credentials {
   }
   return {
     default: typeof parsed.default === "string" ? parsed.default : undefined,
-    workspaces,
+    workspaces: mergeWorkspaceLists(workspaces, managed),
   }
 }
 
-function parseKeyringCredentials(parsed: Record<string, unknown>): Credentials {
-  const workspaces = Array.isArray(parsed.workspaces)
+function parseKeyringCredentials(parsed: Record<string, unknown>): {
+  credentials: Credentials
+  managed: Map<string, ManagedCredential>
+} {
+  const managed = parseManagedCredentials(parsed.managed)
+  const listedWorkspaces = Array.isArray(parsed.workspaces)
     ? [
       ...new Set((parsed.workspaces as unknown[]).filter((v): v is string =>
         typeof v === "string"
       )),
     ]
     : []
+  const workspaces = mergeWorkspaceLists(listedWorkspaces, managed)
 
   const defaultWs = typeof parsed.default === "string"
     ? parsed.default
@@ -99,13 +157,19 @@ function parseKeyringCredentials(parsed: Record<string, unknown>): Credentials {
   }
 
   return {
-    default: defaultIsValid ? defaultWs : undefined,
-    workspaces,
+    credentials: {
+      default: defaultIsValid ? defaultWs : undefined,
+      workspaces,
+    },
+    managed,
   }
 }
 
 async function populateKeyringCache(workspaces: string[]): Promise<void> {
   await Promise.all(workspaces.map(async (ws) => {
+    if (managedCredentialCache.has(ws)) {
+      return
+    }
     try {
       const key = await getPassword(ws)
       if (key != null) {
@@ -162,19 +226,46 @@ export async function loadCredentials(): Promise<Credentials> {
   }
 
   apiKeyCache.clear()
+  managedCredentialCache.clear()
 
   if (hasInlineKeys(parsed)) {
     isInlineFormat = true
-    credentials = parseInlineCredentials(parsed)
+    const managed = parseManagedCredentials(parsed.managed)
+    for (const [workspace, binding] of managed.entries()) {
+      managedCredentialCache.set(workspace, binding)
+    }
+    credentials = parseInlineCredentials(parsed, managed)
     return credentials
   }
 
   isInlineFormat = false
 
-  credentials = parseKeyringCredentials(parsed)
+  const parsedCredentials = parseKeyringCredentials(parsed)
+  credentials = parsedCredentials.credentials
+  for (const [workspace, binding] of parsedCredentials.managed.entries()) {
+    managedCredentialCache.set(workspace, binding)
+  }
   await populateKeyringCache(credentials.workspaces)
 
   return credentials
+}
+
+function buildManagedSection(): Record<string, Record<string, string>> | undefined {
+  if (managedCredentialCache.size === 0) {
+    return undefined
+  }
+
+  const managed: Record<string, Record<string, string>> = {}
+  for (const workspace of [...managedCredentialCache.keys()].sort()) {
+    const binding = managedCredentialCache.get(workspace)
+    if (!binding) continue
+    managed[workspace] = {
+      account_id: binding.accountId,
+      relay_base_url: binding.relayBaseUrl,
+    }
+  }
+
+  return managed
 }
 
 /**
@@ -197,6 +288,10 @@ async function saveCredentials(): Promise<void> {
     ordered.default = credentials.default
   }
   ordered.workspaces = [...credentials.workspaces].sort()
+  const managed = buildManagedSection()
+  if (managed) {
+    ordered.managed = managed
+  }
 
   await Deno.writeTextFile(path, stringify(ordered))
 }
@@ -217,18 +312,25 @@ async function saveInlineCredentials(
   const dir = dirname(path)
   await ensureDir(dir)
 
-  const ordered: Record<string, string> = {}
+  const ordered: Record<string, unknown> = {}
   if (credentials.default != null) {
     ordered.default = credentials.default
   }
   for (const ws of [...credentials.workspaces].sort()) {
     const key = ws === workspace ? apiKey : apiKeyCache.get(ws)
+    if (managedCredentialCache.has(ws)) {
+      continue
+    }
     if (key == null) {
       throw new Error(
         `Cannot save inline credentials: API key for workspace "${ws}" is missing from cache`,
       )
     }
     ordered[ws] = key
+  }
+  const managed = buildManagedSection()
+  if (managed) {
+    ordered.managed = managed
   }
 
   await Deno.writeTextFile(path, stringify(ordered))
@@ -247,11 +349,14 @@ async function saveAllInlineCredentials(): Promise<void> {
   const dir = dirname(path)
   await ensureDir(dir)
 
-  const ordered: Record<string, string> = {}
+  const ordered: Record<string, unknown> = {}
   if (credentials.default != null) {
     ordered.default = credentials.default
   }
   for (const ws of [...credentials.workspaces].sort()) {
+    if (managedCredentialCache.has(ws)) {
+      continue
+    }
     const key = apiKeyCache.get(ws)
     if (key == null) {
       throw new Error(
@@ -259,6 +364,10 @@ async function saveAllInlineCredentials(): Promise<void> {
       )
     }
     ordered[ws] = key
+  }
+  const managed = buildManagedSection()
+  if (managed) {
+    ordered.managed = managed
   }
 
   await Deno.writeTextFile(path, stringify(ordered))
@@ -367,6 +476,7 @@ export async function addCredential(
   }
 
   apiKeyCache.set(workspace, apiKey)
+  managedCredentialCache.delete(workspace)
 
   const isNew = !credentials.workspaces.includes(workspace)
   if (isNew) {
@@ -385,12 +495,40 @@ export async function addCredential(
   }
 }
 
+export async function addManagedCredential(
+  workspace: string,
+  binding: { accountId: string; relayBaseUrl: string },
+): Promise<void> {
+  managedCredentialCache.set(workspace, {
+    workspace,
+    accountId: binding.accountId,
+    relayBaseUrl: binding.relayBaseUrl,
+  })
+  apiKeyCache.delete(workspace)
+
+  const isNew = !credentials.workspaces.includes(workspace)
+  if (isNew) {
+    credentials.workspaces.push(workspace)
+  }
+  if (isNew && credentials.workspaces.length === 1) {
+    credentials.default = workspace
+  }
+
+  if (isInlineFormat) {
+    await saveAllInlineCredentials()
+  } else {
+    await saveCredentials()
+  }
+}
+
 /**
  * Remove a credential.
  * If removing the default, reassign to another workspace or clear.
  */
 export async function removeCredential(workspace: string): Promise<void> {
-  if (!isInlineFormat) {
+  const isManagedWorkspace = managedCredentialCache.has(workspace)
+
+  if (!isInlineFormat && !isManagedWorkspace) {
     try {
       await deletePassword(workspace)
     } catch (error) {
@@ -402,6 +540,7 @@ export async function removeCredential(workspace: string): Promise<void> {
     }
   }
   apiKeyCache.delete(workspace)
+  managedCredentialCache.delete(workspace)
 
   credentials.workspaces = credentials.workspaces.filter((w) => w !== workspace)
 
@@ -442,6 +581,16 @@ export function getCredentialApiKey(workspace?: string): string | undefined {
   }
   if (credentials.default != null) {
     return apiKeyCache.get(credentials.default)
+  }
+  return undefined
+}
+
+export function getManagedCredential(workspace?: string): ManagedCredential | undefined {
+  if (workspace != null) {
+    return managedCredentialCache.get(workspace)
+  }
+  if (credentials.default != null) {
+    return managedCredentialCache.get(credentials.default)
   }
   return undefined
 }

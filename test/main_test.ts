@@ -142,3 +142,77 @@ Deno.test("getGraphQLClient handles malformed JSON responses", async () => {
     restoreEnv()
   }
 })
+
+Deno.test("getGraphQLClient uses managed relay headers", async () => {
+  const originalFetchImpl = globalThis.fetch
+  const originalEnvGet = Deno.env.get
+  let seenRequest: Request | undefined
+
+  globalThis.fetch = (input, init) => {
+    seenRequest = input instanceof Request ? input : new Request(input, init)
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          data: {
+            viewer: { id: "viewer-1" },
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    )
+  }
+
+  Deno.env.get = (key: string) => {
+    switch (key) {
+      case "LINEAR_RELAY_BASE_URL":
+        return "https://relay.example"
+      case "LINEAR_RELAY_ACCOUNT_ID":
+        return "acc-123"
+      case "LINEAR_MTLS_SHARED_SECRET":
+        return "secret-123"
+      case "LINEAR_SANDBOX_ID":
+        return "sandbox-123"
+      default:
+        return originalEnvGet(key)
+    }
+  }
+
+  try {
+    const client = getGraphQLClient()
+    await client.request("query GetViewer { viewer { id } }", {})
+
+    if (!seenRequest) {
+      throw new Error("Expected managed request to be captured")
+    }
+
+    assertStringIncludes(
+      seenRequest.url,
+      "/internal/integrations/v1/linear/api.linear.app/graphql?accountId=acc-123",
+    )
+    assertStringIncludes(
+      seenRequest.headers.get("user-agent") ?? "",
+      "schpet-linear-cli/",
+    )
+    assertStringIncludes(
+      seenRequest.headers.get("x-sandbox-mtls-auth") ?? "",
+      "secret-123",
+    )
+    assertStringIncludes(
+      seenRequest.headers.get("x-sandbox-id") ?? "",
+      "sandbox-123",
+    )
+    assertStringIncludes(
+      seenRequest.headers.get("x-client-cert-present") ?? "",
+      "true",
+    )
+    if (seenRequest.headers.get("authorization") != null) {
+      throw new Error("Managed auth should not send Authorization header")
+    }
+  } finally {
+    globalThis.fetch = originalFetchImpl
+    Deno.env.get = originalEnvGet
+  }
+})
