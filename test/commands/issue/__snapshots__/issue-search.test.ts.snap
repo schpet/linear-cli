@@ -1,0 +1,41 @@
+export const snapshot = {};
+
+snapshot[`Issue Search Command - Help Text 1`] = `
+stdout:
+"
+Usage: search <query>
+
+Description:
+
+  Search for issues using semantic search
+
+Options:
+
+  -h, --help                       - Show this help.                                  
+  -n, --limit             <limit>  - Maximum number of results           (Default: \\x1b[33m20\\x1b[39m)
+  -a, --include-archived           - Include archived issues in results               
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Search Command - Returns Results 1`] = `
+stdout:
+"ID      P  TITLE             STATE       UPDATED   
+ENG-123 ▄▆█ Fix login bug     In Progress 55 days ago
+ENG-456 ▄▆  Update login page Todo        56 days ago
+
+Found 2 issues
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Search Command - No Results 1`] = `
+stdout:
+'No issues found matching "nonexistent-query-xyz"
+'
+stderr:
+""
+`;
