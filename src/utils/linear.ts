@@ -30,6 +30,24 @@ export function getTeamKey(): string | undefined {
 }
 
 /**
+ * Get the configured team key or throw a helpful error if not configured.
+ * Use this when team key is required for the command to function.
+ */
+export function requireTeamKey(flagValue?: string): string {
+  const teamKey = flagValue?.toUpperCase() || getTeamKey()
+  if (!teamKey) {
+    throw new ValidationError(
+      "No team configured. Please run `linear config` to set up your project configuration.",
+      {
+        suggestion:
+          "Alternatively, use the --team flag to specify a team, e.g., `linear issue list --team ENG`",
+      },
+    )
+  }
+  return teamKey
+}
+
+/**
  * based on loose inputs, returns a linear issue identifier like ABC-123
  *
  * formats the provided identifier, adds the team id prefix, or finds one from VCS state

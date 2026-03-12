@@ -15,7 +15,7 @@ import {
   getProjectIdByName,
   getProjectOptionsByName,
   getTeamIdByKey,
-  getTeamKey,
+  requireTeamKey,
   selectOption,
 } from "../../utils/linear.ts"
 import { openTeamAssigneeView } from "../../utils/actions.ts"
@@ -156,12 +156,7 @@ export const listCommand = new Command()
             `Sort must be one of: ${SortType.values().join(", ")}`,
           )
         }
-        const teamKey = team || getTeamKey()
-        if (!teamKey) {
-          throw new ValidationError(
-            "Could not determine team key from directory name or team flag",
-          )
-        }
+        const teamKey = requireTeamKey(team)
 
         let projectId: string | undefined
         if (project != null) {

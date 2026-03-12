@@ -1,6 +1,6 @@
 import { Command } from "@cliffy/command"
-import { getTeamKey, getTeamMembers } from "../../utils/linear.ts"
-import { handleError, ValidationError } from "../../utils/errors.ts"
+import { getTeamMembers, requireTeamKey } from "../../utils/linear.ts"
+import { handleError } from "../../utils/errors.ts"
 
 export const membersCommand = new Command()
   .name("members")
@@ -9,13 +9,7 @@ export const membersCommand = new Command()
   .option("-a, --all", "Include inactive members")
   .action(async (options, teamKey?: string) => {
     try {
-      const resolvedTeamKey = teamKey || getTeamKey()
-      if (!resolvedTeamKey) {
-        throw new ValidationError(
-          "Could not determine team key from directory name",
-          { suggestion: "Please specify a team key as an argument." },
-        )
-      }
+      const resolvedTeamKey = requireTeamKey(teamKey)
 
       const members = await getTeamMembers(resolvedTeamKey)
 

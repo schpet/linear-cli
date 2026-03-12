@@ -1,5 +1,5 @@
 import { Command } from "@cliffy/command"
-import { getTeamKey } from "../../utils/linear.ts"
+import { requireTeamKey } from "../../utils/linear.ts"
 import { getOption } from "../../config.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 import { LINEAR_WEB_BASE_URL } from "../../const.ts"
@@ -11,13 +11,7 @@ export const autolinksCommand = new Command()
   )
   .action(async () => {
     try {
-      const teamId = getTeamKey()
-      if (!teamId) {
-        throw new ValidationError(
-          "Could not determine team id from directory name",
-          { suggestion: "Run `linear configure` to set a team." },
-        )
-      }
+      const teamId = requireTeamKey()
 
       const workspace = getOption("workspace")
       if (!workspace) {

@@ -6,14 +6,10 @@ import { formatRelativeTime } from "../../utils/display.ts"
 import {
   getCycleIdByNameOrNumber,
   getTeamIdByKey,
-  getTeamKey,
+  requireTeamKey,
 } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
-import {
-  handleError,
-  NotFoundError,
-  ValidationError,
-} from "../../utils/errors.ts"
+import { handleError, NotFoundError } from "../../utils/errors.ts"
 
 const GetCycleDetails = gql(`
   query GetCycleDetails($id: String!) {
@@ -58,13 +54,7 @@ export const viewCommand = new Command()
   .option("--team <team:string>", "Team key (defaults to current team)")
   .action(async ({ team }, cycleRef) => {
     try {
-      const teamKey = team || getTeamKey()
-      if (!teamKey) {
-        throw new ValidationError(
-          "Could not determine team key from directory name or team flag",
-        )
-      }
-
+      const teamKey = requireTeamKey(team)
       const teamId = await getTeamIdByKey(teamKey)
       if (!teamId) {
         throw new NotFoundError("Team", teamKey)

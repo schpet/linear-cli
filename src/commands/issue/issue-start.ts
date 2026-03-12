@@ -4,14 +4,10 @@ import { getPriorityDisplay } from "../../utils/display.ts"
 import {
   fetchIssuesForState,
   getIssueIdentifier,
-  getTeamKey,
+  requireTeamKey,
 } from "../../utils/linear.ts"
 import { startWorkOnIssue as startIssue } from "../../utils/actions.ts"
-import {
-  handleError,
-  NotFoundError,
-  ValidationError,
-} from "../../utils/errors.ts"
+import { handleError, NotFoundError, ValidationError } from "../../utils/errors.ts"
 
 export const startCommand = new Command()
   .name("start")
@@ -35,10 +31,7 @@ export const startCommand = new Command()
   )
   .action(async ({ allAssignees, unassigned, fromRef, branch }, issueId) => {
     try {
-      const teamId = getTeamKey()
-      if (!teamId) {
-        throw new ValidationError("Could not determine team ID")
-      }
+      const teamId = requireTeamKey()
 
       // Validate that conflicting flags are not used together
       if (allAssignees && unassigned) {
