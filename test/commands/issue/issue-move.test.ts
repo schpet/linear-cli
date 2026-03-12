@@ -41,9 +41,24 @@ await snapshotTest({
             team: {
               states: {
                 nodes: [
-                  { id: "state-1", name: "Todo", type: "unstarted", position: 0 },
-                  { id: "state-2", name: "In Progress", type: "started", position: 1 },
-                  { id: "state-3", name: "Done", type: "completed", position: 2 },
+                  {
+                    id: "state-1",
+                    name: "Todo",
+                    type: "unstarted",
+                    position: 0,
+                  },
+                  {
+                    id: "state-2",
+                    name: "In Progress",
+                    type: "started",
+                    position: 1,
+                  },
+                  {
+                    id: "state-3",
+                    name: "Done",
+                    type: "completed",
+                    position: 2,
+                  },
                 ],
               },
             },

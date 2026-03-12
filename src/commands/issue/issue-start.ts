@@ -7,7 +7,11 @@ import {
   requireTeamKey,
 } from "../../utils/linear.ts"
 import { startWorkOnIssue as startIssue } from "../../utils/actions.ts"
-import { handleError, NotFoundError, ValidationError } from "../../utils/errors.ts"
+import {
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 export const startCommand = new Command()
   .name("start")
