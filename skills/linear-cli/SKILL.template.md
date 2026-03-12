@@ -1,6 +1,6 @@
 ---
 name: linear-cli
-description: Manage Linear issues from the command line using the linear cli. This skill allows automating linear management.
+description: Create, update, list, search, and close Linear issues, projects, cycles, and initiatives from the command line. Use when the user wants to interact with Linear — e.g. "create a Linear issue", "list my tickets", "update issue status", "add a comment on ENG-123", "search Linear for onboarding", or "query the Linear API". Supports issue management, project tracking, label assignment, milestone updates, and raw GraphQL queries via the linear CLI.
 allowed-tools: Bash(linear:*), Bash(curl:*)
 ---
 
@@ -26,12 +26,7 @@ When working with issue descriptions or comment bodies that contain markdown, **
 - Use `--description-file` for `issue create` and `issue update` commands
 - Use `--body-file` for `comment add` and `comment update` commands
 
-**Why use file-based flags:**
-
-- Ensures proper formatting in the Linear web UI
-- Avoids shell escaping issues with newlines and special characters
-- Prevents literal `\n` sequences from appearing in markdown
-- Makes it easier to work with multi-line content
+File-based flags avoid shell escaping issues and ensure proper markdown formatting in Linear.
 
 **Example workflow:**
 

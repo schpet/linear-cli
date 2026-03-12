@@ -1,27 +1,11 @@
 ---
-name: Release
-description: This skill should be used when the user asks to "make a release", "create a release", "cut a release", "release a new version", "publish a release", or mentions preparing for release. Provides comprehensive workflow for reviewing changes, updating changelog, determining semver bump, and publishing.
-version: 0.1.0
+name: release
+description: Create and publish linear-cli releases with changelog management, semver version bumping, and git tagging. Use when the user says "make a release", "cut a release", "publish a new version", "release linear-cli", "bump version", or "tag a release". Handles reviewing commits, adding changelog entries, running quality checks, updating version files, and pushing tags.
 ---
 
 # Release Workflow
 
-This skill provides a systematic workflow for creating and publishing releases for the linear-cli project. It handles changelog management, version bumping, testing, and tagging.
-
-## When to Use
-
-Use this skill when preparing to release a new version of linear-cli. The workflow ensures all changes are documented, tests pass, and versions are properly tagged before publishing.
-
-## Prerequisites
-
-Ensure the following tools are available:
-
-- `changelog` skill for changelog management
-- `svbump` for version bumping (installed)
-- `jj` for version control operations
-- `just` for running the release tasks
-
-## Release Workflow
+Use `jj` for all version control operations. Use `--ignore-working-copy` for read-only jj operations. Both `jj git push` (bookmark) and `git push origin --tags` (tags) are needed for pushing.
 
 ### Step 1: Review Commits Since Last Release
 
@@ -194,22 +178,6 @@ If any step fails:
 - **Push fails:** Check authentication and remote access.
 
 Always stop and report errors clearly. Never continue the release process if a critical step fails.
-
-## Important Notes
-
-- The justfile `tag` recipe handles the complete process from line 5-21
-- Use `jj` for all version control operations (per project CLAUDE.md)
-- Always use `--ignore-working-copy` for read-only jj operations
-- The workflow creates a commit on the parent (@-) and then creates a new working commit
-- Both `jj git push` and `git push origin --tags` are needed (jj for bookmark, git for tags)
-
-## Post-Release
-
-After successful release:
-
-1. Verify the tag appears on GitHub
-2. Check that GitHub Actions release workflow triggers (if configured)
-3. Confirm the new version is published
 
 ## Reference
 
