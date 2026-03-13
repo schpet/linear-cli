@@ -1,5 +1,11 @@
-import { assertEquals } from "@std/assert"
-import { getIssueIdentifier, requireTeamKey } from "../../src/utils/linear.ts"
+import { assertEquals, assertRejects } from "@std/assert"
+import {
+  getIssueIdentifier,
+  requireTeamKey,
+  resolveIssueInternalId,
+} from "../../src/utils/linear.ts"
+import { NotFoundError, ValidationError } from "../../src/utils/errors.ts"
+import { setupMockLinearServer } from "./test-helpers.ts"
 
 Deno.test("getIssueId - handles full issue identifiers", async () => {
   const result = await getIssueIdentifier("ABC-123")
@@ -31,6 +37,61 @@ Deno.test("getIssueId - rejects zero", async () => {
   assertEquals(result, undefined)
 
   Deno.env.delete("LINEAR_TEAM_ID")
+})
+
+Deno.test("resolveIssueInternalId - resolves issue identifier to internal ID", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssueId",
+      variables: { id: "ENG-123" },
+      response: {
+        data: {
+          issue: {
+            id: "issue-internal-id",
+          },
+        },
+      },
+    },
+  ])
+
+  try {
+    const result = await resolveIssueInternalId("ENG-123")
+    assertEquals(result, "issue-internal-id")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveIssueInternalId - throws ValidationError for unresolvable input", async () => {
+  await assertRejects(
+    () => resolveIssueInternalId("bad issue id"),
+    ValidationError,
+    "Could not resolve issue identifier: bad issue id",
+  )
+})
+
+Deno.test("resolveIssueInternalId - throws NotFoundError for unknown issue", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssueId",
+      variables: { id: "ENG-999" },
+      response: {
+        data: {
+          issue: null,
+        },
+      },
+    },
+  ])
+
+  try {
+    await assertRejects(
+      () => resolveIssueInternalId("ENG-999"),
+      NotFoundError,
+      "Issue not found: ENG-999",
+    )
+  } finally {
+    await cleanup()
+  }
 })
 
 Deno.test("requireTeamKey - returns flag value when provided", () => {

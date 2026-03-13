@@ -1,14 +1,10 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getIssueId, getIssueIdentifier } from "../../utils/linear.ts"
+import { resolveIssueInternalId } from "../../utils/linear.ts"
 import { withSpinner } from "../../utils/spinner.ts"
 import { green } from "@std/fmt/colors"
-import {
-  handleError,
-  NotFoundError,
-  ValidationError,
-} from "../../utils/errors.ts"
+import { handleError, ValidationError } from "../../utils/errors.ts"
 
 const UpdateIssuePriority = gql(`
   mutation UpdateIssuePriority($issueId: String!, $priority: Int!) {
@@ -54,22 +50,9 @@ export const priorityCommand = new Command()
         )
       }
 
-      // Resolve issue identifier
-      const resolvedIssueId = await getIssueIdentifier(issueId)
-      if (!resolvedIssueId) {
-        throw new ValidationError(
-          `Could not resolve issue identifier: ${issueId}`,
-          {
-            suggestion: "Use a full issue identifier like 'ENG-123'",
-          },
-        )
-      }
-
-      // Get the issue's internal ID
-      const issueInternalId = await getIssueId(resolvedIssueId)
-      if (!issueInternalId) {
-        throw new NotFoundError("Issue", resolvedIssueId)
-      }
+      const issueInternalId = await resolveIssueInternalId(issueId, {
+        suggestion: "Use a full issue identifier like 'ENG-123'",
+      })
 
       const client = getGraphQLClient()
       const result = await withSpinner(() =>

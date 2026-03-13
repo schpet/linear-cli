@@ -95,6 +95,37 @@ export async function getIssueId(
   return data.issue?.id
 }
 
+/**
+ * Resolve user input to a Linear issue internal ID.
+ *
+ * This wraps identifier resolution and converts missing/unknown issues into
+ * user-facing CLI errors.
+ */
+export async function resolveIssueInternalId(
+  providedId?: string,
+  options?: { suggestion?: string },
+): Promise<string> {
+  const resolvedIssueId = await getIssueIdentifier(providedId)
+  if (!resolvedIssueId) {
+    throw new ValidationError(
+      providedId == null
+        ? "Could not resolve issue identifier"
+        : `Could not resolve issue identifier: ${providedId}`,
+      {
+        suggestion: options?.suggestion ??
+          "Use a full issue identifier like 'ENG-123' or just the number like '123'",
+      },
+    )
+  }
+
+  const issueInternalId = await getIssueId(resolvedIssueId)
+  if (!issueInternalId) {
+    throw new NotFoundError("Issue", resolvedIssueId)
+  }
+
+  return issueInternalId
+}
+
 export async function getWorkflowStates(
   teamKey: string,
 ) {

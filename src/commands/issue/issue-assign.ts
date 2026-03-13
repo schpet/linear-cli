@@ -1,11 +1,7 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import {
-  getIssueId,
-  getIssueIdentifier,
-  lookupUserId,
-} from "../../utils/linear.ts"
+import { lookupUserId, resolveIssueInternalId } from "../../utils/linear.ts"
 import { withSpinner } from "../../utils/spinner.ts"
 import { green } from "@std/fmt/colors"
 import {
@@ -52,23 +48,7 @@ export const assignCommand = new Command()
         )
       }
 
-      // Resolve issue identifier
-      const resolvedIssueId = await getIssueIdentifier(issueId)
-      if (!resolvedIssueId) {
-        throw new ValidationError(
-          `Could not resolve issue identifier: ${issueId}`,
-          {
-            suggestion:
-              "Use a full issue identifier like 'ENG-123' or just the number like '123'",
-          },
-        )
-      }
-
-      // Get the issue's internal ID
-      const issueInternalId = await getIssueId(resolvedIssueId)
-      if (!issueInternalId) {
-        throw new NotFoundError("Issue", resolvedIssueId)
-      }
+      const issueInternalId = await resolveIssueInternalId(issueId)
 
       // Resolve assignee ID (null for unassign)
       let assigneeId: string | null = null
