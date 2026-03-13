@@ -72,6 +72,7 @@ linear initiative-update  # Manage initiative status updates (timeline posts)
 linear label              # Manage Linear issue labels
 linear document           # Manage Linear documents
 linear notification       # Manage Linear notifications
+linear webhook            # Manage Linear webhooks
 linear config             # Interactively generate .linear.toml configuration
 linear schema             # Print the GraphQL schema to stdout
 linear api                # Make a raw GraphQL API request
@@ -91,6 +92,7 @@ linear api                # Make a raw GraphQL API request
 - [label](references/label.md) - Manage Linear issue labels
 - [document](references/document.md) - Manage Linear documents
 - [notification](references/notification.md) - Manage Linear notifications
+- [webhook](references/webhook.md) - Manage Linear webhooks
 - [config](references/config.md) - Interactively generate .linear.toml configuration
 - [schema](references/schema.md) - Print the GraphQL schema to stdout
 - [api](references/api.md) - Make a raw GraphQL API request

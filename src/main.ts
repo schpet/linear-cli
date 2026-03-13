@@ -13,6 +13,7 @@ import { initiativeUpdateCommand } from "./commands/initiative-update/initiative
 import { labelCommand } from "./commands/label/label.ts"
 import { documentCommand } from "./commands/document/document.ts"
 import { notificationCommand } from "./commands/notification/notification.ts"
+import { webhookCommand } from "./commands/webhook/webhook.ts"
 import { configCommand } from "./commands/config.ts"
 import { schemaCommand } from "./commands/schema.ts"
 import { apiCommand } from "./commands/api.ts"
@@ -62,6 +63,7 @@ Environment Variables:
   .alias("l")
   .command("document", documentCommand)
   .command("notification", notificationCommand)
+  .command("webhook", webhookCommand)
   .command("completions", new CompletionsCommand())
   .command("config", configCommand)
   .command("schema", schemaCommand)

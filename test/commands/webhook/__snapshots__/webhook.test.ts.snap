@@ -1,0 +1,27 @@
+export const snapshot = {};
+
+snapshot[`Webhook Command - Help Text 1`] = `
+stdout:
+"
+Usage: COMMAND
+
+Description:
+
+  Manage Linear webhooks
+
+Options:
+
+  -h, --help  - Show this help.  
+
+Commands:
+
+  list                 - List webhooks   
+  view    <webhookId>  - View a webhook  
+  create               - Create a webhook
+  update  <webhookId>  - Update a webhook
+  delete  <webhookId>  - Delete a webhook
+
+"
+stderr:
+""
+`;

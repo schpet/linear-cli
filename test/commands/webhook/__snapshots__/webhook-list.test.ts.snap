@@ -1,0 +1,97 @@
+export const snapshot = {};
+
+snapshot[`Webhook List Command - Help Text 1`] = `
+stdout:
+"
+Usage: list
+
+Description:
+
+  List webhooks
+
+Options:
+
+  -h, --help                     - Show this help.                          
+  -n, --limit         <limit>    - Maximum number of webhooks  (Default: \\x1b[33m20\\x1b[39m)
+  --team              <teamKey>  - Filter by team key                       
+  --include-archived             - Include archived webhooks                
+  -j, --json                     - Output as JSON                           
+
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook List Command - Shows Webhooks 1`] = `
+stdout:
+"ENABLED webhook-1
+  Issue events
+  scope: Engineering (ENG)
+  resources: Issue, Comment
+  url: https://example.com/hooks/issues
+  creator: John Doe
+
+DISABLED webhook-2
+  (unlabeled)
+  scope: All public teams
+  resources: Project
+  url: https://example.com/hooks/public
+
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook List Command - JSON Output 1`] = `
+stdout:
+'[
+  {
+    "id": "webhook-1",
+    "label": "Issue events",
+    "url": "https://example.com/hooks/issues",
+    "enabled": true,
+    "archivedAt": null,
+    "allPublicTeams": false,
+    "resourceTypes": [
+      "Issue",
+      "Comment"
+    ],
+    "createdAt": "2026-03-13T10:00:00Z",
+    "updatedAt": "2026-03-13T10:00:00Z",
+    "team": {
+      "id": "team-1",
+      "key": "ENG",
+      "name": "Engineering"
+    },
+    "creator": {
+      "id": "user-1",
+      "name": "jdoe",
+      "displayName": "John Doe"
+    }
+  }
+]
+'
+stderr:
+""
+`;
+
+snapshot[`Webhook List Command - Team Filter 1`] = `
+stdout:
+"ENABLED webhook-1
+  Issue events
+  scope: Engineering (ENG)
+  resources: Issue
+  url: https://example.com/hooks/issues
+
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook List Command - No Webhooks 1`] = `
+stdout:
+"No webhooks found.
+"
+stderr:
+""
+`;

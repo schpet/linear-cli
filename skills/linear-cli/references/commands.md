@@ -14,6 +14,7 @@
 - [label](./label.md) - Manage Linear issue labels
 - [document](./document.md) - Manage Linear documents
 - [notification](./notification.md) - Manage Linear notifications
+- [webhook](./webhook.md) - Manage Linear webhooks
 - [config](./config.md) - Interactively generate .linear.toml configuration
 - [schema](./schema.md) - Print the GraphQL schema to stdout
 - [api](./api.md) - Make a raw GraphQL API request
