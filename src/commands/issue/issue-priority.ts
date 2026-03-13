@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { parsePriority } from "../../utils/display.ts"
 import { resolveIssueInternalId } from "../../utils/linear.ts"
 import { withSpinner } from "../../utils/spinner.ts"
 import { green } from "@std/fmt/colors"
@@ -31,22 +32,21 @@ const PRIORITY_LABELS: Record<number, string> = {
 export const priorityCommand = new Command()
   .name("priority")
   .description("Set the priority of an issue")
-  .arguments("<issueId:string> <priority:number>")
+  .arguments("<issueId:string> <priority:string>")
   .option("-j, --json", "Output as JSON")
   .example("Set urgent", "linear issue priority ENG-123 1")
   .example("Set high", "linear issue priority ENG-123 2")
   .example("Set medium", "linear issue priority ENG-123 3")
   .example("Set low", "linear issue priority ENG-123 4")
   .example("Clear priority", "linear issue priority ENG-123 0")
-  .action(async ({ json }, issueId, priority) => {
+  .action(async ({ json }, issueId, priorityInput) => {
     try {
-      // Validate priority
-      if (priority < 0 || priority > 4) {
+      const priority = parsePriority(priorityInput)
+      if (priority == null) {
         throw new ValidationError(
-          `Invalid priority: ${priority}`,
+          `Invalid priority: ${priorityInput}`,
           {
-            suggestion:
-              "Use 0 (none), 1 (urgent), 2 (high), 3 (medium), or 4 (low)",
+            suggestion: "Use 0-4 or none/urgent/high/medium/low",
           },
         )
       }
