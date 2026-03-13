@@ -15,6 +15,19 @@ await snapshotTest({
   },
 })
 
+// Test missing assignee
+await snapshotTest({
+  name: "Issue Assign Command - Missing Assignee",
+  meta: import.meta,
+  colors: false,
+  canFail: true,
+  args: ["ENG-123"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    await assignCommand.parse()
+  },
+})
+
 // Test assigning issue to self
 await snapshotTest({
   name: "Issue Assign Command - Assign to Self",

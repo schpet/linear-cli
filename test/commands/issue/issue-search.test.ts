@@ -18,6 +18,19 @@ await cliffySnapshotTest({
   },
 })
 
+// Test search with empty query
+await cliffySnapshotTest({
+  name: "Issue Search Command - Empty Query",
+  meta: import.meta,
+  colors: false,
+  canFail: true,
+  args: [""],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    await searchCommand.parse()
+  },
+})
+
 // Test search with results
 await snapshotTest({
   name: "Issue Search Command - Returns Results",

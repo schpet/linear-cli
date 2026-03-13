@@ -25,6 +25,15 @@ stderr:
 ""
 `;
 
+snapshot[`Issue Assign Command - Missing Assignee 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to assign issue: Please provide an assignee or use --unassign
+  Use 'self', '@me', a username, or email address
+"
+`;
+
 snapshot[`Issue Assign Command - Assign to Self 1`] = `
 stdout:
 "✓ Assigned ENG-123 to John

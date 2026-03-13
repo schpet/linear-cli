@@ -25,6 +25,33 @@ stderr:
 ""
 `;
 
+snapshot[`Issue Estimate Command - Negative Points 1`] = `
+stdout:
+"
+Usage: estimate <issueId> [points]
+
+Description:
+
+  Set the estimate (points) of an issue
+
+Options:
+
+  -h, --help  - Show this help.     
+  --clear     - Clear the estimate  
+
+Examples:
+
+  Set 3 points   linear issue estimate ENG-123 3      
+  Set 5 points   linear issue estimate ENG-123 5      
+  Clear estimate linear issue estimate ENG-123 --clear
+
+"
+stderr:
+'  error: Unknown option "-1". Did you mean option "-h"?
+
+'
+`;
+
 snapshot[`Issue Estimate Command - Set Points 1`] = `
 stdout:
 "✓ Set ENG-123 estimate to 3 points

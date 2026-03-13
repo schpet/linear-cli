@@ -20,6 +20,14 @@ stderr:
 ""
 `;
 
+snapshot[`Issue Search Command - Empty Query 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to search issues: Search query cannot be empty
+"
+`;
+
 snapshot[`Issue Search Command - Returns Results 1`] = `
 stdout:
 "ID      P  TITLE             STATE       UPDATED   
