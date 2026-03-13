@@ -5,7 +5,7 @@ members = ["dist:."]
 [package]
 name = "linear"
 description = "Git-first Linear CLI with workspace-aware auth, issue workflows, and automation-friendly JSON output"
-version = "2.0.1"
+version = "2.1.0"
 license = "MIT"
 repository = "https://github.com/kyaukyuai/linear-cli"
 homepage = "https://github.com/kyaukyuai/linear-cli"

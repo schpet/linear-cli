@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-03-13
+
+### Added
+
+- added inbox notification commands for `list`, `count`, `read`, and `archive`, including `--json` output for scripting
+- added webhook commands for `list`, `view`, `create`, `update`, and `delete` with team-scoped and all-public-team support
+
+### Changed
+
+- deprecated `issue search`; it now exits with guidance to use `issue list`, `issue list --json`, or `api` instead of the removed search endpoint
+
+### Improved
+
+- hardened release automation by splitting npm publish from cargo-dist release flow, skipping already-published npm/JSR versions, removing npm release-asset polling, and updating GitHub Actions for the Node 24 transition
+- added a release runbook for verification, recovery steps, and manual publish fallback
+
 ## [2.0.1] - 2026-03-13
 
 ### Improved
@@ -440,7 +456,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/kyaukyuai/linear-cli/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/kyaukyuai/linear-cli/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/kyaukyuai/linear-cli/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/kyaukyuai/linear-cli/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/kyaukyuai/linear-cli/compare/v1.11.1...v2.0.0
 [1.11.1]: https://github.com/schpet/linear-cli/compare/v1.11.0...v1.11.1
