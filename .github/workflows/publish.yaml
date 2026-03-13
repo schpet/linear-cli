@@ -20,4 +20,17 @@ jobs:
           deno-version: v2.x
       - name: Generate GraphQL code
         run: deno task codegen
-      - run: npx jsr publish
+      - name: Check whether this version already exists on JSR
+        id: jsr-version
+        run: |
+          NAME=$(jq -r '.name' deno.json)
+          VERSION=$(jq -r '.version' deno.json)
+          if curl -fsSL "https://jsr.io/${NAME}/meta.json" | jq -e --arg version "$VERSION" '.versions[$version]' >/dev/null; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.jsr-version.outputs.published == 'true'
+        run: echo "JSR package version already published; skipping"
+      - if: steps.jsr-version.outputs.published != 'true'
+        run: npx jsr publish
