@@ -8,7 +8,7 @@ on:
       - "v*"
 
 jobs:
-  publish:
+  publish-jsr:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,3 +34,47 @@ jobs:
         run: echo "JSR package version already published; skipping"
       - if: steps.jsr-version.outputs.published != 'true'
         run: npx jsr publish
+
+  publish-npm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Wait for npm release artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p npm
+          for _ in $(seq 1 60); do
+            if gh release download "${GITHUB_REF_NAME}" -p "linear-npm-package.tar.gz" -D npm --clobber >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for linear-npm-package.tar.gz on release ${GITHUB_REF_NAME}" >&2
+          exit 1
+      - name: Read npm package metadata
+        id: npm-package
+        run: |
+          NAME=$(tar -xOf npm/linear-npm-package.tar.gz package/package.json | jq -r '.name')
+          VERSION=$(tar -xOf npm/linear-npm-package.tar.gz package/package.json | jq -r '.version')
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Check whether this version already exists on npm
+        id: npm-version
+        run: |
+          if npm view "${{ steps.npm-package.outputs.name }}@${{ steps.npm-package.outputs.version }}" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v6
+        if: steps.npm-version.outputs.published != 'true'
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+      - if: steps.npm-version.outputs.published == 'true'
+        run: echo "${{ steps.npm-package.outputs.name }}@${{ steps.npm-package.outputs.version }} is already published; skipping"
+      - if: steps.npm-version.outputs.published != 'true'
+        run: npm publish --access public --provenance npm/linear-npm-package.tar.gz

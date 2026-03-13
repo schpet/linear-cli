@@ -330,51 +330,15 @@ jobs:
           done
           git push
 
-  publish-npm:
-    needs:
-      - plan
-      - host
-    runs-on: "ubuntu-22.04"
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      PLAN: ${{ needs.plan.outputs.val }}
-    if: ${{ !fromJson(needs.plan.outputs.val).announcement_is_prerelease || fromJson(needs.plan.outputs.val).publish_prereleases }}
-    steps:
-      - name: Fetch npm packages
-        uses: actions/download-artifact@v7
-        with:
-          pattern: artifacts-*
-          path: npm/
-          merge-multiple: true
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '20.x'
-          registry-url: 'https://registry.npmjs.org'
-      - run: |
-          for release in $(echo "$PLAN" | jq --compact-output '.releases[] | select([.artifacts[] | endswith("-npm-package.tar.gz")] | any)'); do
-            pkg=$(echo "$release" | jq '.artifacts[] | select(endswith("-npm-package.tar.gz"))' --raw-output)
-            name=$(tar -xOf "./npm/${pkg}" package/package.json | jq -r '.name')
-            version=$(tar -xOf "./npm/${pkg}" package/package.json | jq -r '.version')
-            if npm view "${name}@${version}" version >/dev/null 2>&1; then
-              echo "${name}@${version} is already published; skipping"
-              continue
-            fi
-            npm publish --access public --provenance "./npm/${pkg}"
-          done
-
   announce:
     needs:
       - plan
       - host
       - publish-homebrew-formula
-      - publish-npm
     # use "always() && ..." to allow us to wait for all publish jobs while
     # still allowing individual publish jobs to skip themselves (for prereleases).
     # "host" however must run to completion, no skipping allowed!
-    if: ${{ always() && needs.host.result == 'success' && (needs.publish-homebrew-formula.result == 'skipped' || needs.publish-homebrew-formula.result == 'success') && (needs.publish-npm.result == 'skipped' || needs.publish-npm.result == 'success') }}
+    if: ${{ always() && needs.host.result == 'success' && (needs.publish-homebrew-formula.result == 'skipped' || needs.publish-homebrew-formula.result == 'success') }}
     runs-on: "ubuntu-22.04"
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
