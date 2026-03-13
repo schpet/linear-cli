@@ -298,6 +298,10 @@ view the skill at [skills.sh/kyaukyuai/linear-cli/linear-cli](https://skills.sh/
 
 ## development
 
+### release operations
+
+maintainer release and publish recovery steps are documented in [docs/release-runbook.md](docs/release-runbook.md).
+
 ### updating skill documentation
 
 the skill documentation in `skills/linear-cli/` is automatically generated from the CLI help text. after making changes to commands or help text, regenerate the docs:
