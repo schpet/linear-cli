@@ -1,0 +1,38 @@
+export const snapshot = {};
+
+snapshot[`Notification Count Command - Help Text 1`] = `
+stdout:
+"
+Usage: count
+
+Description:
+
+  Show unread notification count
+
+Options:
+
+  -h, --help  - Show this help.  
+  -j, --json  - Output as JSON   
+
+"
+stderr:
+""
+`;
+
+snapshot[`Notification Count Command - Shows Count 1`] = `
+stdout:
+"3 unread notifications
+"
+stderr:
+""
+`;
+
+snapshot[`Notification Count Command - JSON Output 1`] = `
+stdout:
+'{
+  "unread": 3
+}
+'
+stderr:
+""
+`;

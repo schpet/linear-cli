@@ -1,0 +1,41 @@
+export const snapshot = {};
+
+snapshot[`Notification Archive Command - Help Text 1`] = `
+stdout:
+"
+Usage: archive <notificationId>
+
+Description:
+
+  Archive a notification
+
+Options:
+
+  -h, --help  - Show this help.  
+  -j, --json  - Output as JSON   
+
+"
+stderr:
+""
+`;
+
+snapshot[`Notification Archive Command - Archives Notification 1`] = `
+stdout:
+"✓ Archived notification: notif-1
+"
+stderr:
+""
+`;
+
+snapshot[`Notification Archive Command - JSON Output 1`] = `
+stdout:
+'{
+  "id": "notif-1",
+  "title": "ENG-123 was assigned to you",
+  "archivedAt": "2026-03-13T07:05:00Z",
+  "readAt": "2026-03-13T07:00:00Z"
+}
+'
+stderr:
+""
+`;

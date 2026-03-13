@@ -91,6 +91,7 @@ compared to upstream, this fork adds and maintains several capabilities aimed at
 
 - cycle workflows beyond listing and viewing, including `cycle current`, `cycle next`, `cycle create`, `cycle add`, and `cycle remove`
 - issue workflow commands for `search`, `assign`, `move`, `priority`, `estimate`, `label add/remove`, comment delete, relations, and attachments
+- inbox notification commands for `list`, `count`, `read`, and `archive`
 - JSON output for scripting across issue, cycle, project, and document commands
 - workspace-aware auth management with keyring migration and default workspace support
 - generated AI-agent skill docs, Claude plugin metadata, npm publishing, and Homebrew tap release plumbing
@@ -233,6 +234,19 @@ linear document update <slug> --edit                                  # open in 
 linear document delete <slug>                   # soft delete (move to trash)
 linear document delete <slug> --permanent       # permanent delete
 linear document delete --bulk <slug1> <slug2>   # bulk delete
+```
+
+### notification commands
+
+manage your Linear inbox from the command line with a primitive GraphQL-aligned surface.
+
+```bash
+linear notification list                  # list recent notifications
+linear notification list --unread         # show only unread notifications
+linear notification count                 # show unread notification count
+linear notification read <notificationId> # mark a notification as read
+linear notification archive <notificationId>  # archive a notification
+linear notification list --json           # output as JSON
 ```
 
 ### other commands
