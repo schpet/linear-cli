@@ -6,9 +6,15 @@ on:
   push:
     tags:
       - "v*"
+  workflow_run:
+    workflows:
+      - "Release"
+    types:
+      - completed
 
 jobs:
   publish-jsr:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,25 +42,25 @@ jobs:
         run: npx jsr publish
 
   publish-npm:
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
-      - name: Wait for npm release artifact
+      - name: Download npm release artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ github.event.workflow_run.head_branch }}
         run: |
           mkdir -p npm
-          for _ in $(seq 1 60); do
-            if gh release download "${GITHUB_REF_NAME}" -R "${GH_REPO}" -p "linear-npm-package.tar.gz" -D npm --clobber >/dev/null 2>&1; then
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "Timed out waiting for linear-npm-package.tar.gz on release ${GITHUB_REF_NAME}" >&2
-          exit 1
+          if ! gh release download "${TAG_NAME}" -R "${GH_REPO}" -p "linear-npm-package.tar.gz" -D npm --clobber; then
+            echo "Failed to download linear-npm-package.tar.gz from release ${TAG_NAME} in ${GH_REPO}" >&2
+            echo "Available release assets:" >&2
+            gh release view "${TAG_NAME}" -R "${GH_REPO}" --json assets --jq '.assets[].name' >&2 || true
+            exit 1
+          fi
       - name: Read npm package metadata
         id: npm-package
         run: |
