@@ -1,0 +1,67 @@
+export const snapshot = {};
+
+snapshot[`Webhook View Command - Help Text 1`] = `
+stdout:
+"
+Usage: view <webhookId>
+
+Description:
+
+  View a webhook
+
+Options:
+
+  -h, --help  - Show this help.  
+  -j, --json  - Output as JSON   
+
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook View Command - Shows Webhook 1`] = `
+stdout:
+"Issue events
+ID: webhook-1
+Status: enabled
+Scope: Engineering (ENG)
+URL: https://example.com/hooks/issues
+Resources: Issue, Comment
+Creator: John Doe
+Created: 2026-03-13T10:00:00Z
+Updated: 2026-03-13T10:05:00Z
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook View Command - JSON Output 1`] = `
+stdout:
+'{
+  "id": "webhook-1",
+  "label": "Issue events",
+  "url": "https://example.com/hooks/issues",
+  "enabled": true,
+  "archivedAt": null,
+  "allPublicTeams": false,
+  "resourceTypes": [
+    "Issue",
+    "Comment"
+  ],
+  "createdAt": "2026-03-13T10:00:00Z",
+  "updatedAt": "2026-03-13T10:05:00Z",
+  "team": {
+    "id": "team-1",
+    "key": "ENG",
+    "name": "Engineering"
+  },
+  "creator": {
+    "id": "user-1",
+    "name": "jdoe",
+    "displayName": "John Doe"
+  }
+}
+'
+stderr:
+""
+`;

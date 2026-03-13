@@ -1,0 +1,77 @@
+export const snapshot = {};
+
+snapshot[`Webhook Update Command - Help Text 1`] = `
+stdout:
+"
+Usage: update <webhookId>
+
+Description:
+
+  Update a webhook
+
+Options:
+
+  -h, --help                             - Show this help.                     
+  -u, --url             <url>            - New webhook URL                     
+  -r, --resource-types  <resourceTypes>  - New comma-separated resource types  
+  -l, --label           <label>          - New webhook label                   
+  --secret              <secret>         - New secret used to sign payloads    
+  --enabled                              - Enable the webhook                  
+  --disabled                             - Disable the webhook                 
+  -j, --json                             - Output as JSON                      
+
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook Update Command - No Changes 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update webhook: At least one update option is required
+  Use --label, --url, --resource-types, --secret, --enabled, or --disabled.
+"
+`;
+
+snapshot[`Webhook Update Command - Updates Webhook 1`] = `
+stdout:
+"✓ Updated webhook: Issue delivery
+  ID: webhook-1
+  URL: https://example.com/hooks/issues
+  Scope: Engineering (ENG)
+  Resources: Issue, Comment
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook Update Command - JSON Output 1`] = `
+stdout:
+'{
+  "id": "webhook-1",
+  "label": "Issue events",
+  "url": "https://example.com/hooks/issues",
+  "enabled": true,
+  "archivedAt": null,
+  "allPublicTeams": false,
+  "resourceTypes": [
+    "Issue"
+  ],
+  "createdAt": "2026-03-13T10:00:00Z",
+  "updatedAt": "2026-03-13T10:05:00Z",
+  "team": {
+    "id": "team-1",
+    "key": "ENG",
+    "name": "Engineering"
+  },
+  "creator": {
+    "id": "user-1",
+    "name": "jdoe",
+    "displayName": "John Doe"
+  }
+}
+'
+stderr:
+""
+`;

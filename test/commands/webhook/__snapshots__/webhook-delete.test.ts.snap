@@ -1,0 +1,42 @@
+export const snapshot = {};
+
+snapshot[`Webhook Delete Command - Help Text 1`] = `
+stdout:
+"
+Usage: delete <webhookId>
+
+Description:
+
+  Delete a webhook
+
+Options:
+
+  -h, --help  - Show this help.           
+  -y, --yes   - Skip confirmation prompt  
+  -j, --json  - Output as JSON            
+
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook Delete Command - Deletes Webhook 1`] = `
+stdout:
+"✓ Deleted webhook: Issue events
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook Delete Command - JSON Output 1`] = `
+stdout:
+'{
+  "id": "webhook-1",
+  "label": "Issue events",
+  "url": "https://example.com/hooks/issues",
+  "success": true
+}
+'
+stderr:
+""
+`;

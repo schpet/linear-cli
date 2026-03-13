@@ -1,0 +1,65 @@
+export const snapshot = {};
+
+snapshot[`Webhook Create Command - Help Text 1`] = `
+stdout:
+"
+Usage: create
+
+Description:
+
+  Create a webhook
+
+Options:
+
+  -h, --help                             - Show this help.                                                     
+  -u, --url             <url>            - Webhook URL (required)                                              
+  -r, --resource-types  <resourceTypes>  - Comma-separated resource types (e.g. Issue,Comment)                 
+  -l, --label           <label>          - Webhook label                                                       
+  -t, --team            <teamKey>        - Team key (defaults to current team)                                 
+  --all-public-teams                     - Enable the webhook for all public teams instead of a specific team  
+  --secret              <secret>         - Secret used to sign webhook payloads                                
+  --disabled                             - Create the webhook disabled                                         
+  -j, --json                             - Output as JSON                                                      
+
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook Create Command - Creates Team Webhook 1`] = `
+stdout:
+"✓ Created webhook: Issue events
+  ID: webhook-1
+  URL: https://example.com/hooks/issues
+  Scope: Engineering (ENG)
+  Resources: Issue, Comment
+"
+stderr:
+""
+`;
+
+snapshot[`Webhook Create Command - JSON Output 1`] = `
+stdout:
+'{
+  "id": "webhook-2",
+  "label": null,
+  "url": "https://example.com/hooks/public",
+  "enabled": true,
+  "archivedAt": null,
+  "allPublicTeams": true,
+  "resourceTypes": [
+    "Project"
+  ],
+  "createdAt": "2026-03-13T10:00:00Z",
+  "updatedAt": "2026-03-13T10:00:00Z",
+  "team": null,
+  "creator": {
+    "id": "user-1",
+    "name": "jdoe",
+    "displayName": "John Doe"
+  }
+}
+'
+stderr:
+""
+`;
