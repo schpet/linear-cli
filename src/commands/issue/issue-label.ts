@@ -2,9 +2,9 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
-  getIssueId,
   getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
+  resolveIssueInternalId,
 } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { green } from "@std/fmt/colors"
@@ -47,6 +47,72 @@ const UpdateIssueLabels = gql(`
   }
 `)
 
+type LabelContext = {
+  client: ReturnType<typeof getGraphQLClient>
+  issueInternalId: string
+  labelId: string
+  existingLabelIds: string[]
+  spinner: { stop(): void } | null
+}
+
+async function resolveLabelContext(
+  issueId: string,
+  label: string,
+): Promise<LabelContext> {
+  const resolvedIssueId = await getIssueIdentifier(issueId)
+  if (!resolvedIssueId) {
+    throw new ValidationError(
+      `Could not resolve issue identifier: ${issueId}`,
+      {
+        suggestion: "Use a full issue identifier like 'ENG-123'",
+      },
+    )
+  }
+
+  const match = resolvedIssueId.match(/^([A-Z]+)-/)
+  const teamKey = match?.[1]
+  if (!teamKey) {
+    throw new ValidationError(
+      `Could not extract team key from issue: ${resolvedIssueId}`,
+    )
+  }
+
+  const issueInternalId = await resolveIssueInternalId(resolvedIssueId, {
+    suggestion: "Use a full issue identifier like 'ENG-123'",
+  })
+
+  const labelId = await getIssueLabelIdByNameForTeam(label, teamKey)
+  if (!labelId) {
+    throw new NotFoundError("Label", label)
+  }
+
+  const { Spinner } = await import("@std/cli/unstable-spinner")
+  const spinner = shouldShowSpinner() ? new Spinner() : null
+  const client = getGraphQLClient()
+
+  spinner?.start()
+  try {
+    const currentLabels = await client.request(GetIssueLabels, {
+      issueId: issueInternalId,
+    })
+
+    const existingLabelIds = currentLabels.issue?.labels?.nodes?.map((node) =>
+      node.id
+    ) || []
+
+    return {
+      client,
+      issueInternalId,
+      labelId,
+      existingLabelIds,
+      spinner,
+    }
+  } catch (error) {
+    spinner?.stop()
+    throw error
+  }
+}
+
 const addLabelCommand = new Command()
   .name("add")
   .description("Add a label to an issue")
@@ -54,77 +120,33 @@ const addLabelCommand = new Command()
   .example("Add bug label", "linear issue label add ENG-123 bug")
   .action(async (_options, issueId, label) => {
     try {
-      // Resolve issue identifier
-      const resolvedIssueId = await getIssueIdentifier(issueId)
-      if (!resolvedIssueId) {
-        throw new ValidationError(
-          `Could not resolve issue identifier: ${issueId}`,
-          {
-            suggestion: "Use a full issue identifier like 'ENG-123'",
-          },
+      const context = await resolveLabelContext(issueId, label)
+      try {
+        const { client, issueInternalId, labelId, existingLabelIds } = context
+
+        if (existingLabelIds.includes(labelId)) {
+          console.log(`Issue already has label "${label}"`)
+          return
+        }
+
+        const newLabelIds = [...existingLabelIds, labelId]
+        const result = await client.request(UpdateIssueLabels, {
+          issueId: issueInternalId,
+          labelIds: newLabelIds,
+        })
+
+        if (!result.issueUpdate.success) {
+          throw new Error("Failed to add label")
+        }
+
+        const issue = result.issueUpdate.issue
+        console.log(
+          green("✓") +
+            ` Added label "${label}" to ${issue?.identifier}`,
         )
+      } finally {
+        context.spinner?.stop()
       }
-
-      // Extract team key from issue ID
-      const match = resolvedIssueId.match(/^([A-Z]+)-/)
-      const teamKey = match?.[1]
-      if (!teamKey) {
-        throw new ValidationError(
-          `Could not extract team key from issue: ${resolvedIssueId}`,
-        )
-      }
-
-      // Get the issue's internal ID
-      const issueInternalId = await getIssueId(resolvedIssueId)
-      if (!issueInternalId) {
-        throw new NotFoundError("Issue", resolvedIssueId)
-      }
-
-      // Get label ID
-      const labelId = await getIssueLabelIdByNameForTeam(label, teamKey)
-      if (!labelId) {
-        throw new NotFoundError("Label", label)
-      }
-
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
-      // Get current labels
-      const client = getGraphQLClient()
-      const currentLabels = await client.request(GetIssueLabels, {
-        issueId: issueInternalId,
-      })
-
-      const existingLabelIds = currentLabels.issue?.labels?.nodes?.map((l) =>
-        l.id
-      ) || []
-
-      // Check if already has the label
-      if (existingLabelIds.includes(labelId)) {
-        spinner?.stop()
-        console.log(`Issue already has label "${label}"`)
-        return
-      }
-
-      // Add the new label
-      const newLabelIds = [...existingLabelIds, labelId]
-      const result = await client.request(UpdateIssueLabels, {
-        issueId: issueInternalId,
-        labelIds: newLabelIds,
-      })
-      spinner?.stop()
-
-      if (!result.issueUpdate.success) {
-        throw new Error("Failed to add label")
-      }
-
-      const issue = result.issueUpdate.issue
-      console.log(
-        green("✓") +
-          ` Added label "${label}" to ${issue?.identifier}`,
-      )
     } catch (error) {
       handleError(error, "Failed to add label")
     }
@@ -137,77 +159,33 @@ const removeLabelCommand = new Command()
   .example("Remove bug label", "linear issue label remove ENG-123 bug")
   .action(async (_options, issueId, label) => {
     try {
-      // Resolve issue identifier
-      const resolvedIssueId = await getIssueIdentifier(issueId)
-      if (!resolvedIssueId) {
-        throw new ValidationError(
-          `Could not resolve issue identifier: ${issueId}`,
-          {
-            suggestion: "Use a full issue identifier like 'ENG-123'",
-          },
+      const context = await resolveLabelContext(issueId, label)
+      try {
+        const { client, issueInternalId, labelId, existingLabelIds } = context
+
+        if (!existingLabelIds.includes(labelId)) {
+          console.log(`Issue doesn't have label "${label}"`)
+          return
+        }
+
+        const newLabelIds = existingLabelIds.filter((id) => id !== labelId)
+        const result = await client.request(UpdateIssueLabels, {
+          issueId: issueInternalId,
+          labelIds: newLabelIds,
+        })
+
+        if (!result.issueUpdate.success) {
+          throw new Error("Failed to remove label")
+        }
+
+        const issue = result.issueUpdate.issue
+        console.log(
+          green("✓") +
+            ` Removed label "${label}" from ${issue?.identifier}`,
         )
+      } finally {
+        context.spinner?.stop()
       }
-
-      // Extract team key from issue ID
-      const match = resolvedIssueId.match(/^([A-Z]+)-/)
-      const teamKey = match?.[1]
-      if (!teamKey) {
-        throw new ValidationError(
-          `Could not extract team key from issue: ${resolvedIssueId}`,
-        )
-      }
-
-      // Get the issue's internal ID
-      const issueInternalId = await getIssueId(resolvedIssueId)
-      if (!issueInternalId) {
-        throw new NotFoundError("Issue", resolvedIssueId)
-      }
-
-      // Get label ID
-      const labelId = await getIssueLabelIdByNameForTeam(label, teamKey)
-      if (!labelId) {
-        throw new NotFoundError("Label", label)
-      }
-
-      const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
-      const spinner = showSpinner ? new Spinner() : null
-      spinner?.start()
-
-      // Get current labels
-      const client = getGraphQLClient()
-      const currentLabels = await client.request(GetIssueLabels, {
-        issueId: issueInternalId,
-      })
-
-      const existingLabelIds = currentLabels.issue?.labels?.nodes?.map((l) =>
-        l.id
-      ) || []
-
-      // Check if has the label
-      if (!existingLabelIds.includes(labelId)) {
-        spinner?.stop()
-        console.log(`Issue doesn't have label "${label}"`)
-        return
-      }
-
-      // Remove the label
-      const newLabelIds = existingLabelIds.filter((id) => id !== labelId)
-      const result = await client.request(UpdateIssueLabels, {
-        issueId: issueInternalId,
-        labelIds: newLabelIds,
-      })
-      spinner?.stop()
-
-      if (!result.issueUpdate.success) {
-        throw new Error("Failed to remove label")
-      }
-
-      const issue = result.issueUpdate.issue
-      console.log(
-        green("✓") +
-          ` Removed label "${label}" from ${issue?.identifier}`,
-      )
     } catch (error) {
       handleError(error, "Failed to remove label")
     }
