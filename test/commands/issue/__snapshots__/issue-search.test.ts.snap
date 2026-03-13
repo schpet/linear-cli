@@ -7,7 +7,7 @@ Usage: search <query>
 
 Description:
 
-  Search for issues using semantic search
+  Deprecated: use \`issue list\` or \`api\` for issue filtering
 
 Options:
 
@@ -29,55 +29,20 @@ stderr:
 "
 `;
 
-snapshot[`Issue Search Command - JSON Output 1`] = `
+snapshot[`Issue Search Command - Deprecated 1`] = `
 stdout:
-'[
-  {
-    "identifier": "ENG-123",
-    "title": "Fix login bug",
-    "priority": 2,
-    "state": "In Progress",
-    "assignee": "Alice",
-    "updatedAt": "2026-01-15T08:00:00Z"
-  },
-  {
-    "identifier": "ENG-456",
-    "title": "Update login page",
-    "priority": 3,
-    "state": "Todo",
-    "assignee": null,
-    "updatedAt": "2026-01-14T10:30:00Z"
-  }
-]
-'
-stderr:
 ""
-`;
-
-snapshot[`Issue Search Command - Returns Results 1`] = `
-stdout:
-"ID      P  TITLE             STATE       UPDATED   
-ENG-123 ▄▆█ Fix login bug     In Progress 55 days ago
-ENG-456 ▄▆  Update login page Todo        56 days ago
-
-Found 2 issues
+stderr:
+"✗ Failed to search issues: \`issue search\` is deprecated because Linear's dedicated search endpoint is deprecated.
+  Use \`linear issue list | grep <keyword>\`, \`linear issue list --json | jq ...\`, or \`linear api\` for custom GraphQL queries.
 "
-stderr:
-""
 `;
 
-snapshot[`Issue Search Command - JSON Output No Results 1`] = `
+snapshot[`Issue Search Command - Deprecated With JSON Flag 1`] = `
 stdout:
-"[]
+""
+stderr:
+"✗ Failed to search issues: \`issue search\` is deprecated because Linear's dedicated search endpoint is deprecated.
+  Use \`linear issue list | grep <keyword>\`, \`linear issue list --json | jq ...\`, or \`linear api\` for custom GraphQL queries.
 "
-stderr:
-""
-`;
-
-snapshot[`Issue Search Command - No Results 1`] = `
-stdout:
-'No issues found matching "nonexistent-query-xyz"
-'
-stderr:
-""
 `;
