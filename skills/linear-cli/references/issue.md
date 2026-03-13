@@ -18,26 +18,26 @@ Options:
 
 Commands:
 
-  id                                      - Print the issue based on the current git branch    
-  list                                    - List your issues                                   
-  search            <query>               - Search for issues using semantic search            
-  title             [issueId]             - Print the issue title                              
-  start             [issueId]             - Start working on an issue                          
-  view, v           [issueId]             - View issue details (default) or open in browser/app
-  url               [issueId]             - Print the issue URL                                
-  describe          [issueId]             - Print the issue title and Linear-issue trailer     
-  commits           [issueId]             - Show all commits for a Linear issue (jj only)      
-  pull-request, pr  [issueId]             - Create a GitHub pull request with issue details    
-  delete, d         [issueId]             - Delete an issue                                    
-  create                                  - Create a linear issue                              
-  update            [issueId]             - Update a linear issue                              
-  move              <issueId> <state>     - Move an issue to a different workflow state        
-  assign            <issueId> [assignee]  - Assign an issue to a user                          
-  priority          <issueId> <priority>  - Set the priority of an issue                       
-  estimate          <issueId> [points]    - Set the estimate (points) of an issue              
-  label                                   - Manage issue labels                                
-  comment                                 - Manage issue comments                              
-  attach            <issueId> <filepath>  - Attach a file to an issue                          
+  id                                      - Print the issue based on the current git branch          
+  list                                    - List your issues                                         
+  search            <query>               - Deprecated: use `issue list` or `api` for issue filtering
+  title             [issueId]             - Print the issue title                                    
+  start             [issueId]             - Start working on an issue                                
+  view, v           [issueId]             - View issue details (default) or open in browser/app      
+  url               [issueId]             - Print the issue URL                                      
+  describe          [issueId]             - Print the issue title and Linear-issue trailer           
+  commits           [issueId]             - Show all commits for a Linear issue (jj only)            
+  pull-request, pr  [issueId]             - Create a GitHub pull request with issue details          
+  delete, d         [issueId]             - Delete an issue                                          
+  create                                  - Create a linear issue                                    
+  update            [issueId]             - Update a linear issue                                    
+  move              <issueId> <state>     - Move an issue to a different workflow state              
+  assign            <issueId> [assignee]  - Assign an issue to a user                                
+  priority          <issueId> <priority>  - Set the priority of an issue                             
+  estimate          <issueId> [points]    - Set the estimate (points) of an issue                    
+  label                                   - Manage issue labels                                      
+  comment                                 - Manage issue comments                                    
+  attach            <issueId> <filepath>  - Attach a file to an issue                                
   relation                                - Manage issue relations (dependencies)
 ```
 
@@ -94,14 +94,14 @@ Options:
 
 ### search
 
-> Search for issues using semantic search
+> Deprecated: use `issue list` or `api` for issue filtering
 
 ```
 Usage:   linear issue search <query>
 
 Description:
 
-  Search for issues using semantic search
+  Deprecated: use `issue list` or `api` for issue filtering
 
 Options:
 
