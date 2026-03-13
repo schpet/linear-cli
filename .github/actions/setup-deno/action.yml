@@ -1,0 +1,29 @@
+name: Setup Deno
+description: Install Deno without relying on a Node-based GitHub Action runtime.
+inputs:
+  deno-version:
+    description: The Deno version to install.
+    default: "2.7.5"
+runs:
+  using: composite
+  steps:
+    - name: Install Deno (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        set -euo pipefail
+        curl -fsSL https://deno.land/install.sh | sh -s -- "v${{ inputs.deno-version }}"
+        echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+
+    - name: Install Deno (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        $v = "${{ inputs.deno-version }}"
+        irm https://deno.land/install.ps1 | iex
+        "$env:USERPROFILE\\.deno\\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Verify Deno installation
+      shell: bash
+      run: deno --version

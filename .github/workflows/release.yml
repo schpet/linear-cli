@@ -127,10 +127,8 @@ jobs:
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           fi
-      - name: "Setup deno"
-        uses: "denoland/setup-deno@v2"
-        with:
-          "deno-version": "v2.x"
+      - name: "Setup Deno"
+        uses: "./.github/actions/setup-deno"
       - name: "Generate GraphQL code"
         run: "deno task codegen"
       - name: Install dist
