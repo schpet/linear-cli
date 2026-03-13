@@ -32,11 +32,12 @@ export const assignCommand = new Command()
   .name("assign")
   .description("Assign an issue to a user")
   .arguments("<issueId:string> [assignee:string]")
+  .option("-j, --json", "Output as JSON")
   .option("--unassign", "Remove the current assignee")
   .example("Assign to self", "linear issue assign ENG-123 self")
   .example("Assign to user", "linear issue assign ENG-123 john")
   .example("Unassign", "linear issue assign ENG-123 --unassign")
-  .action(async ({ unassign }, issueId, assignee) => {
+  .action(async ({ json, unassign }, issueId, assignee) => {
     try {
       // Validate arguments
       if (!unassign && !assignee) {
@@ -60,11 +61,13 @@ export const assignCommand = new Command()
       }
 
       const client = getGraphQLClient()
-      const result = await withSpinner(() =>
-        client.request(AssignIssue, {
-          issueId: issueInternalId,
-          assigneeId,
-        })
+      const result = await withSpinner(
+        () =>
+          client.request(AssignIssue, {
+            issueId: issueInternalId,
+            assigneeId,
+          }),
+        { enabled: !json },
       )
 
       if (!result.issueUpdate.success) {
@@ -72,6 +75,19 @@ export const assignCommand = new Command()
       }
 
       const issue = result.issueUpdate.issue
+      if (json) {
+        console.log(JSON.stringify(
+          {
+            identifier: issue?.identifier,
+            assignee: issue?.assignee
+              ? (issue.assignee.displayName || issue.assignee.name)
+              : null,
+          },
+          null,
+          2,
+        ))
+        return
+      }
       if (issue?.assignee) {
         console.log(
           green("✓") +

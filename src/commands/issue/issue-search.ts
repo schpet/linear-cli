@@ -42,29 +42,52 @@ export const searchCommand = new Command()
   .name("search")
   .description("Search for issues using semantic search")
   .arguments("<query:string>")
+  .option("-j, --json", "Output as JSON")
   .option("-n, --limit <limit:number>", "Maximum number of results", {
     default: 20,
   })
   .option("-a, --include-archived", "Include archived issues in results")
-  .action(async ({ limit, includeArchived }, query) => {
+  .action(async ({ json, limit, includeArchived }, query) => {
     try {
       if (!query || query.trim().length === 0) {
         throw new ValidationError("Search query cannot be empty")
       }
 
       const client = getGraphQLClient()
-      const result = await withSpinner(() =>
-        client.request(IssueSearchQuery, {
-          query: query.trim(),
-          first: limit,
-          includeArchived: includeArchived ?? false,
-        })
+      const result = await withSpinner(
+        () =>
+          client.request(IssueSearchQuery, {
+            query: query.trim(),
+            first: limit,
+            includeArchived: includeArchived ?? false,
+          }),
+        { enabled: !json },
       )
 
       const issues = result.issueSearch.nodes
 
       if (issues.length === 0) {
+        if (json) {
+          console.log("[]")
+          return
+        }
         console.log(`No issues found matching "${query}"`)
+        return
+      }
+
+      if (json) {
+        console.log(JSON.stringify(
+          issues.map((issue) => ({
+            identifier: issue.identifier,
+            title: issue.title,
+            priority: issue.priority,
+            state: issue.state.name,
+            assignee: issue.assignee?.displayName ?? null,
+            updatedAt: issue.updatedAt,
+          })),
+          null,
+          2,
+        ))
         return
       }
 

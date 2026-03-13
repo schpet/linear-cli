@@ -24,11 +24,12 @@ export const estimateCommand = new Command()
   .name("estimate")
   .description("Set the estimate (points) of an issue")
   .arguments("<issueId:string> [points:number]")
+  .option("-j, --json", "Output as JSON")
   .option("--clear", "Clear the estimate")
   .example("Set 3 points", "linear issue estimate ENG-123 3")
   .example("Set 5 points", "linear issue estimate ENG-123 5")
   .example("Clear estimate", "linear issue estimate ENG-123 --clear")
-  .action(async ({ clear }, issueId, points) => {
+  .action(async ({ clear, json }, issueId, points) => {
     try {
       // Validate arguments
       if (!clear && points === undefined) {
@@ -55,11 +56,13 @@ export const estimateCommand = new Command()
       })
 
       const client = getGraphQLClient()
-      const result = await withSpinner(() =>
-        client.request(UpdateIssueEstimate, {
-          issueId: issueInternalId,
-          estimate: clear ? null : points,
-        })
+      const result = await withSpinner(
+        () =>
+          client.request(UpdateIssueEstimate, {
+            issueId: issueInternalId,
+            estimate: clear ? null : points,
+          }),
+        { enabled: !json },
       )
 
       if (!result.issueUpdate.success) {
@@ -67,6 +70,17 @@ export const estimateCommand = new Command()
       }
 
       const issue = result.issueUpdate.issue
+      if (json) {
+        console.log(JSON.stringify(
+          {
+            identifier: issue?.identifier,
+            estimate: issue?.estimate ?? null,
+          },
+          null,
+          2,
+        ))
+        return
+      }
       if (issue?.estimate !== null && issue?.estimate !== undefined) {
         console.log(
           green("✓") +

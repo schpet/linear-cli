@@ -13,6 +13,7 @@ Options:
 
   -h, --help          - Show this help.                      
   --team      <team>  - Team key (defaults to current team)  
+  -j, --json          - Output as JSON                       
 
 "
 stderr:
@@ -42,9 +43,43 @@ stderr:
 ""
 `;
 
+snapshot[`Cycle Current Command - JSON Output 1`] = `
+stdout:
+'{
+  "number": 42,
+  "name": "Sprint 42",
+  "startsAt": "2026-01-13T00:00:00Z",
+  "endsAt": "2026-01-27T00:00:00Z",
+  "progress": 0.35,
+  "issues": [
+    {
+      "identifier": "ENG-123",
+      "title": "Fix login bug",
+      "state": "In Progress"
+    },
+    {
+      "identifier": "ENG-124",
+      "title": "Add SSO support",
+      "state": "Todo"
+    }
+  ]
+}
+'
+stderr:
+""
+`;
+
 snapshot[`Cycle Current Command - No Active Cycle 1`] = `
 stdout:
 "No active cycle found for team ENG
+"
+stderr:
+""
+`;
+
+snapshot[`Cycle Current Command - JSON Output No Active Cycle 1`] = `
+stdout:
+"null
 "
 stderr:
 ""

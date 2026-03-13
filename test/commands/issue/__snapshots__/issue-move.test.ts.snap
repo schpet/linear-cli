@@ -12,6 +12,7 @@ Description:
 Options:
 
   -h, --help  - Show this help.  
+  -j, --json  - Output as JSON   
 
 Examples:
 
@@ -28,6 +29,17 @@ snapshot[`Issue Move Command - Move to In Progress 1`] = `
 stdout:
 "✓ Moved ENG-123 to In Progress
 "
+stderr:
+""
+`;
+
+snapshot[`Issue Move Command - JSON Output 1`] = `
+stdout:
+'{
+  "identifier": "ENG-123",
+  "state": "In Progress"
+}
+'
 stderr:
 ""
 `;

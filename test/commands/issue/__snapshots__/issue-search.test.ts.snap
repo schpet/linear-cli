@@ -12,6 +12,7 @@ Description:
 Options:
 
   -h, --help                       - Show this help.                                  
+  -j, --json                       - Output as JSON                                   
   -n, --limit             <limit>  - Maximum number of results           (Default: \\x1b[33m20\\x1b[39m)
   -a, --include-archived           - Include archived issues in results               
 
@@ -28,6 +29,31 @@ stderr:
 "
 `;
 
+snapshot[`Issue Search Command - JSON Output 1`] = `
+stdout:
+'[
+  {
+    "identifier": "ENG-123",
+    "title": "Fix login bug",
+    "priority": 2,
+    "state": "In Progress",
+    "assignee": "Alice",
+    "updatedAt": "2026-01-15T08:00:00Z"
+  },
+  {
+    "identifier": "ENG-456",
+    "title": "Update login page",
+    "priority": 3,
+    "state": "Todo",
+    "assignee": null,
+    "updatedAt": "2026-01-14T10:30:00Z"
+  }
+]
+'
+stderr:
+""
+`;
+
 snapshot[`Issue Search Command - Returns Results 1`] = `
 stdout:
 "ID      P  TITLE             STATE       UPDATED   
@@ -35,6 +61,14 @@ ENG-123 ▄▆█ Fix login bug     In Progress 55 days ago
 ENG-456 ▄▆  Update login page Todo        56 days ago
 
 Found 2 issues
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Search Command - JSON Output No Results 1`] = `
+stdout:
+"[]
 "
 stderr:
 ""

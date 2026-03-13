@@ -39,7 +39,8 @@ export const currentCommand = new Command()
   .name("current")
   .description("Show the current active cycle for a team")
   .option("--team <team:string>", "Team key (defaults to current team)")
-  .action(async ({ team }) => {
+  .option("-j, --json", "Output as JSON")
+  .action(async ({ team, json }) => {
     try {
       const teamKey = requireTeamKey(team)
       const teamId = await getTeamIdByKey(teamKey)
@@ -48,14 +49,41 @@ export const currentCommand = new Command()
       }
 
       const client = getGraphQLClient()
-      const result = await withSpinner(() =>
-        client.request(GetActiveCycle, { teamId })
+      const result = await withSpinner(
+        () => client.request(GetActiveCycle, { teamId }),
+        { enabled: !json },
       )
 
       const cycle = result.team?.activeCycle
 
       if (!cycle) {
+        if (json) {
+          console.log("null")
+          return
+        }
         console.log(`No active cycle found for team ${teamKey}`)
+        return
+      }
+
+      const issues = cycle.issues?.nodes || []
+
+      if (json) {
+        console.log(JSON.stringify(
+          {
+            number: cycle.number,
+            name: cycle.name ?? `Cycle ${cycle.number}`,
+            startsAt: cycle.startsAt,
+            endsAt: cycle.endsAt,
+            progress: cycle.progress,
+            issues: issues.map((issue) => ({
+              identifier: issue.identifier,
+              title: issue.title,
+              state: issue.state.name,
+            })),
+          },
+          null,
+          2,
+        ))
         return
       }
 
@@ -82,7 +110,6 @@ export const currentCommand = new Command()
       }
 
       // Print issues in cycle
-      const issues = cycle.issues?.nodes || []
       if (issues.length > 0) {
         console.log("")
         console.log(`## Issues (${issues.length})`)
