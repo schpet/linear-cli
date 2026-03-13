@@ -47,11 +47,13 @@ jobs:
       id-token: write
     steps:
       - name: Download npm release artifact
+        id: npm-artifact
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           TAG_NAME: ${{ github.event.workflow_run.head_branch }}
         run: |
+          ARTIFACT_PATH=./npm/linear-npm-package.tar.gz
           mkdir -p npm
           if ! gh release download "${TAG_NAME}" -R "${GH_REPO}" -p "linear-npm-package.tar.gz" -D npm --clobber; then
             echo "Failed to download linear-npm-package.tar.gz from release ${TAG_NAME} in ${GH_REPO}" >&2
@@ -59,11 +61,12 @@ jobs:
             gh release view "${TAG_NAME}" -R "${GH_REPO}" --json assets --jq '.assets[].name' >&2 || true
             exit 1
           fi
+          echo "path=$ARTIFACT_PATH" >> "$GITHUB_OUTPUT"
       - name: Read npm package metadata
         id: npm-package
         run: |
-          NAME=$(tar -xOf npm/linear-npm-package.tar.gz package/package.json | jq -r '.name')
-          VERSION=$(tar -xOf npm/linear-npm-package.tar.gz package/package.json | jq -r '.version')
+          NAME=$(tar -xOf "${{ steps.npm-artifact.outputs.path }}" package/package.json | jq -r '.name')
+          VERSION=$(tar -xOf "${{ steps.npm-artifact.outputs.path }}" package/package.json | jq -r '.version')
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Check whether this version already exists on npm
@@ -82,4 +85,4 @@ jobs:
       - if: steps.npm-version.outputs.published == 'true'
         run: echo "${{ steps.npm-package.outputs.name }}@${{ steps.npm-package.outputs.version }} is already published; skipping"
       - if: steps.npm-version.outputs.published != 'true'
-        run: npm publish --access public --provenance npm/linear-npm-package.tar.gz
+        run: npm publish --access public --provenance "${{ steps.npm-artifact.outputs.path }}"
