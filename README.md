@@ -41,13 +41,13 @@ it aims to be a complement to the web and desktop apps that lets you stay on the
 ### homebrew
 
 ```
-brew install schpet/tap/linear
+brew install kyaukyuai/tap/linear
 ```
 
 ### deno via jsr
 
 ```bash
-deno install -A --reload -f -g -n linear jsr:@schpet/linear-cli
+deno install -A --reload -f -g -n linear jsr:@kyaukyuai/linear-cli
 ```
 
 ### npm / bun / pnpm
@@ -55,11 +55,11 @@ deno install -A --reload -f -g -n linear jsr:@schpet/linear-cli
 install as a dev dependency to pin a version in your project:
 
 ```bash
-npm install -D @schpet/linear-cli
+npm install -D @kyaukyuai/linear-cli
 # or
-bun add -D @schpet/linear-cli
+bun add -D @kyaukyuai/linear-cli
 # or
-pnpm add -D @schpet/linear-cli
+pnpm add -D @kyaukyuai/linear-cli
 ```
 
 then run via your package manager:
@@ -71,16 +71,16 @@ bunx linear issue list
 
 > **note:** this package ships pre-built binaries
 
-package on npm: [@schpet/linear-cli](https://www.npmjs.com/package/@schpet/linear-cli)
+package on npm: [@kyaukyuai/linear-cli](https://www.npmjs.com/package/@kyaukyuai/linear-cli)
 
 ### binaries
 
-https://github.com/schpet/linear-cli/releases/latest
+https://github.com/kyaukyuai/linear-cli/releases/latest
 
 ### local dev
 
 ```bash
-git clone https://github.com/schpet/linear-cli
+git clone https://github.com/kyaukyuai/linear-cli
 cd linear-cli
 deno task install
 ```
@@ -255,11 +255,11 @@ install the skill using [claude code's plugin system](https://code.claude.com/do
 
 ```bash
 # from claude code
-/plugin marketplace add schpet/linear-cli
+/plugin marketplace add kyaukyuai/linear-cli
 /plugin install linear-cli@linear-cli
 
 # from bash
-claude plugin marketplace add schpet/linear-cli
+claude plugin marketplace add kyaukyuai/linear-cli
 claude plugin install linear-cli@linear-cli
 
 # to update
@@ -272,10 +272,10 @@ claude plugin update linear-cli@linear-cli
 install the skill using [skills.sh](https://skills.sh):
 
 ```bash
-npx skills add schpet/linear-cli
+npx skills add kyaukyuai/linear-cli
 ```
 
-view the skill at [skills.sh/schpet/linear-cli/linear-cli](https://skills.sh/schpet/linear-cli/linear-cli)
+view the skill at [skills.sh/kyaukyuai/linear-cli/linear-cli](https://skills.sh/kyaukyuai/linear-cli/linear-cli)
 
 ## development
 
