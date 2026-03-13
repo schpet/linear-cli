@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
-  "name": "@schpet/linear-cli",
+  "name": "@kyaukyuai/linear-cli",
   "version": "1.11.1",
   "exports": "./src/main.ts",
   "license": "MIT",

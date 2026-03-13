@@ -3,9 +3,9 @@
   "description": "Manage Linear issues from the command line",
   "version": "1.9.1",
   "author": {
-    "name": "schpet"
+    "name": "kyaukyuai"
   },
-  "homepage": "https://github.com/schpet/linear-cli",
+  "homepage": "https://github.com/kyaukyuai/linear-cli",
   "skills": [
     "./skills/linear-cli"
   ]
