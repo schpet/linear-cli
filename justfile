@@ -11,12 +11,11 @@ tag:
     svbump write "$(changelog version latest)" version deno.json
     svbump write "$(svbump read version deno.json)" package.version dist-workspace.toml
 
-    jj commit -m "chore: Release linear-cli version $(svbump read version deno.json)"
-    jj bookmark set main -r @-
-    jj tag set "v$(svbump read version deno.json)" -r @-
-    jj git push --bookmark main
-
-    git push origin --tags
+    git add CHANGELOG.md deno.json dist-workspace.toml
+    git commit -m "chore: Release linear-cli version $(svbump read version deno.json)"
+    git tag "v$(svbump read version deno.json)"
+    git push origin main
+    git push origin "v$(svbump read version deno.json)"
 
     @echo "released v$(svbump read version deno.json)"
 
