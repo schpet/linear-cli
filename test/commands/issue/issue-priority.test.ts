@@ -15,6 +15,19 @@ await snapshotTest({
   },
 })
 
+// Test invalid priority
+await snapshotTest({
+  name: "Issue Priority Command - Invalid Priority",
+  meta: import.meta,
+  colors: false,
+  canFail: true,
+  args: ["ENG-123", "5"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    await priorityCommand.parse()
+  },
+})
+
 // Test setting priority to urgent
 await snapshotTest({
   name: "Issue Priority Command - Set Urgent",

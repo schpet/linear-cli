@@ -15,6 +15,19 @@ await snapshotTest({
   },
 })
 
+// Test invalid negative estimate
+await snapshotTest({
+  name: "Issue Estimate Command - Negative Points",
+  meta: import.meta,
+  colors: false,
+  canFail: true,
+  args: ["ENG-123", "-1"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    await estimateCommand.parse()
+  },
+})
+
 // Test setting estimate
 await snapshotTest({
   name: "Issue Estimate Command - Set Points",

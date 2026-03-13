@@ -26,6 +26,15 @@ stderr:
 ""
 `;
 
+snapshot[`Issue Priority Command - Invalid Priority 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to set priority: Invalid priority: 5
+  Use 0 (none), 1 (urgent), 2 (high), 3 (medium), or 4 (low)
+"
+`;
+
 snapshot[`Issue Priority Command - Set Urgent 1`] = `
 stdout:
 "✓ Set ENG-123 priority to Urgent
