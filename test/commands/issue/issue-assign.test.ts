@@ -93,6 +93,71 @@ await snapshotTest({
   },
 })
 
+// Test JSON output
+await snapshotTest({
+  name: "Issue Assign Command - JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "self", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueId",
+        response: {
+          data: {
+            issue: {
+              id: "issue-internal-id",
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetViewerId",
+        response: {
+          data: {
+            viewer: {
+              id: "user-1",
+            },
+          },
+        },
+      },
+      {
+        queryName: "AssignIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-internal-id",
+                identifier: "ENG-123",
+                title: "Fix login bug",
+                assignee: {
+                  id: "user-1",
+                  name: "John Doe",
+                  displayName: "John",
+                },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await assignCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
 // Test unassigning issue
 await snapshotTest({
   name: "Issue Assign Command - Unassign",

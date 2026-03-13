@@ -12,6 +12,7 @@ Description:
 Options:
 
   -h, --help  - Show this help.     
+  -j, --json  - Output as JSON      
   --clear     - Clear the estimate  
 
 Examples:
@@ -37,6 +38,7 @@ Description:
 Options:
 
   -h, --help  - Show this help.     
+  -j, --json  - Output as JSON      
   --clear     - Clear the estimate  
 
 Examples:
@@ -56,6 +58,17 @@ snapshot[`Issue Estimate Command - Set Points 1`] = `
 stdout:
 "✓ Set ENG-123 estimate to 3 points
 "
+stderr:
+""
+`;
+
+snapshot[`Issue Estimate Command - JSON Output 1`] = `
+stdout:
+'{
+  "identifier": "ENG-123",
+  "estimate": 3
+}
+'
 stderr:
 ""
 `;

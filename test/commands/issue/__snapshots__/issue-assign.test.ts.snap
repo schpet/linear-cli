@@ -12,6 +12,7 @@ Description:
 Options:
 
   -h, --help  - Show this help.              
+  -j, --json  - Output as JSON               
   --unassign  - Remove the current assignee  
 
 Examples:
@@ -38,6 +39,17 @@ snapshot[`Issue Assign Command - Assign to Self 1`] = `
 stdout:
 "✓ Assigned ENG-123 to John
 "
+stderr:
+""
+`;
+
+snapshot[`Issue Assign Command - JSON Output 1`] = `
+stdout:
+'{
+  "identifier": "ENG-123",
+  "assignee": "John"
+}
+'
 stderr:
 ""
 `;

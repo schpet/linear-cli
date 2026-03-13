@@ -12,6 +12,7 @@ Description:
 Options:
 
   -h, --help  - Show this help.  
+  -j, --json  - Output as JSON   
 
 Examples:
 
@@ -39,6 +40,17 @@ snapshot[`Issue Priority Command - Set Urgent 1`] = `
 stdout:
 "✓ Set ENG-123 priority to Urgent
 "
+stderr:
+""
+`;
+
+snapshot[`Issue Priority Command - JSON Output 1`] = `
+stdout:
+'{
+  "identifier": "ENG-123",
+  "priority": 1
+}
+'
 stderr:
 ""
 `;

@@ -32,12 +32,13 @@ export const priorityCommand = new Command()
   .name("priority")
   .description("Set the priority of an issue")
   .arguments("<issueId:string> <priority:number>")
+  .option("-j, --json", "Output as JSON")
   .example("Set urgent", "linear issue priority ENG-123 1")
   .example("Set high", "linear issue priority ENG-123 2")
   .example("Set medium", "linear issue priority ENG-123 3")
   .example("Set low", "linear issue priority ENG-123 4")
   .example("Clear priority", "linear issue priority ENG-123 0")
-  .action(async (_options, issueId, priority) => {
+  .action(async ({ json }, issueId, priority) => {
     try {
       // Validate priority
       if (priority < 0 || priority > 4) {
@@ -55,11 +56,13 @@ export const priorityCommand = new Command()
       })
 
       const client = getGraphQLClient()
-      const result = await withSpinner(() =>
-        client.request(UpdateIssuePriority, {
-          issueId: issueInternalId,
-          priority,
-        })
+      const result = await withSpinner(
+        () =>
+          client.request(UpdateIssuePriority, {
+            issueId: issueInternalId,
+            priority,
+          }),
+        { enabled: !json },
       )
 
       if (!result.issueUpdate.success) {
@@ -67,6 +70,17 @@ export const priorityCommand = new Command()
       }
 
       const issue = result.issueUpdate.issue
+      if (json) {
+        console.log(JSON.stringify(
+          {
+            identifier: issue?.identifier,
+            priority: issue?.priority,
+          },
+          null,
+          2,
+        ))
+        return
+      }
       const priorityLabel = PRIORITY_LABELS[issue?.priority ?? 0]
       console.log(
         green("✓") +

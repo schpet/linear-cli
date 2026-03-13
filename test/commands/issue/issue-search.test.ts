@@ -31,6 +31,68 @@ await cliffySnapshotTest({
   },
 })
 
+// Test search with JSON output
+await cliffySnapshotTest({
+  name: "Issue Search Command - JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["login bug", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "IssueSearch",
+        response: {
+          data: {
+            issueSearch: {
+              nodes: [
+                {
+                  id: "issue-1",
+                  identifier: "ENG-123",
+                  title: "Fix login bug",
+                  priority: 2,
+                  state: {
+                    name: "In Progress",
+                    color: "#0066ff",
+                  },
+                  assignee: {
+                    displayName: "Alice",
+                  },
+                  updatedAt: "2026-01-15T08:00:00Z",
+                },
+                {
+                  id: "issue-2",
+                  identifier: "ENG-456",
+                  title: "Update login page",
+                  priority: 3,
+                  state: {
+                    name: "Todo",
+                    color: "#888888",
+                  },
+                  assignee: null,
+                  updatedAt: "2026-01-14T10:30:00Z",
+                },
+              ],
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await searchCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
 // Test search with results
 await snapshotTest({
   name: "Issue Search Command - Returns Results",
@@ -74,6 +136,41 @@ await snapshotTest({
                   updatedAt: "2026-01-14T10:30:00Z",
                 },
               ],
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await searchCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test JSON output with no results
+await cliffySnapshotTest({
+  name: "Issue Search Command - JSON Output No Results",
+  meta: import.meta,
+  colors: false,
+  args: ["nonexistent-query-xyz", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "IssueSearch",
+        response: {
+          data: {
+            issueSearch: {
+              nodes: [],
             },
           },
         },

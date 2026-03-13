@@ -107,6 +107,7 @@ Options:
 
   -h, --help                       - Show this help.                                   
   -w, --workspace         <slug>   - Target workspace (uses credentials)               
+  -j, --json                       - Output as JSON                                    
   -n, --limit             <limit>  - Maximum number of results            (Default: 20)
   -a, --include-archived           - Include archived issues in results
 ```
@@ -347,6 +348,7 @@ Options:
 
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json               - Output as JSON                       
 
 Examples:
 
@@ -370,6 +372,7 @@ Options:
 
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json               - Output as JSON                       
   --unassign               - Remove the current assignee          
 
 Examples:
@@ -394,6 +397,7 @@ Options:
 
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json               - Output as JSON                       
 
 Examples:
 
@@ -419,6 +423,7 @@ Options:
 
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json               - Output as JSON                       
   --clear                  - Clear the estimate                   
 
 Examples:

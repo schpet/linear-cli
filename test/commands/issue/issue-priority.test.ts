@@ -78,3 +78,54 @@ await snapshotTest({
     }
   },
 })
+
+// Test JSON output
+await snapshotTest({
+  name: "Issue Priority Command - JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "1", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueId",
+        response: {
+          data: {
+            issue: {
+              id: "issue-internal-id",
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssuePriority",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-internal-id",
+                identifier: "ENG-123",
+                title: "Fix login bug",
+                priority: 1,
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await priorityCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
