@@ -1,14 +1,10 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getIssueId, getIssueIdentifier } from "../../utils/linear.ts"
+import { resolveIssueInternalId } from "../../utils/linear.ts"
 import { withSpinner } from "../../utils/spinner.ts"
 import { green } from "@std/fmt/colors"
-import {
-  handleError,
-  NotFoundError,
-  ValidationError,
-} from "../../utils/errors.ts"
+import { handleError } from "../../utils/errors.ts"
 
 const RemoveIssueCycle = gql(`
   mutation RemoveIssueCycle($issueId: String!) {
@@ -29,23 +25,7 @@ export const removeCommand = new Command()
   .arguments("<issueId:string>")
   .action(async (_options, issueId) => {
     try {
-      // Resolve issue identifier
-      const resolvedIssueId = await getIssueIdentifier(issueId)
-      if (!resolvedIssueId) {
-        throw new ValidationError(
-          `Could not resolve issue identifier: ${issueId}`,
-          {
-            suggestion:
-              "Use a full issue identifier like 'ENG-123' or just the number like '123'",
-          },
-        )
-      }
-
-      // Get the issue's internal ID
-      const issueInternalId = await getIssueId(resolvedIssueId)
-      if (!issueInternalId) {
-        throw new NotFoundError("Issue", resolvedIssueId)
-      }
+      const issueInternalId = await resolveIssueInternalId(issueId)
 
       const client = getGraphQLClient()
       const result = await withSpinner(() =>
