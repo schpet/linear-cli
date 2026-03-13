@@ -1,6 +1,6 @@
-# linear cli
+# kyaukyuai/linear-cli
 
-a cli to list, start and create issues in the [linear](https://linear.app/) issue tracker. git and [jj](https://www.jj-vcs.dev/) aware to keep you in the right views in linear. allows jumping to the web or the linear desktop app similar to `gh`.
+`kyaukyuai/linear-cli` is a fork of [`schpet/linear-cli`](https://github.com/schpet/linear-cli) for teams that want a git-first Linear CLI with additional automation, scripting, and documentation support. it remains git and [jj](https://www.jj-vcs.dev/) aware so you can stay in the right Linear context without leaving the terminal.
 
 **works great with AI agents** — the CLI includes a [skill](#skills) that lets agents create issues, update status, and manage your Linear workflow alongside your code.
 
@@ -84,6 +84,25 @@ git clone https://github.com/kyaukyuai/linear-cli
 cd linear-cli
 deno task install
 ```
+
+## fork-specific features
+
+compared to upstream, this fork adds and maintains several capabilities aimed at automation-heavy workflows:
+
+- cycle workflows beyond listing and viewing, including `cycle current`, `cycle next`, `cycle create`, `cycle add`, and `cycle remove`
+- issue workflow commands for `search`, `assign`, `move`, `priority`, `estimate`, `label add/remove`, comment delete, relations, and attachments
+- JSON output for scripting across issue, cycle, project, and document commands
+- workspace-aware auth management with keyring migration and default workspace support
+- generated AI-agent skill docs, Claude plugin metadata, npm publishing, and Homebrew tap release plumbing
+
+## differences from upstream
+
+this fork is intentionally diverging from upstream in a few ways:
+
+- package and publishing identity use `kyaukyuai/linear-cli`, `@kyaukyuai/linear-cli`, and `kyaukyuai/tap/linear`
+- maintainer workflows are standardized around git-based release automation, even though the CLI itself still supports both git and jj at runtime
+- documentation and release assets are tailored for this fork's roadmap, including agent-facing docs and additional release infrastructure
+- changelog and README content track fork-specific features separately from upstream history
 
 ## setup
 
