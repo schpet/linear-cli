@@ -8,11 +8,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
+      - uses: ./.github/actions/setup-deno
 
       - name: Generate GraphQL code
         run: deno task codegen
@@ -53,11 +51,9 @@ jobs:
           - os: windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
+      - uses: ./.github/actions/setup-deno
 
       - name: Set up Secret Service
         if: runner.os == 'Linux'
