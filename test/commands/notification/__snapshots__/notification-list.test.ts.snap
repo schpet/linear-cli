@@ -1,0 +1,82 @@
+export const snapshot = {};
+
+snapshot[`Notification List Command - Help Text 1`] = `
+stdout:
+"
+Usage: list
+
+Description:
+
+  List notifications
+
+Options:
+
+  -h, --help                   - Show this help.                               
+  -n, --limit         <limit>  - Maximum number of notifications  (Default: \\x1b[33m20\\x1b[39m)
+  --include-archived           - Include archived notifications                
+  --unread                     - Show only unread notifications                
+  -j, --json                   - Output as JSON                                
+
+"
+stderr:
+""
+`;
+
+snapshot[`Notification List Command - Shows Notifications 1`] = `
+stdout:
+"UNREAD 2026-03-12T10:00:00Z notif-1
+  ENG-123 was assigned to you
+  Fix login bug
+  actor: John Doe
+
+READ 2026-03-11T08:30:00Z notif-2
+  New comment on ENG-456
+  Please verify the regression fix before merge.
+  actor: Alice Smith
+
+"
+stderr:
+""
+`;
+
+snapshot[`Notification List Command - JSON Output 1`] = `
+stdout:
+'[
+  {
+    "id": "notif-1",
+    "type": "issueAssigned",
+    "title": "ENG-123 was assigned to you",
+    "subtitle": "Fix login bug",
+    "status": "unread",
+    "actor": "John Doe",
+    "createdAt": "2026-03-12T10:00:00Z",
+    "readAt": null,
+    "archivedAt": null,
+    "snoozedUntilAt": null,
+    "url": "https://linear.app/issue/ENG-123",
+    "inboxUrl": "https://linear.app/inbox/notif-1"
+  }
+]
+'
+stderr:
+""
+`;
+
+snapshot[`Notification List Command - No Notifications 1`] = `
+stdout:
+"No notifications found.
+"
+stderr:
+""
+`;
+
+snapshot[`Notification List Command - Unread Only 1`] = `
+stdout:
+"UNREAD 2026-03-12T10:00:00Z notif-1
+  ENG-123 was assigned to you
+  Fix login bug
+
+"
+stderr:
+""
+`;

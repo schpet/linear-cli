@@ -1,0 +1,41 @@
+export const snapshot = {};
+
+snapshot[`Notification Read Command - Help Text 1`] = `
+stdout:
+"
+Usage: read <notificationId>
+
+Description:
+
+  Mark a notification as read
+
+Options:
+
+  -h, --help  - Show this help.  
+  -j, --json  - Output as JSON   
+
+"
+stderr:
+""
+`;
+
+snapshot[`Notification Read Command - Marks As Read 1`] = `
+stdout:
+"✓ Marked notification as read: notif-1
+"
+stderr:
+""
+`;
+
+snapshot[`Notification Read Command - JSON Output 1`] = `
+stdout:
+'{
+  "id": "notif-1",
+  "title": "ENG-123 was assigned to you",
+  "readAt": "2026-03-13T07:00:00Z",
+  "archivedAt": null
+}
+'
+stderr:
+""
+`;

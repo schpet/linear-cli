@@ -1,0 +1,26 @@
+export const snapshot = {};
+
+snapshot[`Notification Command - Help Text 1`] = `
+stdout:
+"
+Usage: COMMAND
+
+Description:
+
+  Manage Linear notifications
+
+Options:
+
+  -h, --help  - Show this help.  
+
+Commands:
+
+  list                       - List notifications            
+  count                      - Show unread notification count
+  read     <notificationId>  - Mark a notification as read   
+  archive  <notificationId>  - Archive a notification        
+
+"
+stderr:
+""
+`;
