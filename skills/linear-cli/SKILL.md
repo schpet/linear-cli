@@ -17,7 +17,7 @@ linear --version
 ```
 
 If not installed, follow the instructions at:\
-https://github.com/schpet/linear-cli?tab=readme-ov-file#install
+https://github.com/kyaukyuai/linear-cli?tab=readme-ov-file#install
 
 ## Best Practices for Markdown Content
 
