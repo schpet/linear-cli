@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+> The first fork release will be published as `v2.0.0`.
+
+### Added (fork-specific features)
+
+- expanded Linear coverage with cycle, milestone, document, initiative, project update/delete, issue relation, issue attachment, issue comment delete, and raw GraphQL/schema commands
+- added workflow commands for `issue search`, `issue assign`, `issue move`, `issue priority`, `issue estimate`, and `issue label add/remove`
+- added workspace-aware authentication and credential management, including `auth login/logout/list/default/token/whoami/migrate`, system keyring support, and `--workspace`
+- added scriptable output modes across forked commands, including JSON output for project, document, issue, and cycle workflows
+- added agent-oriented assets and distribution channels, including the Claude Code skill plugin, generated skill docs, npm publishing, and the `kyaukyuai/homebrew-tap` release target
+
+### Changed
+
+- rebranded the fork to `kyaukyuai/linear-cli`, including package scope `@kyaukyuai/linear-cli`, release infrastructure, install instructions, and marketplace references
+- standardized release and maintainer workflows around git-based automation while preserving runtime support for both git and jj in the CLI itself
+- updated configuration and install flows to better support multi-workspace use, project/global config merging, and package-manager based execution
+
+### Improved
+
+- improved CLI reliability with structured validation errors, better auth/config guidance, safer non-TTY spinner handling, and stronger error-path test coverage
+- improved terminal UX with pager support, richer issue/project/document rendering, relative-time fixes, local image and attachment handling, and more JSON-first scripting paths
+- improved internal maintainability with shared helpers such as `withSpinner()`, `resolveIssueInternalId()`, label setup deduplication, deterministic snapshots, and synchronized generated docs/workflows
+
 ## [1.11.1] - 2026-03-06
 
 ### Added
@@ -410,7 +432,7 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.11.1...HEAD
+[Unreleased]: https://github.com/kyaukyuai/linear-cli/compare/v1.11.1...HEAD
 [1.11.1]: https://github.com/schpet/linear-cli/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/schpet/linear-cli/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/schpet/linear-cli/compare/v1.9.1...v1.10.0
