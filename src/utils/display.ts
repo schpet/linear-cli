@@ -76,6 +76,29 @@ export function getPriorityDisplay(priority: number): string {
   return priority.toString()
 }
 
+export function parsePriority(priority: string | number): number | undefined {
+  if (typeof priority === "number") {
+    return Number.isInteger(priority) && priority >= 0 && priority <= 4
+      ? priority
+      : undefined
+  }
+
+  const normalized = priority.trim().toLowerCase()
+  const namedPriorities: Record<string, number> = {
+    none: 0,
+    urgent: 1,
+    high: 2,
+    medium: 3,
+    low: 4,
+  }
+
+  if (normalized in namedPriorities) {
+    return namedPriorities[normalized]
+  }
+
+  return /^[0-4]$/.test(normalized) ? Number(normalized) : undefined
+}
+
 export function formatRelativeTime(dateString: string): string {
   const now = getCurrentTime()
   const commentDate = new Date(dateString)
