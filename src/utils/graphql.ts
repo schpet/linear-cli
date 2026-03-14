@@ -130,6 +130,17 @@ function getManagedRuntimeEnv(): { sharedSecret: string; sandboxId: string } {
   return { sharedSecret, sandboxId }
 }
 
+function isLoopbackRelayBaseUrl(relayBaseUrl: string): boolean {
+  try {
+    const relay = new URL(relayBaseUrl)
+    return relay.hostname === "127.0.0.1" ||
+      relay.hostname === "localhost" ||
+      relay.hostname === "::1"
+  } catch {
+    return false
+  }
+}
+
 function getManagedEnvBinding(): {
   accountId: string
   relayBaseUrl: string
@@ -170,6 +181,22 @@ function buildManagedRelayEndpoint(
 function buildManagedRequest(
   binding: { accountId: string; relayBaseUrl: string },
 ): ResolvedGraphQLRequest {
+  const headers: Record<string, string> = {
+    "User-Agent": buildUserAgent(),
+  }
+
+  // Loopback relay proxy already authenticates with the mounted client cert.
+  if (isLoopbackRelayBaseUrl(binding.relayBaseUrl)) {
+    return {
+      authMode: "managed",
+      endpoint: buildManagedRelayEndpoint(
+        binding.relayBaseUrl,
+        binding.accountId,
+      ),
+      headers,
+    }
+  }
+
   const runtime = getManagedRuntimeEnv()
   return {
     authMode: "managed",
@@ -178,7 +205,7 @@ function buildManagedRequest(
       binding.accountId,
     ),
     headers: {
-      "User-Agent": buildUserAgent(),
+      ...headers,
       "x-client-cert-present": "true",
       "x-sandbox-mtls-auth": runtime.sharedSecret,
       "x-sandbox-id": runtime.sandboxId,

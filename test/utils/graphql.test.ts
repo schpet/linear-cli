@@ -83,3 +83,51 @@ Deno.test("getResolvedGraphQLRequest - returns managed relay request from env", 
     Deno.env.delete("LINEAR_SANDBOX_ID")
   }
 })
+
+Deno.test("getResolvedGraphQLRequest - allows loopback managed relay without secret", () => {
+  Deno.env.delete("LINEAR_API_KEY")
+  Deno.env.set("LINEAR_RELAY_BASE_URL", "http://127.0.0.1:43123")
+  Deno.env.set("LINEAR_RELAY_ACCOUNT_ID", "acc-123")
+  Deno.env.delete("LINEAR_MTLS_SHARED_SECRET")
+  Deno.env.delete("LINEAR_SANDBOX_ID")
+  setCliWorkspace(undefined)
+
+  try {
+    const resolved = getResolvedGraphQLRequest()
+    assertEquals(resolved.authMode, "managed")
+    assertEquals(
+      resolved.endpoint,
+      "http://127.0.0.1:43123/internal/integrations/v1/linear/api.linear.app/graphql?accountId=acc-123",
+    )
+    assertEquals(resolved.headers["User-Agent"] !== undefined, true)
+    assertEquals("x-client-cert-present" in resolved.headers, false)
+    assertEquals("x-sandbox-mtls-auth" in resolved.headers, false)
+    assertEquals("x-sandbox-id" in resolved.headers, false)
+  } finally {
+    Deno.env.delete("LINEAR_RELAY_BASE_URL")
+    Deno.env.delete("LINEAR_RELAY_ACCOUNT_ID")
+  }
+})
+
+Deno.test("getResolvedGraphQLRequest - requires secret for non-loopback managed relay", () => {
+  Deno.env.delete("LINEAR_API_KEY")
+  Deno.env.set("LINEAR_RELAY_BASE_URL", "https://sandbox.todayai.dev")
+  Deno.env.set("LINEAR_RELAY_ACCOUNT_ID", "acc-123")
+  Deno.env.delete("LINEAR_MTLS_SHARED_SECRET")
+  Deno.env.delete("LINEAR_SANDBOX_ID")
+  setCliWorkspace(undefined)
+
+  try {
+    const error = assertThrows(
+      () => getResolvedGraphQLRequest(),
+      Error,
+    )
+    assertStringIncludes(
+      error.message,
+      "Managed auth requires LINEAR_MTLS_SHARED_SECRET and LINEAR_SANDBOX_ID.",
+    )
+  } finally {
+    Deno.env.delete("LINEAR_RELAY_BASE_URL")
+    Deno.env.delete("LINEAR_RELAY_ACCOUNT_ID")
+  }
+})
