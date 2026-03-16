@@ -83,6 +83,10 @@ export const listCommand = new Command()
     "Filter by project name",
   )
   .option(
+    "--project-label <projectLabel:string>",
+    "Filter by project label name (shows issues from all projects with this label)",
+  )
+  .option(
     "--cycle <cycle:string>",
     "Filter by cycle name, number, or 'active'",
   )
@@ -113,6 +117,7 @@ export const listCommand = new Command()
         allStates,
         team,
         project,
+        projectLabel,
         cycle,
         milestone,
         limit,
@@ -163,6 +168,16 @@ export const listCommand = new Command()
           )
         }
 
+        if (project != null && projectLabel != null) {
+          throw new ValidationError(
+            "Cannot use --project and --project-label together",
+            {
+              suggestion:
+                "Use --project to filter by a single project, or --project-label to filter by all projects with a given label.",
+            },
+          )
+        }
+
         let projectId: string | undefined
         if (project != null) {
           projectId = await getProjectIdByName(project)
@@ -193,6 +208,15 @@ export const listCommand = new Command()
 
         let milestoneId: string | undefined
         if (milestone != null) {
+          if (projectLabel != null) {
+            throw new ValidationError(
+              "--milestone cannot be used with --project-label",
+              {
+                suggestion:
+                  "Use --project to specify a single project when filtering by milestone.",
+              },
+            )
+          }
           if (projectId == null) {
             throw new ValidationError(
               "--milestone requires --project to be set",
@@ -221,6 +245,7 @@ export const listCommand = new Command()
           sort,
           cycleId,
           milestoneId,
+          projectLabel,
         )
         spinner?.stop()
         const issues = result.issues?.nodes || []
