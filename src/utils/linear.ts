@@ -422,6 +422,7 @@ export async function fetchIssuesForState(
   sortParam?: "manual" | "priority",
   cycleId?: string,
   milestoneId?: string,
+  projectLabel?: string,
 ) {
   const sort = sortParam ??
     getOption("issue_sort") as "manual" | "priority" | undefined
@@ -459,6 +460,8 @@ export async function fetchIssuesForState(
 
   if (projectId) {
     filter.project = { id: { eq: projectId } }
+  } else if (projectLabel) {
+    filter.project = { labels: { name: { eqIgnoreCase: projectLabel } } }
   }
 
   if (cycleId) {
