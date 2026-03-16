@@ -67,23 +67,24 @@ Description:
 
 Options:
 
-  -h, --help                        - Show this help.                                                                                                              
-  -w, --workspace      <slug>       - Target workspace (uses credentials)                                                                                          
-  -s, --state          <state>      - Filter by issue state (can be repeated for multiple states)           (Default: [ "unstarted" ], Values: "triage", "backlog",
-                                                                                                            "unstarted", "started", "completed", "canceled")       
-  --all-states                      - Show issues from all states                                                                                                  
-  --assignee           <assignee>   - Filter by assignee (username)                                                                                                
-  -A, --all-assignees               - Show issues for all assignees                                                                                                
-  -U, --unassigned                  - Show only unassigned issues                                                                                                  
-  --sort               <sort>       - Sort order (can also be set via LINEAR_ISSUE_SORT)                    (Values: "manual", "priority")                         
-  --team               <team>       - Team to list issues for (if not your default team)                                                                           
-  --project            <project>    - Filter by project name                                                                                                       
-  --cycle              <cycle>      - Filter by cycle name, number, or 'active'                                                                                    
-  --milestone          <milestone>  - Filter by project milestone name (requires --project)                                                                        
-  --limit              <limit>      - Maximum number of issues to fetch (default: 50, use 0 for unlimited)  (Default: 50)                                          
-  -w, --web                         - Open in web browser                                                                                                          
-  -a, --app                         - Open in Linear.app                                                                                                           
-  --no-pager                        - Disable automatic paging for long output
+  -h, --help                           - Show this help.                                                                                                                       
+  -w, --workspace      <slug>          - Target workspace (uses credentials)                                                                                                   
+  -s, --state          <state>         - Filter by issue state (can be repeated for multiple states)                    (Default: [ "unstarted" ], Values: "triage", "backlog",
+                                                                                                                        "unstarted", "started", "completed", "canceled")       
+  --all-states                         - Show issues from all states                                                                                                           
+  --assignee           <assignee>      - Filter by assignee (username)                                                                                                         
+  -A, --all-assignees                  - Show issues for all assignees                                                                                                         
+  -U, --unassigned                     - Show only unassigned issues                                                                                                           
+  --sort               <sort>          - Sort order (can also be set via LINEAR_ISSUE_SORT)                             (Values: "manual", "priority")                         
+  --team               <team>          - Team to list issues for (if not your default team)                                                                                    
+  --project            <project>       - Filter by project name                                                                                                                
+  --project-label      <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                         
+  --cycle              <cycle>         - Filter by cycle name, number, or 'active'                                                                                             
+  --milestone          <milestone>     - Filter by project milestone name (requires --project)                                                                                 
+  --limit              <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)           (Default: 50)                                          
+  -w, --web                            - Open in web browser                                                                                                                   
+  -a, --app                            - Open in Linear.app                                                                                                                    
+  --no-pager                           - Disable automatic paging for long output
 ```
 
 ### title
