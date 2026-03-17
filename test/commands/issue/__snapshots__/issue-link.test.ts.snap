@@ -25,22 +25,6 @@ stderr:
 ""
 `;
 
-snapshot[`Issue Link Command - link URL to issue 1`] = `
-stdout:
-"✓ Linked to ENG-123: org/repo#42
-"
-stderr:
-""
-`;
-
-snapshot[`Issue Link Command - link URL with custom title 1`] = `
-stdout:
-"✓ Linked to ENG-456: Design document
-"
-stderr:
-""
-`;
-
 snapshot[`Issue Link Command - invalid URL shows error 1`] = `
 stdout:
 ""
