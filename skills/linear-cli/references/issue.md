@@ -82,6 +82,7 @@ Options:
   --project-label      <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                         
   --cycle              <cycle>         - Filter by cycle name, number, or 'active'                                                                                             
   --milestone          <milestone>     - Filter by project milestone name (requires --project)                                                                                 
+  -l, --label          <label>         - Filter by label name (can be repeated for multiple labels)                                                                            
   --limit              <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)           (Default: 50)                                          
   -w, --web                            - Open in web browser                                                                                                                   
   -a, --app                            - Open in Linear.app                                                                                                                    
