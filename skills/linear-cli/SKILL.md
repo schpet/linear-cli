@@ -16,13 +16,14 @@ The `linear` command must be available on PATH. To check:
 linear --version
 ```
 
-If not installed globally, you can run it without installing via Bun:
+If not installed globally, you can run it without installing via your package manager:
 
 ```bash
-bunx linear --version
+npx linear --version   # npm
+bunx linear --version  # bun
 ```
 
-All subsequent commands can be prefixed with `bunx` in place of `linear`. Otherwise, follow the install instructions at:\
+All subsequent commands can be prefixed with `npx` or `bunx` in place of `linear`. Otherwise, follow the install instructions at:\
 https://github.com/schpet/linear-cli?tab=readme-ov-file#install
 
 ## Best Practices for Markdown Content
