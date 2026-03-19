@@ -32,6 +32,7 @@ Commands:
   update            [issueId]             - Update a linear issue                              
   comment                                 - Manage issue comments                              
   attach            <issueId> <filepath>  - Attach a file to an issue                          
+  link              <urlOrIssueId> [url]  - Link a URL to an issue                             
   relation                                - Manage issue relations (dependencies)
 ```
 
@@ -417,6 +418,30 @@ Options:
   -w, --workspace  <slug>   - Target workspace (uses credentials)          
   -t, --title      <title>  - Custom title for the attachment              
   -c, --comment    <body>   - Add a comment body linked to the attachment
+```
+
+### link
+
+> Link a URL to an issue
+
+```
+Usage:   linear issue link <urlOrIssueId> [url]
+
+Description:
+
+  Link a URL to an issue
+
+Options:
+
+  -h, --help                - Show this help.                      
+  -w, --workspace  <slug>   - Target workspace (uses credentials)  
+  -t, --title      <title>  - Custom title for the link            
+
+Examples:
+
+  Link a URL to issue detected from branch linear issue link https://github.com/org/repo/pull/123            
+  Link a URL to a specific issue           linear issue link ENG-123 https://github.com/org/repo/pull/123    
+  Link with a custom title                 linear issue link ENG-123 https://example.com --title "Design doc"
 ```
 
 ### relation
