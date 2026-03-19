@@ -1,0 +1,59 @@
+export const snapshot = {};
+
+snapshot[`Issue Link Command - Help Text 1`] = `
+stdout:
+'
+Usage: link <urlOrIssueId> [url]
+
+Description:
+
+  Link a URL to an issue
+
+Options:
+
+  -h, --help            - Show this help.            
+  -t, --title  <title>  - Custom title for the link  
+
+Examples:
+
+  Link a URL to issue detected from branch linear issue link https://github.com/org/repo/pull/123            
+  Link a URL to a specific issue           linear issue link ENG-123 https://github.com/org/repo/pull/123    
+  Link with a custom title                 linear issue link ENG-123 https://example.com --title "Design doc"
+
+'
+stderr:
+""
+`;
+
+snapshot[`Issue Link Command - link URL to issue 1`] = `
+stdout:
+"✓ Linked to ENG-123: org/repo#42
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Link Command - link URL with custom title 1`] = `
+stdout:
+"✓ Linked to ENG-456: Design document
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Link Command - invalid URL shows error 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to link URL: Expected a URL but got 'not-a-url'
+  Provide a URL starting with http:// or https://.
+"
+`;
+
+snapshot[`Issue Link Command - issue not found 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to link URL: Issue not found: ENG-999
+"
+`;
