@@ -122,8 +122,11 @@ export const viewCommand = new Command()
 
       const { identifier } = issueData
 
-      // Build metadata line with project and milestone
+      // Build metadata line with state, project and milestone
       const metaParts: string[] = []
+      if (issueData.state) {
+        metaParts.push(`**State:** ${issueData.state.name}`)
+      }
       if (issueData.project) {
         metaParts.push(`**Project:** ${issueData.project.name}`)
       }
