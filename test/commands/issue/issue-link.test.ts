@@ -133,7 +133,10 @@ await snapshotTest({
         response: {
           errors: [{
             message: "Entity not found",
-            extensions: { type: "entity", userPresentableMessage: "Entity not found" },
+            extensions: {
+              type: "entity",
+              userPresentableMessage: "Entity not found",
+            },
           }],
         },
       },
