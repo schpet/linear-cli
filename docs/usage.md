@@ -56,11 +56,11 @@ linear issue list --all-assignees
 other options:
 
 ```bash
-# List issues for specific team
+# List issues for specific team (auto-detected if you belong to one team)
 linear issue list --team TEAM
 
-# Sort by priority instead of manual order
-linear issue list --sort priority
+# Sort by manual order instead of default priority order
+linear issue list --sort manual
 
 # Open in web browser
 linear issue list --web
@@ -289,8 +289,8 @@ linear issue view
 # Create and start a new bug fix
 linear issue create --title "Fix login error" --label bug --start
 
-# List high priority issues
-linear issue list --sort priority
+# List issues in manual sort order
+linear issue list --sort manual
 
 # Create a pull request for current issue
 linear issue pr

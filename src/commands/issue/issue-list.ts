@@ -176,9 +176,8 @@ export const listCommand = new Command()
               })),
             })
           } else {
-            const teamList = viewerTeams.map((t) =>
-              `${t.name} (${t.key})`
-            ).join(", ")
+            const teamList = viewerTeams.map((t) => `${t.name} (${t.key})`)
+              .join(", ")
             throw new ValidationError(
               "Multiple teams found; specify one with --team",
               {
