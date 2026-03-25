@@ -99,6 +99,7 @@ export const listCommand = new Command()
   )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
+  .option("-j, --json", "Output issues as JSON")
   .option("--no-pager", "Disable automatic paging for long output")
   .action(
     async (
@@ -110,6 +111,7 @@ export const listCommand = new Command()
         unassigned,
         web,
         app,
+        json,
         allStates,
         team,
         project,
@@ -206,7 +208,7 @@ export const listCommand = new Command()
         }
 
         const { Spinner } = await import("@std/cli/unstable-spinner")
-        const showSpinner = shouldShowSpinner()
+        const showSpinner = shouldShowSpinner() && !json
         const spinner = showSpinner ? new Spinner() : null
         spinner?.start()
 
@@ -227,6 +229,12 @@ export const listCommand = new Command()
 
         if (issues.length === 0) {
           console.log("No issues found.")
+          return
+        }
+
+        // Handle JSON output
+        if (json) {
+          console.log(JSON.stringify(issues, null, 2))
           return
         }
 

@@ -26,9 +26,61 @@ Options:
   --limit              <limit>      - Maximum number of issues to fetch (default: 50, use 0 for unlimited)  (Default: \\x1b[33m50\\x1b[39m)                                          
   -w, --web                         - Open in web browser                                                                                                          
   -a, --app                         - Open in Linear.app                                                                                                           
+  -j, --json                        - Output issues as JSON                                                                                                        
   --no-pager                        - Disable automatic paging for long output                                                                                     
 
 \`
+stderr:
+""
+`;
+
+snapshot[`Issue List Command - JSON Output 1`] = `
+stdout:
+'[
+  {
+    "id": "issue-1",
+    "identifier": "TEST-101",
+    "title": "First issue",
+    "priority": 2,
+    "estimate": 3,
+    "assignee": {
+      "initials": "JD"
+    },
+    "state": {
+      "id": "state-1",
+      "name": "In Progress",
+      "color": "#f87462"
+    },
+    "labels": {
+      "nodes": []
+    },
+    "updatedAt": "2024-01-15T10:00:00Z"
+  },
+  {
+    "id": "issue-2",
+    "identifier": "TEST-102",
+    "title": "Second issue",
+    "priority": 1,
+    "estimate": null,
+    "assignee": null,
+    "state": {
+      "id": "state-2",
+      "name": "Todo",
+      "color": "#e2e2e2"
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "label-1",
+          "name": "bug",
+          "color": "#eb5757"
+        }
+      ]
+    },
+    "updatedAt": "2024-01-14T08:00:00Z"
+  }
+]
+'
 stderr:
 ""
 `;
