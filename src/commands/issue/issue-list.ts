@@ -39,13 +39,17 @@ const validStates = [
 ] as const
 type State = typeof validStates[number]
 
+function isValidState(v: string): v is State {
+  return (validStates as readonly string[]).includes(v)
+}
+
 export const listCommand = new Command()
   .name("list")
   .description("List your issues")
   .type("sort", SortType)
   .option(
     "-s, --state <state:string>",
-    "Filter by issue state (comma-separated or repeated, e.g. --state triage,started)",
+    "Filter by issue state: triage, backlog, unstarted, started, completed, canceled (comma-separated or repeated)",
     {
       default: ["unstarted"],
       collect: true,
@@ -139,15 +143,24 @@ export const listCommand = new Command()
             .flatMap((s: string) => s.split(",").map((v) => v.trim()))
             .filter((v) => v.length > 0)
             .map((v) => {
-              if (!validStates.includes(v as State)) {
+              if (!isValidState(v)) {
                 throw new ValidationError(
                   `Invalid state: "${v}". Valid states are: ${
                     validStates.join(", ")
                   }`,
                 )
               }
-              return v as State
+              return v
             })
+
+        if (stateArray.length === 0) {
+          throw new ValidationError(
+            "No valid states provided",
+            {
+              suggestion: `Valid states are: ${validStates.join(", ")}`,
+            },
+          )
+        }
 
         if (
           allStates && (stateArray.length > 1 || stateArray[0] !== "unstarted")
