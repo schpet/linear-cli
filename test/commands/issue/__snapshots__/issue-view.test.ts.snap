@@ -28,7 +28,7 @@ snapshot[`Issue View Command - With Mock Server Terminal No Comments 1`] = `
 stdout:
 "# TEST-123: Fix authentication bug in login flow
 
-**State:** In Progress
+**State:** In Progress | **Priority:** --- | **Assignee:** Unassigned
 
 Users are experiencing issues logging in when their session expires. This affects the main authentication flow and needs to be resolved quickly.
 
@@ -52,7 +52,7 @@ snapshot[`Issue View Command - With No Comments Flag 1`] = `
 stdout:
 "# TEST-123: Fix authentication bug in login flow
 
-**State:** In Progress
+**State:** In Progress | **Priority:** ▄▆█ | **Assignee:** @Jane Smith
 
 Users are experiencing issues logging in when their session expires.
 "
@@ -64,7 +64,7 @@ snapshot[`Issue View Command - With Comments Default 1`] = `
 stdout:
 "# TEST-123: Fix authentication bug in login flow
 
-**State:** In Progress
+**State:** In Progress | **Priority:** ⚠⚠⚠ | **Assignee:** @John Doe
 
 Users are experiencing issues logging in when their session expires.
 
@@ -112,6 +112,8 @@ stdout:
     "name": "In Progress",
     "color": "#f87462"
   },
+  "assignee": null,
+  "priority": 3,
   "parent": null,
   "children": [],
   "attachments": []
@@ -133,6 +135,11 @@ stdout:
     "name": "In Progress",
     "color": "#f87462"
   },
+  "assignee": {
+    "name": "jane.smith",
+    "displayName": "Jane Smith"
+  },
+  "priority": 2,
   "project": null,
   "projectMilestone": null,
   "parent": null,
@@ -174,7 +181,7 @@ snapshot[`Issue View Command - With Parent And Sub-issues 1`] = `
 stdout:
 "# TEST-456: Implement user authentication
 
-**State:** In Progress
+**State:** In Progress | **Priority:** ▄▆█ | **Assignee:** @Alice Developer
 
 Add user authentication to the application.
 
@@ -198,7 +205,7 @@ snapshot[`Issue View Command - With Project And Milestone 1`] = `
 stdout:
 "# TEST-789: Add monitoring dashboards
 
-**State:** In Progress | **Project:** Platform Infrastructure Q1 | **Milestone:** Phase 2: Observability
+**State:** In Progress | **Priority:** ▄▆  | **Assignee:** @Bob Senior | **Project:** Platform Infrastructure Q1 | **Milestone:** Phase 2: Observability
 
 Set up Datadog dashboards for the new service.
 "
@@ -210,7 +217,7 @@ snapshot[`Issue View Command - With Cycle 1`] = `
 stdout:
 "# TEST-890: Implement rate limiting
 
-**State:** Todo | **Project:** API Gateway v2 | **Cycle:** Sprint 7
+**State:** Todo | **Priority:** ▄   | **Assignee:** Unassigned | **Project:** API Gateway v2 | **Cycle:** Sprint 7
 
 Add rate limiting to the API gateway.
 "

@@ -169,6 +169,8 @@ export async function fetchIssueDetails(
   state: { name: string; color: string }
   project?: { name: string } | null
   projectMilestone?: { name: string } | null
+  assignee?: { name: string; displayName: string } | null
+  priority: number
   cycle?: { name?: string | null; number: number } | null
   parent?: {
     identifier: string
@@ -215,6 +217,11 @@ export async function fetchIssueDetails(
             name
             color
           }
+          assignee {
+            name
+            displayName
+          }
+          priority
           project {
             name
           }
@@ -288,6 +295,11 @@ export async function fetchIssueDetails(
             name
             color
           }
+          assignee {
+            name
+            displayName
+          }
+          priority
           project {
             name
           }
