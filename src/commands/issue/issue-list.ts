@@ -16,6 +16,7 @@ import {
   getProjectOptionsByName,
   getTeamIdByKey,
   getTeamKey,
+  getViewerTeams,
   selectOption,
 } from "../../utils/linear.ts"
 import { openTeamAssigneeView } from "../../utils/actions.ts"
@@ -145,22 +146,46 @@ export const listCommand = new Command()
         }
 
         const sort = sortFlag ||
-          getOption("issue_sort") as "manual" | "priority" | undefined
-        if (!sort) {
-          throw new ValidationError(
-            "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
-          )
-        }
+          getOption("issue_sort") as "manual" | "priority" | undefined ||
+          "priority"
         if (!SortType.values().includes(sort)) {
           throw new ValidationError(
             `Sort must be one of: ${SortType.values().join(", ")}`,
           )
         }
-        const teamKey = team || getTeamKey()
+        let teamKey = team || getTeamKey()
         if (!teamKey) {
-          throw new ValidationError(
-            "Could not determine team key from directory name or team flag",
-          )
+          const viewerTeams = await getViewerTeams()
+          if (viewerTeams.length === 0) {
+            throw new ValidationError(
+              "No teams found for the authenticated user",
+              {
+                suggestion:
+                  "Join a team in Linear, or specify one with --team.",
+              },
+            )
+          } else if (viewerTeams.length === 1) {
+            teamKey = viewerTeams[0].key
+          } else if (Deno.stdin.isTerminal()) {
+            const { Select } = await import("@cliffy/prompt")
+            teamKey = await Select.prompt({
+              message: "Select a team",
+              options: viewerTeams.map((t) => ({
+                name: `${t.name} (${t.key})`,
+                value: t.key,
+              })),
+            })
+          } else {
+            const teamList = viewerTeams.map((t) =>
+              `${t.name} (${t.key})`
+            ).join(", ")
+            throw new ValidationError(
+              "Multiple teams found; specify one with --team",
+              {
+                suggestion: `Available teams: ${teamList}`,
+              },
+            )
+          }
         }
 
         let projectId: string | undefined

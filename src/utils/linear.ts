@@ -424,16 +424,8 @@ export async function fetchIssuesForState(
   milestoneId?: string,
 ) {
   const sort = sortParam ??
-    getOption("issue_sort") as "manual" | "priority" | undefined
-  if (!sort) {
-    throw new ValidationError(
-      "Sort must be provided",
-      {
-        suggestion:
-          "Use --sort parameter, set in configuration file, or set LINEAR_ISSUE_SORT environment variable",
-      },
-    )
-  }
+    getOption("issue_sort") as "manual" | "priority" | undefined ??
+    "priority"
 
   const filter: IssueFilter = {
     team: { key: { eq: teamKey } },
@@ -805,6 +797,34 @@ export async function getIssueLabelOptionsByNameForTeam(
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
   )
   return Object.fromEntries(sortedResults.map((t) => [t.id, t.name]))
+}
+
+/**
+ * Fetch the teams the authenticated user belongs to via the viewer query.
+ * Returns teams sorted alphabetically by name.
+ */
+export async function getViewerTeams(): Promise<
+  Array<{ key: string; name: string }>
+> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetViewerTeams {
+      viewer {
+        teams {
+          nodes {
+            key
+            name
+          }
+        }
+      }
+    }
+  `)
+
+  const data = await client.request(query, {})
+  const teams = data.viewer.teams.nodes
+  return teams.sort((a: { name: string }, b: { name: string }) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  )
 }
 
 export async function getAllTeams(): Promise<
