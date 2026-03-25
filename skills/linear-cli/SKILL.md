@@ -16,7 +16,13 @@ The `linear` command must be available on PATH. To check:
 linear --version
 ```
 
-If not installed, follow the instructions at:\
+If not installed globally, you can run it without installing via npx:
+
+```bash
+npx @schpet/linear-cli --version
+```
+
+All subsequent commands can be prefixed with `npx @schpet/linear-cli` in place of `linear`. Otherwise, follow the install instructions at:\
 https://github.com/schpet/linear-cli?tab=readme-ov-file#install
 
 ## Best Practices for Markdown Content
@@ -107,6 +113,11 @@ linear issue create --help
 ```
 
 Each command has detailed help output describing all available flags and options.
+
+Some commands have required flags that aren't obvious. Notable examples:
+
+- `issue list` requires a sort order — provide it via `--sort` (valid values: `manual`, `priority`), the `issue_sort` config option, or the `LINEAR_ISSUE_SORT` env var. Also requires `--team <key>` unless the team can be inferred from the directory — if unknown, run `linear team list` first.
+- `--no-pager` is only supported on `issue list` — passing it to other commands like `project list` will error.
 
 ## Using the Linear GraphQL API Directly
 
