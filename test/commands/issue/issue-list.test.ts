@@ -37,7 +37,11 @@ await snapshotTest({
                   priority: 2,
                   estimate: 3,
                   assignee: { initials: "JD" },
-                  state: { id: "state-1", name: "In Progress", color: "#f87462" },
+                  state: {
+                    id: "state-1",
+                    name: "In Progress",
+                    color: "#f87462",
+                  },
                   labels: { nodes: [] },
                   updatedAt: "2024-01-15T10:00:00Z",
                 },
