@@ -33,7 +33,10 @@ linear issue list --state started
 # List all issues regardless of state  
 linear issue list --all-states
 
-# List multiple states
+# List multiple states (comma-separated)
+linear issue list --state unstarted,started
+
+# List multiple states (repeated flag)
 linear issue list --state unstarted --state started
 ```
 

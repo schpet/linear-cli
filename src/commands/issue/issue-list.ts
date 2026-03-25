@@ -134,19 +134,20 @@ export const listCommand = new Command()
           )
         }
 
-        const stateArray: State[] = (Array.isArray(state)
-          ? state.flat()
-          : [state])
-          .flatMap((s: string) => s.split(",").map((v) => v.trim()))
-          .filter((v) => v.length > 0)
-          .map((v) => {
-            if (!validStates.includes(v as State)) {
-              throw new ValidationError(
-                `Invalid state: "${v}". Valid states are: ${validStates.join(", ")}`,
-              )
-            }
-            return v as State
-          })
+        const stateArray: State[] =
+          (Array.isArray(state) ? state.flat() : [state])
+            .flatMap((s: string) => s.split(",").map((v) => v.trim()))
+            .filter((v) => v.length > 0)
+            .map((v) => {
+              if (!validStates.includes(v as State)) {
+                throw new ValidationError(
+                  `Invalid state: "${v}". Valid states are: ${
+                    validStates.join(", ")
+                  }`,
+                )
+              }
+              return v as State
+            })
 
         if (
           allStates && (stateArray.length > 1 || stateArray[0] !== "unstarted")
