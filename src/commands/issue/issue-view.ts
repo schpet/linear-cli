@@ -5,7 +5,7 @@ import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { openIssuePage } from "../../utils/actions.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
-import { bold, underline } from "@std/fmt/colors"
+import { bold, rgb24, underline } from "@std/fmt/colors"
 import { ensureDir } from "@std/fs"
 import { join } from "@std/path"
 import { encodeHex } from "@std/encoding/hex"
@@ -122,8 +122,15 @@ export const viewCommand = new Command()
 
       const { identifier } = issueData
 
-      // Build metadata line with project and milestone
+      // Build metadata line with state, project and milestone
       const metaParts: string[] = []
+      if (issueData.state) {
+        const coloredState = rgb24(
+          issueData.state.name,
+          parseInt(issueData.state.color.replace("#", ""), 16),
+        )
+        metaParts.push(`**State:** ${coloredState}`)
+      }
       if (issueData.project) {
         metaParts.push(`**Project:** ${issueData.project.name}`)
       }
