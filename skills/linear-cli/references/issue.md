@@ -84,6 +84,7 @@ Options:
   --limit              <limit>      - Maximum number of issues to fetch (default: 50, use 0 for unlimited)  (Default: 50)                                          
   -w, --web                         - Open in web browser                                                                                                          
   -a, --app                         - Open in Linear.app                                                                                                           
+  -j, --json                        - Output issues as JSON                                                                                                        
   --no-pager                        - Disable automatic paging for long output
 ```
 
