@@ -70,19 +70,19 @@ Users are experiencing issues logging in when their session expires.
 
 ## Comments
 
-- **@Bob Senior** - *1/15/2024*
+- **@Bob Senior** - *2024/1/16*
 
   Should we also consider implementing automatic session refresh?
 
-- **@John Doe** - *1/15/2024*
+- **@John Doe** - *2024/1/15*
 
   I've reproduced this issue on staging. The session timeout seems to be too aggressive.
 
-  - **@Jane Smith** - *1/15/2024*
+  - **@Jane Smith** - *2024/1/15*
 
     Working on a fix. Will increase the session timeout and add proper error handling.
 
-  - **@Alice Developer** - *1/15/2024*
+  - **@Alice Developer** - *2024/1/15*
 
     Sounds good! Also, we should add better error messaging for expired sessions.
 
@@ -114,7 +114,41 @@ stdout:
   },
   "parent": null,
   "children": [],
-  "attachments": []
+  "attachments": [],
+  "labels": []
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Issue View Command - JSON Output With Labels 1`] = `
+stdout:
+'{
+  "identifier": "TEST-123",
+  "title": "Fix authentication bug in login flow",
+  "description": "Users are experiencing issues logging in when their session expires.",
+  "url": "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
+  "branchName": "fix/test-123-auth-bug",
+  "state": {
+    "name": "In Progress",
+    "color": "#f87462"
+  },
+  "parent": null,
+  "children": [],
+  "attachments": [],
+  "labels": [
+    {
+      "id": "label-1",
+      "name": "bug",
+      "color": "#e5484d"
+    },
+    {
+      "id": "label-2",
+      "name": "priority:high",
+      "color": "#f5a524"
+    }
+  ]
 }
 '
 stderr:
@@ -163,7 +197,8 @@ stdout:
       }
     }
   ],
-  "attachments": []
+  "attachments": [],
+  "labels": []
 }
 \`
 stderr:

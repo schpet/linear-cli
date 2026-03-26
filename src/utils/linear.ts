@@ -170,6 +170,7 @@ export async function fetchIssueDetails(
   project?: { name: string } | null
   projectMilestone?: { name: string } | null
   cycle?: { name?: string | null; number: number } | null
+  labels?: Array<{ id: string; name: string; color: string }>
   parent?: {
     identifier: string
     title: string
@@ -224,6 +225,13 @@ export async function fetchIssueDetails(
           cycle {
             name
             number
+          }
+          labels(first: 50) {
+            nodes {
+              id
+              name
+              color
+            }
           }
           parent {
             identifier
@@ -298,6 +306,13 @@ export async function fetchIssueDetails(
             name
             number
           }
+          labels(first: 50) {
+            nodes {
+              id
+              name
+              color
+            }
+          }
           parent {
             identifier
             title
@@ -338,6 +353,7 @@ export async function fetchIssueDetails(
       spinner?.stop()
       return {
         ...data.issue,
+        labels: data.issue.labels?.nodes || [],
         children: data.issue.children?.nodes || [],
         comments: data.issue.comments?.nodes || [],
         attachments: data.issue.attachments?.nodes || [],
@@ -347,6 +363,7 @@ export async function fetchIssueDetails(
       spinner?.stop()
       return {
         ...data.issue,
+        labels: data.issue.labels?.nodes || [],
         children: data.issue.children?.nodes || [],
         attachments: data.issue.attachments?.nodes || [],
       }
