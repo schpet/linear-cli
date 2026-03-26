@@ -59,7 +59,8 @@ other options:
 # List issues for specific team (auto-detected if you belong to one team)
 linear issue list --team TEAM
 
-# Sort by manual order instead of default priority order
+# Sort by priority or manual order
+linear issue list --sort priority
 linear issue list --sort manual
 
 # Open in web browser

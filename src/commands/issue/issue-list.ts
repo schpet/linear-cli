@@ -146,8 +146,16 @@ export const listCommand = new Command()
         }
 
         const sort = sortFlag ||
-          getOption("issue_sort") as "manual" | "priority" | undefined ||
-          "priority"
+          getOption("issue_sort") as "manual" | "priority" | undefined
+        if (!sort) {
+          throw new ValidationError(
+            "Sort must be provided",
+            {
+              suggestion:
+                "Use --sort priority or --sort manual, or set it permanently with: linear config set issue_sort priority",
+            },
+          )
+        }
         if (!SortType.values().includes(sort)) {
           throw new ValidationError(
             `Sort must be one of: ${SortType.values().join(", ")}`,
