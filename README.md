@@ -16,6 +16,7 @@ linear issue start ABC-123  # start a specific issue
 linear issue view           # see current branch's issue as markdown
 linear issue pr             # makes a PR with title/body preset, using gh cli
 linear issue create         # create a new issue
+linear pr-body --issues ALA-123,ALA-124  # generate the Alavida PR template
 ```
 
 it aims to be a complement to the web and desktop apps that lets you stay on the command line in an interactive or scripted way.
@@ -38,16 +39,10 @@ it aims to be a complement to the web and desktop apps that lets you stay on the
 
 ## install
 
-### homebrew
-
-```
-brew install schpet/tap/linear
-```
-
 ### deno via jsr
 
 ```bash
-deno install -A --reload -f -g -n linear jsr:@schpet/linear-cli
+deno install -A --reload -f -g -n linear jsr:@alavida/linear-cli
 ```
 
 ### npm / bun / pnpm
@@ -55,11 +50,11 @@ deno install -A --reload -f -g -n linear jsr:@schpet/linear-cli
 install as a dev dependency to pin a version in your project:
 
 ```bash
-npm install -D @schpet/linear-cli
+npm install -D @alavida/linear-cli
 # or
-bun add -D @schpet/linear-cli
+bun add -D @alavida/linear-cli
 # or
-pnpm add -D @schpet/linear-cli
+pnpm add -D @alavida/linear-cli
 ```
 
 then run via your package manager:
@@ -71,16 +66,16 @@ bunx linear issue list
 
 > **note:** this package ships pre-built binaries
 
-package on npm: [@schpet/linear-cli](https://www.npmjs.com/package/@schpet/linear-cli)
+package on npm: `@alavida/linear-cli`
 
 ### binaries
 
-https://github.com/schpet/linear-cli/releases/latest
+https://github.com/alavida-ai/linear-cli/releases/latest
 
 ### local dev
 
 ```bash
-git clone https://github.com/schpet/linear-cli
+git clone https://github.com/alavida-ai/linear-cli
 cd linear-cli
 deno task install
 ```
@@ -163,6 +158,7 @@ linear team autolinks  # configure GitHub repository autolinks for Linear issues
 ```bash
 linear project list    # list projects
 linear project view    # view project details
+linear project create --name "Client Deliverable" --team ENG --initiative "Client Delivery"
 ```
 
 ### milestone commands
@@ -255,11 +251,11 @@ install the skill using [claude code's plugin system](https://code.claude.com/do
 
 ```bash
 # from claude code
-/plugin marketplace add schpet/linear-cli
+/plugin marketplace add alavida-ai/linear-cli
 /plugin install linear-cli@linear-cli
 
 # from bash
-claude plugin marketplace add schpet/linear-cli
+claude plugin marketplace add alavida-ai/linear-cli
 claude plugin install linear-cli@linear-cli
 
 # to update
@@ -272,10 +268,10 @@ claude plugin update linear-cli@linear-cli
 install the skill using [skills.sh](https://skills.sh):
 
 ```bash
-npx skills add schpet/linear-cli
+npx skills add alavida-ai/linear-cli
 ```
 
-view the skill at [skills.sh/schpet/linear-cli/linear-cli](https://skills.sh/schpet/linear-cli/linear-cli)
+view the skill at [skills.sh/alavida-ai/linear-cli/linear-cli](https://skills.sh/alavida-ai/linear-cli/linear-cli)
 
 ## development
 

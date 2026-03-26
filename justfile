@@ -34,5 +34,5 @@ claude-install-local:
   claude plugin install linear-cli@linear-cli
 
 claude-install-github:
-  claude plugin marketplace add schpet/linear-cli
+  claude plugin marketplace add alavida-ai/linear-cli
   claude plugin install linear-cli@linear-cli

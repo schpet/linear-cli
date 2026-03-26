@@ -20,11 +20,12 @@ interface MockResponse {
 
 export class MockLinearServer {
   private server?: Deno.HttpServer
-  private port = 3333
+  private port: number
   private mockResponses: MockResponse[]
 
-  constructor(responses: MockResponse[] = []) {
+  constructor(responses: MockResponse[] = [], port = 3333) {
     this.mockResponses = responses
+    this.port = port
   }
 
   async start(): Promise<void> {

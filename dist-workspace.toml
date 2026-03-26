@@ -7,8 +7,8 @@ name = "linear"
 description = "CLI tool for linear.app that uses git branch names and directory names to open issues and team pages"
 version = "1.11.1"
 license = "MIT"
-repository = "https://github.com/schpet/linear-cli"
-homepage = "https://github.com/schpet/linear-cli"
+repository = "https://github.com/alavida-ai/linear-cli"
+homepage = "https://github.com/alavida-ai/linear-cli"
 binaries = ["linear"]
 build-command = [
     "sh",
@@ -23,15 +23,13 @@ cargo-dist-version = "0.31.0"
 # CI backends to support
 ci = "github"
 # The installers to generate for each app
-installers = ["shell", "npm", "homebrew"]
-# A GitHub repo to push Homebrew formulas to
-tap = "schpet/homebrew-tap"
+installers = ["shell", "npm"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
 # Publish jobs to run in CI
-publish-jobs = ["homebrew", "npm"]
+publish-jobs = ["npm"]
 # A namespace to use when publishing this package to the npm registry
-npm-scope = "@schpet"
+npm-scope = "@alavida"
 # The npm package should have this name
 npm-package = "linear-cli"
 # Which actions to run on pull requests

@@ -8,6 +8,8 @@ allowed-tools: Bash(linear:*), Bash(curl:*)
 
 A CLI to manage Linear issues from the command line, with git and jj integration.
 
+Use the `linear` CLI directly. The `allowed-tools` metadata only grants execution permission for the installed CLI; it is not a separate wrapper interface.
+
 ## Prerequisites
 
 The `linear` command must be available on PATH. To check:
@@ -19,11 +21,11 @@ linear --version
 If not installed globally, you can run it without installing via npx:
 
 ```bash
-npx @schpet/linear-cli --version
+npx @alavida/linear-cli --version
 ```
 
-All subsequent commands can be prefixed with `npx @schpet/linear-cli` in place of `linear`. Otherwise, follow the install instructions at:\
-https://github.com/schpet/linear-cli?tab=readme-ov-file#install
+All subsequent commands can be prefixed with `npx @alavida/linear-cli` in place of `linear`. Otherwise, follow the install instructions at:\
+https://github.com/alavida-ai/linear-cli?tab=readme-ov-file#install
 
 ## Best Practices for Markdown Content
 
@@ -80,6 +82,7 @@ linear document           # Manage Linear documents
 linear config             # Interactively generate .linear.toml configuration
 linear schema             # Print the GraphQL schema to stdout
 linear api                # Make a raw GraphQL API request
+linear pr-body            # Generate the Alavida PR template from one or more issues
 ```
 
 ## Reference Documentation
