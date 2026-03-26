@@ -57,8 +57,9 @@ Deno.test("getGraphQLClient handles authentication errors", async () => {
   } catch (error) {
     const errorMessage = (error as Error).message
 
-    // graphql-request formats errors as "GraphQL Error (Code: status)"
-    assertStringIncludes(errorMessage, "GraphQL Error (Code: 401)")
+    // graphql-request 7.4+ parses the response body even for non-2xx,
+    // so the error message contains the actual API error
+    assertStringIncludes(errorMessage, "Authentication failed")
   } finally {
     restoreFetch()
     restoreEnv()
