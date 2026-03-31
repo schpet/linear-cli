@@ -33,7 +33,8 @@ Commands:
   comment                                 - Manage issue comments                              
   attach            <issueId> <filepath>  - Attach a file to an issue                          
   link              <urlOrIssueId> [url]  - Link a URL to an issue                             
-  relation                                - Manage issue relations (dependencies)
+  relation                                - Manage issue relations (dependencies)              
+  agent-session                           - Manage agent sessions for an issue
 ```
 
 ## Subcommands
@@ -523,4 +524,62 @@ Options:
 
   -h, --help               - Show this help.                      
   -w, --workspace  <slug>  - Target workspace (uses credentials)
+```
+
+### agent-session
+
+> Manage agent sessions for an issue
+
+```
+Usage:   linear issue agent-session
+
+Description:
+
+  Manage agent sessions for an issue
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+
+Commands:
+
+  list     [issueId]    - List agent sessions for an issue
+  view, v  <sessionId>  - View agent session details
+```
+
+#### agent-session subcommands
+
+##### list
+
+```
+Usage:   linear issue agent-session list [issueId]
+
+Description:
+
+  List agent sessions for an issue
+
+Options:
+
+  -h, --help                 - Show this help.                                                                                
+  -w, --workspace  <slug>    - Target workspace (uses credentials)                                                            
+  -j, --json                 - Output as JSON                                                                                 
+  --status         <status>  - Filter by session status             (Values: "pending", "active", "complete", "awaitingInput",
+                                                                    "error", "stale")
+```
+
+##### view
+
+```
+Usage:   linear issue agent-session view <sessionId>
+
+Description:
+
+  View agent session details
+
+Options:
+
+  -h, --help               - Show this help.                      
+  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json               - Output as JSON
 ```
