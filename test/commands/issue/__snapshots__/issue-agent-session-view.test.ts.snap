@@ -1,0 +1,73 @@
+export const snapshot = {};
+
+snapshot[`Issue Agent Session View Command - Help Text 1`] = `
+stdout:
+"
+Usage: view <sessionId>
+
+Description:
+
+  View agent session details
+
+Options:
+
+  -h, --help  - Show this help.  
+  -j, --json  - Output as JSON   
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Agent Session View Command - Active Session With Activities 1`] = `
+stdout:
+"# Agent Session
+
+**ID:** session-1
+**Status:** active
+**Type:** commentThread
+**Agent:** Linear Assistant
+**Creator:** Alice
+**Issue:** ENG-412 - Fix auth token refresh
+
+**Created:** 1/1/2020
+**Started:** 1/1/2020
+
+## Summary
+
+Investigating auth token refresh bug in the middleware layer
+
+## Activities
+
+- **thought** (1/1/2020) - Looking at the auth middleware code
+- **action** (1/1/2020) - read_file: src/middleware/auth.ts
+- **response** (1/1/2020) - The token refresh is failing because the expiry check uses UTC
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Agent Session View Command - Completed Session No Activities 1`] = `
+stdout:
+"# Agent Session
+
+**ID:** session-2
+**Status:** complete
+**Type:** commentThread
+**Agent:** Linear Assistant
+**Creator:** Bob
+**Issue:** ENG-398 - Add dark mode toggle
+
+**Created:** 1/1/2020
+**Started:** 1/1/2020
+**Ended:** 1/1/2020
+
+**External Link:** https://github.com/org/repo/pull/42
+
+## Summary
+
+Added dark mode toggle to settings page
+"
+stderr:
+""
+`;

@@ -1,0 +1,40 @@
+export const snapshot = {};
+
+snapshot[`Issue Agent Session List Command - Help Text 1`] = `
+stdout:
+'
+Usage: list [issueId]
+
+Description:
+
+  List agent sessions for an issue
+
+Options:
+
+  -h, --help            - Show this help.                                                                     
+  -j, --json            - Output as JSON                                                                      
+  --status    <status>  - Filter by session status  (Values: \\x1b[32m"pending"\\x1b[39m, \\x1b[32m"active"\\x1b[39m, \\x1b[32m"complete"\\x1b[39m, \\x1b[32m"awaitingInput"\\x1b[39m,
+                                                    \\x1b[32m"error"\\x1b[39m, \\x1b[32m"stale"\\x1b[39m)                                         
+
+'
+stderr:
+""
+`;
+
+snapshot[`Issue Agent Session List Command - With Mock Sessions 1`] = `
+stdout:
+"STATUS        AGENT            CREATED    SUMMARY
+active        Linear Assistant 2026-03-20 Investigating auth token refresh bug
+complete      Linear Assistant 2026-03-19 Added dark mode toggle to settings page
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Agent Session List Command - No Sessions Found 1`] = `
+stdout:
+"No agent sessions found for this issue.
+"
+stderr:
+""
+`;

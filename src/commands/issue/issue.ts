@@ -10,6 +10,7 @@ import { linkCommand } from "./issue-link.ts"
 import { listCommand } from "./issue-list.ts"
 import { pullRequestCommand } from "./issue-pull-request.ts"
 import { relationCommand } from "./issue-relation.ts"
+import { agentSessionCommand } from "./issue-agent-session.ts"
 import { startCommand } from "./issue-start.ts"
 import { titleCommand } from "./issue-title.ts"
 import { updateCommand } from "./issue-update.ts"
@@ -37,3 +38,4 @@ export const issueCommand = new Command()
   .command("attach", attachCommand)
   .command("link", linkCommand)
   .command("relation", relationCommand)
+  .command("agent-session", agentSessionCommand)
