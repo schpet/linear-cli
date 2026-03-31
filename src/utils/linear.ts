@@ -13,6 +13,34 @@ import { getGraphQLClient } from "./graphql.ts"
 import { getCurrentIssueFromVcs } from "./vcs.ts"
 import { NotFoundError, ValidationError } from "./errors.ts"
 
+/**
+ * Validate and parse a date string in ISO 8601 format (YYYY-MM-DD or full ISO 8601).
+ * Rejects permissive date strings that `new Date()` would accept (e.g. "1", "March 2024").
+ */
+export function parseDateFilter(value: string, flagName: string): string {
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?([+-]\d{2}:?\d{2})?)?$/
+  if (!ISO_DATE_RE.test(value)) {
+    throw new ValidationError(
+      `Invalid date format for ${flagName}: "${value}"`,
+      {
+        suggestion:
+          "Use YYYY-MM-DD or ISO 8601 format (e.g. 2024-01-15 or 2024-01-15T09:00:00Z).",
+      },
+    )
+  }
+  const parsed = new Date(value)
+  if (isNaN(parsed.getTime())) {
+    throw new ValidationError(
+      `Invalid date for ${flagName}: "${value}"`,
+      {
+        suggestion:
+          "Use YYYY-MM-DD or ISO 8601 format (e.g. 2024-01-15 or 2024-01-15T09:00:00Z).",
+      },
+    )
+  }
+  return parsed.toISOString()
+}
+
 function isValidLinearIdentifier(id: string): boolean {
   return /^[a-zA-Z0-9]+-[1-9][0-9]*$/i.test(id)
 }
@@ -436,6 +464,8 @@ export async function fetchIssuesForState(
   milestoneId?: string,
   projectLabel?: string,
   labelNames?: string[],
+  createdAfter?: string,
+  updatedAfter?: string,
 ) {
   const sort = sortParam ??
     getOption("issue_sort") as "manual" | "priority" | undefined
@@ -495,6 +525,14 @@ export async function fetchIssuesForState(
         })),
       }
     }
+  }
+
+  if (createdAfter) {
+    filter.createdAt = { gte: parseDateFilter(createdAfter, "--created-after") }
+  }
+
+  if (updatedAfter) {
+    filter.updatedAt = { gte: parseDateFilter(updatedAfter, "--updated-after") }
   }
 
   const query = gql(/* GraphQL */ `

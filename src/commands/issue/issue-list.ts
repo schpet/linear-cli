@@ -106,6 +106,14 @@ export const listCommand = new Command()
       default: 50,
     },
   )
+  .option(
+    "--created-after <date:string>",
+    "Filter issues created after this date (ISO 8601 or YYYY-MM-DD)",
+  )
+  .option(
+    "--updated-after <date:string>",
+    "Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)",
+  )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
   .option("--no-pager", "Disable automatic paging for long output")
@@ -128,6 +136,8 @@ export const listCommand = new Command()
         label: labels,
         limit,
         pager,
+        createdAfter,
+        updatedAfter,
       },
     ) => {
       const usePager = pager !== false
@@ -257,6 +267,8 @@ export const listCommand = new Command()
           milestoneId,
           projectLabel,
           labelNames,
+          createdAfter,
+          updatedAfter,
         )
         spinner?.stop()
         const issues = result.issues?.nodes || []
