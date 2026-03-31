@@ -3,7 +3,7 @@ import { renderMarkdown } from "@littletof/charmd"
 import type { Extension } from "@littletof/charmd"
 import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { openIssuePage } from "../../utils/actions.ts"
-import { formatRelativeTime } from "../../utils/display.ts"
+import { formatRelativeTime, getPriorityDisplay } from "../../utils/display.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { bold, underline } from "@std/fmt/colors"
 import { ensureDir } from "@std/fs"
@@ -122,11 +122,18 @@ export const viewCommand = new Command()
 
       const { identifier } = issueData
 
-      // Build metadata line with state, project and milestone
+      // Build metadata line with state, priority, assignee, project and milestone
       const metaParts: string[] = []
       if (issueData.state) {
         metaParts.push(`**State:** ${issueData.state.name}`)
       }
+      metaParts.push(
+        `**Priority:** ${getPriorityDisplay(issueData.priority)}`,
+      )
+      const assigneeDisplay = issueData.assignee != null
+        ? `@${issueData.assignee.displayName}`
+        : "Unassigned"
+      metaParts.push(`**Assignee:** ${assigneeDisplay}`)
       if (issueData.project) {
         metaParts.push(`**Project:** ${issueData.project.name}`)
       }

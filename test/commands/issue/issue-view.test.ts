@@ -48,6 +48,8 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              assignee: null,
+              priority: 0,
               project: null,
               projectMilestone: null,
               parent: null,
@@ -106,6 +108,11 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              assignee: {
+                name: "jane.smith",
+                displayName: "Jane Smith",
+              },
+              priority: 2,
               project: null,
               projectMilestone: null,
               parent: null,
@@ -161,6 +168,11 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              assignee: {
+                name: "john.doe",
+                displayName: "John Doe",
+              },
+              priority: 1,
               project: null,
               projectMilestone: null,
               parent: null,
@@ -308,6 +320,8 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              assignee: null,
+              priority: 3,
               parent: null,
               children: {
                 nodes: [],
@@ -361,6 +375,11 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              assignee: {
+                name: "jane.smith",
+                displayName: "Jane Smith",
+              },
+              priority: 2,
               project: null,
               projectMilestone: null,
               parent: null,
@@ -445,6 +464,11 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              assignee: {
+                name: "alice.dev",
+                displayName: "Alice Developer",
+              },
+              priority: 2,
               project: null,
               projectMilestone: null,
               parent: {
@@ -531,6 +555,11 @@ await snapshotTest({
                 name: "In Progress",
                 color: "#f87462",
               },
+              assignee: {
+                name: "bob.senior",
+                displayName: "Bob Senior",
+              },
+              priority: 3,
               project: {
                 name: "Platform Infrastructure Q1",
               },
@@ -589,6 +618,8 @@ await snapshotTest({
                 name: "Todo",
                 color: "#e2e2e2",
               },
+              assignee: null,
+              priority: 4,
               project: {
                 name: "API Gateway v2",
               },
