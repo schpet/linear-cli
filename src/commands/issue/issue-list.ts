@@ -95,6 +95,11 @@ export const listCommand = new Command()
     "Filter by project milestone name (requires --project)",
   )
   .option(
+    "-l, --label <label:string>",
+    "Filter by label name (can be repeated for multiple labels)",
+    { collect: true },
+  )
+  .option(
     "--limit <limit:number>",
     "Maximum number of issues to fetch (default: 50, use 0 for unlimited)",
     {
@@ -120,6 +125,7 @@ export const listCommand = new Command()
         projectLabel,
         cycle,
         milestone,
+        label: labels,
         limit,
         pager,
       },
@@ -229,6 +235,10 @@ export const listCommand = new Command()
           milestoneId = await getMilestoneIdByName(milestone, projectId)
         }
 
+        const labelNames = labels && labels.length > 0
+          ? labels.flat()
+          : undefined
+
         const { Spinner } = await import("@std/cli/unstable-spinner")
         const showSpinner = shouldShowSpinner()
         const spinner = showSpinner ? new Spinner() : null
@@ -246,6 +256,7 @@ export const listCommand = new Command()
           cycleId,
           milestoneId,
           projectLabel,
+          labelNames,
         )
         spinner?.stop()
         const issues = result.issues?.nodes || []

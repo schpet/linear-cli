@@ -24,12 +24,22 @@ Options:
   --project-label      <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                         
   --cycle              <cycle>         - Filter by cycle name, number, or 'active'                                                                                             
   --milestone          <milestone>     - Filter by project milestone name (requires --project)                                                                                 
+  -l, --label          <label>         - Filter by label name (can be repeated for multiple labels)                                                                            
   --limit              <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)           (Default: \\x1b[33m50\\x1b[39m)                                          
   -w, --web                            - Open in web browser                                                                                                                   
   -a, --app                            - Open in Linear.app                                                                                                                    
   --no-pager                           - Disable automatic paging for long output                                                                                              
 
 \`
+stderr:
+""
+`;
+
+snapshot[`Issue List Command - Filter By Label 1`] = `
+stdout:
+"◌   ID      TITLE         LABELS E STATE       UPDATED    
+⚠⚠⚠ ENG-101 Fix login bug Bug    3 In Progress 17 days ago
+"
 stderr:
 ""
 `;

@@ -423,6 +423,7 @@ export async function fetchIssuesForState(
   cycleId?: string,
   milestoneId?: string,
   projectLabel?: string,
+  labelNames?: string[],
 ) {
   const sort = sortParam ??
     getOption("issue_sort") as "manual" | "priority" | undefined
@@ -470,6 +471,18 @@ export async function fetchIssuesForState(
 
   if (milestoneId) {
     filter.projectMilestone = { id: { eq: milestoneId } }
+  }
+
+  if (labelNames && labelNames.length > 0) {
+    if (labelNames.length === 1) {
+      filter.labels = { some: { name: { eqIgnoreCase: labelNames[0] } } }
+    } else {
+      filter.labels = {
+        and: labelNames.map((name) => ({
+          some: { name: { eqIgnoreCase: name } },
+        })),
+      }
+    }
   }
 
   const query = gql(/* GraphQL */ `
