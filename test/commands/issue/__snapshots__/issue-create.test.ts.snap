@@ -14,6 +14,7 @@ Options:
   -h, --help                                - Show this help.                                                
   --start                                   - Start the issue after creation                                 
   -a, --assignee             <assignee>     - Assign the issue to 'self' or someone (by username or name)    
+  --delegate                 <delegate>     - Delegate the issue to an agent user (by username or name)      
   --due-date                 <dueDate>      - Due date of the issue                                          
   --parent                   <parent>       - Parent issue (if any) as a team_number code                    
   -p, --priority             <priority>     - Priority of the issue (1-4, descending priority)               
@@ -43,6 +44,35 @@ https://linear.app/test-team/issue/ENG-123/fix-authentication-bug
 "
 stderr:
 ""
+`;
+
+snapshot[`Issue Create Command - Delegate Happy Path 1`] = `
+stdout:
+"Creating issue in ENG
+
+https://linear.app/test-team/issue/ENG-124/delegate-agent-work
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Create Command - Assignee Rejects App User 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to create issue: Cannot use --assignee with app user 'agent-name'
+  Use --delegate agent-name to delegate the issue to an agent user.
+"
+`;
+
+snapshot[`Issue Create Command - Assignee Rejects Ambiguous Mixed Matches 1`] = `
+stdout:
+"Creating issue in ENG
+
+"
+stderr:
+"✗ Failed to create issue: No mock response configured for this query
+"
 `;
 
 snapshot[`Issue Create Command - With Milestone 1`] = `

@@ -60,6 +60,10 @@ await snapshotTest({
           data: {
             viewer: {
               id: "user-self-123",
+              email: "me@example.com",
+              displayName: "me",
+              name: "Me",
+              app: false,
             },
           },
         },
@@ -80,6 +84,198 @@ await snapshotTest({
                   key: "ENG",
                 },
               },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Create Command - Delegate Happy Path",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Delegate agent work",
+    "--delegate",
+    "agent-name",
+    "--team",
+    "ENG",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "LookupUsersForIssueResolution",
+        variables: { input: "agent-name" },
+        response: {
+          data: {
+            users: {
+              nodes: [{
+                id: "user-agent-123",
+                email: "agent-name@oauthapp.linear.app",
+                displayName: "agent-name",
+                name: "Agent Name",
+                app: true,
+              }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "CreateIssue",
+        response: {
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-new-delegate",
+                identifier: "ENG-124",
+                url:
+                  "https://linear.app/test-team/issue/ENG-124/delegate-agent-work",
+                team: {
+                  key: "ENG",
+                },
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Create Command - Assignee Rejects App User",
+  meta: import.meta,
+  colors: false,
+  canFail: true,
+  args: [
+    "--title",
+    "Delegate agent work",
+    "--assignee",
+    "agent-name",
+    "--team",
+    "ENG",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "LookupUsersForIssueResolution",
+        variables: { input: "agent-name" },
+        response: {
+          data: {
+            users: {
+              nodes: [{
+                id: "user-agent-123",
+                email: "agent-name@oauthapp.linear.app",
+                displayName: "agent-name",
+                name: "Agent Name",
+                app: true,
+              }],
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Create Command - Assignee Rejects Ambiguous Mixed Matches",
+  meta: import.meta,
+  colors: false,
+  canFail: true,
+  args: [
+    "--title",
+    "Delegate agent work",
+    "--assignee",
+    "agent-name",
+    "--team",
+    "ENG",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "LookupUsersForIssueResolution",
+        variables: { input: "agent-name" },
+        response: {
+          data: {
+            users: {
+              nodes: [
+                {
+                  id: "user-human-123",
+                  email: "person@example.com",
+                  displayName: "person-one",
+                  name: "Agent Name Builder",
+                  app: false,
+                },
+                {
+                  id: "user-agent-123",
+                  email: "agent-one@oauthapp.linear.app",
+                  displayName: "agent-one",
+                  name: "Agent Name Runner",
+                  app: true,
+                },
+              ],
             },
           },
         },
