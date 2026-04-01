@@ -2,6 +2,8 @@ import { gql } from "../__codegen__/gql.ts"
 import type {
   GetAllTeamsQuery,
   GetAllTeamsQueryVariables as _GetAllTeamsQueryVariables,
+  GetIssueDetailsQuery,
+  GetIssueDetailsWithCommentsQuery,
   GetIssuesForStateQuery,
   GetTeamMembersQuery,
   IssueFilter,
@@ -184,216 +186,229 @@ export async function updateIssueState(
   await client.request(mutation, { issueId, stateId })
 }
 
+const issueDetailsWithCommentsQuery = gql(/* GraphQL */ `
+  query GetIssueDetailsWithComments($id: String!) {
+    issue(id: $id) {
+      identifier
+      title
+      description
+      url
+      branchName
+      state {
+        name
+        color
+      }
+      assignee {
+        name
+        displayName
+      }
+      priority
+      project {
+        name
+      }
+      projectMilestone {
+        name
+      }
+      cycle {
+        name
+        number
+      }
+      parent {
+        identifier
+        title
+        state {
+          name
+          color
+        }
+      }
+      children(first: 250) {
+        nodes {
+          identifier
+          title
+          state {
+            name
+            color
+          }
+        }
+      }
+      comments(first: 50, orderBy: createdAt) {
+        nodes {
+          id
+          body
+          createdAt
+          url
+          resolvedAt
+          resolvingCommentId
+          resolvingUser {
+            name
+            displayName
+          }
+          user {
+            name
+            displayName
+          }
+          externalUser {
+            name
+            displayName
+          }
+          parent {
+            id
+          }
+        }
+      }
+      attachments(first: 50) {
+        nodes {
+          id
+          title
+          url
+          subtitle
+          sourceType
+          metadata
+          createdAt
+        }
+      }
+    }
+  }
+`)
+
+const issueDetailsQuery = gql(/* GraphQL */ `
+  query GetIssueDetails($id: String!) {
+    issue(id: $id) {
+      identifier
+      title
+      description
+      url
+      branchName
+      state {
+        name
+        color
+      }
+      assignee {
+        name
+        displayName
+      }
+      priority
+      project {
+        name
+      }
+      projectMilestone {
+        name
+      }
+      cycle {
+        name
+        number
+      }
+      parent {
+        identifier
+        title
+        state {
+          name
+          color
+        }
+      }
+      children(first: 250) {
+        nodes {
+          identifier
+          title
+          state {
+            name
+            color
+          }
+        }
+      }
+      attachments(first: 50) {
+        nodes {
+          id
+          title
+          url
+          subtitle
+          sourceType
+          metadata
+          createdAt
+        }
+      }
+    }
+  }
+`)
+
+export async function fetchIssueDetailsRaw(
+  issueId: string,
+  includeComments = false,
+) {
+  const client = getGraphQLClient()
+  if (includeComments) {
+    const data = await client.request(issueDetailsWithCommentsQuery, {
+      id: issueId,
+    })
+    return data.issue
+  }
+
+  const data = await client.request(issueDetailsQuery, { id: issueId })
+  return data.issue
+}
+
+type IssueDetailsWithComments = GetIssueDetailsWithCommentsQuery["issue"]
+type IssueDetailsWithoutComments = GetIssueDetailsQuery["issue"]
+
+export type FetchedIssueComment = IssueDetailsWithComments["comments"]["nodes"][
+  number
+]
+
+export type FetchedIssueDetailsWithComments =
+  & Omit<IssueDetailsWithComments, "children" | "comments" | "attachments">
+  & {
+    children: IssueDetailsWithComments["children"]["nodes"]
+    comments: IssueDetailsWithComments["comments"]["nodes"]
+    attachments: IssueDetailsWithComments["attachments"]["nodes"]
+  }
+
+export type FetchedIssueDetailsWithoutComments =
+  & Omit<IssueDetailsWithoutComments, "children" | "attachments">
+  & {
+    children: IssueDetailsWithoutComments["children"]["nodes"]
+    attachments: IssueDetailsWithoutComments["attachments"]["nodes"]
+  }
+
+export type FetchedIssueDetails =
+  | FetchedIssueDetailsWithComments
+  | FetchedIssueDetailsWithoutComments
+
 export async function fetchIssueDetails(
   issueId: string,
   _showSpinner = false,
   includeComments = false,
-): Promise<{
-  identifier: string
-  title: string
-  description?: string | null | undefined
-  url: string
-  branchName: string
-  state: { name: string; color: string }
-  project?: { name: string } | null
-  projectMilestone?: { name: string } | null
-  assignee?: { name: string; displayName: string } | null
-  priority: number
-  cycle?: { name?: string | null; number: number } | null
-  parent?: {
-    identifier: string
-    title: string
-    state: { name: string; color: string }
-  } | null
-  children?: Array<{
-    identifier: string
-    title: string
-    state: { name: string; color: string }
-  }>
-  comments?: Array<{
-    id: string
-    body: string
-    createdAt: string
-    user?: { name: string; displayName: string } | null
-    externalUser?: { name: string; displayName: string } | null
-    parent?: { id: string } | null
-  }>
-  attachments?: Array<{
-    id: string
-    title: string
-    url: string
-    subtitle?: string | null
-    sourceType?: string | null
-    metadata: Record<string, unknown>
-    createdAt: string
-  }>
-}> {
+): Promise<FetchedIssueDetails> {
   const { Spinner } = await import("@std/cli/unstable-spinner")
   const { shouldShowSpinner } = await import("./hyperlink.ts")
   const spinner = shouldShowSpinner() ? new Spinner() : null
   spinner?.start()
   try {
-    const queryWithComments = gql(/* GraphQL */ `
-      query GetIssueDetailsWithComments($id: String!) {
-        issue(id: $id) {
-          identifier
-          title
-          description
-          url
-          branchName
-          state {
-            name
-            color
-          }
-          assignee {
-            name
-            displayName
-          }
-          priority
-          project {
-            name
-          }
-          projectMilestone {
-            name
-          }
-          cycle {
-            name
-            number
-          }
-          parent {
-            identifier
-            title
-            state {
-              name
-              color
-            }
-          }
-          children(first: 250) {
-            nodes {
-              identifier
-              title
-              state {
-                name
-                color
-              }
-            }
-          }
-          comments(first: 50, orderBy: createdAt) {
-            nodes {
-              id
-              body
-              createdAt
-              user {
-                name
-                displayName
-              }
-              externalUser {
-                name
-                displayName
-              }
-              parent {
-                id
-              }
-            }
-          }
-          attachments(first: 50) {
-            nodes {
-              id
-              title
-              url
-              subtitle
-              sourceType
-              metadata
-              createdAt
-            }
-          }
-        }
-      }
-    `)
-
-    const queryWithoutComments = gql(/* GraphQL */ `
-      query GetIssueDetails($id: String!) {
-        issue(id: $id) {
-          identifier
-          title
-          description
-          url
-          branchName
-          state {
-            name
-            color
-          }
-          assignee {
-            name
-            displayName
-          }
-          priority
-          project {
-            name
-          }
-          projectMilestone {
-            name
-          }
-          cycle {
-            name
-            number
-          }
-          parent {
-            identifier
-            title
-            state {
-              name
-              color
-            }
-          }
-          children(first: 250) {
-            nodes {
-              identifier
-              title
-              state {
-                name
-                color
-              }
-            }
-          }
-          attachments(first: 50) {
-            nodes {
-              id
-              title
-              url
-              subtitle
-              sourceType
-              metadata
-              createdAt
-            }
-          }
-        }
-      }
-    `)
-
     const client = getGraphQLClient()
 
     if (includeComments) {
-      const data = await client.request(queryWithComments, { id: issueId })
+      const response = await client.request(issueDetailsWithCommentsQuery, {
+        id: issueId,
+      })
+      const data = response.issue
       spinner?.stop()
       return {
-        ...data.issue,
-        children: data.issue.children?.nodes || [],
-        comments: data.issue.comments?.nodes || [],
-        attachments: data.issue.attachments?.nodes || [],
+        ...data,
+        children: data.children?.nodes || [],
+        comments: data.comments?.nodes || [],
+        attachments: data.attachments?.nodes || [],
       }
-    } else {
-      const data = await client.request(queryWithoutComments, { id: issueId })
-      spinner?.stop()
-      return {
-        ...data.issue,
-        children: data.issue.children?.nodes || [],
-        attachments: data.issue.attachments?.nodes || [],
-      }
+    }
+
+    const response = await client.request(issueDetailsQuery, { id: issueId })
+    const data = response.issue
+    spinner?.stop()
+    return {
+      ...data,
+      children: data.children?.nodes || [],
+      attachments: data.attachments?.nodes || [],
     }
   } catch (error) {
     spinner?.stop()
-    // Re-throw to let caller handle with proper context
     throw error
   }
 }

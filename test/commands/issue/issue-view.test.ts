@@ -1,5 +1,9 @@
 import { snapshotTest } from "@cliffy/testing"
-import { viewCommand } from "../../../src/commands/issue/issue-view.ts"
+import { assertEquals } from "@std/assert"
+import {
+  formatThreadIdLabel,
+  viewCommand,
+} from "../../../src/commands/issue/issue-view.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
 // Common Deno args for permissions
@@ -631,6 +635,345 @@ await snapshotTest({
               parent: null,
               children: {
                 nodes: [],
+              },
+              attachments: {
+                nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue View Command - Hides Resolved Threads By Default",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-321"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetailsWithComments",
+        variables: { id: "TEST-321" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-321",
+              title: "Audit resolved comment thread output",
+              description:
+                "Check how issue view handles resolved comment threads.",
+              url:
+                "https://linear.app/test-team/issue/TEST-321/audit-resolved-comment-thread-output",
+              branchName: "test-321-resolved-thread-output",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
+              assignee: null,
+              priority: 2,
+              project: null,
+              projectMilestone: null,
+              parent: null,
+              children: {
+                nodes: [],
+              },
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-root-open",
+                    body: "Open thread root comment.",
+                    createdAt: "2024-01-15T10:30:00Z",
+                    url: "https://linear.app/issue/TEST-321#comment-root-open",
+                    resolvedAt: null,
+                    resolvingCommentId: null,
+                    resolvingUser: null,
+                    user: {
+                      name: "john.doe",
+                      displayName: "John Doe",
+                    },
+                    externalUser: null,
+                    parent: null,
+                  },
+                  {
+                    id: "comment-reply-open",
+                    body: "Reply on the open thread.",
+                    createdAt: "2024-01-15T11:00:00Z",
+                    url: "https://linear.app/issue/TEST-321#comment-reply-open",
+                    resolvedAt: null,
+                    resolvingCommentId: null,
+                    resolvingUser: null,
+                    user: {
+                      name: "jane.smith",
+                      displayName: "Jane Smith",
+                    },
+                    externalUser: null,
+                    parent: {
+                      id: "comment-root-open",
+                    },
+                  },
+                  {
+                    id: "comment-root-resolved",
+                    body: "Resolved thread root comment.",
+                    createdAt: "2024-01-15T12:00:00Z",
+                    url:
+                      "https://linear.app/issue/TEST-321#comment-root-resolved",
+                    resolvedAt: "2024-01-15T12:30:00Z",
+                    resolvingCommentId: null,
+                    resolvingUser: {
+                      name: "alice.dev",
+                      displayName: "Alice Developer",
+                    },
+                    user: {
+                      name: "alice.dev",
+                      displayName: "Alice Developer",
+                    },
+                    externalUser: null,
+                    parent: null,
+                  },
+                ],
+              },
+              attachments: {
+                nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue View Command - Show Resolved Threads",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-321", "--show-resolved-threads"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetailsWithComments",
+        variables: { id: "TEST-321" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-321",
+              title: "Audit resolved comment thread output",
+              description:
+                "Check how issue view handles resolved comment threads.",
+              url:
+                "https://linear.app/test-team/issue/TEST-321/audit-resolved-comment-thread-output",
+              branchName: "test-321-resolved-thread-output",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
+              assignee: null,
+              priority: 2,
+              project: null,
+              projectMilestone: null,
+              parent: null,
+              children: {
+                nodes: [],
+              },
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-root-open",
+                    body: "Open thread root comment.",
+                    createdAt: "2024-01-15T10:30:00Z",
+                    url: "https://linear.app/issue/TEST-321#comment-root-open",
+                    resolvedAt: null,
+                    resolvingCommentId: null,
+                    resolvingUser: null,
+                    user: {
+                      name: "john.doe",
+                      displayName: "John Doe",
+                    },
+                    externalUser: null,
+                    parent: null,
+                  },
+                  {
+                    id: "comment-reply-open",
+                    body: "Reply on the open thread.",
+                    createdAt: "2024-01-15T11:00:00Z",
+                    url: "https://linear.app/issue/TEST-321#comment-reply-open",
+                    resolvedAt: null,
+                    resolvingCommentId: null,
+                    resolvingUser: null,
+                    user: {
+                      name: "jane.smith",
+                      displayName: "Jane Smith",
+                    },
+                    externalUser: null,
+                    parent: {
+                      id: "comment-root-open",
+                    },
+                  },
+                  {
+                    id: "comment-root-resolved",
+                    body: "Resolved thread root comment.",
+                    createdAt: "2024-01-15T12:00:00Z",
+                    url:
+                      "https://linear.app/issue/TEST-321#comment-root-resolved",
+                    resolvedAt: "2024-01-15T12:30:00Z",
+                    resolvingCommentId: null,
+                    resolvingUser: {
+                      name: "alice.dev",
+                      displayName: "Alice Developer",
+                    },
+                    user: {
+                      name: "alice.dev",
+                      displayName: "Alice Developer",
+                    },
+                    externalUser: null,
+                    parent: null,
+                  },
+                ],
+              },
+              attachments: {
+                nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+Deno.test("formatThreadIdLabel - keeps thread id visible without hyperlinks", () => {
+  assertEquals(
+    formatThreadIdLabel(
+      "comment-root-open",
+      "https://linear.app/issue/TEST-321#comment-root-open",
+      false,
+    ),
+    "[thread: comment-root-open]",
+  )
+})
+
+Deno.test("formatThreadIdLabel - wraps thread id in OSC-8 hyperlink", () => {
+  assertEquals(
+    formatThreadIdLabel(
+      "comment-root-open",
+      "https://linear.app/issue/TEST-321#comment-root-open",
+      true,
+    ),
+    "\x1b]8;;https://linear.app/issue/TEST-321#comment-root-open\x1b\\[thread: comment-root-open]\x1b]8;;\x1b\\",
+  )
+})
+
+await snapshotTest({
+  name: "Issue View Command - JSON Output With Resolved Thread Metadata",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-654", "--json"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetailsWithComments",
+        variables: { id: "TEST-654" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-654",
+              title: "Expose resolved thread metadata",
+              description: "Test JSON output for resolved thread data.",
+              url:
+                "https://linear.app/test-team/issue/TEST-654/expose-resolved-thread-metadata",
+              branchName: "test-654-resolved-thread-json",
+              state: {
+                name: "Backlog",
+                color: "#bec2c8",
+              },
+              assignee: null,
+              priority: 0,
+              project: null,
+              projectMilestone: null,
+              cycle: null,
+              parent: null,
+              children: {
+                nodes: [],
+              },
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-root-json",
+                    body: "Resolved root comment.",
+                    createdAt: "2024-01-15T10:30:00Z",
+                    url: "https://linear.app/issue/TEST-654#comment-root-json",
+                    resolvedAt: "2024-01-15T11:00:00Z",
+                    resolvingCommentId: null,
+                    resolvingUser: {
+                      name: "john.doe",
+                      displayName: "John Doe",
+                    },
+                    user: {
+                      name: "john.doe",
+                      displayName: "John Doe",
+                    },
+                    externalUser: null,
+                    parent: null,
+                  },
+                  {
+                    id: "comment-reply-json",
+                    body: "Reply under the resolved thread.",
+                    createdAt: "2024-01-15T10:45:00Z",
+                    url: "https://linear.app/issue/TEST-654#comment-reply-json",
+                    resolvedAt: null,
+                    resolvingCommentId: null,
+                    resolvingUser: null,
+                    user: {
+                      name: "jane.smith",
+                      displayName: "Jane Smith",
+                    },
+                    externalUser: null,
+                    parent: {
+                      id: "comment-root-json",
+                    },
+                  },
+                ],
               },
               attachments: {
                 nodes: [],
