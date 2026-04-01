@@ -1,5 +1,6 @@
 import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
 import { assertEquals, assertThrows } from "@std/assert"
+import { getColorEnabled, setColorEnabled } from "@std/fmt/colors"
 import { stub } from "@std/testing/mock"
 import { listCommand } from "../../../src/commands/issue/issue-list.ts"
 import { parseDateFilter } from "../../../src/utils/linear.ts"
@@ -24,6 +25,7 @@ await cliffySnapshotTest({
 Deno.test("Issue List Command - Filter By Label", async () => {
   const fixedNow = new Date("2026-03-30T10:00:00.000Z")
   const RealDate = Date
+  const originalColorEnabled = getColorEnabled()
   class MockDate extends RealDate {
     constructor(value?: string | number | Date) {
       super(value == null ? fixedNow.toISOString() : value)
@@ -34,6 +36,7 @@ Deno.test("Issue List Command - Filter By Label", async () => {
     }
   }
   globalThis.Date = MockDate as DateConstructor
+  setColorEnabled(false)
 
   const { cleanup } = await setupMockLinearServer([
     {
@@ -105,6 +108,7 @@ Deno.test("Issue List Command - Filter By Label", async () => {
   } finally {
     logStub.restore()
     globalThis.Date = RealDate
+    setColorEnabled(originalColorEnabled)
     await cleanup()
   }
 })
