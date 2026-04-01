@@ -58,7 +58,19 @@ export const linuxBackend: KeyringBackend = {
         stdout: "piped",
         stderr: "piped",
       }).output()
-      return result.success
+      if (!result.success) {
+        return false
+      }
+
+      const probe = await secretTool([
+        "lookup",
+        "service",
+        SERVICE,
+        "account",
+        "__linear_cli_probe__",
+      ])
+
+      return probe.success || (probe.code === 1 && probe.stderr === "")
     } catch {
       return false
     }

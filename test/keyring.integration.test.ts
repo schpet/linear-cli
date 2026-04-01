@@ -2,6 +2,7 @@ import { assertEquals } from "@std/assert"
 import {
   deletePassword,
   getPassword,
+  isAvailable,
   setPassword,
 } from "../src/keyring/index.ts"
 
@@ -11,6 +12,10 @@ Deno.test({
   name: "keyring integration - set, get, and delete round-trip",
   sanitizeResources: Deno.build.os !== "windows",
   fn: async () => {
+    if (!await isAvailable()) {
+      console.log("Skipping keyring integration test: backend unavailable")
+      return
+    }
     try {
       assertEquals(await getPassword(TEST_ACCOUNT), null)
 

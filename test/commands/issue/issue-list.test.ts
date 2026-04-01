@@ -1,5 +1,6 @@
-import { snapshotTest } from "@cliffy/testing"
-import { assertThrows } from "@std/assert"
+import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
+import { assertEquals, assertThrows } from "@std/assert"
+import { stub } from "@std/testing/mock"
 import { listCommand } from "../../../src/commands/issue/issue-list.ts"
 import { parseDateFilter } from "../../../src/utils/linear.ts"
 import { ValidationError } from "../../../src/utils/errors.ts"
@@ -9,7 +10,7 @@ import {
 } from "../../utils/test-helpers.ts"
 
 // Test help output
-await snapshotTest({
+await cliffySnapshotTest({
   name: "Issue List Command - Help Text",
   meta: import.meta,
   colors: false,
@@ -20,66 +21,85 @@ await snapshotTest({
   },
 })
 
-await snapshotTest({
-  name: "Issue List Command - Filter By Label",
-  meta: import.meta,
-  colors: false,
-  args: ["--label", "Bug", "--team", "ENG", "--sort", "priority"],
-  denoArgs: commonDenoArgs,
-  async fn() {
-    const { cleanup } = await setupMockLinearServer([
-      {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: {
-          data: {
-            teams: {
-              nodes: [{ id: "team-eng-id" }],
-            },
-          },
-        },
-      },
-      {
-        queryName: "GetIssuesForState",
-        response: {
-          data: {
-            issues: {
-              nodes: [
-                {
-                  id: "issue-1",
-                  identifier: "ENG-101",
-                  title: "Fix login bug",
-                  priority: 1,
-                  estimate: 3,
-                  assignee: { initials: "MC" },
-                  state: {
-                    id: "state-1",
-                    name: "In Progress",
-                    color: "#f2c94c",
-                  },
-                  labels: {
-                    nodes: [{
-                      id: "label-1",
-                      name: "Bug",
-                      color: "#eb5757",
-                    }],
-                  },
-                  updatedAt: "2026-03-13T10:00:00.000Z",
-                },
-              ],
-              pageInfo: { hasNextPage: false, endCursor: null },
-            },
-          },
-        },
-      },
-    ], { LINEAR_TEAM_ID: "ENG", LINEAR_ISSUE_SORT: "priority" })
-
-    try {
-      await listCommand.parse()
-    } finally {
-      await cleanup()
+Deno.test("Issue List Command - Filter By Label", async () => {
+  const fixedNow = new Date("2026-03-30T10:00:00.000Z")
+  const RealDate = Date
+  class MockDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      super(value == null ? fixedNow.toISOString() : value)
     }
-  },
+
+    static override now(): number {
+      return fixedNow.getTime()
+    }
+  }
+  globalThis.Date = MockDate as DateConstructor
+
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetTeamIdByKey",
+      variables: { team: "ENG" },
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-id" }],
+          },
+        },
+      },
+    },
+    {
+      queryName: "GetIssuesForState",
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                id: "issue-1",
+                identifier: "ENG-101",
+                title: "Fix login bug",
+                priority: 1,
+                estimate: 3,
+                assignee: { initials: "MC" },
+                state: {
+                  id: "state-1",
+                  name: "In Progress",
+                  color: "#f2c94c",
+                },
+                labels: {
+                  nodes: [{
+                    id: "label-1",
+                    name: "Bug",
+                    color: "#eb5757",
+                  }],
+                },
+                updatedAt: "2026-03-13T10:00:00.000Z",
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { LINEAR_TEAM_ID: "ENG", LINEAR_ISSUE_SORT: "priority", NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await listCommand.parse(["--label", "Bug", "--team", "ENG", "--sort", "priority"])
+
+    assertEquals(
+      logs.join("\n") + "\n",
+      "◌   ID      TITLE         LABELS E STATE       UPDATED    \n" +
+        "⚠⚠⚠ ENG-101 Fix login bug Bug    3 In Progress 17 days ago\n",
+    )
+  } finally {
+    logStub.restore()
+    globalThis.Date = RealDate
+    await cleanup()
+  }
 })
 
 // parseDateFilter unit tests

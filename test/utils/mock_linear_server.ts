@@ -20,7 +20,7 @@ interface MockResponse {
 
 export class MockLinearServer {
   private server?: Deno.HttpServer
-  private port = 3333
+  private port = 0
   private mockResponses: MockResponse[]
 
   constructor(responses: MockResponse[] = []) {
@@ -28,7 +28,11 @@ export class MockLinearServer {
   }
 
   async start(): Promise<void> {
-    this.server = Deno.serve({ port: this.port }, (request) => {
+    this.server = Deno.serve({
+      hostname: "127.0.0.1",
+      port: this.port,
+      onListen: () => {},
+    }, (request) => {
       // Handle CORS preflight
       if (request.method === "OPTIONS") {
         return new Response(null, {
@@ -51,6 +55,10 @@ export class MockLinearServer {
 
       return new Response("Not Found", { status: 404 })
     })
+
+    if ("port" in this.server.addr) {
+      this.port = this.server.addr.port
+    }
 
     // Wait a bit for server to start
     await new Promise((resolve) => setTimeout(resolve, 100))
