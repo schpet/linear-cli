@@ -88,7 +88,14 @@ Deno.test("Issue List Command - Filter By Label", async () => {
   })
 
   try {
-    await listCommand.parse(["--label", "Bug", "--team", "ENG", "--sort", "priority"])
+    await listCommand.parse([
+      "--label",
+      "Bug",
+      "--team",
+      "ENG",
+      "--sort",
+      "priority",
+    ])
 
     assertEquals(
       logs.join("\n") + "\n",
