@@ -11,13 +11,14 @@ Description:
 
 Options:
 
-  -h, --help     - Show this help.                                
-  -w, --web      - Open in web browser                            
-  -a, --app      - Open in Linear.app                             
-  --no-comments  - Exclude comments from the output               
-  --no-pager     - Disable automatic paging for long output       
-  -j, --json     - Output issue data as JSON                      
-  --no-download  - Keep remote URLs instead of downloading files  
+  -h, --help               - Show this help.                                 
+  -w, --web                - Open in web browser                             
+  -a, --app                - Open in Linear.app                              
+  --no-comments            - Exclude comments from the output                
+  --show-resolved-threads  - Include resolved comment threads in the output  
+  --no-pager               - Disable automatic paging for long output        
+  -j, --json               - Output issue data as JSON                       
+  --no-download            - Keep remote URLs instead of downloading files   
 
 "
 stderr:
@@ -70,11 +71,11 @@ Users are experiencing issues logging in when their session expires.
 
 ## Comments
 
-- **@Bob Senior** - *1/15/2024*
+- **@Bob Senior** - *1/15/2024* [thread: comment-4]
 
   Should we also consider implementing automatic session refresh?
 
-- **@John Doe** - *1/15/2024*
+- **@John Doe** - *1/15/2024* [thread: comment-1]
 
   I've reproduced this issue on staging. The session timeout seems to be too aggressive.
 
@@ -115,8 +116,12 @@ stdout:
   "assignee": null,
   "priority": 3,
   "parent": null,
-  "children": [],
-  "attachments": []
+  "children": {
+    "nodes": []
+  },
+  "attachments": {
+    "nodes": []
+  }
 }
 '
 stderr:
@@ -143,34 +148,40 @@ stdout:
   "project": null,
   "projectMilestone": null,
   "parent": null,
-  "children": [],
-  "comments": [
-    {
-      "id": "comment-1",
-      "body": "I've reproduced this issue on staging. The session timeout seems to be too aggressive.",
-      "createdAt": "2024-01-15T10:30:00Z",
-      "user": {
-        "name": "john.doe",
-        "displayName": "John Doe"
+  "children": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "comment-1",
+        "body": "I've reproduced this issue on staging. The session timeout seems to be too aggressive.",
+        "createdAt": "2024-01-15T10:30:00Z",
+        "user": {
+          "name": "john.doe",
+          "displayName": "John Doe"
+        },
+        "externalUser": null,
+        "parent": null
       },
-      "externalUser": null,
-      "parent": null
-    },
-    {
-      "id": "comment-2",
-      "body": "Working on a fix. Will increase the session timeout and add proper error handling.",
-      "createdAt": "2024-01-15T14:22:00Z",
-      "user": {
-        "name": "jane.smith",
-        "displayName": "Jane Smith"
-      },
-      "externalUser": null,
-      "parent": {
-        "id": "comment-1"
+      {
+        "id": "comment-2",
+        "body": "Working on a fix. Will increase the session timeout and add proper error handling.",
+        "createdAt": "2024-01-15T14:22:00Z",
+        "user": {
+          "name": "jane.smith",
+          "displayName": "Jane Smith"
+        },
+        "externalUser": null,
+        "parent": {
+          "id": "comment-1"
+        }
       }
-    }
-  ],
-  "attachments": []
+    ]
+  },
+  "attachments": {
+    "nodes": []
+  }
 }
 \`
 stderr:
@@ -221,6 +232,129 @@ stdout:
 
 Add rate limiting to the API gateway.
 "
+stderr:
+""
+`;
+
+snapshot[`Issue View Command - Hides Resolved Threads By Default 1`] = `
+stdout:
+"# TEST-321: Audit resolved comment thread output
+
+**State:** In Progress | **Priority:** ▄▆█ | **Assignee:** Unassigned
+
+Check how issue view handles resolved comment threads.
+
+## Comments
+
+- **@John Doe** - *1/15/2024* [thread: comment-root-open]
+
+  Open thread root comment.
+
+  - **@Jane Smith** - *1/15/2024*
+
+    Reply on the open thread.
+
+
+
+Resolved thread hidden: 1. Use --show-resolved-threads to show them.
+"
+stderr:
+""
+`;
+
+snapshot[`Issue View Command - Show Resolved Threads 1`] = `
+stdout:
+"# TEST-321: Audit resolved comment thread output
+
+**State:** In Progress | **Priority:** ▄▆█ | **Assignee:** Unassigned
+
+Check how issue view handles resolved comment threads.
+
+## Comments
+
+- **@Alice Developer** - *1/15/2024* [thread: comment-root-resolved] [resolved]
+
+  Resolved thread root comment.
+
+- **@John Doe** - *1/15/2024* [thread: comment-root-open]
+
+  Open thread root comment.
+
+  - **@Jane Smith** - *1/15/2024*
+
+    Reply on the open thread.
+
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue View Command - JSON Output With Resolved Thread Metadata 1`] = `
+stdout:
+'{
+  "identifier": "TEST-654",
+  "title": "Expose resolved thread metadata",
+  "description": "Test JSON output for resolved thread data.",
+  "url": "https://linear.app/test-team/issue/TEST-654/expose-resolved-thread-metadata",
+  "branchName": "test-654-resolved-thread-json",
+  "state": {
+    "name": "Backlog",
+    "color": "#bec2c8"
+  },
+  "assignee": null,
+  "priority": 0,
+  "project": null,
+  "projectMilestone": null,
+  "cycle": null,
+  "parent": null,
+  "children": {
+    "nodes": []
+  },
+  "comments": {
+    "nodes": [
+      {
+        "id": "comment-root-json",
+        "body": "Resolved root comment.",
+        "createdAt": "2024-01-15T10:30:00Z",
+        "url": "https://linear.app/issue/TEST-654#comment-root-json",
+        "resolvedAt": "2024-01-15T11:00:00Z",
+        "resolvingCommentId": null,
+        "resolvingUser": {
+          "name": "john.doe",
+          "displayName": "John Doe"
+        },
+        "user": {
+          "name": "john.doe",
+          "displayName": "John Doe"
+        },
+        "externalUser": null,
+        "parent": null
+      },
+      {
+        "id": "comment-reply-json",
+        "body": "Reply under the resolved thread.",
+        "createdAt": "2024-01-15T10:45:00Z",
+        "url": "https://linear.app/issue/TEST-654#comment-reply-json",
+        "resolvedAt": null,
+        "resolvingCommentId": null,
+        "resolvingUser": null,
+        "user": {
+          "name": "jane.smith",
+          "displayName": "Jane Smith"
+        },
+        "externalUser": null,
+        "parent": {
+          "id": "comment-root-json"
+        }
+      }
+    ]
+  },
+  "attachments": {
+    "nodes": []
+  }
+}
+'
 stderr:
 ""
 `;

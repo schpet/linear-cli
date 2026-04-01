@@ -143,14 +143,15 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                                
-  -w, --workspace  <slug>  - Target workspace (uses credentials)            
-  -w, --web                - Open in web browser                            
-  -a, --app                - Open in Linear.app                             
-  --no-comments            - Exclude comments from the output               
-  --no-pager               - Disable automatic paging for long output       
-  -j, --json               - Output issue data as JSON                      
-  --no-download            - Keep remote URLs instead of downloading files
+  -h, --help                       - Show this help.                                 
+  -w, --workspace          <slug>  - Target workspace (uses credentials)             
+  -w, --web                        - Open in web browser                             
+  -a, --app                        - Open in Linear.app                              
+  --no-comments                    - Exclude comments from the output                
+  --show-resolved-threads          - Include resolved comment threads in the output  
+  --no-pager                       - Disable automatic paging for long output        
+  -j, --json                       - Output issue data as JSON                       
+  --no-download                    - Keep remote URLs instead of downloading files
 ```
 
 ### url
