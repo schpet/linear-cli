@@ -80,7 +80,7 @@ export const agentSessionViewCommand = new Command()
   .action(async ({ json }, sessionId) => {
     try {
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
+      const showSpinner = shouldShowSpinner() && !json
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 
