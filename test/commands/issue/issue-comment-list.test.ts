@@ -74,6 +74,10 @@ await snapshotTest({
                     parent: null,
                   },
                 ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
               },
             },
           },
@@ -130,6 +134,10 @@ await snapshotTest({
                     parent: null,
                   },
                 ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
               },
             },
           },
@@ -172,6 +180,10 @@ await snapshotTest({
             issue: {
               comments: {
                 nodes: [],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
               },
             },
           },

@@ -45,6 +45,10 @@ export const commentListCommand = new Command()
                   id
                 }
               }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
             }
           }
         }
@@ -53,10 +57,17 @@ export const commentListCommand = new Command()
       const client = getGraphQLClient()
       const data = await client.request(query, { id: resolvedIdentifier })
 
-      const comments = data.issue?.comments?.nodes || []
+      const commentsConnection = data.issue?.comments ?? {
+        nodes: [],
+        pageInfo: {
+          hasNextPage: false,
+          endCursor: null,
+        },
+      }
+      const comments = commentsConnection.nodes
 
       if (json) {
-        console.log(JSON.stringify(comments, null, 2))
+        console.log(JSON.stringify(commentsConnection, null, 2))
         return
       }
 
