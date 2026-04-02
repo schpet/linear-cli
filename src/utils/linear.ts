@@ -13,9 +13,10 @@ import type {
 } from "../__codegen__/graphql.ts"
 import { Select } from "@cliffy/prompt"
 import { getOption } from "../config.ts"
-import { getGraphQLClient } from "./graphql.ts"
-import { getCurrentIssueFromVcs } from "./vcs.ts"
 import { NotFoundError, ValidationError } from "./errors.ts"
+import { getGraphQLClient } from "./graphql.ts"
+import { normalizeIssueIdentifier } from "./issue-identifier.ts"
+import { getCurrentIssueFromVcs } from "./vcs.ts"
 
 /**
  * Validate and parse a date string in ISO 8601 format (YYYY-MM-DD or full ISO 8601).
@@ -45,12 +46,8 @@ export function parseDateFilter(value: string, flagName: string): string {
   return parsed.toISOString()
 }
 
-function isValidLinearIdentifier(id: string): boolean {
-  return /^[a-zA-Z0-9]+-[1-9][0-9]*$/i.test(id)
-}
-
 export function formatIssueIdentifier(providedId: string): string {
-  return providedId.toUpperCase()
+  return normalizeIssueIdentifier(providedId) ?? providedId.toUpperCase()
 }
 
 export function getTeamKey(): string | undefined {
@@ -69,22 +66,22 @@ export function getTeamKey(): string | undefined {
 export async function getIssueIdentifier(
   providedId?: string,
 ): Promise<string | undefined> {
-  if (providedId && isValidLinearIdentifier(providedId)) {
-    return formatIssueIdentifier(providedId)
+  if (providedId) {
+    const normalizedIdentifier = normalizeIssueIdentifier(providedId)
+    if (normalizedIdentifier) {
+      return normalizedIdentifier
+    }
   }
 
   if (providedId && /^[1-9][0-9]*$/.test(providedId)) {
     const teamId = getTeamKey()
     if (teamId) {
-      const fullId = `${teamId}-${providedId}`
-      if (isValidLinearIdentifier(fullId)) {
-        return formatIssueIdentifier(fullId)
-      }
-    } else {
-      throw new Error(
-        "an integer id was provided, but no team is set. run `linear configure`",
-      )
+      return normalizeIssueIdentifier(`${teamId}-${providedId}`)
     }
+
+    throw new Error(
+      "an integer id was provided, but no team is set. run `linear configure`",
+    )
   }
 
   if (providedId === undefined) {

@@ -1,3 +1,5 @@
+import { findIssueIdentifierInText } from "./issue-identifier.ts"
+
 /**
  * Utilities for jj (Jujutsu) version control system
  */
@@ -92,19 +94,7 @@ export async function createJjNewChange(): Promise<void> {
 export function parseLinearIssueFromTrailer(
   trailerValue: string,
 ): string | null {
-  // Try new format first: "MagicWord TEAM-123" where issue number doesn't start with 0
-  const newFormatMatch = trailerValue.match(/\b([A-Z]+-[1-9]\d*)\b/i)
-  if (newFormatMatch && newFormatMatch[1]) {
-    return newFormatMatch[1].toUpperCase()
-  }
-
-  // Fall back to old format: [TEAM-123](...)
-  const oldFormatMatch = trailerValue.match(/\[([A-Z]+-[1-9]\d*)\]/i)
-  if (oldFormatMatch && oldFormatMatch[1]) {
-    return oldFormatMatch[1].toUpperCase()
-  }
-
-  return null
+  return findIssueIdentifierInText(trailerValue)?.identifier ?? null
 }
 
 /**

@@ -32,6 +32,13 @@ Deno.test("parseLinearIssueFromTrailer - handles multi-character team prefix", (
   assertEquals(result, "TEAM-1")
 })
 
+Deno.test("parseLinearIssueFromTrailer - handles alphanumeric team keys", () => {
+  const trailer =
+    "[PLA4-16916](https://linear.app/workspace/issue/PLA4-16916/some-title)"
+  const result = parseLinearIssueFromTrailer(trailer)
+  assertEquals(result, "PLA4-16916")
+})
+
 Deno.test("parseLinearIssueFromTrailer - handles large issue numbers", () => {
   const trailer =
     "[CLI-12345](https://linear.app/workspace/issue/CLI-12345/some-title)"
