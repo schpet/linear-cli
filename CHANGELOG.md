@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- issue view now orders comment threads chronologically (oldest first), matching Linear's UI
+
 ## [2.0.0] - 2026-04-03
 
 ### Fixed
