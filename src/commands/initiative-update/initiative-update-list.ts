@@ -142,23 +142,8 @@ export const listCommand = new Command()
 
       const updates = initiative.initiativeUpdates?.nodes || []
 
-      // JSON output
       if (json) {
-        const jsonOutput = {
-          initiative: {
-            name: initiative.name,
-            slugId: initiative.slugId,
-          },
-          updates: updates.map((update) => ({
-            id: update.id,
-            body: update.body,
-            health: update.health,
-            url: update.url,
-            createdAt: update.createdAt,
-            author: update.user?.name || null,
-          })),
-        }
-        console.log(JSON.stringify(jsonOutput, null, 2))
+        console.log(JSON.stringify(initiative, null, 2))
         return
       }
 
