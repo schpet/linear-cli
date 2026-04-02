@@ -501,3 +501,119 @@ await snapshotTest({
     }
   },
 })
+
+await cliffySnapshotTest({
+  name: "Project List Command - JSON Output With Pagination",
+  meta: import.meta,
+  colors: false,
+  args: ["--all-teams", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetProjects",
+        variables: { filter: undefined, first: 100, after: undefined },
+        response: {
+          data: {
+            projects: {
+              nodes: [
+                {
+                  id: "project-page1-1",
+                  name: "Alpha Project",
+                  description: "First page project",
+                  slugId: "alpha-proj",
+                  icon: null,
+                  color: "#3b82f6",
+                  status: {
+                    id: "status-1",
+                    name: "In Progress",
+                    color: "#f59e0b",
+                    type: "started",
+                  },
+                  lead: null,
+                  priority: 2,
+                  health: "onTrack",
+                  startDate: null,
+                  targetDate: null,
+                  startedAt: null,
+                  completedAt: null,
+                  canceledAt: null,
+                  createdAt: "2024-01-10T10:00:00Z",
+                  updatedAt: "2024-01-20T15:30:00Z",
+                  url: "https://linear.app/test/project/alpha-proj",
+                  teams: {
+                    nodes: [{ key: "ENG" }],
+                  },
+                },
+              ],
+              pageInfo: {
+                hasNextPage: true,
+                endCursor: "cursor-1",
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetProjects",
+        variables: { filter: undefined, first: 100, after: "cursor-1" },
+        response: {
+          data: {
+            projects: {
+              nodes: [
+                {
+                  id: "project-page2-1",
+                  name: "Beta Project",
+                  description: "Second page project",
+                  slugId: "beta-proj",
+                  icon: null,
+                  color: "#10b981",
+                  status: {
+                    id: "status-2",
+                    name: "Planned",
+                    color: "#6366f1",
+                    type: "planned",
+                  },
+                  lead: {
+                    name: "pat.planner",
+                    displayName: "Pat Planner",
+                    initials: "PP",
+                  },
+                  priority: 3,
+                  health: null,
+                  startDate: null,
+                  targetDate: null,
+                  startedAt: null,
+                  completedAt: null,
+                  canceledAt: null,
+                  createdAt: "2024-01-11T10:00:00Z",
+                  updatedAt: "2024-01-21T15:30:00Z",
+                  url: "https://linear.app/test/project/beta-proj",
+                  teams: {
+                    nodes: [{ key: "OPS" }],
+                  },
+                },
+              ],
+              pageInfo: {
+                hasNextPage: false,
+                endCursor: null,
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await listCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
