@@ -20,6 +20,7 @@ Commands:
 
   id                                      - Print the issue based on the current git branch    
   list                                    - List your issues                                   
+  search            <term>                - Search issues by text                              
   title             [issueId]             - Print the issue title                              
   start             [issueId]             - Start working on an issue                          
   view, v           [issueId]             - View issue details (default) or open in browser/app
@@ -90,6 +91,40 @@ Options:
   -w, --web                            - Open in web browser                                                                                                                   
   -a, --app                            - Open in Linear.app                                                                                                                    
   --no-pager                           - Disable automatic paging for long output
+```
+
+### search
+
+> Search issues by text
+
+```
+Usage:   linear issue search <term>
+
+Description:
+
+  Search issues by text
+
+Options:
+
+  -h, --help                          - Show this help.                                                                                                                     
+  -w, --workspace     <slug>          - Target workspace (uses credentials)                                                                                                 
+  --team              <team>          - Team to search in                                                                                                                   
+  --all-teams                         - Search across all teams                                                                                                             
+  -s, --state         <state>         - Filter by issue state (can be repeated for multiple states)                    (Values: "triage", "backlog", "unstarted", "started",
+                                                                                                                       "completed", "canceled")                             
+  --assignee          <assignee>      - Filter by assignee (username)                                                                                                       
+  -U, --unassigned                    - Show only unassigned issues                                                                                                         
+  --project           <project>       - Filter by project name                                                                                                              
+  --project-label     <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                       
+  -l, --label         <label>         - Filter by label name (can be repeated for multiple labels)                                                                          
+  --include-comments                  - Search associated comments too                                                                                                      
+  --include-archived                  - Include archived issues                                                                                                             
+  --created-after     <date>          - Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                                      
+  --updated-after     <date>          - Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                                      
+  --order-by          <orderBy>       - Use the API's supported search ordering                                        (Values: "createdAt", "updatedAt")                   
+  --limit             <limit>         - Maximum number of results to fetch (default: 20, use 0 for unlimited)          (Default: 20)                                        
+  --no-pager                          - Disable automatic paging for long output                                                                                            
+  -j, --json                          - Output search results as JSON
 ```
 
 ### title

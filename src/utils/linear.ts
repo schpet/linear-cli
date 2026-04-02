@@ -8,6 +8,8 @@ import type {
   GetTeamMembersQuery,
   IssueFilter,
   IssueSortInput,
+  PaginationOrderBy,
+  SearchIssuesQuery,
 } from "../__codegen__/graphql.ts"
 import { Select } from "@cliffy/prompt"
 import { getOption } from "../config.ts"
@@ -637,6 +639,219 @@ export async function fetchIssuesForState(
     issues: {
       nodes: allIssues.slice(0, limit),
     },
+  }
+}
+
+const searchIssuesQuery = gql(/* GraphQL */ `
+  query SearchIssues(
+    $term: String!
+    $filter: IssueFilter
+    $first: Int
+    $after: String
+    $includeArchived: Boolean
+    $includeComments: Boolean
+    $orderBy: PaginationOrderBy
+  ) {
+    searchIssues(
+      term: $term
+      filter: $filter
+      first: $first
+      after: $after
+      includeArchived: $includeArchived
+      includeComments: $includeComments
+      orderBy: $orderBy
+    ) {
+      nodes {
+        id
+        identifier
+        title
+        url
+        priority
+        priorityLabel
+        estimate
+        createdAt
+        updatedAt
+        state {
+          id
+          name
+          color
+          type
+        }
+        assignee {
+          id
+          name
+          displayName
+          initials
+        }
+        team {
+          id
+          key
+          name
+        }
+        project {
+          id
+          name
+        }
+        projectMilestone {
+          id
+          name
+        }
+        cycle {
+          id
+          number
+          name
+        }
+        labels {
+          nodes {
+            id
+            name
+            color
+          }
+        }
+        metadata
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      totalCount
+    }
+  }
+`)
+
+type SearchIssuesPayload = SearchIssuesQuery["searchIssues"]
+
+export type FetchedIssueSearchResult = SearchIssuesPayload["nodes"][number]
+
+export type FetchedIssueSearchPayload = {
+  nodes: SearchIssuesPayload["nodes"]
+  pageInfo: SearchIssuesPayload["pageInfo"]
+  totalCount: SearchIssuesPayload["totalCount"]
+}
+
+export interface SearchIssuesByTermOptions {
+  teamKey?: string
+  state?: string[]
+  assignee?: string
+  unassigned?: boolean
+  limit?: number
+  projectId?: string
+  projectLabel?: string
+  labelNames?: string[]
+  createdAfter?: string
+  updatedAfter?: string
+  includeComments?: boolean
+  includeArchived?: boolean
+  orderBy?: PaginationOrderBy
+}
+
+export async function searchIssuesByTerm(
+  term: string,
+  options: SearchIssuesByTermOptions = {},
+): Promise<FetchedIssueSearchPayload> {
+  const filter: IssueFilter = {}
+
+  if (options.teamKey != null) {
+    filter.team = { key: { eq: options.teamKey } }
+  }
+
+  if (options.state != null && options.state.length > 0) {
+    filter.state = { type: { in: options.state } }
+  }
+
+  if (options.unassigned) {
+    filter.assignee = { null: true }
+  } else if (options.assignee) {
+    const userId = await lookupUserId(options.assignee)
+    if (!userId) {
+      throw new NotFoundError("User", options.assignee)
+    }
+    filter.assignee = { id: { eq: userId } }
+  }
+
+  if (options.projectId) {
+    filter.project = { id: { eq: options.projectId } }
+  } else if (options.projectLabel) {
+    filter.project = {
+      labels: { name: { eqIgnoreCase: options.projectLabel } },
+    }
+  }
+
+  if (options.labelNames != null && options.labelNames.length > 0) {
+    if (options.labelNames.length === 1) {
+      filter.labels = {
+        some: { name: { eqIgnoreCase: options.labelNames[0] } },
+      }
+    } else {
+      filter.labels = {
+        and: options.labelNames.map((name) => ({
+          some: { name: { eqIgnoreCase: name } },
+        })),
+      }
+    }
+  }
+
+  if (options.createdAfter) {
+    filter.createdAt = {
+      gte: parseDateFilter(options.createdAfter, "--created-after"),
+    }
+  }
+
+  if (options.updatedAfter) {
+    filter.updatedAt = {
+      gte: parseDateFilter(options.updatedAfter, "--updated-after"),
+    }
+  }
+
+  const client = getGraphQLClient()
+  const fetchUnlimited = options.limit === 0
+  const allNodes: SearchIssuesPayload["nodes"] = []
+  let totalCount = 0
+  let hasNextPage = true
+  let after: string | null | undefined = undefined
+  let lastPageInfo: SearchIssuesPayload["pageInfo"] = {
+    hasNextPage: false,
+    endCursor: null,
+  }
+
+  while (hasNextPage) {
+    const remaining = fetchUnlimited
+      ? 100
+      : (options.limit == null
+        ? undefined
+        : Math.min(options.limit - allNodes.length, 100))
+    if (!fetchUnlimited && remaining != null && remaining <= 0) {
+      break
+    }
+
+    const result: SearchIssuesQuery = await client.request(searchIssuesQuery, {
+      term,
+      filter: Object.keys(filter).length > 0 ? filter : undefined,
+      first: remaining,
+      after,
+      includeArchived: options.includeArchived,
+      includeComments: options.includeComments,
+      orderBy: options.orderBy,
+    })
+
+    totalCount = result.searchIssues.totalCount
+    allNodes.push(...result.searchIssues.nodes)
+    lastPageInfo = result.searchIssues.pageInfo
+    hasNextPage = result.searchIssues.pageInfo.hasNextPage
+    after = result.searchIssues.pageInfo.endCursor
+
+    if (
+      options.limit == null ||
+      (!fetchUnlimited && allNodes.length >= options.limit)
+    ) {
+      break
+    }
+  }
+
+  return {
+    nodes: allNodes,
+    pageInfo: lastPageInfo,
+    totalCount,
   }
 }
 

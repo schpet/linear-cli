@@ -11,6 +11,7 @@ linear config               # setup your repo, it writes a config file
 
 linear issue list           # list unstarted issues assigned to you
 linear issue list -A        # list unstarted issues assigned to anyone
+linear issue search "login bug"  # search issues in your configured team
 linear issue start          # choose an issue to start, creates a branch
 linear issue start ABC-123  # start a specific issue
 linear issue view           # see current branch's issue as markdown
@@ -134,6 +135,8 @@ linear issue list      # list your issues in a table view (supports -s/--state a
 linear issue list --project "My Project" --milestone "Phase 1"  # filter by milestone
 linear issue list -w   # open issue list in web browser
 linear issue list -a   # open issue list in Linear.app
+linear issue search "login bug"         # search issues by text in your configured team
+linear issue search "oauth timeout" --team ENG --json  # structured search output for agents
 linear issue start     # create/switch to issue branch and mark as started
 linear issue create    # create a new issue (interactive prompts)
 linear issue create -t "title" -d "description"  # create with flags
