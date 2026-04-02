@@ -206,6 +206,17 @@ export const viewCommand = new Command()
           outputLines.push(...renderedAttachments.split("\n"))
         }
 
+        if (issueData.documents && issueData.documents.length > 0) {
+          const documentsMarkdown = formatDocumentsAsMarkdown(
+            issueData.documents,
+          )
+          const renderedDocuments = renderMarkdown(documentsMarkdown, {
+            lineWidth: terminalWidth,
+            extensions,
+          })
+          outputLines.push(...renderedDocuments.split("\n"))
+        }
+
         if (
           showComments && derivedComments &&
           derivedComments.visibleRootComments.length > 0
@@ -253,6 +264,10 @@ export const viewCommand = new Command()
             issueData.attachments,
             attachmentPaths,
           )
+        }
+
+        if (issueData.documents && issueData.documents.length > 0) {
+          markdown += formatDocumentsAsMarkdown(issueData.documents)
         }
 
         if (
@@ -727,8 +742,9 @@ async function downloadIssueImages(
   return urlToPath
 }
 
-// Type for attachments
+// Type for attachments and documents
 type AttachmentInfo = FetchedIssueDetails["attachments"][number]
+type DocumentInfo = FetchedIssueDetails["documents"][number]
 
 function getAttachmentCacheDir(): string {
   const configuredDir = getOption("attachment_dir")
@@ -833,6 +849,20 @@ function formatAttachmentsAsMarkdown(
     if (attachment.subtitle) {
       markdown += `  _${attachment.subtitle}_\n`
     }
+  }
+
+  return markdown
+}
+
+function formatDocumentsAsMarkdown(documents: DocumentInfo[]): string {
+  if (documents.length === 0) {
+    return ""
+  }
+
+  let markdown = "\n\n## Documents\n\n"
+
+  for (const document of documents) {
+    markdown += `- **${document.title}**: ${document.url}\n`
   }
 
   return markdown

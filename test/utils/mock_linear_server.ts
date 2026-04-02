@@ -13,6 +13,7 @@
 
 interface MockResponse {
   queryName: string
+  queryIncludes?: string
   variables?: Record<string, unknown>
   response: Record<string, unknown>
   status?: number
@@ -133,6 +134,10 @@ export class MockLinearServer {
     return this.mockResponses.find((mock) => {
       // Check if query name matches
       if (mock.queryName !== queryName) {
+        return false
+      }
+
+      if (mock.queryIncludes != null && !query.includes(mock.queryIncludes)) {
         return false
       }
 
