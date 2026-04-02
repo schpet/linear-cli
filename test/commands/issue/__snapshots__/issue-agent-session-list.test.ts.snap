@@ -38,3 +38,35 @@ stdout:
 stderr:
 ""
 `;
+
+snapshot[`Issue Agent Session List Command - JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "agentSession": {
+        "id": "session-1",
+        "status": "active",
+        "type": "commentThread",
+        "createdAt": "2026-03-20T10:00:00.000Z",
+        "startedAt": "2026-03-20T10:00:05.000Z",
+        "endedAt": null,
+        "summary": "Investigating auth token refresh bug",
+        "creator": {
+          "name": "Alice"
+        },
+        "appUser": {
+          "name": "Linear Assistant"
+        }
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;

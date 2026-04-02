@@ -30,6 +30,10 @@ const GetIssueAgentSessions = gql(`
             }
           }
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
     }
   }
@@ -88,7 +92,7 @@ export const agentSessionListCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
+      const showSpinner = shouldShowSpinner() && !json
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 
@@ -98,16 +102,33 @@ export const agentSessionListCommand = new Command()
       })
       spinner?.stop()
 
-      let sessions = (result.issue?.comments?.nodes || [])
+      const comments = result.issue?.comments ?? {
+        nodes: [],
+        pageInfo: {
+          hasNextPage: false,
+          endCursor: null,
+        },
+      }
+
+      let sessions = comments.nodes
         .map((c) => c.agentSession)
         .filter((s): s is NonNullable<typeof s> => s != null)
+
+      const jsonComments = status
+        ? {
+          ...comments,
+          nodes: comments.nodes.filter((comment) =>
+            comment.agentSession?.status === status
+          ),
+        }
+        : comments
 
       if (status) {
         sessions = sessions.filter((s) => s.status === status)
       }
 
       if (json) {
-        console.log(JSON.stringify(sessions, null, 2))
+        console.log(JSON.stringify(jsonComments, null, 2))
         return
       }
 
