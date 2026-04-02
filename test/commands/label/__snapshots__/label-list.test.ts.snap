@@ -1,0 +1,47 @@
+export const snapshot = {};
+
+snapshot[`Label List Command - JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "label-2",
+      "name": "backend",
+      "description": "Backend label",
+      "color": "#00ff00",
+      "team": {
+        "key": "ENG",
+        "name": "Engineering"
+      }
+    },
+    {
+      "id": "label-1",
+      "name": "bug",
+      "description": "Bug label",
+      "color": "#ff0000",
+      "team": null
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Label List Command - Empty JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
