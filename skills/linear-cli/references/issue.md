@@ -13,8 +13,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -53,8 +53,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### list
@@ -71,7 +71,7 @@ Description:
 Options:
 
   -h, --help                           - Show this help.                                                                                                                       
-  -w, --workspace      <slug>          - Target workspace (uses credentials)                                                                                                   
+  --workspace          <slug>          - Target workspace (uses credentials)                                                                                                   
   -s, --state          <state>         - Filter by issue state (can be repeated for multiple states)                    (Default: [ "unstarted" ], Values: "triage", "backlog",
                                                                                                                         "unstarted", "started", "completed", "canceled")       
   --all-states                         - Show issues from all states                                                                                                           
@@ -107,7 +107,7 @@ Description:
 Options:
 
   -h, --help                          - Show this help.                                                                                                                     
-  -w, --workspace     <slug>          - Target workspace (uses credentials)                                                                                                 
+  --workspace         <slug>          - Target workspace (uses credentials)                                                                                                 
   --team              <team>          - Team to search in                                                                                                                   
   --all-teams                         - Search across all teams                                                                                                             
   -s, --state         <state>         - Filter by issue state (can be repeated for multiple states)                    (Values: "triage", "backlog", "unstarted", "started",
@@ -140,8 +140,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### start
@@ -158,7 +158,7 @@ Description:
 Options:
 
   -h, --help                      - Show this help.                                            
-  -w, --workspace      <slug>     - Target workspace (uses credentials)                        
+  --workspace          <slug>     - Target workspace (uses credentials)                        
   -A, --all-assignees             - Show issues for all assignees                              
   -U, --unassigned                - Show only unassigned issues                                
   -f, --from-ref       <fromRef>  - Git ref to create new branch from                          
@@ -179,7 +179,7 @@ Description:
 Options:
 
   -h, --help                       - Show this help.                                 
-  -w, --workspace          <slug>  - Target workspace (uses credentials)             
+  --workspace              <slug>  - Target workspace (uses credentials)             
   -w, --web                        - Open in web browser                             
   -a, --app                        - Open in Linear.app                              
   --no-comments                    - Exclude comments from the output                
@@ -202,8 +202,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### describe
@@ -220,7 +220,7 @@ Description:
 Options:
 
   -h, --help                       - Show this help.                                                
-  -w, --workspace          <slug>  - Target workspace (uses credentials)                            
+  --workspace              <slug>  - Target workspace (uses credentials)                            
   -r, --references, --ref          - Use 'References' instead of 'Fixes' for the Linear issue link
 ```
 
@@ -237,8 +237,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### pull-request
@@ -254,13 +254,13 @@ Description:
 
 Options:
 
-  -h, --help                 - Show this help.                                                         
-  -w, --workspace  <slug>    - Target workspace (uses credentials)                                     
-  --base           <branch>  - The branch into which you want your code merged                         
-  --draft                    - Create the pull request as a draft                                      
-  -t, --title      <title>   - Optional title for the pull request (Linear issue ID will be prefixed)  
-  --web                      - Open the pull request in the browser after creating it                  
-  --head           <branch>  - The branch that contains commits for your pull request
+  -h, --help             - Show this help.                                                         
+  --workspace  <slug>    - Target workspace (uses credentials)                                     
+  --base       <branch>  - The branch into which you want your code merged                         
+  --draft                - Create the pull request as a draft                                      
+  -t, --title  <title>   - Optional title for the pull request (Linear issue ID will be prefixed)  
+  --web                  - Open the pull request in the browser after creating it                  
+  --head       <branch>  - The branch that contains commits for your pull request
 ```
 
 ### delete
@@ -276,12 +276,12 @@ Description:
 
 Options:
 
-  -h, --help                 - Show this help.                                             
-  -w, --workspace  <slug>    - Target workspace (uses credentials)                         
-  -y, --confirm              - Skip confirmation prompt                                    
-  --bulk           <ids...>  - Delete multiple issues by identifier (e.g., TC-123 TC-124)  
-  --bulk-file      <file>    - Read issue identifiers from a file (one per line)           
-  --bulk-stdin               - Read issue identifiers from stdin
+  -h, --help               - Show this help.                                             
+  --workspace    <slug>    - Target workspace (uses credentials)                         
+  -y, --confirm            - Skip confirmation prompt                                    
+  --bulk         <ids...>  - Delete multiple issues by identifier (e.g., TC-123 TC-124)  
+  --bulk-file    <file>    - Read issue identifiers from a file (one per line)           
+  --bulk-stdin             - Read issue identifiers from stdin
 ```
 
 ### create
@@ -298,7 +298,7 @@ Description:
 Options:
 
   -h, --help                                - Show this help.                                                
-  -w, --workspace            <slug>         - Target workspace (uses credentials)                            
+  --workspace                <slug>         - Target workspace (uses credentials)                            
   --start                                   - Start the issue after creation                                 
   -a, --assignee             <assignee>     - Assign the issue to 'self' or someone (by username or name)    
   --due-date                 <dueDate>      - Due date of the issue                                          
@@ -332,7 +332,7 @@ Description:
 Options:
 
   -h, --help                         - Show this help.                                                
-  -w, --workspace     <slug>         - Target workspace (uses credentials)                            
+  --workspace         <slug>         - Target workspace (uses credentials)                            
   -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)    
   --due-date          <dueDate>      - Due date of the issue                                          
   --parent            <parent>       - Parent issue (if any) as a team_number code                    
@@ -362,8 +362,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -386,12 +386,12 @@ Description:
 
 Options:
 
-  -h, --help                   - Show this help.                                                 
-  -w, --workspace  <slug>      - Target workspace (uses credentials)                             
-  -b, --body       <text>      - Comment body text                                               
-  --body-file      <path>      - Read comment body from a file (preferred for markdown content)  
-  -p, --parent     <id>        - Parent comment ID for replies                                   
-  -a, --attach     <filepath>  - Attach a file to the comment (can be used multiple times)
+  -h, --help                - Show this help.                                                 
+  --workspace   <slug>      - Target workspace (uses credentials)                             
+  -b, --body    <text>      - Comment body text                                               
+  --body-file   <path>      - Read comment body from a file (preferred for markdown content)  
+  -p, --parent  <id>        - Parent comment ID for replies                                   
+  -a, --attach  <filepath>  - Attach a file to the comment (can be used multiple times)
 ```
 
 ##### delete
@@ -405,8 +405,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ##### update
@@ -420,10 +420,10 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                                                 
-  -w, --workspace  <slug>  - Target workspace (uses credentials)                             
-  -b, --body       <text>  - New comment body text                                           
-  --body-file      <path>  - Read comment body from a file (preferred for markdown content)
+  -h, --help           - Show this help.                                                 
+  --workspace  <slug>  - Target workspace (uses credentials)                             
+  -b, --body   <text>  - New comment body text                                           
+  --body-file  <path>  - Read comment body from a file (preferred for markdown content)
 ```
 
 ##### list
@@ -437,9 +437,9 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -j, --json               - Output as JSON
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json           - Output as JSON
 ```
 
 ### attach
@@ -455,10 +455,10 @@ Description:
 
 Options:
 
-  -h, --help                - Show this help.                              
-  -w, --workspace  <slug>   - Target workspace (uses credentials)          
-  -t, --title      <title>  - Custom title for the attachment              
-  -c, --comment    <body>   - Add a comment body linked to the attachment
+  -h, --help              - Show this help.                              
+  --workspace    <slug>   - Target workspace (uses credentials)          
+  -t, --title    <title>  - Custom title for the attachment              
+  -c, --comment  <body>   - Add a comment body linked to the attachment
 ```
 
 ### link
@@ -474,9 +474,9 @@ Description:
 
 Options:
 
-  -h, --help                - Show this help.                      
-  -w, --workspace  <slug>   - Target workspace (uses credentials)  
-  -t, --title      <title>  - Custom title for the link            
+  -h, --help            - Show this help.                      
+  --workspace  <slug>   - Target workspace (uses credentials)  
+  -t, --title  <title>  - Custom title for the link            
 
 Examples:
 
@@ -498,8 +498,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -521,8 +521,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Examples:
 
@@ -543,8 +543,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ##### list
@@ -558,8 +558,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### agent-session
@@ -575,8 +575,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -597,11 +597,11 @@ Description:
 
 Options:
 
-  -h, --help                 - Show this help.                                                                                
-  -w, --workspace  <slug>    - Target workspace (uses credentials)                                                            
-  -j, --json                 - Output as JSON                                                                                 
-  --status         <status>  - Filter by session status             (Values: "pending", "active", "complete", "awaitingInput",
-                                                                    "error", "stale")
+  -h, --help             - Show this help.                                                                                
+  --workspace  <slug>    - Target workspace (uses credentials)                                                            
+  -j, --json             - Output as JSON                                                                                 
+  --status     <status>  - Filter by session status             (Values: "pending", "active", "complete", "awaitingInput",
+                                                                "error", "stale")
 ```
 
 ##### view
@@ -615,7 +615,7 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -j, --json               - Output as JSON
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json           - Output as JSON
 ```

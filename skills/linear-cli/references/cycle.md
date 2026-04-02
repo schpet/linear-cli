@@ -13,8 +13,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -37,9 +37,9 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  --team           <team>  - Team key (defaults to current team)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  --team       <team>  - Team key (defaults to current team)
 ```
 
 ### view
@@ -55,7 +55,7 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  --team           <team>  - Team key (defaults to current team)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  --team       <team>  - Team key (defaults to current team)
 ```

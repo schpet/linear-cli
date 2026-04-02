@@ -13,8 +13,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -40,14 +40,14 @@ Description:
 
 Options:
 
-  -h, --help                 - Show this help.                      
-  -w, --workspace  <slug>    - Target workspace (uses credentials)  
-  --team           <team>    - Filter by team key                   
-  --all-teams                - Show projects from all teams         
-  --status         <status>  - Filter by status name                
-  -w, --web                  - Open in web browser                  
-  -a, --app                  - Open in Linear.app                   
-  -j, --json                 - Output as JSON
+  -h, --help             - Show this help.                      
+  --workspace  <slug>    - Target workspace (uses credentials)  
+  --team       <team>    - Filter by team key                   
+  --all-teams            - Show projects from all teams         
+  --status     <status>  - Filter by status name                
+  -w, --web              - Open in web browser                  
+  -a, --app              - Open in Linear.app                   
+  -j, --json             - Output as JSON
 ```
 
 ### view
@@ -63,10 +63,10 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -w, --web                - Open in web browser                  
-  -a, --app                - Open in Linear.app
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -w, --web            - Open in web browser                  
+  -a, --app            - Open in Linear.app
 ```
 
 ### create
@@ -83,7 +83,7 @@ Description:
 Options:
 
   -h, --help                        - Show this help.                                                          
-  -w, --workspace    <slug>         - Target workspace (uses credentials)                                      
+  --workspace        <slug>         - Target workspace (uses credentials)                                      
   -n, --name         <name>         - Project name (required)                                                  
   -d, --description  <description>  - Project description                                                      
   -t, --team         <team>         - Team key (required, can be repeated for multiple teams)                  
@@ -110,7 +110,7 @@ Description:
 Options:
 
   -h, --help                        - Show this help.                                                  
-  -w, --workspace    <slug>         - Target workspace (uses credentials)                              
+  --workspace        <slug>         - Target workspace (uses credentials)                              
   -n, --name         <name>         - Project name                                                     
   -d, --description  <description>  - Project description                                              
   -s, --status       <status>       - Status (planned, started, paused, completed, canceled, backlog)  
@@ -133,7 +133,7 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -f, --force              - Skip confirmation prompt
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -f, --force          - Skip confirmation prompt
 ```

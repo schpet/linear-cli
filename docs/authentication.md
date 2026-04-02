@@ -5,7 +5,7 @@ the CLI supports multiple authentication methods with the following precedence:
 1. `--api-key` flag (explicit key for single command)
 2. `LINEAR_API_KEY` environment variable
 3. `api_key` in project `.linear.toml` config
-4. `--workspace` / `-w` flag → stored credentials lookup
+4. `--workspace` flag → stored credentials lookup
 5. project's `workspace` config → stored credentials lookup
 6. default workspace from stored credentials
 
@@ -61,9 +61,9 @@ the `*` indicates the default workspace.
 # set a new default
 linear auth default side-project
 
-# or use -w flag for a single command
-linear -w side-project issue list
-linear -w acme issue create --title "Bug fix"
+# or use --workspace flag for a single command
+linear --workspace side-project issue list
+linear --workspace acme issue create --title "Bug fix"
 ```
 
 ### credentials file format

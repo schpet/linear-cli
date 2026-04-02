@@ -13,8 +13,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -42,7 +42,7 @@ Description:
 Options:
 
   -h, --help                        - Show this help.                                          
-  -w, --workspace    <slug>         - Target workspace (uses credentials)                      
+  --workspace        <slug>         - Target workspace (uses credentials)                      
   -n, --name         <name>         - Name of the team                                         
   -d, --description  <description>  - Description of the team                                  
   -k, --key          <key>          - Team key (if not provided, will be generated from name)  
@@ -63,10 +63,10 @@ Description:
 
 Options:
 
-  -h, --help                     - Show this help.                                  
-  -w, --workspace  <slug>        - Target workspace (uses credentials)              
-  --move-issues    <targetTeam>  - Move all issues to another team before deletion  
-  -y, --force                    - Skip confirmation prompt
+  -h, --help                   - Show this help.                                  
+  --workspace    <slug>        - Target workspace (uses credentials)              
+  --move-issues  <targetTeam>  - Move all issues to another team before deletion  
+  -y, --force                  - Skip confirmation prompt
 ```
 
 ### list
@@ -82,10 +82,10 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -w, --web                - Open in web browser                  
-  -a, --app                - Open in Linear.app
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -w, --web            - Open in web browser                  
+  -a, --app            - Open in Linear.app
 ```
 
 ### id
@@ -101,8 +101,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### autolinks
@@ -118,8 +118,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### members
@@ -135,7 +135,7 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -a, --all                - Include inactive members
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -a, --all            - Include inactive members
 ```

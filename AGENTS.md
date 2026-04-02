@@ -28,6 +28,11 @@
 - wrap command actions in try-catch with `handleError(error, "Failed to <action>")`
 - errors display clean messages to stderr with ✗ prefix, stack traces only shown when `LINEAR_DEBUG=1`
 
+## cli flags
+
+- never use the same short flag alias (e.g. `-w`) on both a global option and a command-level option — cliffy resolves global options first, so the command-level alias will be shadowed
+- before adding a short flag, grep the codebase for that letter to ensure it's not already in use at a conflicting scope
+
 ## tests
 
 - tests on commands should mirror the directory structure of the src, e.g.
