@@ -1,0 +1,107 @@
+export const snapshot = {};
+
+snapshot[`Issue Search Command - Help Text 1`] = `
+stdout:
+\`
+Usage: search <term>
+
+Description:
+
+  Search issues by text
+
+Options:
+
+  -h, --help                          - Show this help.                                                                                                                     
+  --team              <team>          - Team to search in                                                                                                                   
+  --all-teams                         - Search across all teams                                                                                                             
+  -s, --state         <state>         - Filter by issue state (can be repeated for multiple states)                    (Values: \\x1b[32m"triage"\\x1b[39m, \\x1b[32m"backlog"\\x1b[39m, \\x1b[32m"unstarted"\\x1b[39m, \\x1b[32m"started"\\x1b[39m,
+                                                                                                                       \\x1b[32m"completed"\\x1b[39m, \\x1b[32m"canceled"\\x1b[39m)                             
+  --assignee          <assignee>      - Filter by assignee (username)                                                                                                       
+  -U, --unassigned                    - Show only unassigned issues                                                                                                         
+  --project           <project>       - Filter by project name                                                                                                              
+  --project-label     <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                       
+  -l, --label         <label>         - Filter by label name (can be repeated for multiple labels)                                                                          
+  --include-comments                  - Search associated comments too                                                                                                      
+  --include-archived                  - Include archived issues                                                                                                             
+  --created-after     <date>          - Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                                      
+  --updated-after     <date>          - Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                                      
+  --order-by          <orderBy>       - Use the API's supported search ordering                                        (Values: \\x1b[32m"createdAt"\\x1b[39m, \\x1b[32m"updatedAt"\\x1b[39m)                   
+  --limit             <limit>         - Maximum number of results to fetch (default: 20, use 0 for unlimited)          (Default: \\x1b[33m20\\x1b[39m)                                        
+  --no-pager                          - Disable automatic paging for long output                                                                                            
+  -j, --json                          - Output search results as JSON                                                                                                       
+
+\`
+stderr:
+""
+`;
+
+snapshot[`Issue Search Command - JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "issue-1",
+      "identifier": "CLI-90",
+      "title": "OAuth timeout in CLI auth flow",
+      "url": "https://linear.app/schpet/issue/CLI-90/oauth-timeout-in-cli-auth-flow",
+      "priority": 2,
+      "priorityLabel": "High",
+      "estimate": 3,
+      "createdAt": "2026-04-01T10:00:00.000Z",
+      "updatedAt": "2026-04-02T08:15:00.000Z",
+      "state": {
+        "id": "state-1",
+        "name": "In Progress",
+        "color": "#f2c94c",
+        "type": "started"
+      },
+      "assignee": {
+        "id": "user-1",
+        "name": "jane.smith",
+        "displayName": "Jane Smith",
+        "initials": "JS"
+      },
+      "team": {
+        "id": "team-1",
+        "key": "CLI",
+        "name": "Linear CLI"
+      },
+      "project": {
+        "id": "project-1",
+        "name": "Auth Improvements"
+      },
+      "projectMilestone": null,
+      "cycle": null,
+      "labels": {
+        "nodes": [
+          {
+            "id": "label-1",
+            "name": "Bug",
+            "color": "#eb5757"
+          }
+        ]
+      },
+      "metadata": {
+        "context": {},
+        "score": 0.42
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": "cursor-1"
+  },
+  "totalCount": 1
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Issue Search Command - No Results 1`] = `
+stdout:
+"No issues found.
+"
+stderr:
+""
+`;

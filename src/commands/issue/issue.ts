@@ -10,6 +10,7 @@ import { linkCommand } from "./issue-link.ts"
 import { listCommand } from "./issue-list.ts"
 import { pullRequestCommand } from "./issue-pull-request.ts"
 import { relationCommand } from "./issue-relation.ts"
+import { searchCommand } from "./issue-search.ts"
 import { agentSessionCommand } from "./issue-agent-session.ts"
 import { startCommand } from "./issue-start.ts"
 import { titleCommand } from "./issue-title.ts"
@@ -24,6 +25,7 @@ export const issueCommand = new Command()
   })
   .command("id", idCommand)
   .command("list", listCommand)
+  .command("search", searchCommand)
   .command("title", titleCommand)
   .command("start", startCommand)
   .command("view", viewCommand)
