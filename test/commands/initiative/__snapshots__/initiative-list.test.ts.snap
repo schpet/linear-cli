@@ -1,0 +1,74 @@
+export const snapshot = {};
+
+snapshot[`Initiative List Command - JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "initiative-1",
+      "slugId": "alpha",
+      "name": "Alpha",
+      "description": "First initiative",
+      "status": "Active",
+      "targetDate": "2026-05-01",
+      "health": "onTrack",
+      "color": "#10b981",
+      "icon": "🟢",
+      "url": "https://linear.app/test/initiative/alpha",
+      "archivedAt": null,
+      "owner": {
+        "id": "owner-1",
+        "displayName": "Alex Active",
+        "initials": "AA"
+      },
+      "projects": {
+        "nodes": [
+          {
+            "id": "project-1",
+            "name": "Project A",
+            "status": {
+              "name": "In Progress"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "initiative-2",
+      "slugId": "plan-b",
+      "name": "Plan B",
+      "description": "Second initiative",
+      "status": "Planned",
+      "targetDate": "2026-06-01",
+      "health": "atRisk",
+      "color": "#f59e0b",
+      "icon": "🟡",
+      "url": "https://linear.app/test/initiative/plan-b",
+      "archivedAt": null,
+      "owner": {
+        "id": "owner-2",
+        "displayName": "Pat Planner",
+        "initials": "PP"
+      },
+      "projects": {
+        "nodes": [
+          {
+            "id": "project-2",
+            "name": "Project B",
+            "status": {
+              "name": "Planned"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
