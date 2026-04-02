@@ -1,0 +1,31 @@
+export const snapshot = {};
+
+snapshot[`Project Update List Command - JSON Output 1`] = `
+stdout:
+'{
+  "name": "JSON Project",
+  "slugId": "json-project",
+  "projectUpdates": {
+    "nodes": [
+      {
+        "id": "project-update-1",
+        "body": "Project is healthy.",
+        "health": "onTrack",
+        "url": "https://linear.app/test/project-update-1",
+        "createdAt": "2026-02-10T09:00:00Z",
+        "user": {
+          "name": "alex.active",
+          "displayName": "Alex Active"
+        }
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  }
+}
+'
+stderr:
+""
+`;
