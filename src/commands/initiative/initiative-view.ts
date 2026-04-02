@@ -113,37 +113,8 @@ export const viewCommand = new Command()
         throw new NotFoundError("Initiative", initiativeId)
       }
 
-      // JSON output
       if (json) {
-        const jsonOutput = {
-          id: initiative.id,
-          slugId: initiative.slugId,
-          name: initiative.name,
-          description: initiative.description,
-          status: initiative.status,
-          health: initiative.health,
-          targetDate: initiative.targetDate,
-          color: initiative.color,
-          icon: initiative.icon,
-          url: initiative.url,
-          archivedAt: initiative.archivedAt,
-          createdAt: initiative.createdAt,
-          updatedAt: initiative.updatedAt,
-          owner: initiative.owner
-            ? {
-              id: initiative.owner.id,
-              name: initiative.owner.name,
-              displayName: initiative.owner.displayName,
-            }
-            : null,
-          projects: (initiative.projects?.nodes || []).map((p) => ({
-            id: p.id,
-            slugId: p.slugId,
-            name: p.name,
-            status: p.status?.name,
-          })),
-        }
-        console.log(JSON.stringify(jsonOutput, null, 2))
+        console.log(JSON.stringify(initiative, null, 2))
         return
       }
 
