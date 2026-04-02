@@ -1,33 +1,12 @@
 import { Command } from "@cliffy/command"
+import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay, truncateText } from "../../utils/display.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { handleError, NotFoundError } from "../../utils/errors.ts"
 
-interface ProjectUpdateNode {
-  id: string
-  body: string | null
-  health: string | null
-  url: string
-  createdAt: string
-  user: {
-    name: string
-    displayName: string
-  } | null
-}
-
-interface ListProjectUpdatesQueryResult {
-  project: {
-    name: string
-    slugId: string
-    projectUpdates: {
-      nodes: ProjectUpdateNode[]
-    } | null
-  } | null
-}
-
-const ListProjectUpdatesQuery = /* GraphQL */ `
+const ListProjectUpdatesQuery = gql(`
   query ListProjectUpdates($id: String!, $first: Int) {
     project(id: $id) {
       name
@@ -44,10 +23,14 @@ const ListProjectUpdatesQuery = /* GraphQL */ `
             displayName
           }
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
     }
   }
-`
+`)
 
 export const listCommand = new Command()
   .name("list")
@@ -67,13 +50,10 @@ export const listCommand = new Command()
       const resolvedProjectId = await resolveProjectId(projectId)
 
       const client = getGraphQLClient()
-      const result = await client.request<ListProjectUpdatesQueryResult>(
-        ListProjectUpdatesQuery,
-        {
-          id: resolvedProjectId,
-          first: limit,
-        },
-      )
+      const result = await client.request(ListProjectUpdatesQuery, {
+        id: resolvedProjectId,
+        first: limit,
+      })
       spinner?.stop()
 
       const project = result.project
@@ -84,17 +64,7 @@ export const listCommand = new Command()
       const updates = project.projectUpdates?.nodes || []
 
       if (json) {
-        console.log(JSON.stringify(
-          {
-            project: {
-              name: project.name,
-              slugId: project.slugId,
-            },
-            updates,
-          },
-          null,
-          2,
-        ))
+        console.log(JSON.stringify(project, null, 2))
         return
       }
 
