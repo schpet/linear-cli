@@ -43,6 +43,10 @@ const GetInitiatives = gql(`
           }
         }
       }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
     }
   }
 `)
@@ -154,11 +158,19 @@ export const listCommand = new Command()
       })
       spinner?.stop()
 
-      let initiatives = result.initiatives?.nodes || []
+      const initiativesConnection = result.initiatives ?? {
+        nodes: [],
+        pageInfo: {
+          hasNextPage: false,
+          endCursor: null,
+        },
+      }
+
+      let initiatives = initiativesConnection.nodes
 
       if (initiatives.length === 0) {
         if (json) {
-          console.log("[]")
+          console.log(JSON.stringify(initiativesConnection, null, 2))
         } else {
           console.log("No initiatives found.")
         }
@@ -177,27 +189,15 @@ export const listCommand = new Command()
         return a.name.localeCompare(b.name)
       })
 
-      // JSON output
       if (json) {
-        const jsonOutput = initiatives.map((init) => ({
-          id: init.id,
-          slugId: init.slugId,
-          name: init.name,
-          description: init.description,
-          status: init.status,
-          health: init.health,
-          targetDate: init.targetDate,
-          owner: init.owner
-            ? {
-              id: init.owner.id,
-              displayName: init.owner.displayName,
-            }
-            : null,
-          projectCount: init.projects?.nodes?.length || 0,
-          url: init.url,
-          archivedAt: init.archivedAt,
-        }))
-        console.log(JSON.stringify(jsonOutput, null, 2))
+        console.log(JSON.stringify(
+          {
+            ...initiativesConnection,
+            nodes: initiatives,
+          },
+          null,
+          2,
+        ))
         return
       }
 
