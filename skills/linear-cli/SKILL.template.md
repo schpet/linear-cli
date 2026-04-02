@@ -65,7 +65,11 @@ linear issue comment add ENG-123 --body-file /tmp/comment.md
 
 ## Available Commands
 
+Compact command list, generated from `linear --help`:
+
+```bash
 {{COMMANDS}}
+```
 
 ## Reference Documentation
 

@@ -291,20 +291,20 @@ function generateIndex(commands: CommandInfo[]): string {
   return lines.join("\n") + "\n"
 }
 
-function generateCommandsSection(commands: CommandInfo[]): string {
-  const lines: string[] = []
-  lines.push("```")
+function flattenCommandPaths(cmd: CommandInfo): string[] {
+  const lines = [`linear ${cmd.name}`]
 
-  // Find max command name length for alignment
-  const maxLen = Math.max(...commands.map((c) => c.name.length))
-
-  for (const cmd of commands) {
-    const padding = " ".repeat(maxLen - cmd.name.length + 2)
-    lines.push(`linear ${cmd.name}${padding}# ${cmd.description}`)
+  for (const sub of cmd.subcommands) {
+    lines.push(...flattenCommandPaths(sub))
   }
 
-  lines.push("```")
-  return lines.join("\n")
+  return lines
+}
+
+function generateCommandsSection(commands: CommandInfo[]): string {
+  return commands
+    .map((cmd) => flattenCommandPaths(cmd).join("\n"))
+    .join("\n\n")
 }
 
 function generateReferenceToc(commands: CommandInfo[]): string {

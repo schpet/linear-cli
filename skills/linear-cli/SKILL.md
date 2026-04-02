@@ -65,21 +65,109 @@ linear issue comment add ENG-123 --body-file /tmp/comment.md
 
 ## Available Commands
 
-```
-linear auth               # Manage Linear authentication
-linear issue              # Manage Linear issues
-linear team               # Manage Linear teams
-linear project            # Manage Linear projects
-linear project-update     # Manage project status updates
-linear cycle              # Manage Linear team cycles
-linear milestone          # Manage Linear project milestones
-linear initiative         # Manage Linear initiatives
-linear initiative-update  # Manage initiative status updates (timeline posts)
-linear label              # Manage Linear issue labels
-linear document           # Manage Linear documents
-linear config             # Interactively generate .linear.toml configuration
-linear schema             # Print the GraphQL schema to stdout
-linear api                # Make a raw GraphQL API request
+Compact command list, generated from `linear --help`:
+
+```bash
+linear auth
+linear auth login
+linear auth logout
+linear auth list
+linear auth default
+linear auth token
+linear auth whoami
+linear auth migrate
+
+linear issue
+linear issue id
+linear issue list
+linear issue search
+linear issue title
+linear issue start
+linear issue view
+linear issue url
+linear issue describe
+linear issue commits
+linear issue pull-request
+linear issue delete
+linear issue create
+linear issue update
+linear issue comment
+linear issue comment add
+linear issue comment delete
+linear issue comment update
+linear issue comment list
+linear issue attach
+linear issue link
+linear issue relation
+linear issue relation add
+linear issue relation delete
+linear issue relation list
+linear issue agent-session
+linear issue agent-session list
+linear issue agent-session view
+
+linear team
+linear team create
+linear team delete
+linear team list
+linear team id
+linear team autolinks
+linear team members
+
+linear project
+linear project list
+linear project view
+linear project create
+linear project update
+linear project delete
+
+linear project-update
+linear project-update create
+linear project-update list
+
+linear cycle
+linear cycle list
+linear cycle view
+
+linear milestone
+linear milestone list
+linear milestone view
+linear milestone create
+linear milestone update
+linear milestone delete
+
+linear initiative
+linear initiative list
+linear initiative view
+linear initiative create
+linear initiative archive
+linear initiative update
+linear initiative unarchive
+linear initiative delete
+linear initiative add-project
+linear initiative remove-project
+
+linear initiative-update
+linear initiative-update create
+linear initiative-update list
+
+linear label
+linear label list
+linear label create
+linear label delete
+
+linear document
+linear document list
+linear document view
+linear document create
+linear document update
+linear document delete
+
+linear config
+
+linear schema
+
+linear api
 ```
 
 ## Reference Documentation
