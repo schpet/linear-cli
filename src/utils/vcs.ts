@@ -1,4 +1,8 @@
+import { Select } from "@cliffy/prompt"
 import { getOption } from "../config.ts"
+import { CliError } from "./errors.ts"
+import { getCurrentBranch } from "./git.ts"
+import { findIssueIdentifierInText } from "./issue-identifier.ts"
 import { fetchIssueDetails } from "./linear.ts"
 import {
   formatIssueDescription,
@@ -6,9 +10,6 @@ import {
   prepareJjWorkingState,
   setJjDescription,
 } from "./jj.ts"
-import { getCurrentBranch } from "./git.ts"
-import { Select } from "@cliffy/prompt"
-import { CliError } from "./errors.ts"
 
 export type VcsType = "git" | "jj"
 
@@ -66,12 +67,8 @@ export async function getCurrentIssueFromVcs(): Promise<string | null> {
       const branch = await getCurrentBranch()
       if (!branch) return null
 
-      // Extract issue ID from branch name (e.g., "feature/ABC-123-description" -> "ABC-123")
-      const match = branch.match(/[a-zA-Z0-9]+-[1-9][0-9]*/i)
-      if (match) {
-        return match[0].toUpperCase()
-      }
-      return null
+      const issueIdentifier = findIssueIdentifierInText(branch)?.identifier
+      return issueIdentifier ?? null
     }
     case "jj": {
       return await getJjLinearIssue()

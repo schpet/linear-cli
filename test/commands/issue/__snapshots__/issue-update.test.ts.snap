@@ -43,6 +43,17 @@ stderr:
 ""
 `;
 
+snapshot[`Issue Update Command - Alphanumeric Team Key 1`] = `
+stdout:
+"Updating issue PLA4-16916
+
+✓ Updated issue PLA4-16916: Test Issue
+https://linear.app/test-team/issue/PLA4-16916/test-issue
+"
+stderr:
+""
+`;
+
 snapshot[`Issue Update Command - With Milestone 1`] = `
 stdout:
 "Updating issue ENG-123

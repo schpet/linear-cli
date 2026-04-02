@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { getTeamKeyFromIssueIdentifier } from "../../utils/issue-identifier.ts"
 import {
   getCycleIdByNameOrNumber,
   getIssueId,
@@ -143,8 +144,7 @@ export const updateCommand = new Command()
         // Extract team from issue ID if not provided
         let teamKey = team
         if (!teamKey) {
-          const match = issueId.match(/^([A-Z]+)-/)
-          teamKey = match?.[1]
+          teamKey = getTeamKeyFromIssueIdentifier(issueId)
         }
         if (!teamKey) {
           throw new ValidationError(

@@ -90,6 +90,58 @@ await snapshotTest({
   },
 })
 
+// Test updating an issue with an alphanumeric team key
+await snapshotTest({
+  name: "Issue Update Command - Alphanumeric Team Key",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "PLA4-16916",
+    "--description",
+    "new description",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      // Mock response for getTeamIdByKey() - team keys may contain digits
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "PLA4" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-pla4-id" }],
+            },
+          },
+        },
+      },
+      // Mock response for the update issue mutation
+      {
+        queryName: "UpdateIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-pla4-16916",
+                identifier: "PLA4-16916",
+                url: "https://linear.app/test-team/issue/PLA4-16916/test-issue",
+                title: "Test Issue",
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
 // Test updating an issue with milestone
 await snapshotTest({
   name: "Issue Update Command - With Milestone",
