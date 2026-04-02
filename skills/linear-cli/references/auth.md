@@ -13,8 +13,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -42,10 +42,10 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                                              
-  -w, --workspace  <slug>  - Target workspace (uses credentials)                          
-  -k, --key        <key>   - API key (prompted if not provided)                           
-  --plaintext              - Store API key in credentials file instead of system keyring
+  -h, --help           - Show this help.                                              
+  --workspace  <slug>  - Target workspace (uses credentials)                          
+  -k, --key    <key>   - API key (prompted if not provided)                           
+  --plaintext          - Store API key in credentials file instead of system keyring
 ```
 
 ### logout
@@ -61,9 +61,9 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -f, --force              - Skip confirmation prompt
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -f, --force          - Skip confirmation prompt
 ```
 
 ### list
@@ -79,8 +79,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### default
@@ -96,8 +96,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### token
@@ -113,8 +113,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### whoami
@@ -130,8 +130,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### migrate
@@ -147,6 +147,6 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```

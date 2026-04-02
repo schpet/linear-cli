@@ -13,8 +13,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -40,9 +40,9 @@ Description:
 
 Options:
 
-  -h, --help                    - Show this help.                                
-  -w, --workspace  <slug>       - Target workspace (uses credentials)            
-  --project        <projectId>  - Project ID                           (required)
+  -h, --help                - Show this help.                                
+  --workspace  <slug>       - Target workspace (uses credentials)            
+  --project    <projectId>  - Project ID                           (required)
 ```
 
 ### view
@@ -58,8 +58,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### create
@@ -75,12 +75,12 @@ Description:
 
 Options:
 
-  -h, --help                      - Show this help.                                
-  -w, --workspace  <slug>         - Target workspace (uses credentials)            
-  --project        <projectId>    - Project ID                           (required)
-  --name           <name>         - Milestone name                       (required)
-  --description    <description>  - Milestone description                          
-  --target-date    <date>         - Target date (YYYY-MM-DD)
+  -h, --help                    - Show this help.                                
+  --workspace    <slug>         - Target workspace (uses credentials)            
+  --project      <projectId>    - Project ID                           (required)
+  --name         <name>         - Milestone name                       (required)
+  --description  <description>  - Milestone description                          
+  --target-date  <date>         - Target date (YYYY-MM-DD)
 ```
 
 ### update
@@ -96,13 +96,13 @@ Description:
 
 Options:
 
-  -h, --help                      - Show this help.                          
-  -w, --workspace  <slug>         - Target workspace (uses credentials)      
-  --name           <name>         - Milestone name                           
-  --description    <description>  - Milestone description                    
-  --target-date    <date>         - Target date (YYYY-MM-DD)                 
-  --sort-order     <value>        - Sort order relative to other milestones  
-  --project        <projectId>    - Move to a different project
+  -h, --help                    - Show this help.                          
+  --workspace    <slug>         - Target workspace (uses credentials)      
+  --name         <name>         - Milestone name                           
+  --description  <description>  - Milestone description                    
+  --target-date  <date>         - Target date (YYYY-MM-DD)                 
+  --sort-order   <value>        - Sort order relative to other milestones  
+  --project      <projectId>    - Move to a different project
 ```
 
 ### delete
@@ -118,7 +118,7 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
-  -f, --force              - Skip confirmation prompt
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -f, --force          - Skip confirmation prompt
 ```

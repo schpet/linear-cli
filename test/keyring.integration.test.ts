@@ -2,20 +2,35 @@ import { assertEquals } from "@std/assert"
 import {
   deletePassword,
   getPassword,
-  isAvailable,
   setPassword,
 } from "../src/keyring/index.ts"
+
+async function isKeyringAvailable(): Promise<boolean> {
+  if (Deno.build.os === "linux") {
+    try {
+      const cmd = new Deno.Command("secret-tool", {
+        args: ["lookup", "service", "linear-cli-probe"],
+        stdout: "null",
+        stderr: "piped",
+      })
+      const { code, stderr } = await cmd.output()
+      const err = new TextDecoder().decode(stderr).trim()
+      if (err.includes("was not provided by any .service files")) return false
+      return code === 0 || (code === 1 && err === "")
+    } catch {
+      return false
+    }
+  }
+  return true
+}
 
 const TEST_ACCOUNT = `linear-cli-integration-test-${Date.now()}`
 
 Deno.test({
   name: "keyring integration - set, get, and delete round-trip",
   sanitizeResources: Deno.build.os !== "windows",
+  ignore: !(await isKeyringAvailable()),
   fn: async () => {
-    if (!await isAvailable()) {
-      console.log("Skipping keyring integration test: backend unavailable")
-      return
-    }
     try {
       assertEquals(await getPassword(TEST_ACCOUNT), null)
 

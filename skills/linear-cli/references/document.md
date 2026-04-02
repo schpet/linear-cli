@@ -13,8 +13,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                      
-  -w, --workspace  <slug>  - Target workspace (uses credentials)  
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
 
 Commands:
 
@@ -40,12 +40,12 @@ Description:
 
 Options:
 
-  -h, --help                  - Show this help.                                        
-  -w, --workspace  <slug>     - Target workspace (uses credentials)                    
-  --project        <project>  - Filter by project (slug or name)                       
-  --issue          <issue>    - Filter by issue (identifier like TC-123)               
-  --json                      - Output as JSON                                         
-  --limit          <limit>    - Limit results                             (Default: 50)
+  -h, --help              - Show this help.                                        
+  --workspace  <slug>     - Target workspace (uses credentials)                    
+  --project    <project>  - Filter by project (slug or name)                       
+  --issue      <issue>    - Filter by issue (identifier like TC-123)               
+  --json                  - Output as JSON                                         
+  --limit      <limit>    - Limit results                             (Default: 50)
 ```
 
 ### view
@@ -61,11 +61,11 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                        
-  -w, --workspace  <slug>  - Target workspace (uses credentials)    
-  --raw                    - Output raw markdown without rendering  
-  -w, --web                - Open document in browser               
-  --json                   - Output full document as JSON
+  -h, --help           - Show this help.                        
+  --workspace  <slug>  - Target workspace (uses credentials)    
+  --raw                - Output raw markdown without rendering  
+  -w, --web            - Open document in browser               
+  --json               - Output full document as JSON
 ```
 
 ### create
@@ -82,7 +82,7 @@ Description:
 Options:
 
   -h, --help                     - Show this help.                           
-  -w, --workspace     <slug>     - Target workspace (uses credentials)       
+  --workspace         <slug>     - Target workspace (uses credentials)       
   -t, --title         <title>    - Document title (required)                 
   -c, --content       <content>  - Markdown content (inline)                 
   -f, --content-file  <path>     - Read content from file                    
@@ -106,7 +106,7 @@ Description:
 Options:
 
   -h, --help                     - Show this help.                              
-  -w, --workspace     <slug>     - Target workspace (uses credentials)          
+  --workspace         <slug>     - Target workspace (uses credentials)          
   -t, --title         <title>    - New title for the document                   
   -c, --content       <content>  - New markdown content (inline)                
   -f, --content-file  <path>     - Read new content from file                   
@@ -127,10 +127,10 @@ Description:
 
 Options:
 
-  -h, --help                 - Show this help.                                     
-  -w, --workspace  <slug>    - Target workspace (uses credentials)                 
-  -y, --yes                  - Skip confirmation prompt                            
-  --bulk           <ids...>  - Delete multiple documents by slug or ID             
-  --bulk-file      <file>    - Read document slugs/IDs from a file (one per line)  
-  --bulk-stdin               - Read document slugs/IDs from stdin
+  -h, --help              - Show this help.                                     
+  --workspace   <slug>    - Target workspace (uses credentials)                 
+  -y, --yes               - Skip confirmation prompt                            
+  --bulk        <ids...>  - Delete multiple documents by slug or ID             
+  --bulk-file   <file>    - Read document slugs/IDs from a file (one per line)  
+  --bulk-stdin            - Read document slugs/IDs from stdin
 ```
