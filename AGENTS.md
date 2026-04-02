@@ -8,6 +8,8 @@
 - prefer `foo == null` and `foo != null` over `foo === undefined` and `foo !== undefined`
 - import: use dynamic import only when necessary, the static form is preferable
 - avoid the typescript `any` type - prefer strict typing, if you can't find a good way to fix a type issue (particularly with graphql data or documents) explain the problem instead of working around it
+- for `--json` output, preserve GraphQL field names and nesting instead of inventing CLI-specific JSON shapes
+- for paginated `--json` output, preserve connection shape and concatenate `nodes` rather than flattening or renaming fields
 
 ## permissions
 
