@@ -266,6 +266,16 @@ const issueDetailsWithCommentsQuery = gql(/* GraphQL */ `
           createdAt
         }
       }
+      documents(first: 50) {
+        nodes {
+          id
+          title
+          slugId
+          url
+          createdAt
+          updatedAt
+        }
+      }
     }
   }
 `)
@@ -326,6 +336,16 @@ const issueDetailsQuery = gql(/* GraphQL */ `
           createdAt
         }
       }
+      documents(first: 50) {
+        nodes {
+          id
+          title
+          slugId
+          url
+          createdAt
+          updatedAt
+        }
+      }
     }
   }
 `)
@@ -354,18 +374,26 @@ export type FetchedIssueComment = IssueDetailsWithComments["comments"]["nodes"][
 ]
 
 export type FetchedIssueDetailsWithComments =
-  & Omit<IssueDetailsWithComments, "children" | "comments" | "attachments">
+  & Omit<
+    IssueDetailsWithComments,
+    "children" | "comments" | "attachments" | "documents"
+  >
   & {
     children: IssueDetailsWithComments["children"]["nodes"]
     comments: IssueDetailsWithComments["comments"]["nodes"]
     attachments: IssueDetailsWithComments["attachments"]["nodes"]
+    documents: IssueDetailsWithComments["documents"]["nodes"]
   }
 
 export type FetchedIssueDetailsWithoutComments =
-  & Omit<IssueDetailsWithoutComments, "children" | "attachments">
+  & Omit<
+    IssueDetailsWithoutComments,
+    "children" | "attachments" | "documents"
+  >
   & {
     children: IssueDetailsWithoutComments["children"]["nodes"]
     attachments: IssueDetailsWithoutComments["attachments"]["nodes"]
+    documents: IssueDetailsWithoutComments["documents"]["nodes"]
   }
 
 export type FetchedIssueDetails =
@@ -395,6 +423,7 @@ export async function fetchIssueDetails(
         children: data.children?.nodes || [],
         comments: data.comments?.nodes || [],
         attachments: data.attachments?.nodes || [],
+        documents: data.documents?.nodes || [],
       }
     }
 
@@ -405,6 +434,7 @@ export async function fetchIssueDetails(
       ...data,
       children: data.children?.nodes || [],
       attachments: data.attachments?.nodes || [],
+      documents: data.documents?.nodes || [],
     }
   } catch (error) {
     spinner?.stop()

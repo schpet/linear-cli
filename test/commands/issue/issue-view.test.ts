@@ -262,6 +262,100 @@ await snapshotTest({
   },
 })
 
+// Test with documents and attachments
+await snapshotTest({
+  name: "Issue View Command - With Documents And Attachments",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-246", "--no-comments"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        queryIncludes: "documents(first: 50)",
+        variables: { id: "TEST-246" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-246",
+              title: "Audit issue resource output",
+              description:
+                "Ensure issue view shows both attachments and documents.",
+              url:
+                "https://linear.app/test-team/issue/TEST-246/audit-issue-resource-output",
+              branchName: "test-246-issue-resource-output",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
+              assignee: {
+                name: "jane.smith",
+                displayName: "Jane Smith",
+              },
+              priority: 2,
+              project: null,
+              projectMilestone: null,
+              cycle: null,
+              parent: null,
+              children: {
+                nodes: [],
+              },
+              attachments: {
+                nodes: [
+                  {
+                    id: "attachment-1",
+                    title: "Design mock",
+                    url: "https://example.com/design-mock",
+                    subtitle: "Figma file",
+                    sourceType: "figma",
+                    metadata: {},
+                    createdAt: "2024-01-15T10:30:00Z",
+                  },
+                ],
+              },
+              documents: {
+                nodes: [
+                  {
+                    id: "document-1",
+                    title: "Implementation plan",
+                    slugId: "impl-plan-123",
+                    url:
+                      "https://linear.app/test-team/document/implementation-plan-impl-plan-123",
+                    createdAt: "2024-01-15T09:30:00Z",
+                    updatedAt: "2024-01-15T09:45:00Z",
+                  },
+                  {
+                    id: "document-2",
+                    title: "QA checklist",
+                    slugId: "qa-checklist-456",
+                    url:
+                      "https://linear.app/test-team/document/qa-checklist-qa-checklist-456",
+                    createdAt: "2024-01-15T09:00:00Z",
+                    updatedAt: "2024-01-15T09:15:00Z",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
 // Test with mock server - Issue not found
 await snapshotTest({
   name: "Issue View Command - Issue Not Found",
@@ -422,6 +516,100 @@ await snapshotTest({
               },
               attachments: {
                 nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test JSON output with documents and attachments
+await snapshotTest({
+  name: "Issue View Command - JSON Output With Documents And Attachments",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-246", "--json", "--no-comments"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        queryIncludes: "documents(first: 50)",
+        variables: { id: "TEST-246" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-246",
+              title: "Audit issue resource output",
+              description:
+                "Ensure issue view shows both attachments and documents.",
+              url:
+                "https://linear.app/test-team/issue/TEST-246/audit-issue-resource-output",
+              branchName: "test-246-issue-resource-output",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
+              assignee: {
+                name: "jane.smith",
+                displayName: "Jane Smith",
+              },
+              priority: 2,
+              project: null,
+              projectMilestone: null,
+              cycle: null,
+              parent: null,
+              children: {
+                nodes: [],
+              },
+              attachments: {
+                nodes: [
+                  {
+                    id: "attachment-1",
+                    title: "Design mock",
+                    url: "https://example.com/design-mock",
+                    subtitle: "Figma file",
+                    sourceType: "figma",
+                    metadata: {},
+                    createdAt: "2024-01-15T10:30:00Z",
+                  },
+                ],
+              },
+              documents: {
+                nodes: [
+                  {
+                    id: "document-1",
+                    title: "Implementation plan",
+                    slugId: "impl-plan-123",
+                    url:
+                      "https://linear.app/test-team/document/implementation-plan-impl-plan-123",
+                    createdAt: "2024-01-15T09:30:00Z",
+                    updatedAt: "2024-01-15T09:45:00Z",
+                  },
+                  {
+                    id: "document-2",
+                    title: "QA checklist",
+                    slugId: "qa-checklist-456",
+                    url:
+                      "https://linear.app/test-team/document/qa-checklist-qa-checklist-456",
+                    createdAt: "2024-01-15T09:00:00Z",
+                    updatedAt: "2024-01-15T09:15:00Z",
+                  },
+                ],
               },
             },
           },
