@@ -1,0 +1,26 @@
+export const snapshot = {};
+
+snapshot[`Initiative Update List Command - JSON Output 1`] = `
+stdout:
+'{
+  "name": "Alpha Initiative",
+  "slugId": "alpha",
+  "initiativeUpdates": {
+    "nodes": [
+      {
+        "id": "update-1",
+        "body": "Everything is on track.",
+        "health": "onTrack",
+        "url": "https://linear.app/test/update-1",
+        "createdAt": "2026-02-15T10:00:00Z",
+        "user": {
+          "name": "alex.active"
+        }
+      }
+    ]
+  }
+}
+'
+stderr:
+""
+`;
