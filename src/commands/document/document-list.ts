@@ -74,10 +74,17 @@ export const listCommand = new Command()
       })
       spinner?.stop()
 
-      const documents = result.documents?.nodes || []
+      const documentsConnection = result.documents ?? {
+        nodes: [],
+        pageInfo: {
+          hasNextPage: false,
+          endCursor: null,
+        },
+      }
+      const documents = documentsConnection.nodes
 
       if (json) {
-        console.log(JSON.stringify(documents, null, 2))
+        console.log(JSON.stringify(documentsConnection, null, 2))
         return
       }
 
