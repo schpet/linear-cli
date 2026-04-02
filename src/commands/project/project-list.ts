@@ -130,6 +130,10 @@ export const listCommand = new Command()
       const allProjects: GetProjectsQuery["projects"]["nodes"] = []
       let hasNextPage = true
       let after: string | null | undefined = undefined
+      let pageInfo: NonNullable<GetProjectsQuery["projects"]>["pageInfo"] = {
+        hasNextPage: false,
+        endCursor: null,
+      }
 
       while (hasNextPage) {
         const result: GetProjectsQuery = await client.request(GetProjects, {
@@ -138,11 +142,16 @@ export const listCommand = new Command()
           after,
         })
 
-        const projects = result.projects?.nodes || []
+        const projectsConnection = result.projects
+        const projects = projectsConnection?.nodes || []
         allProjects.push(...projects)
 
-        hasNextPage = result.projects?.pageInfo?.hasNextPage || false
-        after = result.projects?.pageInfo?.endCursor
+        pageInfo = projectsConnection?.pageInfo ?? {
+          hasNextPage: false,
+          endCursor: null,
+        }
+        hasNextPage = pageInfo.hasNextPage
+        after = pageInfo.endCursor
       }
 
       spinner?.stop()
@@ -152,7 +161,14 @@ export const listCommand = new Command()
 
       if (projects.length === 0) {
         if (json) {
-          console.log("[]")
+          console.log(JSON.stringify(
+            {
+              nodes: allProjects,
+              pageInfo,
+            },
+            null,
+            2,
+          ))
         } else {
           console.log("No projects found.")
         }
@@ -184,35 +200,15 @@ export const listCommand = new Command()
         return a.name.localeCompare(b.name)
       })
 
-      // JSON output
       if (json) {
-        const jsonOutput = projects.map((project) => ({
-          id: project.id,
-          slugId: project.slugId,
-          name: project.name,
-          description: project.description,
-          status: {
-            id: project.status.id,
-            name: project.status.name,
-            type: project.status.type,
+        console.log(JSON.stringify(
+          {
+            nodes: projects,
+            pageInfo,
           },
-          lead: project.lead
-            ? {
-              name: project.lead.name,
-              displayName: project.lead.displayName,
-              initials: project.lead.initials,
-            }
-            : null,
-          teams: project.teams.nodes.map((t) => t.key),
-          priority: project.priority,
-          health: project.health,
-          startDate: project.startDate,
-          targetDate: project.targetDate,
-          url: project.url,
-          createdAt: project.createdAt,
-          updatedAt: project.updatedAt,
-        }))
-        console.log(JSON.stringify(jsonOutput, null, 2))
+          null,
+          2,
+        ))
         return
       }
 
