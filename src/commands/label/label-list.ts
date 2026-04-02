@@ -29,13 +29,7 @@ const GetIssueLabels = gql(`
   }
 `)
 
-interface Label {
-  id: string
-  name: string
-  description?: string | null
-  color: string
-  team?: { key: string; name: string } | null
-}
+type Label = NonNullable<GetIssueLabelsQuery["issueLabels"]>["nodes"][number]
 
 export const listCommand = new Command()
   .name("list")
@@ -95,6 +89,12 @@ export const listCommand = new Command()
       const allLabels: Label[] = []
       let hasNextPage = true
       let after: string | null | undefined = undefined
+      let pageInfo: NonNullable<
+        GetIssueLabelsQuery["issueLabels"]
+      >["pageInfo"] = {
+        hasNextPage: false,
+        endCursor: null,
+      }
 
       while (hasNextPage) {
         const result: GetIssueLabelsQuery = await client.request(
@@ -106,17 +106,33 @@ export const listCommand = new Command()
           },
         )
 
-        const labels = result.issueLabels?.nodes || []
-        allLabels.push(...(labels as Label[]))
+        const labelsConnection = result.issueLabels
+        const labels = labelsConnection?.nodes || []
+        allLabels.push(...labels)
 
-        hasNextPage = result.issueLabels?.pageInfo?.hasNextPage || false
-        after = result.issueLabels?.pageInfo?.endCursor
+        pageInfo = labelsConnection?.pageInfo ?? {
+          hasNextPage: false,
+          endCursor: null,
+        }
+        hasNextPage = pageInfo.hasNextPage
+        after = pageInfo.endCursor
       }
 
       spinner?.stop()
 
       if (allLabels.length === 0) {
-        console.log("No labels found.")
+        if (json) {
+          console.log(JSON.stringify(
+            {
+              nodes: allLabels,
+              pageInfo,
+            },
+            null,
+            2,
+          ))
+        } else {
+          console.log("No labels found.")
+        }
         return
       }
 
@@ -125,9 +141,15 @@ export const listCommand = new Command()
         a.name.toLowerCase().localeCompare(b.name.toLowerCase())
       )
 
-      // JSON output
       if (json) {
-        console.log(JSON.stringify(sortedLabels, null, 2))
+        console.log(JSON.stringify(
+          {
+            nodes: sortedLabels,
+            pageInfo,
+          },
+          null,
+          2,
+        ))
         return
       }
 
