@@ -331,7 +331,7 @@ function deriveCommentView(
     .filter((comment) => comment.parent == null)
     .slice()
     .sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     )
 
   const commentsById = new Map(comments.map((comment) => [comment.id, comment]))
