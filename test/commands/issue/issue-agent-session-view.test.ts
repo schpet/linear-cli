@@ -155,3 +155,58 @@ await snapshotTest({
     }
   },
 })
+
+await snapshotTest({
+  name: "Issue Agent Session View Command - JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["session-3", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetAgentSessionDetails",
+        variables: { id: "session-3" },
+        response: {
+          data: {
+            agentSession: {
+              id: "session-3",
+              status: "stale",
+              type: "commentThread",
+              createdAt: "2020-01-02T10:00:00Z",
+              updatedAt: "2020-01-02T10:30:00Z",
+              startedAt: "2020-01-02T10:00:05Z",
+              endedAt: null,
+              dismissedAt: null,
+              summary: "Session JSON output",
+              externalLink: null,
+              creator: { name: "Casey" },
+              appUser: { name: "Linear Assistant" },
+              dismissedBy: null,
+              issue: {
+                identifier: "ENG-500",
+                title: "JSON issue",
+                url: "https://linear.app/eng/issue/ENG-500",
+              },
+              activities: {
+                nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await agentSessionViewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
