@@ -357,7 +357,7 @@ export const createCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
+      const showSpinner = shouldShowSpinner() && !jsonOutput
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 
@@ -408,18 +408,7 @@ export const createCommand = new Command()
         }
 
         if (jsonOutput) {
-          console.log(
-            JSON.stringify(
-              {
-                id: project.id,
-                slugId: project.slugId,
-                name: project.name,
-                url: project.url,
-              },
-              null,
-              2,
-            ),
-          )
+          console.log(JSON.stringify(result.projectCreate, null, 2))
         } else {
           console.log(`✓ Created project: ${project.name}`)
           console.log(`  Slug: ${project.slugId}`)

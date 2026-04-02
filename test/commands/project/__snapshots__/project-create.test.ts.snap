@@ -31,10 +31,13 @@ stderr:
 snapshot[`Project Create Command - With JSON Output 1`] = `
 stdout:
 '{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "slugId": "json-test-project",
-  "name": "JSON Test Project",
-  "url": "https://linear.app/test/project/json-test-project"
+  "success": true,
+  "project": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "slugId": "json-test-project",
+    "name": "JSON Test Project",
+    "url": "https://linear.app/test/project/json-test-project"
+  }
 }
 '
 stderr:
