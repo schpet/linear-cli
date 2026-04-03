@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-03
+
+### Fixed
+
+- alphanumeric team keys (e.g. team keys with numbers) now accepted
+- workspace flag collision: removed -w short alias from --workspace to avoid conflict with --web
+- auth migrate keyring error message now includes suggestion
+
+### Changed
+
+- json output now preserves GraphQL field names and connection shape across all commands
+- issue view resolved thread metadata format
+
+### Added
+
+- `issue list` split into `issue mine` and `issue query`. `mine` is your personal work queue (unstarted issues assigned to you). `query` handles cross-team filtering, --json output, and full-text search via --search. `issue list` is aliased to `mine` for now but should be considered deprecated
+- agent-session list and view commands ([#192](https://github.com/schpet/linear-cli/pull/192); thanks @paymog)
+- issue link command to attach URLs to issues ([#185](https://github.com/schpet/linear-cli/pull/185); thanks @lucleray)
+- keyring storage for API keys on macOS, Linux, and Windows ([#136](https://github.com/schpet/linear-cli/pull/136); thanks @bendrucker)
+- label filter (--label) for issue list and issue query ([#180](https://github.com/schpet/linear-cli/pull/180); thanks @mihai-chiorean)
+- project label filter (--project-label) to match issues across all projects with a given label ([#178](https://github.com/schpet/linear-cli/pull/178); thanks @AlJohri)
+- date filters (--created-after, --updated-after) for issue list and issue query ([#191](https://github.com/schpet/linear-cli/pull/191); thanks @jholm117)
+- json output (--json) for issue list, issue create, and cycle list ([#179](https://github.com/schpet/linear-cli/pull/179); thanks @mihai-chiorean)
+- assignee, priority, and state display in issue view ([#190](https://github.com/schpet/linear-cli/pull/190); thanks @jholm117)
+- issue documents shown in issue view
+
 ## [1.11.1] - 2026-03-06
 
 ### Added
@@ -410,7 +436,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v1.11.1...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/schpet/linear-cli/compare/v1.11.1...v2.0.0
 [1.11.1]: https://github.com/schpet/linear-cli/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/schpet/linear-cli/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/schpet/linear-cli/compare/v1.9.1...v1.10.0
