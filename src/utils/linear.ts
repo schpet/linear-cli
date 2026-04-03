@@ -4,6 +4,7 @@ import type {
   GetAllTeamsQueryVariables as _GetAllTeamsQueryVariables,
   GetIssueDetailsQuery,
   GetIssueDetailsWithCommentsQuery,
+  GetIssuesForQueryQuery,
   GetIssuesForStateQuery,
   GetTeamMembersQuery,
   IssueFilter,
@@ -669,6 +670,241 @@ export async function fetchIssuesForState(
   }
 }
 
+const queryIssuesQuery = gql(/* GraphQL */ `
+  query GetIssuesForQuery(
+    $sort: [IssueSortInput!]
+    $filter: IssueFilter
+    $first: Int
+    $after: String
+    $includeArchived: Boolean
+  ) {
+    issues(
+      filter: $filter
+      sort: $sort
+      first: $first
+      after: $after
+      includeArchived: $includeArchived
+    ) {
+      nodes {
+        id
+        identifier
+        title
+        url
+        priority
+        priorityLabel
+        estimate
+        createdAt
+        updatedAt
+        state {
+          id
+          name
+          color
+          type
+        }
+        assignee {
+          id
+          name
+          displayName
+          initials
+        }
+        team {
+          id
+          key
+          name
+        }
+        project {
+          id
+          name
+        }
+        projectMilestone {
+          id
+          name
+        }
+        cycle {
+          id
+          number
+          name
+        }
+        labels {
+          nodes {
+            id
+            name
+            color
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`)
+
+type QueryIssuesPayload = GetIssuesForQueryQuery["issues"]
+
+export type FetchedQueryIssueResult = QueryIssuesPayload["nodes"][number]
+
+export type FetchedQueryIssuePayload = {
+  nodes: QueryIssuesPayload["nodes"]
+  pageInfo: QueryIssuesPayload["pageInfo"]
+}
+
+export interface FetchIssuesForQueryOptions {
+  teamKeys?: string[]
+  allTeams?: boolean
+  state?: string[]
+  assignee?: string
+  unassigned?: boolean
+  sort?: "manual" | "priority"
+  limit?: number
+  projectId?: string
+  projectLabel?: string
+  cycleId?: string
+  milestoneId?: string
+  labelNames?: string[]
+  createdAfter?: string
+  updatedAfter?: string
+  includeArchived?: boolean
+}
+
+export async function fetchIssuesForQuery(
+  options: FetchIssuesForQueryOptions,
+): Promise<FetchedQueryIssuePayload> {
+  const filter: IssueFilter = {}
+
+  if (options.allTeams) {
+    // No team filter — workspace-wide
+  } else if (options.teamKeys && options.teamKeys.length > 0) {
+    if (options.teamKeys.length === 1) {
+      filter.team = { key: { eq: options.teamKeys[0] } }
+    } else {
+      filter.team = {
+        or: options.teamKeys.map((key) => ({ key: { eq: key } })),
+      }
+    }
+  }
+
+  if (options.state && options.state.length > 0) {
+    filter.state = { type: { in: options.state } }
+  }
+
+  if (options.unassigned) {
+    filter.assignee = { null: true }
+  } else if (options.assignee) {
+    const userId = await lookupUserId(options.assignee)
+    if (!userId) {
+      throw new NotFoundError("User", options.assignee)
+    }
+    filter.assignee = { id: { eq: userId } }
+  }
+  // No implicit assignee — default is all assignees
+
+  if (options.projectId) {
+    filter.project = { id: { eq: options.projectId } }
+  } else if (options.projectLabel) {
+    filter.project = {
+      labels: { name: { eqIgnoreCase: options.projectLabel } },
+    }
+  }
+
+  if (options.cycleId) {
+    filter.cycle = { id: { eq: options.cycleId } }
+  }
+
+  if (options.milestoneId) {
+    filter.projectMilestone = { id: { eq: options.milestoneId } }
+  }
+
+  if (options.labelNames && options.labelNames.length > 0) {
+    if (options.labelNames.length === 1) {
+      filter.labels = {
+        some: { name: { eqIgnoreCase: options.labelNames[0] } },
+      }
+    } else {
+      filter.labels = {
+        and: options.labelNames.map((name) => ({
+          some: { name: { eqIgnoreCase: name } },
+        })),
+      }
+    }
+  }
+
+  if (options.createdAfter) {
+    filter.createdAt = {
+      gte: parseDateFilter(options.createdAfter, "--created-after"),
+    }
+  }
+
+  if (options.updatedAfter) {
+    filter.updatedAt = {
+      gte: parseDateFilter(options.updatedAfter, "--updated-after"),
+    }
+  }
+
+  const sort = options.sort ?? "priority"
+  let sortPayload: Array<IssueSortInput>
+  switch (sort) {
+    case "manual":
+      sortPayload = [
+        { workflowState: { order: "Descending" } },
+        { manual: { nulls: "last" as const, order: "Ascending" as const } },
+      ]
+      break
+    case "priority":
+      sortPayload = [
+        { workflowState: { order: "Descending" } },
+        { priority: { nulls: "last" as const, order: "Descending" as const } },
+        { manual: { nulls: "last" as const, order: "Ascending" as const } },
+      ]
+      break
+    default:
+      throw new ValidationError(`Unknown sort type: ${sort}`, {
+        suggestion: "Use 'manual' or 'priority'",
+      })
+  }
+
+  const client = getGraphQLClient()
+  const fetchAll = options.limit === 0
+  const limit = options.limit ?? 50
+  const pageSize = fetchAll ? 100 : Math.min(limit, 100)
+
+  const allNodes: QueryIssuesPayload["nodes"] = []
+  let hasNextPage = true
+  let after: string | null | undefined = undefined
+  let lastPageInfo: QueryIssuesPayload["pageInfo"] = {
+    hasNextPage: false,
+    endCursor: null,
+  }
+
+  while (hasNextPage) {
+    const result: GetIssuesForQueryQuery = await client.request(
+      queryIssuesQuery,
+      {
+        sort: sortPayload,
+        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        first: pageSize,
+        after,
+        includeArchived: options.includeArchived,
+      },
+    )
+
+    allNodes.push(...result.issues.nodes)
+    lastPageInfo = result.issues.pageInfo
+    hasNextPage = result.issues.pageInfo.hasNextPage
+    after = result.issues.pageInfo.endCursor
+
+    if (!fetchAll && allNodes.length >= limit) {
+      break
+    }
+  }
+
+  return {
+    nodes: fetchAll ? allNodes : allNodes.slice(0, limit),
+    pageInfo: lastPageInfo,
+  }
+}
+
 const searchIssuesQuery = gql(/* GraphQL */ `
   query SearchIssues(
     $term: String!
@@ -758,6 +994,7 @@ export type FetchedIssueSearchPayload = {
 
 export interface SearchIssuesByTermOptions {
   teamKey?: string
+  teamKeys?: string[]
   state?: string[]
   assignee?: string
   unassigned?: boolean
@@ -778,7 +1015,15 @@ export async function searchIssuesByTerm(
 ): Promise<FetchedIssueSearchPayload> {
   const filter: IssueFilter = {}
 
-  if (options.teamKey != null) {
+  if (options.teamKeys != null && options.teamKeys.length > 0) {
+    if (options.teamKeys.length === 1) {
+      filter.team = { key: { eq: options.teamKeys[0] } }
+    } else {
+      filter.team = {
+        or: options.teamKeys.map((key) => ({ key: { eq: key } })),
+      }
+    }
+  } else if (options.teamKey != null) {
     filter.team = { key: { eq: options.teamKey } }
   }
 

@@ -38,8 +38,8 @@ const StateType = new EnumType([
   "canceled",
 ])
 
-export const listCommand = new Command()
-  .name("list")
+export const mineCommand = new Command()
+  .name("mine")
   .description("List your issues")
   .type("sort", SortType)
   .type("state", StateType)
@@ -54,18 +54,6 @@ export const listCommand = new Command()
   .option(
     "--all-states",
     "Show issues from all states",
-  )
-  .option(
-    "--assignee <assignee:string>",
-    "Filter by assignee (username)",
-  )
-  .option(
-    "-A, --all-assignees",
-    "Show issues for all assignees",
-  )
-  .option(
-    "-U, --unassigned",
-    "Show only unassigned issues",
   )
   .option(
     "--sort <sort:sort>",
@@ -114,6 +102,21 @@ export const listCommand = new Command()
     "--updated-after <date:string>",
     "Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)",
   )
+  .option(
+    "--assignee <assignee:string>",
+    "Removed: use `issue query --assignee` instead",
+    { hidden: true },
+  )
+  .option(
+    "-A, --all-assignees",
+    "Removed: use `issue query --all-assignees` instead",
+    { hidden: true },
+  )
+  .option(
+    "-U, --unassigned",
+    "Removed: use `issue query --unassigned` instead",
+    { hidden: true },
+  )
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
   .option("--no-pager", "Disable automatic paging for long output")
@@ -122,12 +125,12 @@ export const listCommand = new Command()
       {
         sort: sortFlag,
         state,
+        allStates,
         assignee,
         allAssignees,
         unassigned,
         web,
         app,
-        allStates,
         team,
         project,
         projectLabel,
@@ -147,14 +150,20 @@ export const listCommand = new Command()
       }
 
       try {
-        const assigneeFilterCount =
-          [assignee, allAssignees, unassigned].filter(Boolean).length
-        if (assigneeFilterCount > 1) {
+        if (assignee != null || allAssignees || unassigned) {
+          const flag = assignee != null
+            ? "--assignee"
+            : allAssignees
+            ? "--all-assignees"
+            : "--unassigned"
           throw new ValidationError(
-            "Cannot specify multiple assignee filters (--assignee, --all-assignees, --unassigned)",
+            `${flag} has been removed from 'issue mine'`,
+            {
+              suggestion:
+                `Use 'linear issue query ${flag}' for assignee filtering.`,
+            },
           )
         }
-
         const stateArray: string[] = Array.isArray(state)
           ? state.flat()
           : [state]
@@ -257,9 +266,9 @@ export const listCommand = new Command()
         const result = await fetchIssuesForState(
           teamKey,
           allStates ? undefined : stateArray,
-          assignee,
-          unassigned,
-          allAssignees,
+          undefined, // assignee — always self
+          false, // unassigned
+          false, // allAssignees
           limit === 0 ? undefined : limit,
           projectId,
           sort,
@@ -303,9 +312,7 @@ export const listCommand = new Command()
             ...issues.map((issue) => unicodeWidth(issue.state.name)),
           ),
         )
-        const ASSIGNEE_WIDTH = 2 // fixed width for assignee initials
         const SPACE_WIDTH = 4
-        const showAssigneeColumn = allAssignees || unassigned
         const updatedHeader = "UPDATED"
         const UPDATED_WIDTH = Math.max(
           unicodeWidth(updatedHeader),
@@ -322,14 +329,9 @@ export const listCommand = new Command()
           state: string
           timeAgo: string
           estimate: number | null | undefined
-          assignee?: string
         }
 
         const tableData: Array<TableRow> = issues.map((issue) => {
-          const assignee = showAssigneeColumn
-            ? (issue.assignee?.initials?.slice(0, 2) || "-")
-            : undefined
-
           let labels: string
           if (issue.labels.nodes.length === 0) {
             labels = " ".repeat(LABEL_WIDTH)
@@ -400,13 +402,11 @@ export const listCommand = new Command()
             state: statePadded,
             timeAgo,
             estimate: issue.estimate,
-            assignee,
           }
         })
 
         const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
-          LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH +
-          (showAssigneeColumn ? ASSIGNEE_WIDTH + SPACE_WIDTH : 0) // sum of fixed columns including spacing for estimate
+          LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH
         const PADDING = 1
         const maxTitleWidth = Math.max(
           ...tableData.map((row) => unicodeWidth(row.title)),
@@ -419,7 +419,6 @@ export const listCommand = new Command()
           padDisplay("TITLE", titleWidth),
           padDisplay("LABELS", LABEL_WIDTH),
           padDisplay("E", ESTIMATE_WIDTH),
-          ...(showAssigneeColumn ? [padDisplay("A", ASSIGNEE_WIDTH)] : []),
           padDisplay("STATE", STATE_WIDTH),
           padDisplay(updatedHeader, UPDATED_WIDTH),
         ]
@@ -439,24 +438,17 @@ export const listCommand = new Command()
             state,
             timeAgo,
             estimate,
-            assignee,
           } = row
           const truncTitle = padDisplay(
             truncateText(title, titleWidth),
             titleWidth,
           )
 
-          const assigneeOutput = showAssigneeColumn
-            ? `${padDisplay(assignee || "-", ASSIGNEE_WIDTH)} `
-            : ""
-
           const issueLine = `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
             padDisplay(identifier, ID_WIDTH)
           } ${truncTitle} ${labels} ${
             padDisplay(estimate?.toString() || "-", ESTIMATE_WIDTH)
-          } ${assigneeOutput}${state} ${
-            muted(padDisplay(timeAgo, UPDATED_WIDTH))
-          }`
+          } ${state} ${muted(padDisplay(timeAgo, UPDATED_WIDTH))}`
           outputLines.push(issueLine)
         }
 
