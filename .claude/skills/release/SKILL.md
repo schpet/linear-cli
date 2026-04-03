@@ -154,6 +154,13 @@ After the changelog is released, execute the complete tag process from the justf
    ```bash
    # Generate updated skill docs (includes version from deno.json)
    deno task generate-skill-docs
+
+   # Update Claude Code plugin versions
+   FINAL_VERSION=$(svbump read version deno.json)
+   svbump write "$FINAL_VERSION" version .claude-plugin/plugin.json
+   svbump write "$FINAL_VERSION" version .claude-plugin/marketplace.json
+   # marketplace.json also has version inside plugins[0] — svbump can't do array paths,
+   # so use jq or edit it manually to match
    ```
 
 4. **Create commit and tag:**
