@@ -1,6 +1,6 @@
 export const snapshot = {};
 
-snapshot[`Issue List Command - Help Text 1`] = `
+snapshot[`Issue Mine Command - Help Text 1`] = `
 stdout:
 \`
 Usage: mine

@@ -79,8 +79,8 @@ linear auth migrate
 
 linear issue
 linear issue id
-linear issue list
-linear issue search
+linear issue mine
+linear issue query
 linear issue title
 linear issue start
 linear issue view
