@@ -6,6 +6,7 @@ import type {
   GetIssueDetailsWithCommentsQuery,
   GetIssuesForQueryQuery,
   GetIssuesForStateQuery,
+  GetProjectsForTeamQuery,
   GetTeamMembersQuery,
   IssueFilter,
   IssueSortInput,
@@ -1212,6 +1213,53 @@ export async function getProjectOptionsByName(
   const data = await client.request(query, { name })
   const qResults = data.projects?.nodes || []
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]))
+}
+
+export async function getProjectsForTeam(
+  teamKey: string,
+): Promise<Array<{ id: string; name: string }>> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectsForTeam(
+      $filter: ProjectFilter
+      $first: Int
+      $after: String
+    ) {
+      projects(filter: $filter, first: $first, after: $after) {
+        nodes {
+          id
+          name
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  `)
+
+  const projects: Array<{ id: string; name: string }> = []
+  let hasNextPage = true
+  let after: string | null | undefined = undefined
+
+  while (hasNextPage) {
+    const data: GetProjectsForTeamQuery = await client.request(query, {
+      filter: {
+        accessibleTeams: { some: { key: { eq: teamKey } } },
+      },
+      first: 100,
+      after,
+    })
+
+    const connection = data.projects
+    projects.push(...(connection?.nodes || []))
+    hasNextPage = connection?.pageInfo?.hasNextPage || false
+    after = connection?.pageInfo?.endCursor
+  }
+
+  return projects.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  )
 }
 
 export async function getTeamIdByKey(
