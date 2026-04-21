@@ -4,7 +4,7 @@ import {
   extractLinearLinkInfo,
   getUrlHash,
   replaceImageUrls,
-} from "../../../src/commands/issue/issue-view.ts"
+} from "../../../src/utils/markdown-images.ts"
 import {
   formatPathHyperlink,
   hyperlink,
@@ -101,6 +101,29 @@ Deno.test("replaceImageUrls - leaves unmatched URLs unchanged", async () => {
   ])
   const result = await replaceImageUrls(markdown, urlToPath)
   assertEquals(result.includes("https://example.com/img.png"), true)
+})
+
+Deno.test("replaceImageUrls - preserves GFM task lists", async () => {
+  const markdown =
+    "- [ ] todo\n- [x] done\n\n![alt](https://example.com/img.png)\n"
+  const urlToPath = new Map([
+    ["https://example.com/img.png", "/tmp/cached/img.png"],
+  ])
+  const result = await replaceImageUrls(markdown, urlToPath)
+  assertEquals(result.includes("- [ ] todo"), true)
+  assertEquals(result.includes("- [x] done"), true)
+  assertEquals(result.includes("/tmp/cached/img.png"), true)
+})
+
+Deno.test("replaceImageUrls - preserves GFM tables", async () => {
+  const markdown =
+    "| a | b |\n| - | - |\n| 1 | 2 |\n\n![alt](https://example.com/img.png)\n"
+  const urlToPath = new Map([
+    ["https://example.com/img.png", "/tmp/cached/img.png"],
+  ])
+  const result = await replaceImageUrls(markdown, urlToPath)
+  assertEquals(result.includes("| a | b |"), true)
+  assertEquals(result.includes("/tmp/cached/img.png"), true)
 })
 
 Deno.test("replaceImageUrls - handles empty map", async () => {

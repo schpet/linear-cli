@@ -16,15 +16,9 @@ import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { bold, underline } from "@std/fmt/colors"
 import { ensureDir } from "@std/fs"
 import { join } from "@std/path"
-import { encodeHex } from "@std/encoding/hex"
 import { getOption } from "../../config.ts"
 import { getResolvedApiKey } from "../../utils/graphql.ts"
 import sanitize from "sanitize-filename"
-import { unified } from "unified"
-import remarkParse from "remark-parse"
-import remarkStringify from "remark-stringify"
-import { visit } from "unist-util-visit"
-import type { Image, Link, Root } from "mdast"
 import {
   hyperlink,
   shouldEnableHyperlinks,
@@ -32,10 +26,12 @@ import {
 } from "../../utils/hyperlink.ts"
 import { createHyperlinkExtension } from "../../utils/charmd-hyperlink-extension.ts"
 import { handleError, ValidationError } from "../../utils/errors.ts"
+import { LINEAR_PRIVATE_UPLOAD_HOST } from "../../const.ts"
 import {
-  LINEAR_PRIVATE_UPLOAD_HOST,
-  LINEAR_UPLOAD_HOSTNAMES,
-} from "../../const.ts"
+  downloadMarkdownImages,
+  getLinearUploadHost,
+  replaceImageUrls,
+} from "../../utils/markdown-images.ts"
 
 export const viewCommand = new Command()
   .name("view")
@@ -91,10 +87,15 @@ export const viewCommand = new Command()
       let urlToPath: Map<string, string> | undefined
       const shouldDownload = download && getOption("download_images") !== false
       if (shouldDownload) {
-        urlToPath = await downloadIssueImages(
+        const sources: Array<string | null | undefined> = [
           issueData.description,
-          issueComments,
-        )
+        ]
+        if (issueComments) {
+          for (const comment of issueComments) {
+            sources.push(comment.body)
+          }
+        }
+        urlToPath = await downloadMarkdownImages(sources)
       }
 
       let attachmentPaths: Map<string, string> | undefined
@@ -519,227 +520,6 @@ function formatResolvedThreadsSummary(hiddenCount: number): string {
   const noun = hiddenCount == 1 ? "thread" : "threads"
   return "Resolved " + noun + " hidden: " + hiddenCount +
     ". Use --show-resolved-threads to show them."
-}
-
-const IMAGE_CACHE_DIR = join(
-  Deno.env.get("TMPDIR") || Deno.env.get("TMP") || Deno.env.get("TEMP") ||
-    "/tmp",
-  "linear-cli-images",
-)
-
-/**
- * image info extracted from markdown
- */
-export interface ImageInfo {
-  url: string
-  alt: string | null
-}
-
-/**
- * extract image URLs and alt text from markdown content using remark parser
- */
-export function extractImageInfo(
-  content: string | null | undefined,
-): ImageInfo[] {
-  if (!content) return []
-
-  const images: ImageInfo[] = []
-
-  const tree = unified().use(remarkParse).parse(content)
-
-  visit(tree, "image", (node: Image) => {
-    if (node.url) {
-      images.push({ url: node.url, alt: node.alt || null })
-    }
-  })
-
-  return images
-}
-
-/**
- * Link info extracted from markdown
- */
-export interface LinkInfo {
-  url: string
-  text: string | null
-}
-
-/**
- * Extract link URLs from markdown content that point to Linear uploads
- */
-export function extractLinearLinkInfo(
-  content: string | null | undefined,
-): LinkInfo[] {
-  if (!content) return []
-
-  const links: LinkInfo[] = []
-
-  const tree = unified().use(remarkParse).parse(content)
-
-  visit(tree, "link", (node: Link) => {
-    // Only extract links to Linear uploads
-    if (node.url && getLinearUploadHost(node.url)) {
-      // Get link text from first child if it's a text node
-      const textNode = node.children[0]
-      const text = textNode && textNode.type === "text" ? textNode.value : null
-      links.push({ url: node.url, text })
-    }
-  })
-
-  return links
-}
-
-/**
- * replace image and link URLs in markdown with local file paths using remark
- */
-export async function replaceImageUrls(
-  content: string,
-  urlToPath: Map<string, string>,
-): Promise<string> {
-  const processor = unified()
-    .use(remarkParse)
-    .use(() => (tree: Root) => {
-      // Replace image URLs
-      visit(tree, "image", (node: Image) => {
-        const localPath = urlToPath.get(node.url)
-        if (localPath) {
-          node.url = localPath
-        }
-      })
-      // Replace link URLs
-      visit(tree, "link", (node: Link) => {
-        const localPath = urlToPath.get(node.url)
-        if (localPath) {
-          node.url = localPath
-        }
-      })
-    })
-    .use(remarkStringify)
-
-  const result = await processor.process(content)
-  return String(result)
-}
-
-/**
- * generate a hash from a URL for cache key purposes
- */
-export async function getUrlHash(url: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(url)
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data)
-  const hashArray = new Uint8Array(hashBuffer)
-  return encodeHex(hashArray).substring(0, 16)
-}
-
-export function getLinearUploadHost(url: string): string | null {
-  try {
-    const { hostname } = new URL(url)
-    return LINEAR_UPLOAD_HOSTNAMES.includes(hostname) ? hostname : null
-  } catch {
-    return null
-  }
-}
-
-/**
- * download an image to the cache directory if not already cached
- * returns the local file path
- */
-async function downloadImage(
-  url: string,
-  altText: string | null,
-): Promise<string> {
-  const urlHash = await getUrlHash(url)
-  const imageDir = join(IMAGE_CACHE_DIR, urlHash)
-  await ensureDir(imageDir)
-
-  const filename = altText ? sanitize(altText) : "image"
-  const filepath = join(imageDir, filename)
-
-  try {
-    await Deno.stat(filepath)
-    return filepath
-  } catch {
-    /* fall through to download */
-  }
-
-  const headers: Record<string, string> = {}
-  if (getLinearUploadHost(url) === LINEAR_PRIVATE_UPLOAD_HOST) {
-    const apiKey = getResolvedApiKey()
-    if (apiKey) {
-      headers["Authorization"] = apiKey
-    }
-  }
-
-  const response = await fetch(url, { headers })
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download image: ${response.status} ${response.statusText}`,
-    )
-  }
-
-  const data = new Uint8Array(await response.arrayBuffer())
-  await Deno.writeFile(filepath, data)
-
-  return filepath
-}
-
-/**
- * Download all images and linked files from issue description and comments
- * Returns a map of URL to local file path
- */
-async function downloadIssueImages(
-  description: string | null | undefined,
-  comments?: Array<{ body: string }>,
-): Promise<Map<string, string>> {
-  // Map of URL to alt text/link text (used as filename)
-  const filesByUrl = new Map<string, string | null>()
-
-  // Extract images
-  for (const img of extractImageInfo(description)) {
-    if (!filesByUrl.has(img.url)) {
-      filesByUrl.set(img.url, img.alt)
-    }
-  }
-
-  // Extract links to Linear uploads
-  for (const link of extractLinearLinkInfo(description)) {
-    if (!filesByUrl.has(link.url)) {
-      filesByUrl.set(link.url, link.text)
-    }
-  }
-
-  if (comments) {
-    for (const comment of comments) {
-      // Extract images from comments
-      for (const img of extractImageInfo(comment.body)) {
-        if (!filesByUrl.has(img.url)) {
-          filesByUrl.set(img.url, img.alt)
-        }
-      }
-      // Extract links to Linear uploads from comments
-      for (const link of extractLinearLinkInfo(comment.body)) {
-        if (!filesByUrl.has(link.url)) {
-          filesByUrl.set(link.url, link.text)
-        }
-      }
-    }
-  }
-
-  const urlToPath = new Map<string, string>()
-  for (const [url, alt] of filesByUrl) {
-    try {
-      const path = await downloadImage(url, alt)
-      urlToPath.set(url, path)
-    } catch (error) {
-      console.error(
-        `Failed to download ${url}: ${
-          error instanceof Error ? error.message : error
-        }`,
-      )
-    }
-  }
-
-  return urlToPath
 }
 
 // Type for attachments and documents
