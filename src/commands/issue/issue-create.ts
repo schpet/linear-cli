@@ -1,6 +1,7 @@
 import { Command } from "@cliffy/command"
 import { Checkbox, Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
+import { getOption } from "../../config.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor, openEditor } from "../../utils/editor.ts"
 import { getPriorityDisplay } from "../../utils/display.ts"
@@ -16,6 +17,7 @@ import {
   getMilestoneIdByName,
   getProjectIdByName,
   getProjectOptionsByName,
+  getProjectsForTeam,
   getTeamIdByKey,
   getTeamKey,
   getWorkflowStateByNameOrType,
@@ -34,6 +36,12 @@ import {
 } from "../../utils/errors.ts"
 
 type IssueLabel = { id: string; name: string; color: string }
+type ProjectOption = { id: string; name: string }
+type IssueCreatePreloadedData = {
+  states?: WorkflowState[]
+  labels?: IssueLabel[]
+  projects?: ProjectOption[]
+}
 
 type AdditionalField = {
   key: string
@@ -41,11 +49,128 @@ type AdditionalField = {
   handler: (
     teamKey: string,
     teamId: string,
-    preloaded?: {
-      states?: WorkflowState[]
-      labels?: IssueLabel[]
-    },
+    preloaded?: IssueCreatePreloadedData,
   ) => Promise<string | number | string[] | undefined>
+}
+
+function getIssueCreateAssignSelfMode(): "always" | "auto" | "never" {
+  return getOption("issue_create_assign_self") ?? "auto"
+}
+
+function shouldAskProjectDuringInteractiveCreate(): boolean {
+  return getOption("issue_create_ask_project") === true
+}
+
+async function getLinearAutoAssignToSelf(): Promise<boolean> {
+  const client = getGraphQLClient()
+  const userSettingsQuery = gql(`
+    query GetUserSettings {
+      userSettings {
+        autoAssignToSelf
+      }
+    }
+  `)
+  const result = await client.request(userSettingsQuery)
+  return result.userSettings.autoAssignToSelf
+}
+
+async function shouldAssignSelfByDefaultForInteractiveCreate(): Promise<
+  boolean
+> {
+  const mode = getIssueCreateAssignSelfMode()
+  if (mode === "always") {
+    return true
+  }
+  if (mode === "never") {
+    return false
+  }
+  return await getLinearAutoAssignToSelf()
+}
+
+function shouldAssignSelfByDefaultForFlagCreate(): boolean {
+  return getIssueCreateAssignSelfMode() === "always"
+}
+
+async function promptProjectSelection(
+  teamKey: string,
+  preloadedProjects?: ProjectOption[],
+): Promise<string | undefined> {
+  const projects = preloadedProjects ?? await getProjectsForTeam(teamKey)
+  if (projects.length === 0) {
+    return undefined
+  }
+
+  const noProjectValue = "__none__"
+  const selectedProjectId = await Select.prompt({
+    message: "Which project should this issue belong to?",
+    search: true,
+    searchLabel: "Search projects",
+    options: [
+      { name: "No project", value: noProjectValue },
+      ...projects.map((project) => ({
+        name: project.name,
+        value: project.id,
+      })),
+    ],
+    default: noProjectValue,
+  })
+
+  if (selectedProjectId === noProjectValue) {
+    return undefined
+  }
+
+  return selectedProjectId
+}
+
+async function resolveProjectIdForCreate(
+  project: string,
+  interactive: boolean,
+): Promise<string> {
+  let projectId = await getProjectIdByName(project)
+  if (projectId == null && interactive) {
+    const projectIds = await getProjectOptionsByName(project)
+    projectId = await selectOption("Project", project, projectIds)
+  }
+  if (projectId == null) {
+    throw new NotFoundError("Project", project)
+  }
+  return projectId
+}
+
+async function resolveParentIssueForCreate(
+  parentIdentifier?: string,
+): Promise<{
+  parentId?: string
+  parentData: {
+    title: string
+    identifier: string
+    projectId: string | null
+  } | null
+}> {
+  let parentId: string | undefined
+  let parentData: {
+    title: string
+    identifier: string
+    projectId: string | null
+  } | null = null
+
+  if (parentIdentifier) {
+    const parentIdentifierResolved = await getIssueIdentifier(parentIdentifier)
+    if (!parentIdentifierResolved) {
+      throw new ValidationError(
+        `Could not resolve parent issue identifier: ${parentIdentifier}`,
+      )
+    }
+
+    parentId = await getIssueId(parentIdentifierResolved)
+    if (!parentId) {
+      throw new NotFoundError("Parent issue", parentIdentifierResolved)
+    }
+
+    parentData = await fetchParentIssueData(parentId)
+  }
+
+  return { parentId, parentData }
 }
 
 const ADDITIONAL_FIELDS: AdditionalField[] = [
@@ -55,10 +180,7 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
     handler: async (
       teamKey: string,
       _teamId: string,
-      preloaded?: {
-        states?: WorkflowState[]
-        labels?: IssueLabel[]
-      },
+      preloaded?: IssueCreatePreloadedData,
     ) => {
       const states = preloaded?.states ?? await getWorkflowStates(teamKey)
       if (states.length === 0) return undefined
@@ -113,10 +235,7 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
     handler: async (
       teamKey: string,
       _teamId: string,
-      preloaded?: {
-        states?: WorkflowState[]
-        labels?: IssueLabel[]
-      },
+      preloaded?: IssueCreatePreloadedData,
     ) => {
       const labels = preloaded?.labels ?? await getLabelsForTeam(teamKey)
       if (labels.length === 0) return []
@@ -144,6 +263,17 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
       return isNaN(parsed) ? undefined : parsed
     },
   },
+  {
+    key: "project",
+    label: "Project",
+    handler: async (
+      teamKey: string,
+      _teamId: string,
+      preloaded?: IssueCreatePreloadedData,
+    ) => {
+      return await promptProjectSelection(teamKey, preloaded?.projects)
+    },
+  },
 ]
 
 async function promptAdditionalFields(
@@ -151,6 +281,7 @@ async function promptAdditionalFields(
   teamId: string,
   states: WorkflowState[],
   labels: IssueLabel[],
+  includeProject: boolean,
   autoAssignToSelf: boolean,
 ): Promise<{
   assigneeId?: string
@@ -158,6 +289,7 @@ async function promptAdditionalFields(
   estimate?: number
   labelIds: string[]
   stateId?: string
+  projectId?: string
 }> {
   // Build options that display defaults in parentheses for workflow state and assignee
   let defaultStateName: string | null = null
@@ -166,7 +298,9 @@ async function promptAdditionalFields(
       states[0]
     defaultStateName = defaultState.name
   }
-  const additionalFieldOptions = ADDITIONAL_FIELDS.map((field) => {
+  const additionalFieldOptions = ADDITIONAL_FIELDS.filter((field) =>
+    includeProject || field.key !== "project"
+  ).map((field) => {
     let name = field.label
     if (field.key === "workflow_state" && defaultStateName) {
       name = `${field.label} (${defaultStateName})`
@@ -186,8 +320,9 @@ async function promptAdditionalFields(
   let estimate: number | undefined
   let labelIds: string[] = []
   let stateId: string | undefined
+  let projectId: string | undefined
 
-  // Set assignee default based on user settings
+  // Set assignee default based on configuration
   if (autoAssignToSelf) {
     assigneeId = await lookupUserId("self")
   }
@@ -196,9 +331,13 @@ async function promptAdditionalFields(
   for (const fieldKey of selectedFields) {
     const field = ADDITIONAL_FIELDS.find((f) => f.key === fieldKey)
     if (field) {
+      const projects = includeProject && fieldKey === "project"
+        ? await getProjectsForTeam(teamKey)
+        : undefined
       const value = await field.handler(teamKey, teamId, {
         states,
         labels,
+        projects,
       })
 
       switch (fieldKey) {
@@ -217,6 +356,9 @@ async function promptAdditionalFields(
         case "estimate":
           estimate = value as number | undefined
           break
+        case "project":
+          projectId = value as string | undefined
+          break
       }
     }
   }
@@ -227,10 +369,12 @@ async function promptAdditionalFields(
     estimate,
     labelIds,
     stateId,
+    projectId,
   }
 }
 
 async function promptInteractiveIssueCreation(
+  initialProjectId?: string,
   parentId?: string,
   parentData?: {
     title: string
@@ -250,20 +394,8 @@ async function promptInteractiveIssueCreation(
   parentId?: string
   projectId?: string | null
 }> {
-  // Start user settings and team resolution in background while asking for title
-  const userSettingsPromise = (async () => {
-    const client = getGraphQLClient()
-    const userSettingsQuery = gql(`
-      query GetUserSettings {
-        userSettings {
-          autoAssignToSelf
-        }
-      }
-    `)
-    const result = await client.request(userSettingsQuery)
-    return result.userSettings.autoAssignToSelf
-  })()
-
+  const autoAssignToSelfPromise =
+    shouldAssignSelfByDefaultForInteractiveCreate()
   const teamResolutionPromise = (async () => {
     const defaultTeamKey = getTeamKey()
     if (defaultTeamKey) {
@@ -295,9 +427,10 @@ async function promptInteractiveIssueCreation(
     minLength: 1,
   })
 
-  // Await team resolution and user settings
+  // Await team resolution
   const teamResult = await teamResolutionPromise
-  const autoAssignToSelf = await userSettingsPromise
+  const autoAssignToSelf = await autoAssignToSelfPromise
+  const askProject = shouldAskProjectDuringInteractiveCreate()
   let teamId: string
   let teamKey: string
 
@@ -332,6 +465,9 @@ async function promptInteractiveIssueCreation(
   // Preload team-scoped data (do not await yet)
   const workflowStatesPromise = getWorkflowStates(teamKey)
   const labelsPromise = getLabelsForTeam(teamKey)
+  const projectsPromise = (askProject && !parentData && !initialProjectId)
+    ? getProjectsForTeam(teamKey)
+    : Promise.resolve(undefined)
 
   // Description prompt
   const editorName = await getEditor()
@@ -366,6 +502,12 @@ async function promptInteractiveIssueCreation(
     finalDescription = description.trim()
   }
 
+  let projectId = initialProjectId
+  const projects = await projectsPromise
+  if (!parentData && !initialProjectId && askProject) {
+    projectId = await promptProjectSelection(teamKey, projects)
+  }
+
   // Now await the preloaded data and resolve default state
   const states = await workflowStatesPromise
   const labels = await labelsPromise
@@ -391,7 +533,7 @@ async function promptInteractiveIssueCreation(
   let labelIds: string[] = []
   let stateId: string | undefined
 
-  // Set assignee default based on user settings
+  // Set assignee default based on configuration
   if (autoAssignToSelf) {
     assigneeId = await lookupUserId("self")
   }
@@ -407,6 +549,7 @@ async function promptInteractiveIssueCreation(
       teamId,
       states,
       labels,
+      !askProject && !parentData && !initialProjectId,
       autoAssignToSelf,
     )
 
@@ -416,6 +559,7 @@ async function promptInteractiveIssueCreation(
     estimate = additionalFieldsResult.estimate
     labelIds = additionalFieldsResult.labelIds
     stateId = additionalFieldsResult.stateId
+    projectId = additionalFieldsResult.projectId ?? projectId
   }
 
   // Ask about starting work (always show this)
@@ -440,7 +584,7 @@ async function promptInteractiveIssueCreation(
     stateId,
     start,
     parentId,
-    projectId: parentData?.projectId || null,
+    projectId: projectId ?? parentData?.projectId ?? null,
   }
 }
 
@@ -558,40 +702,24 @@ export const createCommand = new Command()
         }
       }
 
-      // If no flags are provided (or only parent is provided), use interactive mode
-      const noFlagsProvided = !title && !assignee && !dueDate &&
+      // If no creation flags are provided beyond project/parent, use interactive mode.
+      const onlyInteractiveSeedFlagsProvided = !title && !assignee &&
+        !dueDate &&
         priority === undefined && estimate === undefined && !finalDescription &&
         (!labels || labels.length === 0) &&
-        !team && !project && !state && !milestone && !cycle && !start
+        !team && !state && !milestone && !cycle && !start
 
-      if (noFlagsProvided && interactive) {
+      if (onlyInteractiveSeedFlagsProvided && interactive) {
         try {
-          // Convert parent identifier if provided and fetch parent data
-          let parentId: string | undefined
-          let parentData: {
-            title: string
-            identifier: string
-            projectId: string | null
-          } | null = null
-          if (parentIdentifier) {
-            const parentIdentifierResolved = await getIssueIdentifier(
-              parentIdentifier,
-            )
-            if (!parentIdentifierResolved) {
-              throw new ValidationError(
-                `Could not resolve parent issue identifier: ${parentIdentifier}`,
-              )
-            }
-            parentId = await getIssueId(parentIdentifierResolved)
-            if (!parentId) {
-              throw new NotFoundError("Parent issue", parentIdentifierResolved)
-            }
-
-            // Fetch parent issue data including project
-            parentData = await fetchParentIssueData(parentId)
-          }
+          const { parentId, parentData } = await resolveParentIssueForCreate(
+            parentIdentifier,
+          )
+          const explicitProjectId = project == null
+            ? undefined
+            : await resolveProjectIdForCreate(project, interactive)
 
           const interactiveData = await promptInteractiveIssueCreation(
+            explicitProjectId,
             parentId,
             parentData,
           )
@@ -658,7 +786,7 @@ export const createCommand = new Command()
           "Title is required when not using interactive mode",
           {
             suggestion:
-              "Use --title or run without any flags (or only --parent) for interactive mode.",
+              "Use --title or run without any flags (or only --parent/--project) for interactive mode.",
           },
         )
       }
@@ -708,6 +836,9 @@ export const createCommand = new Command()
         }
 
         let assigneeId = undefined
+        if (shouldAssignSelfByDefaultForFlagCreate()) {
+          assigneeId = await lookupUserId("self")
+        }
 
         if (assignee) {
           assigneeId = await lookupUserId(assignee)
@@ -738,16 +869,7 @@ export const createCommand = new Command()
         }
         let projectId: string | undefined = undefined
         if (project !== undefined) {
-          projectId = await getProjectIdByName(project)
-          if (projectId === undefined && interactive) {
-            const projectIds = await getProjectOptionsByName(project)
-            spinner?.stop()
-            projectId = await selectOption("Project", project, projectIds)
-            spinner?.start()
-          }
-          if (projectId === undefined) {
-            throw new NotFoundError("Project", project)
-          }
+          projectId = await resolveProjectIdForCreate(project, interactive)
         }
 
         let projectMilestoneId: string | undefined
@@ -774,30 +896,9 @@ export const createCommand = new Command()
 
         // Date validation done at graphql level
 
-        // Convert parent identifier if provided and fetch parent data
-        let parentId: string | undefined
-        let parentData: {
-          title: string
-          identifier: string
-          projectId: string | null
-        } | null = null
-        if (parentIdentifier) {
-          const parentIdentifierResolved = await getIssueIdentifier(
-            parentIdentifier,
-          )
-          if (!parentIdentifierResolved) {
-            throw new ValidationError(
-              `Could not resolve parent issue identifier: ${parentIdentifier}`,
-            )
-          }
-          parentId = await getIssueId(parentIdentifierResolved)
-          if (!parentId) {
-            throw new NotFoundError("Parent issue", parentIdentifierResolved)
-          }
-
-          // Fetch parent issue data including project
-          parentData = await fetchParentIssueData(parentId)
-        }
+        const { parentId, parentData } = await resolveParentIssueForCreate(
+          parentIdentifier,
+        )
 
         const input = {
           title,
