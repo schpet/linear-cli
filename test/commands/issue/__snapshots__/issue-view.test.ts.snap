@@ -71,10 +71,6 @@ Users are experiencing issues logging in when their session expires.
 
 ## Comments
 
-- **@Bob Senior** - *1/15/2024* [thread: comment-4]
-
-  Should we also consider implementing automatic session refresh?
-
 - **@John Doe** - *1/15/2024* [thread: comment-1]
 
   I've reproduced this issue on staging. The session timeout seems to be too aggressive.
@@ -86,6 +82,10 @@ Users are experiencing issues logging in when their session expires.
   - **@Alice Developer** - *1/15/2024*
 
     Sounds good! Also, we should add better error messaging for expired sessions.
+
+- **@Bob Senior** - *1/15/2024* [thread: comment-4]
+
+  Should we also consider implementing automatic session refresh?
 
 
 "
@@ -359,10 +359,6 @@ Check how issue view handles resolved comment threads.
 
 ## Comments
 
-- **@Alice Developer** - *1/15/2024* [thread: comment-root-resolved] [resolved]
-
-  Resolved thread root comment.
-
 - **@John Doe** - *1/15/2024* [thread: comment-root-open]
 
   Open thread root comment.
@@ -370,6 +366,10 @@ Check how issue view handles resolved comment threads.
   - **@Jane Smith** - *1/15/2024*
 
     Reply on the open thread.
+
+- **@Alice Developer** - *1/15/2024* [thread: comment-root-resolved] [resolved]
+
+  Resolved thread root comment.
 
 
 "
