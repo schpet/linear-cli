@@ -118,6 +118,8 @@ you can also set the API key in a project's `.linear.toml`:
 api_key = "lin_api_..."
 workspace = "acme"
 team_id = "ENG"
+issue_create_assign_self = "always"
+issue_create_ask_project = true
 ```
 
 this is useful for project-specific credentials but less secure than stored credentials since it may be committed to version control.

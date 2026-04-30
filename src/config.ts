@@ -137,6 +137,8 @@ const OptionsSchema = v.object({
   api_key: v.optional(v.string()),
   workspace: v.optional(v.string()),
   issue_sort: v.optional(v.picklist(["manual", "priority"])),
+  issue_create_ask_project: v.optional(BooleanLike),
+  issue_create_assign_self: v.optional(v.picklist(["always", "auto", "never"])),
   vcs: v.optional(v.picklist(["git", "jj"])),
   download_images: v.optional(BooleanLike),
   hyperlink_format: v.optional(v.string()),
