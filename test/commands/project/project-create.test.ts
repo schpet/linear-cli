@@ -252,11 +252,20 @@ await cliffySnapshotTest({
     "--team",
     "ENG",
     "--content-file",
-    "test/commands/project/fixtures/project-overview.md",
+    "placeholder-replaced-in-test.md",
     "--json",
   ],
   denoArgs: commonDenoArgs,
   async fn() {
+    const overviewPath = await Deno.makeTempFile({
+      prefix: "linear-project-overview-",
+      suffix: ".md",
+    })
+    await Deno.writeTextFile(
+      overviewPath,
+      "# Project Overview\n\nThis overview came from a markdown file.\n",
+    )
+
     const server = new MockLinearServer([
       {
         queryName: "GetTeamIdByKey",
@@ -295,7 +304,16 @@ await cliffySnapshotTest({
       },
     ])
 
+    const contentFileArgIndex = Deno.args.indexOf(
+      "placeholder-replaced-in-test.md",
+    )
+    if (contentFileArgIndex === -1) {
+      throw new Error("Expected content file placeholder argument")
+    }
+    const originalContentFileArg = Deno.args[contentFileArgIndex]
+
     try {
+      Deno.args[contentFileArgIndex] = overviewPath
       await server.start()
       Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
       Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
@@ -305,6 +323,8 @@ await cliffySnapshotTest({
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
       Deno.env.delete("LINEAR_API_KEY")
+      Deno.args[contentFileArgIndex] = originalContentFileArg
+      await Deno.remove(overviewPath)
     }
   },
 })
@@ -314,7 +334,7 @@ Deno.test("resolveProjectContent rejects mutually exclusive content inputs", asy
     () =>
       resolveProjectContent(
         "Inline overview",
-        "test/commands/project/fixtures/project-overview.md",
+        "overview.md",
       ),
     ValidationError,
     "Cannot specify both --content and --content-file",
