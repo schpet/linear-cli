@@ -167,6 +167,8 @@ linear team autolinks  # configure GitHub repository autolinks for Linear issues
 ```bash
 linear project list    # list projects
 linear project view    # view project details
+linear project create --name "API v2" --team ENG --content-file overview.md
+linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com
 ```
 
 ### milestone commands
