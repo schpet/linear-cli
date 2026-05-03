@@ -261,10 +261,6 @@ await cliffySnapshotTest({
       prefix: "linear-project-overview-",
       suffix: ".md",
     })
-    await Deno.writeTextFile(
-      overviewPath,
-      "# Project Overview\n\nThis overview came from a markdown file.\n",
-    )
 
     const server = new MockLinearServer([
       {
@@ -304,15 +300,21 @@ await cliffySnapshotTest({
       },
     ])
 
-    const contentFileArgIndex = Deno.args.indexOf(
-      "placeholder-replaced-in-test.md",
-    )
-    if (contentFileArgIndex === -1) {
-      throw new Error("Expected content file placeholder argument")
-    }
-    const originalContentFileArg = Deno.args[contentFileArgIndex]
+    let contentFileArgIndex = -1
+    let originalContentFileArg: string | undefined
 
     try {
+      await Deno.writeTextFile(
+        overviewPath,
+        "# Project Overview\n\nThis overview came from a markdown file.\n",
+      )
+      contentFileArgIndex = Deno.args.indexOf(
+        "placeholder-replaced-in-test.md",
+      )
+      if (contentFileArgIndex === -1) {
+        throw new Error("Expected content file placeholder argument")
+      }
+      originalContentFileArg = Deno.args[contentFileArgIndex]
       Deno.args[contentFileArgIndex] = overviewPath
       await server.start()
       Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
@@ -323,7 +325,9 @@ await cliffySnapshotTest({
       await server.stop()
       Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
       Deno.env.delete("LINEAR_API_KEY")
-      Deno.args[contentFileArgIndex] = originalContentFileArg
+      if (contentFileArgIndex !== -1 && originalContentFileArg != null) {
+        Deno.args[contentFileArgIndex] = originalContentFileArg
+      }
       await Deno.remove(overviewPath)
     }
   },
