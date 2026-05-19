@@ -16,12 +16,13 @@ import {
   getProjectOptionsByName,
   getTeamIdByKey,
   getTeamKey,
+  isIssueBlocked,
   searchIssuesByTerm,
   selectOption,
 } from "../../utils/linear.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
-import { header, muted } from "../../utils/styling.ts"
+import { header, muted, warning } from "../../utils/styling.ts"
 import {
   handleError,
   NotFoundError,
@@ -423,6 +424,12 @@ interface DisplayableIssue {
   assignee?: { initials: string } | null
   team?: { key: string }
   labels: { nodes: Array<{ name: string; color: string }> }
+  inverseRelations?: {
+    nodes: Array<{
+      type: string
+      issue?: { state?: { type?: string | null } | null } | null
+    }>
+  } | null
 }
 
 function formatIssueTable(
@@ -435,6 +442,7 @@ function formatIssueTable(
     : { columns: 120 }
 
   const priorityWidth = 3
+  const blockedWidth = 1
   const idWidth = Math.max(2, ...issues.map((i) => i.identifier.length))
   const teamWidth = showTeamColumn
     ? Math.max(
@@ -468,6 +476,7 @@ function formatIssueTable(
     idWidth,
     ...(showTeamColumn ? [teamWidth] : []),
     labelWidth,
+    blockedWidth,
     estimateWidth,
     ...(showAssigneeColumn ? [assigneeWidth] : []),
     stateWidth,
@@ -485,6 +494,7 @@ function formatIssueTable(
     ...(showTeamColumn ? [padDisplay("TEAM", teamWidth)] : []),
     padDisplay("TITLE", titleWidth),
     padDisplay("LABELS", labelWidth),
+    padDisplay("B", blockedWidth),
     padDisplay("E", estimateWidth),
     ...(showAssigneeColumn ? [padDisplay("A", assigneeWidth)] : []),
     padDisplay("STATE", stateWidth),
@@ -508,12 +518,14 @@ function formatIssueTable(
     const timeAgo = muted(
       padDisplay(getTimeAgo(new Date(issue.updatedAt)), updatedWidth),
     )
+    const blockedCell = isIssueBlocked(issue) ? warning("⊘") : " "
     const cells = [
       padDisplay(getPriorityDisplay(issue.priority), priorityWidth),
       padDisplay(issue.identifier, idWidth),
       ...(showTeamColumn ? [padDisplay(issue.team?.key ?? "", teamWidth)] : []),
       title,
       formatLabels(issue.labels.nodes, labelWidth),
+      padDisplay(blockedCell, blockedWidth),
       padDisplay(issue.estimate?.toString() || "-", estimateWidth),
       ...(showAssigneeColumn
         ? [

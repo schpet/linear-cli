@@ -85,6 +85,9 @@ stdout:
             "color": "#eb5757"
           }
         ]
+      },
+      "inverseRelations": {
+        "nodes": []
       }
     }
   ],
@@ -143,6 +146,9 @@ stdout:
             "color": "#eb5757"
           }
         ]
+      },
+      "inverseRelations": {
+        "nodes": []
       },
       "metadata": {
         "context": {},
