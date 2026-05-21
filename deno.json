@@ -42,6 +42,7 @@
     "./__generated__/graphql": "./src/__codegen__/graphql.ts",
     "graphql-request": "npm:graphql-request@^7.4.0",
     "lefthook": "npm:lefthook@^2.1.4",
+    "remark-gfm": "npm:remark-gfm@^4.0.0",
     "remark-parse": "npm:remark-parse@^11.0.0",
     "remark-stringify": "npm:remark-stringify@^11.0.0",
     "sanitize-filename": "npm:sanitize-filename@^1.6.4",

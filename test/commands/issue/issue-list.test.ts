@@ -67,6 +67,7 @@ Deno.test("Issue List Command - Filter By Label", async () => {
                   id: "state-1",
                   name: "In Progress",
                   color: "#f2c94c",
+                  type: "started",
                 },
                 labels: {
                   nodes: [{
@@ -75,6 +76,7 @@ Deno.test("Issue List Command - Filter By Label", async () => {
                     color: "#eb5757",
                   }],
                 },
+                inverseRelations: { nodes: [] },
                 updatedAt: "2026-03-13T10:00:00.000Z",
               },
             ],
@@ -102,8 +104,8 @@ Deno.test("Issue List Command - Filter By Label", async () => {
 
     assertEquals(
       logs.join("\n") + "\n",
-      "◌   ID      TITLE         LABELS E STATE       UPDATED    \n" +
-        "⚠⚠⚠ ENG-101 Fix login bug Bug    3 In Progress 17 days ago\n",
+      "◌   ID      TITLE         LABELS B E STATE       UPDATED    \n" +
+        "⚠⚠⚠ ENG-101 Fix login bug Bug      3 In Progress 17 days ago\n",
     )
   } finally {
     logStub.restore()

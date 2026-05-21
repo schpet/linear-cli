@@ -11,10 +11,11 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.                        
-  --raw       - Output raw markdown without rendering  
-  -w, --web   - Open document in browser               
-  --json      - Output full document as JSON           
+  -h, --help     - Show this help.                                
+  --raw          - Output raw markdown without rendering          
+  -w, --web      - Open document in browser                       
+  --json         - Output full document as JSON                   
+  --no-download  - Keep remote URLs instead of downloading files  
 
 "
 stderr:
@@ -72,6 +73,16 @@ stdout:
   "issue": null
 }
 '
+stderr:
+""
+`;
+
+snapshot[`Document View Command - No Download Keeps Remote URLs 1`] = `
+stdout:
+"# Doc
+
+![screenshot](https://uploads.linear.app/abc/screenshot.png)
+"
 stderr:
 ""
 `;

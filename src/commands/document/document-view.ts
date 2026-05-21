@@ -5,6 +5,11 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { getOption } from "../../config.ts"
+import {
+  downloadMarkdownImages,
+  replaceImageUrls,
+} from "../../utils/markdown-images.ts"
 import {
   handleError,
   isClientError,
@@ -46,7 +51,8 @@ export const viewCommand = new Command()
   .option("--raw", "Output raw markdown without rendering")
   .option("-w, --web", "Open document in browser")
   .option("--json", "Output full document as JSON")
-  .action(async ({ raw, web, json }, id) => {
+  .option("--no-download", "Keep remote URLs instead of downloading files")
+  .action(async ({ raw, web, json, download }, id) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
     const showSpinner = shouldShowSpinner() && !raw && !json
     const spinner = showSpinner ? new Spinner() : null
@@ -69,16 +75,25 @@ export const viewCommand = new Command()
         return
       }
 
-      // JSON output
+      // JSON output preserves the raw GraphQL response; skip image rewrites.
       if (json) {
         console.log(JSON.stringify(document, null, 2))
         return
       }
 
+      let content = document.content
+      const shouldDownload = download && getOption("download_images") !== false
+      if (shouldDownload && content) {
+        const urlToPath = await downloadMarkdownImages([content])
+        if (urlToPath.size > 0) {
+          content = await replaceImageUrls(content, urlToPath)
+        }
+      }
+
       // Raw output (for piping)
       if (raw || !Deno.stdout.isTerminal()) {
-        if (document.content) {
-          console.log(document.content)
+        if (content) {
+          console.log(content)
         }
         return
       }
@@ -111,12 +126,11 @@ export const viewCommand = new Command()
       lines.push(`**Created:** ${formatRelativeTime(document.createdAt)}`)
       lines.push(`**Updated:** ${formatRelativeTime(document.updatedAt)}`)
 
-      // Content
-      if (document.content) {
+      if (content) {
         lines.push("")
         lines.push("---")
         lines.push("")
-        lines.push(document.content)
+        lines.push(content)
       }
 
       const markdown = lines.join("\n")
