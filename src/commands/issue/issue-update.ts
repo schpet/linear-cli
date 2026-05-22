@@ -8,8 +8,9 @@ import {
   getIssueIdentifier,
   getIssueLabelIdByNameForTeam,
   getIssueProjectId,
-  getMilestoneIdByName,
   getProjectIdByName,
+  isLinearUuid,
+  resolveMilestoneId,
   getTeamIdByKey,
   getWorkflowStateByNameOrType,
   lookupUserId,
@@ -64,7 +65,7 @@ export const updateCommand = new Command()
   )
   .option(
     "--project <project:string>",
-    "Name or slug ID of the project with the issue",
+    "Project to assign the issue to (UUID, slug ID, or name)",
   )
   .option(
     "-s, --state <state:string>",
@@ -72,7 +73,7 @@ export const updateCommand = new Command()
   )
   .option(
     "--milestone <milestone:string>",
-    "Name of the project milestone",
+    "Project milestone (UUID, or name when --project is set or the issue already has a project)",
   )
   .option(
     "--cycle <cycle:string>",
@@ -196,27 +197,34 @@ export const updateCommand = new Command()
         if (project !== undefined) {
           projectId = await getProjectIdByName(project)
           if (projectId === undefined) {
-            throw new NotFoundError("Project", project)
+            throw new NotFoundError("Project", project, {
+              suggestion:
+                "Pass a project UUID, slug ID (from `linear project list`), or exact project name.",
+            })
           }
         }
 
         let projectMilestoneId: string | undefined
         if (milestone != null) {
-          const milestoneProjectId = projectId ??
-            await getIssueProjectId(issueId)
-          if (milestoneProjectId == null) {
-            throw new ValidationError(
-              "--milestone requires --project to be set (issue has no existing project)",
-              {
-                suggestion:
-                  "Use --project to specify the project for the milestone.",
-              },
+          if (isLinearUuid(milestone)) {
+            projectMilestoneId = milestone
+          } else {
+            const milestoneProjectId = projectId ??
+              await getIssueProjectId(issueId)
+            if (milestoneProjectId == null) {
+              throw new ValidationError(
+                "--milestone requires --project to be set (issue has no existing project)",
+                {
+                  suggestion:
+                    "Use --project to specify the project for the milestone, or pass a milestone UUID directly.",
+                },
+              )
+            }
+            projectMilestoneId = await resolveMilestoneId(
+              milestone,
+              milestoneProjectId,
             )
           }
-          projectMilestoneId = await getMilestoneIdByName(
-            milestone,
-            milestoneProjectId,
-          )
         }
 
         let cycleId: string | undefined

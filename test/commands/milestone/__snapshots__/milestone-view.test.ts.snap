@@ -3,7 +3,7 @@ export const snapshot = {};
 snapshot[`Milestone View Command - Help Text 1`] = `
 stdout:
 "
-Usage: view <milestoneId>
+Usage: view <milestone>
 
 Description:
 
@@ -11,7 +11,8 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.  
+  -h, --help             - Show this help.                                                  
+  --project   <project>  - Project for resolving a milestone name (UUID, slug ID, or name)  
 
 "
 stderr:

@@ -3,7 +3,7 @@ export const snapshot = {};
 snapshot[`Milestone Create Command - Help Text 1`] = `
 stdout:
 "
-Usage: create --project <projectId> --name <name>
+Usage: create --project <project> --name <name>
 
 Description:
 
@@ -11,11 +11,11 @@ Description:
 
 Options:
 
-  -h, --help                    - Show this help.                     
-  --project      <projectId>    - Project ID                (required)
-  --name         <name>         - Milestone name            (required)
-  --description  <description>  - Milestone description               
-  --target-date  <date>         - Target date (YYYY-MM-DD)            
+  -h, --help                    - Show this help.                             
+  --project      <project>      - Project (UUID, slug ID, or name)  (required)
+  --name         <name>         - Milestone name                    (required)
+  --description  <description>  - Milestone description                       
+  --target-date  <date>         - Target date (YYYY-MM-DD)                    
 
 "
 stderr:
@@ -38,6 +38,16 @@ stdout:
 "✓ Created milestone: Simple Milestone
   ID: milestone-new-2
   Project: Another Project
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone Create Command - Resolves Project by Name 1`] = `
+stdout:
+"✓ Created milestone: Y26 Q2
+  ID: milestone-new-q2
+  Project: Tech Debt
 "
 stderr:
 ""

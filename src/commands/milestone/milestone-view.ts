@@ -5,6 +5,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { handleError, NotFoundError } from "../../utils/errors.ts"
+import { resolveMilestoneId, resolveProjectId } from "../../utils/linear.ts"
 
 const GetMilestoneDetails = gql(`
   query GetMilestoneDetails($id: String!) {
@@ -41,14 +42,28 @@ export const viewCommand = new Command()
   .name("view")
   .description("View milestone details")
   .alias("v")
-  .arguments("<milestoneId:string>")
-  .action(async (_options, milestoneId) => {
+  .arguments("<milestone:string>")
+  .option(
+    "--project <project:string>",
+    "Project for resolving a milestone name (UUID, slug ID, or name)",
+  )
+  .action(async ({ project }, milestoneInput) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
     const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 
     try {
+      let milestoneId: string
+      if (project != null) {
+        const projectId = await resolveProjectId(project)
+        milestoneId = await resolveMilestoneId(milestoneInput, projectId)
+      } else {
+        // Without --project, pass the input through to the API. Linear will
+        // resolve it if it's a UUID and return null otherwise.
+        milestoneId = milestoneInput
+      }
+
       const client = getGraphQLClient()
       const result = await client.request(GetMilestoneDetails, {
         id: milestoneId,
@@ -57,7 +72,7 @@ export const viewCommand = new Command()
 
       const milestone = result.projectMilestone
       if (!milestone) {
-        throw new NotFoundError("Milestone", milestoneId)
+        throw new NotFoundError("Milestone", milestoneInput)
       }
 
       // Build the display

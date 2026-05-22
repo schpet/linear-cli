@@ -34,7 +34,10 @@ export const updateCommand = new Command()
     "--sort-order <value:number>",
     "Sort order relative to other milestones",
   )
-  .option("--project <projectId:string>", "Move to a different project")
+  .option(
+    "--project <project:string>",
+    "Move to a different project (UUID, slug ID, or name)",
+  )
   .action(
     async (
       { name, description, targetDate, sortOrder, project: projectIdOrSlug },

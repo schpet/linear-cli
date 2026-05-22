@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
+import { resolveProjectId } from "../../utils/linear.ts"
 import { getEditor, openEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
 import {
@@ -43,7 +44,10 @@ export const createCommand = new Command()
   .option("-t, --title <title:string>", "Document title (required)")
   .option("-c, --content <content:string>", "Markdown content (inline)")
   .option("-f, --content-file <path:string>", "Read content from file")
-  .option("--project <project:string>", "Attach to project (slug or ID)")
+  .option(
+    "--project <project:string>",
+    "Attach to project (UUID, slug ID, or name)",
+  )
   .option("--issue <issue:string>", "Attach to issue (identifier like TC-123)")
   .option("--icon <icon:string>", "Document icon (emoji)")
   .option("-i, --interactive", "Interactive mode with prompts")
@@ -146,12 +150,7 @@ export const createCommand = new Command()
         // Resolve project ID if provided
         let projectId: string | undefined
         if (project) {
-          projectId = await resolveProjectId(client, project)
-          if (!projectId) {
-            throw new NotFoundError("Project", project, {
-              suggestion: "Provide a valid project slug or ID.",
-            })
-          }
+          projectId = await resolveProjectId(project)
         }
 
         // Resolve issue ID if provided
@@ -273,15 +272,9 @@ async function promptInteractiveCreate(): Promise<{
 
   if (attachTo === "project") {
     const projectInput = await Input.prompt({
-      message: "Project slug or ID",
+      message: "Project (UUID, slug ID, or name)",
     })
-    const client = getGraphQLClient()
-    projectId = await resolveProjectId(client, projectInput)
-    if (!projectId) {
-      throw new NotFoundError("Project", projectInput, {
-        suggestion: "Provide a valid project slug or ID.",
-      })
-    }
+    projectId = await resolveProjectId(projectInput)
   } else if (attachTo === "issue") {
     const issueInput = await Input.prompt({
       message: "Issue identifier (e.g., TC-123)",
@@ -302,58 +295,6 @@ async function promptInteractiveCreate(): Promise<{
     projectId,
     issueId,
   }
-}
-
-async function resolveProjectId(
-  // deno-lint-ignore no-explicit-any
-  client: any,
-  projectInput: string,
-): Promise<string | undefined> {
-  // First try to get by slug/ID directly
-  const projectQuery = gql(`
-    query GetProjectForDocument($slugId: String!) {
-      project(id: $slugId) {
-        id
-        name
-      }
-    }
-  `)
-
-  try {
-    const result = await client.request(projectQuery, { slugId: projectInput })
-    if (result.project) {
-      return result.project.id
-    }
-  } catch {
-    // Project not found by ID, try searching by name
-  }
-
-  // Search by name
-  const searchQuery = gql(`
-    query SearchProjectsForDocument($filter: ProjectFilter) {
-      projects(filter: $filter, first: 1) {
-        nodes {
-          id
-          name
-        }
-      }
-    }
-  `)
-
-  try {
-    const result = await client.request(searchQuery, {
-      filter: {
-        name: { containsIgnoreCase: projectInput },
-      },
-    })
-    if (result.projects.nodes.length > 0) {
-      return result.projects.nodes[0].id
-    }
-  } catch {
-    // Search failed
-  }
-
-  return undefined
 }
 
 async function resolveIssueId(

@@ -11,21 +11,22 @@ Description:
 
 Options:
 
-  -h, --help                         - Show this help.                                                
-  -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)    
-  --due-date          <dueDate>      - Due date of the issue                                          
-  --parent            <parent>       - Parent issue (if any) as a team_number code                    
-  -p, --priority      <priority>     - Priority of the issue (1-4, descending priority)               
-  --estimate          <estimate>     - Points estimate of the issue                                   
-  -d, --description   <description>  - Description of the issue                                       
-  --description-file  <path>         - Read description from a file (preferred for markdown content)  
-  -l, --label         <label>        - Issue label associated with the issue. May be repeated.        
-  --team              <team>         - Team associated with the issue (if not your default team)      
-  --project           <project>      - Name or slug ID of the project with the issue                  
-  -s, --state         <state>        - Workflow state for the issue (by name or type)                 
-  --milestone         <milestone>    - Name of the project milestone                                  
-  --cycle             <cycle>        - Cycle name, number, or 'active'                                
-  -t, --title         <title>        - Title of the issue                                             
+  -h, --help                         - Show this help.                                                                  
+  -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)                      
+  --due-date          <dueDate>      - Due date of the issue                                                            
+  --parent            <parent>       - Parent issue (if any) as a team_number code                                      
+  -p, --priority      <priority>     - Priority of the issue (1-4, descending priority)                                 
+  --estimate          <estimate>     - Points estimate of the issue                                                     
+  -d, --description   <description>  - Description of the issue                                                         
+  --description-file  <path>         - Read description from a file (preferred for markdown content)                    
+  -l, --label         <label>        - Issue label associated with the issue. May be repeated.                          
+  --team              <team>         - Team associated with the issue (if not your default team)                        
+  --project           <project>      - Project to assign the issue to (UUID, slug ID, or name)                          
+  -s, --state         <state>        - Workflow state for the issue (by name or type)                                   
+  --milestone         <milestone>    - Project milestone (UUID, or name when --project is set or the issue already has  
+                                       a project)                                                                       
+  --cycle             <cycle>        - Cycle name, number, or 'active'                                                  
+  -t, --title         <title>        - Title of the issue                                                               
 
 "
 stderr:
@@ -88,6 +89,28 @@ stderr:
 `;
 
 snapshot[`Issue Update Command - With Cycle 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Test Issue
+https://linear.app/test-team/issue/ENG-123/test-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - With Project UUID 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Test Issue
+https://linear.app/test-team/issue/ENG-123/test-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - With Milestone UUID (no --project required) 1`] = `
 stdout:
 "Updating issue ENG-123
 

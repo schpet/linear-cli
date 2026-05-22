@@ -22,9 +22,9 @@ Options:
   --description-file         <path>         - Read description from a file (preferred for markdown content)  
   -l, --label                <label>        - Issue label associated with the issue. May be repeated.        
   --team                     <team>         - Team associated with the issue (if not your default team)      
-  --project                  <project>      - Name or slug ID of the project with the issue                  
+  --project                  <project>      - Project for the issue (UUID, slug ID, or name)                 
   -s, --state                <state>        - Workflow state for the issue (by name or type)                 
-  --milestone                <milestone>    - Name of the project milestone                                  
+  --milestone                <milestone>    - Project milestone (UUID, or name when --project is set)        
   --cycle                    <cycle>        - Cycle name, number, or 'active'                                
   --no-use-default-template                 - Do not use default template for the issue                      
   --no-interactive                          - Disable interactive prompts                                    

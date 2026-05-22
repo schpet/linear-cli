@@ -11,14 +11,14 @@ Description:
 
 Options:
 
-  -h, --help                     - Show this help.                           
-  -t, --title         <title>    - Document title (required)                 
-  -c, --content       <content>  - Markdown content (inline)                 
-  -f, --content-file  <path>     - Read content from file                    
-  --project           <project>  - Attach to project (slug or ID)            
-  --issue             <issue>    - Attach to issue (identifier like TC-123)  
-  --icon              <icon>     - Document icon (emoji)                     
-  -i, --interactive              - Interactive mode with prompts             
+  -h, --help                     - Show this help.                             
+  -t, --title         <title>    - Document title (required)                   
+  -c, --content       <content>  - Markdown content (inline)                   
+  -f, --content-file  <path>     - Read content from file                      
+  --project           <project>  - Attach to project (UUID, slug ID, or name)  
+  --issue             <issue>    - Attach to issue (identifier like TC-123)    
+  --icon              <icon>     - Document icon (emoji)                       
+  -i, --interactive              - Interactive mode with prompts               
 
 "
 stderr:
