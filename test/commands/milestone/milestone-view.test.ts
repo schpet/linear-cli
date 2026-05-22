@@ -48,30 +48,22 @@ await snapshotTest({
                     id: "issue-1",
                     identifier: "ENG-123",
                     title: "Implement authentication",
-                    state: {
-                      name: "In Progress",
-                      type: "started",
-                    },
+                    state: { name: "In Progress", type: "started" },
                   },
                   {
                     id: "issue-2",
                     identifier: "ENG-124",
                     title: "Setup database",
-                    state: {
-                      name: "Done",
-                      type: "completed",
-                    },
+                    state: { name: "Done", type: "completed" },
                   },
                   {
                     id: "issue-3",
                     identifier: "ENG-125",
                     title: "Create API endpoints",
-                    state: {
-                      name: "Todo",
-                      type: "unstarted",
-                    },
+                    state: { name: "Todo", type: "unstarted" },
                   },
                 ],
+                pageInfo: { hasNextPage: false, endCursor: null },
               },
             },
           },
@@ -122,6 +114,7 @@ await snapshotTest({
               },
               issues: {
                 nodes: [],
+                pageInfo: { hasNextPage: false, endCursor: null },
               },
             },
           },
@@ -143,9 +136,9 @@ await snapshotTest({
   },
 })
 
-// Test with many issues (>10)
+// Test default behavior with 15 fetched issues (single page, list slice to 10).
 await snapshotTest({
-  name: "Milestone View Command - Many Issues",
+  name: "Milestone View Command - Many Issues (default lists 10)",
   meta: import.meta,
   colors: false,
   args: ["milestone-456"],
@@ -184,6 +177,159 @@ await snapshotTest({
                       : "unstarted",
                   },
                 })),
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test that hasNextPage = true triggers the explicit truncation footer
+// (this is the core regression: silent capping when the API has more pages).
+await snapshotTest({
+  name: "Milestone View Command - Truncated (more pages available)",
+  meta: import.meta,
+  colors: false,
+  args: ["milestone-trunc"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetMilestoneDetails",
+        variables: { id: "milestone-trunc", first: 50 },
+        response: {
+          data: {
+            projectMilestone: {
+              id: "milestone-trunc",
+              name: "Huge Milestone",
+              description: null,
+              targetDate: null,
+              sortOrder: 1,
+              createdAt: "2020-01-01T00:00:00Z",
+              updatedAt: "2020-01-02T00:00:00Z",
+              project: {
+                id: "project-1",
+                name: "P",
+                slugId: "p",
+                url: "https://linear.app/test/project/p",
+              },
+              issues: {
+                nodes: Array.from({ length: 50 }, (_, i) => ({
+                  id: `id-${i}`,
+                  identifier: `BIG-${i + 1}`,
+                  title: `Issue ${i + 1}`,
+                  state: { name: "Todo", type: "unstarted" },
+                })),
+                pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test --all paginates through subsequent pages. The more-specific (with `after`)
+// mock is listed first so the mock matcher's subset semantics route page 2 correctly.
+await snapshotTest({
+  name: "Milestone View Command - --all paginates",
+  meta: import.meta,
+  colors: false,
+  args: ["milestone-trunc", "--all"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetMilestoneDetails",
+        variables: {
+          id: "milestone-trunc",
+          first: 50,
+          after: "cursor-1",
+        },
+        response: {
+          data: {
+            projectMilestone: {
+              id: "milestone-trunc",
+              name: "Huge Milestone",
+              description: null,
+              targetDate: null,
+              sortOrder: 1,
+              createdAt: "2020-01-01T00:00:00Z",
+              updatedAt: "2020-01-02T00:00:00Z",
+              project: {
+                id: "project-1",
+                name: "P",
+                slugId: "p",
+                url: "https://linear.app/test/project/p",
+              },
+              issues: {
+                nodes: Array.from({ length: 2 }, (_, i) => ({
+                  id: `id-${50 + i}`,
+                  identifier: `BIG-${51 + i}`,
+                  title: `Issue ${51 + i}`,
+                  state: { name: "Done", type: "completed" },
+                })),
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetMilestoneDetails",
+        variables: { id: "milestone-trunc", first: 50 },
+        response: {
+          data: {
+            projectMilestone: {
+              id: "milestone-trunc",
+              name: "Huge Milestone",
+              description: null,
+              targetDate: null,
+              sortOrder: 1,
+              createdAt: "2020-01-01T00:00:00Z",
+              updatedAt: "2020-01-02T00:00:00Z",
+              project: {
+                id: "project-1",
+                name: "P",
+                slugId: "p",
+                url: "https://linear.app/test/project/p",
+              },
+              issues: {
+                nodes: Array.from({ length: 50 }, (_, i) => ({
+                  id: `id-${i}`,
+                  identifier: `BIG-${i + 1}`,
+                  title: `Issue ${i + 1}`,
+                  state: { name: "Todo", type: "unstarted" },
+                })),
+                pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
               },
             },
           },

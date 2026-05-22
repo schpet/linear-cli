@@ -7,11 +7,12 @@ Usage: view <milestoneId>
 
 Description:
 
-  View milestone details
+  View milestone details. By default lists the first 10 attached issues from the first page of 50; use --all to paginate the full set.
 
 Options:
 
-  -h, --help  - Show this help.  
+  -h, --help  - Show this help.                                                                   
+  --all       - Fetch and list every issue attached to the milestone (paginates the Linear API).  
 
 "
 stderr:
@@ -69,7 +70,7 @@ stderr:
 ""
 `;
 
-snapshot[`Milestone View Command - Many Issues 1`] = `
+snapshot[`Milestone View Command - Many Issues (default lists 10) 1`] = `
 stdout:
 "# Big Release
 
@@ -105,7 +106,120 @@ Major product release with many features
 - PROD-9: Feature 9 (In Progress)
 - PROD-10: Feature 10 (In Progress)
 
-_...and 5 more issues_
+_...and 5 more issues. Re-run with \`--all\` or use \`linear issue query --milestone milestone-456 --json\` to see them all._
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone View Command - Truncated (more pages available) 1`] = `
+stdout:
+"# Huge Milestone
+
+**ID:** milestone-trunc
+**Target Date:** Not set
+**Project:** P (p)
+**Project URL:** https://linear.app/test/project/p
+
+**Created:** 12/31/2019
+**Updated:** 1/1/2020
+
+## Issues
+
+**Issues fetched:** 50 (milestone has more — use \`--all\` for full counts)
+**To Do:** 50
+
+**Recent Issues:**
+
+- BIG-1: Issue 1 (Todo)
+- BIG-2: Issue 2 (Todo)
+- BIG-3: Issue 3 (Todo)
+- BIG-4: Issue 4 (Todo)
+- BIG-5: Issue 5 (Todo)
+- BIG-6: Issue 6 (Todo)
+- BIG-7: Issue 7 (Todo)
+- BIG-8: Issue 8 (Todo)
+- BIG-9: Issue 9 (Todo)
+- BIG-10: Issue 10 (Todo)
+
+_Showing 10 of 50+ issues — the milestone contains more than 50. Re-run with \`--all\` or use \`linear issue query --milestone milestone-trunc --json\` for the full list._
+"
+stderr:
+""
+`;
+
+snapshot[`Milestone View Command - --all paginates 1`] = `
+stdout:
+"# Huge Milestone
+
+**ID:** milestone-trunc
+**Target Date:** Not set
+**Project:** P (p)
+**Project URL:** https://linear.app/test/project/p
+
+**Created:** 12/31/2019
+**Updated:** 1/1/2020
+
+## Issues
+
+**Total Issues:** 52
+**Completed:** 2
+**To Do:** 50
+
+**All Issues:**
+
+- BIG-1: Issue 1 (Todo)
+- BIG-2: Issue 2 (Todo)
+- BIG-3: Issue 3 (Todo)
+- BIG-4: Issue 4 (Todo)
+- BIG-5: Issue 5 (Todo)
+- BIG-6: Issue 6 (Todo)
+- BIG-7: Issue 7 (Todo)
+- BIG-8: Issue 8 (Todo)
+- BIG-9: Issue 9 (Todo)
+- BIG-10: Issue 10 (Todo)
+- BIG-11: Issue 11 (Todo)
+- BIG-12: Issue 12 (Todo)
+- BIG-13: Issue 13 (Todo)
+- BIG-14: Issue 14 (Todo)
+- BIG-15: Issue 15 (Todo)
+- BIG-16: Issue 16 (Todo)
+- BIG-17: Issue 17 (Todo)
+- BIG-18: Issue 18 (Todo)
+- BIG-19: Issue 19 (Todo)
+- BIG-20: Issue 20 (Todo)
+- BIG-21: Issue 21 (Todo)
+- BIG-22: Issue 22 (Todo)
+- BIG-23: Issue 23 (Todo)
+- BIG-24: Issue 24 (Todo)
+- BIG-25: Issue 25 (Todo)
+- BIG-26: Issue 26 (Todo)
+- BIG-27: Issue 27 (Todo)
+- BIG-28: Issue 28 (Todo)
+- BIG-29: Issue 29 (Todo)
+- BIG-30: Issue 30 (Todo)
+- BIG-31: Issue 31 (Todo)
+- BIG-32: Issue 32 (Todo)
+- BIG-33: Issue 33 (Todo)
+- BIG-34: Issue 34 (Todo)
+- BIG-35: Issue 35 (Todo)
+- BIG-36: Issue 36 (Todo)
+- BIG-37: Issue 37 (Todo)
+- BIG-38: Issue 38 (Todo)
+- BIG-39: Issue 39 (Todo)
+- BIG-40: Issue 40 (Todo)
+- BIG-41: Issue 41 (Todo)
+- BIG-42: Issue 42 (Todo)
+- BIG-43: Issue 43 (Todo)
+- BIG-44: Issue 44 (Todo)
+- BIG-45: Issue 45 (Todo)
+- BIG-46: Issue 46 (Todo)
+- BIG-47: Issue 47 (Todo)
+- BIG-48: Issue 48 (Todo)
+- BIG-49: Issue 49 (Todo)
+- BIG-50: Issue 50 (Todo)
+- BIG-51: Issue 51 (Done)
+- BIG-52: Issue 52 (Done)
 "
 stderr:
 ""
