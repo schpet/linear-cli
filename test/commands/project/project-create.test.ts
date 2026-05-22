@@ -3,6 +3,12 @@ import { createCommand } from "../../../src/commands/project/project-create.ts"
 import { commonDenoArgs } from "../../utils/test-helpers.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
+const descriptionFilePath = await Deno.makeTempFile({ suffix: ".md" })
+await Deno.writeTextFile(
+  descriptionFilePath,
+  "Short description loaded from a file.",
+)
+
 // Test help output
 await cliffySnapshotTest({
   name: "Project Create Command - Help Text",
@@ -12,6 +18,66 @@ await cliffySnapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     await createCommand.parse()
+  },
+})
+
+// Test project create reading description from --description-file
+await cliffySnapshotTest({
+  name: "Project Create Command - Description From File",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--name",
+    "File Desc Project",
+    "--team",
+    "ENG",
+    "--description-file",
+    descriptionFilePath,
+    "--json",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-123" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "CreateProject",
+        response: {
+          data: {
+            projectCreate: {
+              success: true,
+              project: {
+                id: "550e8400-e29b-41d4-a716-446655440010",
+                slugId: "file-desc-project",
+                name: "File Desc Project",
+                url: "https://linear.app/test/project/file-desc-project",
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await createCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
   },
 })
 

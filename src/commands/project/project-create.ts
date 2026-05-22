@@ -15,6 +15,10 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import {
+  PROJECT_DESCRIPTION_MAX_LENGTH,
+  resolveProjectDescription,
+} from "./project-description.ts"
 
 const CreateProject = gql(`
   mutation CreateProject($input: ProjectCreateInput!) {
@@ -113,7 +117,14 @@ export const createCommand = new Command()
   .name("create")
   .description("Create a new Linear project")
   .option("-n, --name <name:string>", "Project name (required)")
-  .option("-d, --description <description:string>", "Project description")
+  .option(
+    "-d, --description <description:string>",
+    `Project description (max ${PROJECT_DESCRIPTION_MAX_LENGTH} characters, enforced by Linear's API)`,
+  )
+  .option(
+    "-f, --description-file <path:string>",
+    `Read project description from file (still subject to the ${PROJECT_DESCRIPTION_MAX_LENGTH}-character API limit)`,
+  )
   .option(
     "-t, --team <team:string>",
     "Team key (required, can be repeated for multiple teams)",
@@ -146,6 +157,7 @@ export const createCommand = new Command()
       const {
         name: providedName,
         description: providedDescription,
+        descriptionFile: providedDescriptionFile,
         team: providedTeams,
         lead: providedLead,
         status: providedStatus,
@@ -161,6 +173,7 @@ export const createCommand = new Command()
 
       let name = providedName
       let description = providedDescription
+      const descriptionFile = providedDescriptionFile
       let teams = providedTeams || []
       let lead = providedLead
       let status = providedStatus
@@ -183,8 +196,8 @@ export const createCommand = new Command()
           })
         }
 
-        // Description (optional)
-        if (!description) {
+        // Description (optional) — skip the prompt when --description-file was passed.
+        if (!description && descriptionFile == null) {
           description = await Input.prompt({
             message: "Description (optional):",
           })
@@ -266,6 +279,11 @@ export const createCommand = new Command()
           if (!targetDate) targetDate = undefined
         }
       }
+
+      const resolvedDescription = await resolveProjectDescription(
+        description,
+        descriptionFile,
+      )
 
       // Validate required fields
       if (!name) {
@@ -349,7 +367,8 @@ export const createCommand = new Command()
       const input = {
         name,
         teamIds,
-        ...(description && { description }),
+        ...(resolvedDescription != null &&
+          { description: resolvedDescription }),
         ...(leadId && { leadId }),
         ...(statusId && { statusId }),
         ...(startDate && { startDate }),

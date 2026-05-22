@@ -13,6 +13,10 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import {
+  PROJECT_DESCRIPTION_MAX_LENGTH,
+  resolveProjectDescription,
+} from "./project-description.ts"
 
 const UpdateProject = gql(`
   mutation UpdateProject($id: String!, $input: ProjectUpdateInput!) {
@@ -57,7 +61,14 @@ export const updateCommand = new Command()
   .description("Update a Linear project")
   .arguments("<projectId:string>")
   .option("-n, --name <name:string>", "Project name")
-  .option("-d, --description <description:string>", "Project description")
+  .option(
+    "-d, --description <description:string>",
+    `Project description (max ${PROJECT_DESCRIPTION_MAX_LENGTH} characters, enforced by Linear's API)`,
+  )
+  .option(
+    "-f, --description-file <path:string>",
+    `Read project description from file (still subject to the ${PROJECT_DESCRIPTION_MAX_LENGTH}-character API limit)`,
+  )
   .option(
     "-s, --status <status:string>",
     "Status (planned, started, paused, completed, canceled, backlog)",
@@ -75,6 +86,7 @@ export const updateCommand = new Command()
       {
         name,
         description,
+        descriptionFile,
         status,
         lead,
         startDate,
@@ -89,17 +101,22 @@ export const updateCommand = new Command()
 
       try {
         if (
-          !name && description == null && !status && !lead &&
-          !startDate && !targetDate && (!teams || teams.length === 0)
+          !name && description == null && descriptionFile == null && !status &&
+          !lead && !startDate && !targetDate && (!teams || teams.length === 0)
         ) {
           throw new ValidationError(
             "At least one update option must be provided",
             {
               suggestion:
-                "Use --name, --description, --status, --lead, --start-date, --target-date, or --team",
+                "Use --name, --description, --description-file, --status, --lead, --start-date, --target-date, or --team",
             },
           )
         }
+
+        const resolvedDescription = await resolveProjectDescription(
+          description,
+          descriptionFile,
+        )
 
         if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
           throw new ValidationError("Start date must be in YYYY-MM-DD format")
@@ -116,7 +133,7 @@ export const updateCommand = new Command()
         const input: Record<string, unknown> = {}
 
         if (name) input.name = name
-        if (description != null) input.description = description
+        if (resolvedDescription != null) input.description = resolvedDescription
         if (startDate) input.startDate = startDate
         if (targetDate) input.targetDate = targetDate
 
