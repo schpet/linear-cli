@@ -6,8 +6,11 @@ import { formatRelativeTime } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { handleError, NotFoundError } from "../../utils/errors.ts"
 
+const PAGE_SIZE = 50
+const LIST_PREVIEW = 10
+
 const GetMilestoneDetails = gql(`
-  query GetMilestoneDetails($id: String!) {
+  query GetMilestoneDetails($id: String!, $first: Int!, $after: String) {
     projectMilestone(id: $id) {
       id
       name
@@ -22,7 +25,7 @@ const GetMilestoneDetails = gql(`
         slugId
         url
       }
-      issues {
+      issues(first: $first, after: $after) {
         nodes {
           id
           identifier
@@ -32,6 +35,10 @@ const GetMilestoneDetails = gql(`
             type
           }
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
     }
   }
@@ -39,10 +46,19 @@ const GetMilestoneDetails = gql(`
 
 export const viewCommand = new Command()
   .name("view")
-  .description("View milestone details")
+  .description(
+    "View milestone details. By default lists the first " +
+      LIST_PREVIEW +
+      " attached issues from the first page of " + PAGE_SIZE +
+      "; use --all to paginate the full set.",
+  )
   .alias("v")
   .arguments("<milestoneId:string>")
-  .action(async (_options, milestoneId) => {
+  .option(
+    "--all",
+    "Fetch and list every issue attached to the milestone (paginates the Linear API).",
+  )
+  .action(async ({ all }, milestoneId) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
     const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
@@ -50,24 +66,43 @@ export const viewCommand = new Command()
 
     try {
       const client = getGraphQLClient()
-      const result = await client.request(GetMilestoneDetails, {
+      const firstPage = await client.request(GetMilestoneDetails, {
         id: milestoneId,
+        first: PAGE_SIZE,
       })
-      spinner?.stop()
 
-      const milestone = result.projectMilestone
+      const milestone = firstPage.projectMilestone
       if (!milestone) {
+        spinner?.stop()
         throw new NotFoundError("Milestone", milestoneId)
       }
 
-      // Build the display
+      const issues = [...milestone.issues.nodes]
+      let pageInfo = milestone.issues.pageInfo
+
+      if (all) {
+        while (pageInfo.hasNextPage && pageInfo.endCursor) {
+          const nextPage = await client.request(GetMilestoneDetails, {
+            id: milestoneId,
+            first: PAGE_SIZE,
+            after: pageInfo.endCursor,
+          })
+          const next = nextPage.projectMilestone
+          if (next == null) break
+          issues.push(...next.issues.nodes)
+          pageInfo = next.issues.pageInfo
+        }
+      }
+
+      spinner?.stop()
+
+      const truncated = !all && pageInfo.hasNextPage
+
       const lines: string[] = []
 
-      // Title
       lines.push(`# ${milestone.name}`)
       lines.push("")
 
-      // Basic info
       lines.push(`**ID:** ${milestone.id}`)
       if (milestone.targetDate) {
         lines.push(`**Target Date:** ${milestone.targetDate}`)
@@ -75,7 +110,6 @@ export const viewCommand = new Command()
         lines.push(`**Target Date:** Not set`)
       }
 
-      // Project info
       lines.push(
         `**Project:** ${milestone.project.name} (${milestone.project.slugId})`,
       )
@@ -85,7 +119,6 @@ export const viewCommand = new Command()
       lines.push(`**Created:** ${formatRelativeTime(milestone.createdAt)}`)
       lines.push(`**Updated:** ${formatRelativeTime(milestone.updatedAt)}`)
 
-      // Description
       if (milestone.description) {
         lines.push("")
         lines.push("## Description")
@@ -93,13 +126,12 @@ export const viewCommand = new Command()
         lines.push(milestone.description)
       }
 
-      // Issue summary
-      if (milestone.issues.nodes.length > 0) {
+      if (issues.length > 0) {
         lines.push("")
         lines.push("## Issues")
         lines.push("")
 
-        const issuesByState = milestone.issues.nodes.reduce(
+        const issuesByState = issues.reduce(
           (acc: Record<string, number>, issue) => {
             const stateType = issue.state.type
             if (!acc[stateType]) acc[stateType] = 0
@@ -109,7 +141,7 @@ export const viewCommand = new Command()
           {} as Record<string, number>,
         )
 
-        const total = milestone.issues.nodes.length
+        const fetched = issues.length
         const completed = issuesByState.completed || 0
         const started = issuesByState.started || 0
         const unstarted = issuesByState.unstarted || 0
@@ -117,7 +149,13 @@ export const viewCommand = new Command()
         const backlog = issuesByState.backlog || 0
         const triage = issuesByState.triage || 0
 
-        lines.push(`**Total Issues:** ${total}`)
+        if (truncated) {
+          lines.push(
+            `**Issues fetched:** ${fetched} (milestone has more — use \`--all\` for full counts)`,
+          )
+        } else {
+          lines.push(`**Total Issues:** ${fetched}`)
+        }
         if (completed > 0) lines.push(`**Completed:** ${completed}`)
         if (started > 0) lines.push(`**In Progress:** ${started}`)
         if (unstarted > 0) lines.push(`**To Do:** ${unstarted}`)
@@ -125,21 +163,29 @@ export const viewCommand = new Command()
         if (triage > 0) lines.push(`**Triage:** ${triage}`)
         if (canceled > 0) lines.push(`**Canceled:** ${canceled}`)
 
-        // List first 10 issues
+        const listed = all ? issues : issues.slice(0, LIST_PREVIEW)
         lines.push("")
-        lines.push("**Recent Issues:**")
+        lines.push(all ? "**All Issues:**" : "**Recent Issues:**")
         lines.push("")
-        milestone.issues.nodes.slice(0, 10).forEach((issue) => {
+        listed.forEach((issue) => {
           lines.push(
             `- ${issue.identifier}: ${issue.title} (${issue.state.name})`,
           )
         })
 
-        if (milestone.issues.nodes.length > 10) {
-          lines.push("")
-          lines.push(
-            `_...and ${milestone.issues.nodes.length - 10} more issues_`,
-          )
+        if (!all) {
+          const hiddenLoaded = Math.max(fetched - LIST_PREVIEW, 0)
+          if (truncated) {
+            lines.push("")
+            lines.push(
+              `_Showing ${Math.min(LIST_PREVIEW, fetched)} of ${fetched}+ issues — the milestone contains more than ${PAGE_SIZE}. Re-run with \`--all\` or use \`linear issue query --milestone ${milestone.id} --json\` for the full list._`,
+            )
+          } else if (hiddenLoaded > 0) {
+            lines.push("")
+            lines.push(
+              `_...and ${hiddenLoaded} more issue${hiddenLoaded === 1 ? "" : "s"}. Re-run with \`--all\` or use \`linear issue query --milestone ${milestone.id} --json\` to see them all._`,
+            )
+          }
         }
       } else {
         lines.push("")
