@@ -1,12 +1,14 @@
 import { Command } from "@cliffy/command"
-import { Input, Select } from "@cliffy/prompt"
+import { Checkbox, Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
   getAllTeams,
+  getProjectLabels,
   getTeamIdByKey,
   getTeamKey,
   lookupUserId,
+  resolveProjectLabelIds,
 } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import {
@@ -49,6 +51,8 @@ const AddProjectToInitiative = gql(`
     }
   }
 `)
+
+const CREATE_PROJECT_LABEL_OPTION = "__create_project_label__"
 
 async function resolveInitiativeId(
   // deno-lint-ignore no-explicit-any
@@ -137,6 +141,11 @@ export const createCommand = new Command()
     "Add to initiative immediately (ID, slug, or name)",
   )
   .option(
+    "--label <label:string>",
+    "Project label associated with the project. May be repeated.",
+    { collect: true },
+  )
+  .option(
     "-i, --interactive",
     "Interactive mode (default if no flags provided)",
   )
@@ -152,6 +161,7 @@ export const createCommand = new Command()
         startDate: providedStartDate,
         targetDate: providedTargetDate,
         initiative: providedInitiative,
+        label: providedLabels,
         interactive: interactiveFlag,
         json: jsonOutput,
       } = options
@@ -166,6 +176,8 @@ export const createCommand = new Command()
       let status = providedStatus
       let startDate = providedStartDate
       let targetDate = providedTargetDate
+      let labels = providedLabels || []
+      let labelIds: string[] = []
 
       // Determine if we should run in interactive mode
       const noFlagsProvided = !name && teams.length === 0
@@ -265,6 +277,40 @@ export const createCommand = new Command()
           })
           if (!targetDate) targetDate = undefined
         }
+
+        if (labels.length === 0) {
+          const projectLabels = await getProjectLabels()
+          const selectedLabelIds = await Checkbox.prompt({
+            message:
+              "Select project labels (use space to select, enter to confirm)",
+            search: projectLabels.length > 0,
+            searchLabel: "Search project labels",
+            options: [
+              ...projectLabels.map((label) => ({
+                name: label.name,
+                value: label.id,
+              })),
+              {
+                name: "Create new project label",
+                value: CREATE_PROJECT_LABEL_OPTION,
+              },
+            ],
+          })
+
+          labelIds = selectedLabelIds.filter((id) =>
+            id !== CREATE_PROJECT_LABEL_OPTION
+          )
+
+          if (selectedLabelIds.includes(CREATE_PROJECT_LABEL_OPTION)) {
+            const newLabels = await Input.prompt({
+              message:
+                "New project label names (comma-separated - press Enter to skip):",
+            })
+            labels = newLabels.split(",").map((label) => label.trim()).filter(
+              Boolean,
+            )
+          }
+        }
       }
 
       // Validate required fields
@@ -346,6 +392,11 @@ export const createCommand = new Command()
         throw new ValidationError("Target date must be in YYYY-MM-DD format")
       }
 
+      if (labels.length > 0) {
+        labelIds.push(...await resolveProjectLabelIds(labels))
+      }
+      labelIds = [...new Set(labelIds)]
+
       const input = {
         name,
         teamIds,
@@ -354,6 +405,7 @@ export const createCommand = new Command()
         ...(statusId && { statusId }),
         ...(startDate && { startDate }),
         ...(targetDate && { targetDate }),
+        ...(labelIds.length > 0 && { labelIds }),
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")

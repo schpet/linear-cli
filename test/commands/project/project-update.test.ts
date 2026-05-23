@@ -171,3 +171,103 @@ await cliffySnapshotTest({
     }
   },
 })
+
+// Test project update - labels are additive
+await cliffySnapshotTest({
+  name: "Project Update Command - Add Labels",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "550e8400-e29b-41d4-a716-446655440003",
+    "--label",
+    "backend",
+    "--label",
+    "security",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetProjectLabelIdsForProject",
+        variables: { id: "550e8400-e29b-41d4-a716-446655440003" },
+        response: {
+          data: {
+            project: {
+              labelIds: ["label-existing", "label-backend"],
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetProjectLabels",
+        response: {
+          data: {
+            projectLabels: {
+              nodes: [
+                { id: "label-backend", name: "Backend", color: "#5e6ad2" },
+              ],
+              pageInfo: {
+                hasNextPage: false,
+                endCursor: null,
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "CreateProjectLabel",
+        variables: {
+          input: { name: "security", isGroup: false },
+        },
+        response: {
+          data: {
+            projectLabelCreate: {
+              success: true,
+              projectLabel: {
+                id: "label-security",
+                name: "security",
+                color: "#eb5757",
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateProject",
+        variables: {
+          id: "550e8400-e29b-41d4-a716-446655440003",
+          input: {
+            labelIds: ["label-existing", "label-backend", "label-security"],
+          },
+        },
+        response: {
+          data: {
+            projectUpdate: {
+              success: true,
+              project: {
+                id: "550e8400-e29b-41d4-a716-446655440003",
+                slugId: "proj-labels",
+                name: "Test Project",
+                description: null,
+                url: "https://linear.app/test/project/proj-labels",
+                updatedAt: "2024-01-20T15:30:00Z",
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})

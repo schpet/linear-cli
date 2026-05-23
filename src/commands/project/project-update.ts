@@ -2,9 +2,11 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
+  getProjectLabelIdsForProject,
   getTeamIdByKey,
   lookupUserId,
   resolveProjectId,
+  resolveProjectLabelIds,
 } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import {
@@ -70,6 +72,11 @@ export const updateCommand = new Command()
     "Team key (can be repeated for multiple teams)",
     { collect: true },
   )
+  .option(
+    "--label <label:string>",
+    "Project label associated with the project. May be repeated.",
+    { collect: true },
+  )
   .action(
     async (
       {
@@ -80,6 +87,7 @@ export const updateCommand = new Command()
         startDate,
         targetDate,
         team: teams,
+        label: labels,
       },
       projectId,
     ) => {
@@ -90,13 +98,14 @@ export const updateCommand = new Command()
       try {
         if (
           !name && description == null && !status && !lead &&
-          !startDate && !targetDate && (!teams || teams.length === 0)
+          !startDate && !targetDate && (!teams || teams.length === 0) &&
+          (!labels || labels.length === 0)
         ) {
           throw new ValidationError(
             "At least one update option must be provided",
             {
               suggestion:
-                "Use --name, --description, --status, --lead, --start-date, --target-date, or --team",
+                "Use --name, --description, --status, --lead, --start-date, --target-date, --team, or --label",
             },
           )
         }
@@ -162,6 +171,12 @@ export const updateCommand = new Command()
             teamIds.push(teamId)
           }
           input.teamIds = teamIds
+        }
+
+        if (labels && labels.length > 0) {
+          const currentLabelIds = await getProjectLabelIdsForProject(resolvedId)
+          const newLabelIds = await resolveProjectLabelIds(labels)
+          input.labelIds = [...new Set([...currentLabelIds, ...newLabelIds])]
         }
 
         const result = await client.request(UpdateProject, {

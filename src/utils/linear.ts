@@ -1,11 +1,14 @@
 import { gql } from "../__codegen__/gql.ts"
 import type {
+  CreateProjectLabelMutation,
   GetAllTeamsQuery,
   GetAllTeamsQueryVariables as _GetAllTeamsQueryVariables,
   GetIssueDetailsQuery,
   GetIssueDetailsWithCommentsQuery,
   GetIssuesForQueryQuery,
   GetIssuesForStateQuery,
+  GetProjectLabelIdsForProjectQuery,
+  GetProjectLabelsQuery,
   GetTeamMembersQuery,
   IssueFilter,
   IssueSortInput,
@@ -14,7 +17,7 @@ import type {
 } from "../__codegen__/graphql.ts"
 import { Select } from "@cliffy/prompt"
 import { getOption } from "../config.ts"
-import { NotFoundError, ValidationError } from "./errors.ts"
+import { CliError, NotFoundError, ValidationError } from "./errors.ts"
 import { getGraphQLClient } from "./graphql.ts"
 import { normalizeIssueIdentifier } from "./issue-identifier.ts"
 import { getCurrentIssueFromVcs } from "./vcs.ts"
@@ -1433,6 +1436,125 @@ export async function getIssueLabelOptionsByNameForTeam(
     a.name.toLowerCase().localeCompare(b.name.toLowerCase())
   )
   return Object.fromEntries(sortedResults.map((t) => [t.id, t.name]))
+}
+
+export type ProjectLabel = { id: string; name: string; color: string }
+
+export async function getProjectLabels(): Promise<ProjectLabel[]> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectLabels($first: Int, $after: String) {
+      projectLabels(
+        first: $first
+        after: $after
+        filter: { isGroup: { eq: false } }
+      ) {
+        nodes {
+          id
+          name
+          color
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  `)
+
+  const allLabels: ProjectLabel[] = []
+  let hasNextPage = true
+  let after: string | null | undefined = undefined
+
+  while (hasNextPage) {
+    const result: GetProjectLabelsQuery = await client.request(query, {
+      first: 100,
+      after,
+    })
+    allLabels.push(...result.projectLabels.nodes)
+    hasNextPage = result.projectLabels.pageInfo.hasNextPage
+    after = result.projectLabels.pageInfo.endCursor
+  }
+
+  return allLabels.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  )
+}
+
+export async function resolveProjectLabelIds(
+  labelNames: string[],
+): Promise<string[]> {
+  const client = getGraphQLClient()
+  const createMutation = gql(/* GraphQL */ `
+    mutation CreateProjectLabel($input: ProjectLabelCreateInput!) {
+      projectLabelCreate(input: $input) {
+        success
+        projectLabel {
+          id
+          name
+          color
+        }
+      }
+    }
+  `)
+
+  const labels = await getProjectLabels()
+  const labelIds: string[] = []
+  const seenNames = new Set<string>()
+
+  for (const rawName of labelNames) {
+    const name = rawName.trim()
+    if (!name) continue
+
+    const normalizedName = name.toLowerCase()
+    if (seenNames.has(normalizedName)) continue
+    seenNames.add(normalizedName)
+
+    const existingLabel = labels.find((label) =>
+      label.name.toLowerCase() === normalizedName
+    )
+    if (existingLabel) {
+      labelIds.push(existingLabel.id)
+      continue
+    }
+
+    const result: CreateProjectLabelMutation = await client.request(
+      createMutation,
+      {
+        input: { name, isGroup: false },
+      },
+    )
+    if (!result.projectLabelCreate.success) {
+      throw new CliError(`Failed to create project label: ${name}`)
+    }
+
+    const createdLabel = result.projectLabelCreate.projectLabel
+    labels.push(createdLabel)
+    labelIds.push(createdLabel.id)
+  }
+
+  return labelIds
+}
+
+export async function getProjectLabelIdsForProject(
+  projectId: string,
+): Promise<string[]> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectLabelIdsForProject($id: String!) {
+      project(id: $id) {
+        labelIds
+      }
+    }
+  `)
+
+  const result: GetProjectLabelIdsForProjectQuery = await client.request(
+    query,
+    {
+      id: projectId,
+    },
+  )
+  return [...result.project.labelIds]
 }
 
 export async function getAllTeams(): Promise<

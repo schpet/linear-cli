@@ -92,6 +92,7 @@ Options:
   --start-date       <startDate>    - Start date (YYYY-MM-DD)                                                  
   --target-date      <targetDate>   - Target completion date (YYYY-MM-DD)                                      
   --initiative       <initiative>   - Add to initiative immediately (ID, slug, or name)                        
+  --label            <label>        - Project label associated with the project. May be repeated.              
   -i, --interactive                 - Interactive mode (default if no flags provided)                          
   -j, --json                        - Output created project as JSON
 ```
@@ -117,7 +118,8 @@ Options:
   -l, --lead         <lead>         - Project lead (username, email, or @me)                           
   --start-date       <startDate>    - Start date (YYYY-MM-DD)                                          
   --target-date      <targetDate>   - Target date (YYYY-MM-DD)                                         
-  -t, --team         <team>         - Team key (can be repeated for multiple teams)
+  -t, --team         <team>         - Team key (can be repeated for multiple teams)                    
+  --label            <label>        - Project label associated with the project. May be repeated.
 ```
 
 ### delete

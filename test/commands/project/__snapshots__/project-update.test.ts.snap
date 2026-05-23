@@ -19,6 +19,7 @@ Options:
   --start-date       <startDate>    - Start date (YYYY-MM-DD)                                          
   --target-date      <targetDate>   - Target date (YYYY-MM-DD)                                         
   -t, --team         <team>         - Team key (can be repeated for multiple teams)                    
+  --label            <label>        - Project label associated with the project. May be repeated.      
 
 "
 stderr:
@@ -47,6 +48,15 @@ snapshot[`Project Update Command - Update Status 1`] = `
 stdout:
 "✓ Updated project: Test Project
 https://linear.app/test/project/proj-status
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Add Labels 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-labels
 "
 stderr:
 ""
