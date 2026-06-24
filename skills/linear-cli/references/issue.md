@@ -388,12 +388,14 @@ Description:
 
 Options:
 
-  -h, --help                - Show this help.                                                 
-  --workspace   <slug>      - Target workspace (uses credentials)                             
-  -b, --body    <text>      - Comment body text                                               
-  --body-file   <path>      - Read comment body from a file (preferred for markdown content)  
-  -p, --parent  <id>        - Parent comment ID for replies                                   
-  -a, --attach  <filepath>  - Attach a file to the comment (can be used multiple times)
+  -h, --help                - Show this help.                                                             
+  --workspace   <slug>      - Target workspace (uses credentials)                                         
+  -b, --body    <text>      - Comment body text                                                           
+  --body-file   <path>      - Read comment body from a file (preferred for markdown content)              
+  -p, --parent  <id>        - Parent comment ID for replies                                               
+  -a, --attach  <filepath>  - Attach a file to the comment (can be used multiple times)                   
+  --public                  - Upload attached images to a public, unauthenticated URL (default: private,  
+                              workspace-members only)
 ```
 
 ##### delete
@@ -457,10 +459,12 @@ Description:
 
 Options:
 
-  -h, --help              - Show this help.                              
-  --workspace    <slug>   - Target workspace (uses credentials)          
-  -t, --title    <title>  - Custom title for the attachment              
-  -c, --comment  <body>   - Add a comment body linked to the attachment
+  -h, --help              - Show this help.                                                    
+  --workspace    <slug>   - Target workspace (uses credentials)                                
+  -t, --title    <title>  - Custom title for the attachment                                    
+  -c, --comment  <body>   - Add a comment body linked to the attachment                        
+  --public                - Upload images to a public, unauthenticated URL (default: private,  
+                            workspace-members only)
 ```
 
 ### link
