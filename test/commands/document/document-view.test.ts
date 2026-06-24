@@ -42,6 +42,33 @@ await snapshotTest({
               creator: { name: "John Doe", email: "john@example.com" },
               project: { name: "TinyCloud SDK", slugId: "tinycloud-sdk" },
               issue: null,
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-1",
+                    body: "Can we clarify this?",
+                    quotedText: "delegation system architecture",
+                    documentContentId: "document-content-1",
+                    createdAt: "2026-01-18T11:00:00Z",
+                    updatedAt: "2026-01-18T11:00:00Z",
+                    archivedAt: null,
+                    resolvedAt: null,
+                    url: "https://linear.app/test/comment/comment-1",
+                    user: {
+                      name: "Jane Reviewer",
+                      email: "jane@example.com",
+                    },
+                    parent: null,
+                    children: {
+                      nodes: [],
+                    },
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: "cursor-1",
+                },
+              },
             },
           },
         },
@@ -136,6 +163,33 @@ await snapshotTest({
               creator: { name: "John Doe", email: "john@example.com" },
               project: { name: "TinyCloud SDK", slugId: "tinycloud-sdk" },
               issue: null,
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-1",
+                    body: "Can we clarify this?",
+                    quotedText: "delegation system architecture",
+                    documentContentId: "document-content-1",
+                    createdAt: "2026-01-18T11:00:00Z",
+                    updatedAt: "2026-01-18T11:00:00Z",
+                    archivedAt: null,
+                    resolvedAt: null,
+                    url: "https://linear.app/test/comment/comment-1",
+                    user: {
+                      name: "Jane Reviewer",
+                      email: "jane@example.com",
+                    },
+                    parent: null,
+                    children: {
+                      nodes: [],
+                    },
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: "cursor-1",
+                },
+              },
             },
           },
         },

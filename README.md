@@ -200,7 +200,7 @@ linear document list --json                     # output as JSON
 linear document view <slug>                     # view document rendered in terminal
 linear document view <slug> --raw               # output raw markdown (for piping)
 linear document view <slug> --web               # open in browser
-linear document view <slug> --json              # output as JSON
+linear document view <slug> --json              # output as JSON, including document comments
 
 # create a document
 linear document create --title "My Doc" --content "# Hello"           # inline content
@@ -213,12 +213,15 @@ cat spec.md | linear document create --title "Spec"                   # from std
 linear document update <slug> --title "New Title"                     # update title
 linear document update <slug> --content-file ./updated.md             # update content
 linear document update <slug> --edit                                  # open in $EDITOR
+linear document update <slug> --content-file ./updated.md --force     # bypass comment-anchor guard
 
 # delete a document
 linear document delete <slug>                   # soft delete (move to trash)
 linear document delete <slug> --permanent       # permanent delete
 linear document delete --bulk <slug1> <slug2>   # bulk delete
 ```
+
+content updates are refused by default when a document has Linear document comments, because replacing markdown can detach or hide inline comment anchors. review comments first, then rerun with `--force` if you intentionally want to replace the content anyway.
 
 ### other commands
 

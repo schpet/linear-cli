@@ -39,6 +39,50 @@ const GetDocument = gql(`
         identifier
         title
       }
+      comments(first: 50, orderBy: createdAt) {
+        nodes {
+          id
+          body
+          quotedText
+          documentContentId
+          createdAt
+          updatedAt
+          archivedAt
+          resolvedAt
+          url
+          user {
+            name
+            email
+          }
+          parent {
+            id
+          }
+          children(first: 50, orderBy: createdAt) {
+            nodes {
+              id
+              body
+              quotedText
+              documentContentId
+              createdAt
+              updatedAt
+              archivedAt
+              resolvedAt
+              url
+              user {
+                name
+                email
+              }
+              parent {
+                id
+              }
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
     }
   }
 `)

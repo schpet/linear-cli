@@ -10,6 +10,24 @@ import {
   ValidationError,
 } from "../../utils/errors.ts"
 
+const DocumentCommentGuard = gql(`
+  query DocumentCommentGuard($id: String!) {
+    document(id: $id) {
+      id
+      title
+      content
+      comments(first: 1) {
+        nodes {
+          id
+          quotedText
+          resolvedAt
+          archivedAt
+        }
+      }
+    }
+  }
+`)
+
 /**
  * Open editor with initial content and return the edited content
  */
@@ -108,9 +126,13 @@ export const updateCommand = new Command()
   )
   .option("--icon <icon:string>", "New icon (emoji)")
   .option("-e, --edit", "Open current content in $EDITOR for editing")
+  .option(
+    "--force",
+    "Update content even when document comments may lose inline anchors",
+  )
   .action(
     async (
-      { title, content, contentFile, icon, edit },
+      { title, content, contentFile, icon, edit, force },
       documentId,
     ) => {
       try {
@@ -152,17 +174,7 @@ export const updateCommand = new Command()
           }
         } else if (edit) {
           // Edit mode: fetch current content and open in editor
-          const getDocumentQuery = gql(`
-          query GetDocumentForEdit($id: String!) {
-            document(id: $id) {
-              id
-              title
-              content
-            }
-          }
-        `)
-
-          const documentData = await client.request(getDocumentQuery, {
+          const documentData = await client.request(DocumentCommentGuard, {
             id: documentId,
           })
 
@@ -207,6 +219,36 @@ export const updateCommand = new Command()
             suggestion:
               "Use --title, --content, --content-file, --icon, or --edit.",
           })
+        }
+
+        if (input.content !== undefined && !force) {
+          const documentData = await client.request(DocumentCommentGuard, {
+            id: documentId,
+          })
+
+          if (!documentData?.document) {
+            throw new NotFoundError("Document", documentId)
+          }
+
+          const comments = documentData.document.comments.nodes
+          if (comments.length > 0) {
+            const comment = comments[0]
+            const commentKind = comment.quotedText
+              ? "inline comment"
+              : "document comment"
+            const quotedText = comment.quotedText
+              ? ` quoting "${comment.quotedText}"`
+              : ""
+
+            throw new ValidationError(
+              `Refusing to update document content because this document has ${commentKind}s.`,
+              {
+                suggestion:
+                  `Updating Markdown content can detach or hide Linear document comments. ` +
+                  `First review comment ${comment.id}${quotedText}, then rerun with --force if you accept that risk.`,
+              },
+            )
+          }
         }
 
         // Execute the update

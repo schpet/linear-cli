@@ -61,11 +61,12 @@ Description:
 
 Options:
 
-  -h, --help           - Show this help.                        
-  --workspace  <slug>  - Target workspace (uses credentials)    
-  --raw                - Output raw markdown without rendering  
-  -w, --web            - Open document in browser               
-  --json               - Output full document as JSON
+  -h, --help             - Show this help.                                
+  --workspace    <slug>  - Target workspace (uses credentials)            
+  --raw                  - Output raw markdown without rendering          
+  -w, --web              - Open document in browser                       
+  --json                 - Output full document as JSON                   
+  --no-download          - Keep remote URLs instead of downloading files
 ```
 
 ### create
@@ -105,13 +106,14 @@ Description:
 
 Options:
 
-  -h, --help                     - Show this help.                              
-  --workspace         <slug>     - Target workspace (uses credentials)          
-  -t, --title         <title>    - New title for the document                   
-  -c, --content       <content>  - New markdown content (inline)                
-  -f, --content-file  <path>     - Read new content from file                   
-  --icon              <icon>     - New icon (emoji)                             
-  -e, --edit                     - Open current content in $EDITOR for editing
+  -h, --help                     - Show this help.                                                     
+  --workspace         <slug>     - Target workspace (uses credentials)                                 
+  -t, --title         <title>    - New title for the document                                          
+  -c, --content       <content>  - New markdown content (inline)                                       
+  -f, --content-file  <path>     - Read new content from file                                          
+  --icon              <icon>     - New icon (emoji)                                                    
+  -e, --edit                     - Open current content in $EDITOR for editing                         
+  --force                        - Update content even when document comments may lose inline anchors
 ```
 
 ### delete
