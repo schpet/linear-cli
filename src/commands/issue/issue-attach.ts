@@ -24,8 +24,12 @@ export const attachCommand = new Command()
     "-c, --comment <body:string>",
     "Add a comment body linked to the attachment",
   )
+  .option(
+    "--public",
+    "Upload images to a public, unauthenticated URL (default: private, workspace-members only)",
+  )
   .action(async (options, issueId, filepath) => {
-    const { title, comment } = options
+    const { title, comment, public: makePublic } = options
 
     try {
       const resolvedIdentifier = await getIssueIdentifier(issueId)
@@ -56,8 +60,14 @@ export const attachCommand = new Command()
       // Upload the file
       const uploadResult = await uploadFile(filepath, {
         showProgress: shouldShowSpinner(),
+        makePublic,
       })
       console.log(`✓ Uploaded ${uploadResult.filename}`)
+      if (uploadResult.public) {
+        console.warn(
+          `⚠ Uploaded to a public URL readable by anyone: ${uploadResult.assetUrl}`,
+        )
+      }
 
       // Create the attachment
       const mutation = gql(`

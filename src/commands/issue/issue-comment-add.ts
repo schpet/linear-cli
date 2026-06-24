@@ -26,8 +26,12 @@ export const commentAddCommand = new Command()
     "Attach a file to the comment (can be used multiple times)",
     { collect: true },
   )
+  .option(
+    "--public",
+    "Upload attached images to a public, unauthenticated URL (default: private, workspace-members only)",
+  )
   .action(async (options, issueId) => {
-    const { body, bodyFile, parent, attach } = options
+    const { body, bodyFile, parent, attach, public: makePublic } = options
 
     try {
       // Validate that body and bodyFile are not both provided
@@ -80,6 +84,7 @@ export const commentAddCommand = new Command()
         for (const filepath of attachments) {
           const result = await uploadFile(filepath, {
             showProgress: shouldShowSpinner(),
+            makePublic,
           })
           uploadedFiles.push({
             filename: result.filename,
@@ -87,6 +92,11 @@ export const commentAddCommand = new Command()
             isImage: result.contentType.startsWith("image/"),
           })
           console.log(`✓ Uploaded ${result.filename}`)
+          if (result.public) {
+            console.warn(
+              `⚠ Uploaded to a public URL readable by anyone: ${result.assetUrl}`,
+            )
+          }
         }
       }
 
@@ -111,7 +121,6 @@ export const commentAddCommand = new Command()
             contentType: file.isImage
               ? "image/png"
               : "application/octet-stream",
-            size: 0,
           })
         })
 

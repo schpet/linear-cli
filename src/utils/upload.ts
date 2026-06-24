@@ -111,13 +111,19 @@ export interface UploadResult {
   size: number
   /** The MIME type of the file */
   contentType: string
+  /** Whether the file was uploaded to a public, unauthenticated URL */
+  public: boolean
 }
 
 /**
  * Options for file upload
  */
 export interface UploadOptions {
-  /** Make the file publicly accessible (only works for images, default: auto-detect) */
+  /**
+   * Upload the file to a public, unauthenticated URL. Only supported for raster
+   * images. Defaults to false (private, workspace-members only) to match the
+   * Linear web app.
+   */
   makePublic?: boolean
   /** Show progress indicator */
   showProgress?: boolean
@@ -137,6 +143,30 @@ function canBePublic(contentType: string): boolean {
     "image/tiff",
   ]
   return publicTypes.includes(contentType)
+}
+
+/**
+ * Resolve the effective `makePublic` value for an upload.
+ *
+ * Uploads default to private (workspace-members only), matching Linear's web
+ * app. Public is opt-in and only valid for raster image types — requesting it
+ * for any other content type is an error rather than a silent downgrade.
+ */
+export function resolveMakePublic(
+  contentType: string,
+  requested?: boolean,
+): boolean {
+  const makePublic = requested ?? false
+  if (makePublic && !canBePublic(contentType)) {
+    throw new ValidationError(
+      `Cannot upload ${contentType || "this file"} to a public URL`,
+      {
+        suggestion:
+          "Linear only allows public uploads for raster images (png, jpeg, gif, webp, bmp, tiff). Remove --public to upload privately.",
+      },
+    )
+  }
+  return makePublic
 }
 
 /**
@@ -177,6 +207,10 @@ export async function uploadFile(
   const filename = basename(filepath)
   const contentType = getMimeType(filepath)
 
+  // Default to private; public is an explicit opt-in and only valid for images.
+  // Validate before doing any network work or starting the spinner.
+  const makePublic = resolveMakePublic(contentType, options.makePublic)
+
   // Step 1: Request signed upload URL
   const mutation = gql(`
     mutation FileUpload($contentType: String!, $filename: String!, $size: Int!, $makePublic: Boolean) {
@@ -201,9 +235,6 @@ export async function uploadFile(
     ? new Spinner({ message: `Uploading ${filename}...` })
     : null
   spinner?.start()
-
-  // Auto-detect makePublic based on file type (only images can be public)
-  const makePublic = options.makePublic ?? canBePublic(contentType)
 
   try {
     const data = await client.request(mutation, {
@@ -252,6 +283,7 @@ export async function uploadFile(
       filename,
       size,
       contentType,
+      public: makePublic,
     }
   } catch (error) {
     spinner?.stop()
@@ -302,7 +334,9 @@ export async function validateFilePath(filepath: string): Promise<void> {
 /**
  * Format an uploaded file as a markdown link
  */
-export function formatAsMarkdownLink(result: UploadResult): string {
+export function formatAsMarkdownLink(
+  result: Pick<UploadResult, "filename" | "assetUrl" | "contentType">,
+): string {
   const isImage = result.contentType.startsWith("image/")
   if (isImage) {
     return `![${result.filename}](${result.assetUrl})`

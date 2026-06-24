@@ -152,6 +152,25 @@ linear issue comment update <id>   # update a comment
 linear issue commits               # show all commits for an issue (jj only)
 ```
 
+#### attaching files
+
+attach files to an issue or comment. uploads are **private** by default (readable only by workspace members), matching the Linear web app.
+
+```bash
+linear issue attach ENG-123 ./screenshot.png            # attach a file to an issue
+linear issue attach ENG-123 ./doc.pdf -t "Spec"         # custom attachment title
+linear issue attach ENG-123 ./img.png -c "see this"     # add a linked comment
+linear issue comment add ENG-123 -a ./screenshot.png    # attach a file to a comment
+linear issue comment add ENG-123 -a ./a.png -a ./b.png  # attach multiple files
+```
+
+by default attachments are private. pass `--public` to upload raster images (png/jpeg/gif/webp/bmp/tiff) to a public `public.linear.app` URL readable by **anyone, unauthenticated** — useful for sharing outside the workspace, but a warning is printed since it bypasses workspace access controls. non-image files cannot be made public.
+
+```bash
+linear issue attach ENG-123 ./screenshot.png --public           # public image URL
+linear issue comment add ENG-123 -a ./screenshot.png --public   # public image URL
+```
+
 ### team commands
 
 ```bash
