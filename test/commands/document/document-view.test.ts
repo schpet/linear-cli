@@ -146,8 +146,8 @@ await snapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetDocument",
-        variables: { id: "d4b93e3b2695" },
+        queryName: "GetDocumentWithComments",
+        variables: { id: "d4b93e3b2695", commentsAfter: null },
         response: {
           data: {
             document: {
@@ -180,14 +180,59 @@ await snapshotTest({
                       email: "jane@example.com",
                     },
                     parent: null,
-                    children: {
-                      nodes: [],
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: true,
+                  endCursor: "cursor-1",
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetDocumentWithComments",
+        variables: { id: "d4b93e3b2695", commentsAfter: "cursor-1" },
+        response: {
+          data: {
+            document: {
+              id: "doc-1",
+              title: "Delegation System Spec",
+              slugId: "d4b93e3b2695",
+              content:
+                "# Delegation System\n\nThis document describes the delegation system architecture.",
+              url:
+                "https://linear.app/test/document/delegation-system-spec-d4b93e3b2695",
+              createdAt: "2026-01-15T08:00:00Z",
+              updatedAt: "2026-01-18T10:30:00Z",
+              creator: { name: "John Doe", email: "john@example.com" },
+              project: { name: "TinyCloud SDK", slugId: "tinycloud-sdk" },
+              issue: null,
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-2",
+                    body: "Follow-up note",
+                    quotedText: null,
+                    documentContentId: "document-content-1",
+                    createdAt: "2026-01-18T12:00:00Z",
+                    updatedAt: "2026-01-18T12:00:00Z",
+                    archivedAt: null,
+                    resolvedAt: null,
+                    url: "https://linear.app/test/comment/comment-2",
+                    user: {
+                      name: "John Doe",
+                      email: "john@example.com",
+                    },
+                    parent: {
+                      id: "comment-1",
                     },
                   },
                 ],
                 pageInfo: {
                   hasNextPage: false,
-                  endCursor: "cursor-1",
+                  endCursor: null,
                 },
               },
             },

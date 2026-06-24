@@ -10,23 +10,82 @@ import {
   ValidationError,
 } from "../../utils/errors.ts"
 
-const DocumentCommentGuard = gql(`
-  query DocumentCommentGuard($id: String!) {
+const GetDocumentForEdit = gql(`
+  query GetDocumentForEdit($id: String!) {
     document(id: $id) {
       id
       title
       content
-      comments(first: 1) {
+    }
+  }
+`)
+
+const DocumentInlineCommentGuard = gql(`
+  query DocumentInlineCommentGuard($id: String!, $after: String) {
+    document(id: $id) {
+      id
+      comments(first: 50, after: $after, orderBy: createdAt) {
         nodes {
           id
           quotedText
-          resolvedAt
-          archivedAt
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
         }
       }
     }
   }
 `)
+
+interface DocumentInlineComment {
+  id: string
+  quotedText?: string | null
+}
+
+interface DocumentInlineCommentGuardResponse {
+  document?: {
+    comments: {
+      nodes: DocumentInlineComment[]
+      pageInfo: {
+        hasNextPage: boolean
+        endCursor?: string | null
+      }
+    }
+  } | null
+}
+
+async function getFirstInlineDocumentComment(
+  client: ReturnType<typeof getGraphQLClient>,
+  documentId: string,
+) {
+  let after: string | null | undefined = null
+
+  while (true) {
+    const documentData: DocumentInlineCommentGuardResponse = await client
+      .request(DocumentInlineCommentGuard, {
+        id: documentId,
+        after,
+      })
+
+    if (!documentData?.document) {
+      throw new NotFoundError("Document", documentId)
+    }
+
+    const comments = documentData.document.comments.nodes
+    const inlineComment = comments.find((comment) => comment.quotedText)
+    if (inlineComment) {
+      return inlineComment
+    }
+
+    const pageInfo = documentData.document.comments.pageInfo
+    if (!pageInfo.hasNextPage) {
+      return undefined
+    }
+
+    after = pageInfo.endCursor
+  }
+}
 
 /**
  * Open editor with initial content and return the edited content
@@ -174,7 +233,7 @@ export const updateCommand = new Command()
           }
         } else if (edit) {
           // Edit mode: fetch current content and open in editor
-          const documentData = await client.request(DocumentCommentGuard, {
+          const documentData = await client.request(GetDocumentForEdit, {
             id: documentId,
           })
 
@@ -222,30 +281,18 @@ export const updateCommand = new Command()
         }
 
         if (input.content !== undefined && !force) {
-          const documentData = await client.request(DocumentCommentGuard, {
-            id: documentId,
-          })
+          const comment = await getFirstInlineDocumentComment(
+            client,
+            documentId,
+          )
 
-          if (!documentData?.document) {
-            throw new NotFoundError("Document", documentId)
-          }
-
-          const comments = documentData.document.comments.nodes
-          if (comments.length > 0) {
-            const comment = comments[0]
-            const commentKind = comment.quotedText
-              ? "inline comment"
-              : "document comment"
-            const quotedText = comment.quotedText
-              ? ` quoting "${comment.quotedText}"`
-              : ""
-
+          if (comment) {
             throw new ValidationError(
-              `Refusing to update document content because this document has ${commentKind}s.`,
+              "Refusing to update document content because this document has inline comments.",
               {
                 suggestion:
                   `Updating Markdown content can detach or hide Linear document comments. ` +
-                  `First review comment ${comment.id}${quotedText}, then rerun with --force if you accept that risk.`,
+                  `First review comment ${comment.id} quoting "${comment.quotedText}", then rerun with --force if you accept that risk.`,
               },
             )
           }

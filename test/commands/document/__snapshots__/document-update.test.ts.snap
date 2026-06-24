@@ -42,12 +42,21 @@ stderr:
 ""
 `;
 
-snapshot[`Document Update Command - Blocks Content Update With Comments 1`] = `
+snapshot[`Document Update Command - Allows Content Update With Top Level Comments 1`] = `
+stdout:
+"✓ Updated document: Delegation System Spec
+https://linear.app/test/document/delegation-system-spec-d4b93e3b2695
+"
+stderr:
+""
+`;
+
+snapshot[`Document Update Command - Blocks Content Update With Inline Comments 1`] = `
 stdout:
 ""
 stderr:
 '✗ Failed to update document: Refusing to update document content because this document has inline comments.
-  Updating Markdown content can detach or hide Linear document comments. First review comment comment-1 quoting "Current Content", then rerun with --force if you accept that risk.
+  Updating Markdown content can detach or hide Linear document comments. First review comment comment-2 quoting "Current Content", then rerun with --force if you accept that risk.
 '
 `;
 

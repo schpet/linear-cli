@@ -221,7 +221,7 @@ linear document delete <slug> --permanent       # permanent delete
 linear document delete --bulk <slug1> <slug2>   # bulk delete
 ```
 
-content updates are refused by default when a document has Linear document comments, because replacing markdown can detach or hide inline comment anchors. review comments first, then rerun with `--force` if you intentionally want to replace the content anyway.
+content updates are refused by default when a document has active inline Linear comments, because replacing markdown can detach or hide those anchors. top-level document comments do not block updates. review the inline comment first, then rerun with `--force` if you intentionally want to replace the content anyway.
 
 ### other commands
 

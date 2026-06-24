@@ -73,9 +73,10 @@ await snapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "DocumentCommentGuard",
+        queryName: "DocumentInlineCommentGuard",
         variables: {
           id: "d4b93e3b2695",
+          after: null,
         },
         response: {
           data: {
@@ -85,6 +86,10 @@ await snapshotTest({
               content: "# Current Content",
               comments: {
                 nodes: [],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
               },
             },
           },
@@ -130,9 +135,85 @@ await snapshotTest({
   },
 })
 
-// Test content updates refuse to run when document comments exist
+// Test content updates allow top-level document comments without inline anchors
 await snapshotTest({
-  name: "Document Update Command - Blocks Content Update With Comments",
+  name:
+    "Document Update Command - Allows Content Update With Top Level Comments",
+  meta: import.meta,
+  colors: false,
+  args: ["d4b93e3b2695", "--content", "# Updated Content"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "DocumentInlineCommentGuard",
+        variables: {
+          id: "d4b93e3b2695",
+          after: null,
+        },
+        response: {
+          data: {
+            document: {
+              id: "doc-1",
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-1",
+                    quotedText: null,
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateDocument",
+        variables: {
+          id: "d4b93e3b2695",
+          input: {
+            content: "# Updated Content",
+          },
+        },
+        response: {
+          data: {
+            documentUpdate: {
+              success: true,
+              document: {
+                id: "doc-1",
+                slugId: "d4b93e3b2695",
+                title: "Delegation System Spec",
+                url:
+                  "https://linear.app/test/document/delegation-system-spec-d4b93e3b2695",
+                updatedAt: "2026-01-19T10:00:00Z",
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Test content updates refuse to run when inline document comments exist
+await snapshotTest({
+  name: "Document Update Command - Blocks Content Update With Inline Comments",
   meta: import.meta,
   colors: false,
   canFail: true,
@@ -141,9 +222,10 @@ await snapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "DocumentCommentGuard",
+        queryName: "DocumentInlineCommentGuard",
         variables: {
           id: "d4b93e3b2695",
+          after: null,
         },
         response: {
           data: {
@@ -155,11 +237,39 @@ await snapshotTest({
                 nodes: [
                   {
                     id: "comment-1",
-                    quotedText: "Current Content",
-                    resolvedAt: null,
-                    archivedAt: null,
+                    quotedText: null,
                   },
                 ],
+                pageInfo: {
+                  hasNextPage: true,
+                  endCursor: "cursor-1",
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "DocumentInlineCommentGuard",
+        variables: {
+          id: "d4b93e3b2695",
+          after: "cursor-1",
+        },
+        response: {
+          data: {
+            document: {
+              id: "doc-1",
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-2",
+                    quotedText: "Current Content",
+                  },
+                ],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
               },
             },
           },
@@ -248,9 +358,10 @@ await snapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "DocumentCommentGuard",
+        queryName: "DocumentInlineCommentGuard",
         variables: {
           id: "d4b93e3b2695",
+          after: null,
         },
         response: {
           data: {
@@ -260,6 +371,10 @@ await snapshotTest({
               content: "# Current Content",
               comments: {
                 nodes: [],
+                pageInfo: {
+                  hasNextPage: false,
+                  endCursor: null,
+                },
               },
             },
           },
