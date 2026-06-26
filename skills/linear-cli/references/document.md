@@ -27,47 +27,6 @@ Commands:
 
 ## Subcommands
 
-### list
-
-> List documents
-
-```
-Usage:   linear document list
-
-Description:
-
-  List documents
-
-Options:
-
-  -h, --help              - Show this help.                                        
-  --workspace  <slug>     - Target workspace (uses credentials)                    
-  --project    <project>  - Filter by project (slug or name)                       
-  --issue      <issue>    - Filter by issue (identifier like TC-123)               
-  --json                  - Output as JSON                                         
-  --limit      <limit>    - Limit results                             (Default: 50)
-```
-
-### view
-
-> View a document's content
-
-```
-Usage:   linear document view <id>
-
-Description:
-
-  View a document's content
-
-Options:
-
-  -h, --help           - Show this help.                        
-  --workspace  <slug>  - Target workspace (uses credentials)    
-  --raw                - Output raw markdown without rendering  
-  -w, --web            - Open document in browser               
-  --json               - Output full document as JSON
-```
-
 ### create
 
 > Create a new document
@@ -92,6 +51,48 @@ Options:
   -i, --interactive              - Interactive mode with prompts
 ```
 
+### delete
+
+> Delete a document (moves to trash)
+
+```
+Usage:   linear document delete [documentId]
+
+Description:
+
+  Delete a document (moves to trash)
+
+Options:
+
+  -h, --help              - Show this help.                                     
+  --workspace   <slug>    - Target workspace (uses credentials)                 
+  -y, --yes               - Skip confirmation prompt                            
+  --bulk        <ids...>  - Delete multiple documents by slug or ID             
+  --bulk-file   <file>    - Read document slugs/IDs from a file (one per line)  
+  --bulk-stdin            - Read document slugs/IDs from stdin
+```
+
+### list
+
+> List documents
+
+```
+Usage:   linear document list
+
+Description:
+
+  List documents
+
+Options:
+
+  -h, --help              - Show this help.                                        
+  --workspace  <slug>     - Target workspace (uses credentials)                    
+  --project    <project>  - Filter by project (slug or name)                       
+  --issue      <issue>    - Filter by issue (identifier like TC-123)               
+  --json                  - Output as JSON                                         
+  --limit      <limit>    - Limit results                             (Default: 50)
+```
+
 ### update
 
 > Update an existing document
@@ -114,23 +115,22 @@ Options:
   -e, --edit                     - Open current content in $EDITOR for editing
 ```
 
-### delete
+### view
 
-> Delete a document (moves to trash)
+> View a document's content
 
 ```
-Usage:   linear document delete [documentId]
+Usage:   linear document view <id>
 
 Description:
 
-  Delete a document (moves to trash)
+  View a document's content
 
 Options:
 
-  -h, --help              - Show this help.                                     
-  --workspace   <slug>    - Target workspace (uses credentials)                 
-  -y, --yes               - Skip confirmation prompt                            
-  --bulk        <ids...>  - Delete multiple documents by slug or ID             
-  --bulk-file   <file>    - Read document slugs/IDs from a file (one per line)  
-  --bulk-stdin            - Read document slugs/IDs from stdin
+  -h, --help           - Show this help.                        
+  --workspace  <slug>  - Target workspace (uses credentials)    
+  --raw                - Output raw markdown without rendering  
+  -w, --web            - Open document in browser               
+  --json               - Output full document as JSON
 ```

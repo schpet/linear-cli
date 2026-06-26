@@ -27,41 +27,6 @@ Commands:
 
 ## Subcommands
 
-### list
-
-> List milestones for a project
-
-```
-Usage:   linear milestone list --project <projectId>
-
-Description:
-
-  List milestones for a project
-
-Options:
-
-  -h, --help                - Show this help.                                
-  --workspace  <slug>       - Target workspace (uses credentials)            
-  --project    <projectId>  - Project ID                           (required)
-```
-
-### view
-
-> View milestone details
-
-```
-Usage:   linear milestone view <milestoneId>
-
-Description:
-
-  View milestone details
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
-```
-
 ### create
 
 > Create a new project milestone
@@ -81,6 +46,42 @@ Options:
   --name         <name>         - Milestone name                       (required)
   --description  <description>  - Milestone description                          
   --target-date  <date>         - Target date (YYYY-MM-DD)
+```
+
+### delete
+
+> Delete a project milestone
+
+```
+Usage:   linear milestone delete <id>
+
+Description:
+
+  Delete a project milestone
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -f, --force          - Skip confirmation prompt
+```
+
+### list
+
+> List milestones for a project
+
+```
+Usage:   linear milestone list --project <projectId>
+
+Description:
+
+  List milestones for a project
+
+Options:
+
+  -h, --help                - Show this help.                                
+  --workspace  <slug>       - Target workspace (uses credentials)            
+  --project    <projectId>  - Project ID                           (required)
 ```
 
 ### update
@@ -105,20 +106,19 @@ Options:
   --project      <projectId>    - Move to a different project
 ```
 
-### delete
+### view
 
-> Delete a project milestone
+> View milestone details
 
 ```
-Usage:   linear milestone delete <id>
+Usage:   linear milestone view <milestoneId>
 
 Description:
 
-  Delete a project milestone
+  View milestone details
 
 Options:
 
   -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -f, --force          - Skip confirmation prompt
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
