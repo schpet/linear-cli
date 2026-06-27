@@ -16,11 +16,12 @@ import {
   getProjectOptionsByName,
   getTeamIdByKey,
   getTeamKey,
+  isIssueBlocked,
   selectOption,
 } from "../../utils/linear.ts"
 import { openTeamAssigneeView } from "../../utils/actions.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
-import { header, muted } from "../../utils/styling.ts"
+import { header, muted, warning } from "../../utils/styling.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import {
   handleError,
@@ -291,6 +292,7 @@ export const mineCommand = new Command()
           ? Deno.consoleSize()
           : { columns: 120 }
         const PRIORITY_WIDTH = 3
+        const BLOCKED_WIDTH = 1
         const ID_WIDTH = Math.max(
           2, // minimum width for "ID" header
           ...issues.map((issue) => issue.identifier.length),
@@ -323,6 +325,7 @@ export const mineCommand = new Command()
 
         type TableRow = {
           priorityStr: string
+          blockedStr: string
           identifier: string
           title: string
           labels: string
@@ -394,8 +397,11 @@ export const mineCommand = new Command()
           )
           const statePadded = stateColored + " ".repeat(stateRemainingSpace)
 
+          const blockedStr = isIssueBlocked(issue) ? warning("⊘") : " "
+
           return {
             priorityStr,
+            blockedStr,
             identifier: issue.identifier,
             title: issue.title,
             labels,
@@ -405,7 +411,8 @@ export const mineCommand = new Command()
           }
         })
 
-        const fixed = PRIORITY_WIDTH + ID_WIDTH + UPDATED_WIDTH + SPACE_WIDTH +
+        const fixed = PRIORITY_WIDTH + BLOCKED_WIDTH + ID_WIDTH +
+          UPDATED_WIDTH + SPACE_WIDTH +
           LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH
         const PADDING = 1
         const maxTitleWidth = Math.max(
@@ -418,6 +425,7 @@ export const mineCommand = new Command()
           padDisplay("ID", ID_WIDTH),
           padDisplay("TITLE", titleWidth),
           padDisplay("LABELS", LABEL_WIDTH),
+          padDisplay("B", BLOCKED_WIDTH),
           padDisplay("E", ESTIMATE_WIDTH),
           padDisplay("STATE", STATE_WIDTH),
           padDisplay(updatedHeader, UPDATED_WIDTH),
@@ -432,6 +440,7 @@ export const mineCommand = new Command()
         for (const row of tableData) {
           const {
             priorityStr,
+            blockedStr,
             identifier,
             title,
             labels,
@@ -446,7 +455,7 @@ export const mineCommand = new Command()
 
           const issueLine = `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
             padDisplay(identifier, ID_WIDTH)
-          } ${truncTitle} ${labels} ${
+          } ${truncTitle} ${labels} ${padDisplay(blockedStr, BLOCKED_WIDTH)} ${
             padDisplay(estimate?.toString() || "-", ESTIMATE_WIDTH)
           } ${state} ${muted(padDisplay(timeAgo, UPDATED_WIDTH))}`
           outputLines.push(issueLine)

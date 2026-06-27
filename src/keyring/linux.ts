@@ -52,28 +52,33 @@ async function secretTool(
 
 export const linuxBackend: KeyringBackend = {
   async isAvailable() {
+    // Probe the keyring with a lookup that's expected to miss. We can't
+    // gate on `secret-tool --version` — that flag has never existed in
+    // libsecret, so the probe always fails and we'd report "no keyring"
+    // even on systems where the keyring works fine.
+    let probe
     try {
-      const result = await new Deno.Command("secret-tool", {
-        args: ["--version"],
-        stdout: "piped",
-        stderr: "piped",
-      }).output()
-      if (!result.success) {
-        return false
-      }
-
-      const probe = await secretTool([
+      probe = await secretTool([
         "lookup",
         "service",
         SERVICE,
         "account",
         "__linear_cli_probe__",
       ])
-
-      return probe.success || (probe.code === 1 && probe.stderr === "")
     } catch {
+      // secret-tool binary missing (libsecret-tools not installed).
       return false
     }
+
+    // libsecret-tools installed, but no Secret Service is registered on
+    // the session bus (e.g. headless Linux without gnome-keyring-daemon).
+    if (probe.stderr.includes("was not provided by any .service files")) {
+      return false
+    }
+
+    // Either the probe key happens to exist (success) or the lookup
+    // ran cleanly and just didn't find anything (exit 1, empty stderr).
+    return probe.success || (probe.code === 1 && probe.stderr === "")
   },
 
   async get(account) {

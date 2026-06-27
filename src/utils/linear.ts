@@ -47,6 +47,26 @@ export function parseDateFilter(value: string, flagName: string): string {
   return parsed.toISOString()
 }
 
+type InverseRelationNode = {
+  type: string
+  issue?: { state?: { type?: string | null } | null } | null
+}
+
+export function isIssueBlocked(issue: {
+  inverseRelations?: { nodes: ReadonlyArray<InverseRelationNode> } | null
+}): boolean {
+  const nodes = issue.inverseRelations?.nodes
+  if (!nodes) return false
+  for (const rel of nodes) {
+    if (rel.type !== "blocks") continue
+    const blockerStateType = rel.issue?.state?.type
+    if (blockerStateType !== "completed" && blockerStateType !== "canceled") {
+      return true
+    }
+  }
+  return false
+}
+
 export function formatIssueIdentifier(providedId: string): string {
   return normalizeIssueIdentifier(providedId) ?? providedId.toUpperCase()
 }
@@ -596,12 +616,26 @@ export async function fetchIssuesForState(
             id
             name
             color
+            type
           }
           labels {
             nodes {
               id
               name
               color
+            }
+          }
+          inverseRelations(first: 100) {
+            nodes {
+              id
+              type
+              issue {
+                id
+                identifier
+                state {
+                  type
+                }
+              }
             }
           }
           updatedAt
@@ -730,6 +764,19 @@ const queryIssuesQuery = gql(/* GraphQL */ `
             id
             name
             color
+          }
+        }
+        inverseRelations(first: 100) {
+          nodes {
+            id
+            type
+            issue {
+              id
+              identifier
+              state {
+                type
+              }
+            }
           }
         }
       }
@@ -969,6 +1016,19 @@ const searchIssuesQuery = gql(/* GraphQL */ `
             id
             name
             color
+          }
+        }
+        inverseRelations(first: 100) {
+          nodes {
+            id
+            type
+            issue {
+              id
+              identifier
+              state {
+                type
+              }
+            }
           }
         }
         metadata

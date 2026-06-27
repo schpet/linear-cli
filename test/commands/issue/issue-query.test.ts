@@ -59,6 +59,7 @@ const mockIssueNode = {
       { id: "label-1", name: "Bug", color: "#eb5757" },
     ],
   },
+  inverseRelations: { nodes: [] },
 }
 
 // Test JSON output with filter mode (issues() backend)
@@ -221,6 +222,92 @@ Deno.test("Issue Query Command - All Teams shows TEAM column", async () => {
     // Should contain both team keys
     assertEquals(output.includes("ENG"), true)
     assertEquals(output.includes("FE"), true)
+  } finally {
+    logStub.restore()
+    globalThis.Date = RealDate
+    setColorEnabled(originalColorEnabled)
+    await cleanup()
+  }
+})
+
+// Blocked indicator in table output
+Deno.test("Issue Query Command - Shows Blocked Indicator", async () => {
+  const fixedNow = new Date("2026-04-03T10:00:00.000Z")
+  const RealDate = Date
+  const originalColorEnabled = getColorEnabled()
+  class MockDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      super(value == null ? fixedNow.toISOString() : value)
+    }
+    static override now(): number {
+      return fixedNow.getTime()
+    }
+  }
+  globalThis.Date = MockDate as DateConstructor
+  setColorEnabled(false)
+
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssuesForQuery",
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                ...mockIssueNode,
+                id: "blocked-1",
+                identifier: "ENG-300",
+                title: "Blocked by open",
+                inverseRelations: {
+                  nodes: [{
+                    id: "rel-a",
+                    type: "blocks",
+                    issue: {
+                      id: "blocker",
+                      identifier: "ENG-200",
+                      state: { type: "started" },
+                    },
+                  }],
+                },
+              },
+              {
+                ...mockIssueNode,
+                id: "unblocked-1",
+                identifier: "ENG-301",
+                title: "Blocker done",
+                inverseRelations: {
+                  nodes: [{
+                    id: "rel-b",
+                    type: "blocks",
+                    issue: {
+                      id: "blocker-done",
+                      identifier: "ENG-201",
+                      state: { type: "canceled" },
+                    },
+                  }],
+                },
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await queryCommand.parse(["--team", "ENG", "--all-states"])
+
+    const lines = logs.join("\n").split("\n")
+    const blocked = lines.find((l) => l.includes("ENG-300"))!
+    const unblocked = lines.find((l) => l.includes("ENG-301"))!
+    assertEquals(blocked.includes("⊘"), true)
+    assertEquals(unblocked.includes("⊘"), false)
   } finally {
     logStub.restore()
     globalThis.Date = RealDate

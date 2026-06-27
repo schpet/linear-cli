@@ -156,6 +156,56 @@ await snapshotTest({
   },
 })
 
+// With --no-download, image URLs in the markdown are passed through verbatim.
+// Without --no-download, the raw output would contain a local /tmp path
+// (after fetching from the Linear CDN), so this snapshot exercises the
+// wiring that skips the fetch.
+await snapshotTest({
+  name: "Document View Command - No Download Keeps Remote URLs",
+  meta: import.meta,
+  colors: false,
+  args: ["d4b93e3b2695", "--raw", "--no-download"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetDocument",
+        variables: { id: "d4b93e3b2695" },
+        response: {
+          data: {
+            document: {
+              id: "doc-1",
+              title: "Doc With Image",
+              slugId: "d4b93e3b2695",
+              content:
+                "# Doc\n\n![screenshot](https://uploads.linear.app/abc/screenshot.png)",
+              url:
+                "https://linear.app/test/document/doc-with-image-d4b93e3b2695",
+              createdAt: "2026-01-15T08:00:00Z",
+              updatedAt: "2026-01-18T10:30:00Z",
+              creator: { name: "John Doe", email: "john@example.com" },
+              project: null,
+              issue: null,
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
 // NOTE: "Document Not Found" test removed - stack traces contain machine-specific paths
 
 // Test document attached to issue
