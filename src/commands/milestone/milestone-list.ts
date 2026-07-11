@@ -31,7 +31,11 @@ const GetProjectMilestones = gql(`
 export const listCommand = new Command()
   .name("list")
   .description("List milestones for a project")
-  .option("--project <projectId:string>", "Project ID", { required: true })
+  .option(
+    "--project <project:string>",
+    "Project (UUID, slug ID, or name)",
+    { required: true },
+  )
   .action(async ({ project: projectIdOrSlug }) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
     const showSpinner = shouldShowSpinner()

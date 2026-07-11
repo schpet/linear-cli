@@ -427,3 +427,86 @@ await snapshotTest({
     }
   },
 })
+
+// --- #221: --project / --milestone accept UUIDs as well as names ---
+
+const PROJECT_UUID = "11111111-1111-1111-1111-111111111111"
+const MILESTONE_UUID = "22222222-2222-2222-2222-222222222222"
+
+await snapshotTest({
+  name: "Issue Update Command - With Project UUID",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--project", PROJECT_UUID],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "UpdateIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/test-issue",
+                title: "Test Issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Update Command - With Milestone UUID (no --project required)",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--milestone", MILESTONE_UUID],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "UpdateIssue",
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/test-issue",
+                title: "Test Issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})

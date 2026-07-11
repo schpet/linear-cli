@@ -11,12 +11,13 @@ import {
 import {
   fetchIssuesForQuery,
   getCycleIdByNameOrNumber,
-  getMilestoneIdByName,
   getProjectIdByName,
   getProjectOptionsByName,
   getTeamIdByKey,
   getTeamKey,
   isIssueBlocked,
+  isLinearUuid,
+  resolveMilestoneId,
   searchIssuesByTerm,
   selectOption,
 } from "../../utils/linear.ts"
@@ -77,7 +78,7 @@ export const queryCommand = new Command()
   )
   .option(
     "--project <project:string>",
-    "Filter by project name",
+    "Filter by project (UUID, slug ID, or name)",
   )
   .option(
     "--project-label <projectLabel:string>",
@@ -89,7 +90,7 @@ export const queryCommand = new Command()
   )
   .option(
     "--milestone <milestone:string>",
-    "Filter by project milestone name (requires --project)",
+    "Filter by project milestone (UUID, or name when --project is set)",
   )
   .option(
     "-l, --label <label:string>",
@@ -182,12 +183,12 @@ export const queryCommand = new Command()
         )
       }
 
-      if (milestone != null && project == null) {
+      if (milestone != null && project == null && !isLinearUuid(milestone)) {
         throw new ValidationError(
           "--milestone requires --project to be set",
           {
             suggestion:
-              "Use --project to specify which project the milestone belongs to.",
+              "Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly.",
           },
         )
       }
@@ -295,8 +296,10 @@ export const queryCommand = new Command()
       }
 
       let milestoneId: string | undefined
-      if (milestone != null && projectId != null) {
-        milestoneId = await getMilestoneIdByName(milestone, projectId)
+      if (milestone != null) {
+        milestoneId = isLinearUuid(milestone)
+          ? milestone
+          : await resolveMilestoneId(milestone, projectId)
       }
 
       const labelNames = label && label.length > 0

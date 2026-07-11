@@ -5,6 +5,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { CliError, handleError, NotFoundError } from "../../utils/errors.ts"
+import { resolveMilestoneId, resolveProjectId } from "../../utils/linear.ts"
 
 const PAGE_SIZE = 50
 const LIST_PREVIEW = 10
@@ -53,18 +54,32 @@ export const viewCommand = new Command()
       "; use --all to paginate the full set.",
   )
   .alias("v")
-  .arguments("<milestoneId:string>")
+  .arguments("<milestone:string>")
   .option(
     "--all",
     "Fetch and list every issue attached to the milestone (paginates the Linear API).",
   )
-  .action(async ({ all }, milestoneId) => {
+  .option(
+    "--project <project:string>",
+    "Project for resolving a milestone name (UUID, slug ID, or name)",
+  )
+  .action(async ({ all, project }, milestoneInput) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
     const showSpinner = shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 
     try {
+      let milestoneId: string
+      if (project != null) {
+        const projectId = await resolveProjectId(project)
+        milestoneId = await resolveMilestoneId(milestoneInput, projectId)
+      } else {
+        // Without --project, pass the input through to the API. Linear will
+        // resolve it if it's a UUID and return null otherwise.
+        milestoneId = milestoneInput
+      }
+
       const client = getGraphQLClient()
       const firstPage = await client.request(GetMilestoneDetails, {
         id: milestoneId,
@@ -74,7 +89,7 @@ export const viewCommand = new Command()
       const milestone = firstPage.projectMilestone
       if (!milestone) {
         spinner?.stop()
-        throw new NotFoundError("Milestone", milestoneId)
+        throw new NotFoundError("Milestone", milestoneInput)
       }
 
       const issues = [...milestone.issues.nodes]
@@ -101,7 +116,7 @@ export const viewCommand = new Command()
           })
           const next = nextPage.projectMilestone
           if (next == null) {
-            throw new NotFoundError("Milestone", milestoneId)
+            throw new NotFoundError("Milestone", milestoneInput)
           }
           issues.push(...next.issues.nodes)
           pageInfo = next.issues.pageInfo

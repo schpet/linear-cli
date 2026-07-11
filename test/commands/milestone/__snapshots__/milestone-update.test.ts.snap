@@ -11,12 +11,12 @@ Description:
 
 Options:
 
-  -h, --help                    - Show this help.                          
-  --name         <name>         - Milestone name                           
-  --description  <description>  - Milestone description                    
-  --target-date  <date>         - Target date (YYYY-MM-DD)                 
-  --sort-order   <value>        - Sort order relative to other milestones  
-  --project      <projectId>    - Move to a different project              
+  -h, --help                    - Show this help.                                       
+  --name         <name>         - Milestone name                                        
+  --description  <description>  - Milestone description                                 
+  --target-date  <date>         - Target date (YYYY-MM-DD)                              
+  --sort-order   <value>        - Sort order relative to other milestones               
+  --project      <project>      - Move to a different project (UUID, slug ID, or name)  
 
 "
 stderr:

@@ -34,14 +34,17 @@ await cliffySnapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetProjectBySlug",
+        queryName: "GetProjectIdByName",
+        response: {
+          data: { projects: { nodes: [] } },
+        },
+      },
+      {
+        queryName: "GetProjectIdBySlugId",
         response: {
           data: {
             projects: {
-              nodes: [{
-                id: "project-123",
-                slugId: "project-123",
-              }],
+              nodes: [{ id: "project-123" }],
             },
           },
         },
@@ -96,14 +99,17 @@ await cliffySnapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetProjectBySlug",
+        queryName: "GetProjectIdByName",
+        response: {
+          data: { projects: { nodes: [] } },
+        },
+      },
+      {
+        queryName: "GetProjectIdBySlugId",
         response: {
           data: {
             projects: {
-              nodes: [{
-                id: "project-456",
-                slugId: "project-456",
-              }],
+              nodes: [{ id: "project-456" }],
             },
           },
         },
@@ -121,6 +127,68 @@ await cliffySnapshotTest({
                 project: {
                   id: "project-456",
                   name: "Another Project",
+                },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await createCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// #221: --project also accepts an exact project name
+await cliffySnapshotTest({
+  name: "Milestone Create Command - Resolves Project by Name",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--project",
+    "Tech Debt",
+    "--name",
+    "Y26 Q2",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetProjectIdByName",
+        variables: { name: "Tech Debt" },
+        response: {
+          data: { projects: { nodes: [{ id: "project-tech-debt-uuid" }] } },
+        },
+      },
+      {
+        queryName: "CreateProjectMilestone",
+        variables: {
+          input: {
+            projectId: "project-tech-debt-uuid",
+            name: "Y26 Q2",
+          },
+        },
+        response: {
+          data: {
+            projectMilestoneCreate: {
+              success: true,
+              projectMilestone: {
+                id: "milestone-new-q2",
+                name: "Y26 Q2",
+                targetDate: null,
+                project: {
+                  id: "project-tech-debt-uuid",
+                  name: "Tech Debt",
                 },
               },
             },
