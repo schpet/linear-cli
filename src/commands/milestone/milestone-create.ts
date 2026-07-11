@@ -25,7 +25,11 @@ const CreateProjectMilestone = gql(`
 export const createCommand = new Command()
   .name("create")
   .description("Create a new project milestone")
-  .option("--project <projectId:string>", "Project ID", { required: true })
+  .option(
+    "--project <project:string>",
+    "Project (UUID, slug ID, or name)",
+    { required: true },
+  )
   .option("--name <name:string>", "Milestone name", { required: true })
   .option("--description <description:string>", "Milestone description")
   .option("--target-date <date:string>", "Target date (YYYY-MM-DD)")

@@ -14,7 +14,6 @@ import {
   getIssueLabelIdByNameForTeam,
   getIssueLabelOptionsByNameForTeam,
   getLabelsForTeam,
-  getMilestoneIdByName,
   getProjectIdByName,
   getProjectOptionsByName,
   getProjectsForTeam,
@@ -22,7 +21,9 @@ import {
   getTeamKey,
   getWorkflowStateByNameOrType,
   getWorkflowStates,
+  isLinearUuid,
   lookupUserId,
+  resolveMilestoneId,
   searchTeamsByKeySubstring,
   selectOption,
   type WorkflowState,
@@ -634,7 +635,7 @@ export const createCommand = new Command()
   )
   .option(
     "--project <project:string>",
-    "Name or slug ID of the project with the issue",
+    "Project for the issue (UUID, slug ID, or name)",
   )
   .option(
     "-s, --state <state:string>",
@@ -642,7 +643,7 @@ export const createCommand = new Command()
   )
   .option(
     "--milestone <milestone:string>",
-    "Name of the project milestone",
+    "Project milestone (UUID, or name when --project is set)",
   )
   .option(
     "--cycle <cycle:string>",
@@ -874,19 +875,23 @@ export const createCommand = new Command()
 
         let projectMilestoneId: string | undefined
         if (milestone != null) {
-          if (projectId == null) {
-            throw new ValidationError(
-              "--milestone requires --project to be set",
-              {
-                suggestion:
-                  "Use --project to specify which project the milestone belongs to.",
-              },
+          if (isLinearUuid(milestone)) {
+            projectMilestoneId = milestone
+          } else {
+            if (projectId == null) {
+              throw new ValidationError(
+                "--milestone requires --project to be set",
+                {
+                  suggestion:
+                    "Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly.",
+                },
+              )
+            }
+            projectMilestoneId = await resolveMilestoneId(
+              milestone,
+              projectId,
             )
           }
-          projectMilestoneId = await getMilestoneIdByName(
-            milestone,
-            projectId,
-          )
         }
 
         let cycleId: string | undefined

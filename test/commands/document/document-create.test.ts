@@ -79,16 +79,17 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const server = new MockLinearServer([
-      // Mock project resolution query
+      // Shared project resolver tries name first, then slugId
       {
-        queryName: "GetProjectForDocument",
+        queryName: "GetProjectIdByName",
+        response: { data: { projects: { nodes: [] } } },
+      },
+      {
+        queryName: "GetProjectIdBySlugId",
         variables: { slugId: "tinycloud-sdk" },
         response: {
           data: {
-            project: {
-              id: "project-uuid-123",
-              name: "TinyCloud SDK",
-            },
+            projects: { nodes: [{ id: "project-uuid-123" }] },
           },
         },
       },
