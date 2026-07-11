@@ -1258,3 +1258,94 @@ await snapshotTest({
     }
   },
 })
+
+// Labels must also surface via the with-comments query path (GetIssueDetailsWithComments),
+// not only the --no-comments path. Complements the existing "JSON Output With Labels"
+// (which exercises GetIssueDetails) so both fetchIssueDetailsRaw code paths are covered.
+await snapshotTest({
+  name: "Issue View Command - JSON Output With Labels And Comments",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-123", "--json"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetailsWithComments",
+        variables: { id: "TEST-123" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-123",
+              title: "Fix authentication bug in login flow",
+              description:
+                "Users are experiencing issues logging in when their session expires.",
+              url:
+                "https://linear.app/test-team/issue/TEST-123/fix-authentication-bug-in-login-flow",
+              branchName: "fix/test-123-auth-bug",
+              state: {
+                name: "In Progress",
+                color: "#f87462",
+              },
+              assignee: {
+                name: "jane.smith",
+                displayName: "Jane Smith",
+              },
+              priority: 2,
+              project: null,
+              projectMilestone: null,
+              parent: null,
+              children: {
+                nodes: [],
+              },
+              labels: {
+                nodes: [
+                  {
+                    id: "label-1",
+                    name: "bug",
+                    color: "#e5484d",
+                  },
+                  {
+                    id: "label-2",
+                    name: "priority:high",
+                    color: "#f5a524",
+                  },
+                ],
+              },
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-1",
+                    body: "Reproduced on staging.",
+                    createdAt: "2024-01-15T10:30:00Z",
+                    user: {
+                      name: "john.doe",
+                      displayName: "John Doe",
+                    },
+                    externalUser: null,
+                    parent: null,
+                  },
+                ],
+              },
+              attachments: {
+                nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
