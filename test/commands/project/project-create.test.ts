@@ -1,5 +1,6 @@
 import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
-import { assertRejects } from "@std/assert"
+import { assertEquals, assertRejects } from "@std/assert"
+import { stub } from "@std/testing/mock"
 import {
   createCommand,
   resolveProjectContent,
@@ -342,5 +343,157 @@ Deno.test("resolveProjectContent rejects mutually exclusive content inputs", asy
       ),
     ValidationError,
     "Cannot specify both --content and --content-file",
+  )
+})
+
+// Error-path coverage for the new create fields. These use a plain Deno.test with
+// a stubbed Deno.exit (handleError calls Deno.exit) and capture stderr, mirroring
+// the validation-error tests in issue-query.test.ts.
+
+// Invalid --priority is rejected before any network call.
+Deno.test("Project Create Command - rejects an invalid priority", async () => {
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  let exited = false
+  try {
+    await createCommand.parse([
+      "--name",
+      "Proj",
+      "--team",
+      "ENG",
+      "--priority",
+      "highest",
+    ])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+    exited = true
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+  }
+
+  // handleError ran and called Deno.exit (never returns normally)...
+  assertEquals(exited, true)
+  // ...with the priority validation message.
+  assertEquals(
+    errorLogs.some((l) => l.includes("Invalid priority: highest")),
+    true,
+  )
+})
+
+// An unknown --label is reported as a NotFoundError.
+Deno.test("Project Create Command - rejects an unknown project label", async () => {
+  const server = new MockLinearServer([
+    {
+      queryName: "GetTeamIdByKey",
+      variables: { team: "ENG" },
+      response: { data: { teams: { nodes: [{ id: "team-eng-123" }] } } },
+    },
+    {
+      queryName: "GetProjectLabelIdByNameForCreate",
+      variables: { name: "Nonexistent" },
+      response: { data: { projectLabels: { nodes: [] } } },
+    },
+  ])
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  let exited = false
+  try {
+    await server.start()
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await createCommand.parse([
+      "--name",
+      "Proj",
+      "--team",
+      "ENG",
+      "--label",
+      "Nonexistent",
+    ])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+    exited = true
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+    await server.stop()
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+  }
+
+  assertEquals(exited, true)
+  // Full NotFoundError message — a mock mismatch could not produce this exact text.
+  assertEquals(
+    errorLogs.some((l) => l.includes("Project label not found: Nonexistent")),
+    true,
+  )
+})
+
+// An unknown --member is reported as a NotFoundError.
+Deno.test("Project Create Command - rejects an unknown member", async () => {
+  const server = new MockLinearServer([
+    {
+      queryName: "GetTeamIdByKey",
+      variables: { team: "ENG" },
+      response: { data: { teams: { nodes: [{ id: "team-eng-123" }] } } },
+    },
+    {
+      queryName: "LookupUser",
+      variables: { input: "ghostuser" },
+      response: { data: { users: { nodes: [] } } },
+    },
+  ])
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  let exited = false
+  try {
+    await server.start()
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await createCommand.parse([
+      "--name",
+      "Proj",
+      "--team",
+      "ENG",
+      "--member",
+      "ghostuser",
+    ])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+    exited = true
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+    await server.stop()
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+  }
+
+  assertEquals(exited, true)
+  // Full NotFoundError message — a mock-mismatch error would echo the variable
+  // "ghostuser" but never this exact "User not found:" text.
+  assertEquals(
+    errorLogs.some((l) => l.includes("User not found: ghostuser")),
+    true,
   )
 })
