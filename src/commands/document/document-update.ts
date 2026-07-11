@@ -10,6 +10,83 @@ import {
   ValidationError,
 } from "../../utils/errors.ts"
 
+const GetDocumentForEdit = gql(`
+  query GetDocumentForEdit($id: String!) {
+    document(id: $id) {
+      id
+      title
+      content
+    }
+  }
+`)
+
+const DocumentInlineCommentGuard = gql(`
+  query DocumentInlineCommentGuard($id: String!, $after: String) {
+    document(id: $id) {
+      id
+      comments(first: 50, after: $after, orderBy: createdAt) {
+        nodes {
+          id
+          quotedText
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`)
+
+interface DocumentInlineComment {
+  id: string
+  quotedText?: string | null
+}
+
+interface DocumentInlineCommentGuardResponse {
+  document?: {
+    comments: {
+      nodes: DocumentInlineComment[]
+      pageInfo: {
+        hasNextPage: boolean
+        endCursor?: string | null
+      }
+    }
+  } | null
+}
+
+async function getFirstInlineDocumentComment(
+  client: ReturnType<typeof getGraphQLClient>,
+  documentId: string,
+) {
+  let after: string | null | undefined = null
+
+  while (true) {
+    const documentData: DocumentInlineCommentGuardResponse = await client
+      .request(DocumentInlineCommentGuard, {
+        id: documentId,
+        after,
+      })
+
+    if (!documentData?.document) {
+      throw new NotFoundError("Document", documentId)
+    }
+
+    const comments = documentData.document.comments.nodes
+    const inlineComment = comments.find((comment) => comment.quotedText)
+    if (inlineComment) {
+      return inlineComment
+    }
+
+    const pageInfo = documentData.document.comments.pageInfo
+    if (!pageInfo.hasNextPage) {
+      return undefined
+    }
+
+    after = pageInfo.endCursor
+  }
+}
+
 /**
  * Open editor with initial content and return the edited content
  */
@@ -108,9 +185,13 @@ export const updateCommand = new Command()
   )
   .option("--icon <icon:string>", "New icon (emoji)")
   .option("-e, --edit", "Open current content in $EDITOR for editing")
+  .option(
+    "--force",
+    "Update content even when document comments may lose inline anchors",
+  )
   .action(
     async (
-      { title, content, contentFile, icon, edit },
+      { title, content, contentFile, icon, edit, force },
       documentId,
     ) => {
       try {
@@ -152,17 +233,7 @@ export const updateCommand = new Command()
           }
         } else if (edit) {
           // Edit mode: fetch current content and open in editor
-          const getDocumentQuery = gql(`
-          query GetDocumentForEdit($id: String!) {
-            document(id: $id) {
-              id
-              title
-              content
-            }
-          }
-        `)
-
-          const documentData = await client.request(getDocumentQuery, {
+          const documentData = await client.request(GetDocumentForEdit, {
             id: documentId,
           })
 
@@ -207,6 +278,24 @@ export const updateCommand = new Command()
             suggestion:
               "Use --title, --content, --content-file, --icon, or --edit.",
           })
+        }
+
+        if (input.content !== undefined && !force) {
+          const comment = await getFirstInlineDocumentComment(
+            client,
+            documentId,
+          )
+
+          if (comment) {
+            throw new ValidationError(
+              "Refusing to update document content because this document has inline comments.",
+              {
+                suggestion:
+                  `Updating Markdown content can detach or hide Linear document comments. ` +
+                  `First review comment ${comment.id} quoting "${comment.quotedText}", then rerun with --force if you accept that risk.`,
+              },
+            )
+          }
         }
 
         // Execute the update

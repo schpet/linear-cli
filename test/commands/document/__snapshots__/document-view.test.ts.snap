@@ -70,7 +70,49 @@ stdout:
     "name": "TinyCloud SDK",
     "slugId": "tinycloud-sdk"
   },
-  "issue": null
+  "issue": null,
+  "comments": {
+    "nodes": [
+      {
+        "id": "comment-1",
+        "body": "Can we clarify this?",
+        "quotedText": "delegation system architecture",
+        "documentContentId": "document-content-1",
+        "createdAt": "2026-01-18T11:00:00Z",
+        "updatedAt": "2026-01-18T11:00:00Z",
+        "archivedAt": null,
+        "resolvedAt": null,
+        "url": "https://linear.app/test/comment/comment-1",
+        "user": {
+          "name": "Jane Reviewer",
+          "email": "jane@example.com"
+        },
+        "parent": null
+      },
+      {
+        "id": "comment-2",
+        "body": "Follow-up note",
+        "quotedText": null,
+        "documentContentId": "document-content-1",
+        "createdAt": "2026-01-18T12:00:00Z",
+        "updatedAt": "2026-01-18T12:00:00Z",
+        "archivedAt": null,
+        "resolvedAt": null,
+        "url": "https://linear.app/test/comment/comment-2",
+        "user": {
+          "name": "John Doe",
+          "email": "john@example.com"
+        },
+        "parent": {
+          "id": "comment-1"
+        }
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  }
 }
 '
 stderr:

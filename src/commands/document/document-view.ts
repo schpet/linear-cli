@@ -43,6 +43,90 @@ const GetDocument = gql(`
   }
 `)
 
+const GetDocumentWithComments = gql(`
+  query GetDocumentWithComments($id: String!, $commentsAfter: String) {
+    document(id: $id) {
+      id
+      title
+      slugId
+      content
+      url
+      createdAt
+      updatedAt
+      creator {
+        name
+        email
+      }
+      project {
+        name
+        slugId
+      }
+      issue {
+        identifier
+        title
+      }
+      comments(first: 50, after: $commentsAfter, orderBy: createdAt) {
+        nodes {
+          id
+          body
+          quotedText
+          documentContentId
+          createdAt
+          updatedAt
+          archivedAt
+          resolvedAt
+          url
+          user {
+            name
+            email
+          }
+          parent {
+            id
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`)
+
+async function getDocumentWithAllComments(
+  client: ReturnType<typeof getGraphQLClient>,
+  id: string,
+) {
+  const firstResult = await client.request(GetDocumentWithComments, {
+    id,
+    commentsAfter: null,
+  })
+
+  if (!firstResult.document) {
+    return undefined
+  }
+
+  const document = firstResult.document
+  let commentsAfter = document.comments.pageInfo.endCursor
+
+  while (document.comments.pageInfo.hasNextPage) {
+    const nextResult = await client.request(GetDocumentWithComments, {
+      id,
+      commentsAfter,
+    })
+
+    if (!nextResult.document) {
+      return undefined
+    }
+
+    document.comments.nodes.push(...nextResult.document.comments.nodes)
+    document.comments.pageInfo = nextResult.document.comments.pageInfo
+    commentsAfter = nextResult.document.comments.pageInfo.endCursor
+  }
+
+  return document
+}
+
 export const viewCommand = new Command()
   .name("view")
   .description("View a document's content")
@@ -60,7 +144,9 @@ export const viewCommand = new Command()
 
     try {
       const client = getGraphQLClient()
-      const result = await client.request(GetDocument, { id })
+      const result = json
+        ? { document: await getDocumentWithAllComments(client, id) }
+        : await client.request(GetDocument, { id })
       spinner?.stop()
 
       const document = result.document
