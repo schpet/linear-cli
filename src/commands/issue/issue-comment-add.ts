@@ -5,6 +5,8 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getIssueIdentifier } from "../../utils/linear.ts"
 import {
   formatAsMarkdownLink,
+  getMimeType,
+  resolveMakePublic,
   uploadFile,
   validateFilePath,
 } from "../../utils/upload.ts"
@@ -68,6 +70,12 @@ export const commentAddCommand = new Command()
 
       // Validate and upload attachments first
       const attachments = attach || []
+      if (makePublic && attachments.length === 0) {
+        throw new ValidationError(
+          "--public requires at least one --attach",
+          { suggestion: "Add --attach <file> to upload, or remove --public." },
+        )
+      }
       const uploadedFiles: {
         filename: string
         assetUrl: string
@@ -75,9 +83,12 @@ export const commentAddCommand = new Command()
       }[] = []
 
       if (attachments.length > 0) {
-        // Validate all files exist before uploading
+        // Validate all files exist and, if --public, that every file may be
+        // uploaded publicly — before uploading any, so a mixed batch cannot
+        // publish some files before failing on an unsupported one.
         for (const filepath of attachments) {
           await validateFilePath(filepath)
+          resolveMakePublic(getMimeType(filepath), makePublic)
         }
 
         // Upload files
