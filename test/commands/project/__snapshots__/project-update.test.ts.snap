@@ -11,14 +11,16 @@ Description:
 
 Options:
 
-  -h, --help                        - Show this help.                                                  
-  -n, --name         <name>         - Project name                                                     
-  -d, --description  <description>  - Project description                                              
-  -s, --status       <status>       - Status (planned, started, paused, completed, canceled, backlog)  
-  -l, --lead         <lead>         - Project lead (username, email, or @me)                           
-  --start-date       <startDate>    - Start date (YYYY-MM-DD)                                          
-  --target-date      <targetDate>   - Target date (YYYY-MM-DD)                                         
-  -t, --team         <team>         - Team key (can be repeated for multiple teams)                    
+  -h, --help                             - Show this help.                                                             
+  -n, --name              <name>         - Project name                                                                
+  -d, --description       <description>  - Project description (max 255 characters, enforced by Linear's API)          
+  -f, --description-file  <path>         - Read project description from file (still subject to the 255-character API  
+                                           limit)                                                                      
+  -s, --status            <status>       - Status (planned, started, paused, completed, canceled, backlog)             
+  -l, --lead              <lead>         - Project lead (username, email, or @me)                                      
+  --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                     
+  --target-date           <targetDate>   - Target date (YYYY-MM-DD)                                                    
+  -t, --team              <team>         - Team key (can be repeated for multiple teams)                               
 
 "
 stderr:
