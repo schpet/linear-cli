@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
+import type { DocumentInlineCommentGuardQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
@@ -28,6 +29,8 @@ const DocumentInlineCommentGuard = gql(`
         nodes {
           id
           quotedText
+          resolvedAt
+          archivedAt
         }
         pageInfo {
           hasNextPage
@@ -38,42 +41,33 @@ const DocumentInlineCommentGuard = gql(`
   }
 `)
 
-interface DocumentInlineComment {
-  id: string
-  quotedText?: string | null
-}
-
-interface DocumentInlineCommentGuardResponse {
-  document?: {
-    comments: {
-      nodes: DocumentInlineComment[]
-      pageInfo: {
-        hasNextPage: boolean
-        endCursor?: string | null
-      }
-    }
-  } | null
-}
-
-async function getFirstInlineDocumentComment(
+// An inline comment (quotedText != null) still anchored to live text — i.e. not
+// resolved and not archived — is the only kind a content replacement can
+// meaningfully orphan. Resolved/archived threads are closed, so detaching their
+// anchor loses nothing and must not block the update.
+async function getFirstActiveInlineComment(
   client: ReturnType<typeof getGraphQLClient>,
   documentId: string,
 ) {
   let after: string | null | undefined = null
 
   while (true) {
-    const documentData: DocumentInlineCommentGuardResponse = await client
-      .request(DocumentInlineCommentGuard, {
-        id: documentId,
-        after,
-      })
+    // Annotate with the codegen type: reusing `after` across iterations would
+    // otherwise make the request's result type circular (self-referential).
+    const documentData: DocumentInlineCommentGuardQuery = await client.request(
+      DocumentInlineCommentGuard,
+      { id: documentId, after },
+    )
 
-    if (!documentData?.document) {
+    if (!documentData.document) {
       throw new NotFoundError("Document", documentId)
     }
 
-    const comments = documentData.document.comments.nodes
-    const inlineComment = comments.find((comment) => comment.quotedText)
+    const inlineComment = documentData.document.comments.nodes.find(
+      (comment) =>
+        comment.quotedText != null && comment.resolvedAt == null &&
+        comment.archivedAt == null,
+    )
     if (inlineComment) {
       return inlineComment
     }
@@ -281,7 +275,7 @@ export const updateCommand = new Command()
         }
 
         if (input.content !== undefined && !force) {
-          const comment = await getFirstInlineDocumentComment(
+          const comment = await getFirstActiveInlineComment(
             client,
             documentId,
           )

@@ -86,3 +86,12 @@ stderr:
   Use --title, --content, --content-file, --icon, or --edit.
 "
 `;
+
+snapshot[`Document Update Command - Resolved Inline Comment Does Not Block 1`] = `
+stdout:
+"✓ Updated document: Delegation System Spec
+https://linear.app/test/document/delegation-system-spec-d4b93e3b2695
+"
+stderr:
+""
+`;

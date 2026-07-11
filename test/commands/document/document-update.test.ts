@@ -444,3 +444,75 @@ await snapshotTest({
 })
 
 // NOTE: "Permission Error" test removed - stack traces contain machine-specific paths
+
+// A RESOLVED inline comment (closed thread) must NOT block a content update:
+// detaching the anchor of a resolved comment loses no live context, so the
+// guard should let the update through without --force.
+await snapshotTest({
+  name: "Document Update Command - Resolved Inline Comment Does Not Block",
+  meta: import.meta,
+  colors: false,
+  args: ["d4b93e3b2695", "--content", "# Updated Content"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "DocumentInlineCommentGuard",
+        variables: { id: "d4b93e3b2695" },
+        response: {
+          data: {
+            document: {
+              id: "doc-1",
+              comments: {
+                nodes: [
+                  {
+                    // Inline (has quotedText) but resolved: must be ignored.
+                    id: "comment-resolved",
+                    quotedText: "Old anchored text",
+                    resolvedAt: "2026-01-15T10:00:00Z",
+                    archivedAt: null,
+                  },
+                ],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateDocument",
+        variables: {
+          id: "d4b93e3b2695",
+          input: { content: "# Updated Content" },
+        },
+        response: {
+          data: {
+            documentUpdate: {
+              success: true,
+              document: {
+                id: "doc-1",
+                slugId: "d4b93e3b2695",
+                title: "Delegation System Spec",
+                url:
+                  "https://linear.app/test/document/delegation-system-spec-d4b93e3b2695",
+                updatedAt: "2026-01-19T10:00:00Z",
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
