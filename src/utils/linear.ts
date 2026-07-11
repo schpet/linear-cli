@@ -234,6 +234,13 @@ const issueDetailsWithCommentsQuery = gql(/* GraphQL */ `
         name
         number
       }
+      labels(first: 50) {
+        nodes {
+          id
+          name
+          color
+        }
+      }
       parent {
         identifier
         title
@@ -328,6 +335,13 @@ const issueDetailsQuery = gql(/* GraphQL */ `
       cycle {
         name
         number
+      }
+      labels(first: 50) {
+        nodes {
+          id
+          name
+          color
+        }
       }
       parent {
         identifier
