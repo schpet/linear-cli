@@ -4,7 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
-import { handleError, NotFoundError } from "../../utils/errors.ts"
+import { CliError, handleError, NotFoundError } from "../../utils/errors.ts"
 
 const PAGE_SIZE = 50
 const LIST_PREVIEW = 10
@@ -81,14 +81,28 @@ export const viewCommand = new Command()
       let pageInfo = milestone.issues.pageInfo
 
       if (all) {
-        while (pageInfo.hasNextPage && pageInfo.endCursor) {
+        // Paginate the full set. Fail loudly on inconsistent pagination rather
+        // than silently returning a partial list — silently dropping issues is
+        // the exact bug --all exists to prevent.
+        while (pageInfo.hasNextPage) {
+          if (!pageInfo.endCursor) {
+            throw new CliError(
+              "Linear reported more issues but returned no pagination cursor",
+              {
+                suggestion:
+                  `Retry, or use \`linear issue query --milestone ${milestone.id} --json\` for the full list.`,
+              },
+            )
+          }
           const nextPage = await client.request(GetMilestoneDetails, {
             id: milestoneId,
             first: PAGE_SIZE,
             after: pageInfo.endCursor,
           })
           const next = nextPage.projectMilestone
-          if (next == null) break
+          if (next == null) {
+            throw new NotFoundError("Milestone", milestoneId)
+          }
           issues.push(...next.issues.nodes)
           pageInfo = next.issues.pageInfo
         }
@@ -178,12 +192,16 @@ export const viewCommand = new Command()
           if (truncated) {
             lines.push("")
             lines.push(
-              `_Showing ${Math.min(LIST_PREVIEW, fetched)} of ${fetched}+ issues — the milestone contains more than ${PAGE_SIZE}. Re-run with \`--all\` or use \`linear issue query --milestone ${milestone.id} --json\` for the full list._`,
+              `_Showing ${
+                Math.min(LIST_PREVIEW, fetched)
+              } of ${fetched}+ issues — the milestone contains more than ${PAGE_SIZE}. Re-run with \`--all\` or use \`linear issue query --milestone ${milestone.id} --json\` for the full list._`,
             )
           } else if (hiddenLoaded > 0) {
             lines.push("")
             lines.push(
-              `_...and ${hiddenLoaded} more issue${hiddenLoaded === 1 ? "" : "s"}. Re-run with \`--all\` or use \`linear issue query --milestone ${milestone.id} --json\` to see them all._`,
+              `_...and ${hiddenLoaded} more issue${
+                hiddenLoaded === 1 ? "" : "s"
+              }. Re-run with \`--all\` or use \`linear issue query --milestone ${milestone.id} --json\` to see them all._`,
             )
           }
         }
