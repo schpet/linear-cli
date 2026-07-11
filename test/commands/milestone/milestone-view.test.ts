@@ -1,4 +1,6 @@
 import { snapshotTest } from "@cliffy/testing"
+import { assertEquals } from "@std/assert"
+import { stub } from "@std/testing/mock"
 import { viewCommand } from "../../../src/commands/milestone/milestone-view.ts"
 import { commonDenoArgs } from "../../utils/test-helpers.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
@@ -220,8 +222,8 @@ await snapshotTest({
               description: null,
               targetDate: null,
               sortOrder: 1,
-              createdAt: "2020-01-01T00:00:00Z",
-              updatedAt: "2020-01-02T00:00:00Z",
+              createdAt: "2020-01-01T12:00:00Z",
+              updatedAt: "2020-01-02T12:00:00Z",
               project: {
                 id: "project-1",
                 name: "P",
@@ -282,8 +284,8 @@ await snapshotTest({
               description: null,
               targetDate: null,
               sortOrder: 1,
-              createdAt: "2020-01-01T00:00:00Z",
-              updatedAt: "2020-01-02T00:00:00Z",
+              createdAt: "2020-01-01T12:00:00Z",
+              updatedAt: "2020-01-02T12:00:00Z",
               project: {
                 id: "project-1",
                 name: "P",
@@ -314,8 +316,8 @@ await snapshotTest({
               description: null,
               targetDate: null,
               sortOrder: 1,
-              createdAt: "2020-01-01T00:00:00Z",
-              updatedAt: "2020-01-02T00:00:00Z",
+              createdAt: "2020-01-01T12:00:00Z",
+              updatedAt: "2020-01-02T12:00:00Z",
               project: {
                 id: "project-1",
                 name: "P",
@@ -349,4 +351,78 @@ await snapshotTest({
       Deno.env.delete("LINEAR_API_KEY")
     }
   },
+})
+
+// --all must fail loudly, not silently truncate, when Linear advertises another
+// page but returns no cursor to fetch it. (Regression guard for the exact bug
+// this command fixes: silently dropping issues.)
+Deno.test("Milestone View Command - --all errors on inconsistent pagination", async () => {
+  const server = new MockLinearServer([
+    {
+      queryName: "GetMilestoneDetails",
+      variables: { id: "milestone-bad", first: 50 },
+      response: {
+        data: {
+          projectMilestone: {
+            id: "milestone-bad",
+            name: "Broken Pagination",
+            description: null,
+            targetDate: null,
+            sortOrder: 1,
+            createdAt: "2020-01-01T12:00:00Z",
+            updatedAt: "2020-01-02T12:00:00Z",
+            project: {
+              id: "project-1",
+              name: "P",
+              slugId: "p",
+              url: "https://linear.app/test/project/p",
+            },
+            issues: {
+              nodes: Array.from({ length: 50 }, (_, i) => ({
+                id: `id-${i}`,
+                identifier: `BAD-${i + 1}`,
+                title: `Issue ${i + 1}`,
+                state: { name: "Done", type: "completed" },
+              })),
+              // hasNextPage true but no cursor: continuing is impossible.
+              pageInfo: { hasNextPage: true, endCursor: null },
+            },
+          },
+        },
+      },
+    },
+  ])
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  let exited = false
+  try {
+    await server.start()
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await viewCommand.parse(["milestone-bad", "--all"])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+    exited = true
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+    await server.stop()
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+  }
+
+  assertEquals(exited, true)
+  assertEquals(
+    errorLogs.some((l) =>
+      l.includes("more issues but returned no pagination cursor")
+    ),
+    true,
+  )
 })
