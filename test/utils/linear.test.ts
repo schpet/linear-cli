@@ -1,8 +1,12 @@
-import { assertEquals } from "@std/assert"
+import { assertEquals, assertRejects } from "@std/assert"
 import {
   getIssueIdentifier,
+  isLinearUuid,
+  resolveMilestoneId,
+  resolveProjectId,
   searchIssuesByTerm,
 } from "../../src/utils/linear.ts"
+import { NotFoundError, ValidationError } from "../../src/utils/errors.ts"
 import { setupMockLinearServer } from "../utils/test-helpers.ts"
 
 Deno.test("getIssueId - handles full issue identifiers", async () => {
@@ -135,6 +139,139 @@ Deno.test("searchIssuesByTerm - without limit fetches a single page", async () =
       },
       totalCount: 2,
     })
+  } finally {
+    await cleanup()
+  }
+})
+
+const UUID = "00000000-0000-0000-0000-000000000000"
+
+Deno.test("isLinearUuid - detects UUID format", () => {
+  assertEquals(isLinearUuid(UUID), true)
+  assertEquals(isLinearUuid("ABNL-99"), false)
+  assertEquals(isLinearUuid("F-FOO"), false)
+  assertEquals(isLinearUuid("project-name with spaces"), false)
+  assertEquals(isLinearUuid(""), false)
+})
+
+Deno.test("resolveProjectId - accepts a UUID without an API call", async () => {
+  const { cleanup } = await setupMockLinearServer([])
+  try {
+    const id = await resolveProjectId(UUID)
+    assertEquals(id, UUID)
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveProjectId - resolves by exact name", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetProjectIdByName",
+      variables: { name: "Tech Debt" },
+      response: {
+        data: { projects: { nodes: [{ id: "proj-name-uuid" }] } },
+      },
+    },
+  ])
+  try {
+    const id = await resolveProjectId("Tech Debt")
+    assertEquals(id, "proj-name-uuid")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveProjectId - falls back to slug ID when name does not match", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetProjectIdByName",
+      variables: { name: "f-foo" },
+      response: { data: { projects: { nodes: [] } } },
+    },
+    {
+      queryName: "GetProjectIdBySlugId",
+      variables: { slugId: "f-foo" },
+      response: {
+        data: { projects: { nodes: [{ id: "proj-slug-uuid" }] } },
+      },
+    },
+  ])
+  try {
+    const id = await resolveProjectId("f-foo")
+    assertEquals(id, "proj-slug-uuid")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveProjectId - throws NotFoundError when nothing matches", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetProjectIdByName",
+      response: { data: { projects: { nodes: [] } } },
+    },
+    {
+      queryName: "GetProjectIdBySlugId",
+      response: { data: { projects: { nodes: [] } } },
+    },
+  ])
+  try {
+    await assertRejects(
+      () => resolveProjectId("nope"),
+      NotFoundError,
+      "Project not found: nope",
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveMilestoneId - accepts UUID directly without a project", async () => {
+  const { cleanup } = await setupMockLinearServer([])
+  try {
+    const id = await resolveMilestoneId(UUID)
+    assertEquals(id, UUID)
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveMilestoneId - resolves a name within the given project", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetProjectMilestonesForLookup",
+      variables: { projectId: "proj-1" },
+      response: {
+        data: {
+          project: {
+            projectMilestones: {
+              nodes: [
+                { id: "ms-1", name: "Y26 Q2" },
+                { id: "ms-2", name: "Y26 Q3" },
+              ],
+            },
+          },
+        },
+      },
+    },
+  ])
+  try {
+    const id = await resolveMilestoneId("Y26 Q2", "proj-1")
+    assertEquals(id, "ms-1")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveMilestoneId - errors when a name is passed without a project", async () => {
+  const { cleanup } = await setupMockLinearServer([])
+  try {
+    await assertRejects(
+      () => resolveMilestoneId("Y26 Q2"),
+      ValidationError,
+      "Cannot resolve milestone",
+    )
   } finally {
     await cleanup()
   }

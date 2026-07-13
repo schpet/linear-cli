@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
+import type { DocumentInlineCommentGuardQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
@@ -9,6 +10,76 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+
+const GetDocumentForEdit = gql(`
+  query GetDocumentForEdit($id: String!) {
+    document(id: $id) {
+      id
+      title
+      content
+    }
+  }
+`)
+
+const DocumentInlineCommentGuard = gql(`
+  query DocumentInlineCommentGuard($id: String!, $after: String) {
+    document(id: $id) {
+      id
+      comments(first: 50, after: $after, orderBy: createdAt) {
+        nodes {
+          id
+          quotedText
+          resolvedAt
+          archivedAt
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`)
+
+// An inline comment (quotedText != null) still anchored to live text — i.e. not
+// resolved and not archived — is the only kind a content replacement can
+// meaningfully orphan. Resolved/archived threads are closed, so detaching their
+// anchor loses nothing and must not block the update.
+async function getFirstActiveInlineComment(
+  client: ReturnType<typeof getGraphQLClient>,
+  documentId: string,
+) {
+  let after: string | null | undefined = null
+
+  while (true) {
+    // Annotate with the codegen type: reusing `after` across iterations would
+    // otherwise make the request's result type circular (self-referential).
+    const documentData: DocumentInlineCommentGuardQuery = await client.request(
+      DocumentInlineCommentGuard,
+      { id: documentId, after },
+    )
+
+    if (!documentData.document) {
+      throw new NotFoundError("Document", documentId)
+    }
+
+    const inlineComment = documentData.document.comments.nodes.find(
+      (comment) =>
+        comment.quotedText != null && comment.resolvedAt == null &&
+        comment.archivedAt == null,
+    )
+    if (inlineComment) {
+      return inlineComment
+    }
+
+    const pageInfo = documentData.document.comments.pageInfo
+    if (!pageInfo.hasNextPage) {
+      return undefined
+    }
+
+    after = pageInfo.endCursor
+  }
+}
 
 /**
  * Open editor with initial content and return the edited content
@@ -108,9 +179,13 @@ export const updateCommand = new Command()
   )
   .option("--icon <icon:string>", "New icon (emoji)")
   .option("-e, --edit", "Open current content in $EDITOR for editing")
+  .option(
+    "--force",
+    "Update content even when document comments may lose inline anchors",
+  )
   .action(
     async (
-      { title, content, contentFile, icon, edit },
+      { title, content, contentFile, icon, edit, force },
       documentId,
     ) => {
       try {
@@ -152,17 +227,7 @@ export const updateCommand = new Command()
           }
         } else if (edit) {
           // Edit mode: fetch current content and open in editor
-          const getDocumentQuery = gql(`
-          query GetDocumentForEdit($id: String!) {
-            document(id: $id) {
-              id
-              title
-              content
-            }
-          }
-        `)
-
-          const documentData = await client.request(getDocumentQuery, {
+          const documentData = await client.request(GetDocumentForEdit, {
             id: documentId,
           })
 
@@ -207,6 +272,24 @@ export const updateCommand = new Command()
             suggestion:
               "Use --title, --content, --content-file, --icon, or --edit.",
           })
+        }
+
+        if (input.content !== undefined && !force) {
+          const comment = await getFirstActiveInlineComment(
+            client,
+            documentId,
+          )
+
+          if (comment) {
+            throw new ValidationError(
+              "Refusing to update document content because this document has inline comments.",
+              {
+                suggestion:
+                  `Updating Markdown content can detach or hide Linear document comments. ` +
+                  `First review comment ${comment.id} quoting "${comment.quotedText}", then rerun with --force if you accept that risk.`,
+              },
+            )
+          }
         }
 
         // Execute the update

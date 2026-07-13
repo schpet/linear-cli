@@ -11,12 +11,13 @@ Description:
 
 Options:
 
-  -h, --help                     - Show this help.                              
-  -t, --title         <title>    - New title for the document                   
-  -c, --content       <content>  - New markdown content (inline)                
-  -f, --content-file  <path>     - Read new content from file                   
-  --icon              <icon>     - New icon (emoji)                             
-  -e, --edit                     - Open current content in \$EDITOR for editing  
+  -h, --help                     - Show this help.                                                     
+  -t, --title         <title>    - New title for the document                                          
+  -c, --content       <content>  - New markdown content (inline)                                       
+  -f, --content-file  <path>     - Read new content from file                                          
+  --icon              <icon>     - New icon (emoji)                                                    
+  -e, --edit                     - Open current content in \$EDITOR for editing                         
+  --force                        - Update content even when document comments may lose inline anchors  
 
 "
 stderr:
@@ -41,6 +42,33 @@ stderr:
 ""
 `;
 
+snapshot[`Document Update Command - Allows Content Update With Top Level Comments 1`] = `
+stdout:
+"✓ Updated document: Delegation System Spec
+https://linear.app/test/document/delegation-system-spec-d4b93e3b2695
+"
+stderr:
+""
+`;
+
+snapshot[`Document Update Command - Blocks Content Update With Inline Comments 1`] = `
+stdout:
+""
+stderr:
+'✗ Failed to update document: Refusing to update document content because this document has inline comments.
+  Updating Markdown content can detach or hide Linear document comments. First review comment comment-2 quoting "Current Content", then rerun with --force if you accept that risk.
+'
+`;
+
+snapshot[`Document Update Command - Force Content Update With Comments 1`] = `
+stdout:
+"✓ Updated document: Delegation System Spec
+https://linear.app/test/document/delegation-system-spec-d4b93e3b2695
+"
+stderr:
+""
+`;
+
 snapshot[`Document Update Command - Update Multiple Fields 1`] = `
 stdout:
 "✓ Updated document: Updated Title
@@ -57,4 +85,13 @@ stderr:
 "✗ Failed to update document: No update fields provided
   Use --title, --content, --content-file, --icon, or --edit.
 "
+`;
+
+snapshot[`Document Update Command - Resolved Inline Comment Does Not Block 1`] = `
+stdout:
+"✓ Updated document: Delegation System Spec
+https://linear.app/test/document/delegation-system-spec-d4b93e3b2695
+"
+stderr:
+""
 `;

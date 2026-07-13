@@ -54,6 +54,38 @@ Deno.test("getOption - download_images returns undefined for unrecognized string
   assertEquals(result, undefined)
 })
 
+Deno.test("getOption - issue_create_ask_project returns boolean for truthy strings", () => {
+  const truthyValues = ["true", "yes", "1", "on", "t"]
+
+  for (const value of truthyValues) {
+    const result = getOption("issue_create_ask_project", value)
+    assertEquals(result, true, `Expected "${value}" to coerce to true`)
+  }
+})
+
+Deno.test("getOption - issue_create_ask_project returns boolean for falsy strings", () => {
+  const falsyValues = ["false", "no", "0", "off", "f"]
+
+  for (const value of falsyValues) {
+    const result = getOption("issue_create_ask_project", value)
+    assertEquals(result, false, `Expected "${value}" to coerce to false`)
+  }
+})
+
+Deno.test("getOption - issue_create_assign_self accepts valid mode values", () => {
+  const validValues = ["always", "auto", "never"] as const
+
+  for (const value of validValues) {
+    const result = getOption("issue_create_assign_self", value)
+    assertEquals(result, value)
+  }
+})
+
+Deno.test("getOption - issue_create_assign_self rejects invalid mode values", () => {
+  const result = getOption("issue_create_assign_self", "true")
+  assertEquals(result, undefined)
+})
+
 Deno.test("getOption - environment variables take precedence over config file", async () => {
   // Create a temp directory with a config file
   const tempDir = await Deno.makeTempDir()

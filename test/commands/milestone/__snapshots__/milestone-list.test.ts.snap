@@ -3,7 +3,7 @@ export const snapshot = {};
 snapshot[`Milestone List Command - Help Text 1`] = `
 stdout:
 "
-Usage: list --project <projectId>
+Usage: list --project <project>
 
 Description:
 
@@ -11,8 +11,8 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.            
-  --project   <projectId>  - Project ID       (required)
+  -h, --help             - Show this help.                             
+  --project   <project>  - Project (UUID, slug ID, or name)  (required)
 
 "
 stderr:

@@ -11,12 +11,13 @@ import {
 import {
   fetchIssuesForState,
   getCycleIdByNameOrNumber,
-  getMilestoneIdByName,
   getProjectIdByName,
   getProjectOptionsByName,
   getTeamIdByKey,
   getTeamKey,
   isIssueBlocked,
+  isLinearUuid,
+  resolveMilestoneId,
   selectOption,
 } from "../../utils/linear.ts"
 import { openTeamAssigneeView } from "../../utils/actions.ts"
@@ -69,7 +70,7 @@ export const mineCommand = new Command()
   )
   .option(
     "--project <project:string>",
-    "Filter by project name",
+    "Filter by project (UUID, slug ID, or name)",
   )
   .option(
     "--project-label <projectLabel:string>",
@@ -81,7 +82,7 @@ export const mineCommand = new Command()
   )
   .option(
     "--milestone <milestone:string>",
-    "Filter by project milestone name (requires --project)",
+    "Filter by project milestone (UUID, or name when --project is set)",
   )
   .option(
     "-l, --label <label:string>",
@@ -243,16 +244,20 @@ export const mineCommand = new Command()
               },
             )
           }
-          if (projectId == null) {
-            throw new ValidationError(
-              "--milestone requires --project to be set",
-              {
-                suggestion:
-                  "Use --project to specify which project the milestone belongs to.",
-              },
-            )
+          if (isLinearUuid(milestone)) {
+            milestoneId = milestone
+          } else {
+            if (projectId == null) {
+              throw new ValidationError(
+                "--milestone requires --project to be set",
+                {
+                  suggestion:
+                    "Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly.",
+                },
+              )
+            }
+            milestoneId = await resolveMilestoneId(milestone, projectId)
           }
-          milestoneId = await getMilestoneIdByName(milestone, projectId)
         }
 
         const labelNames = labels && labels.length > 0

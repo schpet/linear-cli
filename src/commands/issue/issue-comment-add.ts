@@ -5,6 +5,8 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getIssueIdentifier } from "../../utils/linear.ts"
 import {
   formatAsMarkdownLink,
+  getMimeType,
+  resolveMakePublic,
   uploadFile,
   validateFilePath,
 } from "../../utils/upload.ts"
@@ -26,8 +28,12 @@ export const commentAddCommand = new Command()
     "Attach a file to the comment (can be used multiple times)",
     { collect: true },
   )
+  .option(
+    "--public",
+    "Upload attached images to a public, unauthenticated URL (default: private, workspace-members only)",
+  )
   .action(async (options, issueId) => {
-    const { body, bodyFile, parent, attach } = options
+    const { body, bodyFile, parent, attach, public: makePublic } = options
 
     try {
       // Validate that body and bodyFile are not both provided
@@ -64,6 +70,12 @@ export const commentAddCommand = new Command()
 
       // Validate and upload attachments first
       const attachments = attach || []
+      if (makePublic && attachments.length === 0) {
+        throw new ValidationError(
+          "--public requires at least one --attach",
+          { suggestion: "Add --attach <file> to upload, or remove --public." },
+        )
+      }
       const uploadedFiles: {
         filename: string
         assetUrl: string
@@ -71,15 +83,19 @@ export const commentAddCommand = new Command()
       }[] = []
 
       if (attachments.length > 0) {
-        // Validate all files exist before uploading
+        // Validate all files exist and, if --public, that every file may be
+        // uploaded publicly — before uploading any, so a mixed batch cannot
+        // publish some files before failing on an unsupported one.
         for (const filepath of attachments) {
           await validateFilePath(filepath)
+          resolveMakePublic(getMimeType(filepath), makePublic)
         }
 
         // Upload files
         for (const filepath of attachments) {
           const result = await uploadFile(filepath, {
             showProgress: shouldShowSpinner(),
+            makePublic,
           })
           uploadedFiles.push({
             filename: result.filename,
@@ -87,6 +103,11 @@ export const commentAddCommand = new Command()
             isImage: result.contentType.startsWith("image/"),
           })
           console.log(`✓ Uploaded ${result.filename}`)
+          if (result.public) {
+            console.warn(
+              `⚠ Uploaded to a public URL readable by anyone: ${result.assetUrl}`,
+            )
+          }
         }
       }
 
@@ -111,7 +132,6 @@ export const commentAddCommand = new Command()
             contentType: file.isImage
               ? "image/png"
               : "application/octet-stream",
-            size: 0,
           })
         })
 

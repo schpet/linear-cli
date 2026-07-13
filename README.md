@@ -152,6 +152,25 @@ linear issue comment update <id>   # update a comment
 linear issue commits               # show all commits for an issue (jj only)
 ```
 
+#### attaching files
+
+attach files to an issue or comment. uploads are **private** by default (readable only by workspace members), matching the Linear web app.
+
+```bash
+linear issue attach ENG-123 ./screenshot.png            # attach a file to an issue
+linear issue attach ENG-123 ./doc.pdf -t "Spec"         # custom attachment title
+linear issue attach ENG-123 ./img.png -c "see this"     # add a linked comment
+linear issue comment add ENG-123 -a ./screenshot.png    # attach a file to a comment
+linear issue comment add ENG-123 -a ./a.png -a ./b.png  # attach multiple files
+```
+
+by default attachments are private. pass `--public` to upload raster images (png/jpeg/gif/webp/bmp/tiff) to a public `public.linear.app` URL readable by **anyone, unauthenticated** — useful for sharing outside the workspace, but a warning is printed since it bypasses workspace access controls. non-image files cannot be made public.
+
+```bash
+linear issue attach ENG-123 ./screenshot.png --public           # public image URL
+linear issue comment add ENG-123 -a ./screenshot.png --public   # public image URL
+```
+
 ### team commands
 
 ```bash
@@ -167,6 +186,8 @@ linear team autolinks  # configure GitHub repository autolinks for Linear issues
 ```bash
 linear project list    # list projects
 linear project view    # view project details
+linear project create --name "API v2" --team ENG --content-file overview.md
+linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com
 ```
 
 ### milestone commands
@@ -200,7 +221,7 @@ linear document list --json                     # output as JSON
 linear document view <slug>                     # view document rendered in terminal
 linear document view <slug> --raw               # output raw markdown (for piping)
 linear document view <slug> --web               # open in browser
-linear document view <slug> --json              # output as JSON
+linear document view <slug> --json              # output as JSON, including document comments
 
 # create a document
 linear document create --title "My Doc" --content "# Hello"           # inline content
@@ -213,12 +234,15 @@ cat spec.md | linear document create --title "Spec"                   # from std
 linear document update <slug> --title "New Title"                     # update title
 linear document update <slug> --content-file ./updated.md             # update content
 linear document update <slug> --edit                                  # open in $EDITOR
+linear document update <slug> --content-file ./updated.md --force     # bypass comment-anchor guard
 
 # delete a document
 linear document delete <slug>                   # soft delete (move to trash)
 linear document delete <slug> --permanent       # permanent delete
 linear document delete --bulk <slug1> <slug2>   # bulk delete
 ```
+
+content updates are refused by default when a document has active inline Linear comments, because replacing markdown can detach or hide those anchors. top-level document comments do not block updates. review the inline comment first, then rerun with `--force` if you intentionally want to replace the content anyway.
 
 ### other commands
 
@@ -233,13 +257,15 @@ linear completions     # generate shell completions
 
 the CLI supports configuration via environment variables or a `.linear.toml` config file. environment variables take precedence over config file values.
 
-| option          | env var                  | toml key          | example                    | description                           |
-| --------------- | ------------------------ | ----------------- | -------------------------- | ------------------------------------- |
-| Team ID         | `LINEAR_TEAM_ID`         | `team_id`         | `"ENG"`                    | default team for operations           |
-| Workspace       | `LINEAR_WORKSPACE`       | `workspace`       | `"mycompany"`              | workspace slug for web/app URLs       |
-| Issue sort      | `LINEAR_ISSUE_SORT`      | `issue_sort`      | `"priority"` or `"manual"` | how to sort issue lists               |
-| VCS             | `LINEAR_VCS`             | `vcs`             | `"git"` or `"jj"`          | version control system (default: git) |
-| Download images | `LINEAR_DOWNLOAD_IMAGES` | `download_images` | `true` or `false`          | download images when viewing issues   |
+| option          | env var                           | toml key                   | example                            | description                                           |
+| --------------- | --------------------------------- | -------------------------- | ---------------------------------- | ----------------------------------------------------- |
+| Team ID         | `LINEAR_TEAM_ID`                  | `team_id`                  | `"ENG"`                            | default team for operations                           |
+| Workspace       | `LINEAR_WORKSPACE`                | `workspace`                | `"mycompany"`                      | workspace slug for web/app URLs                       |
+| Issue sort      | `LINEAR_ISSUE_SORT`               | `issue_sort`               | `"priority"` or `"manual"`         | how to sort issue lists                               |
+| Ask project     | `LINEAR_ISSUE_CREATE_ASK_PROJECT` | `issue_create_ask_project` | `true` or `false`                  | ask for a project during interactive `issue create`   |
+| Assign self     | `LINEAR_ISSUE_CREATE_ASSIGN_SELF` | `issue_create_assign_self` | `"always"`, `"auto"`, or `"never"` | control default self-assignment during issue creation |
+| VCS             | `LINEAR_VCS`                      | `vcs`                      | `"git"` or `"jj"`                  | version control system (default: git)                 |
+| Download images | `LINEAR_DOWNLOAD_IMAGES`          | `download_images`          | `true` or `false`                  | download images when viewing issues                   |
 
 the config file can be placed at (checked in order, first found is used):
 

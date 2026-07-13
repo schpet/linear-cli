@@ -6,6 +6,7 @@ import type {
   GetIssueDetailsWithCommentsQuery,
   GetIssuesForQueryQuery,
   GetIssuesForStateQuery,
+  GetProjectsForTeamQuery,
   GetTeamMembersQuery,
   IssueFilter,
   IssueSortInput,
@@ -233,6 +234,13 @@ const issueDetailsWithCommentsQuery = gql(/* GraphQL */ `
         name
         number
       }
+      labels(first: 50) {
+        nodes {
+          id
+          name
+          color
+        }
+      }
       parent {
         identifier
         title
@@ -327,6 +335,13 @@ const issueDetailsQuery = gql(/* GraphQL */ `
       cycle {
         name
         number
+      }
+      labels(first: 50) {
+        nodes {
+          id
+          name
+          color
+        }
       }
       parent {
         identifier
@@ -1187,11 +1202,26 @@ export async function searchIssuesByTerm(
   }
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function isLinearUuid(value: string): boolean {
+  return UUID_REGEX.test(value)
+}
+
+/**
+ * Look up a project ID by UUID, slug ID, or exact name.
+ * Returns undefined when no project matches. Use [[resolveProjectId]] when
+ * you want a missing project to throw.
+ */
 export async function getProjectIdByName(
-  name: string,
+  input: string,
 ): Promise<string | undefined> {
+  if (isLinearUuid(input)) return input
+
   const client = getGraphQLClient()
-  const query = gql(/* GraphQL */ `
+
+  const nameQuery = gql(/* GraphQL */ `
     query GetProjectIdByName($name: String!) {
       projects(filter: { name: { eq: $name } }) {
         nodes {
@@ -1200,14 +1230,10 @@ export async function getProjectIdByName(
       }
     }
   `)
-  const data = await client.request(query, { name })
-  const projectId = data.projects?.nodes[0]?.id
-  if (projectId) return projectId
+  const nameData = await client.request(nameQuery, { name: input })
+  const nameMatch = nameData.projects?.nodes[0]?.id
+  if (nameMatch) return nameMatch
 
-  // Fall back to matching by slugId (the 12-char hex string visible in
-  // `project list` output and Linear URLs). This provides a reliable
-  // alternative when project names contain special characters that the
-  // exact-match name filter doesn't handle well.
   const slugQuery = gql(/* GraphQL */ `
     query GetProjectIdBySlugId($slugId: String!) {
       projects(filter: { slugId: { eq: $slugId } }) {
@@ -1217,41 +1243,24 @@ export async function getProjectIdByName(
       }
     }
   `)
-  const slugData = await client.request(slugQuery, { slugId: name })
+  const slugData = await client.request(slugQuery, { slugId: input })
   return slugData.projects?.nodes[0]?.id
 }
 
+/**
+ * Resolve a project to its UUID. Accepts a UUID, slug ID, or exact name.
+ * Throws NotFoundError if none match.
+ */
 export async function resolveProjectId(
-  projectIdOrSlug: string,
+  input: string,
 ): Promise<string> {
-  // If it looks like a full UUID, try to use it directly
-  if (
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      projectIdOrSlug,
-    )
-  ) {
-    return projectIdOrSlug
-  }
-
-  // Otherwise, treat it as a slug and look it up
-  const client = getGraphQLClient()
-  const query = gql(/* GraphQL */ `
-    query GetProjectBySlug($slugId: String!) {
-      projects(filter: { slugId: { eq: $slugId } }) {
-        nodes {
-          id
-          slugId
-        }
-      }
-    }
-  `)
-  const data = await client.request(query, { slugId: projectIdOrSlug })
-  const projectId = data.projects?.nodes[0]?.id
-
+  const projectId = await getProjectIdByName(input)
   if (!projectId) {
-    throw new NotFoundError("Project", projectIdOrSlug)
+    throw new NotFoundError("Project", input, {
+      suggestion:
+        "Pass a project UUID, slug ID (from `linear project list`), or exact project name.",
+    })
   }
-
   return projectId
 }
 
@@ -1272,6 +1281,53 @@ export async function getProjectOptionsByName(
   const data = await client.request(query, { name })
   const qResults = data.projects?.nodes || []
   return Object.fromEntries(qResults.map((t) => [t.id, t.name]))
+}
+
+export async function getProjectsForTeam(
+  teamKey: string,
+): Promise<Array<{ id: string; name: string }>> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectsForTeam(
+      $filter: ProjectFilter
+      $first: Int
+      $after: String
+    ) {
+      projects(filter: $filter, first: $first, after: $after) {
+        nodes {
+          id
+          name
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  `)
+
+  const projects: Array<{ id: string; name: string }> = []
+  let hasNextPage = true
+  let after: string | null | undefined = undefined
+
+  while (hasNextPage) {
+    const data: GetProjectsForTeamQuery = await client.request(query, {
+      filter: {
+        accessibleTeams: { some: { key: { eq: teamKey } } },
+      },
+      first: 100,
+      after,
+    })
+
+    const connection = data.projects
+    projects.push(...(connection?.nodes || []))
+    hasNextPage = connection?.pageInfo?.hasNextPage || false
+    after = connection?.pageInfo?.endCursor
+  }
+
+  return projects.sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  )
 }
 
 export async function getTeamIdByKey(
@@ -1572,6 +1628,28 @@ export async function getIssueProjectId(
   `)
   const data = await client.request(query, { id: issueIdentifier })
   return data.issue?.project?.id ?? undefined
+}
+
+/**
+ * Resolve a milestone to its UUID. Accepts a UUID directly, or a milestone
+ * name when scoped to a project. Throws when a name is passed without a
+ * project context.
+ */
+export async function resolveMilestoneId(
+  input: string,
+  projectId?: string,
+): Promise<string> {
+  if (isLinearUuid(input)) return input
+  if (!projectId) {
+    throw new ValidationError(
+      `Cannot resolve milestone "${input}" without --project`,
+      {
+        suggestion:
+          "Pass a milestone UUID, or specify --project so the milestone name can be looked up within that project.",
+      },
+    )
+  }
+  return await getMilestoneIdByName(input, projectId)
 }
 
 export async function getMilestoneIdByName(
