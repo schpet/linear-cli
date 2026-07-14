@@ -68,124 +68,124 @@ linear issue comment add ENG-123 --body-file /tmp/comment.md
 Compact command list, generated from `linear --help`:
 
 ```bash
+linear api
+
 linear auth
+linear auth default
+linear auth list
 linear auth login
 linear auth logout
-linear auth list
-linear auth default
+linear auth migrate
 linear auth token
 linear auth whoami
-linear auth migrate
 
-linear issue
-linear issue id
-linear issue mine
-linear issue query
-linear issue title
-linear issue start
-linear issue view
-linear issue url
-linear issue describe
-linear issue commits
-linear issue pull-request
-linear issue delete
-linear issue create
-linear issue update
-linear issue comment
-linear issue comment add
-linear issue comment delete
-linear issue comment update
-linear issue comment list
-linear issue attach
-linear issue link
-linear issue relation
-linear issue relation add
-linear issue relation delete
-linear issue relation list
-linear issue agent-session
-linear issue agent-session list
-linear issue agent-session view
-
-linear team
-linear team create
-linear team delete
-linear team list
-linear team id
-linear team autolinks
-linear team members
-
-linear project
-linear project list
-linear project view
-linear project create
-linear project update
-linear project delete
-
-linear project-update
-linear project-update create
-linear project-update list
+linear config
 
 linear cycle
 linear cycle list
 linear cycle view
 
-linear milestone
-linear milestone list
-linear milestone view
-linear milestone create
-linear milestone update
-linear milestone delete
+linear document
+linear document create
+linear document delete
+linear document list
+linear document update
+linear document view
 
 linear initiative
-linear initiative list
-linear initiative view
-linear initiative create
-linear initiative archive
-linear initiative update
-linear initiative unarchive
-linear initiative delete
 linear initiative add-project
+linear initiative archive
+linear initiative create
+linear initiative delete
+linear initiative list
 linear initiative remove-project
+linear initiative unarchive
+linear initiative update
+linear initiative view
 
 linear initiative-update
 linear initiative-update create
 linear initiative-update list
 
+linear issue
+linear issue agent-session
+linear issue agent-session list
+linear issue agent-session view
+linear issue attach
+linear issue comment
+linear issue comment add
+linear issue comment delete
+linear issue comment list
+linear issue comment update
+linear issue commits
+linear issue create
+linear issue delete
+linear issue describe
+linear issue id
+linear issue link
+linear issue mine
+linear issue pull-request
+linear issue query
+linear issue relation
+linear issue relation add
+linear issue relation delete
+linear issue relation list
+linear issue start
+linear issue title
+linear issue update
+linear issue url
+linear issue view
+
 linear label
-linear label list
 linear label create
 linear label delete
+linear label list
 
-linear document
-linear document list
-linear document view
-linear document create
-linear document update
-linear document delete
+linear milestone
+linear milestone create
+linear milestone delete
+linear milestone list
+linear milestone update
+linear milestone view
 
-linear config
+linear project
+linear project create
+linear project delete
+linear project list
+linear project update
+linear project view
+
+linear project-update
+linear project-update create
+linear project-update list
 
 linear schema
 
-linear api
+linear team
+linear team autolinks
+linear team create
+linear team delete
+linear team id
+linear team list
+linear team members
 ```
 
 ## Reference Documentation
 
+- [api](references/api.md) - Make a raw GraphQL API request
 - [auth](references/auth.md) - Manage Linear authentication
-- [issue](references/issue.md) - Manage Linear issues
-- [team](references/team.md) - Manage Linear teams
-- [project](references/project.md) - Manage Linear projects
-- [project-update](references/project-update.md) - Manage project status updates
+- [config](references/config.md) - Interactively generate .linear.toml configuration
 - [cycle](references/cycle.md) - Manage Linear team cycles
-- [milestone](references/milestone.md) - Manage Linear project milestones
+- [document](references/document.md) - Manage Linear documents
 - [initiative](references/initiative.md) - Manage Linear initiatives
 - [initiative-update](references/initiative-update.md) - Manage initiative status updates (timeline posts)
+- [issue](references/issue.md) - Manage Linear issues
 - [label](references/label.md) - Manage Linear issue labels
-- [document](references/document.md) - Manage Linear documents
-- [config](references/config.md) - Interactively generate .linear.toml configuration
+- [milestone](references/milestone.md) - Manage Linear project milestones
+- [project](references/project.md) - Manage Linear projects
+- [project-update](references/project-update.md) - Manage project status updates
 - [schema](references/schema.md) - Print the GraphQL schema to stdout
-- [api](references/api.md) - Make a raw GraphQL API request
+- [team](references/team.md) - Manage Linear teams
 
 For curated examples of organization features (initiatives, labels, projects, bulk operations), see [organization-features](references/organization-features.md).
 

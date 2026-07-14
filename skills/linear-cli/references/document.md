@@ -27,6 +27,51 @@ Commands:
 
 ## Subcommands
 
+### create
+
+> Create a new document
+
+```
+Usage:   linear document create
+
+Description:
+
+  Create a new document
+
+Options:
+
+  -h, --help                     - Show this help.                             
+  --workspace         <slug>     - Target workspace (uses credentials)         
+  -t, --title         <title>    - Document title (required)                   
+  -c, --content       <content>  - Markdown content (inline)                   
+  -f, --content-file  <path>     - Read content from file                      
+  --project           <project>  - Attach to project (UUID, slug ID, or name)  
+  --issue             <issue>    - Attach to issue (identifier like TC-123)    
+  --icon              <icon>     - Document icon (emoji)                       
+  -i, --interactive              - Interactive mode with prompts
+```
+
+### delete
+
+> Delete a document (moves to trash)
+
+```
+Usage:   linear document delete [documentId]
+
+Description:
+
+  Delete a document (moves to trash)
+
+Options:
+
+  -h, --help              - Show this help.                                     
+  --workspace   <slug>    - Target workspace (uses credentials)                 
+  -y, --yes               - Skip confirmation prompt                            
+  --bulk        <ids...>  - Delete multiple documents by slug or ID             
+  --bulk-file   <file>    - Read document slugs/IDs from a file (one per line)  
+  --bulk-stdin            - Read document slugs/IDs from stdin
+```
+
 ### list
 
 > List documents
@@ -46,51 +91,6 @@ Options:
   --issue      <issue>    - Filter by issue (identifier like TC-123)               
   --json                  - Output as JSON                                         
   --limit      <limit>    - Limit results                             (Default: 50)
-```
-
-### view
-
-> View a document's content
-
-```
-Usage:   linear document view <id>
-
-Description:
-
-  View a document's content
-
-Options:
-
-  -h, --help             - Show this help.                                
-  --workspace    <slug>  - Target workspace (uses credentials)            
-  --raw                  - Output raw markdown without rendering          
-  -w, --web              - Open document in browser                       
-  --json                 - Output full document as JSON                   
-  --no-download          - Keep remote URLs instead of downloading files
-```
-
-### create
-
-> Create a new document
-
-```
-Usage:   linear document create
-
-Description:
-
-  Create a new document
-
-Options:
-
-  -h, --help                     - Show this help.                           
-  --workspace         <slug>     - Target workspace (uses credentials)       
-  -t, --title         <title>    - Document title (required)                 
-  -c, --content       <content>  - Markdown content (inline)                 
-  -f, --content-file  <path>     - Read content from file                    
-  --project           <project>  - Attach to project (slug or ID)            
-  --issue             <issue>    - Attach to issue (identifier like TC-123)  
-  --icon              <icon>     - Document icon (emoji)                     
-  -i, --interactive              - Interactive mode with prompts
 ```
 
 ### update
@@ -116,23 +116,23 @@ Options:
   --force                        - Update content even when document comments may lose inline anchors
 ```
 
-### delete
+### view
 
-> Delete a document (moves to trash)
+> View a document's content
 
 ```
-Usage:   linear document delete [documentId]
+Usage:   linear document view <id>
 
 Description:
 
-  Delete a document (moves to trash)
+  View a document's content
 
 Options:
 
-  -h, --help              - Show this help.                                     
-  --workspace   <slug>    - Target workspace (uses credentials)                 
-  -y, --yes               - Skip confirmation prompt                            
-  --bulk        <ids...>  - Delete multiple documents by slug or ID             
-  --bulk-file   <file>    - Read document slugs/IDs from a file (one per line)  
-  --bulk-stdin            - Read document slugs/IDs from stdin
+  -h, --help             - Show this help.                                
+  --workspace    <slug>  - Target workspace (uses credentials)            
+  --raw                  - Output raw markdown without rendering          
+  -w, --web              - Open document in browser                       
+  --json                 - Output full document as JSON                   
+  --no-download          - Keep remote URLs instead of downloading files
 ```

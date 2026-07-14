@@ -28,6 +28,23 @@ Commands:
 
 ## Subcommands
 
+### autolinks
+
+> Configure GitHub repository autolinks for Linear issues with this team prefix
+
+```
+Usage:   linear team autolinks
+
+Description:
+
+  Configure GitHub repository autolinks for Linear issues with this team prefix
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
+```
+
 ### create
 
 > Create a linear team
@@ -69,25 +86,6 @@ Options:
   -y, --force                  - Skip confirmation prompt
 ```
 
-### list
-
-> List teams
-
-```
-Usage:   linear team list
-
-Description:
-
-  List teams
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -w, --web            - Open in web browser                  
-  -a, --app            - Open in Linear.app
-```
-
 ### id
 
 > Print the configured team id
@@ -105,21 +103,23 @@ Options:
   --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
-### autolinks
+### list
 
-> Configure GitHub repository autolinks for Linear issues with this team prefix
+> List teams
 
 ```
-Usage:   linear team autolinks
+Usage:   linear team list
 
 Description:
 
-  Configure GitHub repository autolinks for Linear issues with this team prefix
+  List teams
 
 Options:
 
   -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -w, --web            - Open in web browser                  
+  -a, --app            - Open in Linear.app
 ```
 
 ### members

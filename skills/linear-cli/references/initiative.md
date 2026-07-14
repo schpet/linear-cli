@@ -31,48 +31,43 @@ Commands:
 
 ## Subcommands
 
-### list
+### add-project
 
-> List initiatives
+> Link a project to an initiative
 
 ```
-Usage:   linear initiative list
+Usage:   linear initiative add-project <initiative> <project>
 
 Description:
 
-  List initiatives
+  Link a project to an initiative
 
 Options:
 
-  -h, --help                - Show this help.                                
-  --workspace     <slug>    - Target workspace (uses credentials)            
-  -s, --status    <status>  - Filter by status (active, planned, completed)  
-  --all-statuses            - Show all statuses (default: active only)       
-  -o, --owner     <owner>   - Filter by owner (username or email)            
-  -w, --web                 - Open initiatives page in web browser           
-  -a, --app                 - Open initiatives page in Linear.app            
-  -j, --json                - Output as JSON                                 
-  --archived                - Include archived initiatives
+  -h, --help                 - Show this help.                      
+  --workspace   <slug>       - Target workspace (uses credentials)  
+  --sort-order  <sortOrder>  - Sort order within initiative
 ```
 
-### view
+### archive
 
-> View initiative details
+> Archive a Linear initiative
 
 ```
-Usage:   linear initiative view <initiativeId>
+Usage:   linear initiative archive [initiativeId]
 
 Description:
 
-  View initiative details
+  Archive a Linear initiative
 
 Options:
 
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -w, --web            - Open in web browser                  
-  -a, --app            - Open in Linear.app                   
-  -j, --json           - Output as JSON
+  -h, --help              - Show this help.                                    
+  --workspace   <slug>    - Target workspace (uses credentials)                
+  -y, --force             - Skip confirmation prompt                           
+  --bulk        <ids...>  - Archive multiple initiatives by ID, slug, or name  
+  --bulk-file   <file>    - Read initiative IDs from a file (one per line)     
+  --bulk-stdin            - Read initiative IDs from stdin
 ```
 
 ### create
@@ -100,25 +95,85 @@ Options:
   -i, --interactive                 - Interactive mode (default if no flags provided)
 ```
 
-### archive
+### delete
 
-> Archive a Linear initiative
+> Permanently delete a Linear initiative
 
 ```
-Usage:   linear initiative archive [initiativeId]
+Usage:   linear initiative delete [initiativeId]
 
 Description:
 
-  Archive a Linear initiative
+  Permanently delete a Linear initiative
 
 Options:
 
-  -h, --help              - Show this help.                                    
-  --workspace   <slug>    - Target workspace (uses credentials)                
-  -y, --force             - Skip confirmation prompt                           
-  --bulk        <ids...>  - Archive multiple initiatives by ID, slug, or name  
-  --bulk-file   <file>    - Read initiative IDs from a file (one per line)     
+  -h, --help              - Show this help.                                   
+  --workspace   <slug>    - Target workspace (uses credentials)               
+  -y, --force             - Skip confirmation prompt                          
+  --bulk        <ids...>  - Delete multiple initiatives by ID, slug, or name  
+  --bulk-file   <file>    - Read initiative IDs from a file (one per line)    
   --bulk-stdin            - Read initiative IDs from stdin
+```
+
+### list
+
+> List initiatives
+
+```
+Usage:   linear initiative list
+
+Description:
+
+  List initiatives
+
+Options:
+
+  -h, --help                - Show this help.                                
+  --workspace     <slug>    - Target workspace (uses credentials)            
+  -s, --status    <status>  - Filter by status (active, planned, completed)  
+  --all-statuses            - Show all statuses (default: active only)       
+  -o, --owner     <owner>   - Filter by owner (username or email)            
+  -w, --web                 - Open initiatives page in web browser           
+  -a, --app                 - Open initiatives page in Linear.app            
+  -j, --json                - Output as JSON                                 
+  --archived                - Include archived initiatives
+```
+
+### remove-project
+
+> Unlink a project from an initiative
+
+```
+Usage:   linear initiative remove-project <initiative> <project>
+
+Description:
+
+  Unlink a project from an initiative
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -y, --force          - Skip confirmation prompt
+```
+
+### unarchive
+
+> Unarchive a Linear initiative
+
+```
+Usage:   linear initiative unarchive <initiativeId>
+
+Description:
+
+  Unarchive a Linear initiative
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -y, --force          - Skip confirmation prompt
 ```
 
 ### update
@@ -146,77 +201,22 @@ Options:
   -i, --interactive                 - Interactive mode for updates
 ```
 
-### unarchive
+### view
 
-> Unarchive a Linear initiative
+> View initiative details
 
 ```
-Usage:   linear initiative unarchive <initiativeId>
+Usage:   linear initiative view <initiativeId>
 
 Description:
 
-  Unarchive a Linear initiative
+  View initiative details
 
 Options:
 
   -h, --help           - Show this help.                      
   --workspace  <slug>  - Target workspace (uses credentials)  
-  -y, --force          - Skip confirmation prompt
-```
-
-### delete
-
-> Permanently delete a Linear initiative
-
-```
-Usage:   linear initiative delete [initiativeId]
-
-Description:
-
-  Permanently delete a Linear initiative
-
-Options:
-
-  -h, --help              - Show this help.                                   
-  --workspace   <slug>    - Target workspace (uses credentials)               
-  -y, --force             - Skip confirmation prompt                          
-  --bulk        <ids...>  - Delete multiple initiatives by ID, slug, or name  
-  --bulk-file   <file>    - Read initiative IDs from a file (one per line)    
-  --bulk-stdin            - Read initiative IDs from stdin
-```
-
-### add-project
-
-> Link a project to an initiative
-
-```
-Usage:   linear initiative add-project <initiative> <project>
-
-Description:
-
-  Link a project to an initiative
-
-Options:
-
-  -h, --help                 - Show this help.                      
-  --workspace   <slug>       - Target workspace (uses credentials)  
-  --sort-order  <sortOrder>  - Sort order within initiative
-```
-
-### remove-project
-
-> Unlink a project from an initiative
-
-```
-Usage:   linear initiative remove-project <initiative> <project>
-
-Description:
-
-  Unlink a project from an initiative
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -y, --force          - Skip confirmation prompt
+  -w, --web            - Open in web browser                  
+  -a, --app            - Open in Linear.app                   
+  -j, --json           - Output as JSON
 ```
