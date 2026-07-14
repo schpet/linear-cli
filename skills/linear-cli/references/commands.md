@@ -2,20 +2,20 @@
 
 ## Commands
 
+- [api](./api.md) - Make a raw GraphQL API request
 - [auth](./auth.md) - Manage Linear authentication
-- [issue](./issue.md) - Manage Linear issues
-- [team](./team.md) - Manage Linear teams
-- [project](./project.md) - Manage Linear projects
-- [project-update](./project-update.md) - Manage project status updates
+- [config](./config.md) - Interactively generate .linear.toml configuration
 - [cycle](./cycle.md) - Manage Linear team cycles
-- [milestone](./milestone.md) - Manage Linear project milestones
+- [document](./document.md) - Manage Linear documents
 - [initiative](./initiative.md) - Manage Linear initiatives
 - [initiative-update](./initiative-update.md) - Manage initiative status updates (timeline posts)
+- [issue](./issue.md) - Manage Linear issues
 - [label](./label.md) - Manage Linear issue labels
-- [document](./document.md) - Manage Linear documents
-- [config](./config.md) - Interactively generate .linear.toml configuration
+- [milestone](./milestone.md) - Manage Linear project milestones
+- [project](./project.md) - Manage Linear projects
+- [project-update](./project-update.md) - Manage project status updates
 - [schema](./schema.md) - Print the GraphQL schema to stdout
-- [api](./api.md) - Make a raw GraphQL API request
+- [team](./team.md) - Manage Linear teams
 
 ## Quick Reference
 

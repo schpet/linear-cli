@@ -26,20 +26,43 @@ interface CommandInfo {
   subcommands: CommandInfo[]
 }
 
-async function run(
-  cmd: string[],
-): Promise<{ success: boolean; stdout: string; stderr: string }> {
-  const command = new Deno.Command(cmd[0], {
-    args: cmd.slice(1),
-    stdout: "piped",
-    stderr: "piped",
-    env: { NO_COLOR: "1" }, // Disable ANSI colors
-  })
-  const result = await command.output()
-  return {
-    success: result.success,
-    stdout: new TextDecoder().decode(result.stdout).trim(),
-    stderr: new TextDecoder().decode(result.stderr).trim(),
+interface RunResult {
+  success: boolean
+  stdout: string
+  stderr: string
+}
+
+interface HelpResult {
+  help: string
+  failure: string | null
+}
+
+interface DiscoveryResult {
+  command: CommandInfo
+  failures: string[]
+}
+
+async function run(cmd: string[]): Promise<RunResult> {
+  try {
+    const command = new Deno.Command(cmd[0], {
+      args: cmd.slice(1),
+      stdout: "piped",
+      stderr: "piped",
+      env: { NO_COLOR: "1" }, // Disable ANSI colors
+    })
+    const result = await command.output()
+    return {
+      success: result.success,
+      stdout: new TextDecoder().decode(result.stdout).trim(),
+      stderr: new TextDecoder().decode(result.stderr).trim(),
+    }
+  } catch (error) {
+    // Deno.Command throws (e.g. NotFound) when the binary is missing
+    return {
+      success: false,
+      stdout: "",
+      stderr: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 
@@ -54,251 +77,161 @@ function stripVersion(str: string): string {
   return str.replace(/^Version:.*\n?/gm, "").replace(/\n+$/, "")
 }
 
-function parseCommands(helpText: string): string[] {
-  const commands: string[] = []
-  const lines = helpText.split("\n")
-  let inCommands = false
-  let foundAnyCommand = false
+function byName(a: { name: string }, b: { name: string }): number {
+  if (a.name < b.name) return -1
+  if (a.name > b.name) return 1
+  return 0
+}
 
-  for (const line of lines) {
-    if (line.startsWith("Commands:")) {
-      inCommands = true
-      continue
-    }
-    if (inCommands) {
-      // Command lines look like: "  command, alias  - Description"
-      // or: "  command  <arg>  - Description"
-      // Capture command name (stopping at comma or whitespace)
+function lastSegment(name: string): string {
+  return name.split(" ").at(-1) ?? name
+}
+
+function parseCommands(helpText: string): string[] {
+  const lines = helpText.split("\n")
+  const start = lines.findIndex((line) => line.startsWith("Commands:"))
+  if (start === -1) {
+    return []
+  }
+
+  // Command lines look like "  command, alias  - Description". Collect names
+  // until the first blank line after the section starts; blank lines before
+  // the first command are ignored.
+  return lines.slice(start + 1).reduce<{ names: string[]; done: boolean }>(
+    (state, line) => {
+      if (state.done) {
+        return state
+      }
       const match = line.match(/^\s{2}([a-z][-a-z]*)(?:,|\s)/)
       if (match) {
-        commands.push(match[1])
-        foundAnyCommand = true
-      } else if (foundAnyCommand && line.trim() === "") {
-        // Empty line after we've found commands means end of section
-        break
+        return { names: [...state.names, match[1]], done: false }
       }
-      // Skip empty lines before first command (common in help output)
-    }
-  }
-
-  return commands
+      if (state.names.length > 0 && line.trim() === "") {
+        return { names: state.names, done: true }
+      }
+      return state
+    },
+    { names: [], done: false },
+  ).names
 }
 
-async function getCommandHelp(cmdPath: string[]): Promise<string> {
+async function getCommandHelp(cmdPath: string[]): Promise<HelpResult> {
   const result = await run(["linear", ...cmdPath, "--help"])
   if (!result.success) {
-    return result.stderr || "Command help not available"
+    const label = ["linear", ...cmdPath].join(" ")
+    return {
+      help: "",
+      failure: `\`${label} --help\` failed: ${result.stderr || "no output"}`,
+    }
   }
-  return stripVersion(stripAnsi(result.stdout))
+  return { help: stripVersion(stripAnsi(result.stdout)), failure: null }
 }
 
-async function discoverCommand(cmdPath: string[]): Promise<CommandInfo> {
-  const help = await getCommandHelp(cmdPath)
+async function discoverCommand(cmdPath: string[]): Promise<DiscoveryResult> {
+  const { help, failure } = await getCommandHelp(cmdPath)
   const name = cmdPath.join(" ")
 
   // Extract description from help text
   const descMatch = help.match(/Description:\s*\n\s*(.+)/)
   const description = descMatch ? descMatch[1].trim() : ""
 
-  // Find subcommands
+  // Discover subcommands recursively
   const subcommandNames = parseCommands(help)
-  const subcommands: CommandInfo[] = []
+  const childResults = await Promise.all(
+    subcommandNames.map((subcmd) => discoverCommand([...cmdPath, subcmd])),
+  )
 
-  for (const subcmd of subcommandNames) {
-    const subInfo = await discoverCommand([...cmdPath, subcmd])
-    subcommands.push(subInfo)
+  // Sort by name so output order is stable regardless of help order
+  const subcommands = childResults.map((child) => child.command).sort(byName)
+  const failures = [
+    ...(failure ? [failure] : []),
+    ...childResults.flatMap((child) => child.failures),
+  ]
+
+  return {
+    command: { name, description, help, subcommands },
+    failures,
   }
-
-  return { name, description, help, subcommands }
 }
 
-function formatCommandMarkdown(cmd: CommandInfo, depth = 0): string {
-  const lines: string[] = []
-  const cmdName = cmd.name.replace(/^linear /, "")
-  const heading = depth === 0 ? "#" : "##"
+function fencedBlock(content: string): string[] {
+  return ["```", content, "```"]
+}
 
-  lines.push(`${heading} linear ${cmdName}`)
-  lines.push("")
-  lines.push("```")
-  lines.push(cmd.help)
-  lines.push("```")
-  lines.push("")
+function renderSubSubcommand(subsub: CommandInfo): string[] {
+  return [
+    "",
+    `##### ${lastSegment(subsub.name)}`,
+    "",
+    ...fencedBlock(subsub.help),
+  ]
+}
 
-  // Add subcommands as separate sections
-  for (const sub of cmd.subcommands) {
-    lines.push(formatCommandMarkdown(sub, depth + 1))
-  }
+function renderSubcommand(sub: CommandInfo): string[] {
+  const subName = lastSegment(sub.name)
+  const descriptionLines = sub.description ? [`> ${sub.description}`, ""] : []
+  // Handle 3-level deep commands (e.g., issue comment add)
+  const nestedLines = sub.subcommands.length > 0
+    ? [
+      "",
+      `#### ${subName} subcommands`,
+      ...sub.subcommands.flatMap(renderSubSubcommand),
+    ]
+    : []
 
-  return lines.join("\n")
+  return [
+    "",
+    `### ${subName}`,
+    "",
+    ...descriptionLines,
+    ...fencedBlock(sub.help),
+    ...nestedLines,
+  ]
 }
 
 function generateCommandDoc(cmd: CommandInfo): string {
-  const lines: string[] = []
   const cmdName = cmd.name.replace(/^linear /, "")
+  const subcommandLines = cmd.subcommands.length > 0
+    ? ["", "## Subcommands", ...cmd.subcommands.flatMap(renderSubcommand)]
+    : []
 
-  lines.push(`# ${cmdName}`)
-  lines.push("")
-  lines.push(`> ${cmd.description}`)
-  lines.push("")
-  lines.push("## Usage")
-  lines.push("")
-  lines.push("```")
-  lines.push(cmd.help)
-  lines.push("```")
-
-  // Add subcommand details
-  if (cmd.subcommands.length > 0) {
-    lines.push("")
-    lines.push("## Subcommands")
-
-    for (const sub of cmd.subcommands) {
-      const subName = sub.name.split(" ").pop()!
-      lines.push("")
-      lines.push(`### ${subName}`)
-      lines.push("")
-      if (sub.description) {
-        lines.push(`> ${sub.description}`)
-        lines.push("")
-      }
-      lines.push("```")
-      lines.push(sub.help)
-      lines.push("```")
-
-      // Handle 3-level deep commands (e.g., issue comment add)
-      if (sub.subcommands.length > 0) {
-        lines.push("")
-        lines.push(`#### ${subName} subcommands`)
-
-        for (const subsub of sub.subcommands) {
-          const subsubName = subsub.name.split(" ").pop()!
-          lines.push("")
-          lines.push(`##### ${subsubName}`)
-          lines.push("")
-          lines.push("```")
-          lines.push(subsub.help)
-          lines.push("```")
-        }
-      }
-    }
-  }
-
-  return lines.join("\n")
-}
-
-async function main() {
-  console.log("Generating Linear CLI documentation...")
-
-  // Check linear is available
-  const versionResult = await run(["linear", "--version"])
-  if (!versionResult.success) {
-    console.error("Error: linear CLI not found. Is it installed?")
-    Deno.exit(1)
-  }
-  console.log(`Linear CLI: ${stripAnsi(versionResult.stdout)}`)
-
-  // Auto-discover top-level commands from `linear --help`
-  console.log("Discovering commands...")
-  const topLevelHelp = await getCommandHelp([])
-  const topLevelCommands = parseCommands(topLevelHelp).filter(
-    (cmd) => !SKIP_COMMANDS.includes(cmd),
-  )
-  console.log(`Found ${topLevelCommands.length} top-level commands`)
-
-  const commands: CommandInfo[] = []
-
-  for (const cmd of topLevelCommands) {
-    console.log(`  Discovering: ${cmd}`)
-    const info = await discoverCommand([cmd])
-    commands.push(info)
-  }
-
-  // Generate markdown files
-  console.log("Generating markdown files...")
-
-  // Ensure references directory exists
-  await Deno.mkdir(REFERENCES_DIR, { recursive: true })
-
-  // Get list of preserved files to keep
-  const preservedPaths = new Set(
-    PRESERVED_FILES.map((f) => join(REFERENCES_DIR, f)),
-  )
-
-  // Clean up old generated files (but preserve manual files)
-  for await (const entry of Deno.readDir(REFERENCES_DIR)) {
-    const filePath = join(REFERENCES_DIR, entry.name)
-    if (!preservedPaths.has(filePath) && entry.name.endsWith(".md")) {
-      await Deno.remove(filePath)
-    }
-  }
-
-  // Write command documentation
-  for (const cmd of commands) {
-    const filename = `${cmd.name.replace(/^linear /, "")}.md`
-    const filepath = join(REFERENCES_DIR, filename)
-    const content = generateCommandDoc(cmd)
-    await Deno.writeTextFile(filepath, content + "\n")
-    console.log(`  Generated: ${filename}`)
-  }
-
-  // Generate index file
-  const indexContent = generateIndex(commands)
-  await Deno.writeTextFile(join(REFERENCES_DIR, "commands.md"), indexContent)
-  console.log("  Generated: commands.md")
-
-  // Generate SKILL.md from template
-  console.log("Generating SKILL.md from template...")
-  const skillContent = await generateSkillMd(commands)
-  await Deno.writeTextFile(SKILL_MD, skillContent)
-  console.log("  Generated: SKILL.md")
-
-  // Format all generated files
-  console.log("\nFormatting generated files...")
-  const fmtResult = await run([
-    "deno",
-    "fmt",
-    SKILL_DIR,
-  ])
-  if (!fmtResult.success) {
-    console.error("Warning: Failed to format generated files")
-    console.error(fmtResult.stderr)
-  }
-
-  console.log(`\nDone! Generated ${commands.length + 2} files.`)
+  return [
+    `# ${cmdName}`,
+    "",
+    `> ${cmd.description}`,
+    "",
+    "## Usage",
+    "",
+    ...fencedBlock(cmd.help),
+    ...subcommandLines,
+  ].join("\n")
 }
 
 function generateIndex(commands: CommandInfo[]): string {
-  const lines: string[] = []
-
-  lines.push("# Linear CLI Command Reference")
-  lines.push("")
-  lines.push("## Commands")
-  lines.push("")
-
-  for (const cmd of commands) {
+  const commandLines = commands.map((cmd) => {
     const cmdName = cmd.name.replace(/^linear /, "")
-    lines.push(`- [${cmdName}](./${cmdName}.md) - ${cmd.description}`)
-  }
+    return `- [${cmdName}](./${cmdName}.md) - ${cmd.description}`
+  })
 
-  lines.push("")
-  lines.push("## Quick Reference")
-  lines.push("")
-  lines.push("```bash")
-  lines.push("# Get help for any command")
-  lines.push("linear <command> --help")
-  lines.push("linear <command> <subcommand> --help")
-  lines.push("```")
-
-  return lines.join("\n") + "\n"
+  return [
+    "# Linear CLI Command Reference",
+    "",
+    "## Commands",
+    "",
+    ...commandLines,
+    "",
+    "## Quick Reference",
+    "",
+    "```bash",
+    "# Get help for any command",
+    "linear <command> --help",
+    "linear <command> <subcommand> --help",
+    "```",
+  ].join("\n") + "\n"
 }
 
 function flattenCommandPaths(cmd: CommandInfo): string[] {
-  const lines = [`linear ${cmd.name}`]
-
-  for (const sub of cmd.subcommands) {
-    lines.push(...flattenCommandPaths(sub))
-  }
-
-  return lines
+  return [`linear ${cmd.name}`, ...cmd.subcommands.flatMap(flattenCommandPaths)]
 }
 
 function generateCommandsSection(commands: CommandInfo[]): string {
@@ -308,24 +241,113 @@ function generateCommandsSection(commands: CommandInfo[]): string {
 }
 
 function generateReferenceToc(commands: CommandInfo[]): string {
-  const lines: string[] = []
-
-  for (const cmd of commands) {
-    lines.push(
-      `- [${cmd.name}](references/${cmd.name}.md) - ${cmd.description}`,
+  return commands
+    .map((cmd) =>
+      `- [${cmd.name}](references/${cmd.name}.md) - ${cmd.description}`
     )
-  }
-
-  return lines.join("\n")
+    .join("\n")
 }
 
-async function generateSkillMd(
-  commands: CommandInfo[],
-): Promise<string> {
+async function generateSkillMd(commands: CommandInfo[]): Promise<string> {
   const template = await Deno.readTextFile(SKILL_TEMPLATE)
   return template
     .replace("{{COMMANDS}}", generateCommandsSection(commands))
     .replace("{{REFERENCE_TOC}}", generateReferenceToc(commands))
 }
 
-main()
+async function writeReferences(commands: CommandInfo[]): Promise<void> {
+  await Deno.mkdir(REFERENCES_DIR, { recursive: true })
+
+  const generated = new Map<string, string>([
+    ...commands.map((cmd): [string, string] => {
+      const filename = `${cmd.name.replace(/^linear /, "")}.md`
+      return [filename, generateCommandDoc(cmd) + "\n"]
+    }),
+    ["commands.md", generateIndex(commands)],
+  ])
+
+  // Write every generated file before removing anything so a partial failure
+  // cannot leave the references directory gutted.
+  for (const [filename, content] of generated) {
+    await Deno.writeTextFile(join(REFERENCES_DIR, filename), content)
+    console.log(`  Generated: ${filename}`)
+  }
+
+  // Remove stale generated docs: markdown no longer produced and not preserved.
+  const keep = new Set([...generated.keys(), ...PRESERVED_FILES])
+  for await (const entry of Deno.readDir(REFERENCES_DIR)) {
+    if (entry.isFile && entry.name.endsWith(".md") && !keep.has(entry.name)) {
+      await Deno.remove(join(REFERENCES_DIR, entry.name))
+    }
+  }
+}
+
+async function main() {
+  console.log("Generating Linear CLI documentation...")
+
+  // Check linear is available
+  const versionResult = await run(["linear", "--version"])
+  if (!versionResult.success) {
+    throw new Error(
+      `linear CLI not found or failed to run: ${
+        versionResult.stderr || "is it installed?"
+      }`,
+    )
+  }
+  console.log(`Linear CLI: ${stripAnsi(versionResult.stdout)}`)
+
+  // Auto-discover top-level commands from `linear --help`
+  console.log("Discovering commands...")
+  const topLevelHelp = await getCommandHelp([])
+  if (topLevelHelp.failure) {
+    throw new Error(topLevelHelp.failure)
+  }
+  const topLevelNames = parseCommands(topLevelHelp.help).filter(
+    (cmd) => !SKIP_COMMANDS.includes(cmd),
+  )
+  console.log(`Found ${topLevelNames.length} top-level commands`)
+
+  const discovered = await Promise.all(
+    topLevelNames.map((cmd) => discoverCommand([cmd])),
+  )
+
+  // Abort before writing if any help fetch failed, so broken output is never
+  // committed to the docs.
+  const failures = discovered.flatMap((result) => result.failures)
+  if (failures.length > 0) {
+    throw new Error(
+      `Aborting: ${failures.length} command help fetch(es) failed:\n${
+        failures.join("\n")
+      }`,
+    )
+  }
+
+  const commands = discovered.map((result) => result.command).sort(byName)
+
+  // Generate markdown files
+  console.log("Generating markdown files...")
+  await writeReferences(commands)
+
+  // Generate SKILL.md from template
+  console.log("Generating SKILL.md from template...")
+  const skillContent = await generateSkillMd(commands)
+  await Deno.writeTextFile(SKILL_MD, skillContent)
+  console.log("  Generated: SKILL.md")
+
+  // Format all generated files
+  console.log("\nFormatting generated files...")
+  const fmtResult = await run(["deno", "fmt", SKILL_DIR])
+  if (!fmtResult.success) {
+    console.error("Warning: Failed to format generated files")
+    console.error(fmtResult.stderr)
+  }
+
+  console.log(`\nDone! Generated ${commands.length + 2} files.`)
+}
+
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error(error)
+    Deno.exit(1)
+  })
+}

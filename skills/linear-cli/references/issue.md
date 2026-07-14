@@ -40,315 +40,81 @@ Commands:
 
 ## Subcommands
 
-### id
+### agent-session
 
-> Print the issue based on the current git branch
+> Manage agent sessions for an issue
 
 ```
-Usage:   linear issue id
+Usage:   linear issue agent-session
 
 Description:
 
-  Print the issue based on the current git branch
+  Manage agent sessions for an issue
 
 Options:
 
   -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+  --workspace  <slug>  - Target workspace (uses credentials)  
+
+Commands:
+
+  list     [issueId]    - List agent sessions for an issue
+  view, v  <sessionId>  - View agent session details
 ```
 
-### mine
+#### agent-session subcommands
 
-> List your issues
+##### list
 
 ```
-Usage:   linear issue mine
+Usage:   linear issue agent-session list [issueId]
 
 Description:
 
-  List your issues
+  List agent sessions for an issue
 
 Options:
 
-  -h, --help                       - Show this help.                                                                                                                       
-  --workspace      <slug>          - Target workspace (uses credentials)                                                                                                   
-  -s, --state      <state>         - Filter by issue state (can be repeated for multiple states)                    (Default: [ "unstarted" ], Values: "triage", "backlog",
-                                                                                                                    "unstarted", "started", "completed", "canceled")       
-  --all-states                     - Show issues from all states                                                                                                           
-  --sort           <sort>          - Sort order (can also be set via LINEAR_ISSUE_SORT)                             (Values: "manual", "priority")                         
-  --team           <team>          - Team to list issues for (if not your default team)                                                                                    
-  --project        <project>       - Filter by project name                                                                                                                
-  --project-label  <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                         
-  --cycle          <cycle>         - Filter by cycle name, number, or 'active'                                                                                             
-  --milestone      <milestone>     - Filter by project milestone name (requires --project)                                                                                 
-  -l, --label      <label>         - Filter by label name (can be repeated for multiple labels)                                                                            
-  --limit          <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)           (Default: 50)                                          
-  --created-after  <date>          - Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                                        
-  --updated-after  <date>          - Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                                        
-  -w, --web                        - Open in web browser                                                                                                                   
-  -a, --app                        - Open in Linear.app                                                                                                                    
-  --no-pager                       - Disable automatic paging for long output
+  -h, --help             - Show this help.                                                                                                  
+  --workspace  <slug>    - Target workspace (uses credentials)                                                                              
+  -j, --json             - Output as JSON                                                                                                   
+  --status     <status>  - Filter by session status             (Values: "pending", "active", "complete", "awaitingInput", "error", "stale")
 ```
 
-### query
-
-> Query issues with structured filters
+##### view
 
 ```
-Usage:   linear issue query
+Usage:   linear issue agent-session view <sessionId>
 
 Description:
 
-  Query issues with structured filters
-
-Options:
-
-  -h, --help                           - Show this help.                                                                                                                       
-  --workspace          <slug>          - Target workspace (uses credentials)                                                                                                   
-  --search             <term>          - Full-text search term                                                                                                                 
-  --search-comments                    - Also search inside issue comments (requires --search)                                                                                 
-  --team               <team>          - Filter by team key (can be repeated for multiple teams)                                                                               
-  --all-teams                          - Query across all teams                                                                                                                
-  -s, --state          <state>         - Filter by issue state (can be repeated for multiple states)                      (Values: "triage", "backlog", "unstarted", "started",
-                                                                                                                          "completed", "canceled")                             
-  --all-states                         - Show issues from all states (this is the default)                                                                                     
-  --assignee           <assignee>      - Filter by assignee (username)                                                                                                         
-  -A, --all-assignees                  - Show issues for all assignees (this is the default)                                                                                   
-  -U, --unassigned                     - Show only unassigned issues                                                                                                           
-  --sort               <sort>          - Sort order: manual or priority (default: priority, not available with --search)  (Values: "manual", "priority")                       
-  --project            <project>       - Filter by project name                                                                                                                
-  --project-label      <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                         
-  --cycle              <cycle>         - Filter by cycle name, number, or 'active'                                                                                             
-  --milestone          <milestone>     - Filter by project milestone name (requires --project)                                                                                 
-  -l, --label          <label>         - Filter by label name (can be repeated for multiple labels)                                                                            
-  --limit              <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)             (Default: 50)                                        
-  --created-after      <date>          - Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                                        
-  --updated-after      <date>          - Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                                        
-  --include-archived                   - Include archived issues                                                                                                               
-  -j, --json                           - Output results as JSON                                                                                                                
-  --no-pager                           - Disable automatic paging for long output
-```
-
-### title
-
-> Print the issue title
-
-```
-Usage:   linear issue title [issueId]
-
-Description:
-
-  Print the issue title
+  View agent session details
 
 Options:
 
   -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json           - Output as JSON
 ```
 
-### start
+### attach
 
-> Start working on an issue
+> Attach a file to an issue
 
 ```
-Usage:   linear issue start [issueId]
+Usage:   linear issue attach <issueId> <filepath>
 
 Description:
 
-  Start working on an issue
+  Attach a file to an issue
 
 Options:
 
-  -h, --help                      - Show this help.                                            
-  --workspace          <slug>     - Target workspace (uses credentials)                        
-  -A, --all-assignees             - Show issues for all assignees                              
-  -U, --unassigned                - Show only unassigned issues                                
-  -f, --from-ref       <fromRef>  - Git ref to create new branch from                          
-  -b, --branch         <branch>   - Custom branch name to use instead of the issue identifier
-```
-
-### view
-
-> View issue details (default) or open in browser/app
-
-```
-Usage:   linear issue view [issueId]
-
-Description:
-
-  View issue details (default) or open in browser/app
-
-Options:
-
-  -h, --help                       - Show this help.                                 
-  --workspace              <slug>  - Target workspace (uses credentials)             
-  -w, --web                        - Open in web browser                             
-  -a, --app                        - Open in Linear.app                              
-  --no-comments                    - Exclude comments from the output                
-  --show-resolved-threads          - Include resolved comment threads in the output  
-  --no-pager                       - Disable automatic paging for long output        
-  -j, --json                       - Output issue data as JSON                       
-  --no-download                    - Keep remote URLs instead of downloading files
-```
-
-### url
-
-> Print the issue URL
-
-```
-Usage:   linear issue url [issueId]
-
-Description:
-
-  Print the issue URL
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
-```
-
-### describe
-
-> Print the issue title and Linear-issue trailer
-
-```
-Usage:   linear issue describe [issueId]
-
-Description:
-
-  Print the issue title and Linear-issue trailer
-
-Options:
-
-  -h, --help                       - Show this help.                                                
-  --workspace              <slug>  - Target workspace (uses credentials)                            
-  -r, --references, --ref          - Use 'References' instead of 'Fixes' for the Linear issue link
-```
-
-### commits
-
-> Show all commits for a Linear issue (jj only)
-
-```
-Usage:   linear issue commits [issueId]
-
-Description:
-
-  Show all commits for a Linear issue (jj only)
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
-```
-
-### pull-request
-
-> Create a GitHub pull request with issue details
-
-```
-Usage:   linear issue pull-request [issueId]
-
-Description:
-
-  Create a GitHub pull request with issue details
-
-Options:
-
-  -h, --help             - Show this help.                                                         
-  --workspace  <slug>    - Target workspace (uses credentials)                                     
-  --base       <branch>  - The branch into which you want your code merged                         
-  --draft                - Create the pull request as a draft                                      
-  -t, --title  <title>   - Optional title for the pull request (Linear issue ID will be prefixed)  
-  --web                  - Open the pull request in the browser after creating it                  
-  --head       <branch>  - The branch that contains commits for your pull request
-```
-
-### delete
-
-> Delete an issue
-
-```
-Usage:   linear issue delete [issueId]
-
-Description:
-
-  Delete an issue
-
-Options:
-
-  -h, --help               - Show this help.                                             
-  --workspace    <slug>    - Target workspace (uses credentials)                         
-  -y, --confirm            - Skip confirmation prompt                                    
-  --bulk         <ids...>  - Delete multiple issues by identifier (e.g., TC-123 TC-124)  
-  --bulk-file    <file>    - Read issue identifiers from a file (one per line)           
-  --bulk-stdin             - Read issue identifiers from stdin
-```
-
-### create
-
-> Create a linear issue
-
-```
-Usage:   linear issue create
-
-Description:
-
-  Create a linear issue
-
-Options:
-
-  -h, --help                                - Show this help.                                                
-  --workspace                <slug>         - Target workspace (uses credentials)                            
-  --start                                   - Start the issue after creation                                 
-  -a, --assignee             <assignee>     - Assign the issue to 'self' or someone (by username or name)    
-  --due-date                 <dueDate>      - Due date of the issue                                          
-  --parent                   <parent>       - Parent issue (if any) as a team_number code                    
-  -p, --priority             <priority>     - Priority of the issue (1-4, descending priority)               
-  --estimate                 <estimate>     - Points estimate of the issue                                   
-  -d, --description          <description>  - Description of the issue                                       
-  --description-file         <path>         - Read description from a file (preferred for markdown content)  
-  -l, --label                <label>        - Issue label associated with the issue. May be repeated.        
-  --team                     <team>         - Team associated with the issue (if not your default team)      
-  --project                  <project>      - Name or slug ID of the project with the issue                  
-  -s, --state                <state>        - Workflow state for the issue (by name or type)                 
-  --milestone                <milestone>    - Name of the project milestone                                  
-  --cycle                    <cycle>        - Cycle name, number, or 'active'                                
-  --no-use-default-template                 - Do not use default template for the issue                      
-  --no-interactive                          - Disable interactive prompts                                    
-  -t, --title                <title>        - Title of the issue
-```
-
-### update
-
-> Update a linear issue
-
-```
-Usage:   linear issue update [issueId]
-
-Description:
-
-  Update a linear issue
-
-Options:
-
-  -h, --help                         - Show this help.                                                
-  --workspace         <slug>         - Target workspace (uses credentials)                            
-  -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)    
-  --due-date          <dueDate>      - Due date of the issue                                          
-  --parent            <parent>       - Parent issue (if any) as a team_number code                    
-  -p, --priority      <priority>     - Priority of the issue (1-4, descending priority)               
-  --estimate          <estimate>     - Points estimate of the issue                                   
-  -d, --description   <description>  - Description of the issue                                       
-  --description-file  <path>         - Read description from a file (preferred for markdown content)  
-  -l, --label         <label>        - Issue label associated with the issue. May be repeated.        
-  --team              <team>         - Team associated with the issue (if not your default team)      
-  --project           <project>      - Name or slug ID of the project with the issue                  
-  -s, --state         <state>        - Workflow state for the issue (by name or type)                 
-  --milestone         <milestone>    - Name of the project milestone                                  
-  --cycle             <cycle>        - Cycle name, number, or 'active'                                
-  -t, --title         <title>        - Title of the issue
+  -h, --help              - Show this help.                                                                            
+  --workspace    <slug>   - Target workspace (uses credentials)                                                        
+  -t, --title    <title>  - Custom title for the attachment                                                            
+  -c, --comment  <body>   - Add a comment body linked to the attachment                                                
+  --public                - Upload images to a public, unauthenticated URL (default: private, workspace-members only)
 ```
 
 ### comment
@@ -388,14 +154,13 @@ Description:
 
 Options:
 
-  -h, --help                - Show this help.                                                             
-  --workspace   <slug>      - Target workspace (uses credentials)                                         
-  -b, --body    <text>      - Comment body text                                                           
-  --body-file   <path>      - Read comment body from a file (preferred for markdown content)              
-  -p, --parent  <id>        - Parent comment ID for replies                                               
-  -a, --attach  <filepath>  - Attach a file to the comment (can be used multiple times)                   
-  --public                  - Upload attached images to a public, unauthenticated URL (default: private,  
-                              workspace-members only)
+  -h, --help                - Show this help.                                                                                     
+  --workspace   <slug>      - Target workspace (uses credentials)                                                                 
+  -b, --body    <text>      - Comment body text                                                                                   
+  --body-file   <path>      - Read comment body from a file (preferred for markdown content)                                      
+  -p, --parent  <id>        - Parent comment ID for replies                                                                       
+  -a, --attach  <filepath>  - Attach a file to the comment (can be used multiple times)                                           
+  --public                  - Upload attached images to a public, unauthenticated URL (default: private, workspace-members only)
 ```
 
 ##### delete
@@ -411,6 +176,22 @@ Options:
 
   -h, --help           - Show this help.                      
   --workspace  <slug>  - Target workspace (uses credentials)
+```
+
+##### list
+
+```
+Usage:   linear issue comment list [issueId]
+
+Description:
+
+  List comments for an issue
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json           - Output as JSON
 ```
 
 ##### update
@@ -430,41 +211,111 @@ Options:
   --body-file  <path>  - Read comment body from a file (preferred for markdown content)
 ```
 
-##### list
+### commits
+
+> Show all commits for a Linear issue (jj only)
 
 ```
-Usage:   linear issue comment list [issueId]
+Usage:   linear issue commits [issueId]
 
 Description:
 
-  List comments for an issue
+  Show all commits for a Linear issue (jj only)
 
 Options:
 
   -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -j, --json           - Output as JSON
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
-### attach
+### create
 
-> Attach a file to an issue
+> Create a linear issue
 
 ```
-Usage:   linear issue attach <issueId> <filepath>
+Usage:   linear issue create
 
 Description:
 
-  Attach a file to an issue
+  Create a linear issue
 
 Options:
 
-  -h, --help              - Show this help.                                                    
-  --workspace    <slug>   - Target workspace (uses credentials)                                
-  -t, --title    <title>  - Custom title for the attachment                                    
-  -c, --comment  <body>   - Add a comment body linked to the attachment                        
-  --public                - Upload images to a public, unauthenticated URL (default: private,  
-                            workspace-members only)
+  -h, --help                                - Show this help.                                                
+  --workspace                <slug>         - Target workspace (uses credentials)                            
+  --start                                   - Start the issue after creation                                 
+  -a, --assignee             <assignee>     - Assign the issue to 'self' or someone (by username or name)    
+  --due-date                 <dueDate>      - Due date of the issue                                          
+  --parent                   <parent>       - Parent issue (if any) as a team_number code                    
+  -p, --priority             <priority>     - Priority of the issue (1-4, descending priority)               
+  --estimate                 <estimate>     - Points estimate of the issue                                   
+  -d, --description          <description>  - Description of the issue                                       
+  --description-file         <path>         - Read description from a file (preferred for markdown content)  
+  -l, --label                <label>        - Issue label associated with the issue. May be repeated.        
+  --team                     <team>         - Team associated with the issue (if not your default team)      
+  --project                  <project>      - Project for the issue (UUID, slug ID, or name)                 
+  -s, --state                <state>        - Workflow state for the issue (by name or type)                 
+  --milestone                <milestone>    - Project milestone (UUID, or name when --project is set)        
+  --cycle                    <cycle>        - Cycle name, number, or 'active'                                
+  --no-use-default-template                 - Do not use default template for the issue                      
+  --no-interactive                          - Disable interactive prompts                                    
+  -t, --title                <title>        - Title of the issue
+```
+
+### delete
+
+> Delete an issue
+
+```
+Usage:   linear issue delete [issueId]
+
+Description:
+
+  Delete an issue
+
+Options:
+
+  -h, --help               - Show this help.                                             
+  --workspace    <slug>    - Target workspace (uses credentials)                         
+  -y, --confirm            - Skip confirmation prompt                                    
+  --bulk         <ids...>  - Delete multiple issues by identifier (e.g., TC-123 TC-124)  
+  --bulk-file    <file>    - Read issue identifiers from a file (one per line)           
+  --bulk-stdin             - Read issue identifiers from stdin
+```
+
+### describe
+
+> Print the issue title and Linear-issue trailer
+
+```
+Usage:   linear issue describe [issueId]
+
+Description:
+
+  Print the issue title and Linear-issue trailer
+
+Options:
+
+  -h, --help                       - Show this help.                                                
+  --workspace              <slug>  - Target workspace (uses credentials)                            
+  -r, --references, --ref          - Use 'References' instead of 'Fixes' for the Linear issue link
+```
+
+### id
+
+> Print the issue based on the current git branch
+
+```
+Usage:   linear issue id
+
+Description:
+
+  Print the issue based on the current git branch
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
 ### link
@@ -489,6 +340,116 @@ Examples:
   Link a URL to issue detected from branch linear issue link https://github.com/org/repo/pull/123            
   Link a URL to a specific issue           linear issue link ENG-123 https://github.com/org/repo/pull/123    
   Link with a custom title                 linear issue link ENG-123 https://example.com --title "Design doc"
+```
+
+### mine
+
+> List your issues
+
+```
+Usage:   linear issue mine
+
+Description:
+
+  List your issues
+
+Options:
+
+  -h, --help                       - Show this help.                                                                                                 
+  --workspace      <slug>          - Target workspace (uses credentials)                                                                             
+  -s, --state      <state>         - Filter by issue state (can be repeated for       (Default: [ "unstarted" ], Values: "triage", "backlog",        
+                                     multiple states)                                 "unstarted", "started", "completed", "canceled")               
+  --all-states                     - Show issues from all states                                                                                     
+  --sort           <sort>          - Sort order (can also be set via                  (Values: "manual", "priority")                                 
+                                     LINEAR_ISSUE_SORT)                                                                                              
+  --team           <team>          - Team to list issues for (if not your default                                                                    
+                                     team)                                                                                                           
+  --project        <project>       - Filter by project (UUID, slug ID, or name)                                                                      
+  --project-label  <projectLabel>  - Filter by project label name (shows issues from                                                                 
+                                     all projects with this label)                                                                                   
+  --cycle          <cycle>         - Filter by cycle name, number, or 'active'                                                                       
+  --milestone      <milestone>     - Filter by project milestone (UUID, or name when                                                                 
+                                     --project is set)                                                                                               
+  -l, --label      <label>         - Filter by label name (can be repeated for                                                                       
+                                     multiple labels)                                                                                                
+  --limit          <limit>         - Maximum number of issues to fetch (default: 50,  (Default: 50)                                                  
+                                     use 0 for unlimited)                                                                                            
+  --created-after  <date>          - Filter issues created after this date (ISO 8601                                                                 
+                                     or YYYY-MM-DD)                                                                                                  
+  --updated-after  <date>          - Filter issues updated after this date (ISO 8601                                                                 
+                                     or YYYY-MM-DD)                                                                                                  
+  -w, --web                        - Open in web browser                                                                                             
+  -a, --app                        - Open in Linear.app                                                                                              
+  --no-pager                       - Disable automatic paging for long output
+```
+
+### pull-request
+
+> Create a GitHub pull request with issue details
+
+```
+Usage:   linear issue pull-request [issueId]
+
+Description:
+
+  Create a GitHub pull request with issue details
+
+Options:
+
+  -h, --help             - Show this help.                                                         
+  --workspace  <slug>    - Target workspace (uses credentials)                                     
+  --base       <branch>  - The branch into which you want your code merged                         
+  --draft                - Create the pull request as a draft                                      
+  -t, --title  <title>   - Optional title for the pull request (Linear issue ID will be prefixed)  
+  --web                  - Open the pull request in the browser after creating it                  
+  --head       <branch>  - The branch that contains commits for your pull request
+```
+
+### query
+
+> Query issues with structured filters
+
+```
+Usage:   linear issue query
+
+Description:
+
+  Query issues with structured filters
+
+Options:
+
+  -h, --help                           - Show this help.                                                                                             
+  --workspace          <slug>          - Target workspace (uses credentials)                                                                         
+  --search             <term>          - Full-text search term                                                                                       
+  --search-comments                    - Also search inside issue comments (requires --search)                                                       
+  --team               <team>          - Filter by team key (can be repeated for multiple                                                            
+                                         teams)                                                                                                      
+  --all-teams                          - Query across all teams                                                                                      
+  -s, --state          <state>         - Filter by issue state (can be repeated for multiple    (Values: "triage", "backlog", "unstarted", "started",
+                                         states)                                                "completed", "canceled")                             
+  --all-states                         - Show issues from all states (this is the default)                                                           
+  --assignee           <assignee>      - Filter by assignee (username)                                                                               
+  -A, --all-assignees                  - Show issues for all assignees (this is the default)                                                         
+  -U, --unassigned                     - Show only unassigned issues                                                                                 
+  --sort               <sort>          - Sort order: manual or priority (default: priority,     (Values: "manual", "priority")                       
+                                         not available with --search)                                                                                
+  --project            <project>       - Filter by project (UUID, slug ID, or name)                                                                  
+  --project-label      <projectLabel>  - Filter by project label name (shows issues from all                                                         
+                                         projects with this label)                                                                                   
+  --cycle              <cycle>         - Filter by cycle name, number, or 'active'                                                                   
+  --milestone          <milestone>     - Filter by project milestone (UUID, or name when                                                             
+                                         --project is set)                                                                                           
+  -l, --label          <label>         - Filter by label name (can be repeated for multiple                                                          
+                                         labels)                                                                                                     
+  --limit              <limit>         - Maximum number of issues to fetch (default: 50, use 0  (Default: 50)                                        
+                                         for unlimited)                                                                                              
+  --created-after      <date>          - Filter issues created after this date (ISO 8601 or                                                          
+                                         YYYY-MM-DD)                                                                                                 
+  --updated-after      <date>          - Filter issues updated after this date (ISO 8601 or                                                          
+                                         YYYY-MM-DD)                                                                                                 
+  --include-archived                   - Include archived issues                                                                                     
+  -j, --json                           - Output results as JSON                                                                                      
+  --no-pager                           - Disable automatic paging for long output
 ```
 
 ### relation
@@ -568,60 +529,112 @@ Options:
   --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
-### agent-session
+### start
 
-> Manage agent sessions for an issue
+> Start working on an issue
 
 ```
-Usage:   linear issue agent-session
+Usage:   linear issue start [issueId]
 
 Description:
 
-  Manage agent sessions for an issue
+  Start working on an issue
+
+Options:
+
+  -h, --help                      - Show this help.                                            
+  --workspace          <slug>     - Target workspace (uses credentials)                        
+  -A, --all-assignees             - Show issues for all assignees                              
+  -U, --unassigned                - Show only unassigned issues                                
+  -f, --from-ref       <fromRef>  - Git ref to create new branch from                          
+  -b, --branch         <branch>   - Custom branch name to use instead of the issue identifier
+```
+
+### title
+
+> Print the issue title
+
+```
+Usage:   linear issue title [issueId]
+
+Description:
+
+  Print the issue title
 
 Options:
 
   -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-
-Commands:
-
-  list     [issueId]    - List agent sessions for an issue
-  view, v  <sessionId>  - View agent session details
+  --workspace  <slug>  - Target workspace (uses credentials)
 ```
 
-#### agent-session subcommands
+### update
 
-##### list
+> Update a linear issue
 
 ```
-Usage:   linear issue agent-session list [issueId]
+Usage:   linear issue update [issueId]
 
 Description:
 
-  List agent sessions for an issue
+  Update a linear issue
 
 Options:
 
-  -h, --help             - Show this help.                                                                                
-  --workspace  <slug>    - Target workspace (uses credentials)                                                            
-  -j, --json             - Output as JSON                                                                                 
-  --status     <status>  - Filter by session status             (Values: "pending", "active", "complete", "awaitingInput",
-                                                                "error", "stale")
+  -h, --help                         - Show this help.                                                                             
+  --workspace         <slug>         - Target workspace (uses credentials)                                                         
+  -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)                                 
+  --due-date          <dueDate>      - Due date of the issue                                                                       
+  --parent            <parent>       - Parent issue (if any) as a team_number code                                                 
+  -p, --priority      <priority>     - Priority of the issue (1-4, descending priority)                                            
+  --estimate          <estimate>     - Points estimate of the issue                                                                
+  -d, --description   <description>  - Description of the issue                                                                    
+  --description-file  <path>         - Read description from a file (preferred for markdown content)                               
+  -l, --label         <label>        - Issue label associated with the issue. May be repeated.                                     
+  --team              <team>         - Team associated with the issue (if not your default team)                                   
+  --project           <project>      - Project to assign the issue to (UUID, slug ID, or name)                                     
+  -s, --state         <state>        - Workflow state for the issue (by name or type)                                              
+  --milestone         <milestone>    - Project milestone (UUID, or name when --project is set or the issue already has a project)  
+  --cycle             <cycle>        - Cycle name, number, or 'active'                                                             
+  -t, --title         <title>        - Title of the issue
 ```
 
-##### view
+### url
+
+> Print the issue URL
 
 ```
-Usage:   linear issue agent-session view <sessionId>
+Usage:   linear issue url [issueId]
 
 Description:
 
-  View agent session details
+  Print the issue URL
 
 Options:
 
   -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -j, --json           - Output as JSON
+  --workspace  <slug>  - Target workspace (uses credentials)
+```
+
+### view
+
+> View issue details (default) or open in browser/app
+
+```
+Usage:   linear issue view [issueId]
+
+Description:
+
+  View issue details (default) or open in browser/app
+
+Options:
+
+  -h, --help                       - Show this help.                                 
+  --workspace              <slug>  - Target workspace (uses credentials)             
+  -w, --web                        - Open in web browser                             
+  -a, --app                        - Open in Linear.app                              
+  --no-comments                    - Exclude comments from the output                
+  --show-resolved-threads          - Include resolved comment threads in the output  
+  --no-pager                       - Disable automatic paging for long output        
+  -j, --json                       - Output issue data as JSON                       
+  --no-download                    - Keep remote URLs instead of downloading files
 ```

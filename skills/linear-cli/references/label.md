@@ -25,26 +25,6 @@ Commands:
 
 ## Subcommands
 
-### list
-
-> List issue labels
-
-```
-Usage:   linear label list
-
-Description:
-
-  List issue labels
-
-Options:
-
-  -h, --help              - Show this help.                                              
-  --team       <teamKey>  - Filter by team (e.g., TC). Shows team-specific labels only.  
-  --workspace             - Show only workspace-level labels (not team-specific)         
-  --all                   - Show all labels (both workspace and team)                    
-  -j, --json              - Output as JSON
-```
-
 ### create
 
 > Create a new issue label
@@ -84,4 +64,24 @@ Options:
   --workspace  <slug>     - Target workspace (uses credentials)             
   -t, --team   <teamKey>  - Team key to disambiguate labels with same name  
   -f, --force             - Skip confirmation prompt
+```
+
+### list
+
+> List issue labels
+
+```
+Usage:   linear label list
+
+Description:
+
+  List issue labels
+
+Options:
+
+  -h, --help              - Show this help.                                              
+  --team       <teamKey>  - Filter by team (e.g., TC). Shows team-specific labels only.  
+  --workspace             - Show only workspace-level labels (not team-specific)         
+  --all                   - Show all labels (both workspace and team)                    
+  -j, --json              - Output as JSON
 ```
