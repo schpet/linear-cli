@@ -6,6 +6,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import type { GraphQLClient } from "graphql-request"
 import {
   getAllTeams,
+  getProjectLabelIdByName,
   getTeamIdByKey,
   getTeamKey,
   lookupUserId,
@@ -52,17 +53,6 @@ const AddProjectToInitiative = gql(`
   mutation AddProjectToInitiativeForCreate($input: InitiativeToProjectCreateInput!) {
     initiativeToProjectCreate(input: $input) {
       success
-    }
-  }
-`)
-
-const GetProjectLabelIdByName = gql(`
-  query GetProjectLabelIdByNameForCreate($name: String!) {
-    projectLabels(filter: { name: { eqIgnoreCase: $name } }) {
-      nodes {
-        id
-        name
-      }
     }
   }
 `)
@@ -166,14 +156,6 @@ export async function resolveProjectContent(
       }`,
     })
   }
-}
-
-async function lookupProjectLabelId(
-  client: GraphQLClient,
-  label: string,
-): Promise<string | undefined> {
-  const result = await client.request(GetProjectLabelIdByName, { name: label })
-  return result.projectLabels?.nodes[0]?.id
 }
 
 export const createCommand = new Command()
@@ -459,7 +441,7 @@ export const createCommand = new Command()
 
         const labelIds: string[] = []
         for (const label of labels) {
-          const labelId = await lookupProjectLabelId(client, label)
+          const labelId = await getProjectLabelIdByName(label)
           if (!labelId) {
             throw new NotFoundError("Project label", label)
           }

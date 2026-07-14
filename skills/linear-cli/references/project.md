@@ -125,7 +125,8 @@ Options:
   -l, --lead              <lead>         - Project lead (username, email, or @me)                                             
   --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                            
   --target-date           <targetDate>   - Target date (YYYY-MM-DD)                                                           
-  -t, --team              <team>         - Team key (can be repeated for multiple teams)
+  -t, --team              <team>         - Team key (can be repeated for multiple teams)                                      
+  --label                 <label>        - Replace the project's labels. May be repeated to set multiple labels.
 ```
 
 ### view
