@@ -1460,6 +1460,26 @@ export async function getIssueLabelIdByNameForTeam(
   return data.issueLabels?.nodes[0]?.id
 }
 
+export async function getProjectLabelIdByName(
+  name: string,
+): Promise<string | undefined> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetProjectLabelIdByName($name: String!) {
+      projectLabels(
+        filter: { name: { eqIgnoreCase: $name }, isGroup: { eq: false } }
+      ) {
+        nodes {
+          id
+          name
+        }
+      }
+    }
+  `)
+  const data = await client.request(query, { name })
+  return data.projectLabels?.nodes[0]?.id
+}
+
 export async function getIssueLabelOptionsByNameForTeam(
   name: string,
   teamKey: string,
