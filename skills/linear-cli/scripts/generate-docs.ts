@@ -324,13 +324,15 @@ async function main() {
 
   const commands = discovered.map((result) => result.command).sort(byName)
 
+  // Render SKILL.md from its template before writing anything, so a missing or
+  // broken template aborts before writeReferences prunes any stale docs.
+  console.log("Generating SKILL.md from template...")
+  const skillContent = await generateSkillMd(commands)
+
   // Generate markdown files
   console.log("Generating markdown files...")
   await writeReferences(commands)
 
-  // Generate SKILL.md from template
-  console.log("Generating SKILL.md from template...")
-  const skillContent = await generateSkillMd(commands)
   await Deno.writeTextFile(SKILL_MD, skillContent)
   console.log("  Generated: SKILL.md")
 
@@ -338,16 +340,23 @@ async function main() {
   console.log("\nFormatting generated files...")
   const fmtResult = await run(["deno", "fmt", SKILL_DIR])
   if (!fmtResult.success) {
-    console.error("Warning: Failed to format generated files")
-    console.error(fmtResult.stderr)
+    // Fail hard: unformatted docs would break `deno fmt --check` in CI once committed.
+    throw new Error(
+      `Failed to format generated files: ${
+        fmtResult.stderr || "unknown error"
+      }`,
+    )
   }
 
   console.log(`\nDone! Generated ${commands.length + 2} files.`)
 }
 
 if (import.meta.main) {
-  main().catch((error) => {
-    console.error(error)
+  main().catch((error: unknown) => {
+    // Print a concise message, not a raw stack trace, on any abort path.
+    console.error(
+      `Error: ${error instanceof Error ? error.message : String(error)}`,
+    )
     Deno.exit(1)
   })
 }
