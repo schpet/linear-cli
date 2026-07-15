@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-07-15
+
+### Fixed
+
+- stop treating linux keyring failures as a missing password, and preserve secrets verbatim instead of trimming secret-tool output ([#244](https://github.com/schpet/linear-cli/pull/244); thanks @mezuzza)
+
 ## [2.1.0] - 2026-07-14
 
 ### Security
@@ -465,7 +471,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/schpet/linear-cli/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/schpet/linear-cli/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/schpet/linear-cli/compare/v1.11.1...v2.0.0
 [1.11.1]: https://github.com/schpet/linear-cli/compare/v1.11.0...v1.11.1
