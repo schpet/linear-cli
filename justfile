@@ -20,8 +20,9 @@ tag:
 
     @echo "released v$(svbump read version deno.json)"
 
-# depends on `cargo install --git https://github.com/astral-sh/cargo-dist.git --tag v0.28.3 cargo-dist`
-# cargo-dist - needed to update .github/workflows/release.yml
+# regenerates .github/workflows/release.yml. needs the `dist` version pinned by
+# cargo-dist-version in dist-workspace.toml, or it rewrites that pin to whatever
+# version you ran: mise use -g "ubi:axodotdev/cargo-dist[exe=dist]@0.31.0"
 dist-generate:
   dist generate
 
