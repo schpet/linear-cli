@@ -45,40 +45,23 @@ async function secretTool(
   return {
     success: result.success,
     code: result.code,
-    stdout: new TextDecoder().decode(result.stdout).trim(),
+    // secret-tool writes the stored secret verbatim when stdout is piped. It
+    // only appends a newline when writing to a terminal.
+    stdout: new TextDecoder().decode(result.stdout),
     stderr: new TextDecoder().decode(result.stderr).trim(),
   }
 }
 
 export const linuxBackend: KeyringBackend = {
   async isAvailable() {
-    // Probe the keyring with a lookup that's expected to miss. We can't
-    // gate on `secret-tool --version` — that flag has never existed in
-    // libsecret, so the probe always fails and we'd report "no keyring"
-    // even on systems where the keyring works fine.
-    let probe
     try {
-      probe = await secretTool([
-        "lookup",
-        "service",
-        SERVICE,
-        "account",
-        "__linear_cli_probe__",
-      ])
+      // With no arguments secret-tool exits 2 after printing usage. A
+      // completed process is enough to prove the executable is on PATH.
+      await secretTool([])
+      return true
     } catch {
-      // secret-tool binary missing (libsecret-tools not installed).
       return false
     }
-
-    // libsecret-tools installed, but no Secret Service is registered on
-    // the session bus (e.g. headless Linux without gnome-keyring-daemon).
-    if (probe.stderr.includes("was not provided by any .service files")) {
-      return false
-    }
-
-    // Either the probe key happens to exist (success) or the lookup
-    // ran cleanly and just didn't find anything (exit 1, empty stderr).
-    return probe.success || (probe.code === 1 && probe.stderr === "")
   },
 
   async get(account) {
@@ -90,8 +73,9 @@ export const linuxBackend: KeyringBackend = {
       account,
     ])
     if (!result.success) {
-      // secret-tool lookup returns exit 1 when no matching items are found
-      if (result.code === 1) return null
+      // secret-tool returns exit 1 both when no items match and when the
+      // lookup fails. Operational failures write to stderr; a miss does not.
+      if (result.code === 1 && result.stderr === "") return null
       throw new Error(
         `secret-tool lookup failed (exit ${result.code}): ${result.stderr}`,
       )
@@ -129,8 +113,7 @@ export const linuxBackend: KeyringBackend = {
       "account",
       account,
     ])
-    // secret-tool clear returns exit 1 when no matching items are found
-    if (!result.success && result.code !== 1) {
+    if (!result.success) {
       throw new Error(
         `secret-tool clear failed (exit ${result.code}): ${result.stderr}`,
       )
