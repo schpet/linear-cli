@@ -1,7 +1,8 @@
-import { assertEquals } from "@std/assert"
+import { assertEquals, assertRejects } from "@std/assert"
 import {
   deletePassword,
   getPassword,
+  isAvailable,
   setPassword,
 } from "../src/keyring/index.ts"
 
@@ -63,6 +64,45 @@ Deno.test({
 
       await deletePassword(TEST_ACCOUNT)
       assertEquals(await getPassword(TEST_ACCOUNT), null)
+
+      if (Deno.build.os === "linux") {
+        const dbusAddress = Deno.env.get("DBUS_SESSION_BUS_ADDRESS")
+        Deno.env.set(
+          "DBUS_SESSION_BUS_ADDRESS",
+          `unix:path=/tmp/linear-cli-missing-dbus-${Date.now()}`,
+        )
+        try {
+          assertEquals(await isAvailable(), true)
+          await assertRejects(
+            () => getPassword(TEST_ACCOUNT),
+            Error,
+            "secret-tool lookup failed",
+          )
+          await assertRejects(
+            () => deletePassword(TEST_ACCOUNT),
+            Error,
+            "secret-tool clear failed",
+          )
+        } finally {
+          if (dbusAddress == null) {
+            Deno.env.delete("DBUS_SESSION_BUS_ADDRESS")
+          } else {
+            Deno.env.set("DBUS_SESSION_BUS_ADDRESS", dbusAddress)
+          }
+        }
+
+        const path = Deno.env.get("PATH")
+        Deno.env.set("PATH", "/nonexistent")
+        try {
+          assertEquals(await isAvailable(), false)
+        } finally {
+          if (path == null) {
+            Deno.env.delete("PATH")
+          } else {
+            Deno.env.set("PATH", path)
+          }
+        }
+      }
     } finally {
       // Ensure cleanup even if assertions fail
       try {
