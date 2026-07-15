@@ -59,4 +59,6 @@ jobs:
           echo "test-password" | gnome-keyring-daemon --unlock --components=secrets
 
       - name: Keyring Integration
+        env:
+          LINEAR_KEYRING_INTEGRATION: "1"
         run: deno task test test/keyring.integration.test.ts

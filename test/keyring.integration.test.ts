@@ -6,6 +6,9 @@ import {
 } from "../src/keyring/index.ts"
 
 async function isKeyringAvailable(): Promise<boolean> {
+  // CI sets this so a probe that wrongly reports "unavailable" can never quietly
+  // turn the keyring job into a no-op: the test runs and fails loudly instead.
+  if (Deno.env.get("LINEAR_KEYRING_INTEGRATION") === "1") return true
   if (Deno.build.os === "linux") {
     try {
       const cmd = new Deno.Command("secret-tool", {
@@ -17,6 +20,24 @@ async function isKeyringAvailable(): Promise<boolean> {
       const err = new TextDecoder().decode(stderr).trim()
       if (err.includes("was not provided by any .service files")) return false
       return code === 0 || (code === 1 && err === "")
+    } catch {
+      return false
+    }
+  }
+  if (Deno.build.os === "darwin") {
+    try {
+      // show-keychain-info is read-only and exits 36 (errSecInteractionNotAllowed)
+      // when the keychain is locked with no UI session to unlock it, which is the
+      // state under ssh and most agent shells. Reads still succeed while locked
+      // (find-generic-password returns 44), so only a write-capable probe like
+      // this one detects it. Any other exit code means the keychain is usable
+      // and a failure below is a real bug, so don't widen this to code !== 0.
+      const { code } = await new Deno.Command("/usr/bin/security", {
+        args: ["show-keychain-info"],
+        stdout: "null",
+        stderr: "null",
+      }).output()
+      return code !== 36
     } catch {
       return false
     }
