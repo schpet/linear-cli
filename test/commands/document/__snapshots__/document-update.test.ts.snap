@@ -16,6 +16,7 @@ Options:
   -c, --content       <content>  - New markdown content (inline)                                       
   -f, --content-file  <path>     - Read new content from file                                          
   --icon              <icon>     - New icon (emoji)                                                    
+  --project           <project>  - Attach to project (UUID, slug ID, or name)                          
   -e, --edit                     - Open current content in \$EDITOR for editing                         
   --force                        - Update content even when document comments may lose inline anchors  
 
@@ -83,7 +84,7 @@ stdout:
 ""
 stderr:
 "✗ Failed to update document: No update fields provided
-  Use --title, --content, --content-file, --icon, or --edit.
+  Use --title, --content, --content-file, --icon, --project, or --edit.
 "
 `;
 
@@ -94,4 +95,40 @@ https://linear.app/test/document/delegation-system-spec-d4b93e3b2695
 "
 stderr:
 ""
+`;
+
+snapshot[`Document Update Command - Set Project By UUID 1`] = `
+stdout:
+"✓ Updated document: Spec
+https://linear.app/test/document/spec-d4b93e3b2695
+"
+stderr:
+""
+`;
+
+snapshot[`Document Update Command - Set Project By Name 1`] = `
+stdout:
+"✓ Updated document: Spec
+https://linear.app/test/document/spec-d4b93e3b2695
+"
+stderr:
+""
+`;
+
+snapshot[`Document Update Command - Title And Project 1`] = `
+stdout:
+"✓ Updated document: Spec
+https://linear.app/test/document/spec-d4b93e3b2695
+"
+stderr:
+""
+`;
+
+snapshot[`Document Update Command - Project Not Found 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update document: Project not found: Nope
+  Pass a project UUID, slug ID (from \`linear project list\`), or exact project name.
+"
 `;
