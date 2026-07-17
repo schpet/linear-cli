@@ -516,3 +516,167 @@ await snapshotTest({
     }
   },
 })
+
+// Regression tests for #225: `document update` can set, change, or clear the
+// document's related project (previously only settable at create time).
+
+const projectDocResponse = {
+  data: {
+    documentUpdate: {
+      success: true,
+      document: {
+        id: "doc-1",
+        slugId: "d4b93e3b2695",
+        title: "Spec",
+        url: "https://linear.app/test/document/spec-d4b93e3b2695",
+        updatedAt: "2026-01-19T10:00:00Z",
+      },
+    },
+  },
+}
+
+// Set the project by UUID — resolveProjectId short-circuits, so the only query
+// is the update mutation carrying the resolved projectId.
+await snapshotTest({
+  name: "Document Update Command - Set Project By UUID",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "d4b93e3b2695",
+    "--project",
+    "00000000-0000-0000-0000-000000000000",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "UpdateDocument",
+        variables: {
+          id: "d4b93e3b2695",
+          input: { projectId: "00000000-0000-0000-0000-000000000000" },
+        },
+        response: projectDocResponse,
+      },
+    ])
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Set the project by name — resolveProjectId looks it up, then the update runs.
+await snapshotTest({
+  name: "Document Update Command - Set Project By Name",
+  meta: import.meta,
+  colors: false,
+  args: ["d4b93e3b2695", "--project", "Tech Debt"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetProjectIdByName",
+        variables: { name: "Tech Debt" },
+        response: { data: { projects: { nodes: [{ id: "proj-uuid" }] } } },
+      },
+      {
+        queryName: "UpdateDocument",
+        variables: {
+          id: "d4b93e3b2695",
+          input: { projectId: "proj-uuid" },
+        },
+        response: projectDocResponse,
+      },
+    ])
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// Combining a project change with another field updates both in one mutation.
+await snapshotTest({
+  name: "Document Update Command - Title And Project",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "d4b93e3b2695",
+    "--title",
+    "Renamed Spec",
+    "--project",
+    "00000000-0000-0000-0000-000000000000",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "UpdateDocument",
+        variables: {
+          id: "d4b93e3b2695",
+          input: {
+            title: "Renamed Spec",
+            projectId: "00000000-0000-0000-0000-000000000000",
+          },
+        },
+        response: projectDocResponse,
+      },
+    ])
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// An unknown project name fails with the standard not-found error and no update.
+await snapshotTest({
+  name: "Document Update Command - Project Not Found",
+  meta: import.meta,
+  colors: false,
+  args: ["d4b93e3b2695", "--project", "Nope"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetProjectIdByName",
+        variables: { name: "Nope" },
+        response: { data: { projects: { nodes: [] } } },
+      },
+      {
+        queryName: "GetProjectIdBySlugId",
+        variables: { slugId: "Nope" },
+        response: { data: { projects: { nodes: [] } } },
+      },
+    ])
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
