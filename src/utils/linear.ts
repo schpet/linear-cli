@@ -101,8 +101,9 @@ export async function getIssueIdentifier(
       return normalizeIssueIdentifier(`${teamId}-${providedId}`)
     }
 
-    throw new Error(
-      "an integer id was provided, but no team is set. run `linear configure`",
+    throw new ValidationError(
+      "an integer id was provided, but no team is set",
+      { suggestion: "Run `linear config` to set a team." },
     )
   }
 

@@ -1,5 +1,14 @@
-import { assertStringIncludes } from "@std/assert"
+import { assertEquals, assertStringIncludes } from "@std/assert"
 import { getGraphQLClient } from "../src/utils/graphql.ts"
+import { cli } from "../src/cli.ts"
+import { configCommand } from "../src/commands/config.ts"
+
+// Regression guard for #245: `configure` is a natural name users (and the
+// CLI's own help text) reach for, so it resolves to the canonical `config`
+// command instead of erroring with "Unknown command".
+Deno.test("cli - `configure` is an alias for the config command", () => {
+  assertEquals(cli.getCommand("configure"), configCommand)
+})
 
 // Mock fetch function for testing
 const originalFetch = globalThis.fetch
