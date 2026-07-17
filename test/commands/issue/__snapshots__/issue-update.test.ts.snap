@@ -120,3 +120,12 @@ https://linear.app/test-team/issue/ENG-123/test-issue
 stderr:
 ""
 `;
+
+snapshot[`Issue Update Command - Unknown State Lists Valid States 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Workflow state not found: 'Nope' for team ENG
+  Valid states: \\"Todo\\" (unstarted), \\"In Progress\\" (started), \\"Done\\" (completed). Run \`linear team states ENG\` to list them.
+"
+`;

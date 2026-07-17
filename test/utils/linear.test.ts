@@ -4,7 +4,10 @@ import {
   isLinearUuid,
   resolveMilestoneId,
   resolveProjectId,
+  resolveWorkflowState,
   searchIssuesByTerm,
+  type WorkflowState,
+  workflowStateNotFoundError,
 } from "../../src/utils/linear.ts"
 import { NotFoundError, ValidationError } from "../../src/utils/errors.ts"
 import { setupMockLinearServer } from "../utils/test-helpers.ts"
@@ -295,4 +298,74 @@ Deno.test("resolveMilestoneId - errors when a name is passed without a project",
   } finally {
     await cleanup()
   }
+})
+
+// States are passed to resolveWorkflowState already sorted by position, mirroring
+// getWorkflowStates. Duplicate "started" states are ordered so the lower position
+// comes first.
+const WORKFLOW_STATES: WorkflowState[] = [
+  { id: "s-backlog", name: "Backlog", type: "backlog", position: 0 },
+  { id: "s-todo", name: "Todo", type: "unstarted", position: 1 },
+  { id: "s-progress", name: "In Progress", type: "started", position: 2 },
+  { id: "s-review", name: "In Review", type: "started", position: 3 },
+  { id: "s-done", name: "Done", type: "completed", position: 4 },
+]
+
+Deno.test("resolveWorkflowState - matches by exact name, case-insensitively", () => {
+  assertEquals(
+    resolveWorkflowState(WORKFLOW_STATES, "in progress")?.id,
+    "s-progress",
+  )
+})
+
+Deno.test("resolveWorkflowState - name match wins over type match", () => {
+  // "Done" is a name and "completed" is its type; the name should resolve first.
+  assertEquals(resolveWorkflowState(WORKFLOW_STATES, "Done")?.id, "s-done")
+})
+
+Deno.test("resolveWorkflowState - matches by type when no name matches", () => {
+  assertEquals(
+    resolveWorkflowState(WORKFLOW_STATES, "COMPLETED")?.id,
+    "s-done",
+  )
+})
+
+Deno.test("resolveWorkflowState - duplicate types resolve to the first by position", () => {
+  assertEquals(
+    resolveWorkflowState(WORKFLOW_STATES, "started")?.id,
+    "s-progress",
+  )
+})
+
+Deno.test("resolveWorkflowState - returns undefined when nothing matches", () => {
+  assertEquals(resolveWorkflowState(WORKFLOW_STATES, "nope"), undefined)
+})
+
+Deno.test("workflowStateNotFoundError - lists valid states and the discovery command", () => {
+  const error = workflowStateNotFoundError("ENG", "nope", [
+    { id: "s-backlog", name: "Backlog", type: "backlog", position: 0 },
+    { id: "s-todo", name: "Todo", type: "unstarted", position: 1 },
+  ])
+  assertEquals(error instanceof NotFoundError, true)
+  assertEquals(error.message, "Workflow state not found: 'nope' for team ENG")
+  assertEquals(
+    error.suggestion,
+    'Valid states: "Backlog" (backlog), "Todo" (unstarted). ' +
+      "Run `linear team states ENG` to list them.",
+  )
+})
+
+Deno.test("workflowStateNotFoundError - escapes quotes in state names", () => {
+  const error = workflowStateNotFoundError("ENG", "nope", [
+    { id: "s-weird", name: 'Needs "review"', type: "started", position: 0 },
+  ])
+  assertStringIncludes(error.suggestion ?? "", '"Needs \\"review\\"" (started)')
+})
+
+Deno.test("workflowStateNotFoundError - handles a team with no states", () => {
+  const error = workflowStateNotFoundError("ENG", "nope", [])
+  assertEquals(
+    error.suggestion,
+    "Team ENG has no workflow states. Run `linear team states ENG`.",
+  )
 })

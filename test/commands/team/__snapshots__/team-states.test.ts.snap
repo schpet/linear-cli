@@ -1,0 +1,106 @@
+export const snapshot = {};
+
+snapshot[`Team States Command - Help Text 1`] = `
+stdout:
+"
+Usage: states [teamKey]
+
+Description:
+
+  List workflow states for a team
+
+Options:
+
+  -h, --help  - Show this help.  
+  -j, --json  - Output as JSON   
+
+"
+stderr:
+""
+`;
+
+snapshot[`Team States Command - Table 1`] = `
+stdout:
+"NAME        TYPE     
+Backlog     backlog  
+Todo        unstarted
+In Progress started  
+Done        completed
+"
+stderr:
+""
+`;
+
+snapshot[`Team States Command - JSON 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "s-backlog",
+      "name": "Backlog",
+      "type": "backlog",
+      "position": 0
+    },
+    {
+      "id": "s-todo",
+      "name": "Todo",
+      "type": "unstarted",
+      "position": 1
+    },
+    {
+      "id": "s-progress",
+      "name": "In Progress",
+      "type": "started",
+      "position": 2
+    },
+    {
+      "id": "s-done",
+      "name": "Done",
+      "type": "completed",
+      "position": 3
+    }
+  ]
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Team States Command - Configured Team Fallback 1`] = `
+stdout:
+"NAME        TYPE     
+Backlog     backlog  
+Todo        unstarted
+In Progress started  
+Done        completed
+"
+stderr:
+""
+`;
+
+snapshot[`Team States Command - Empty 1`] = `
+stdout:
+"No workflow states found for this team.
+"
+stderr:
+""
+`;
+
+snapshot[`Team States Command - Empty JSON 1`] = `
+stdout:
+'{
+  "nodes": []
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Team States Command - No Team Configured 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to fetch workflow states: Could not determine team key from directory name
+  Please specify a team key as an argument.
+"
+`;

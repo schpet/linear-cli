@@ -168,6 +168,7 @@ linear team delete
 linear team id
 linear team list
 linear team members
+linear team states
 ```
 
 ## Reference Documentation

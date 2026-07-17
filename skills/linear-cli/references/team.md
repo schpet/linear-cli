@@ -23,7 +23,8 @@ Commands:
   list                  - List teams                                                                   
   id                    - Print the configured team id                                                 
   autolinks             - Configure GitHub repository autolinks for Linear issues with this team prefix
-  members    [teamKey]  - List team members
+  members    [teamKey]  - List team members                                                            
+  states     [teamKey]  - List workflow states for a team
 ```
 
 ## Subcommands
@@ -138,4 +139,22 @@ Options:
   -h, --help           - Show this help.                      
   --workspace  <slug>  - Target workspace (uses credentials)  
   -a, --all            - Include inactive members
+```
+
+### states
+
+> List workflow states for a team
+
+```
+Usage:   linear team states [teamKey]
+
+Description:
+
+  List workflow states for a team
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json           - Output as JSON
 ```
