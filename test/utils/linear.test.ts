@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert"
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert"
 import {
   getIssueIdentifier,
   isLinearUuid,
@@ -21,6 +21,26 @@ Deno.test("getIssueId - handles integer-only IDs with team prefix", async () => 
   assertEquals(result, "CLI-123")
 
   Deno.env.delete("LINEAR_TEAM_ID")
+})
+
+Deno.test("getIssueId - integer-only id without a team points at `linear config`", async () => {
+  // An empty team id is falsy, so getTeamKey() resolves to undefined even
+  // though the repo's .linear.toml sets one — this exercises the no-team branch.
+  Deno.env.set("LINEAR_TEAM_ID", "")
+
+  try {
+    const error = await assertRejects(
+      () => getIssueIdentifier("123"),
+      ValidationError,
+      "no team is set",
+    )
+    // Regression guard for #245: the suggestion must name the real command
+    // (`config`), never the non-existent `configure`.
+    assertStringIncludes(error.suggestion ?? "", "linear config")
+    assertEquals(error.suggestion?.includes("configure"), false)
+  } finally {
+    Deno.env.delete("LINEAR_TEAM_ID")
+  }
 })
 
 Deno.test("getIssueId - rejects invalid integer patterns", async () => {

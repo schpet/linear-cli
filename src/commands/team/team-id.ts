@@ -13,7 +13,7 @@ export const idCommand = new Command()
       } else {
         throw new ValidationError(
           "No team id configured",
-          { suggestion: "Run `linear configure` to set a team." },
+          { suggestion: "Run `linear config` to set a team." },
         )
       }
     } catch (error) {
