@@ -1521,3 +1521,68 @@ Deno.test("Issue Create Command - Interactive Assignee Can Override Config Self 
     await cleanup()
   }
 })
+
+// Regression test for #210: an unknown --state must surface the valid options
+// and point at `linear team states`, not just "not found".
+await snapshotTest({
+  name: "Issue Create Command - Unknown State Lists Valid States",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Fix authentication bug",
+    "--team",
+    "ENG",
+    "--state",
+    "Nope",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetWorkflowStates",
+        response: {
+          data: {
+            team: {
+              states: {
+                nodes: [
+                  {
+                    id: "s-todo",
+                    name: "Todo",
+                    type: "unstarted",
+                    position: 1,
+                  },
+                  {
+                    id: "s-progress",
+                    name: "In Progress",
+                    type: "started",
+                    position: 2,
+                  },
+                  {
+                    id: "s-done",
+                    name: "Done",
+                    type: "completed",
+                    position: 3,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})

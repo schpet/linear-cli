@@ -171,25 +171,47 @@ export async function getStartedState(
   return { id: startedStates[0].id, name: startedStates[0].name }
 }
 
-export async function getWorkflowStateByNameOrType(
-  teamKey: string,
+/**
+ * Resolve a workflow state from an already-fetched list by name
+ * (case-insensitive) or by type. Duplicate types resolve to the first matching
+ * state in the input order — callers pass the position-sorted list from
+ * `getWorkflowStates`, so that is the lowest-position state of that type.
+ */
+export function resolveWorkflowState(
+  states: readonly WorkflowState[],
   nameOrType: string,
-): Promise<{ id: string; name: string } | undefined> {
-  const states = await getWorkflowStates(teamKey)
-
+): WorkflowState | undefined {
   const nameMatch = states.find(
     (s) => s.name.toLowerCase() === nameOrType.toLowerCase(),
   )
   if (nameMatch) {
-    return { id: nameMatch.id, name: nameMatch.name }
+    return nameMatch
   }
 
-  const typeMatch = states.find((s) => s.type === nameOrType.toLowerCase())
-  if (typeMatch) {
-    return { id: typeMatch.id, name: typeMatch.name }
-  }
+  return states.find((s) => s.type === nameOrType.toLowerCase())
+}
 
-  return undefined
+/**
+ * Build the error thrown when a requested workflow state can't be resolved for
+ * a team. Shared by `issue create` and `issue update` so both surface the same
+ * message and the same list of valid states.
+ */
+export function workflowStateNotFoundError(
+  teamKey: string,
+  requested: string,
+  states: readonly WorkflowState[],
+): NotFoundError {
+  const suggestion = states.length > 0
+    ? `Valid states: ${
+      states.map((s) => `${JSON.stringify(s.name)} (${s.type})`).join(", ")
+    }. Run \`linear team states ${teamKey}\` to list them.`
+    : `Team ${teamKey} has no workflow states. Run \`linear team states ${teamKey}\`.`
+
+  return new NotFoundError(
+    "Workflow state",
+    `'${requested}' for team ${teamKey}`,
+    { suggestion },
+  )
 }
 
 export async function updateIssueState(

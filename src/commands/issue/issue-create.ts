@@ -19,14 +19,15 @@ import {
   getProjectsForTeam,
   getTeamIdByKey,
   getTeamKey,
-  getWorkflowStateByNameOrType,
   getWorkflowStates,
   isLinearUuid,
   lookupUserId,
   resolveMilestoneId,
+  resolveWorkflowState,
   searchTeamsByKeySubstring,
   selectOption,
   type WorkflowState,
+  workflowStateNotFoundError,
 } from "../../utils/linear.ts"
 import { startWorkOnIssue } from "../../utils/actions.ts"
 import {
@@ -822,16 +823,12 @@ export const createCommand = new Command()
           )
         }
         let stateId: string | undefined
-        if (state) {
-          const workflowState = await getWorkflowStateByNameOrType(
-            team,
-            state,
-          )
+        if (state != null) {
+          const states = await getWorkflowStates(team)
+          const workflowState = resolveWorkflowState(states, state)
           if (!workflowState) {
-            throw new NotFoundError(
-              "Workflow state",
-              `'${state}' for team ${team}`,
-            )
+            spinner?.stop()
+            throw workflowStateNotFoundError(team, state, states)
           }
           stateId = workflowState.id
         }

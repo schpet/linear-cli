@@ -84,3 +84,12 @@ https://linear.app/test-team/issue/ENG-890/test-cycle-feature
 stderr:
 ""
 `;
+
+snapshot[`Issue Create Command - Unknown State Lists Valid States 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to create issue: Workflow state not found: 'Nope' for team ENG
+  Valid states: \\"Todo\\" (unstarted), \\"In Progress\\" (started), \\"Done\\" (completed). Run \`linear team states ENG\` to list them.
+"
+`;
