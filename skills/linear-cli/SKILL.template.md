@@ -25,6 +25,59 @@ npx @schpet/linear-cli --version
 All subsequent commands can be prefixed with `npx @schpet/linear-cli` in place of `linear`. Otherwise, follow the install instructions at:\
 https://github.com/schpet/linear-cli?tab=readme-ov-file#install
 
+## Common Tasks
+
+Copy-pasteable recipes for the most frequent flows. Prefer these dedicated commands over `linear api` — reach for the GraphQL fallback only when no dedicated command or flag covers the operation.
+
+### Query issues with filters
+
+`issue query` searches across all assignees and supports structured filters that can be combined:
+
+```bash
+linear issue query --team ENG --state started --json
+linear issue query --project "Mobile App" --state backlog --state triage --unassigned
+linear issue query --assignee sam --label bug --updated-after 2026-01-01
+```
+
+Note: `linear issue list` is an alias of `issue mine` and only shows _your_ issues — use `issue query` for anything scoped to other people or a whole team/project.
+
+### List my issues
+
+```bash
+linear issue mine --state started --sort priority
+```
+
+### Create an issue
+
+```bash
+linear issue create --team ENG --title "Fix login redirect" \
+  --description-file ./description.md --no-interactive
+```
+
+Write multi-line markdown to a file and pass `--description-file` (see the markdown section below); `--no-interactive` avoids prompts in scripted use.
+
+### Update an issue's state, assignee, or labels
+
+```bash
+linear issue update ENG-123 --state "In Review" --assignee sam
+linear issue update ENG-123 --unassign
+linear issue update ENG-123 --label infra --label security  # replaces the label set
+```
+
+### Add a comment
+
+```bash
+linear issue comment add ENG-123 --body-file ./comment.md
+```
+
+### View an issue / get its URL
+
+```bash
+linear issue view ENG-123          # details incl. comments
+linear issue view ENG-123 --json   # structured output
+linear issue url ENG-123           # print just the URL
+```
+
 ## Best Practices for Markdown Content
 
 When working with issue descriptions or comment bodies that contain markdown, **always prefer using file-based flags** instead of passing content as command-line arguments:
