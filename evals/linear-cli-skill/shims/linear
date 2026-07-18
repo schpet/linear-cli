@@ -1,0 +1,258 @@
+#!/bin/bash
+# Shim `linear` binary for the skill eval.
+#
+# Records every invocation (argv + stdin for `api`) as a JSON line in
+# $LINEAR_SHIM_LOG, answers --help/--version/schema through the real CLI in
+# $LINEAR_SHIM_REPO (help needs no auth or network), and returns short,
+# plausible canned successes for task commands. Never touches the network and
+# never mutates anything real.
+set -u
+
+LOG="${LINEAR_SHIM_LOG:?LINEAR_SHIM_LOG must be set}"
+REPO="${LINEAR_SHIM_REPO:?LINEAR_SHIM_REPO must be set}"
+
+# Capture GraphQL heredocs piped to `linear api` so grading can inspect the
+# query text. Other commands never read stdin.
+STDIN_DATA=""
+if [ "${1:-}" = "api" ] && [ ! -t 0 ]; then
+  STDIN_DATA=$(cat)
+fi
+
+# Argv goes to jq on stdin, delimited by the ASCII unit separator (0x1f):
+# jq's --args treats dash-prefixed values (e.g. --team) as its own options,
+# and jq strings cannot represent NUL, so neither works for arbitrary argv.
+if [ "$#" -eq 0 ]; then
+  jq -cn --arg stdin "$STDIN_DATA" \
+    '{tool: "linear", argv: [], stdin: $stdin}' >> "$LOG"
+else
+  printf '%s\x1f' "$@" | jq -Rsc --arg stdin "$STDIN_DATA" \
+    '{tool: "linear", argv: split("\u001f")[:-1], stdin: $stdin}' >> "$LOG"
+fi
+
+# Discovery goes to the real CLI so help output is accurate for the skill
+# variant's CLI version.
+for arg in "$@"; do
+  case "$arg" in
+    --help | -h | --version)
+      NO_COLOR=1 exec deno run --quiet --allow-all "$REPO/src/main.ts" "$@"
+      ;;
+  esac
+done
+if [ "${1:-}" = "schema" ]; then
+  NO_COLOR=1 exec deno run --quiet --allow-all "$REPO/src/main.ts" "$@"
+fi
+
+has_flag() {
+  local needle="$1"
+  shift
+  for arg in "$@"; do
+    [ "$arg" = "$needle" ] && return 0
+  done
+  return 1
+}
+
+# Map a requested --state filter value to a display state name, so canned
+# rows don't contradict the filter the subject just applied.
+display_state() {
+  case "$1" in
+    triage) printf 'Triage' ;;
+    backlog) printf 'Backlog' ;;
+    unstarted) printf 'Todo' ;;
+    completed) printf 'Done' ;;
+    canceled) printf 'Canceled' ;;
+    *) printf 'In Progress' ;;
+  esac
+}
+
+state_type() {
+  case "$1" in
+    triage | backlog | unstarted | completed | canceled) printf '%s' "$1" ;;
+    *) printf 'started' ;;
+  esac
+}
+
+# First value following any of the given flags in the remaining argv.
+flag_value() {
+  local flags="$1"
+  shift
+  local prev=""
+  for arg in "$@"; do
+    case " $flags " in
+      *" $prev "*)
+        printf '%s' "$arg"
+        return 0
+        ;;
+    esac
+    prev="$arg"
+  done
+  return 1
+}
+
+case "${1:-} ${2:-}" in
+  "issue query" | "issue list" | "issue mine" | "issue l" | "issue q")
+    STATE_FILTER=$(flag_value "--state -s" "$@") || STATE_FILTER="started"
+    DSTATE=$(display_state "$STATE_FILTER")
+    TSTATE=$(state_type "$STATE_FILTER")
+    PREFIX=$(flag_value "--team" "$@") || PREFIX="ENG"
+    SEARCH=$(flag_value "--search" "$@") || SEARCH=""
+    if has_flag --unassigned "$@" || has_flag -U "$@"; then
+      NAME1=""
+      NAME2=""
+    else
+      NAME1="sam"
+      NAME2="priya"
+    fi
+    if [ -n "$SEARCH" ]; then
+      if has_flag --json "$@" || has_flag -j "$@"; then
+        jq -cn --arg id "$PREFIX-231" --arg title "$SEARCH" --arg state "$DSTATE" --arg type "$TSTATE" \
+          '{issues: {nodes: [{identifier: $id, title: $title, state: {name: $state, type: $type}, assignee: null, priority: 3, updatedAt: "2026-07-18T09:00:00.000Z"}], pageInfo: {hasNextPage: false, endCursor: "cursor-1"}}}'
+      else
+        printf '%-8s %-40s %-12s %s\n' "$PREFIX-231" "$SEARCH" "$DSTATE" "-"
+      fi
+    elif has_flag --json "$@" || has_flag -j "$@"; then
+      jq -cn --arg p "$PREFIX" --arg state "$DSTATE" --arg type "$TSTATE" \
+        --arg name1 "$NAME1" --arg name2 "$NAME2" \
+        '{issues: {nodes: [
+          {identifier: ($p + "-101"), title: "Fix login redirect loop", state: {name: $state, type: $type}, assignee: (if $name1 == "" then null else {displayName: $name1} end), priority: 2, updatedAt: "2026-07-17T10:00:00.000Z"},
+          {identifier: ($p + "-107"), title: "Update billing webhooks", state: {name: $state, type: $type}, assignee: (if $name2 == "" then null else {displayName: $name2} end), priority: 3, updatedAt: "2026-07-16T08:30:00.000Z"},
+          {identifier: ($p + "-112"), title: "Refactor session storage", state: {name: $state, type: $type}, assignee: null, priority: 4, updatedAt: "2026-07-14T16:12:00.000Z"}
+        ], pageInfo: {hasNextPage: false, endCursor: "cursor-3"}}}'
+    else
+      printf '%-8s %-25s %-12s %-7s %s\n' \
+        "$PREFIX-101" "Fix login redirect loop" "$DSTATE" "High" "${NAME1:--}" \
+        "$PREFIX-107" "Update billing webhooks" "$DSTATE" "Medium" "${NAME2:--}" \
+        "$PREFIX-112" "Refactor session storage" "$DSTATE" "Low" "-"
+    fi
+    ;;
+  "issue view")
+    ID="${3:-ENG-112}"
+    EFFECT='{}'
+    if [ -s "$LOG" ]; then
+      EFFECT=$(jq -sc --arg id "$ID" '
+        def vals($names): .argv as $a
+          | [range(0; ($a | length)) as $i
+             | select(($names | index($a[$i])) != null)
+             | ($a[$i + 1] // "")];
+        [.[] | select(.tool == "linear" and .argv[0] == "issue" and .argv[1] == "update" and .argv[2] == $id)]
+        | {
+            state: ([.[] | vals(["--state", "-s"])] | flatten | last),
+            assignee: ([.[] | vals(["--assignee", "-a"])] | flatten | last),
+            unassigned: ([.[] | select(.argv | index("--unassign"))] | length > 0),
+            labels: ([.[] | vals(["--label", "-l"]) | select(length > 0)] | last),
+            project: ([.[] | vals(["--project"])] | flatten | last)
+          }' "$LOG")
+    fi
+    VIEW_STATE=$(printf '%s' "$EFFECT" | jq -r '.state // "In Progress"')
+    VIEW_ASSIGNEE=$(printf '%s' "$EFFECT" | jq -r 'if .unassigned == true then "" else (.assignee // "") end')
+    VIEW_LABELS=$(printf '%s' "$EFFECT" | jq -c '.labels // ["tech-debt"]')
+    VIEW_PROJECT=$(printf '%s' "$EFFECT" | jq -r '.project // ""')
+    if has_flag --json "$@" || has_flag -j "$@"; then
+      jq -cn --arg id "$ID" --arg state "$VIEW_STATE" --arg assignee "$VIEW_ASSIGNEE" \
+        --argjson labels "$VIEW_LABELS" --arg project "$VIEW_PROJECT" \
+        '{issue: {
+          identifier: $id,
+          title: "Refactor session storage",
+          description: "Session data is duplicated between redis and postgres.",
+          state: {name: $state},
+          assignee: (if $assignee == "" then null else {displayName: $assignee} end),
+          labels: {nodes: [$labels[] | {name: .}]},
+          project: (if $project == "" then null else {name: $project} end),
+          url: ("https://linear.app/acme/issue/" + $id + "/refactor-session-storage")
+        }}'
+    else
+      printf '%s: Refactor session storage\nState: %s  Assignee: %s  Labels: %s%s\nURL: https://linear.app/acme/issue/%s/refactor-session-storage\n\nSession data is duplicated between redis and postgres.\n' \
+        "$ID" "$VIEW_STATE" "${VIEW_ASSIGNEE:--}" \
+        "$(printf '%s' "$VIEW_LABELS" | jq -r 'join(", ")')" \
+        "$(if [ -n "$VIEW_PROJECT" ]; then printf '  Project: %s' "$VIEW_PROJECT"; fi)" \
+        "$ID"
+    fi
+    ;;
+  "issue url")
+    printf 'https://linear.app/acme/issue/%s/update-billing-webhooks\n' "${3:-ENG-107}"
+    ;;
+  "issue id")
+    printf '%s\n' "${3:-ENG-101}"
+    ;;
+  "issue title")
+    printf 'Fix login redirect loop\n'
+    ;;
+  "issue create")
+    TITLE=$(flag_value "--title -t" "$@") || TITLE="New issue"
+    PREFIX=$(flag_value "--team" "$@") || PREFIX="ENG"
+    printf 'Created %s-231: %s\nhttps://linear.app/acme/issue/%s-231/new-issue\n' "$PREFIX" "$TITLE" "$PREFIX"
+    ;;
+  "issue update")
+    ID="${3:-ENG-101}"
+    printf 'Updated %s\n' "$ID"
+    if has_flag --unassign "$@"; then printf '  assignee: (unassigned)\n'; fi
+    if V=$(flag_value "--assignee -a" "$@"); then printf '  assignee: %s\n' "$V"; fi
+    if V=$(flag_value "--state -s" "$@"); then printf '  state: %s\n' "$V"; fi
+    if V=$(flag_value "--project" "$@"); then printf '  project: %s\n' "$V"; fi
+    if V=$(flag_value "--title -t" "$@"); then printf '  title: %s\n' "$V"; fi
+    LABELS=""
+    PREV=""
+    for arg in "$@"; do
+      if [ "$PREV" = "--label" ] || [ "$PREV" = "-l" ]; then
+        LABELS="${LABELS:+$LABELS, }$arg"
+      fi
+      PREV="$arg"
+    done
+    if [ -n "$LABELS" ]; then printf '  labels: %s\n' "$LABELS"; fi
+    printf 'https://linear.app/acme/issue/%s\n' "$ID"
+    ;;
+  "issue comment")
+    printf 'Comment added\n'
+    ;;
+  "issue start")
+    printf 'Started %s\n' "${3:-ENG-101}"
+    ;;
+  "team list")
+    printf 'ENG  Engineering\nOPS  Operations\n'
+    ;;
+  "team states")
+    printf 'Triage\nBacklog\nTodo\nIn Progress\nIn Review\nDone\nCanceled\n'
+    ;;
+  "team members")
+    printf 'sam    Sam Reyes\npriya  Priya Patel\n'
+    ;;
+  "user list")
+    printf 'sam    Sam Reyes    sam@acme.test\npriya  Priya Patel  priya@acme.test\n'
+    ;;
+  "label list")
+    printf 'bug\ndocs\napi\ninfra\nsecurity\ntech-debt\n'
+    ;;
+  "project list")
+    printf 'Mobile App Revamp  started\nData Pipeline      started\n'
+    ;;
+  "auth whoami")
+    printf 'sam@acme.test (acme)\n'
+    ;;
+  "auth token")
+    printf 'lin_api_evalfake000000000000000000000000\n'
+    ;;
+  api*)
+    QUERY_TEXT="$* $STDIN_DATA"
+    case "$QUERY_TEXT" in
+      *subscribers*)
+        printf '{"data":{"issue":{"identifier":"ENG-101","subscribers":{"nodes":[{"name":"Sam Reyes","email":"sam@acme.test"},{"name":"Priya Patel","email":"priya@acme.test"}]}}}}\n'
+        ;;
+      *history*)
+        printf '{"data":{"issue":{"identifier":"ENG-101","history":{"nodes":[{"createdAt":"2026-07-15T09:00:00.000Z","actor":{"name":"Sam Reyes"},"fromState":{"name":"Todo"},"toState":{"name":"In Progress"}},{"createdAt":"2026-07-16T11:30:00.000Z","actor":{"name":"Priya Patel"},"fromAssignee":null,"toAssignee":{"name":"Sam Reyes"}}]}}}}\n'
+        ;;
+      *)
+        printf '{"data":{"issues":{"nodes":[{"identifier":"ENG-101","title":"Fix login redirect loop","updatedAt":"2026-07-17T10:00:00.000Z"},{"identifier":"ENG-107","title":"Update billing webhooks","updatedAt":"2026-07-16T08:30:00.000Z"}]}}}\n'
+        ;;
+    esac
+    ;;
+  *)
+    case "${1:-}" in
+      api | auth | config | cycle | document | initiative | initiative-update | issue | label | milestone | project | project-update | schema | team | user)
+        printf 'OK\n'
+        ;;
+      *)
+        printf 'error: Unknown command "%s".\n' "${1:-}" >&2
+        exit 2
+        ;;
+    esac
+    ;;
+esac

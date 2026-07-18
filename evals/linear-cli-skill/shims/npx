@@ -1,0 +1,10 @@
+#!/bin/bash
+# Shim `npx` for the skill eval: the skill suggests `npx @schpet/linear-cli`
+# when `linear` is missing; here `linear` is always present, so any npx use is
+# recorded and fails fast without touching the network.
+set -u
+LOG="${LINEAR_SHIM_LOG:?LINEAR_SHIM_LOG must be set}"
+printf '%s\x1f' x "$@" | jq -Rsc \
+  '{tool: "npx", argv: split("\u001f")[1:-1], stdin: ""}' >> "$LOG"
+echo "npx: network unavailable in this environment" >&2
+exit 1
