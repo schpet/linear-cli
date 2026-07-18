@@ -4,6 +4,7 @@ import denoConfig from "../deno.json" with { type: "json" }
 import { authCommand } from "./commands/auth/auth.ts"
 import { issueCommand } from "./commands/issue/issue.ts"
 import { teamCommand } from "./commands/team/team.ts"
+import { userCommand } from "./commands/user/user.ts"
 import { projectCommand } from "./commands/project/project.ts"
 import { projectUpdateCommand } from "./commands/project-update/project-update.ts"
 import { cycleCommand } from "./commands/cycle/cycle.ts"
@@ -48,6 +49,8 @@ Environment Variables:
   .alias("i")
   .command("team", teamCommand)
   .alias("t")
+  .command("user", userCommand)
+  .alias("u")
   .command("project", projectCommand)
   .alias("p")
   .command("project-update", projectUpdateCommand)

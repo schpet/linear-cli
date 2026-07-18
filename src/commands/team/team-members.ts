@@ -1,5 +1,7 @@
 import { Command } from "@cliffy/command"
 import { getTeamKey, getTeamMembers } from "../../utils/linear.ts"
+import { printMembers } from "../../utils/member-display.ts"
+import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { handleError, ValidationError } from "../../utils/errors.ts"
 
 export const membersCommand = new Command()
@@ -7,7 +9,11 @@ export const membersCommand = new Command()
   .description("List team members")
   .arguments("[teamKey:string]")
   .option("-a, --all", "Include inactive members")
-  .action(async (options, teamKey?: string) => {
+  .option("-j, --json", "Output as JSON")
+  .action(async ({ all, json }, teamKey?: string) => {
+    const showSpinner = !json && shouldShowSpinner()
+    let spinner: { start: () => void; stop: () => void } | null = null
+
     try {
       const resolvedTeamKey = teamKey || getTeamKey()
       if (!resolvedTeamKey) {
@@ -17,60 +23,46 @@ export const membersCommand = new Command()
         )
       }
 
-      const members = await getTeamMembers(resolvedTeamKey)
+      if (showSpinner) {
+        const { Spinner } = await import("@std/cli/unstable-spinner")
+        spinner = new Spinner()
+        spinner.start()
+      }
 
-      if (members.length === 0) {
+      const includeDisabled = all === true
+      const { nodes, pageInfo } = await getTeamMembers(
+        resolvedTeamKey,
+        includeDisabled,
+      )
+
+      spinner?.stop()
+
+      // --json is an output format, not a raw dump: it must respect --all just
+      // as the human output does.
+      const members = includeDisabled
+        ? nodes
+        : nodes.filter((member) => member.active)
+
+      if (json) {
+        console.log(JSON.stringify({ nodes: members, pageInfo }, null, 2))
+        return
+      }
+
+      if (nodes.length === 0) {
         console.log("No members found for this team.")
         return
       }
 
-      const filteredMembers = options.all
-        ? members
-        : members.filter((member) => member.active)
-
-      if (filteredMembers.length === 0) {
+      if (members.length === 0) {
         console.log(
           "No active members found for this team. Use --all to include inactive members.",
         )
         return
       }
 
-      console.log(`Team Members (${filteredMembers.length}):`)
-      console.log("")
-
-      for (const member of filteredMembers) {
-        const status = member.active ? "" : " (inactive)"
-        const guestStatus = member.guest ? " (guest)" : ""
-        const assignableStatus = !member.isAssignable ? " (not assignable)" : ""
-        const displayName = member.displayName || member.name
-        const fullName = member.name !== member.displayName
-          ? ` (${member.name})`
-          : ""
-
-        console.log(
-          `${displayName}${fullName} [${member.initials}]${status}${guestStatus}${assignableStatus}`,
-        )
-        if (member.email) {
-          console.log(`  Email: ${member.email}`)
-        }
-        if (member.description) {
-          console.log(`  Role: ${member.description}`)
-        }
-        if (member.timezone) {
-          console.log(`  Timezone: ${member.timezone}`)
-        }
-        if (member.statusEmoji && member.statusLabel) {
-          console.log(
-            `  Status: ${member.statusEmoji} ${member.statusLabel}`,
-          )
-        }
-        if (member.lastSeen) {
-          const lastSeenDate = new Date(member.lastSeen)
-          console.log(`  Last seen: ${lastSeenDate.toLocaleString()}`)
-        }
-        console.log("")
-      }
+      printMembers(members, "Team Members")
     } catch (error) {
+      spinner?.stop()
       handleError(error, "Failed to fetch team members")
     }
   })
