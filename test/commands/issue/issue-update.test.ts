@@ -567,3 +567,172 @@ await snapshotTest({
     }
   },
 })
+
+// --unassign must send `assigneeId: null` on the wire. The mock's `input` is
+// matched with an exact key-count comparison (mock_linear_server.ts deepEqual),
+// so this only matches if assigneeId is present AND null: dropping to
+// `undefined` erases the key during JSON.stringify, and sending a user id
+// fails the value comparison. Do not relax `variables` to an unconstrained
+// mock — that would match any payload and prove nothing.
+await snapshotTest({
+  name: "Issue Update Command - Unassign Clears Assignee",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--unassign"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      // No GetViewerId mock: --unassign must not perform a user lookup.
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: { assigneeId: null, teamId: "team-eng-id" },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// --unassign alongside another field: the null must not clobber, or be
+// clobbered by, sibling assignments.
+await snapshotTest({
+  name: "Issue Update Command - Unassign With Other Fields",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--unassign", "--title", "Renamed"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: {
+            title: "Renamed",
+            assigneeId: null,
+            teamId: "team-eng-id",
+          },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/renamed",
+                title: "Renamed",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Regression guard for the --assignee path: it must still send a string id.
+// The "Happy Path" test above cannot catch a break here because its
+// UpdateIssue mock declares no `variables` and matches any payload.
+await snapshotTest({
+  name: "Issue Update Command - Assignee Still Sends User Id",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--assignee", "self"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetViewerId",
+        variables: {},
+        response: { data: { viewer: { id: "user-self-123" } } },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: { assigneeId: "user-self-123", teamId: "team-eng-id" },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// The conflict guard sits at the top of the action, so this must fail before
+// any HTTP. No mock server is configured on purpose: if the guard is ever
+// moved below the network calls, this fails with a connection error instead of
+// the validation message. The endpoint is pinned to a dead port so that
+// regression can never reach the real Linear API using inherited credentials.
+await snapshotTest({
+  name: "Issue Update Command - Assignee And Unassign Conflict",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--assignee", "self", "--unassign"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1")
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await updateCommand.parse()
+  },
+})

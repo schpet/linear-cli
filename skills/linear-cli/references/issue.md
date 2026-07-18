@@ -583,6 +583,7 @@ Options:
   -h, --help                         - Show this help.                                                                             
   --workspace         <slug>         - Target workspace (uses credentials)                                                         
   -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)                                 
+  --unassign                         - Clear the issue's assignee (cannot be combined with --assignee)                             
   --due-date          <dueDate>      - Due date of the issue                                                                       
   --parent            <parent>       - Parent issue (if any) as a team_number code                                                 
   -p, --priority      <priority>     - Priority of the issue (1-4, descending priority)                                            
