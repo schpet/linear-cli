@@ -13,6 +13,7 @@ Options:
 
   -h, --help                         - Show this help.                                                                  
   -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)                      
+  --unassign                         - Clear the issue's assignee (cannot be combined with --assignee)                  
   --due-date          <dueDate>      - Due date of the issue                                                            
   --parent            <parent>       - Parent issue (if any) as a team_number code                                      
   -p, --priority      <priority>     - Priority of the issue (1-4, descending priority)                                 
@@ -129,3 +130,46 @@ stderr:
   Valid states: \\"Todo\\" (unstarted), \\"In Progress\\" (started), \\"Done\\" (completed). Run \`linear team states ENG\` to list them.
 "
 `;
+
+snapshot[`Issue Update Command - Unassign Clears Assignee 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Unassign With Other Fields 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Renamed
+https://linear.app/test-team/issue/ENG-123/renamed
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Assignee Still Sends User Id 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Assignee And Unassign Conflict 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Cannot specify both --assignee and --unassign
+  Use --assignee <user> to set an assignee, or --unassign on its own to clear it.
+"
+`;
+
