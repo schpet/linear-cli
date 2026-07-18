@@ -6,6 +6,7 @@ import type {
   GetIssueDetailsWithCommentsQuery,
   GetIssuesForQueryQuery,
   GetIssuesForStateQuery,
+  GetOrganizationMembersQuery,
   GetProjectsForTeamQuery,
   GetTeamMembersQuery,
   IssueFilter,
@@ -15,7 +16,7 @@ import type {
 } from "../__codegen__/graphql.ts"
 import { Select } from "@cliffy/prompt"
 import { getOption } from "../config.ts"
-import { NotFoundError, ValidationError } from "./errors.ts"
+import { CliError, NotFoundError, ValidationError } from "./errors.ts"
 import { getGraphQLClient } from "./graphql.ts"
 import { normalizeIssueIdentifier } from "./issue-identifier.ts"
 import { getCurrentIssueFromVcs } from "./vcs.ts"
@@ -1603,12 +1604,29 @@ export async function getLabelsForTeam(
   )
 }
 
-export async function getTeamMembers(teamKey: string) {
+type TeamMembersConnection = GetTeamMembersQuery["team"]["members"]
+
+// `includeDisabled` is explicit so callers can't silently inherit Linear's
+// default of false, which is what made `team members --all` a no-op: disabled
+// users were never fetched, so filtering on `active` could not reveal them.
+export async function getTeamMembers(
+  teamKey: string,
+  includeDisabled: boolean,
+): Promise<TeamMembersConnection> {
   const client = getGraphQLClient()
   const query = gql(/* GraphQL */ `
-    query GetTeamMembers($teamKey: String!, $first: Int, $after: String) {
+    query GetTeamMembers(
+      $teamKey: String!
+      $includeDisabled: Boolean!
+      $first: Int
+      $after: String
+    ) {
       team(id: $teamKey) {
-        members(first: $first, after: $after) {
+        members(
+          includeDisabled: $includeDisabled
+          first: $first
+          after: $after
+        ) {
           nodes {
             id
             name
@@ -1623,6 +1641,9 @@ export async function getTeamMembers(teamKey: string) {
             statusLabel
             guest
             isAssignable
+            admin
+            owner
+            isMe
           }
           pageInfo {
             hasNextPage
@@ -1633,27 +1654,130 @@ export async function getTeamMembers(teamKey: string) {
     }
   `)
 
-  const allMembers = []
+  const nodes: TeamMembersConnection["nodes"] = []
+  // Describes the exhausted source connection, so hasNextPage is always false
+  // once pagination completes. Matches label list and project list.
+  let pageInfo: TeamMembersConnection["pageInfo"] = {
+    hasNextPage: false,
+    endCursor: null,
+  }
   let hasNextPage = true
   let after: string | null | undefined = undefined
 
   while (hasNextPage) {
+    // Annotated to break the circular inference between `after` and the
+    // request's own result type.
     const result: GetTeamMembersQuery = await client.request(query, {
       teamKey,
+      includeDisabled,
       first: 100, // Fetch 100 members per page
       after,
     })
 
-    const members = result.team.members.nodes
-    allMembers.push(...members)
+    const members = result.team.members
+    nodes.push(...members.nodes)
+    pageInfo = members.pageInfo
 
-    hasNextPage = result.team.members.pageInfo.hasNextPage
-    after = result.team.members.pageInfo.endCursor
+    hasNextPage = members.pageInfo.hasNextPage
+    const nextCursor = members.pageInfo.endCursor
+    if (hasNextPage && (nextCursor == null || nextCursor === after)) {
+      throw new CliError(
+        "Linear reported more team members but did not advance the page cursor",
+      )
+    }
+    after = nextCursor
   }
 
-  return allMembers.sort((a, b) =>
+  // Sort after all pages are fetched so ordering is global, not per-page.
+  nodes.sort((a, b) =>
     a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
   )
+
+  return { nodes, pageInfo }
+}
+
+type OrganizationMembersConnection =
+  GetOrganizationMembersQuery["viewer"]["organization"]["users"]
+
+export async function getOrganizationMembers(
+  includeDisabled: boolean,
+): Promise<OrganizationMembersConnection> {
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query GetOrganizationMembers(
+      $includeDisabled: Boolean!
+      $first: Int
+      $after: String
+    ) {
+      viewer {
+        organization {
+          users(
+            includeDisabled: $includeDisabled
+            first: $first
+            after: $after
+          ) {
+            nodes {
+              id
+              name
+              displayName
+              email
+              active
+              initials
+              description
+              timezone
+              lastSeen
+              statusEmoji
+              statusLabel
+              guest
+              isAssignable
+              admin
+              owner
+              isMe
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      }
+    }
+  `)
+
+  const nodes: OrganizationMembersConnection["nodes"] = []
+  let pageInfo: OrganizationMembersConnection["pageInfo"] = {
+    hasNextPage: false,
+    endCursor: null,
+  }
+  let hasNextPage = true
+  let after: string | null | undefined = undefined
+
+  while (hasNextPage) {
+    const result: GetOrganizationMembersQuery = await client.request(query, {
+      includeDisabled,
+      first: 100,
+      after,
+    })
+
+    const users = result.viewer.organization.users
+    nodes.push(...users.nodes)
+    pageInfo = users.pageInfo
+
+    hasNextPage = users.pageInfo.hasNextPage
+    const nextCursor = users.pageInfo.endCursor
+    if (hasNextPage && (nextCursor == null || nextCursor === after)) {
+      throw new CliError(
+        "Linear reported more workspace members but did not advance the page cursor",
+      )
+    }
+    after = nextCursor
+  }
+
+  nodes.sort((a, b) =>
+    a.displayName.toLowerCase().localeCompare(b.displayName.toLowerCase())
+  )
+
+  return { nodes, pageInfo }
 }
 
 export async function getIssueProjectId(

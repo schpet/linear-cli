@@ -138,7 +138,8 @@ Options:
 
   -h, --help           - Show this help.                      
   --workspace  <slug>  - Target workspace (uses credentials)  
-  -a, --all            - Include inactive members
+  -a, --all            - Include inactive members             
+  -j, --json           - Output as JSON
 ```
 
 ### states
