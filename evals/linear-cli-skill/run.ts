@@ -94,9 +94,12 @@ function requireDir(path: string, label: string): string {
   return path
 }
 
+const REAL_HOME = Deno.env.get("HOME") ?? ""
+
 function sanitize(text: string, workdir: string, tmpRoot: string): string {
-  return text.replaceAll(workdir, ".").replaceAll(tmpRoot, "<tmp>")
+  const cleaned = text.replaceAll(workdir, ".").replaceAll(tmpRoot, "<tmp>")
     .replaceAll(REPO_ROOT, "<repo>")
+  return REAL_HOME === "" ? cleaned : cleaned.replaceAll(REAL_HOME, "<home>")
 }
 
 interface EventExtract {
