@@ -648,7 +648,7 @@ export const createCommand = new Command()
   )
   .option(
     "--cycle <cycle:string>",
-    "Cycle name, number, or 'active'",
+    "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives)",
   )
   .option(
     "--no-use-default-template",

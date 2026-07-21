@@ -390,13 +390,30 @@ await snapshotTest({
         response: {
           data: {
             team: {
+              key: "ENG",
+              cyclesEnabled: true,
               cycles: {
                 nodes: [
-                  { id: "cycle-1", number: 7, name: "Sprint 7" },
-                  { id: "cycle-2", number: 8, name: "Sprint 8" },
+                  {
+                    id: "cycle-1",
+                    number: 7,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: "Sprint 7",
+                  },
+                  {
+                    id: "cycle-2",
+                    number: 8,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: "Sprint 8",
+                  },
                 ],
               },
-              activeCycle: { id: "cycle-1", number: 7, name: "Sprint 7" },
+              activeCycle: {
+                id: "cycle-1",
+                number: 7,
+                startsAt: "2026-07-27T07:00:00.000Z",
+                name: "Sprint 7",
+              },
             },
           },
         },
@@ -735,4 +752,519 @@ await snapshotTest({
     Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
     await updateCommand.parse()
   },
+})
+
+// --clear-cycle must send `cycleId: null` on the wire. Like --unassign above,
+// the exact-variables mock proves the key is present AND null. There is no
+// GetTeamCyclesForLookup mock: clearing must not perform a cycle lookup.
+await snapshotTest({
+  name: "Issue Update Command - Clear Cycle Sends Null",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--clear-cycle"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: { cycleId: null, teamId: "team-eng-id" },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// --cycle next resolves via the API's isNext flag, not name matching.
+await snapshotTest({
+  name: "Issue Update Command - Cycle Next Resolves Via Flag",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--cycle", "next"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetTeamCyclesForLookup",
+        response: {
+          data: {
+            team: {
+              key: "ENG",
+              cyclesEnabled: true,
+              cycles: {
+                nodes: [
+                  {
+                    id: "cycle-5-id",
+                    number: 5,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: null,
+                    isNext: false,
+                    isPrevious: true,
+                  },
+                  {
+                    id: "cycle-6-id",
+                    number: 6,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: null,
+                    isNext: false,
+                    isPrevious: false,
+                  },
+                  {
+                    id: "cycle-7-id",
+                    number: 7,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: "next",
+                    isNext: true,
+                    isPrevious: false,
+                  },
+                ],
+              },
+              activeCycle: {
+                id: "cycle-6-id",
+                number: 6,
+                startsAt: "2026-07-27T07:00:00.000Z",
+                name: null,
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: { cycleId: "cycle-7-id", teamId: "team-eng-id" },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Relative offsets resolve against the active cycle's number.
+await snapshotTest({
+  name: "Issue Update Command - Cycle Relative Offset",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--cycle", "+2"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetTeamCyclesForLookup",
+        response: {
+          data: {
+            team: {
+              key: "ENG",
+              cyclesEnabled: true,
+              cycles: {
+                nodes: [
+                  {
+                    id: "cycle-5-id",
+                    number: 5,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: null,
+                    isNext: false,
+                    isPrevious: false,
+                  },
+                  {
+                    id: "cycle-7-id",
+                    number: 7,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: null,
+                    isNext: false,
+                    isPrevious: false,
+                  },
+                ],
+              },
+              activeCycle: {
+                id: "cycle-5-id",
+                number: 5,
+                startsAt: "2026-07-27T07:00:00.000Z",
+                name: null,
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: { cycleId: "cycle-7-id", teamId: "team-eng-id" },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+Deno.test("Issue Update Command - rejects --cycle with --clear-cycle", async () => {
+  const { assertEquals } = await import("@std/assert")
+  const { stub } = await import("@std/testing/mock")
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  try {
+    await updateCommand.parse(["ENG-123", "--cycle", "next", "--clear-cycle"])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+  }
+
+  assertEquals(
+    errorLogs.some((l) =>
+      l.includes("Cannot specify both --cycle and --clear-cycle")
+    ),
+    true,
+  )
+})
+
+Deno.test("Issue Update Command - relative cycle offset requires an active cycle", async () => {
+  const { assertEquals } = await import("@std/assert")
+  const { stub } = await import("@std/testing/mock")
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetTeamIdByKey",
+      variables: { team: "ENG" },
+      response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+    },
+    {
+      queryName: "GetTeamCyclesForLookup",
+      response: {
+        data: {
+          team: {
+            key: "ENG",
+            cyclesEnabled: true,
+            cycles: {
+              nodes: [
+                {
+                  id: "cycle-8-id",
+                  number: 8,
+                  startsAt: "2026-07-27T07:00:00.000Z",
+                  name: null,
+                  isNext: true,
+                  isPrevious: false,
+                },
+              ],
+            },
+            activeCycle: null,
+          },
+        },
+      },
+    },
+  ], { LINEAR_TEAM_ID: "ENG" })
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  try {
+    await updateCommand.parse(["ENG-123", "--cycle", "+2"])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+    await cleanup()
+  }
+
+  assertEquals(
+    errorLogs.some((l) => l.includes("the team has no active cycle")),
+    true,
+  )
+})
+
+// Cycle lookup follows pagination: a cycle beyond the first page must still
+// resolve. Page mocks are matched on the `after` cursor.
+await snapshotTest({
+  name: "Issue Update Command - Cycle Lookup Paginates",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--cycle", "1"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetTeamCyclesForLookup",
+        variables: { teamId: "team-eng-id", after: null },
+        response: {
+          data: {
+            team: {
+              key: "ENG",
+              cyclesEnabled: true,
+              cycles: {
+                nodes: [
+                  {
+                    id: "cycle-300-id",
+                    number: 300,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: null,
+                    isNext: false,
+                    isPrevious: false,
+                  },
+                ],
+                pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+              },
+              activeCycle: null,
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetTeamCyclesForLookup",
+        variables: { teamId: "team-eng-id", after: "cursor-1" },
+        response: {
+          data: {
+            team: {
+              key: "ENG",
+              cyclesEnabled: true,
+              cycles: {
+                nodes: [
+                  {
+                    id: "cycle-1-id",
+                    number: 1,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: null,
+                    isNext: false,
+                    isPrevious: false,
+                  },
+                ],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+              activeCycle: null,
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: { cycleId: "cycle-1-id", teamId: "team-eng-id" },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+Deno.test("Issue Update Command - --cycle errors when team has cycles disabled", async () => {
+  const { assertEquals } = await import("@std/assert")
+  const { stub } = await import("@std/testing/mock")
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetTeamIdByKey",
+      variables: { team: "ENG" },
+      response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+    },
+    {
+      queryName: "GetTeamCyclesForLookup",
+      response: {
+        data: {
+          team: {
+            key: "ENG",
+            cyclesEnabled: false,
+            cycles: {
+              nodes: [],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+            activeCycle: null,
+          },
+        },
+      },
+    },
+  ], { LINEAR_TEAM_ID: "ENG" })
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  try {
+    await updateCommand.parse(["ENG-123", "--cycle", "next"])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+    await cleanup()
+  }
+
+  assertEquals(
+    errorLogs.some((l) => l.includes("Cycles are not enabled for team ENG")),
+    true,
+  )
+})
+
+Deno.test("Issue Update Command - --cycle now errors helpfully when no cycle is active", async () => {
+  const { assertEquals } = await import("@std/assert")
+  const { stub } = await import("@std/testing/mock")
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetTeamIdByKey",
+      variables: { team: "ENG" },
+      response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+    },
+    {
+      queryName: "GetTeamCyclesForLookup",
+      response: {
+        data: {
+          team: {
+            key: "ENG",
+            cyclesEnabled: true,
+            cycles: {
+              nodes: [
+                {
+                  id: "cycle-8-id",
+                  number: 8,
+                  name: null,
+                  startsAt: "2026-07-27T07:00:00.000Z",
+                  isNext: true,
+                  isPrevious: false,
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+            activeCycle: null,
+          },
+        },
+      },
+    },
+  ], { LINEAR_TEAM_ID: "ENG" })
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  try {
+    await updateCommand.parse(["ENG-123", "--cycle", "now"])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+    await cleanup()
+  }
+
+  assertEquals(
+    errorLogs.some((l) => l.includes("Team ENG has no active cycle")),
+    true,
+  )
+  assertEquals(
+    errorLogs.some((l) => l.includes("The next cycle (#8) starts 2026-07-27")),
+    true,
+  )
 })

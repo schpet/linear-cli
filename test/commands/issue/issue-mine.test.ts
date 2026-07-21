@@ -74,6 +74,13 @@ Deno.test("Issue Mine Command - Filter By Label", async () => {
                     color: "#eb5757",
                   }],
                 },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
                 inverseRelations: { nodes: [] },
                 updatedAt: "2026-03-13T10:00:00.000Z",
               },
@@ -157,6 +164,13 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
                 assignee: { initials: "MC" },
                 state: baseState,
                 labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
                 inverseRelations: {
                   nodes: [
                     {
@@ -181,6 +195,13 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
                 assignee: { initials: "MC" },
                 state: baseState,
                 labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
                 inverseRelations: {
                   nodes: [
                     {
@@ -205,6 +226,13 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
                 assignee: { initials: "MC" },
                 state: baseState,
                 labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
                 inverseRelations: {
                   nodes: [
                     {
@@ -247,6 +275,146 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
     assertEquals(eng200.includes("⊘"), true)
     assertEquals(eng201.includes("⊘"), false)
     assertEquals(eng202.includes("⊘"), false)
+  } finally {
+    logStub.restore()
+    globalThis.Date = RealDate
+    setColorEnabled(originalColorEnabled)
+    await cleanup()
+  }
+})
+
+// Cycle column appears (between E and STATE) when the team has cycles
+// enabled, using compact relative tokens.
+Deno.test("Issue Mine Command - Shows Cycle Column", async () => {
+  const fixedNow = new Date("2026-03-30T10:00:00.000Z")
+  const RealDate = Date
+  const originalColorEnabled = getColorEnabled()
+  class MockDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      super(value == null ? fixedNow.toISOString() : value)
+    }
+
+    static override now(): number {
+      return fixedNow.getTime()
+    }
+  }
+  globalThis.Date = MockDate as DateConstructor
+  setColorEnabled(false)
+
+  const cyclingTeam = {
+    id: "team-eng-id",
+    key: "ENG",
+    cyclesEnabled: true,
+    activeCycle: { number: 4 },
+  }
+
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetTeamIdByKey",
+      variables: { team: "ENG" },
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-id" }],
+          },
+        },
+      },
+    },
+    {
+      queryName: "GetIssuesForState",
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                id: "issue-1",
+                identifier: "ENG-101",
+                title: "Fix login bug",
+                priority: 1,
+                estimate: 3,
+                assignee: { initials: "MC" },
+                state: {
+                  id: "state-1",
+                  name: "In Progress",
+                  color: "#f2c94c",
+                  type: "started",
+                },
+                labels: {
+                  nodes: [{
+                    id: "label-1",
+                    name: "Bug",
+                    color: "#eb5757",
+                  }],
+                },
+                cycle: {
+                  id: "cycle-4",
+                  number: 4,
+                  name: null,
+                  isActive: true,
+                  isNext: false,
+                  isPrevious: false,
+                  isFuture: false,
+                  isPast: false,
+                },
+                team: cyclingTeam,
+                inverseRelations: { nodes: [] },
+                updatedAt: "2026-03-13T10:00:00.000Z",
+              },
+              {
+                id: "issue-2",
+                identifier: "ENG-102",
+                title: "Plan ahead",
+                priority: 0,
+                estimate: null,
+                assignee: { initials: "MC" },
+                state: {
+                  id: "state-1",
+                  name: "In Progress",
+                  color: "#f2c94c",
+                  type: "started",
+                },
+                labels: { nodes: [] },
+                cycle: {
+                  id: "cycle-5",
+                  number: 5,
+                  name: null,
+                  isActive: false,
+                  isNext: true,
+                  isPrevious: false,
+                  isFuture: true,
+                  isPast: false,
+                },
+                team: cyclingTeam,
+                inverseRelations: { nodes: [] },
+                updatedAt: "2026-03-13T10:00:00.000Z",
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { LINEAR_TEAM_ID: "ENG", LINEAR_ISSUE_SORT: "priority", NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await mineCommand.parse([
+      "--team",
+      "ENG",
+      "--sort",
+      "priority",
+    ])
+
+    assertEquals(
+      logs.join("\n") + "\n",
+      "◌   ID      TITLE         LABELS B E CYC STATE       UPDATED    \n" +
+        "⚠⚠⚠ ENG-101 Fix login bug Bug      3 now In Progress 17 days ago\n" +
+        "--- ENG-102 Plan ahead             - +1  In Progress 17 days ago\n",
+    )
   } finally {
     logStub.restore()
     globalThis.Date = RealDate

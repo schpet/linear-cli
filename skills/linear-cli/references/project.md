@@ -40,25 +40,26 @@ Description:
 
 Options:
 
-  -h, --help                             - Show this help.                                                                    
-  --workspace             <slug>         - Target workspace (uses credentials)                                                
-  -n, --name              <name>         - Project name (required)                                                            
-  -d, --description       <description>  - Project description (max 255 characters, enforced by Linear's API)                 
-  -f, --description-file  <path>         - Read project description from file (still subject to the 255-character API limit)  
-  --content               <markdown>     - Project overview markdown                                                          
-  --content-file          <path>         - Read project overview markdown from a file                                         
-  -t, --team              <team>         - Team key (required, can be repeated for multiple teams)                            
-  -l, --lead              <lead>         - Project lead (username, email, or @me)                                             
-  -s, --status            <status>       - Project status (planned, started, paused, completed, canceled, backlog)            
-  --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                            
-  --target-date           <targetDate>   - Target completion date (YYYY-MM-DD)                                                
-  --priority              <priority>     - Project priority (none, urgent, high, medium, low)                                 
-  --label                 <label>        - Project label associated with the project. May be repeated.                        
-  --member                <user>         - Project member (username, email, display name, or @me). May be repeated.           
-  --icon                  <icon>         - Project icon                                                                       
-  --color                 <color>        - Project color as a HEX string                                                      
-  --initiative            <initiative>   - Add to initiative immediately (ID, slug, or name)                                  
-  -i, --interactive                      - Interactive mode (default if no flags provided)                                    
+  -h, --help                             - Show this help.                                                             
+  --workspace             <slug>         - Target workspace (uses credentials)                                         
+  -n, --name              <name>         - Project name (required)                                                     
+  -d, --description       <description>  - Project description (max 255 characters, enforced by Linear's API)          
+  -f, --description-file  <path>         - Read project description from file (still subject to the 255-character API  
+                                           limit)                                                                      
+  --content               <markdown>     - Project overview markdown                                                   
+  --content-file          <path>         - Read project overview markdown from a file                                  
+  -t, --team              <team>         - Team key (required, can be repeated for multiple teams)                     
+  -l, --lead              <lead>         - Project lead (username, email, or @me)                                      
+  -s, --status            <status>       - Project status (planned, started, paused, completed, canceled, backlog)     
+  --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                     
+  --target-date           <targetDate>   - Target completion date (YYYY-MM-DD)                                         
+  --priority              <priority>     - Project priority (none, urgent, high, medium, low)                          
+  --label                 <label>        - Project label associated with the project. May be repeated.                 
+  --member                <user>         - Project member (username, email, display name, or @me). May be repeated.    
+  --icon                  <icon>         - Project icon                                                                
+  --color                 <color>        - Project color as a HEX string                                               
+  --initiative            <initiative>   - Add to initiative immediately (ID, slug, or name)                           
+  -i, --interactive                      - Interactive mode (default if no flags provided)                             
   -j, --json                             - Output created project as JSON
 ```
 
@@ -116,16 +117,17 @@ Description:
 
 Options:
 
-  -h, --help                             - Show this help.                                                                    
-  --workspace             <slug>         - Target workspace (uses credentials)                                                
-  -n, --name              <name>         - Project name                                                                       
-  -d, --description       <description>  - Project description (max 255 characters, enforced by Linear's API)                 
-  -f, --description-file  <path>         - Read project description from file (still subject to the 255-character API limit)  
-  -s, --status            <status>       - Status (planned, started, paused, completed, canceled, backlog)                    
-  -l, --lead              <lead>         - Project lead (username, email, or @me)                                             
-  --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                            
-  --target-date           <targetDate>   - Target date (YYYY-MM-DD)                                                           
-  -t, --team              <team>         - Team key (can be repeated for multiple teams)                                      
+  -h, --help                             - Show this help.                                                             
+  --workspace             <slug>         - Target workspace (uses credentials)                                         
+  -n, --name              <name>         - Project name                                                                
+  -d, --description       <description>  - Project description (max 255 characters, enforced by Linear's API)          
+  -f, --description-file  <path>         - Read project description from file (still subject to the 255-character API  
+                                           limit)                                                                      
+  -s, --status            <status>       - Status (planned, started, paused, completed, canceled, backlog)             
+  -l, --lead              <lead>         - Project lead (username, email, or @me)                                      
+  --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                     
+  --target-date           <targetDate>   - Target date (YYYY-MM-DD)                                                    
+  -t, --team              <team>         - Team key (can be repeated for multiple teams)                               
   --label                 <label>        - Replace the project's labels. May be repeated to set multiple labels.
 ```
 
