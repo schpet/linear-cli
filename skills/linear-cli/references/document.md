@@ -112,6 +112,7 @@ Options:
   -c, --content       <content>  - New markdown content (inline)                                       
   -f, --content-file  <path>     - Read new content from file                                          
   --icon              <icon>     - New icon (emoji)                                                    
+  --project           <project>  - Attach to project (UUID, slug ID, or name)                          
   -e, --edit                     - Open current content in $EDITOR for editing                         
   --force                        - Update content even when document comments may lose inline anchors
 ```

@@ -84,7 +84,11 @@ export const updateCommand = new Command()
   )
   .option(
     "--cycle <cycle:string>",
-    "Cycle name, number, or 'active'",
+    "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives). Use --clear-cycle to remove the issue from its cycle",
+  )
+  .option(
+    "--clear-cycle",
+    "Remove the issue from its cycle",
   )
   .option("-t, --title <title:string>", "Title of the issue")
   .action(
@@ -92,6 +96,7 @@ export const updateCommand = new Command()
       {
         assignee,
         unassign,
+        clearCycle,
         dueDate,
         parent,
         priority,
@@ -115,6 +120,16 @@ export const updateCommand = new Command()
             {
               suggestion:
                 "Use --assignee <user> to set an assignee, or --unassign on its own to clear it.",
+            },
+          )
+        }
+
+        if (clearCycle && cycle != null) {
+          throw new ValidationError(
+            "Cannot specify both --cycle and --clear-cycle",
+            {
+              suggestion:
+                "Use --cycle <cycle> to set a cycle, or --clear-cycle on its own to remove it.",
             },
           )
         }
@@ -280,7 +295,11 @@ export const updateCommand = new Command()
         if (projectMilestoneId !== undefined) {
           input.projectMilestoneId = projectMilestoneId
         }
-        if (cycleId !== undefined) input.cycleId = cycleId
+        if (clearCycle) {
+          input.cycleId = null
+        } else if (cycleId !== undefined) {
+          input.cycleId = cycleId
+        }
         if (stateId !== undefined) input.stateId = stateId
 
         spinner?.stop()

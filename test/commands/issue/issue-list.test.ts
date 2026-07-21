@@ -76,6 +76,13 @@ Deno.test("Issue List Command - Filter By Label", async () => {
                     color: "#eb5757",
                   }],
                 },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
                 inverseRelations: { nodes: [] },
                 updatedAt: "2026-03-13T10:00:00.000Z",
               },

@@ -37,13 +37,30 @@ await snapshotTest({
         response: {
           data: {
             team: {
+              key: "ENG",
+              cyclesEnabled: true,
               cycles: {
                 nodes: [
-                  { id: "cycle-1", number: 12, name: "Sprint 12" },
-                  { id: "cycle-2", number: 13, name: "Sprint 13" },
+                  {
+                    id: "cycle-1",
+                    number: 12,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: "Sprint 12",
+                  },
+                  {
+                    id: "cycle-2",
+                    number: 13,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: "Sprint 13",
+                  },
                 ],
               },
-              activeCycle: { id: "cycle-2", number: 13, name: "Sprint 13" },
+              activeCycle: {
+                id: "cycle-2",
+                number: 13,
+                startsAt: "2026-07-27T07:00:00.000Z",
+                name: "Sprint 13",
+              },
             },
           },
         },
@@ -136,9 +153,16 @@ await snapshotTest({
         response: {
           data: {
             team: {
+              key: "ENG",
+              cyclesEnabled: true,
               cycles: {
                 nodes: [
-                  { id: "cycle-3", number: 14, name: "Sprint 14" },
+                  {
+                    id: "cycle-3",
+                    number: 14,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: "Sprint 14",
+                  },
                 ],
               },
               activeCycle: null,
@@ -215,9 +239,16 @@ await snapshotTest({
         response: {
           data: {
             team: {
+              key: "ENG",
+              cyclesEnabled: true,
               cycles: {
                 nodes: [
-                  { id: "cycle-1", number: 12, name: "Sprint 12" },
+                  {
+                    id: "cycle-1",
+                    number: 12,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: "Sprint 12",
+                  },
                 ],
               },
               activeCycle: null,

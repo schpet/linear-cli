@@ -26,7 +26,10 @@ Options:
   -s, --state         <state>        - Workflow state for the issue (by name or type)                                   
   --milestone         <milestone>    - Project milestone (UUID, or name when --project is set or the issue already has  
                                        a project)                                                                       
-  --cycle             <cycle>        - Cycle name, number, or 'active'                                                  
+  --cycle             <cycle>        - Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset     
+                                       like +1 (use --cycle=-1 for negatives). Use --clear-cycle to remove the issue    
+                                       from its cycle                                                                   
+  --clear-cycle                      - Remove the issue from its cycle                                                  
   -t, --title         <title>        - Title of the issue                                                               
 
 "
@@ -173,3 +176,46 @@ stderr:
 "
 `;
 
+snapshot[`Issue Update Command - Clear Cycle Sends Null 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Cycle Next Resolves Via Flag 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Cycle Relative Offset 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Cycle Lookup Paginates 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;

@@ -386,13 +386,30 @@ await snapshotTest({
         response: {
           data: {
             team: {
+              key: "ENG",
+              cyclesEnabled: true,
               cycles: {
                 nodes: [
-                  { id: "cycle-1", number: 7, name: "Sprint 7" },
-                  { id: "cycle-2", number: 8, name: "Sprint 8" },
+                  {
+                    id: "cycle-1",
+                    number: 7,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: "Sprint 7",
+                  },
+                  {
+                    id: "cycle-2",
+                    number: 8,
+                    startsAt: "2026-07-27T07:00:00.000Z",
+                    name: "Sprint 8",
+                  },
                 ],
               },
-              activeCycle: { id: "cycle-1", number: 7, name: "Sprint 7" },
+              activeCycle: {
+                id: "cycle-1",
+                number: 7,
+                startsAt: "2026-07-27T07:00:00.000Z",
+                name: "Sprint 7",
+              },
             },
           },
         },

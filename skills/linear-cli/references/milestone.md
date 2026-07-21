@@ -18,11 +18,11 @@ Options:
 
 Commands:
 
-  list                  - List milestones for a project                                                                                               
-  view, v  <milestone>  - View milestone details. By default lists the first 10 attached issues from the first page of 50; use --all to paginate the  
-                          full set.                                                                                                                   
-  create                - Create a new project milestone                                                                                              
-  update   <id>         - Update an existing project milestone                                                                                        
+  list                  - List milestones for a project                                                 
+  view, v  <milestone>  - View milestone details. By default lists the first 10 attached issues from the
+                          first page of 50; use --all to paginate the full set.                         
+  create                - Create a new project milestone                                                
+  update   <id>         - Update an existing project milestone                                          
   delete   <id>         - Delete a project milestone
 ```
 

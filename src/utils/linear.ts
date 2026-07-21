@@ -255,8 +255,19 @@ const issueDetailsWithCommentsQuery = gql(/* GraphQL */ `
         name
       }
       cycle {
-        name
+        id
         number
+        name
+        isActive
+        isNext
+        isPrevious
+        isFuture
+        isPast
+      }
+      team {
+        activeCycle {
+          number
+        }
       }
       labels(first: 50) {
         nodes {
@@ -357,8 +368,19 @@ const issueDetailsQuery = gql(/* GraphQL */ `
         name
       }
       cycle {
-        name
+        id
         number
+        name
+        isActive
+        isNext
+        isPrevious
+        isFuture
+        isPast
+      }
+      team {
+        activeCycle {
+          number
+        }
       }
       labels(first: 50) {
         nodes {
@@ -657,6 +679,24 @@ export async function fetchIssuesForState(
             color
             type
           }
+          cycle {
+            id
+            number
+            name
+            isActive
+            isNext
+            isPrevious
+            isFuture
+            isPast
+          }
+          team {
+            id
+            key
+            cyclesEnabled
+            activeCycle {
+              number
+            }
+          }
           labels {
             nodes {
               id
@@ -784,6 +824,10 @@ const queryIssuesQuery = gql(/* GraphQL */ `
           id
           key
           name
+          cyclesEnabled
+          activeCycle {
+            number
+          }
         }
         project {
           id
@@ -797,6 +841,11 @@ const queryIssuesQuery = gql(/* GraphQL */ `
           id
           number
           name
+          isActive
+          isNext
+          isPrevious
+          isFuture
+          isPast
         }
         labels {
           nodes {
@@ -1036,6 +1085,10 @@ const searchIssuesQuery = gql(/* GraphQL */ `
           id
           key
           name
+          cyclesEnabled
+          activeCycle {
+            number
+          }
         }
         project {
           id
@@ -1049,6 +1102,11 @@ const searchIssuesQuery = gql(/* GraphQL */ `
           id
           number
           name
+          isActive
+          isNext
+          isPrevious
+          isFuture
+          isPast
         }
         labels {
           nodes {
@@ -1100,6 +1158,7 @@ export interface SearchIssuesByTermOptions {
   limit?: number
   projectId?: string
   projectLabel?: string
+  cycleId?: string
   labelNames?: string[]
   createdAfter?: string
   updatedAfter?: string
@@ -1146,6 +1205,10 @@ export async function searchIssuesByTerm(
     filter.project = {
       labels: { name: { eqIgnoreCase: options.projectLabel } },
     }
+  }
+
+  if (options.cycleId) {
+    filter.cycle = { id: { eq: options.cycleId } }
   }
 
   if (options.labelNames != null && options.labelNames.length > 0) {
@@ -1856,13 +1919,22 @@ export async function getCycleIdByNameOrNumber(
 ): Promise<string> {
   const client = getGraphQLClient()
   const query = gql(/* GraphQL */ `
-    query GetTeamCyclesForLookup($teamId: String!) {
+    query GetTeamCyclesForLookup($teamId: String!, $after: String) {
       team(id: $teamId) {
-        cycles {
+        key
+        cyclesEnabled
+        cycles(first: 250, after: $after) {
           nodes {
             id
             number
             name
+            startsAt
+            isNext
+            isPrevious
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
           }
         }
         activeCycle {
@@ -1873,23 +1945,106 @@ export async function getCycleIdByNameOrNumber(
       }
     }
   `)
-  const data = await client.request(query, { teamId })
+  const data = await client.request(query, { teamId, after: null })
   if (!data.team) {
     throw new NotFoundError("Team", teamId)
   }
+  if (!data.team.cyclesEnabled) {
+    throw new ValidationError(
+      `Cycles are not enabled for team ${data.team.key}`,
+      {
+        suggestion:
+          "Enable cycles for the team in Linear's settings before filtering or assigning by cycle.",
+      },
+    )
+  }
 
-  if (cycleNameOrNumber.toLowerCase() === "active") {
+  const cycles = [...(data.team.cycles?.nodes || [])]
+  let pageInfo = data.team.cycles?.pageInfo
+  while (pageInfo?.hasNextPage) {
+    const page = await client.request(query, {
+      teamId,
+      after: pageInfo.endCursor,
+    })
+    if (!page.team) {
+      throw new NotFoundError("Team", teamId)
+    }
+    cycles.push(...(page.team.cycles?.nodes || []))
+    pageInfo = page.team.cycles?.pageInfo
+  }
+  const keyword = cycleNameOrNumber.toLowerCase()
+
+  // Reserved keywords take precedence over coincidental cycle names; use the
+  // cycle number to reach a cycle literally named "next"/"previous"/"active".
+  if (keyword === "active" || keyword === "now") {
     if (!data.team.activeCycle) {
-      throw new NotFoundError("Active cycle", teamId)
+      const next = cycles.find((c) => c.isNext)
+      throw new CliError(
+        `Team ${data.team.key} has no active cycle`,
+        {
+          suggestion: next != null
+            ? `The next cycle (#${next.number}) starts ${
+              String(next.startsAt).slice(0, 10)
+            } — use --cycle next, a cycle number, or a name.`
+            : "Use a cycle number or name instead.",
+        },
+      )
     }
     return data.team.activeCycle.id
   }
 
-  const cycles = data.team.cycles?.nodes || []
+  if (keyword === "next") {
+    const next = cycles.find((c) => c.isNext)
+    if (!next) {
+      throw new CliError(
+        `Team ${data.team.key} has no upcoming cycle`,
+        { suggestion: "Use a cycle number or name instead." },
+      )
+    }
+    return next.id
+  }
+
+  if (keyword === "previous") {
+    const previous = cycles.find((c) => c.isPrevious)
+    if (!previous) {
+      throw new CliError(
+        `Team ${data.team.key} has no previous cycle`,
+        { suggestion: "Use a cycle number or name instead." },
+      )
+    }
+    return previous.id
+  }
+
+  if (/^[+-]\d+$/.test(cycleNameOrNumber)) {
+    const offset = Number(cycleNameOrNumber)
+    if (!Number.isSafeInteger(offset)) {
+      throw new ValidationError(
+        `Cycle offset ${cycleNameOrNumber} is out of range`,
+      )
+    }
+    if (!data.team.activeCycle) {
+      throw new ValidationError(
+        `Cannot resolve relative cycle ${cycleNameOrNumber}: the team has no active cycle`,
+        {
+          suggestion:
+            "Use 'next', a cycle number, or a cycle name while no cycle is active.",
+        },
+      )
+    }
+    const targetNumber = data.team.activeCycle.number + offset
+    const target = cycles.find((c) => c.number === targetNumber)
+    if (!target) {
+      throw new NotFoundError(
+        "Cycle",
+        `${cycleNameOrNumber} (cycle ${targetNumber})`,
+      )
+    }
+    return target.id
+  }
+
   const match = cycles.find(
     (c) =>
-      (c.name != null &&
-        c.name.toLowerCase() === cycleNameOrNumber.toLowerCase()) ||
+      (c.name != null && c.name.toLowerCase() === keyword) ||
       String(c.number) === cycleNameOrNumber,
   )
   if (!match) {
