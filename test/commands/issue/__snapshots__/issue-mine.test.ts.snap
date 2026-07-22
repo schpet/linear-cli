@@ -15,7 +15,7 @@ Options:
   -s, --state      <state>         - Filter by issue state (can be repeated for multiple states)                      (Default: [ \\x1b[32m"unstarted"\\x1b[39m ], Values: \\x1b[32m"triage"\\x1b[39m, \\x1b[32m"backlog"\\x1b[39m,
                                                                                                                       \\x1b[32m"unstarted"\\x1b[39m, \\x1b[32m"started"\\x1b[39m, \\x1b[32m"completed"\\x1b[39m, \\x1b[32m"canceled"\\x1b[39m)       
   --all-states                     - Show issues from all states                                                                                                             
-  --sort           <sort>          - Sort order (can also be set via LINEAR_ISSUE_SORT)                               (Values: \\x1b[32m"manual"\\x1b[39m, \\x1b[32m"priority"\\x1b[39m)                         
+  --sort           <sort>          - Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)            (Values: \\x1b[32m"manual"\\x1b[39m, \\x1b[32m"priority"\\x1b[39m)                         
   --team           <team>          - Team to list issues for (if not your default team)                                                                                      
   --project        <project>       - Filter by project (UUID, slug ID, or name)                                                                                              
   --project-label  <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                           

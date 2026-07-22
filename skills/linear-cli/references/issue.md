@@ -364,7 +364,7 @@ Options:
   -s, --state      <state>         - Filter by issue state (can be repeated for multiple states)                      (Default: [ "unstarted" ], Values: "triage", "backlog",
                                                                                                                       "unstarted", "started", "completed", "canceled")       
   --all-states                     - Show issues from all states                                                                                                             
-  --sort           <sort>          - Sort order (can also be set via LINEAR_ISSUE_SORT)                               (Values: "manual", "priority")                         
+  --sort           <sort>          - Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)            (Values: "manual", "priority")                         
   --team           <team>          - Team to list issues for (if not your default team)                                                                                      
   --project        <project>       - Filter by project (UUID, slug ID, or name)                                                                                              
   --project-label  <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                           

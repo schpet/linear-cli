@@ -1,5 +1,5 @@
 .aider.*
 .config/linear.toml
-
+.idea/
 src/__codegen__/
 npm

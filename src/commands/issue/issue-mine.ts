@@ -61,7 +61,7 @@ export const mineCommand = new Command()
   )
   .option(
     "--sort <sort:sort>",
-    "Sort order (can also be set via LINEAR_ISSUE_SORT)",
+    "Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)",
     {
       required: false,
     },
@@ -179,12 +179,8 @@ export const mineCommand = new Command()
         }
 
         const sort = sortFlag ||
-          getOption("issue_sort") as "manual" | "priority" | undefined
-        if (!sort) {
-          throw new ValidationError(
-            "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
-          )
-        }
+          (getOption("issue_sort") as "manual" | "priority" | undefined) ||
+          "priority"
         if (!SortType.values().includes(sort)) {
           throw new ValidationError(
             `Sort must be one of: ${SortType.values().join(", ")}`,
