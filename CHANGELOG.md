@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-07-22
+
+### Fixed
+
+- `issue query --search` no longer silently drops the `--cycle` filter
+- `team members --all` now actually includes disabled members (the flag was previously a no-op)
+- Error suggestions now point at the real `linear config` command instead of the nonexistent `linear configure`
+
+### Added
+
+- Cycle information in issue lists and `issue view`: a compact CYC column (for teams with cycles enabled) and cycle flags in `--json` output
+- Relative cycle references (`now`, `next`, `previous`, signed offsets like `+1`) accepted by `--cycle` on issue query/mine/create/update and `cycle view`, plus `issue update --clear-cycle` to remove an issue from its cycle
+- `linear user list` (alias `u`) to list all workspace members, `team members --json` output, and admin/owner/you role markers in member listings
+- `issue update --unassign` to clear an issue's assignee
+- `document update --project` to change which project a document is attached to
+- `linear team states` command to list a team's workflow states; a wrong `--state` on `issue create`/`issue update` now errors with the list of valid states
+- `configure` as an alias for the `config` command
+
 ## [2.1.1] - 2026-07-15
 
 ### Fixed
@@ -471,7 +489,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.1.1...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/schpet/linear-cli/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/schpet/linear-cli/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/schpet/linear-cli/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/schpet/linear-cli/compare/v1.11.1...v2.0.0
