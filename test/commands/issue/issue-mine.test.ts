@@ -120,6 +120,88 @@ Deno.test("Issue Mine Command - Filter By Label", async () => {
   }
 })
 
+Deno.test("Issue Mine Command - Defaults To Priority Sort When None Configured", async () => {
+  const fixedNow = new Date("2026-03-30T10:00:00.000Z")
+  const RealDate = Date
+  const originalColorEnabled = getColorEnabled()
+  class MockDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      super(value == null ? fixedNow.toISOString() : value)
+    }
+
+    static override now(): number {
+      return fixedNow.getTime()
+    }
+  }
+  globalThis.Date = MockDate as DateConstructor
+  setColorEnabled(false)
+
+  // No LINEAR_ISSUE_SORT and no --sort flag: the request must still go out,
+  // sorted by priority. The mock only matches when sort is the priority
+  // payload, so a missing/incorrect default would fail to match.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssuesForState",
+      variables: {
+        sort: [
+          { workflowState: { order: "Descending" } },
+          { priority: { nulls: "last", order: "Descending" } },
+          { manual: { nulls: "last", order: "Ascending" } },
+        ],
+      },
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                id: "issue-1",
+                identifier: "ENG-101",
+                title: "Fix login bug",
+                priority: 1,
+                estimate: 3,
+                assignee: { initials: "MC" },
+                state: {
+                  id: "state-1",
+                  name: "In Progress",
+                  color: "#f2c94c",
+                  type: "started",
+                },
+                labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
+                inverseRelations: { nodes: [] },
+                updatedAt: "2026-03-13T10:00:00.000Z",
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { LINEAR_TEAM_ID: "ENG", NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await mineCommand.parse(["--team", "ENG"])
+
+    assertEquals(logs.join("\n").includes("ENG-101"), true)
+  } finally {
+    logStub.restore()
+    globalThis.Date = RealDate
+    setColorEnabled(originalColorEnabled)
+    await cleanup()
+  }
+})
+
 Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
   const fixedNow = new Date("2026-03-30T10:00:00.000Z")
   const RealDate = Date

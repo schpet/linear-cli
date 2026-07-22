@@ -593,17 +593,9 @@ export async function fetchIssuesForState(
   createdAfter?: string,
   updatedAfter?: string,
 ) {
-  const sort = sortParam ??
-    getOption("issue_sort") as "manual" | "priority" | undefined
-  if (!sort) {
-    throw new ValidationError(
-      "Sort must be provided",
-      {
-        suggestion:
-          "Use --sort parameter, set in configuration file, or set LINEAR_ISSUE_SORT environment variable",
-      },
-    )
-  }
+  const sort: "manual" | "priority" = sortParam ??
+    (getOption("issue_sort") as "manual" | "priority" | undefined) ??
+    "priority"
 
   const filter: IssueFilter = {
     team: { key: { eq: teamKey } },
