@@ -17,3 +17,28 @@ https://linear.app/issue/TEST-123#comment-uuid-reply-789
 stderr:
 ""
 `;
+
+snapshot[`Issue Comment Add Command - Help 1`] = `
+stdout:
+"
+Usage: add [issueId]
+
+Description:
+
+  Add a comment or reply; images uploaded with --attach render inline
+
+Options:
+
+  -h, --help                - Show this help.                                                                
+  -b, --body    <text>      - Comment body text                                                              
+  --body-file   <path>      - Read comment body from a file (preferred for markdown content)                 
+  -p, --parent  <id>        - Parent comment ID for replies                                                  
+  -a, --attach  <filepath>  - Upload a file and add its Markdown link to the comment (images render inline;  
+                              repeatable)                                                                    
+  --public                  - Upload attached images to a public, unauthenticated URL (default: private,     
+                              workspace-members only)                                                        
+
+"
+stderr:
+""
+`;

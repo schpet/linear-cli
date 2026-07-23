@@ -70,6 +70,14 @@ linear issue update ENG-123 --label infra --label security  # replaces the label
 linear issue comment add ENG-123 --body-file ./comment.md
 ```
 
+### Attach an image or screenshot so it is visible inline
+
+```bash
+linear issue comment add ENG-123 --attach ./screenshot.png
+```
+
+This uploads the image and embeds it in a comment, where Linear renders it inline. Do not use `linear issue attach` when the image must be visible: that command creates a sidebar link attachment and does not render images inline.
+
 ### View an issue / get its URL
 
 ```bash

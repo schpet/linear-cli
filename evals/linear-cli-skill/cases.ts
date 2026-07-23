@@ -18,6 +18,13 @@ export interface RequiredArg {
   valueIsPathSuffix?: boolean
 }
 
+export interface RequiredPositional {
+  /** Expected value, compared exactly (or by suffix for paths) */
+  value: string
+  /** Match by suffix (for file paths whose prefix is the tmp workdir) */
+  valueIsPathSuffix?: boolean
+}
+
 export interface CliExpectation {
   route: "cli"
   /**
@@ -31,6 +38,19 @@ export interface CliExpectation {
    */
   argsPrefix: string[]
   requiredArgs: RequiredArg[]
+  /**
+   * Positional arguments that must appear after `argsPrefix`, in order.
+   * Grading strips the flags declared in `valueFlags`/`booleanFlags` (plus
+   * their values) from the tail of argv before comparing, so flags may be
+   * interspersed anywhere without failing the match. Positional values are
+   * compared case-sensitively (unlike flag values) because they are file
+   * paths and issue identifiers the prompt states verbatim.
+   */
+  positionals?: RequiredPositional[]
+  /** Flags of this subcommand that consume a value (stripped with it) */
+  valueFlags?: string[]
+  /** Flags of this subcommand that take no value */
+  booleanFlags?: string[]
 }
 
 export interface ApiExpectation {
@@ -247,6 +267,85 @@ export const CASES: EvalCase[] = [
       routePrefixes: [["issue", "url"], ["issue", "view"]],
       argsPrefix: ["issue", "url"],
       requiredArgs: [],
+    },
+  },
+  {
+    id: "image-development",
+    family: "image",
+    variant: "development",
+    prompt:
+      `${PREAMBLE} Task: attach the screenshot at ./screenshot.png to issue ENG-107 so it is visible on the issue.`,
+    expect: {
+      route: "cli",
+      routePrefixes: [["issue", "comment", "add"]],
+      argsPrefix: ["issue", "comment", "add"],
+      requiredArgs: [
+        {
+          flags: ["--attach", "-a"],
+          value: "screenshot.png",
+          valueIsPathSuffix: true,
+        },
+      ],
+      positionals: [{ value: "ENG-107" }],
+      valueFlags: [
+        "--body",
+        "-b",
+        "--body-file",
+        "--parent",
+        "-p",
+        "--attach",
+        "-a",
+      ],
+      booleanFlags: ["--public"],
+    },
+  },
+  {
+    id: "image-holdout",
+    family: "image",
+    variant: "holdout",
+    prompt:
+      `${PREAMBLE} Task: add a comment to issue OPS-44 with the screenshot at ./screenshot.png visible inline.`,
+    expect: {
+      route: "cli",
+      routePrefixes: [["issue", "comment", "add"]],
+      argsPrefix: ["issue", "comment", "add"],
+      requiredArgs: [
+        {
+          flags: ["--attach", "-a"],
+          value: "screenshot.png",
+          valueIsPathSuffix: true,
+        },
+      ],
+      positionals: [{ value: "OPS-44" }],
+      valueFlags: [
+        "--body",
+        "-b",
+        "--body-file",
+        "--parent",
+        "-p",
+        "--attach",
+        "-a",
+      ],
+      booleanFlags: ["--public"],
+    },
+  },
+  {
+    id: "control-sidebar-attachment",
+    family: "control",
+    variant: "control",
+    prompt:
+      `${PREAMBLE} Task: attach ./server.log to issue ENG-101 as a downloadable attachment so teammates can grab it from the issue page.`,
+    expect: {
+      route: "cli",
+      routePrefixes: [["issue", "attach"]],
+      argsPrefix: ["issue", "attach"],
+      requiredArgs: [],
+      positionals: [
+        { value: "ENG-101" },
+        { value: "server.log", valueIsPathSuffix: true },
+      ],
+      valueFlags: ["--title", "-t", "--comment", "-c"],
+      booleanFlags: ["--public"],
     },
   },
   {

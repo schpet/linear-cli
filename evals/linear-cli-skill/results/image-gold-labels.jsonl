@@ -1,0 +1,18 @@
+{"condition":"image-baseline","caseId":"control-sidebar-attachment","trial":1,"goalAchieved":true,"reason":"Ran issue attach on ENG-101 with server.log, the correct sidebar attachment for a downloadable file."}
+{"condition":"image-baseline","caseId":"control-sidebar-attachment","trial":2,"goalAchieved":true,"reason":"Attached server.log to ENG-101 via issue attach as a downloadable sidebar attachment."}
+{"condition":"image-baseline","caseId":"control-sidebar-attachment","trial":3,"goalAchieved":true,"reason":"Attached server.log to ENG-101 via issue attach as a downloadable sidebar attachment."}
+{"condition":"image-baseline","caseId":"image-development","trial":1,"goalAchieved":false,"reason":"Used issue attach, which creates a sidebar link, not a visible inline image as the user requested."}
+{"condition":"image-baseline","caseId":"image-development","trial":2,"goalAchieved":false,"reason":"Used issue attach, producing only a sidebar link rather than a visible inline image."}
+{"condition":"image-baseline","caseId":"image-development","trial":3,"goalAchieved":false,"reason":"Used issue attach, producing only a sidebar link rather than a visible inline image."}
+{"condition":"image-baseline","caseId":"image-holdout","trial":1,"goalAchieved":true,"reason":"Used comment add --attach on OPS-44, embedding the screenshot as a visible inline image."}
+{"condition":"image-baseline","caseId":"image-holdout","trial":2,"goalAchieved":true,"reason":"Used comment add --attach on OPS-44, embedding the screenshot as a visible inline image."}
+{"condition":"image-baseline","caseId":"image-holdout","trial":3,"goalAchieved":true,"reason":"Used comment add --attach on OPS-44, embedding the screenshot as a visible inline image."}
+{"condition":"image-post-change","caseId":"control-sidebar-attachment","trial":1,"goalAchieved":true,"reason":"Attached server.log to ENG-101 via issue attach as a downloadable sidebar attachment."}
+{"condition":"image-post-change","caseId":"control-sidebar-attachment","trial":2,"goalAchieved":true,"reason":"Attached server.log to ENG-101 via issue attach as a downloadable sidebar attachment."}
+{"condition":"image-post-change","caseId":"control-sidebar-attachment","trial":3,"goalAchieved":true,"reason":"Attached server.log to ENG-101 via issue attach as a downloadable sidebar attachment."}
+{"condition":"image-post-change","caseId":"image-development","trial":1,"goalAchieved":true,"reason":"Used comment add --attach on ENG-107, embedding the screenshot as a visible inline image."}
+{"condition":"image-post-change","caseId":"image-development","trial":2,"goalAchieved":true,"reason":"Used comment add --attach on ENG-107, embedding the screenshot as a visible inline image."}
+{"condition":"image-post-change","caseId":"image-development","trial":3,"goalAchieved":true,"reason":"Used comment add --attach on ENG-107, embedding the screenshot as a visible inline image."}
+{"condition":"image-post-change","caseId":"image-holdout","trial":1,"goalAchieved":true,"reason":"Used comment add --attach on OPS-44, embedding the screenshot as a visible inline image."}
+{"condition":"image-post-change","caseId":"image-holdout","trial":2,"goalAchieved":true,"reason":"Used comment add --attach on OPS-44, embedding the screenshot as a visible inline image."}
+{"condition":"image-post-change","caseId":"image-holdout","trial":3,"goalAchieved":true,"reason":"Used comment add --attach on OPS-44, embedding the screenshot as a visible inline image."}

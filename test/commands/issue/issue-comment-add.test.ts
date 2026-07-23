@@ -200,3 +200,15 @@ Deno.test("Issue Comment Add Command - rejects --public batch before uploading e
   // ...and no attachment was uploaded (no "✓ Uploaded" line was printed).
   assertEquals(infoLogs.some((l) => l.includes("Uploaded")), false)
 })
+
+// Help output locks the inline-image guidance in the descriptions
+await snapshotTest({
+  name: "Issue Comment Add Command - Help",
+  meta: import.meta,
+  colors: false,
+  args: ["--help"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    await commentAddCommand.parse()
+  },
+})

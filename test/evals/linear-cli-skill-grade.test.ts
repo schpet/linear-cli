@@ -6,6 +6,7 @@ import {
   flagValues,
   gradeRecords,
   isDiscovery,
+  positionalTokens,
   type ShimEntry,
   type TrialRecord,
 } from "../../evals/linear-cli-skill/grade.ts"
@@ -288,8 +289,9 @@ Deno.test("gradeRecords aggregates by case and variant and rejects mixed conditi
   assertEquals(summary.supported.total, 1)
   assertEquals(summary.supported.routeOk, 1)
   assertEquals(summary.supported.fullSuccess, 0)
-  assertEquals(summary.controls.total, 1)
-  assertEquals(summary.controls.routeOk, 1)
+  assertEquals(summary.apiControls.total, 1)
+  assertEquals(summary.apiControls.routeOk, 1)
+  assertEquals(summary.cliControls.total, 0)
   assertEquals(summary.byVariant.holdout.total, 1)
   assertEquals(summary.byCase["query-holdout"].routeOk, 1)
   assertEquals(summary.skillReadTrials, 1)
@@ -312,4 +314,262 @@ Deno.test("fisher one-sided matches known values", () => {
   assertEquals(fisherOneSided(5, 5, 5, 5) > 0.5, true)
   // regression should give a large p-value
   assertEquals(fisherOneSided(9, 1, 1, 9) > 0.99, true)
+})
+
+const imageCase = CASES.find((evalCase) => evalCase.id === "image-development")!
+const sidebarControlCase = CASES.find((evalCase) =>
+  evalCase.id === "control-sidebar-attachment"
+)!
+
+Deno.test("positionalTokens strips declared flags in any position", () => {
+  assertEquals(
+    positionalTokens(
+      ["issue", "attach", "ENG-101", "./server.log", "--title", "Server log"],
+      ["issue", "attach"],
+      ["--title", "-t", "--comment", "-c"],
+      ["--public"],
+    ),
+    ["ENG-101", "./server.log"],
+  )
+  // flags interspersed before the positionals must not shift the match
+  assertEquals(
+    positionalTokens(
+      ["issue", "attach", "--title", "Server log", "ENG-101", "./server.log"],
+      ["issue", "attach"],
+      ["--title", "-t", "--comment", "-c"],
+      ["--public"],
+    ),
+    ["ENG-101", "./server.log"],
+  )
+  // --flag=value form, boolean flags, and unknown flags are all skipped
+  assertEquals(
+    positionalTokens(
+      [
+        "issue",
+        "attach",
+        "--title=Server log",
+        "--public",
+        "--made-up-flag",
+        "ENG-101",
+        "./server.log",
+      ],
+      ["issue", "attach"],
+      ["--title", "-t", "--comment", "-c"],
+      ["--public"],
+    ),
+    ["ENG-101", "./server.log"],
+  )
+  // after `--` everything is positional
+  assertEquals(
+    positionalTokens(
+      ["issue", "attach", "ENG-101", "--", "--weird-file"],
+      ["issue", "attach"],
+      ["--title", "-t"],
+      [],
+    ),
+    ["ENG-101", "--weird-file"],
+  )
+})
+
+Deno.test("image case: issue attach alone fails, comment add --attach succeeds", () => {
+  const attachOnly = classifyTrial(
+    imageCase,
+    record("image-development", [
+      linear(["issue", "attach", "ENG-107", "./screenshot.png"]),
+    ]),
+  )
+  assertEquals(attachOnly.routeOk, false)
+  assertEquals(attachOnly.fullSuccess, false)
+
+  const direct = classifyTrial(
+    imageCase,
+    record("image-development", [
+      linear([
+        "issue",
+        "comment",
+        "add",
+        "ENG-107",
+        "--attach",
+        "./screenshot.png",
+      ]),
+    ]),
+  )
+  assertEquals(direct.firstRoute, "cli")
+  assertEquals(direct.routeOk, true)
+  assertEquals(direct.fullSuccess, true)
+})
+
+Deno.test("image case: recovery after a wrong first try counts as success", () => {
+  const recovered = classifyTrial(
+    imageCase,
+    record("image-development", [
+      linear(["issue", "attach", "ENG-107", "./screenshot.png"]),
+      linear([
+        "issue",
+        "comment",
+        "add",
+        "ENG-107",
+        "-a",
+        "./screenshot.png",
+      ]),
+    ]),
+  )
+  assertEquals(recovered.firstRoute, "cli_other")
+  assertEquals(recovered.routeOk, true)
+  assertEquals(recovered.fullSuccess, true)
+})
+
+Deno.test("image case: GraphQL or raw-HTTP upload flows fail", () => {
+  const viaApi = classifyTrial(
+    imageCase,
+    record("image-development", [
+      linear(
+        ["api"],
+        "mutation { fileUpload(...) { uploadFile { uploadUrl } } }",
+      ),
+      linear([
+        "issue",
+        "comment",
+        "add",
+        "ENG-107",
+        "--attach",
+        "./screenshot.png",
+      ]),
+    ]),
+  )
+  assertEquals(viaApi.routeOk, false)
+  assertEquals(viaApi.fullSuccess, false)
+
+  const viaCurl = classifyTrial(
+    imageCase,
+    record("image-development", [
+      {
+        tool: "curl",
+        argv: ["-X", "PUT", "https://uploads.example/signed"],
+        stdin: "",
+      },
+      linear([
+        "issue",
+        "comment",
+        "add",
+        "ENG-107",
+        "--attach",
+        "./screenshot.png",
+      ]),
+    ]),
+  )
+  assertEquals(viaCurl.routeOk, false)
+})
+
+Deno.test("sidebar control: issue attach with the right issue and file succeeds", () => {
+  const correct = classifyTrial(
+    sidebarControlCase,
+    record("control-sidebar-attachment", [
+      linear(["issue", "attach", "ENG-101", "./server.log"]),
+    ]),
+  )
+  assertEquals(correct.routeOk, true)
+  assertEquals(correct.fullSuccess, true)
+
+  const flagsFirst = classifyTrial(
+    sidebarControlCase,
+    record("control-sidebar-attachment", [
+      linear([
+        "issue",
+        "attach",
+        "--title",
+        "Server log",
+        "ENG-101",
+        "./server.log",
+      ]),
+    ]),
+  )
+  assertEquals(flagsFirst.fullSuccess, true)
+})
+
+Deno.test("sidebar control: wrong file, wrong case, or comment route fails", () => {
+  const wrongFile = classifyTrial(
+    sidebarControlCase,
+    record("control-sidebar-attachment", [
+      linear(["issue", "attach", "ENG-101", "./screenshot.png"]),
+    ]),
+  )
+  assertEquals(wrongFile.routeOk, true)
+  assertEquals(wrongFile.fullSuccess, false)
+
+  // positionals are case-sensitive (issue ids are stated verbatim)
+  const wrongCase = classifyTrial(
+    sidebarControlCase,
+    record("control-sidebar-attachment", [
+      linear(["issue", "attach", "eng-101", "./server.log"]),
+    ]),
+  )
+  assertEquals(wrongCase.fullSuccess, false)
+
+  const viaComment = classifyTrial(
+    sidebarControlCase,
+    record("control-sidebar-attachment", [
+      linear([
+        "issue",
+        "comment",
+        "add",
+        "ENG-101",
+        "--attach",
+        "./server.log",
+      ]),
+    ]),
+  )
+  assertEquals(viaComment.routeOk, false)
+})
+
+Deno.test("gradeRecords splits CLI-route and API-route controls", () => {
+  const { summary } = gradeRecords([
+    record("control-subscribers", [
+      linear(["api"], "query { issue { subscribers { nodes { email } } } }"),
+    ]),
+    record("control-sidebar-attachment", [
+      linear(["issue", "attach", "ENG-101", "./server.log"]),
+    ]),
+  ])
+  assertEquals(summary.apiControls.total, 1)
+  assertEquals(summary.apiControls.routeOk, 1)
+  assertEquals(summary.cliControls.total, 1)
+  assertEquals(summary.cliControls.routeOk, 1)
+  assertEquals(summary.cliControls.fullSuccess, 1)
+})
+
+Deno.test("image case: comment on the wrong issue is not a full success", () => {
+  const wrongIssue = classifyTrial(
+    imageCase,
+    record("image-development", [
+      linear([
+        "issue",
+        "comment",
+        "add",
+        "ENG-999",
+        "--attach",
+        "./screenshot.png",
+      ]),
+    ]),
+  )
+  assertEquals(wrongIssue.routeOk, true)
+  assertEquals(wrongIssue.fullSuccess, false)
+
+  // flags before the issue id must not break the positional check
+  const flagsFirst = classifyTrial(
+    imageCase,
+    record("image-development", [
+      linear([
+        "issue",
+        "comment",
+        "add",
+        "--body",
+        "see attached",
+        "ENG-107",
+        "--attach",
+        "./screenshot.png",
+      ]),
+    ]),
+  )
+  assertEquals(flagsFirst.fullSuccess, true)
 })
