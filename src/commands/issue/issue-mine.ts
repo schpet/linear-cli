@@ -2,6 +2,7 @@ import { Command, EnumType } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { rgb24 } from "@std/fmt/colors"
 import { resolveIssueSort } from "../../config.ts"
+import { isInsideGitRepo } from "../../utils/git.ts"
 import {
   colorCycleShort,
   formatCycleShort,
@@ -182,7 +183,12 @@ export const mineCommand = new Command()
         const teamKey = team || getTeamKey()
         if (!teamKey) {
           throw new ValidationError(
-            "Could not determine team key from directory name or team flag",
+            "No default team configured and no team scope provided",
+            {
+              suggestion: (await isInsideGitRepo())
+                ? "Use --team <key> to specify a team, or run `linear config` to link this repository to a team."
+                : "Use --team <key> to specify a team.",
+            },
           )
         }
 

@@ -402,6 +402,89 @@ Deno.test("Issue Mine Command - Defaults To Priority Sort When Nothing Is Config
   }
 })
 
+// Runs `issue mine` as a subprocess from a temp cwd with a clean env, so no
+// config file or env var supplies a team. Returns the exit code and stderr.
+// The no-team error is untestable in-process from the repo root because the
+// repo's own .linear.toml sets team_id.
+async function runMineWithoutTeam(
+  tempDir: string,
+): Promise<{ code: number; errorOutput: string }> {
+  const mainPath = fromFileUrl(
+    new URL("../../../src/main.ts", import.meta.url),
+  )
+  const denoJsonPath = fromFileUrl(
+    new URL("../../../deno.json", import.meta.url),
+  )
+  const homeDir = Deno.env.get("HOME")
+  const denoDir = Deno.env.get("DENO_DIR") ??
+    (homeDir == null ? undefined : join(homeDir, ".cache", "deno"))
+  const command = new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-all",
+      "--quiet",
+      `--config=${denoJsonPath}`,
+      mainPath,
+      "issue",
+      "mine",
+    ],
+    cwd: tempDir,
+    clearEnv: true,
+    env: {
+      PATH: Deno.env.get("PATH") ?? "",
+      HOME: tempDir,
+      XDG_CONFIG_HOME: join(tempDir, ".config"),
+      ...(denoDir == null ? {} : { DENO_DIR: denoDir }),
+      ...(Deno.build.os === "windows"
+        ? { SystemRoot: Deno.env.get("SystemRoot") ?? "" }
+        : {}),
+      LINEAR_API_KEY: "Bearer test-token",
+      NO_COLOR: "true",
+    },
+    stdout: "piped",
+    stderr: "piped",
+  })
+
+  const { code, stderr } = await command.output()
+  return { code, errorOutput: new TextDecoder().decode(stderr) }
+}
+
+Deno.test("Issue Mine Command - No Team Error Outside A Repo", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const { code, errorOutput } = await runMineWithoutTeam(tempDir)
+
+    assertEquals(code, 1, `stderr: ${errorOutput}`)
+    assertEquals(
+      errorOutput.trim(),
+      "✗ Failed to list issues: No default team configured and no team scope provided\n" +
+        "  Use --team <key> to specify a team.",
+    )
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("Issue Mine Command - No Team Error Inside A Repo Suggests linear config", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    await new Deno.Command("git", { args: ["init"], cwd: tempDir }).output()
+
+    const { code, errorOutput } = await runMineWithoutTeam(tempDir)
+
+    assertEquals(code, 1, `stderr: ${errorOutput}`)
+    assertEquals(
+      errorOutput.trim(),
+      "✗ Failed to list issues: No default team configured and no team scope provided\n" +
+        "  Use --team <key> to specify a team, or run `linear config` to link this repository to a team.",
+    )
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
 Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
   const fixedNow = new Date("2026-03-30T10:00:00.000Z")
   const RealDate = Date

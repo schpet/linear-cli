@@ -37,6 +37,27 @@ export async function getRepoDir(): Promise<string> {
   return basename(fullPath)
 }
 
+/**
+ * Best-effort check for whether the current directory is inside a git work
+ * tree. Any failure — git not installed, not a repository, dubious
+ * ownership, a spawn error — counts as false: callers use this only for
+ * optional guidance, which must never turn into a git crash.
+ */
+export async function isInsideGitRepo(): Promise<boolean> {
+  try {
+    const { success, stdout } = await new Deno.Command("git", {
+      args: ["rev-parse", "--is-inside-work-tree"],
+      stdout: "piped",
+      stderr: "null",
+    }).output()
+    // Prints "false" (exit 0) inside a .git dir or bare repo, so the exit
+    // code alone is not enough.
+    return success && new TextDecoder().decode(stdout).trim() === "true"
+  } catch {
+    return false
+  }
+}
+
 export async function branchExists(branch: string): Promise<boolean> {
   try {
     const process = new Deno.Command("git", {
