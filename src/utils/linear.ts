@@ -15,7 +15,7 @@ import type {
   SearchIssuesQuery,
 } from "../__codegen__/graphql.ts"
 import { Select } from "@cliffy/prompt"
-import { getOption } from "../config.ts"
+import { getOption, resolveIssueSort } from "../config.ts"
 import { CliError, NotFoundError, ValidationError } from "./errors.ts"
 import { getGraphQLClient } from "./graphql.ts"
 import { normalizeIssueIdentifier } from "./issue-identifier.ts"
@@ -593,9 +593,7 @@ export async function fetchIssuesForState(
   createdAfter?: string,
   updatedAfter?: string,
 ) {
-  const sort: "manual" | "priority" = sortParam ??
-    (getOption("issue_sort") as "manual" | "priority" | undefined) ??
-    "priority"
+  const sort = resolveIssueSort(sortParam)
 
   const filter: IssueFilter = {
     team: { key: { eq: teamKey } },

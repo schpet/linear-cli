@@ -1,7 +1,7 @@
 import { Command, EnumType } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { rgb24 } from "@std/fmt/colors"
-import { getOption } from "../../config.ts"
+import { resolveIssueSort } from "../../config.ts"
 import {
   colorCycleShort,
   formatCycleShort,
@@ -178,14 +178,7 @@ export const mineCommand = new Command()
           throw new ValidationError("Cannot use --all-states with --state flag")
         }
 
-        const sort = sortFlag ||
-          (getOption("issue_sort") as "manual" | "priority" | undefined) ||
-          "priority"
-        if (!SortType.values().includes(sort)) {
-          throw new ValidationError(
-            `Sort must be one of: ${SortType.values().join(", ")}`,
-          )
-        }
+        const sort = resolveIssueSort(sortFlag)
         const teamKey = team || getTeamKey()
         if (!teamKey) {
           throw new ValidationError(

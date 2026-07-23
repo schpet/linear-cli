@@ -1,7 +1,7 @@
 import { Command, EnumType } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { rgb24 } from "@std/fmt/colors"
-import { getOption } from "../../config.ts"
+import { resolveIssueSort } from "../../config.ts"
 import {
   colorCycleShort,
   type CycleDisplayInfo,
@@ -317,9 +317,7 @@ export const queryCommand = new Command()
       spinner?.start()
 
       // Resolve sort for non-search mode
-      const sort = search ? undefined : (sortFlag ||
-        (getOption("issue_sort") as "manual" | "priority" | undefined) ||
-        "priority")
+      const sort = search ? undefined : resolveIssueSort(sortFlag)
 
       if (search) {
         // --- Search mode: use searchIssues() backend ---

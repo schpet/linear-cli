@@ -1,6 +1,7 @@
-import { assertEquals } from "@std/assert"
+import { assertEquals, assertThrows } from "@std/assert"
 import { fromFileUrl } from "@std/path"
-import { getOption } from "../src/config.ts"
+import { getOption, resolveIssueSort } from "../src/config.ts"
+import { ValidationError } from "../src/utils/errors.ts"
 
 // Note: These tests use the cliValue parameter (highest precedence)
 // to avoid interference from config files that may exist in the repo
@@ -620,5 +621,105 @@ Deno.test("getOption - env var takes precedence over home config", async () => {
     }
   } finally {
     await Deno.remove(tempHome, { recursive: true })
+  }
+})
+
+// --- resolveIssueSort ---
+// Note: the repo's own .linear.toml sets issue_sort = "priority", so it is in
+// the loaded config for in-process tests. Env vars are read at call time, so
+// setting LINEAR_ISSUE_SORT here exercises precedence over that config value.
+// The truly-unconfigured default is tested in a subprocess below.
+
+Deno.test("resolveIssueSort - cli value takes precedence", () => {
+  assertEquals(resolveIssueSort("manual"), "manual")
+  assertEquals(resolveIssueSort("priority"), "priority")
+})
+
+Deno.test("resolveIssueSort - env var takes precedence over config", () => {
+  Deno.env.set("LINEAR_ISSUE_SORT", "manual")
+  try {
+    assertEquals(resolveIssueSort(), "manual")
+  } finally {
+    Deno.env.delete("LINEAR_ISSUE_SORT")
+  }
+})
+
+Deno.test("resolveIssueSort - invalid cli value throws", () => {
+  assertThrows(
+    () => resolveIssueSort("banana"),
+    ValidationError,
+    'Invalid issue sort: "banana"',
+  )
+})
+
+Deno.test("resolveIssueSort - invalid env value throws instead of defaulting", () => {
+  Deno.env.set("LINEAR_ISSUE_SORT", "banana")
+  try {
+    assertThrows(
+      () => resolveIssueSort(),
+      ValidationError,
+      'Invalid issue sort: "banana"',
+    )
+  } finally {
+    Deno.env.delete("LINEAR_ISSUE_SORT")
+  }
+})
+
+Deno.test("resolveIssueSort - empty env value throws instead of defaulting", () => {
+  Deno.env.set("LINEAR_ISSUE_SORT", "")
+  try {
+    assertThrows(
+      () => resolveIssueSort(),
+      ValidationError,
+      'Invalid issue sort: ""',
+    )
+  } finally {
+    Deno.env.delete("LINEAR_ISSUE_SORT")
+  }
+})
+
+Deno.test("resolveIssueSort - defaults to priority when nothing is configured", async () => {
+  // Subprocess with a cleared env and a temp cwd and HOME so no config file
+  // or env var (including one set in the test runner's environment) can
+  // supply issue_sort.
+  const tempDir = await Deno.makeTempDir()
+  try {
+    const configUrl = new URL("../src/config.ts", import.meta.url)
+    const denoJsonPath = fromFileUrl(new URL("../deno.json", import.meta.url))
+    const homeDir = Deno.env.get("HOME")
+    const denoDir = Deno.env.get("DENO_DIR") ??
+      (homeDir == null ? undefined : `${homeDir}/.cache/deno`)
+    const command = new Deno.Command(Deno.execPath(), {
+      args: [
+        "eval",
+        `--config=${denoJsonPath}`,
+        `import { resolveIssueSort } from "${configUrl}"; console.log(resolveIssueSort());`,
+      ],
+      cwd: tempDir,
+      clearEnv: true,
+      env: {
+        HOME: tempDir,
+        XDG_CONFIG_HOME: `${tempDir}/.config`,
+        PATH: Deno.env.get("PATH") ?? "",
+        ...(denoDir == null ? {} : { DENO_DIR: denoDir }),
+        ...(Deno.build.os === "windows"
+          ? { SystemRoot: Deno.env.get("SystemRoot") ?? "" }
+          : {}),
+      },
+      stdout: "piped",
+      stderr: "piped",
+    })
+
+    const { stdout, stderr } = await command.output()
+    const output = new TextDecoder().decode(stdout).trim()
+    const errorOutput = new TextDecoder().decode(stderr)
+
+    if (errorOutput) {
+      console.error("Subprocess stderr:", errorOutput)
+    }
+
+    assertEquals(output, "priority")
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
   }
 })
