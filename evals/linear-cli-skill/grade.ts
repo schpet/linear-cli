@@ -11,7 +11,12 @@
  *   deno run --allow-read --allow-write grade.ts --compare <baseline.jsonl> <post.jsonl> [-o comparison.md]
  */
 
-import type { CliExpectation, EvalCase, RequiredArg } from "./cases.ts"
+import type {
+  CliExpectation,
+  EvalCase,
+  RequiredArg,
+  RequiredPositional,
+} from "./cases.ts"
 import { CASES } from "./cases.ts"
 
 export interface ShimEntry {
@@ -131,11 +136,74 @@ function argMatches(argv: string[], required: RequiredArg): boolean {
   })
 }
 
+/**
+ * Positional tokens after `argsPrefix`, with the subcommand's declared flags
+ * (and their values) stripped so flags may be interspersed anywhere. Unknown
+ * dash-prefixed tokens are skipped as boolean flags — the same documented
+ * looseness as the shim's flag handling: a hallucinated flag's value can leak
+ * into the positional list, but the taught invocation grades correctly.
+ */
+export function positionalTokens(
+  argv: string[],
+  argsPrefix: string[],
+  valueFlags: string[],
+  booleanFlags: string[],
+): string[] {
+  const positionals: string[] = []
+  let flagsEnded = false
+  for (let i = argsPrefix.length; i < argv.length; i++) {
+    const token = argv[i]
+    if (flagsEnded) {
+      positionals.push(token)
+      continue
+    }
+    if (token === "--") {
+      flagsEnded = true
+      continue
+    }
+    if (valueFlags.includes(token)) {
+      i++
+      continue
+    }
+    if (valueFlags.some((flag) => token.startsWith(`${flag}=`))) continue
+    if (booleanFlags.includes(token) || token.startsWith("-")) continue
+    positionals.push(token)
+  }
+  return positionals
+}
+
+/**
+ * Ordered, index-aligned match of required positionals against the extracted
+ * positional tokens. Case-sensitive, unlike flag-value matching: positionals
+ * here are file paths and issue identifiers the prompt states verbatim.
+ */
+function positionalsMatch(
+  tokens: string[],
+  required: RequiredPositional[],
+): boolean {
+  return required.every((positional, index) => {
+    const token = tokens[index]
+    if (token == null) return false
+    return positional.valueIsPathSuffix
+      ? token.endsWith(positional.value)
+      : token === positional.value
+  })
+}
+
 function cliArgsOk(expect: CliExpectation, entries: ShimEntry[]): boolean {
   return entries.some((entry) =>
     entry.tool === "linear" &&
     startsWith(entry.argv, expect.argsPrefix) &&
-    expect.requiredArgs.every((required) => argMatches(entry.argv, required))
+    expect.requiredArgs.every((required) => argMatches(entry.argv, required)) &&
+    positionalsMatch(
+      positionalTokens(
+        entry.argv,
+        expect.argsPrefix,
+        expect.valueFlags ?? [],
+        expect.booleanFlags ?? [],
+      ),
+      expect.positionals ?? [],
+    )
   )
 }
 
@@ -266,7 +334,10 @@ export interface ConditionSummary {
   condition: string
   trials: number
   supported: OutcomeCounts
-  controls: OutcomeCounts
+  /** Controls where `linear api` is the correct route */
+  apiControls: OutcomeCounts
+  /** Controls where a dedicated CLI subcommand is the correct route */
+  cliControls: OutcomeCounts
   byVariant: Record<string, OutcomeCounts>
   byFamily: Record<string, OutcomeCounts>
   byCase: Record<string, OutcomeCounts>
@@ -304,7 +375,8 @@ export function gradeRecords(records: TrialRecord[]): {
     condition: records[0].condition,
     trials: grades.length,
     supported: { total: 0, routeOk: 0, fullSuccess: 0 },
-    controls: { total: 0, routeOk: 0, fullSuccess: 0 },
+    apiControls: { total: 0, routeOk: 0, fullSuccess: 0 },
+    cliControls: { total: 0, routeOk: 0, fullSuccess: 0 },
     byVariant: {},
     byFamily: {},
     byCase: {},
@@ -320,7 +392,11 @@ export function gradeRecords(records: TrialRecord[]): {
   for (const grade of grades) {
     const evalCase = caseById.get(grade.caseId)!
     count(
-      evalCase.variant === "control" ? summary.controls : summary.supported,
+      evalCase.variant === "control"
+        ? (evalCase.expect.route === "api"
+          ? summary.apiControls
+          : summary.cliControls)
+        : summary.supported,
       grade,
     )
     summary.byVariant[evalCase.variant] ??= {
@@ -378,7 +454,12 @@ export function summaryMarkdown(summary: ConditionSummary): string {
     }), dedicated-CLI route: ${summary.supported.routeOk}/${summary.supported.total} (${
       percent(summary.supported.routeOk, summary.supported.total)
     })`,
-    `- Controls (GraphQL appropriate) — chose \`linear api\`: ${summary.controls.routeOk}/${summary.controls.total}, with expected fields: ${summary.controls.fullSuccess}/${summary.controls.total}`,
+    `- Controls (GraphQL appropriate) — chose \`linear api\`: ${summary.apiControls.routeOk}/${summary.apiControls.total}, with expected fields: ${summary.apiControls.fullSuccess}/${summary.apiControls.total}`,
+    ...(summary.cliControls.total > 0
+      ? [
+        `- Controls (dedicated CLI appropriate) — correct route: ${summary.cliControls.routeOk}/${summary.cliControls.total}, full success: ${summary.cliControls.fullSuccess}/${summary.cliControls.total}`,
+      ]
+      : []),
     `- Mean non-discovery invocations per trial: ${summary.meanMeaningfulInvocations}`,
     "",
     "| Case | Route ok | Full success |",
@@ -449,7 +530,22 @@ export function comparisonMarkdown(
       post.byVariant.holdout ?? empty,
       "fullSuccess",
     ),
-    `| Controls: still choose \`linear api\` | ${baseline.controls.routeOk}/${baseline.controls.total} | ${post.controls.routeOk}/${post.controls.total} | — |`,
+    ...(baseline.byFamily.image != null || post.byFamily.image != null
+      ? [
+        row(
+          "Image family: full success (primary for the image experiment)",
+          baseline.byFamily.image ?? empty,
+          post.byFamily.image ?? empty,
+          "fullSuccess",
+        ),
+      ]
+      : []),
+    `| API controls: still choose \`linear api\` | ${baseline.apiControls.routeOk}/${baseline.apiControls.total} | ${post.apiControls.routeOk}/${post.apiControls.total} | — |`,
+    ...(baseline.cliControls.total > 0 || post.cliControls.total > 0
+      ? [
+        `| CLI controls: correct dedicated route | ${baseline.cliControls.routeOk}/${baseline.cliControls.total} | ${post.cliControls.routeOk}/${post.cliControls.total} | — |`,
+      ]
+      : []),
     "",
     summaryMarkdown(baseline),
     "",

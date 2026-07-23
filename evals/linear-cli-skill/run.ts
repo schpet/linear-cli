@@ -145,16 +145,21 @@ export function extractFromEvents(rawEvents: string): EventExtract {
 
 async function fixturesModifiedIn(workdir: string): Promise<boolean> {
   for await (const fixture of Deno.readDir(join(EVAL_DIR, "fixtures"))) {
-    const original = await Deno.readTextFile(
+    // Byte-wise compare: fixtures include binary files (PNG), and a lossy
+    // UTF-8 decode could collapse distinct corrupted bytes into equal text.
+    const original = await Deno.readFile(
       join(EVAL_DIR, "fixtures", fixture.name),
     )
-    let current: string
+    let current: Uint8Array
     try {
-      current = await Deno.readTextFile(join(workdir, fixture.name))
+      current = await Deno.readFile(join(workdir, fixture.name))
     } catch {
       return true
     }
-    if (current !== original) return true
+    if (current.length !== original.length) return true
+    for (let i = 0; i < original.length; i++) {
+      if (current[i] !== original[i]) return true
+    }
   }
   return false
 }

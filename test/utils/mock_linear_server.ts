@@ -19,10 +19,19 @@ interface MockResponse {
   status?: number
 }
 
+export interface UploadRequest {
+  pathname: string
+  contentType: string | null
+  headers: Record<string, string>
+  body: Uint8Array
+}
+
 export class MockLinearServer {
   private server?: Deno.HttpServer
   private port = 0
   private mockResponses: MockResponse[]
+  /** Signed-URL file uploads received via PUT, in arrival order */
+  readonly uploadRequests: UploadRequest[] = []
 
   constructor(responses: MockResponse[] = []) {
     this.mockResponses = responses
@@ -54,6 +63,14 @@ export class MockLinearServer {
         return this.handleGraphQL(request)
       }
 
+      // Handle signed-URL file uploads (the PUT step of the fileUpload flow)
+      if (
+        request.method === "PUT" &&
+        new URL(request.url).pathname.startsWith("/upload")
+      ) {
+        return this.handleUpload(request)
+      }
+
       return new Response("Not Found", { status: 404 })
     })
 
@@ -74,6 +91,25 @@ export class MockLinearServer {
 
   getEndpoint(): string {
     return `http://localhost:${this.port}/graphql`
+  }
+
+  /** URL to hand out as a fileUpload signed uploadUrl in mock responses */
+  getUploadUrl(): string {
+    return `http://localhost:${this.port}/upload`
+  }
+
+  private async handleUpload(request: Request): Promise<Response> {
+    const headers: Record<string, string> = {}
+    for (const [key, value] of request.headers) {
+      headers[key] = value
+    }
+    this.uploadRequests.push({
+      pathname: new URL(request.url).pathname,
+      contentType: request.headers.get("content-type"),
+      headers,
+      body: new Uint8Array(await request.arrayBuffer()),
+    })
+    return new Response(null, { status: 200 })
   }
 
   private async handleGraphQL(request: Request): Promise<Response> {

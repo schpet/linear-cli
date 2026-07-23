@@ -71,6 +71,34 @@ state_type() {
   esac
 }
 
+# Positional tokens of a subcommand: argv minus flags and their values.
+# $1 = space-separated value-taking flags, $2 = space-separated boolean flags,
+# remaining args = the argv tail to scan.
+positional_values() {
+  local value_flags="$1" bool_flags="$2"
+  shift 2
+  local skip_next=0
+  for arg in "$@"; do
+    if [ "$skip_next" = 1 ]; then
+      skip_next=0
+      continue
+    fi
+    case " $value_flags " in
+      *" $arg "*)
+        skip_next=1
+        continue
+        ;;
+    esac
+    case " $bool_flags " in
+      *" $arg "*) continue ;;
+    esac
+    case "$arg" in
+      -*) continue ;;
+      *) printf '%s\n' "$arg" ;;
+    esac
+  done
+}
+
 # First value following any of the given flags in the remaining argv.
 flag_value() {
   local flags="$1"
@@ -200,8 +228,56 @@ case "${1:-} ${2:-}" in
     if [ -n "$LABELS" ]; then printf '  labels: %s\n' "$LABELS"; fi
     printf 'https://linear.app/acme/issue/%s\n' "$ID"
     ;;
+  "issue attach")
+    # Mirrors the real CLI's messaging for the repo state under test (the
+    # canned output is version-matched infrastructure; see README).
+    ATTACH_PUBLIC=0
+    if has_flag --public "$@"; then ATTACH_PUBLIC=1; fi
+    ATTACH_TITLE=$(flag_value "--title -t" "$@") || ATTACH_TITLE=""
+    shift 2
+    ATTACH_POSITIONALS=$(positional_values "--title -t --comment -c" "--public" "$@")
+    ATTACH_ID=$(printf '%s\n' "$ATTACH_POSITIONALS" | sed -n '1p')
+    ATTACH_ID="${ATTACH_ID:-ENG-101}"
+    ATTACH_FILE=$(printf '%s\n' "$ATTACH_POSITIONALS" | sed -n '2p')
+    ATTACH_BASE="${ATTACH_FILE##*/}"
+    ATTACH_BASE="${ATTACH_BASE:-file.bin}"
+    printf '✓ Uploaded %s\n' "$ATTACH_BASE"
+    if [ "$ATTACH_PUBLIC" = 1 ]; then
+      printf '⚠ Uploaded to a public URL readable by anyone: https://public.linear.app/eval-asset/%s\n' "$ATTACH_BASE" >&2
+    fi
+    printf '✓ Sidebar link attachment created: %s\n' "${ATTACH_TITLE:-$ATTACH_BASE}"
+    printf 'https://uploads.linear.app/acme/eval-asset/%s\n' "$ATTACH_BASE"
+    case "$ATTACH_BASE" in
+      *.[Pp][Nn][Gg] | *.[Jj][Pp][Gg] | *.[Jj][Pp][Ee][Gg] | *.[Gg][Ii][Ff] | *.[Ww][Ee][Bb][Pp])
+        ATTACH_HINT_PUBLIC=""
+        if [ "$ATTACH_PUBLIC" = 1 ]; then ATTACH_HINT_PUBLIC=" --public"; fi
+        printf 'Hint: Sidebar link attachments do not render images inline. For inline display, run: linear issue comment add %s --attach %s%s\n' \
+          "$ATTACH_ID" "$ATTACH_FILE" "$ATTACH_HINT_PUBLIC"
+        ;;
+    esac
+    ;;
   "issue comment")
-    printf 'Comment added\n'
+    if [ "${3:-}" = "add" ]; then
+      COMMENT_ARGS_ALL="$*"
+      shift 3
+      COMMENT_ID=$(
+        positional_values \
+          "--body -b --body-file --parent -p --attach -a" "--public" "$@" |
+          head -n 1
+      )
+      COMMENT_ID="${COMMENT_ID:-ENG-101}"
+      PREV=""
+      for arg in $COMMENT_ARGS_ALL; do
+        if [ "$PREV" = "--attach" ] || [ "$PREV" = "-a" ]; then
+          printf '✓ Uploaded %s\n' "${arg##*/}"
+        fi
+        PREV="$arg"
+      done
+      printf '✓ Comment added to %s\n' "$COMMENT_ID"
+      printf 'https://linear.app/acme/issue/%s#comment-eval\n' "$COMMENT_ID"
+    else
+      printf 'Comment added\n'
+    fi
     ;;
   "issue start")
     printf 'Started %s\n' "${3:-ENG-101}"

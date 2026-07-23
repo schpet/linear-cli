@@ -18,23 +18,23 @@ Options:
 
 Commands:
 
-  id                                      - Print the issue based on the current git branch    
-  mine, list, l                           - List your issues                                   
-  query, q                                - Query issues with structured filters               
-  title             [issueId]             - Print the issue title                              
-  start             [issueId]             - Start working on an issue                          
-  view, v           [issueId]             - View issue details (default) or open in browser/app
-  url               [issueId]             - Print the issue URL                                
-  describe          [issueId]             - Print the issue title and Linear-issue trailer     
-  commits           [issueId]             - Show all commits for a Linear issue (jj only)      
-  pull-request, pr  [issueId]             - Create a GitHub pull request with issue details    
-  delete, d         [issueId]             - Delete an issue                                    
-  create                                  - Create a linear issue                              
-  update            [issueId]             - Update a linear issue                              
-  comment                                 - Manage issue comments                              
-  attach            <issueId> <filepath>  - Attach a file to an issue                          
-  link              <urlOrIssueId> [url]  - Link a URL to an issue                             
-  relation                                - Manage issue relations (dependencies)              
+  id                                      - Print the issue based on the current git branch                           
+  mine, list, l                           - List your issues                                                          
+  query, q                                - Query issues with structured filters                                      
+  title             [issueId]             - Print the issue title                                                     
+  start             [issueId]             - Start working on an issue                                                 
+  view, v           [issueId]             - View issue details (default) or open in browser/app                       
+  url               [issueId]             - Print the issue URL                                                       
+  describe          [issueId]             - Print the issue title and Linear-issue trailer                            
+  commits           [issueId]             - Show all commits for a Linear issue (jj only)                             
+  pull-request, pr  [issueId]             - Create a GitHub pull request with issue details                           
+  delete, d         [issueId]             - Delete an issue                                                           
+  create                                  - Create a linear issue                                                     
+  update            [issueId]             - Update a linear issue                                                     
+  comment                                 - Manage issue comments                                                     
+  attach            <issueId> <filepath>  - Create a sidebar link attachment on an issue (images do not render inline)
+  link              <urlOrIssueId> [url]  - Link a URL to an issue                                                    
+  relation                                - Manage issue relations (dependencies)                                     
   agent-session                           - Manage agent sessions for an issue
 ```
 
@@ -100,22 +100,22 @@ Options:
 
 ### attach
 
-> Attach a file to an issue
+> Create a sidebar link attachment on an issue (images do not render inline)
 
 ```
 Usage:   linear issue attach <issueId> <filepath>
 
 Description:
 
-  Attach a file to an issue
+  Create a sidebar link attachment on an issue (images do not render inline)
 
 Options:
 
-  -h, --help              - Show this help.                                                    
-  --workspace    <slug>   - Target workspace (uses credentials)                                
-  -t, --title    <title>  - Custom title for the attachment                                    
-  -c, --comment  <body>   - Add a comment body linked to the attachment                        
-  --public                - Upload images to a public, unauthenticated URL (default: private,  
+  -h, --help              - Show this help.                                                                
+  --workspace    <slug>   - Target workspace (uses credentials)                                            
+  -t, --title    <title>  - Custom title for the attachment                                                
+  -c, --comment  <body>   - Create a linked comment with this body; the file remains a sidebar attachment  
+  --public                - Upload images to a public, unauthenticated URL (default: private,              
                             workspace-members only)
 ```
 
@@ -137,9 +137,9 @@ Options:
 
 Commands:
 
-  add     [issueId]    - Add a comment to an issue or reply to a comment
-  delete  <commentId>  - Delete a comment                               
-  update  <commentId>  - Update an existing comment                     
+  add     [issueId]    - Add a comment or reply; images uploaded with --attach render inline
+  delete  <commentId>  - Delete a comment                                                   
+  update  <commentId>  - Update an existing comment                                         
   list    [issueId]    - List comments for an issue
 ```
 
@@ -152,17 +152,18 @@ Usage:   linear issue comment add [issueId]
 
 Description:
 
-  Add a comment to an issue or reply to a comment
+  Add a comment or reply; images uploaded with --attach render inline
 
 Options:
 
-  -h, --help                - Show this help.                                                             
-  --workspace   <slug>      - Target workspace (uses credentials)                                         
-  -b, --body    <text>      - Comment body text                                                           
-  --body-file   <path>      - Read comment body from a file (preferred for markdown content)              
-  -p, --parent  <id>        - Parent comment ID for replies                                               
-  -a, --attach  <filepath>  - Attach a file to the comment (can be used multiple times)                   
-  --public                  - Upload attached images to a public, unauthenticated URL (default: private,  
+  -h, --help                - Show this help.                                                                
+  --workspace   <slug>      - Target workspace (uses credentials)                                            
+  -b, --body    <text>      - Comment body text                                                              
+  --body-file   <path>      - Read comment body from a file (preferred for markdown content)                 
+  -p, --parent  <id>        - Parent comment ID for replies                                                  
+  -a, --attach  <filepath>  - Upload a file and add its Markdown link to the comment (images render inline;  
+                              repeatable)                                                                    
+  --public                  - Upload attached images to a public, unauthenticated URL (default: private,     
                               workspace-members only)
 ```
 
