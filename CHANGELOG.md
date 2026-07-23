@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-07-23
+
+### Added
+
+- "Common Tasks" recipes in the agent skill, including how to attach an image so it renders inline in a comment (eval-validated against agent behavior)
+
+### Changed
+
+- `issue attach` now reports that it created a sidebar link attachment and, for images, prints a copy-pasteable hint suggesting `issue comment add --attach` for inline display
+- `issue list`/`issue mine` now sort by priority by default (configurable via `issue_sort`); an invalid configured sort errors instead of silently defaulting ([#253](https://github.com/schpet/linear-cli/pull/253); thanks @friederbluemle)
+- `issue mine` without a configured team now explains how to set one up, and suggests `linear config` when run inside a repo
+
 ## [2.2.0] - 2026-07-22
 
 ### Fixed
@@ -489,7 +501,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/schpet/linear-cli/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/schpet/linear-cli/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/schpet/linear-cli/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/schpet/linear-cli/compare/v2.0.0...v2.1.0
