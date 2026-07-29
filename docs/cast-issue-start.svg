@@ -12,7 +12,8 @@
     xmlns="http://www.w3.org/2000/svg"
     xmlns:xlink="http://www.w3.org/1999/xlink"
   >
-    <style>@keyframes n {
+    <style>
+    @keyframes n {
       0% {
         transform: translateX(0);
       }
@@ -149,7 +150,8 @@
     .a {
       fill: #282d35;
     }
-    .c, .d {
+    .c,
+    .d {
       fill: #a8cc8c;
       white-space: pre;
     }
@@ -160,14 +162,17 @@
       font-weight: 700;
       text-decoration: underline;
     }
-    .e, .f {
+    .e,
+    .f {
       fill: #657b83;
       white-space: pre;
     }
     .g {
       fill: #dbab79;
     }
-    .g, .h, .i {
+    .g,
+    .h,
+    .i {
       white-space: pre;
     }
     .h {
@@ -180,7 +185,9 @@
     .j {
       fill: #b9c0cb;
     }
-    .j, .k, .q {
+    .j,
+    .k,
+    .q {
       white-space: pre;
     }
     .k {
@@ -190,13 +197,16 @@
     }
     .q {
       fill: #93a1a1;
-    }</style>
+    }
+    </style>
     <g
       font-family="Monaco,Consolas,Menlo,'Bitstream Vera Sans Mono','Powerline Symbols',monospace"
       font-size="1.67"
     >
       <defs>
-        <symbol id="1"><text y="1.67" class="c">❯</text></symbol>
+        <symbol id="1">
+          <text y="1.67" class="c">❯</text>
+        </symbol>
         <symbol
           id="2"
         >
@@ -421,7 +431,9 @@
             class="c"
           >issues</text>
         </symbol>
-        <symbol id="11"><text y="1.67" class="j">⠋</text></symbol>
+        <symbol id="11">
+          <text y="1.67" class="j">⠋</text>
+        </symbol>
         <symbol id="12">
           <text y="1.67" class="g">?</text>
           <text x="2.004" y="1.67" class="h">Branch</text>

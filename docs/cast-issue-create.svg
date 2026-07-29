@@ -12,7 +12,8 @@
     xmlns="http://www.w3.org/2000/svg"
     xmlns:xlink="http://www.w3.org/1999/xlink"
   >
-    <style>@keyframes s {
+    <style>
+    @keyframes s {
       0% {
         transform: translateX(0);
       }
@@ -361,7 +362,9 @@
       font-weight: 700;
       text-decoration: underline;
     }
-    .d, .e, .f {
+    .d,
+    .e,
+    .f {
       fill: #586e75;
       white-space: pre;
     }
@@ -371,7 +374,9 @@
     .g {
       fill: #dbab79;
     }
-    .g, .h, .i {
+    .g,
+    .h,
+    .i {
       white-space: pre;
     }
     .h {
@@ -384,14 +389,17 @@
     .j {
       text-decoration: underline;
     }
-    .j, .k, .l {
+    .j,
+    .k,
+    .l {
       fill: #b9c0cb;
       white-space: pre;
     }
     .l {
       fill: #e88388;
     }
-    .m, .n {
+    .m,
+    .n {
       text-decoration: underline;
     }
     .m {
@@ -402,27 +410,34 @@
       fill: #b9c0cb;
       font-weight: 700;
     }
-    .n, .o, .u, .v {
+    .n,
+    .o,
+    .u,
+    .v {
       white-space: pre;
     }
     .o {
       fill: #73bef3;
       text-decoration: underline;
     }
-    .u, .v {
+    .u,
+    .v {
       fill: #93a1a1;
     }
     .v {
       fill: #657b83;
       font-weight: 700;
       text-decoration: underline;
-    }</style>
+    }
+    </style>
     <g
       font-family="Monaco,Consolas,Menlo,'Bitstream Vera Sans Mono','Powerline Symbols',monospace"
       font-size="1.67"
     >
       <defs>
-        <symbol id="1"><text y="1.67" class="c">❯</text></symbol>
+        <symbol id="1">
+          <text y="1.67" class="c">❯</text>
+        </symbol>
         <symbol
           id="2"
         >
@@ -1300,7 +1315,9 @@
           >0L,</text>
           <text x="75.15" y="1.67" class="k">0B</text>
         </symbol>
-        <symbol id="49"><text y="1.67" class="i">~</text></symbol>
+        <symbol id="49">
+          <text y="1.67" class="i">~</text>
+        </symbol>
         <symbol id="50">
           <text y="1.67" class="h">--</text>
           <text x="3.006" y="1.67" class="h">INSERT</text>
@@ -1310,7 +1327,9 @@
             class="h"
           >--</text>
         </symbol>
-        <symbol id="51"><text y="1.67" class="k">markdown</text></symbol>
+        <symbol id="51">
+          <text y="1.67" class="k">markdown</text>
+        </symbol>
         <symbol id="52">
           <text y="1.67" class="k">markdown</text>
           <text x="9.018" y="1.67" class="k">descri</text>
@@ -1327,7 +1346,9 @@
           <text y="1.67" class="k">markdown</text>
           <text x="9.018" y="1.67" class="k">description</text>
         </symbol>
-        <symbol id="56"><text y="1.67" class="k">:wq</text></symbol>
+        <symbol id="56">
+          <text y="1.67" class="k">:wq</text>
+        </symbol>
         <symbol id="57">
           <text y="1.67" class="j">Description</text>
           <text x="12.024" y="1.67" class="j">entered</text>
