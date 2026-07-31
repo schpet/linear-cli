@@ -177,8 +177,17 @@ linear issue comment add ENG-123 -a ./screenshot.png --public   # public image U
 linear team list       # list teams
 linear team id         # print out the team id (e.g. for scripts)
 linear team members    # list team members
+linear team members --all --json  # include inactive members, as JSON
 linear team create     # create a new team
 linear team autolinks  # configure GitHub repository autolinks for Linear issues
+```
+
+### user commands
+
+```bash
+linear user list        # list everyone in the workspace
+linear user list --all  # include deactivated members
+linear user list --json # machine-readable output
 ```
 
 ### project commands

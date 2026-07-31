@@ -1,0 +1,67 @@
+export const snapshot = {};
+
+snapshot[`Issue Attach Command - Image Prints Inline Hint 1`] = `
+stdout:
+"✓ Uploaded screenshot.png
+✓ Sidebar link attachment created: screenshot.png
+https://uploads.linear.app/fake/screenshot.png
+Hint: Sidebar link attachments do not render images inline. For inline display, run: linear issue comment add TEST-123 --attach /tmp/linear-cli-test-attach/screenshot.png
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Attach Command - Hint Shell-Quotes Unusual Paths 1`] = `
+stdout:
+"✓ Uploaded it's a shot.png
+✓ Sidebar link attachment created: shot.png
+https://uploads.linear.app/fake/shot.png
+Hint: Sidebar link attachments do not render images inline. For inline display, run: linear issue comment add TEST-123 --attach '/tmp/linear-cli-test-attach/it'\\\\''s a shot.png'
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Attach Command - Public Image Hint Preserves Public Flag 1`] = `
+stdout:
+"✓ Uploaded screenshot.png
+✓ Sidebar link attachment created: screenshot.png
+https://uploads.linear.app/fake/screenshot.png
+Hint: Sidebar link attachments do not render images inline. For inline display, run: linear issue comment add TEST-123 --attach /tmp/linear-cli-test-attach/screenshot.png --public
+"
+stderr:
+"⚠ Uploaded to a public URL readable by anyone: https://uploads.linear.app/fake/screenshot.png
+"
+`;
+
+snapshot[`Issue Attach Command - Non-Image Has No Hint 1`] = `
+stdout:
+"✓ Uploaded server.log
+✓ Sidebar link attachment created: server.log
+https://uploads.linear.app/fake/server.log
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Attach Command - Help 1`] = `
+stdout:
+"
+Usage: attach <issueId> <filepath>
+
+Description:
+
+  Create a sidebar link attachment on an issue (images do not render inline)
+
+Options:
+
+  -h, --help              - Show this help.                                                                
+  -t, --title    <title>  - Custom title for the attachment                                                
+  -c, --comment  <body>   - Create a linked comment with this body; the file remains a sidebar attachment  
+  --public                - Upload images to a public, unauthenticated URL (default: private,              
+                            workspace-members only)                                                        
+
+"
+stderr:
+""
+`;

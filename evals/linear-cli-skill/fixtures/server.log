@@ -1,0 +1,6 @@
+2026-07-20T14:02:11.412Z INFO  server listening on :8080
+2026-07-20T14:02:14.108Z INFO  GET /api/health 200 3ms
+2026-07-20T14:03:02.771Z WARN  slow query issues.list took 1841ms
+2026-07-20T14:03:02.774Z ERROR upstream timeout fetching /api/webhooks/billing: context deadline exceeded
+2026-07-20T14:03:02.775Z ERROR request failed request_id=9f31c2 status=502
+2026-07-20T14:04:44.019Z INFO  GET /api/health 200 2ms

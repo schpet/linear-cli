@@ -2,9 +2,70 @@
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-07-23
+
+### Added
+
+- "Common Tasks" recipes in the agent skill, including how to attach an image so it renders inline in a comment (eval-validated against agent behavior)
+
+### Changed
+
+- `issue attach` now reports that it created a sidebar link attachment and, for images, prints a copy-pasteable hint suggesting `issue comment add --attach` for inline display
+- `issue list`/`issue mine` now sort by priority by default (configurable via `issue_sort`); an invalid configured sort errors instead of silently defaulting ([#253](https://github.com/schpet/linear-cli/pull/253); thanks @friederbluemle)
+- `issue mine` without a configured team now explains how to set one up, and suggests `linear config` when run inside a repo
+
+## [2.2.0] - 2026-07-22
+
+### Fixed
+
+- `issue query --search` no longer silently drops the `--cycle` filter
+- `team members --all` now actually includes disabled members (the flag was previously a no-op)
+- Error suggestions now point at the real `linear config` command instead of the nonexistent `linear configure`
+
+### Added
+
+- Cycle information in issue lists and `issue view`: a compact CYC column (for teams with cycles enabled) and cycle flags in `--json` output
+- Relative cycle references (`now`, `next`, `previous`, signed offsets like `+1`) accepted by `--cycle` on issue query/mine/create/update and `cycle view`, plus `issue update --clear-cycle` to remove an issue from its cycle
+- `linear user list` (alias `u`) to list all workspace members, `team members --json` output, and admin/owner/you role markers in member listings
+- `issue update --unassign` to clear an issue's assignee
+- `document update --project` to change which project a document is attached to
+- `linear team states` command to list a team's workflow states; a wrong `--state` on `issue create`/`issue update` now errors with the list of valid states
+- `configure` as an alias for the `config` command
+
+## [2.1.1] - 2026-07-15
+
+### Fixed
+
+- stop treating linux keyring failures as a missing password, and preserve secrets verbatim instead of trimming secret-tool output ([#244](https://github.com/schpet/linear-cli/pull/244); thanks @mezuzza)
+
+## [2.1.0] - 2026-07-14
+
+### Security
+
+- default attachment uploads to private, and add --public to issue attach and issue comment add to opt into a public url for raster images ([#234](https://github.com/schpet/linear-cli/pull/234); thanks @tjmgregory)
+
+### Fixed
+
+- accept a uuid, slug id, or name for --project and --milestone across issue, milestone, and document commands ([#229](https://github.com/schpet/linear-cli/pull/229); thanks @jrschumacher)
+- surface truncation in milestone view instead of silently capping the issue list, and add --all to paginate ([#228](https://github.com/schpet/linear-cli/pull/228); thanks @jrschumacher)
+- allow issue create --project to stay interactive instead of failing with "title is required when not using interactive mode" ([#208](https://github.com/schpet/linear-cli/pull/208); thanks @mbuvarp)
+
+### Added
+
+- add labels to issue view --json output ([#170](https://github.com/schpet/linear-cli/pull/170); thanks @RengarLee)
+- add --content and --content-file to project create for project overview markdown, plus priority, label, member, icon, and color fields ([#216](https://github.com/schpet/linear-cli/pull/216); thanks @CodeWithBryan)
+- add --label to project update to set a project's labels ([#226](https://github.com/schpet/linear-cli/pull/226); thanks @KinomotoMio)
+- add --description-file to project create and update, and reject descriptions over the 255-character api limit client-side ([#227](https://github.com/schpet/linear-cli/pull/227); thanks @jrschumacher)
+- add optional project selection to interactive issue create, gated behind the issue_create_ask_project config option ([#208](https://github.com/schpet/linear-cli/pull/208); thanks @mbuvarp)
+- add issue_create_assign_self config option to control default self-assignment on issue create ([#208](https://github.com/schpet/linear-cli/pull/208); thanks @mbuvarp)
+- add document comments to document view --json output ([#235](https://github.com/schpet/linear-cli/pull/235); thanks @josephyooo)
+- show a blocked indicator in issue mine and issue query output, and surface inverseRelations in --json
+- download inline images in document view so terminal renderers see local paths, and add --no-download to skip it
+
 ### Changed
 
 - issue view now orders comment threads chronologically (oldest first), matching Linear's UI
+- guard document update against replacing content when active inline comments exist, since the replacement orphans their anchors; pass --force to override ([#235](https://github.com/schpet/linear-cli/pull/235); thanks @josephyooo)
 
 ## [2.0.0] - 2026-04-03
 
@@ -440,7 +501,11 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/schpet/linear-cli/compare/v2.2.0...v2.3.0
+[2.2.0]: https://github.com/schpet/linear-cli/compare/v2.1.1...v2.2.0
+[2.1.1]: https://github.com/schpet/linear-cli/compare/v2.1.0...v2.1.1
+[2.1.0]: https://github.com/schpet/linear-cli/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/schpet/linear-cli/compare/v1.11.1...v2.0.0
 [1.11.1]: https://github.com/schpet/linear-cli/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/schpet/linear-cli/compare/v1.10.0...v1.11.0

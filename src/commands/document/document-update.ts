@@ -4,6 +4,7 @@ import type { DocumentInlineCommentGuardQuery } from "../../__codegen__/graphql.
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
+import { resolveProjectId } from "../../utils/linear.ts"
 import {
   CliError,
   handleError,
@@ -178,6 +179,10 @@ export const updateCommand = new Command()
     "Read new content from file",
   )
   .option("--icon <icon:string>", "New icon (emoji)")
+  .option(
+    "--project <project:string>",
+    "Attach to project (UUID, slug ID, or name)",
+  )
   .option("-e, --edit", "Open current content in $EDITOR for editing")
   .option(
     "--force",
@@ -185,7 +190,7 @@ export const updateCommand = new Command()
   )
   .action(
     async (
-      { title, content, contentFile, icon, edit, force },
+      { title, content, contentFile, icon, project, edit, force },
       documentId,
     ) => {
       try {
@@ -202,6 +207,17 @@ export const updateCommand = new Command()
         // Add icon if provided
         if (icon) {
           input.icon = icon
+        }
+
+        // Set the document's project. A document has a single related project
+        // (DocumentUpdateInput.projectId), so this replaces any existing one.
+        // (The API silently ignores projectId: null, so detaching a document
+        // from its only anchor isn't supported — only re-pointing it.) Resolved
+        // here alongside the other metadata flags so it participates in the
+        // stdin auto-read guard below (a project-only update shouldn't slurp
+        // stdin as content).
+        if (project != null) {
+          input.projectId = await resolveProjectId(project)
         }
 
         // Resolve content from various sources
@@ -270,7 +286,7 @@ export const updateCommand = new Command()
         if (Object.keys(input).length === 0) {
           throw new ValidationError("No update fields provided", {
             suggestion:
-              "Use --title, --content, --content-file, --icon, or --edit.",
+              "Use --title, --content, --content-file, --icon, --project, or --edit.",
           })
         }
 

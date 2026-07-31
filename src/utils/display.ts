@@ -1,4 +1,6 @@
 import { unicodeWidth } from "@std/cli"
+import { green } from "@std/fmt/colors"
+import { muted } from "./styling.ts"
 
 export function padDisplay(s: string, width: number): string {
   const w = unicodeWidth(s)
@@ -69,6 +71,82 @@ export function getPriorityDisplay(priority: number): string {
     return "▄  "
   }
   return priority.toString()
+}
+
+export interface CycleDisplayInfo {
+  number: number
+  isActive: boolean
+  isNext: boolean
+  isPrevious: boolean
+  isPast: boolean
+}
+
+export type CycleShortKind = "active" | "future" | "past" | "none"
+
+export interface CycleShort {
+  text: string
+  kind: CycleShortKind
+}
+
+function assertCycleInteger(value: number, label: string): void {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(
+      `Expected ${label} to be a safe integer, got ${value}`,
+    )
+  }
+}
+
+/**
+ * Compact cycle token for table columns: "now" for the active cycle, signed
+ * offsets ("+1", "-2") relative to the team's active cycle, or an absolute
+ * "#N" when no anchor exists. The API's isNext/isPrevious flags take
+ * precedence over arithmetic so display always agrees with what
+ * `--cycle next`/`--cycle previous` would select.
+ */
+export function formatCycleShort(
+  cycle: CycleDisplayInfo | null | undefined,
+  activeCycleNumber: number | null | undefined,
+): CycleShort {
+  if (cycle == null) {
+    return { text: "-", kind: "none" }
+  }
+  assertCycleInteger(cycle.number, "cycle number")
+  if (cycle.isActive) {
+    return { text: "now", kind: "active" }
+  }
+  if (cycle.isNext) {
+    return { text: "+1", kind: "future" }
+  }
+  if (cycle.isPrevious) {
+    return { text: "-1", kind: "past" }
+  }
+  if (activeCycleNumber != null) {
+    assertCycleInteger(activeCycleNumber, "active cycle number")
+    const offset = cycle.number - activeCycleNumber
+    if (offset === 0) {
+      return { text: "now", kind: "active" }
+    }
+    if (offset > 0) {
+      return { text: `+${offset}`, kind: "future" }
+    }
+    return { text: `${offset}`, kind: "past" }
+  }
+  return {
+    text: `#${cycle.number}`,
+    kind: cycle.isPast ? "past" : "future",
+  }
+}
+
+export function colorCycleShort({ text, kind }: CycleShort): string {
+  switch (kind) {
+    case "active":
+      return green(text)
+    case "future":
+      return text
+    case "past":
+    case "none":
+      return muted(text)
+  }
 }
 
 export function formatRelativeTime(dateString: string): string {

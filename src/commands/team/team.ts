@@ -4,6 +4,7 @@ import { idCommand } from "./team-id.ts"
 import { autolinksCommand } from "./team-autolinks.ts"
 import { membersCommand } from "./team-members.ts"
 import { listCommand } from "./team-list.ts"
+import { statesCommand } from "./team-states.ts"
 import { createCommand } from "./team-create.ts"
 import { deleteCommand } from "./team-delete.ts"
 
@@ -18,3 +19,4 @@ export const teamCommand = new Command()
   .command("id", idCommand)
   .command("autolinks", autolinksCommand)
   .command("members", membersCommand)
+  .command("states", statesCommand)

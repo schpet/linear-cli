@@ -21,6 +21,7 @@ Options:
   --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                     
   --target-date           <targetDate>   - Target date (YYYY-MM-DD)                                                    
   -t, --team              <team>         - Team key (can be repeated for multiple teams)                               
+  --label                 <label>        - Replace the project's labels. May be repeated to set multiple labels.       
 
 "
 stderr:
@@ -49,6 +50,15 @@ snapshot[`Project Update Command - Update Status 1`] = `
 stdout:
 "✓ Updated project: Test Project
 https://linear.app/test/project/proj-status
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Replace Labels 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-labels
 "
 stderr:
 ""

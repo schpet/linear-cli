@@ -1,10 +1,13 @@
-import { assertEquals, assertRejects } from "@std/assert"
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert"
 import {
   getIssueIdentifier,
   isLinearUuid,
   resolveMilestoneId,
   resolveProjectId,
+  resolveWorkflowState,
   searchIssuesByTerm,
+  type WorkflowState,
+  workflowStateNotFoundError,
 } from "../../src/utils/linear.ts"
 import { NotFoundError, ValidationError } from "../../src/utils/errors.ts"
 import { setupMockLinearServer } from "../utils/test-helpers.ts"
@@ -21,6 +24,26 @@ Deno.test("getIssueId - handles integer-only IDs with team prefix", async () => 
   assertEquals(result, "CLI-123")
 
   Deno.env.delete("LINEAR_TEAM_ID")
+})
+
+Deno.test("getIssueId - integer-only id without a team points at `linear config`", async () => {
+  // An empty team id is falsy, so getTeamKey() resolves to undefined even
+  // though the repo's .linear.toml sets one — this exercises the no-team branch.
+  Deno.env.set("LINEAR_TEAM_ID", "")
+
+  try {
+    const error = await assertRejects(
+      () => getIssueIdentifier("123"),
+      ValidationError,
+      "no team is set",
+    )
+    // Regression guard for #245: the suggestion must name the real command
+    // (`config`), never the non-existent `configure`.
+    assertStringIncludes(error.suggestion ?? "", "linear config")
+    assertEquals(error.suggestion?.includes("configure"), false)
+  } finally {
+    Deno.env.delete("LINEAR_TEAM_ID")
+  }
 })
 
 Deno.test("getIssueId - rejects invalid integer patterns", async () => {
@@ -76,6 +99,8 @@ Deno.test("searchIssuesByTerm - without limit fetches a single page", async () =
                   id: "team-1",
                   key: "CLI",
                   name: "Linear CLI",
+                  cyclesEnabled: false,
+                  activeCycle: null,
                 },
                 project: null,
                 projectMilestone: null,
@@ -124,6 +149,8 @@ Deno.test("searchIssuesByTerm - without limit fetches a single page", async () =
             id: "team-1",
             key: "CLI",
             name: "Linear CLI",
+            cyclesEnabled: false,
+            activeCycle: null,
           },
           project: null,
           projectMilestone: null,
@@ -275,4 +302,74 @@ Deno.test("resolveMilestoneId - errors when a name is passed without a project",
   } finally {
     await cleanup()
   }
+})
+
+// States are passed to resolveWorkflowState already sorted by position, mirroring
+// getWorkflowStates. Duplicate "started" states are ordered so the lower position
+// comes first.
+const WORKFLOW_STATES: WorkflowState[] = [
+  { id: "s-backlog", name: "Backlog", type: "backlog", position: 0 },
+  { id: "s-todo", name: "Todo", type: "unstarted", position: 1 },
+  { id: "s-progress", name: "In Progress", type: "started", position: 2 },
+  { id: "s-review", name: "In Review", type: "started", position: 3 },
+  { id: "s-done", name: "Done", type: "completed", position: 4 },
+]
+
+Deno.test("resolveWorkflowState - matches by exact name, case-insensitively", () => {
+  assertEquals(
+    resolveWorkflowState(WORKFLOW_STATES, "in progress")?.id,
+    "s-progress",
+  )
+})
+
+Deno.test("resolveWorkflowState - name match wins over type match", () => {
+  // "Done" is a name and "completed" is its type; the name should resolve first.
+  assertEquals(resolveWorkflowState(WORKFLOW_STATES, "Done")?.id, "s-done")
+})
+
+Deno.test("resolveWorkflowState - matches by type when no name matches", () => {
+  assertEquals(
+    resolveWorkflowState(WORKFLOW_STATES, "COMPLETED")?.id,
+    "s-done",
+  )
+})
+
+Deno.test("resolveWorkflowState - duplicate types resolve to the first by position", () => {
+  assertEquals(
+    resolveWorkflowState(WORKFLOW_STATES, "started")?.id,
+    "s-progress",
+  )
+})
+
+Deno.test("resolveWorkflowState - returns undefined when nothing matches", () => {
+  assertEquals(resolveWorkflowState(WORKFLOW_STATES, "nope"), undefined)
+})
+
+Deno.test("workflowStateNotFoundError - lists valid states and the discovery command", () => {
+  const error = workflowStateNotFoundError("ENG", "nope", [
+    { id: "s-backlog", name: "Backlog", type: "backlog", position: 0 },
+    { id: "s-todo", name: "Todo", type: "unstarted", position: 1 },
+  ])
+  assertEquals(error instanceof NotFoundError, true)
+  assertEquals(error.message, "Workflow state not found: 'nope' for team ENG")
+  assertEquals(
+    error.suggestion,
+    'Valid states: "Backlog" (backlog), "Todo" (unstarted). ' +
+      "Run `linear team states ENG` to list them.",
+  )
+})
+
+Deno.test("workflowStateNotFoundError - escapes quotes in state names", () => {
+  const error = workflowStateNotFoundError("ENG", "nope", [
+    { id: "s-weird", name: 'Needs "review"', type: "started", position: 0 },
+  ])
+  assertStringIncludes(error.suggestion ?? "", '"Needs \\"review\\"" (started)')
+})
+
+Deno.test("workflowStateNotFoundError - handles a team with no states", () => {
+  const error = workflowStateNotFoundError("ENG", "nope", [])
+  assertEquals(
+    error.suggestion,
+    "Team ENG has no workflow states. Run `linear team states ENG`.",
+  )
 })

@@ -1,0 +1,28 @@
+export const snapshot = {};
+
+snapshot[`Team Id Command - Help Text 1`] = `
+stdout:
+"
+Usage: id
+
+Description:
+
+  Print the configured team id
+
+Options:
+
+  -h, --help  - Show this help.  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Team Id Command - No Team Configured 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to get team id: No team id configured
+  Run \`linear config\` to set a team.
+"
+`;

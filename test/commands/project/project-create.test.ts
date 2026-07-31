@@ -212,7 +212,7 @@ await cliffySnapshotTest({
         },
       },
       {
-        queryName: "GetProjectLabelIdByNameForCreate",
+        queryName: "GetProjectLabelIdByName",
         variables: { name: "Frontend" },
         response: {
           data: {
@@ -223,7 +223,7 @@ await cliffySnapshotTest({
         },
       },
       {
-        queryName: "GetProjectLabelIdByNameForCreate",
+        queryName: "GetProjectLabelIdByName",
         variables: { name: "Backend" },
         response: {
           data: {
@@ -462,7 +462,7 @@ Deno.test("Project Create Command - rejects an unknown project label", async () 
       response: { data: { teams: { nodes: [{ id: "team-eng-123" }] } } },
     },
     {
-      queryName: "GetProjectLabelIdByNameForCreate",
+      queryName: "GetProjectLabelIdByName",
       variables: { name: "Nonexistent" },
       response: { data: { projectLabels: { nodes: [] } } },
     },

@@ -11,7 +11,11 @@ import type {
   FetchedIssueDetails,
 } from "../../utils/linear.ts"
 import { openIssuePage } from "../../utils/actions.ts"
-import { formatRelativeTime, getPriorityDisplay } from "../../utils/display.ts"
+import {
+  formatCycleShort,
+  formatRelativeTime,
+  getPriorityDisplay,
+} from "../../utils/display.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { bold, underline } from "@std/fmt/colors"
 import { ensureDir } from "@std/fs"
@@ -157,9 +161,17 @@ export const viewCommand = new Command()
         metaParts.push(`**Milestone:** ${issueData.projectMilestone.name}`)
       }
       if (issueData.cycle) {
-        const cycleName = issueData.cycle.name ??
-          `Cycle ${issueData.cycle.number}`
-        metaParts.push(`**Cycle:** ${cycleName}`)
+        const cycleShort = formatCycleShort(
+          issueData.cycle,
+          issueData.team?.activeCycle?.number,
+        )
+        const cycleLabel = issueData.cycle.name != null
+          ? `#${issueData.cycle.number} ${issueData.cycle.name}`
+          : `#${issueData.cycle.number}`
+        const cycleDisplay = cycleShort.text.startsWith("#")
+          ? cycleLabel
+          : `${cycleLabel} (${cycleShort.text})`
+        metaParts.push(`**Cycle:** ${cycleDisplay}`)
       }
       const metaLine = metaParts.length > 0
         ? "\n\n" + metaParts.join(" | ")

@@ -1,0 +1,26 @@
+{
+  "condition": "post-change",
+  "codexVersion": "codex-cli 0.144.4",
+  "sandbox": "workspace-write",
+  "effort": "low",
+  "modelRequested": "gpt-5.6-sol",
+  "modelsObserved": [],
+  "trialsPerCase": 3,
+  "cases": [
+    "query-development",
+    "query-holdout",
+    "create-development",
+    "create-holdout",
+    "update-development",
+    "update-holdout",
+    "comment-development",
+    "comment-holdout",
+    "inspect-development",
+    "inspect-holdout",
+    "control-history",
+    "control-subscribers"
+  ],
+  "completedTrials": 36,
+  "failedTrials": [],
+  "ranAt": "2026-07-18T23:09:59.449Z"
+}

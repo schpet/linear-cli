@@ -1,7 +1,9 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
+import type { ProjectUpdateInput } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
+  getProjectLabelIdByName,
   getTeamIdByKey,
   lookupUserId,
   resolveProjectId,
@@ -81,6 +83,11 @@ export const updateCommand = new Command()
     "Team key (can be repeated for multiple teams)",
     { collect: true },
   )
+  .option(
+    "--label <label:string>",
+    "Replace the project's labels. May be repeated to set multiple labels.",
+    { collect: true },
+  )
   .action(
     async (
       {
@@ -92,6 +99,7 @@ export const updateCommand = new Command()
         startDate,
         targetDate,
         team: teams,
+        label: labels,
       },
       projectId,
     ) => {
@@ -102,15 +110,26 @@ export const updateCommand = new Command()
       try {
         if (
           !name && description == null && descriptionFile == null && !status &&
-          !lead && !startDate && !targetDate && (!teams || teams.length === 0)
+          !lead && !startDate && !targetDate &&
+          (!teams || teams.length === 0) && (!labels || labels.length === 0)
         ) {
           throw new ValidationError(
             "At least one update option must be provided",
             {
               suggestion:
-                "Use --name, --description, --description-file, --status, --lead, --start-date, --target-date, or --team",
+                "Use --name, --description, --description-file, --status, --lead, --start-date, --target-date, --team, or --label",
             },
           )
+        }
+
+        if (labels) {
+          for (const label of labels) {
+            if (label.trim() === "") {
+              throw new ValidationError("Project label cannot be empty", {
+                suggestion: 'Provide a label name, e.g. --label "My Label".',
+              })
+            }
+          }
         }
 
         const resolvedDescription = await resolveProjectDescription(
@@ -130,7 +149,7 @@ export const updateCommand = new Command()
         const client = getGraphQLClient()
         const resolvedId = await resolveProjectId(projectId)
 
-        const input: Record<string, unknown> = {}
+        const input: ProjectUpdateInput = {}
 
         if (name) input.name = name
         if (resolvedDescription != null) input.description = resolvedDescription
@@ -179,6 +198,25 @@ export const updateCommand = new Command()
             teamIds.push(teamId)
           }
           input.teamIds = teamIds
+        }
+
+        if (labels && labels.length > 0) {
+          // Replace the project's labels with exactly the resolved set,
+          // matching `project update --team` and `issue update --label`.
+          const labelIds: string[] = []
+          const seen = new Set<string>()
+          for (const label of labels) {
+            const labelId = await getProjectLabelIdByName(label)
+            if (!labelId) {
+              spinner?.stop()
+              throw new NotFoundError("Project label", label)
+            }
+            if (!seen.has(labelId)) {
+              seen.add(labelId)
+              labelIds.push(labelId)
+            }
+          }
+          input.labelIds = labelIds
         }
 
         const result = await client.request(UpdateProject, {

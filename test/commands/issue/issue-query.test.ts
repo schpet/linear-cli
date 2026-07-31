@@ -47,6 +47,8 @@ const mockIssueNode = {
     id: "team-1",
     key: "ENG",
     name: "Engineering",
+    cyclesEnabled: false,
+    activeCycle: null,
   },
   project: {
     id: "project-1",
@@ -445,3 +447,148 @@ Deno.test("Issue Query Command - rejects --milestone without --project", async (
 // getOption("team_id") reads from config files which can't be easily
 // overridden in tests. The validation logic is covered by the code path
 // and the other validation tests confirm handleError integration works.
+
+// Cycle column: shown when a team has cycles enabled, with relative tokens.
+Deno.test("Issue Query Command - Shows Cycle Column", async () => {
+  const fixedNow = new Date("2026-04-03T10:00:00.000Z")
+  const RealDate = Date
+  const originalColorEnabled = getColorEnabled()
+  class MockDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      super(value == null ? fixedNow.toISOString() : value)
+    }
+    static override now(): number {
+      return fixedNow.getTime()
+    }
+  }
+  globalThis.Date = MockDate as DateConstructor
+  setColorEnabled(false)
+
+  const cyclingTeam = {
+    id: "team-1",
+    key: "ENG",
+    name: "Engineering",
+    cyclesEnabled: true,
+    activeCycle: { number: 3 },
+  }
+
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssuesForQuery",
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                ...mockIssueNode,
+                team: cyclingTeam,
+                cycle: {
+                  id: "cycle-3",
+                  number: 3,
+                  name: null,
+                  isActive: true,
+                  isNext: false,
+                  isPrevious: false,
+                  isFuture: false,
+                  isPast: false,
+                },
+              },
+              {
+                ...mockIssueNode,
+                id: "issue-2",
+                identifier: "ENG-102",
+                title: "Plan ahead",
+                team: cyclingTeam,
+                cycle: {
+                  id: "cycle-5",
+                  number: 5,
+                  name: null,
+                  isActive: false,
+                  isNext: false,
+                  isPrevious: false,
+                  isFuture: true,
+                  isPast: false,
+                },
+              },
+              {
+                ...mockIssueNode,
+                id: "issue-3",
+                identifier: "ENG-103",
+                title: "No cycle yet",
+                team: cyclingTeam,
+                cycle: null,
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await queryCommand.parse(["--team", "ENG"])
+
+    const [headerLine, ...rows] = logs
+    assertEquals(headerLine.includes("CYC"), true)
+    assertEquals(rows[0].includes(" now "), true)
+    assertEquals(rows[1].includes(" +2 "), true)
+    assertEquals(rows[2].includes(" -  "), true)
+  } finally {
+    logStub.restore()
+    globalThis.Date = RealDate
+    setColorEnabled(originalColorEnabled)
+    await cleanup()
+  }
+})
+
+// Cycle column omitted entirely when no listed team has cycles enabled.
+Deno.test("Issue Query Command - Hides Cycle Column When Cycles Disabled", async () => {
+  const fixedNow = new Date("2026-04-03T10:00:00.000Z")
+  const RealDate = Date
+  const originalColorEnabled = getColorEnabled()
+  class MockDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      super(value == null ? fixedNow.toISOString() : value)
+    }
+    static override now(): number {
+      return fixedNow.getTime()
+    }
+  }
+  globalThis.Date = MockDate as DateConstructor
+  setColorEnabled(false)
+
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssuesForQuery",
+      response: {
+        data: {
+          issues: {
+            nodes: [mockIssueNode],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await queryCommand.parse(["--team", "ENG"])
+    assertEquals(logs[0].includes("CYC"), false)
+  } finally {
+    logStub.restore()
+    globalThis.Date = RealDate
+    setColorEnabled(originalColorEnabled)
+    await cleanup()
+  }
+})

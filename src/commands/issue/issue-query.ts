@@ -1,8 +1,11 @@
 import { Command, EnumType } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { rgb24 } from "@std/fmt/colors"
-import { getOption } from "../../config.ts"
+import { resolveIssueSort } from "../../config.ts"
 import {
+  colorCycleShort,
+  type CycleDisplayInfo,
+  formatCycleShort,
   getPriorityDisplay,
   getTimeAgo,
   padDisplay,
@@ -86,7 +89,7 @@ export const queryCommand = new Command()
   )
   .option(
     "--cycle <cycle:string>",
-    "Filter by cycle name, number, or 'active'",
+    "Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1",
   )
   .option(
     "--milestone <milestone:string>",
@@ -314,9 +317,7 @@ export const queryCommand = new Command()
       spinner?.start()
 
       // Resolve sort for non-search mode
-      const sort = search ? undefined : (sortFlag ||
-        (getOption("issue_sort") as "manual" | "priority" | undefined) ||
-        "priority")
+      const sort = search ? undefined : resolveIssueSort(sortFlag)
 
       if (search) {
         // --- Search mode: use searchIssues() backend ---
@@ -333,6 +334,7 @@ export const queryCommand = new Command()
           limit: limit === 0 ? 0 : limit,
           projectId,
           projectLabel,
+          cycleId,
           labelNames,
           createdAfter,
           updatedAfter,
@@ -425,7 +427,12 @@ interface DisplayableIssue {
   updatedAt: string
   state: { name: string; color: string }
   assignee?: { initials: string } | null
-  team?: { key: string }
+  team?: {
+    key: string
+    cyclesEnabled?: boolean
+    activeCycle?: { number: number } | null
+  }
+  cycle?: CycleDisplayInfo | null
   labels: { nodes: Array<{ name: string; color: string }> }
   inverseRelations?: {
     nodes: Array<{
@@ -463,6 +470,15 @@ function formatIssueTable(
     ),
   )
   const estimateWidth = 1
+  const showCycleColumn = issues.some((i) =>
+    i.cycle != null || i.team?.cyclesEnabled === true
+  )
+  const cycleShorts = issues.map((i) =>
+    formatCycleShort(i.cycle, i.team?.activeCycle?.number)
+  )
+  const cycleWidth = showCycleColumn
+    ? Math.max(3, ...cycleShorts.map((c) => unicodeWidth(c.text)))
+    : 0
   const assigneeWidth = showAssigneeColumn ? 2 : 0
   const stateWidth = Math.min(
     20,
@@ -481,6 +497,7 @@ function formatIssueTable(
     labelWidth,
     blockedWidth,
     estimateWidth,
+    ...(showCycleColumn ? [cycleWidth] : []),
     ...(showAssigneeColumn ? [assigneeWidth] : []),
     stateWidth,
     updatedWidth,
@@ -499,6 +516,7 @@ function formatIssueTable(
     padDisplay("LABELS", labelWidth),
     padDisplay("B", blockedWidth),
     padDisplay("E", estimateWidth),
+    ...(showCycleColumn ? [padDisplay("CYC", cycleWidth)] : []),
     ...(showAssigneeColumn ? [padDisplay("A", assigneeWidth)] : []),
     padDisplay("STATE", stateWidth),
     padDisplay(updatedHeader, updatedWidth),
@@ -506,7 +524,7 @@ function formatIssueTable(
 
   const outputLines = [header(headerCells.join(" "))]
 
-  for (const issue of issues) {
+  for (const [index, issue] of issues.entries()) {
     const title = padDisplay(
       truncateText(issue.title, titleWidth),
       titleWidth,
@@ -522,6 +540,9 @@ function formatIssueTable(
       padDisplay(getTimeAgo(new Date(issue.updatedAt)), updatedWidth),
     )
     const blockedCell = isIssueBlocked(issue) ? warning("⊘") : " "
+    const cycleShort = cycleShorts[index]
+    const cycleCell = colorCycleShort(cycleShort) +
+      " ".repeat(Math.max(0, cycleWidth - unicodeWidth(cycleShort.text)))
     const cells = [
       padDisplay(getPriorityDisplay(issue.priority), priorityWidth),
       padDisplay(issue.identifier, idWidth),
@@ -530,6 +551,7 @@ function formatIssueTable(
       formatLabels(issue.labels.nodes, labelWidth),
       padDisplay(blockedCell, blockedWidth),
       padDisplay(issue.estimate?.toString() || "-", estimateWidth),
+      ...(showCycleColumn ? [cycleCell] : []),
       ...(showAssigneeColumn
         ? [
           padDisplay(

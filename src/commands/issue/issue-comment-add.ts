@@ -15,7 +15,9 @@ import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 
 export const commentAddCommand = new Command()
   .name("add")
-  .description("Add a comment to an issue or reply to a comment")
+  .description(
+    "Add a comment or reply; images uploaded with --attach render inline",
+  )
   .arguments("[issueId:string]")
   .option("-b, --body <text:string>", "Comment body text")
   .option(
@@ -25,7 +27,7 @@ export const commentAddCommand = new Command()
   .option("-p, --parent <id:string>", "Parent comment ID for replies")
   .option(
     "-a, --attach <filepath:string>",
-    "Attach a file to the comment (can be used multiple times)",
+    "Upload a file and add its Markdown link to the comment (images render inline; repeatable)",
     { collect: true },
   )
   .option(

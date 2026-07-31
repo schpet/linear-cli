@@ -1,5 +1,9 @@
 import { assertEquals, assertRejects } from "@std/assert"
-import { getCurrentBranch, getRepoDir } from "../../src/utils/git.ts"
+import {
+  getCurrentBranch,
+  getRepoDir,
+  isInsideGitRepo,
+} from "../../src/utils/git.ts"
 import { CliError } from "../../src/utils/errors.ts"
 
 Deno.test("getCurrentBranch - handles errors when not in a git repository", async () => {
@@ -76,6 +80,38 @@ Deno.test("getCurrentBranch - returns null for detached HEAD", async () => {
     // getCurrentBranch should return null for detached HEAD
     const branch = await getCurrentBranch()
     assertEquals(branch, null)
+  } finally {
+    Deno.chdir(originalCwd)
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("isInsideGitRepo - false in a non-repository directory", async () => {
+  const tempDir = await Deno.makeTempDir()
+  const originalCwd = Deno.cwd()
+
+  try {
+    Deno.chdir(tempDir)
+    assertEquals(await isInsideGitRepo(), false)
+  } finally {
+    Deno.chdir(originalCwd)
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("isInsideGitRepo - true inside a git repository, including nested directories", async () => {
+  const tempDir = await Deno.makeTempDir()
+  const originalCwd = Deno.cwd()
+
+  try {
+    Deno.chdir(tempDir)
+    await new Deno.Command("git", { args: ["init"] }).output()
+    assertEquals(await isInsideGitRepo(), true)
+
+    const nested = `${tempDir}/nested/dir`
+    await Deno.mkdir(nested, { recursive: true })
+    Deno.chdir(nested)
+    assertEquals(await isInsideGitRepo(), true)
   } finally {
     Deno.chdir(originalCwd)
     await Deno.remove(tempDir, { recursive: true })

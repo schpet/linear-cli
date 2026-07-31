@@ -1,0 +1,28 @@
+export const snapshot = {};
+
+snapshot[`Team Autolinks Command - Help Text 1`] = `
+stdout:
+"
+Usage: autolinks
+
+Description:
+
+  Configure GitHub repository autolinks for Linear issues with this team prefix
+
+Options:
+
+  -h, --help  - Show this help.  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Team Autolinks Command - No Team Configured 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to configure autolinks: Could not determine team id from directory name
+  Run \`linear config\` to set a team.
+"
+`;

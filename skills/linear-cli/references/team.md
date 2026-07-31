@@ -23,10 +23,28 @@ Commands:
   list                  - List teams                                                                   
   id                    - Print the configured team id                                                 
   autolinks             - Configure GitHub repository autolinks for Linear issues with this team prefix
-  members    [teamKey]  - List team members
+  members    [teamKey]  - List team members                                                            
+  states     [teamKey]  - List workflow states for a team
 ```
 
 ## Subcommands
+
+### autolinks
+
+> Configure GitHub repository autolinks for Linear issues with this team prefix
+
+```
+Usage:   linear team autolinks
+
+Description:
+
+  Configure GitHub repository autolinks for Linear issues with this team prefix
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
+```
 
 ### create
 
@@ -69,6 +87,23 @@ Options:
   -y, --force                  - Skip confirmation prompt
 ```
 
+### id
+
+> Print the configured team id
+
+```
+Usage:   linear team id
+
+Description:
+
+  Print the configured team id
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)
+```
+
 ### list
 
 > List teams
@@ -88,40 +123,6 @@ Options:
   -a, --app            - Open in Linear.app
 ```
 
-### id
-
-> Print the configured team id
-
-```
-Usage:   linear team id
-
-Description:
-
-  Print the configured team id
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
-```
-
-### autolinks
-
-> Configure GitHub repository autolinks for Linear issues with this team prefix
-
-```
-Usage:   linear team autolinks
-
-Description:
-
-  Configure GitHub repository autolinks for Linear issues with this team prefix
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
-```
-
 ### members
 
 > List team members
@@ -137,5 +138,24 @@ Options:
 
   -h, --help           - Show this help.                      
   --workspace  <slug>  - Target workspace (uses credentials)  
-  -a, --all            - Include inactive members
+  -a, --all            - Include inactive members             
+  -j, --json           - Output as JSON
+```
+
+### states
+
+> List workflow states for a team
+
+```
+Usage:   linear team states [teamKey]
+
+Description:
+
+  List workflow states for a team
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json           - Output as JSON
 ```

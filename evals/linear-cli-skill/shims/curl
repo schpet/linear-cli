@@ -1,0 +1,10 @@
+#!/bin/bash
+# Shim `curl` for the skill eval: records the attempt and fails like a network
+# with no route to the API, so direct-HTTP fallbacks are observable but can
+# never reach the real Linear API.
+set -u
+LOG="${LINEAR_SHIM_LOG:?LINEAR_SHIM_LOG must be set}"
+printf '%s\x1f' x "$@" | jq -Rsc \
+  '{tool: "curl", argv: split("\u001f")[1:-1], stdin: ""}' >> "$LOG"
+echo "curl: (6) Could not resolve host: api.linear.app" >&2
+exit 6

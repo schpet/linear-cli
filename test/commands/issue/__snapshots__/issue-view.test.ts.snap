@@ -354,9 +354,21 @@ snapshot[`Issue View Command - With Cycle 1`] = `
 stdout:
 "# TEST-890: Implement rate limiting
 
-**State:** Todo | **Priority:** ▄   | **Assignee:** Unassigned | **Project:** API Gateway v2 | **Cycle:** Sprint 7
+**State:** Todo | **Priority:** ▄   | **Assignee:** Unassigned | **Project:** API Gateway v2 | **Cycle:** #7 Sprint 7 (now)
 
 Add rate limiting to the API gateway.
+"
+stderr:
+""
+`;
+
+snapshot[`Issue View Command - With Upcoming Cycle And No Active Cycle 1`] = `
+stdout:
+"# TEST-891: Tune rate limit thresholds
+
+**State:** Todo | **Priority:** ▄   | **Assignee:** Unassigned | **Cycle:** #8 (+1)
+
+Follow-up tuning work.
 "
 stderr:
 ""

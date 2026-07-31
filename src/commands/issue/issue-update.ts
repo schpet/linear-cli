@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
+import type { IssueUpdateInput } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTeamKeyFromIssueIdentifier } from "../../utils/issue-identifier.ts"
 import {
@@ -10,10 +11,12 @@ import {
   getIssueProjectId,
   getProjectIdByName,
   getTeamIdByKey,
-  getWorkflowStateByNameOrType,
+  getWorkflowStates,
   isLinearUuid,
   lookupUserId,
   resolveMilestoneId,
+  resolveWorkflowState,
+  workflowStateNotFoundError,
 } from "../../utils/linear.ts"
 import {
   CliError,
@@ -29,6 +32,10 @@ export const updateCommand = new Command()
   .option(
     "-a, --assignee <assignee:string>",
     "Assign the issue to 'self' or someone (by username or name)",
+  )
+  .option(
+    "--unassign",
+    "Clear the issue's assignee (cannot be combined with --assignee)",
   )
   .option(
     "--due-date <dueDate:string>",
@@ -77,13 +84,19 @@ export const updateCommand = new Command()
   )
   .option(
     "--cycle <cycle:string>",
-    "Cycle name, number, or 'active'",
+    "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives). Use --clear-cycle to remove the issue from its cycle",
+  )
+  .option(
+    "--clear-cycle",
+    "Remove the issue from its cycle",
   )
   .option("-t, --title <title:string>", "Title of the issue")
   .action(
     async (
       {
         assignee,
+        unassign,
+        clearCycle,
         dueDate,
         parent,
         priority,
@@ -101,6 +114,26 @@ export const updateCommand = new Command()
       issueIdArg,
     ) => {
       try {
+        if (unassign && assignee != null) {
+          throw new ValidationError(
+            "Cannot specify both --assignee and --unassign",
+            {
+              suggestion:
+                "Use --assignee <user> to set an assignee, or --unassign on its own to clear it.",
+            },
+          )
+        }
+
+        if (clearCycle && cycle != null) {
+          throw new ValidationError(
+            "Cannot specify both --cycle and --clear-cycle",
+            {
+              suggestion:
+                "Use --cycle <cycle> to set a cycle, or --clear-cycle on its own to remove it.",
+            },
+          )
+        }
+
         // Validate that description and descriptionFile are not both provided
         if (description && descriptionFile) {
           throw new ValidationError(
@@ -160,16 +193,12 @@ export const updateCommand = new Command()
         }
 
         let stateId: string | undefined
-        if (state) {
-          const workflowState = await getWorkflowStateByNameOrType(
-            teamKey,
-            state,
-          )
+        if (state != null) {
+          const states = await getWorkflowStates(teamKey)
+          const workflowState = resolveWorkflowState(states, state)
           if (!workflowState) {
-            throw new NotFoundError(
-              "Workflow state",
-              `'${state}' for team ${teamKey}`,
-            )
+            spinner?.stop()
+            throw workflowStateNotFoundError(teamKey, state, states)
           }
           stateId = workflowState.id
         }
@@ -182,7 +211,7 @@ export const updateCommand = new Command()
           }
         }
 
-        const labelIds = []
+        const labelIds: string[] = []
         if (labels != null && labels.length > 0) {
           for (const label of labels) {
             const labelId = await getIssueLabelIdByNameForTeam(label, teamKey)
@@ -232,11 +261,17 @@ export const updateCommand = new Command()
           cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
         }
 
-        // Build the update input object, only including fields that were provided
-        const input: Record<string, string | number | string[] | undefined> = {}
+        // Build the update input object, only including fields that were provided.
+        // Clearing a field requires an explicit flag (see --unassign); never set
+        // a field to null implicitly.
+        const input: IssueUpdateInput = {}
 
         if (title !== undefined) input.title = title
-        if (assigneeId !== undefined) input.assigneeId = assigneeId
+        if (unassign) {
+          input.assigneeId = null
+        } else if (assigneeId != null) {
+          input.assigneeId = assigneeId
+        }
         if (dueDate !== undefined) input.dueDate = dueDate
         if (parent !== undefined) {
           const parentIdentifier = await getIssueIdentifier(parent)
@@ -260,7 +295,11 @@ export const updateCommand = new Command()
         if (projectMilestoneId !== undefined) {
           input.projectMilestoneId = projectMilestoneId
         }
-        if (cycleId !== undefined) input.cycleId = cycleId
+        if (clearCycle) {
+          input.cycleId = null
+        } else if (cycleId !== undefined) {
+          input.cycleId = cycleId
+        }
         if (stateId !== undefined) input.stateId = stateId
 
         spinner?.stop()

@@ -1,6 +1,6 @@
 - name: Setup deno
   uses: denoland/setup-deno@v2
   with:
-    deno-version: v2.x
+    deno-version: 2.7.9
 - name: Generate GraphQL code
   run: deno task codegen

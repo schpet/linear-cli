@@ -890,8 +890,85 @@ await snapshotTest({
               },
               projectMilestone: null,
               cycle: {
+                id: "cycle-7",
                 name: "Sprint 7",
                 number: 7,
+                isActive: true,
+                isNext: false,
+                isPrevious: false,
+                isFuture: false,
+                isPast: false,
+              },
+              team: {
+                activeCycle: { number: 7 },
+              },
+              parent: null,
+              children: {
+                nodes: [],
+              },
+              attachments: {
+                nodes: [],
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue View Command - With Upcoming Cycle And No Active Cycle",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-891", "--no-comments"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueDetails",
+        variables: { id: "TEST-891" },
+        response: {
+          data: {
+            issue: {
+              identifier: "TEST-891",
+              title: "Tune rate limit thresholds",
+              description: "Follow-up tuning work.",
+              url:
+                "https://linear.app/test-team/issue/TEST-891/tune-rate-limit-thresholds",
+              branchName: "feat/test-891-tune-thresholds",
+              state: {
+                name: "Todo",
+                color: "#e2e2e2",
+              },
+              assignee: null,
+              priority: 4,
+              project: null,
+              projectMilestone: null,
+              cycle: {
+                id: "cycle-8",
+                name: null,
+                number: 8,
+                isActive: false,
+                isNext: true,
+                isPrevious: false,
+                isFuture: true,
+                isPast: false,
+              },
+              team: {
+                activeCycle: null,
               },
               parent: null,
               children: {

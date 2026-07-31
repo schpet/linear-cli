@@ -1,0 +1,239 @@
+export const snapshot = {};
+
+snapshot[`User List Command - Help Text 1`] = `
+stdout:
+"
+Usage: list
+
+Description:
+
+  List members of the workspace
+
+Options:
+
+  -h, --help  - Show this help.           
+  -a, --all   - Include inactive members  
+  -j, --json  - Output as JSON            
+
+"
+stderr:
+""
+`;
+
+snapshot[`User List Command - Human Output 1`] = `
+stdout:
+"Workspace Members (2):
+
+pat [XX] (admin) (you)
+  Email: pat@example.com
+
+zoe [XX] (owner)
+  Email: zoe@example.com
+
+"
+stderr:
+""
+`;
+
+snapshot[`User List Command - All Includes Inactive 1`] = `
+stdout:
+"Workspace Members (3):
+
+olduser [XX] (inactive)
+  Email: olduser@example.com
+
+pat [XX] (admin) (you)
+  Email: pat@example.com
+
+zoe [XX] (owner)
+  Email: zoe@example.com
+
+"
+stderr:
+""
+`;
+
+snapshot[`User List Command - JSON 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "name": "pat",
+      "email": "pat@example.com",
+      "active": true,
+      "initials": "XX",
+      "description": null,
+      "timezone": null,
+      "lastSeen": null,
+      "statusEmoji": null,
+      "statusLabel": null,
+      "guest": false,
+      "isAssignable": true,
+      "admin": true,
+      "owner": false,
+      "isMe": true,
+      "id": "u-pat",
+      "displayName": "pat"
+    },
+    {
+      "name": "zoe",
+      "email": "zoe@example.com",
+      "active": true,
+      "initials": "XX",
+      "description": null,
+      "timezone": null,
+      "lastSeen": null,
+      "statusEmoji": null,
+      "statusLabel": null,
+      "guest": false,
+      "isAssignable": true,
+      "admin": false,
+      "owner": true,
+      "isMe": false,
+      "id": "u-zoe",
+      "displayName": "zoe"
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`User List Command - All JSON Retains Inactive 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "name": "olduser",
+      "email": "olduser@example.com",
+      "active": false,
+      "initials": "XX",
+      "description": null,
+      "timezone": null,
+      "lastSeen": null,
+      "statusEmoji": null,
+      "statusLabel": null,
+      "guest": false,
+      "isAssignable": true,
+      "admin": false,
+      "owner": false,
+      "isMe": false,
+      "id": "u-old",
+      "displayName": "olduser"
+    },
+    {
+      "name": "pat",
+      "email": "pat@example.com",
+      "active": true,
+      "initials": "XX",
+      "description": null,
+      "timezone": null,
+      "lastSeen": null,
+      "statusEmoji": null,
+      "statusLabel": null,
+      "guest": false,
+      "isAssignable": true,
+      "admin": true,
+      "owner": false,
+      "isMe": true,
+      "id": "u-pat",
+      "displayName": "pat"
+    },
+    {
+      "name": "zoe",
+      "email": "zoe@example.com",
+      "active": true,
+      "initials": "XX",
+      "description": null,
+      "timezone": null,
+      "lastSeen": null,
+      "statusEmoji": null,
+      "statusLabel": null,
+      "guest": false,
+      "isAssignable": true,
+      "admin": false,
+      "owner": true,
+      "isMe": false,
+      "id": "u-zoe",
+      "displayName": "zoe"
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`User List Command - Empty JSON 1`] = `
+stdout:
+'{
+  "nodes": [],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`User List Command - Paginates And Sorts Globally 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "name": "aaron",
+      "email": "aaron@example.com",
+      "active": true,
+      "initials": "XX",
+      "description": null,
+      "timezone": null,
+      "lastSeen": null,
+      "statusEmoji": null,
+      "statusLabel": null,
+      "guest": false,
+      "isAssignable": true,
+      "admin": false,
+      "owner": false,
+      "isMe": false,
+      "id": "u-first",
+      "displayName": "aaron"
+    },
+    {
+      "name": "mona",
+      "email": "mona@example.com",
+      "active": true,
+      "initials": "XX",
+      "description": null,
+      "timezone": null,
+      "lastSeen": null,
+      "statusEmoji": null,
+      "statusLabel": null,
+      "guest": false,
+      "isAssignable": true,
+      "admin": false,
+      "owner": false,
+      "isMe": false,
+      "id": "u-mid",
+      "displayName": "mona"
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;

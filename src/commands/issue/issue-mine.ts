@@ -1,8 +1,11 @@
 import { Command, EnumType } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { rgb24 } from "@std/fmt/colors"
-import { getOption } from "../../config.ts"
+import { resolveIssueSort } from "../../config.ts"
+import { isInsideGitRepo } from "../../utils/git.ts"
 import {
+  colorCycleShort,
+  formatCycleShort,
   getPriorityDisplay,
   getTimeAgo,
   padDisplay,
@@ -59,7 +62,7 @@ export const mineCommand = new Command()
   )
   .option(
     "--sort <sort:sort>",
-    "Sort order (can also be set via LINEAR_ISSUE_SORT)",
+    "Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)",
     {
       required: false,
     },
@@ -78,7 +81,7 @@ export const mineCommand = new Command()
   )
   .option(
     "--cycle <cycle:string>",
-    "Filter by cycle name, number, or 'active'",
+    "Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1",
   )
   .option(
     "--milestone <milestone:string>",
@@ -176,22 +179,16 @@ export const mineCommand = new Command()
           throw new ValidationError("Cannot use --all-states with --state flag")
         }
 
-        const sort = sortFlag ||
-          getOption("issue_sort") as "manual" | "priority" | undefined
-        if (!sort) {
-          throw new ValidationError(
-            "Sort must be provided via command line flag, configuration file, or LINEAR_ISSUE_SORT environment variable",
-          )
-        }
-        if (!SortType.values().includes(sort)) {
-          throw new ValidationError(
-            `Sort must be one of: ${SortType.values().join(", ")}`,
-          )
-        }
+        const sort = resolveIssueSort(sortFlag)
         const teamKey = team || getTeamKey()
         if (!teamKey) {
           throw new ValidationError(
-            "Could not determine team key from directory name or team flag",
+            "No default team configured and no team scope provided",
+            {
+              suggestion: (await isInsideGitRepo())
+                ? "Use --team <key> to specify a team, or run `linear config` to link this repository to a team."
+                : "Use --team <key> to specify a team.",
+            },
           )
         }
 
@@ -312,6 +309,15 @@ export const mineCommand = new Command()
           ),
         )
         const ESTIMATE_WIDTH = 1 // fixed width for estimate
+        const showCycleColumn = issues.some((issue) =>
+          issue.cycle != null || issue.team.cyclesEnabled
+        )
+        const cycleShorts = issues.map((issue) =>
+          formatCycleShort(issue.cycle, issue.team.activeCycle?.number)
+        )
+        const CYCLE_WIDTH = showCycleColumn
+          ? Math.max(3, ...cycleShorts.map((c) => unicodeWidth(c.text)))
+          : 0
         const STATE_WIDTH = Math.min(
           20, // maximum width for state
           Math.max(
@@ -334,12 +340,13 @@ export const mineCommand = new Command()
           identifier: string
           title: string
           labels: string
+          cycleCell: string
           state: string
           timeAgo: string
           estimate: number | null | undefined
         }
 
-        const tableData: Array<TableRow> = issues.map((issue) => {
+        const tableData: Array<TableRow> = issues.map((issue, index) => {
           let labels: string
           if (issue.labels.nodes.length === 0) {
             labels = " ".repeat(LABEL_WIDTH)
@@ -404,12 +411,19 @@ export const mineCommand = new Command()
 
           const blockedStr = isIssueBlocked(issue) ? warning("⊘") : " "
 
+          const cycleShort = cycleShorts[index]
+          const cycleCell = colorCycleShort(cycleShort) +
+            " ".repeat(
+              Math.max(0, CYCLE_WIDTH - unicodeWidth(cycleShort.text)),
+            )
+
           return {
             priorityStr,
             blockedStr,
             identifier: issue.identifier,
             title: issue.title,
             labels,
+            cycleCell,
             state: statePadded,
             timeAgo,
             estimate: issue.estimate,
@@ -418,7 +432,8 @@ export const mineCommand = new Command()
 
         const fixed = PRIORITY_WIDTH + BLOCKED_WIDTH + ID_WIDTH +
           UPDATED_WIDTH + SPACE_WIDTH +
-          LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH
+          LABEL_WIDTH + ESTIMATE_WIDTH + STATE_WIDTH + SPACE_WIDTH +
+          (showCycleColumn ? CYCLE_WIDTH + 1 : 0)
         const PADDING = 1
         const maxTitleWidth = Math.max(
           ...tableData.map((row) => unicodeWidth(row.title)),
@@ -432,6 +447,7 @@ export const mineCommand = new Command()
           padDisplay("LABELS", LABEL_WIDTH),
           padDisplay("B", BLOCKED_WIDTH),
           padDisplay("E", ESTIMATE_WIDTH),
+          ...(showCycleColumn ? [padDisplay("CYC", CYCLE_WIDTH)] : []),
           padDisplay("STATE", STATE_WIDTH),
           padDisplay(updatedHeader, UPDATED_WIDTH),
         ]
@@ -449,6 +465,7 @@ export const mineCommand = new Command()
             identifier,
             title,
             labels,
+            cycleCell,
             state,
             timeAgo,
             estimate,
@@ -458,11 +475,14 @@ export const mineCommand = new Command()
             titleWidth,
           )
 
+          const cycleSegment = showCycleColumn ? `${cycleCell} ` : ""
           const issueLine = `${padDisplay(priorityStr, PRIORITY_WIDTH)} ${
             padDisplay(identifier, ID_WIDTH)
           } ${truncTitle} ${labels} ${padDisplay(blockedStr, BLOCKED_WIDTH)} ${
             padDisplay(estimate?.toString() || "-", ESTIMATE_WIDTH)
-          } ${state} ${muted(padDisplay(timeAgo, UPDATED_WIDTH))}`
+          } ${cycleSegment}${state} ${
+            muted(padDisplay(timeAgo, UPDATED_WIDTH))
+          }`
           outputLines.push(issueLine)
         }
 

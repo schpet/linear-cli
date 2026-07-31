@@ -1,6 +1,7 @@
 import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
 import { assertEquals } from "@std/assert"
 import { getColorEnabled, setColorEnabled } from "@std/fmt/colors"
+import { fromFileUrl, join } from "@std/path"
 import { stub } from "@std/testing/mock"
 import { mineCommand } from "../../../src/commands/issue/issue-mine.ts"
 import {
@@ -74,6 +75,13 @@ Deno.test("Issue Mine Command - Filter By Label", async () => {
                     color: "#eb5757",
                   }],
                 },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
                 inverseRelations: { nodes: [] },
                 updatedAt: "2026-03-13T10:00:00.000Z",
               },
@@ -110,6 +118,370 @@ Deno.test("Issue Mine Command - Filter By Label", async () => {
     globalThis.Date = RealDate
     setColorEnabled(originalColorEnabled)
     await cleanup()
+  }
+})
+
+Deno.test("Issue Mine Command - Defaults To Priority Sort Without Flag Or Env Var", async () => {
+  const fixedNow = new Date("2026-03-30T10:00:00.000Z")
+  const RealDate = Date
+  const originalColorEnabled = getColorEnabled()
+  class MockDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      super(value == null ? fixedNow.toISOString() : value)
+    }
+
+    static override now(): number {
+      return fixedNow.getTime()
+    }
+  }
+  globalThis.Date = MockDate as DateConstructor
+  setColorEnabled(false)
+
+  // No LINEAR_ISSUE_SORT and no --sort flag: the request must still go out,
+  // sorted by priority. The mock only matches when sort is the priority
+  // payload, so a missing/incorrect default would fail to match. Note the
+  // repo's own .linear.toml also sets issue_sort = "priority", so the truly
+  // unconfigured default is covered by the subprocess test below.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssuesForState",
+      variables: {
+        sort: [
+          { workflowState: { order: "Descending" } },
+          { priority: { nulls: "last", order: "Descending" } },
+          { manual: { nulls: "last", order: "Ascending" } },
+        ],
+      },
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                id: "issue-1",
+                identifier: "ENG-101",
+                title: "Fix login bug",
+                priority: 1,
+                estimate: 3,
+                assignee: { initials: "MC" },
+                state: {
+                  id: "state-1",
+                  name: "In Progress",
+                  color: "#f2c94c",
+                  type: "started",
+                },
+                labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
+                inverseRelations: { nodes: [] },
+                updatedAt: "2026-03-13T10:00:00.000Z",
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { LINEAR_TEAM_ID: "ENG", NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await mineCommand.parse(["--team", "ENG"])
+
+    assertEquals(logs.join("\n").includes("ENG-101"), true)
+  } finally {
+    logStub.restore()
+    globalThis.Date = RealDate
+    setColorEnabled(originalColorEnabled)
+    await cleanup()
+  }
+})
+
+Deno.test("Issue Mine Command - Configured Sort Order Wins Over Default", async () => {
+  // LINEAR_ISSUE_SORT=manual with no --sort flag: the priority default must
+  // not override the configured sort. The mock only matches the manual sort
+  // payload, so if the default won the request would not match.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssuesForState",
+      variables: {
+        sort: [
+          { workflowState: { order: "Descending" } },
+          { manual: { nulls: "last", order: "Ascending" } },
+        ],
+      },
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                id: "issue-1",
+                identifier: "ENG-101",
+                title: "Fix login bug",
+                priority: 1,
+                estimate: 3,
+                assignee: { initials: "MC" },
+                state: {
+                  id: "state-1",
+                  name: "In Progress",
+                  color: "#f2c94c",
+                  type: "started",
+                },
+                labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
+                inverseRelations: { nodes: [] },
+                updatedAt: "2026-03-13T10:00:00.000Z",
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { LINEAR_TEAM_ID: "ENG", LINEAR_ISSUE_SORT: "manual", NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await mineCommand.parse(["--team", "ENG"])
+
+    assertEquals(logs.join("\n").includes("ENG-101"), true)
+  } finally {
+    logStub.restore()
+    await cleanup()
+  }
+})
+
+Deno.test("Issue Mine Command - Invalid Configured Sort Errors", async () => {
+  // An explicitly configured but invalid sort must error with guidance, not
+  // silently fall back to the priority default. No request should be sent,
+  // so the mock server has no expectations.
+  const { cleanup } = await setupMockLinearServer([], {
+    LINEAR_TEAM_ID: "ENG",
+    LINEAR_ISSUE_SORT: "banana",
+    NO_COLOR: "true",
+  })
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number): never => {
+    throw new Error("EXIT")
+  })
+
+  try {
+    await mineCommand.parse(["--team", "ENG"])
+  } catch {
+    // expected: handleError calls the stubbed Deno.exit
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+    await cleanup()
+  }
+
+  const output = errorLogs.join("\n")
+  assertEquals(output.includes('Invalid issue sort: "banana"'), true)
+  assertEquals(output.includes("manual, priority"), true)
+})
+
+Deno.test("Issue Mine Command - Defaults To Priority Sort When Nothing Is Configured", async () => {
+  // The true out-of-the-box case: run the CLI from a temp cwd with a clean
+  // HOME and env, so no config file or env var supplies issue_sort. Versions
+  // that required sort configuration exit with "Sort must be provided" here.
+  const { server, cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssuesForState",
+      variables: {
+        sort: [
+          { workflowState: { order: "Descending" } },
+          { priority: { nulls: "last", order: "Descending" } },
+          { manual: { nulls: "last", order: "Ascending" } },
+        ],
+      },
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                id: "issue-1",
+                identifier: "ENG-101",
+                title: "Fix login bug",
+                priority: 1,
+                estimate: 3,
+                assignee: { initials: "MC" },
+                state: {
+                  id: "state-1",
+                  name: "In Progress",
+                  color: "#f2c94c",
+                  type: "started",
+                },
+                labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
+                inverseRelations: { nodes: [] },
+                updatedAt: "2026-03-13T10:00:00.000Z",
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ])
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const mainPath = fromFileUrl(
+      new URL("../../../src/main.ts", import.meta.url),
+    )
+    const denoJsonPath = fromFileUrl(
+      new URL("../../../deno.json", import.meta.url),
+    )
+    const homeDir = Deno.env.get("HOME")
+    const denoDir = Deno.env.get("DENO_DIR") ??
+      (homeDir == null ? undefined : join(homeDir, ".cache", "deno"))
+    const command = new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        "--allow-all",
+        "--quiet",
+        `--config=${denoJsonPath}`,
+        mainPath,
+        "issue",
+        "mine",
+        "--team",
+        "ENG",
+      ],
+      cwd: tempDir,
+      clearEnv: true,
+      env: {
+        PATH: Deno.env.get("PATH") ?? "",
+        HOME: tempDir,
+        XDG_CONFIG_HOME: join(tempDir, ".config"),
+        ...(denoDir == null ? {} : { DENO_DIR: denoDir }),
+        LINEAR_GRAPHQL_ENDPOINT: server.getEndpoint(),
+        LINEAR_API_KEY: "Bearer test-token",
+        NO_COLOR: "true",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    })
+
+    const { code, stdout, stderr } = await command.output()
+    const output = new TextDecoder().decode(stdout)
+    const errorOutput = new TextDecoder().decode(stderr)
+
+    assertEquals(code, 0, `expected success, stderr: ${errorOutput}`)
+    assertEquals(output.includes("ENG-101"), true)
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+    await cleanup()
+  }
+})
+
+// Runs `issue mine` as a subprocess from a temp cwd with a clean env, so no
+// config file or env var supplies a team. Returns the exit code and stderr.
+// The no-team error is untestable in-process from the repo root because the
+// repo's own .linear.toml sets team_id.
+async function runMineWithoutTeam(
+  tempDir: string,
+): Promise<{ code: number; errorOutput: string }> {
+  const mainPath = fromFileUrl(
+    new URL("../../../src/main.ts", import.meta.url),
+  )
+  const denoJsonPath = fromFileUrl(
+    new URL("../../../deno.json", import.meta.url),
+  )
+  const homeDir = Deno.env.get("HOME")
+  const denoDir = Deno.env.get("DENO_DIR") ??
+    (homeDir == null ? undefined : join(homeDir, ".cache", "deno"))
+  const command = new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-all",
+      "--quiet",
+      `--config=${denoJsonPath}`,
+      mainPath,
+      "issue",
+      "mine",
+    ],
+    cwd: tempDir,
+    clearEnv: true,
+    env: {
+      PATH: Deno.env.get("PATH") ?? "",
+      HOME: tempDir,
+      XDG_CONFIG_HOME: join(tempDir, ".config"),
+      ...(denoDir == null ? {} : { DENO_DIR: denoDir }),
+      ...(Deno.build.os === "windows"
+        ? { SystemRoot: Deno.env.get("SystemRoot") ?? "" }
+        : {}),
+      LINEAR_API_KEY: "Bearer test-token",
+      NO_COLOR: "true",
+    },
+    stdout: "piped",
+    stderr: "piped",
+  })
+
+  const { code, stderr } = await command.output()
+  return { code, errorOutput: new TextDecoder().decode(stderr) }
+}
+
+Deno.test("Issue Mine Command - No Team Error Outside A Repo", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    const { code, errorOutput } = await runMineWithoutTeam(tempDir)
+
+    assertEquals(code, 1, `stderr: ${errorOutput}`)
+    assertEquals(
+      errorOutput.trim(),
+      "✗ Failed to list issues: No default team configured and no team scope provided\n" +
+        "  Use --team <key> to specify a team.",
+    )
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
+  }
+})
+
+Deno.test("Issue Mine Command - No Team Error Inside A Repo Suggests linear config", async () => {
+  const tempDir = await Deno.makeTempDir()
+
+  try {
+    await new Deno.Command("git", { args: ["init"], cwd: tempDir }).output()
+
+    const { code, errorOutput } = await runMineWithoutTeam(tempDir)
+
+    assertEquals(code, 1, `stderr: ${errorOutput}`)
+    assertEquals(
+      errorOutput.trim(),
+      "✗ Failed to list issues: No default team configured and no team scope provided\n" +
+        "  Use --team <key> to specify a team, or run `linear config` to link this repository to a team.",
+    )
+  } finally {
+    await Deno.remove(tempDir, { recursive: true })
   }
 })
 
@@ -157,6 +529,13 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
                 assignee: { initials: "MC" },
                 state: baseState,
                 labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
                 inverseRelations: {
                   nodes: [
                     {
@@ -181,6 +560,13 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
                 assignee: { initials: "MC" },
                 state: baseState,
                 labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
                 inverseRelations: {
                   nodes: [
                     {
@@ -205,6 +591,13 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
                 assignee: { initials: "MC" },
                 state: baseState,
                 labels: { nodes: [] },
+                cycle: null,
+                team: {
+                  id: "team-eng-id",
+                  key: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
                 inverseRelations: {
                   nodes: [
                     {
@@ -247,6 +640,146 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
     assertEquals(eng200.includes("⊘"), true)
     assertEquals(eng201.includes("⊘"), false)
     assertEquals(eng202.includes("⊘"), false)
+  } finally {
+    logStub.restore()
+    globalThis.Date = RealDate
+    setColorEnabled(originalColorEnabled)
+    await cleanup()
+  }
+})
+
+// Cycle column appears (between E and STATE) when the team has cycles
+// enabled, using compact relative tokens.
+Deno.test("Issue Mine Command - Shows Cycle Column", async () => {
+  const fixedNow = new Date("2026-03-30T10:00:00.000Z")
+  const RealDate = Date
+  const originalColorEnabled = getColorEnabled()
+  class MockDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      super(value == null ? fixedNow.toISOString() : value)
+    }
+
+    static override now(): number {
+      return fixedNow.getTime()
+    }
+  }
+  globalThis.Date = MockDate as DateConstructor
+  setColorEnabled(false)
+
+  const cyclingTeam = {
+    id: "team-eng-id",
+    key: "ENG",
+    cyclesEnabled: true,
+    activeCycle: { number: 4 },
+  }
+
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetTeamIdByKey",
+      variables: { team: "ENG" },
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-id" }],
+          },
+        },
+      },
+    },
+    {
+      queryName: "GetIssuesForState",
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                id: "issue-1",
+                identifier: "ENG-101",
+                title: "Fix login bug",
+                priority: 1,
+                estimate: 3,
+                assignee: { initials: "MC" },
+                state: {
+                  id: "state-1",
+                  name: "In Progress",
+                  color: "#f2c94c",
+                  type: "started",
+                },
+                labels: {
+                  nodes: [{
+                    id: "label-1",
+                    name: "Bug",
+                    color: "#eb5757",
+                  }],
+                },
+                cycle: {
+                  id: "cycle-4",
+                  number: 4,
+                  name: null,
+                  isActive: true,
+                  isNext: false,
+                  isPrevious: false,
+                  isFuture: false,
+                  isPast: false,
+                },
+                team: cyclingTeam,
+                inverseRelations: { nodes: [] },
+                updatedAt: "2026-03-13T10:00:00.000Z",
+              },
+              {
+                id: "issue-2",
+                identifier: "ENG-102",
+                title: "Plan ahead",
+                priority: 0,
+                estimate: null,
+                assignee: { initials: "MC" },
+                state: {
+                  id: "state-1",
+                  name: "In Progress",
+                  color: "#f2c94c",
+                  type: "started",
+                },
+                labels: { nodes: [] },
+                cycle: {
+                  id: "cycle-5",
+                  number: 5,
+                  name: null,
+                  isActive: false,
+                  isNext: true,
+                  isPrevious: false,
+                  isFuture: true,
+                  isPast: false,
+                },
+                team: cyclingTeam,
+                inverseRelations: { nodes: [] },
+                updatedAt: "2026-03-13T10:00:00.000Z",
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { LINEAR_TEAM_ID: "ENG", LINEAR_ISSUE_SORT: "priority", NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await mineCommand.parse([
+      "--team",
+      "ENG",
+      "--sort",
+      "priority",
+    ])
+
+    assertEquals(
+      logs.join("\n") + "\n",
+      "◌   ID      TITLE         LABELS B E CYC STATE       UPDATED    \n" +
+        "⚠⚠⚠ ENG-101 Fix login bug Bug      3 now In Progress 17 days ago\n" +
+        "--- ENG-102 Plan ahead             - +1  In Progress 17 days ago\n",
+    )
   } finally {
     logStub.restore()
     globalThis.Date = RealDate

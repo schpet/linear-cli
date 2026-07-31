@@ -15,14 +15,22 @@ import {
   ValidationError,
 } from "../../utils/errors.ts"
 
+/** Quote a value for safe copy-paste into a shell command. */
+function quoteForShell(value: string): string {
+  if (/^[A-Za-z0-9_./:@%+=-]+$/.test(value)) return value
+  return `'${value.replaceAll("'", "'\\''")}'`
+}
+
 export const attachCommand = new Command()
   .name("attach")
-  .description("Attach a file to an issue")
+  .description(
+    "Create a sidebar link attachment on an issue (images do not render inline)",
+  )
   .arguments("<issueId:string> <filepath:string>")
   .option("-t, --title <title:string>", "Custom title for the attachment")
   .option(
     "-c, --comment <body:string>",
-    "Add a comment body linked to the attachment",
+    "Create a linked comment with this body; the file remains a sidebar attachment",
   )
   .option(
     "--public",
@@ -100,8 +108,20 @@ export const attachCommand = new Command()
       }
 
       const attachment = data.attachmentCreate.attachment
-      console.log(`✓ Attachment created: ${attachment.title}`)
+      console.log(`✓ Sidebar link attachment created: ${attachment.title}`)
       console.log(attachment.url)
+      if (uploadResult.contentType.startsWith("image/")) {
+        const suggested = [
+          "linear issue comment add",
+          resolvedIdentifier,
+          "--attach",
+          quoteForShell(filepath),
+          ...(makePublic ? ["--public"] : []),
+        ].join(" ")
+        console.log(
+          `Hint: Sidebar link attachments do not render images inline. For inline display, run: ${suggested}`,
+        )
+      }
     } catch (error) {
       handleError(error, "Failed to attach file")
     }
