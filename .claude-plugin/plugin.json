@@ -1,7 +1,7 @@
 {
   "name": "linear-cli",
   "description": "Manage Linear issues from the command line",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "author": {
     "name": "schpet"
   },

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-08-04
+
+### Fixed
+
+- `document list --issue` now returns documents instead of failing; it filtered on a nonexistent `IssueFilter.identifier` field, so the flag was rejected by the API on every invocation
+
 ## [2.3.0] - 2026-07-23
 
 ### Added
@@ -501,7 +507,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.3.1...HEAD
+[2.3.1]: https://github.com/schpet/linear-cli/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/schpet/linear-cli/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/schpet/linear-cli/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/schpet/linear-cli/compare/v2.1.0...v2.1.1
