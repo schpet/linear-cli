@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
+import type { DocumentFilter } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
@@ -49,23 +50,14 @@ export const listCommand = new Command()
     spinner?.start()
 
     try {
-      // Build filter based on options
-      // deno-lint-ignore no-explicit-any
-      let filter: any = undefined
-
-      if (project) {
-        filter = {
-          ...filter,
-          project: { slugId: { eq: project } },
+      // Build filter based on options. Stays undefined when neither flag is
+      // passed so the query sends no filter at all.
+      const filter: DocumentFilter | undefined = project || issue
+        ? {
+          project: project ? { slugId: { eq: project } } : undefined,
+          issue: issue ? { id: { eq: issue.toUpperCase() } } : undefined,
         }
-      }
-
-      if (issue) {
-        filter = {
-          ...filter,
-          issue: { identifier: { eq: issue.toUpperCase() } },
-        }
-      }
+        : undefined
 
       const client = getGraphQLClient()
       const result = await client.request(ListDocuments, {
