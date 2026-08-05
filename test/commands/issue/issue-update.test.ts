@@ -1268,3 +1268,493 @@ Deno.test("Issue Update Command - --cycle now errors helpfully when no cycle is 
     true,
   )
 })
+
+// --add-label must send `addedLabelIds` and must NOT send `labelIds` — the
+// exact-variables mock proves the incremental field is used and the replace
+// field is absent (a wrong payload falls through to "no mock configured").
+await snapshotTest({
+  name: "Issue Update Command - Add Label Sends addedLabelIds",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--add-label", "frontend"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "frontend", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-frontend-456", name: "frontend" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: {
+            addedLabelIds: ["label-frontend-456"],
+            teamId: "team-eng-id",
+          },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Case variants resolving to the same label collapse to a single ID.
+await snapshotTest({
+  name: "Issue Update Command - Add Label Dedupes Case Variants",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--add-label", "Bug", "--add-label", "BUG"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "Bug", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: { nodes: [{ id: "label-bug-123", name: "bug" }] },
+          },
+        },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "BUG", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: { nodes: [{ id: "label-bug-123", name: "bug" }] },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: { addedLabelIds: ["label-bug-123"], teamId: "team-eng-id" },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// The issue #258 workflow: detach a stale sprint label from one issue without
+// deleting it team-wide. No issue-read mock exists, so an accidental pre-read
+// of the issue's current labels would fail this test.
+await snapshotTest({
+  name: "Issue Update Command - Remove Label Sends removedLabelIds",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--remove-label", "sprint-42"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "sprint-42", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-sprint-42", name: "sprint-42" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: {
+            removedLabelIds: ["label-sprint-42"],
+            teamId: "team-eng-id",
+          },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Add and remove compose into ONE atomic mutation carrying both arrays.
+await snapshotTest({
+  name: "Issue Update Command - Add And Remove Label In One Update",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "ENG-123",
+    "--add-label",
+    "sprint-43",
+    "--remove-label",
+    "sprint-42",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "sprint-43", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-sprint-43", name: "sprint-43" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "sprint-42", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-sprint-42", name: "sprint-42" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: {
+            addedLabelIds: ["label-sprint-43"],
+            removedLabelIds: ["label-sprint-42"],
+            teamId: "team-eng-id",
+          },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// The legacy replace path: --label must still send labelIds (deduped) and no
+// incremental fields. The older --label tests don't pin UpdateIssue variables,
+// so this is the test that actually proves replace semantics on the wire.
+await snapshotTest({
+  name: "Issue Update Command - Label Replace Sends Exact labelIds",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--label", "Frontend", "--label", "FRONTEND"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "Frontend", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-frontend-456", name: "frontend" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "FRONTEND", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-frontend-456", name: "frontend" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: { labelIds: ["label-frontend-456"], teamId: "team-eng-id" },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Conflict matrix: every invalid label-flag combination errors before any
+// network call (dead endpoint, like the --assignee/--unassign conflict test).
+await snapshotTest({
+  name: "Issue Update Command - Label And Add Label Conflict",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--label", "bug", "--add-label", "infra"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1")
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await updateCommand.parse()
+  },
+})
+
+await snapshotTest({
+  name: "Issue Update Command - Label And Remove Label Conflict",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--label", "bug", "--remove-label", "infra"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1")
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await updateCommand.parse()
+  },
+})
+
+// Label names resolve against the destination team, so a team move plus
+// incremental label changes is ambiguous — rejected until designed.
+await snapshotTest({
+  name: "Issue Update Command - Team Move And Add Label Conflict",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--team", "OPS", "--add-label", "bug"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1")
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await updateCommand.parse()
+  },
+})
+
+await snapshotTest({
+  name: "Issue Update Command - Team Move And Remove Label Conflict",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--team", "OPS", "--remove-label", "bug"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1")
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await updateCommand.parse()
+  },
+})
+
+// Same label (via case variants resolving to one ID) in both --add-label and
+// --remove-label is ambiguous. No UpdateIssue mock: the error must fire
+// before the mutation.
+await snapshotTest({
+  name: "Issue Update Command - Add And Remove Same Label Conflict",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--add-label", "Bug", "--remove-label", "BUG"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "Bug", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: { nodes: [{ id: "label-bug-123", name: "bug" }] },
+          },
+        },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "BUG", teamKey: "ENG" },
+        response: {
+          data: {
+            issueLabels: { nodes: [{ id: "label-bug-123", name: "bug" }] },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Unknown label names error with a lookup hint, in both directions.
+await snapshotTest({
+  name: "Issue Update Command - Unknown Add Label",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--add-label", "nosuch"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "nosuch", teamKey: "ENG" },
+        response: { data: { issueLabels: { nodes: [] } } },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Update Command - Unknown Remove Label",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--remove-label", "nosuch"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetIssueLabelIdByNameForTeam",
+        variables: { name: "nosuch", teamKey: "ENG" },
+        response: { data: { issueLabels: { nodes: [] } } },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})

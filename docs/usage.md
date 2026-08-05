@@ -159,6 +159,22 @@ update a specific issue:
 linear issue update TEAM-123
 ```
 
+change labels:
+
+```bash
+# Add a label, keeping existing labels
+linear issue update TEAM-123 --add-label bug
+
+# Remove a label from this issue (does not delete it from the team)
+linear issue update TEAM-123 --remove-label sprint-42
+
+# Swap labels atomically in one update
+linear issue update TEAM-123 --remove-label sprint-42 --add-label sprint-43
+
+# Replace the entire label set
+linear issue update TEAM-123 --label bug --label frontend
+```
+
 #### other issue commands
 
 get issue id from current git branch:
