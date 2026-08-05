@@ -61,7 +61,10 @@ Write multi-line markdown to a file and pass `--description-file` (see the markd
 ```bash
 linear issue update ENG-123 --state "In Review" --assignee sam
 linear issue update ENG-123 --unassign
-linear issue update ENG-123 --label infra --label security  # replaces the label set
+linear issue update ENG-123 --add-label security             # add, keep existing labels
+linear issue update ENG-123 --remove-label sprint-42         # detach; does not delete the label
+linear issue update ENG-123 --remove-label sprint-42 --add-label sprint-43  # atomic swap
+linear issue update ENG-123 --label infra --label security   # replaces the label set
 ```
 
 ### Add a comment

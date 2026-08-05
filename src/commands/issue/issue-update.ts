@@ -63,7 +63,17 @@ export const updateCommand = new Command()
   )
   .option(
     "-l, --label <label:string>",
-    "Issue label associated with the issue. May be repeated.",
+    "Issue label associated with the issue; replaces the issue's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.",
+    { collect: true },
+  )
+  .option(
+    "--add-label <label:string>",
+    "Add a label to the issue, keeping its existing labels. May be repeated.",
+    { collect: true },
+  )
+  .option(
+    "--remove-label <label:string>",
+    "Remove a label from the issue, keeping its other labels (does not delete the label from the team). May be repeated.",
     { collect: true },
   )
   .option(
@@ -104,6 +114,8 @@ export const updateCommand = new Command()
         description,
         descriptionFile,
         label: labels,
+        addLabel,
+        removeLabel,
         team,
         project,
         state,
@@ -130,6 +142,29 @@ export const updateCommand = new Command()
             {
               suggestion:
                 "Use --cycle <cycle> to set a cycle, or --clear-cycle on its own to remove it.",
+            },
+          )
+        }
+
+        if (labels != null && (addLabel != null || removeLabel != null)) {
+          throw new ValidationError(
+            "Cannot combine --label with --add-label or --remove-label",
+            {
+              suggestion:
+                "--label replaces the issue's entire label set. Use it alone to set the exact set, or use --add-label/--remove-label alone to change it incrementally.",
+            },
+          )
+        }
+
+        // Label names resolve against the issue's (destination) team, so a
+        // team move combined with incremental label changes would silently
+        // make source-team labels unresolvable.
+        if (team != null && (addLabel != null || removeLabel != null)) {
+          throw new ValidationError(
+            "Cannot combine --team with --add-label or --remove-label",
+            {
+              suggestion:
+                "Move the issue with --team first, then change labels in a second update.",
             },
           )
         }
@@ -211,15 +246,41 @@ export const updateCommand = new Command()
           }
         }
 
-        const labelIds: string[] = []
-        if (labels != null && labels.length > 0) {
-          for (const label of labels) {
-            const labelId = await getIssueLabelIdByNameForTeam(label, teamKey)
+        // Resolves label names to IDs, deduped by resolved ID so case
+        // variants of the same label collapse to one entry.
+        const resolveLabelIds = async (names: string[]): Promise<string[]> => {
+          const ids: string[] = []
+          for (const name of names) {
+            const labelId = await getIssueLabelIdByNameForTeam(name, teamKey)
             if (!labelId) {
-              throw new NotFoundError("Issue label", label)
+              throw new NotFoundError("Issue label", name, {
+                suggestion:
+                  `Run \`linear label list --team ${teamKey}\` to see available labels.`,
+              })
             }
-            labelIds.push(labelId)
+            if (!ids.includes(labelId)) {
+              ids.push(labelId)
+            }
           }
+          return ids
+        }
+
+        const labelIds = labels != null ? await resolveLabelIds(labels) : []
+        const addedLabelIds = addLabel != null
+          ? await resolveLabelIds(addLabel)
+          : []
+        const removedLabelIds = removeLabel != null
+          ? await resolveLabelIds(removeLabel)
+          : []
+
+        if (addedLabelIds.some((id) => removedLabelIds.includes(id))) {
+          throw new ValidationError(
+            "Cannot add and remove the same label in one update",
+            {
+              suggestion:
+                "Remove the duplicate label from either --add-label or --remove-label.",
+            },
+          )
         }
 
         let projectId: string | undefined = undefined
@@ -289,7 +350,12 @@ export const updateCommand = new Command()
         if (priority !== undefined) input.priority = priority
         if (estimate !== undefined) input.estimate = estimate
         if (finalDescription !== undefined) input.description = finalDescription
-        if (labelIds.length > 0) input.labelIds = labelIds
+        if (labels != null) {
+          input.labelIds = labelIds
+        } else {
+          if (addLabel != null) input.addedLabelIds = addedLabelIds
+          if (removeLabel != null) input.removedLabelIds = removedLabelIds
+        }
         if (teamId !== undefined) input.teamId = teamId
         if (projectId !== undefined) input.projectId = projectId
         if (projectMilestoneId !== undefined) {
