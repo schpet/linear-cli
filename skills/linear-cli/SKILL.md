@@ -192,6 +192,7 @@ linear issue relation add
 linear issue relation delete
 linear issue relation list
 linear issue start
+linear issue state
 linear issue title
 linear issue update
 linear issue url

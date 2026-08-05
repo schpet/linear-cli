@@ -13,6 +13,7 @@ import { queryCommand } from "./issue-query.ts"
 import { relationCommand } from "./issue-relation.ts"
 import { agentSessionCommand } from "./issue-agent-session.ts"
 import { startCommand } from "./issue-start.ts"
+import { stateCommand } from "./issue-state.ts"
 import { titleCommand } from "./issue-title.ts"
 import { updateCommand } from "./issue-update.ts"
 import { urlCommand } from "./issue-url.ts"
@@ -30,6 +31,7 @@ export const issueCommand = new Command()
   .command("query", queryCommand)
   .alias("q")
   .command("title", titleCommand)
+  .command("state", stateCommand)
   .command("start", startCommand)
   .command("view", viewCommand)
   .command("url", urlCommand)

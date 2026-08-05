@@ -1,0 +1,39 @@
+export const snapshot = {};
+
+snapshot[`Issue State Command - Help Text 1`] = `
+stdout:
+"
+Usage: state [issueId]
+
+Description:
+
+  Print the issue's current state
+
+Options:
+
+  -h, --help  - Show this help.  
+  -j, --json  - Output as JSON   
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue State Command - Prints Bare State Name 1`] = `
+stdout:
+"In Progress
+"
+stderr:
+""
+`;
+
+snapshot[`Issue State Command - Prints JSON 1`] = `
+stdout:
+'{
+  "name": "In Progress",
+  "color": "#f87462"
+}
+'
+stderr:
+""
+`;
