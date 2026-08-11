@@ -39,6 +39,25 @@ const GetDocument = gql(`
         identifier
         title
       }
+      initiative {
+        name
+        slugId
+      }
+      team {
+        name
+        key
+      }
+      cycle {
+        name
+        number
+        team {
+          key
+        }
+      }
+      release {
+        name
+        version
+      }
     }
   }
 `)
@@ -64,6 +83,25 @@ const GetDocumentWithComments = gql(`
       issue {
         identifier
         title
+      }
+      initiative {
+        name
+        slugId
+      }
+      team {
+        name
+        key
+      }
+      cycle {
+        name
+        number
+        team {
+          key
+        }
+      }
+      release {
+        name
+        version
       }
       comments(first: 50, after: $commentsAfter, orderBy: createdAt) {
         nodes {
@@ -207,6 +245,34 @@ export const viewCommand = new Command()
         lines.push(
           `**Issue:** ${document.issue.identifier} - ${document.issue.title}`,
         )
+      }
+
+      if (document.initiative) {
+        lines.push(`**Initiative:** ${document.initiative.name}`)
+      }
+
+      if (document.team) {
+        lines.push(
+          `**Team:** ${document.team.name} (${document.team.key})`,
+        )
+      }
+
+      if (document.cycle) {
+        const cycleName = document.cycle.name != null &&
+            document.cycle.name !== ""
+          ? ` - ${document.cycle.name}`
+          : ""
+        lines.push(
+          `**Cycle:** ${document.cycle.team.key} #${document.cycle.number}${cycleName}`,
+        )
+      }
+
+      if (document.release) {
+        const version = document.release.version != null &&
+            document.release.version !== ""
+          ? ` (${document.release.version})`
+          : ""
+        lines.push(`**Release:** ${document.release.name}${version}`)
       }
 
       lines.push(`**Created:** ${formatRelativeTime(document.createdAt)}`)

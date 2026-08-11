@@ -71,6 +71,10 @@ stdout:
     "slugId": "tinycloud-sdk"
   },
   "issue": null,
+  "initiative": null,
+  "team": null,
+  "cycle": null,
+  "release": null,
   "comments": {
     "nodes": [
       {
