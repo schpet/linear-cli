@@ -11,11 +11,16 @@ Description:
 
 Options:
 
-  -h, --help             - Show this help.                                        
-  --project   <project>  - Filter by project (slug or name)                       
-  --issue     <issue>    - Filter by issue (identifier like TC-123)               
-  --json                 - Output as JSON                                         
-  --limit     <limit>    - Limit results                             (Default: \\x1b[33m50\\x1b[39m)
+  -h, --help                  - Show this help.                                                                                
+  --project     <project>     - Filter by project (UUID, slug ID, or name)                                                     
+  --issue       <issue>       - Filter by issue (identifier like TC-123)                                                       
+  --initiative  <initiative>  - Filter by initiative (UUID, slug ID, or name)                                                  
+  --team        <team>        - Filter by team (key); with --cycle, scopes the cycle lookup instead                            
+  --cycle       <cycle>       - Filter by cycle: name, number, 'active'/'now', 'next', 'previous', or a relative               
+                                offset like +1 (team from --team or config)                                                    
+  --release     <release>     - Filter by release (UUID, name, or version)                                                     
+  --json                      - Output as JSON                                                                                 
+  --limit       <limit>       - Limit results                                                                     (Default: \\x1b[33m50\\x1b[39m)
 
 "
 stderr:
@@ -37,8 +42,31 @@ stdout:
         "slugId": "tinycloud-sdk"
       },
       "issue": null,
+      "initiative": null,
+      "team": null,
+      "cycle": null,
+      "release": null,
       "creator": {
         "name": "John Doe"
+      }
+    },
+    {
+      "id": "doc-2",
+      "title": "Team Handbook",
+      "slugId": "b7e81a4c9f12",
+      "url": "https://linear.app/test/document/team-handbook-b7e81a4c9f12",
+      "updatedAt": "2026-01-19T09:00:00Z",
+      "project": null,
+      "issue": null,
+      "initiative": null,
+      "team": {
+        "name": "Engineering",
+        "key": "ENG"
+      },
+      "cycle": null,
+      "release": null,
+      "creator": {
+        "name": "Jane Smith"
       }
     }
   ],
@@ -67,6 +95,10 @@ stdout:
         "identifier": "TC-123",
         "title": "Plan the migration"
       },
+      "initiative": null,
+      "team": null,
+      "cycle": null,
+      "release": null,
       "creator": {
         "name": "Jane Smith"
       }
@@ -80,6 +112,117 @@ stdout:
 '
 stderr:
 ""
+`;
+
+snapshot[`Document List Command - Filter By Project Name JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "doc-1",
+      "title": "Delegation System Spec",
+      "slugId": "d4b93e3b2695",
+      "url": "https://linear.app/test/document/delegation-system-spec-d4b93e3b2695",
+      "updatedAt": "2026-01-18T10:30:00Z",
+      "project": {
+        "name": "TinyCloud SDK",
+        "slugId": "tinycloud-sdk"
+      },
+      "issue": null,
+      "initiative": null,
+      "team": null,
+      "cycle": null,
+      "release": null,
+      "creator": {
+        "name": "John Doe"
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Document List Command - Filter By Team JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "doc-3",
+      "title": "Team Handbook",
+      "slugId": "b7e81a4c9f12",
+      "url": "https://linear.app/test/document/team-handbook-b7e81a4c9f12",
+      "updatedAt": "2026-01-19T09:00:00Z",
+      "project": null,
+      "issue": null,
+      "initiative": null,
+      "team": {
+        "name": "Engineering",
+        "key": "ENG"
+      },
+      "cycle": null,
+      "release": null,
+      "creator": {
+        "name": "Jane Smith"
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Document List Command - Filter By Release JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "doc-4",
+      "title": "Release Notes",
+      "slugId": "c9f04b7e2a31",
+      "url": "https://linear.app/test/document/release-notes-c9f04b7e2a31",
+      "updatedAt": "2026-01-21T16:45:00Z",
+      "project": null,
+      "issue": null,
+      "initiative": null,
+      "team": null,
+      "cycle": null,
+      "release": {
+        "name": "Summer Launch",
+        "version": "2026.8"
+      },
+      "creator": {
+        "name": "John Doe"
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Document List Command - Multiple Targets Error 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to list documents: Only one attachment target may be set (got --project, --issue)
+  Pass exactly one of --project, --issue, --initiative, --team, --cycle, or --release. (--team combined with --cycle scopes the cycle lookup and does not count as a second target.)
+"
 `;
 
 snapshot[`Document List Command - Empty Results 1`] = `

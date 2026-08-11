@@ -216,14 +216,18 @@ linear m delete <milestoneId> --force           # delete without confirmation
 
 ### document commands
 
-manage Linear documents from the command line. documents can be attached to projects or issues, or exist at the workspace level.
+manage Linear documents from the command line. every document is attached to exactly one target: a project, issue, initiative, team, cycle, or release (Linear's API requires one).
 
 ```bash
 # list documents
 linear document list                            # list all accessible documents
 linear docs list                                # alias for document
-linear document list --project <projectId>      # filter by project
+linear document list --project <project>        # filter by project (UUID, slug ID, or name)
 linear document list --issue TC-123             # filter by issue
+linear document list --team ENG                 # filter by team
+linear document list --initiative <initiative>  # filter by initiative
+linear document list --team ENG --cycle active  # filter by cycle (team scopes the lookup)
+linear document list --release <release>        # filter by release (UUID, name, or version)
 linear document list --json                     # output as JSON
 
 # view a document
@@ -232,17 +236,21 @@ linear document view <slug> --raw               # output raw markdown (for pipin
 linear document view <slug> --web               # open in browser
 linear document view <slug> --json              # output as JSON, including document comments
 
-# create a document
-linear document create --title "My Doc" --content "# Hello"           # inline content
-linear document create --title "Spec" --content-file ./spec.md        # from file
-linear document create --title "Doc" --project <projectId>            # attach to project
+# create a document (exactly one attachment target is required)
+linear document create --title "Doc" --project <project>              # attach to project
 linear document create --title "Notes" --issue TC-123                 # attach to issue
-cat spec.md | linear document create --title "Spec"                   # from stdin
+linear document create --title "Handbook" --team ENG                  # attach to team
+linear document create --title "Brief" --initiative <initiative>      # attach to initiative
+linear document create --title "Sprint" --team ENG --cycle next       # attach to cycle
+linear document create --title "Notes" --release 2026.8               # attach to release
+linear document create --title "Spec" --content-file ./spec.md --project <project>  # content from file
+cat spec.md | linear document create --title "Spec" --project <project>             # content from stdin
 
 # update a document
 linear document update <slug> --title "New Title"                     # update title
 linear document update <slug> --content-file ./updated.md             # update content
 linear document update <slug> --edit                                  # open in $EDITOR
+linear document update <slug> --team ENG                              # re-point attachment (replaces current)
 linear document update <slug> --content-file ./updated.md --force     # bypass comment-anchor guard
 
 # delete a document

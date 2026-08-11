@@ -1,16 +1,24 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
-import type { DocumentInlineCommentGuardQuery } from "../../__codegen__/graphql.ts"
+import type {
+  DocumentInlineCommentGuardQuery,
+  DocumentUpdateInput,
+} from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
-import { resolveProjectId } from "../../utils/linear.ts"
 import {
   CliError,
   handleError,
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import {
+  type DocumentTargetOptions,
+  parseDocumentTargetOptions,
+  resolveDocumentTarget,
+  toDocumentTargetInput,
+} from "./attachment-target.ts"
 
 const GetDocumentForEdit = gql(`
   query GetDocumentForEdit($id: String!) {
@@ -181,7 +189,27 @@ export const updateCommand = new Command()
   .option("--icon <icon:string>", "New icon (emoji)")
   .option(
     "--project <project:string>",
-    "Attach to project (UUID, slug ID, or name)",
+    "Re-point to project (UUID, slug ID, or name); replaces the current attachment",
+  )
+  .option(
+    "--issue <issue:string>",
+    "Re-point to issue (identifier like TC-123); replaces the current attachment",
+  )
+  .option(
+    "--initiative <initiative:string>",
+    "Re-point to initiative (UUID, slug ID, or name); replaces the current attachment",
+  )
+  .option(
+    "--team <team:string>",
+    "Re-point to team (key); with --cycle, scopes the cycle lookup instead",
+  )
+  .option(
+    "--cycle <cycle:string>",
+    "Re-point to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)",
+  )
+  .option(
+    "--release <release:string>",
+    "Re-point to release (UUID, name, or version); replaces the current attachment",
   )
   .option("-e, --edit", "Open current content in $EDITOR for editing")
   .option(
@@ -190,14 +218,42 @@ export const updateCommand = new Command()
   )
   .action(
     async (
-      { title, content, contentFile, icon, project, edit, force },
+      {
+        title,
+        content,
+        contentFile,
+        icon,
+        project,
+        issue,
+        initiative,
+        team,
+        cycle,
+        release,
+        edit,
+        force,
+      },
       documentId,
     ) => {
       try {
+        const targetOptions: DocumentTargetOptions = {
+          project,
+          issue,
+          initiative,
+          team,
+          cycle,
+          release,
+        }
+        // Validate target cardinality before any lookup, editor, or stdin
+        // work. Zero targets is fine — metadata/content-only updates.
+        const selector = parseDocumentTargetOptions(
+          targetOptions,
+          "at-most-one",
+        )
+
         const client = getGraphQLClient()
 
         // Build the update input
-        const input: Record<string, string> = {}
+        const input: DocumentUpdateInput = {}
 
         // Add title if provided
         if (title) {
@@ -209,15 +265,16 @@ export const updateCommand = new Command()
           input.icon = icon
         }
 
-        // Set the document's project. A document has a single related project
-        // (DocumentUpdateInput.projectId), so this replaces any existing one.
-        // (The API silently ignores projectId: null, so detaching a document
-        // from its only anchor isn't supported — only re-pointing it.) Resolved
+        // Re-point the document's attachment. A document has exactly one
+        // target; setting a new one makes the server clear the old one. (The
+        // API silently ignores null target ids, so detaching a document from
+        // its only anchor isn't supported — only re-pointing it.) Resolved
         // here alongside the other metadata flags so it participates in the
-        // stdin auto-read guard below (a project-only update shouldn't slurp
+        // stdin auto-read guard below (a target-only update shouldn't slurp
         // stdin as content).
-        if (project != null) {
-          input.projectId = await resolveProjectId(project)
+        if (selector != null) {
+          const target = await resolveDocumentTarget(selector)
+          Object.assign(input, toDocumentTargetInput(target))
         }
 
         // Resolve content from various sources
@@ -286,7 +343,7 @@ export const updateCommand = new Command()
         if (Object.keys(input).length === 0) {
           throw new ValidationError("No update fields provided", {
             suggestion:
-              "Use --title, --content, --content-file, --icon, --project, or --edit.",
+              "Use --title, --content, --content-file, --icon, --edit, or re-point the attachment with --project, --issue, --initiative, --team, --cycle, or --release.",
           })
         }
 

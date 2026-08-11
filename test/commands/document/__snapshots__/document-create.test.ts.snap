@@ -11,14 +11,19 @@ Description:
 
 Options:
 
-  -h, --help                     - Show this help.                             
-  -t, --title         <title>    - Document title (required)                   
-  -c, --content       <content>  - Markdown content (inline)                   
-  -f, --content-file  <path>     - Read content from file                      
-  --project           <project>  - Attach to project (UUID, slug ID, or name)  
-  --issue             <issue>    - Attach to issue (identifier like TC-123)    
-  --icon              <icon>     - Document icon (emoji)                       
-  -i, --interactive              - Interactive mode with prompts               
+  -h, --help                        - Show this help.                                                                   
+  -t, --title         <title>       - Document title (required)                                                         
+  -c, --content       <content>     - Markdown content (inline)                                                         
+  -f, --content-file  <path>        - Read content from file                                                            
+  --project           <project>     - Attach to project (UUID, slug ID, or name)                                        
+  --issue             <issue>       - Attach to issue (identifier like TC-123)                                          
+  --initiative        <initiative>  - Attach to initiative (UUID, slug ID, or name)                                     
+  --team              <team>        - Attach to team (key); with --cycle, scopes the cycle lookup instead               
+  --cycle             <cycle>       - Attach to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative  
+                                      offset like +1 (team from --team or config)                                       
+  --release           <release>     - Attach to release (UUID, name, or version)                                        
+  --icon              <icon>        - Document icon (emoji)                                                             
+  -i, --interactive                 - Interactive mode with prompts                                                     
 
 "
 stderr:
@@ -52,6 +57,53 @@ stderr:
 ""
 `;
 
+snapshot[`Document Create Command - Attached To Team 1`] = `
+stdout:
+"✓ Created document: Team Handbook
+https://linear.app/test/document/team-handbook-teamd0c111
+"
+stderr:
+""
+`;
+
+snapshot[`Document Create Command - Attached To Cycle With Team Scope 1`] = `
+stdout:
+"✓ Created document: Sprint Notes
+https://linear.app/test/document/sprint-notes-cycled0c222
+"
+stderr:
+""
+`;
+
+snapshot[`Document Create Command - Attached To Initiative 1`] = `
+stdout:
+"✓ Created document: Initiative Brief
+https://linear.app/test/document/initiative-brief-initd0c333
+"
+stderr:
+""
+`;
+
+snapshot[`Document Create Command - Attached To Release 1`] = `
+stdout:
+"✓ Created document: Release Notes
+https://linear.app/test/document/release-notes-reld0c444
+"
+stderr:
+""
+`;
+
+snapshot[`Document Create Command - Ambiguous Release Error 1`] = `
+stdout:
+""
+stderr:
+'✗ Failed to create document: Release "Launch" is ambiguous; it matches multiple releases:
+  Launch (1.0) — release-uuid-1
+  Launch (2.0) — release-uuid-2
+  Pass the release UUID instead.
+'
+`;
+
 snapshot[`Document Create Command - With Icon 1`] = `
 stdout:
 "✓ Created document: Design Doc
@@ -67,5 +119,23 @@ stdout:
 stderr:
 "✗ Failed to create document: Title is required
   Use --title or run with -i for interactive mode.
+"
+`;
+
+snapshot[`Document Create Command - Missing Target Error 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to create document: A document attachment target is required
+  Pass exactly one of --project, --issue, --initiative, --team, --cycle, or --release. (--team combined with --cycle scopes the cycle lookup and does not count as a second target.)
+"
+`;
+
+snapshot[`Document Create Command - Multiple Targets Error 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to create document: Only one attachment target may be set (got --project, --team)
+  Pass exactly one of --project, --issue, --initiative, --team, --cycle, or --release. (--team combined with --cycle scopes the cycle lookup and does not count as a second target.)
 "
 `;

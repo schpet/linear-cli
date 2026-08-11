@@ -42,6 +42,10 @@ await snapshotTest({
               creator: { name: "John Doe", email: "john@example.com" },
               project: { name: "TinyCloud SDK", slugId: "tinycloud-sdk" },
               issue: null,
+              initiative: null,
+              team: null,
+              cycle: null,
+              release: null,
               comments: {
                 nodes: [
                   {
@@ -116,6 +120,10 @@ await snapshotTest({
               creator: { name: "John Doe", email: "john@example.com" },
               project: { name: "TinyCloud SDK", slugId: "tinycloud-sdk" },
               issue: null,
+              initiative: null,
+              team: null,
+              cycle: null,
+              release: null,
             },
           },
         },
@@ -163,6 +171,10 @@ await snapshotTest({
               creator: { name: "John Doe", email: "john@example.com" },
               project: { name: "TinyCloud SDK", slugId: "tinycloud-sdk" },
               issue: null,
+              initiative: null,
+              team: null,
+              cycle: null,
+              release: null,
               comments: {
                 nodes: [
                   {
@@ -209,6 +221,10 @@ await snapshotTest({
               creator: { name: "John Doe", email: "john@example.com" },
               project: { name: "TinyCloud SDK", slugId: "tinycloud-sdk" },
               issue: null,
+              initiative: null,
+              team: null,
+              cycle: null,
+              release: null,
               comments: {
                 nodes: [
                   {

@@ -680,3 +680,143 @@ await snapshotTest({
     }
   },
 })
+
+// Re-pointing to any of the six target types replaces the current attachment
+// (the server clears the old target when a new one is set).
+
+await snapshotTest({
+  name: "Document Update Command - Repoint To Team",
+  meta: import.meta,
+  colors: false,
+  args: ["d4b93e3b2695", "--team", "eng"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        variables: { team: "ENG" },
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "UpdateDocument",
+        variables: {
+          id: "d4b93e3b2695",
+          input: { teamId: "team-eng-id" },
+        },
+        response: projectDocResponse,
+      },
+    ])
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Document Update Command - Repoint To Issue",
+  meta: import.meta,
+  colors: false,
+  args: ["d4b93e3b2695", "--issue", "TC-123"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetIssueForDocumentTarget",
+        variables: { id: "TC-123" },
+        response: { data: { issue: { id: "issue-uuid-456" } } },
+      },
+      {
+        queryName: "UpdateDocument",
+        variables: {
+          id: "d4b93e3b2695",
+          input: { issueId: "issue-uuid-456" },
+        },
+        response: projectDocResponse,
+      },
+    ])
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Document Update Command - Repoint To Release",
+  meta: import.meta,
+  colors: false,
+  args: ["d4b93e3b2695", "--release", "Summer Launch"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "ResolveReleases",
+        variables: { input: "Summer Launch", after: null },
+        response: {
+          data: {
+            releases: {
+              nodes: [
+                {
+                  id: "release-uuid-1",
+                  name: "Summer Launch",
+                  version: "2026.8",
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateDocument",
+        variables: {
+          id: "d4b93e3b2695",
+          input: { releaseId: "release-uuid-1" },
+        },
+        response: projectDocResponse,
+      },
+    ])
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await updateCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// A document has exactly one attachment target — two target flags must fail
+// locally before any request is made (no mock server is running).
+await snapshotTest({
+  name: "Document Update Command - Multiple Targets Error",
+  meta: import.meta,
+  colors: false,
+  canFail: true,
+  args: ["d4b93e3b2695", "--project", "roadmap", "--release", "Launch"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    Deno.env.set("LINEAR_API_KEY", "dummy-key-for-validation-test")
+    try {
+      await updateCommand.parse()
+    } finally {
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
