@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-08-11
+
+### Changed
+
+- document create now requires exactly one attachment target and errors clearly when none or several are given (Linear's API no longer allows workspace-level documents); the interactive prompt's broken "workspace document" option was removed
+
+### Fixed
+
+- document list --project now accepts a project UUID, slug ID, or name — previously it silently matched slug IDs only and returned an empty list for names
+
+### Added
+
+- document create, update, and list now support all six attachment targets: --project, --issue, --initiative, --team, --cycle, and --release (with --team scoping --cycle like the issue commands); document view and list display whichever target a document has
+- document update can re-point a document to a different target, including the previously missing --issue
+
 ## [2.4.0] - 2026-08-05
 
 ### Added
@@ -517,7 +532,8 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/schpet/linear-cli/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/schpet/linear-cli/compare/v2.3.1...v2.4.0
 [2.3.1]: https://github.com/schpet/linear-cli/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/schpet/linear-cli/compare/v2.2.0...v2.3.0
