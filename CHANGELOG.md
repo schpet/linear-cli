@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-08-05
+
+### Added
+
+- `issue update --add-label` and `--remove-label` to change an issue's labels incrementally: add a label without clobbering the existing set, or detach a label from one issue without deleting it team-wide ([#258](https://github.com/schpet/linear-cli/issues/258); thanks @rez0 for the report). Both may be repeated and combined for an atomic swap (`--remove-label sprint-42 --add-label sprint-43`)
+
+### Changed
+
+- `issue update --label` help text now states that it replaces the issue's entire label set (it always did; the docs previously suggested it added labels)
+
+## [2.3.1] - 2026-08-04
+
+### Fixed
+
+- `document list --issue` now returns documents instead of failing; it filtered on a nonexistent `IssueFilter.identifier` field, so the flag was rejected by the API on every invocation
+
 ## [2.3.0] - 2026-07-23
 
 ### Added
@@ -501,7 +517,9 @@
 - adds a -t, --title flag to the `issue pr` command, allowing you to provide a PR title that is different than linear's issue title
 - allows linear issue identifiers to be passed in as arguments to the issue commands as an alternative to parsing the branch name, e.g. `linear issue show ABC-123`
 
-[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/schpet/linear-cli/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/schpet/linear-cli/compare/v2.3.1...v2.4.0
+[2.3.1]: https://github.com/schpet/linear-cli/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/schpet/linear-cli/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/schpet/linear-cli/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/schpet/linear-cli/compare/v2.1.0...v2.1.1

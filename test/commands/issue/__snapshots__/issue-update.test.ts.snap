@@ -20,7 +20,11 @@ Options:
   --estimate          <estimate>     - Points estimate of the issue                                                     
   -d, --description   <description>  - Description of the issue                                                         
   --description-file  <path>         - Read description from a file (preferred for markdown content)                    
-  -l, --label         <label>        - Issue label associated with the issue. May be repeated.                          
+  -l, --label         <label>        - Issue label associated with the issue; replaces the issue's entire label set.    
+                                       May be repeated. Use --add-label/--remove-label to change labels incrementally.  
+  --add-label         <label>        - Add a label to the issue, keeping its existing labels. May be repeated.          
+  --remove-label      <label>        - Remove a label from the issue, keeping its other labels (does not delete the     
+                                       label from the team). May be repeated.                                           
   --team              <team>         - Team associated with the issue (if not your default team)                        
   --project           <project>      - Project to assign the issue to (UUID, slug ID, or name)                          
   -s, --state         <state>        - Workflow state for the issue (by name or type)                                   
@@ -218,4 +222,122 @@ https://linear.app/test-team/issue/ENG-123/some-issue
 "
 stderr:
 ""
+`;
+
+snapshot[`Issue Update Command - Add Label Sends addedLabelIds 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Add Label Dedupes Case Variants 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Remove Label Sends removedLabelIds 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Add And Remove Label In One Update 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Label Replace Sends Exact labelIds 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Label And Add Label Conflict 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Cannot combine --label with --add-label or --remove-label
+  --label replaces the issue's entire label set. Use it alone to set the exact set, or use --add-label/--remove-label alone to change it incrementally.
+"
+`;
+
+snapshot[`Issue Update Command - Label And Remove Label Conflict 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Cannot combine --label with --add-label or --remove-label
+  --label replaces the issue's entire label set. Use it alone to set the exact set, or use --add-label/--remove-label alone to change it incrementally.
+"
+`;
+
+snapshot[`Issue Update Command - Team Move And Add Label Conflict 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Cannot combine --team with --add-label or --remove-label
+  Move the issue with --team first, then change labels in a second update.
+"
+`;
+
+snapshot[`Issue Update Command - Team Move And Remove Label Conflict 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Cannot combine --team with --add-label or --remove-label
+  Move the issue with --team first, then change labels in a second update.
+"
+`;
+
+snapshot[`Issue Update Command - Add And Remove Same Label Conflict 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Cannot add and remove the same label in one update
+  Remove the duplicate label from either --add-label or --remove-label.
+"
+`;
+
+snapshot[`Issue Update Command - Unknown Add Label 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Issue label not found: nosuch
+  Run \`linear label list --team ENG\` to see available labels.
+"
+`;
+
+snapshot[`Issue Update Command - Unknown Remove Label 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to update issue: Issue label not found: nosuch
+  Run \`linear label list --team ENG\` to see available labels.
+"
 `;

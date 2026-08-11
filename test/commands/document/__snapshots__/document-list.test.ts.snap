@@ -52,6 +52,36 @@ stderr:
 ""
 `;
 
+snapshot[`Document List Command - Filter By Issue JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "doc-2",
+      "title": "Migration Runbook",
+      "slugId": "a1c27f6d8e04",
+      "url": "https://linear.app/test/document/migration-runbook-a1c27f6d8e04",
+      "updatedAt": "2026-01-20T14:15:00Z",
+      "project": null,
+      "issue": {
+        "identifier": "TC-123",
+        "title": "Plan the migration"
+      },
+      "creator": {
+        "name": "Jane Smith"
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
 snapshot[`Document List Command - Empty Results 1`] = `
 stdout:
 "No documents found.

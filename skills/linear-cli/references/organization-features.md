@@ -74,12 +74,18 @@ echo -e "DEV-123\nDEV-124" | linear issue delete --bulk-stdin
 linear initiative archive --bulk <id1> <id2>
 ```
 
-## Adding Labels to Issues
+## Updating Labels on Issues
 
 ```bash
-# Add label to issue
-linear issue update DEV-123 --label "Bug"
+# Add a label, keeping the issue's existing labels
+linear issue update DEV-123 --add-label "Bug"
 
-# Add multiple labels
+# Remove a label from this issue only (label delete removes it team-wide)
+linear issue update DEV-123 --remove-label "sprint-42"
+
+# Swap labels atomically in one update
+linear issue update DEV-123 --remove-label "sprint-42" --add-label "sprint-43"
+
+# Replace the entire label set with exactly these labels
 linear issue update DEV-123 --label "Bug" --label "High Priority"
 ```

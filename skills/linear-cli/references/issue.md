@@ -581,7 +581,11 @@ Options:
   --estimate          <estimate>     - Points estimate of the issue                                                     
   -d, --description   <description>  - Description of the issue                                                         
   --description-file  <path>         - Read description from a file (preferred for markdown content)                    
-  -l, --label         <label>        - Issue label associated with the issue. May be repeated.                          
+  -l, --label         <label>        - Issue label associated with the issue; replaces the issue's entire label set.    
+                                       May be repeated. Use --add-label/--remove-label to change labels incrementally.  
+  --add-label         <label>        - Add a label to the issue, keeping its existing labels. May be repeated.          
+  --remove-label      <label>        - Remove a label from the issue, keeping its other labels (does not delete the     
+                                       label from the team). May be repeated.                                           
   --team              <team>         - Team associated with the issue (if not your default team)                        
   --project           <project>      - Project to assign the issue to (UUID, slug ID, or name)                          
   -s, --state         <state>        - Workflow state for the issue (by name or type)                                   
