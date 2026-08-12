@@ -2,7 +2,11 @@ import { snapshotTest } from "@cliffy/testing"
 import { assertEquals } from "@std/assert"
 import { getColorEnabled, setColorEnabled } from "@std/fmt/colors"
 import { stub } from "@std/testing/mock"
-import { queryCommand } from "../../../src/commands/issue/issue-query.ts"
+import {
+  queryCommand,
+  shouldShowDefaultTeamNote,
+} from "../../../src/commands/issue/issue-query.ts"
+import type { OptionSource } from "../../../src/config.ts"
 import {
   commonDenoArgs,
   setupMockLinearServer,
@@ -590,5 +594,118 @@ Deno.test("Issue Query Command - Hides Cycle Column When Cycles Disabled", async
     globalThis.Date = RealDate
     setColorEnabled(originalColorEnabled)
     await cleanup()
+  }
+})
+
+// --- default-team note policy ---
+
+const emptyIssuesResponse = {
+  queryName: "GetIssuesForQuery",
+  response: {
+    data: {
+      issues: {
+        nodes: [],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      },
+    },
+  },
+}
+
+Deno.test("Issue Query Command - shows note when default team comes from env var", async () => {
+  // Set LINEAR_TEAM_ID manually (not via setupMockLinearServer) so this test
+  // owns restoring any pre-existing value; the helper's cleanup only deletes.
+  const priorTeamId = Deno.env.get("LINEAR_TEAM_ID")
+  const { cleanup } = await setupMockLinearServer([emptyIssuesResponse], {
+    NO_COLOR: "true",
+  })
+  Deno.env.set("LINEAR_TEAM_ID", "ENG")
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const logStub = stub(console, "log", () => {})
+
+  try {
+    await queryCommand.parse(["--no-pager"])
+  } finally {
+    errorStub.restore()
+    logStub.restore()
+    if (priorTeamId == null) {
+      Deno.env.delete("LINEAR_TEAM_ID")
+    } else {
+      Deno.env.set("LINEAR_TEAM_ID", priorTeamId)
+    }
+    await cleanup()
+  }
+
+  assertEquals(
+    errorLogs.some((l) =>
+      l.includes(
+        "Note: using default team ENG. Pass --team <key> or --all-teams to be explicit.",
+      )
+    ),
+    true,
+  )
+})
+
+Deno.test("Issue Query Command - suppresses note when default team comes from project config", async () => {
+  // With LINEAR_TEAM_ID absent, the default team falls through to the repo's
+  // own root .linear.toml (loaded at module init), i.e. a project-config
+  // source. This test intentionally depends on that file setting team_id.
+  const priorTeamId = Deno.env.get("LINEAR_TEAM_ID")
+  const { cleanup } = await setupMockLinearServer([emptyIssuesResponse], {
+    NO_COLOR: "true",
+  })
+  Deno.env.delete("LINEAR_TEAM_ID")
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const logStub = stub(console, "log", () => {})
+
+  try {
+    await queryCommand.parse(["--no-pager"])
+  } finally {
+    errorStub.restore()
+    logStub.restore()
+    if (priorTeamId != null) {
+      Deno.env.set("LINEAR_TEAM_ID", priorTeamId)
+    }
+    await cleanup()
+  }
+
+  assertEquals(
+    errorLogs.some((l) => l.includes("using default team")),
+    false,
+    `unexpected note in stderr: ${errorLogs.join("\n")}`,
+  )
+})
+
+Deno.test("shouldShowDefaultTeamNote - full source matrix", () => {
+  // Record<OptionSource, boolean> makes this table exhaustive at the type
+  // level: adding a new OptionSource member without an expectation here is a
+  // compile error.
+  const expectations: Record<OptionSource, boolean> = {
+    "cli": false,
+    "project-env": false,
+    "project-config": false,
+    "env": true,
+    "global-config": true,
+  }
+  const sources: OptionSource[] = [
+    "cli",
+    "project-env",
+    "project-config",
+    "env",
+    "global-config",
+  ]
+  for (const source of sources) {
+    assertEquals(
+      shouldShowDefaultTeamNote(source),
+      expectations[source],
+      source,
+    )
   }
 })
