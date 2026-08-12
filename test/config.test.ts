@@ -1,6 +1,10 @@
 import { assertEquals, assertThrows } from "@std/assert"
 import { fromFileUrl } from "@std/path"
-import { getOption, resolveIssueSort } from "../src/config.ts"
+import {
+  getOption,
+  getOptionWithSource,
+  resolveIssueSort,
+} from "../src/config.ts"
 import { ValidationError } from "../src/utils/errors.ts"
 
 // Note: These tests use the cliValue parameter (highest precedence)
@@ -722,4 +726,138 @@ Deno.test("resolveIssueSort - defaults to priority when nothing is configured", 
   } finally {
     await Deno.remove(tempDir, { recursive: true })
   }
+})
+
+// --- getOptionWithSource provenance ---
+// These subprocesses use clearEnv so a developer's or CI's LINEAR_TEAM_ID
+// cannot leak in; module-init config loading depends precisely on the
+// environment at startup. On Windows, APPDATA is pointed at the same
+// directory as XDG_CONFIG_HOME so one global config file covers both
+// platforms' lookup paths.
+
+async function runTeamSourceSubprocess(options: {
+  cwd: string
+  home: string
+  extraEnv?: Record<string, string>
+}): Promise<unknown> {
+  const configUrl = new URL("../src/config.ts", import.meta.url)
+  const denoJsonPath = fromFileUrl(new URL("../deno.json", import.meta.url))
+  const homeDir = Deno.env.get("HOME")
+  const denoDir = Deno.env.get("DENO_DIR") ??
+    (homeDir == null ? undefined : `${homeDir}/.cache/deno`)
+  const command = new Deno.Command(Deno.execPath(), {
+    args: [
+      "eval",
+      `--config=${denoJsonPath}`,
+      `import { getOptionWithSource } from "${configUrl}"; console.log(JSON.stringify(getOptionWithSource("team_id") ?? null));`,
+    ],
+    cwd: options.cwd,
+    clearEnv: true,
+    env: {
+      HOME: options.home,
+      XDG_CONFIG_HOME: `${options.home}/.config`,
+      PATH: Deno.env.get("PATH") ?? "",
+      ...(denoDir == null ? {} : { DENO_DIR: denoDir }),
+      ...(Deno.build.os === "windows"
+        ? {
+          SystemRoot: Deno.env.get("SystemRoot") ?? "",
+          APPDATA: `${options.home}/.config`,
+        }
+        : {}),
+      ...options.extraEnv,
+    },
+    stdout: "piped",
+    stderr: "piped",
+  })
+  const { stdout, stderr } = await command.output()
+  const errorOutput = new TextDecoder().decode(stderr)
+  if (errorOutput) {
+    console.error("Subprocess stderr:", errorOutput)
+  }
+  return JSON.parse(new TextDecoder().decode(stdout).trim())
+}
+
+Deno.test("getOptionWithSource - project config file yields project-config source", async () => {
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(`${projectDir}/.linear.toml`, 'team_id = "ENG"\n')
+    const result = await runTeamSourceSubprocess({ cwd: projectDir, home })
+    assertEquals(result, { value: "ENG", source: "project-config" })
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - global config file yields global-config source", async () => {
+  const workDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.mkdir(`${home}/.config/linear`, { recursive: true })
+    await Deno.writeTextFile(
+      `${home}/.config/linear/linear.toml`,
+      'team_id = "ENG"\n',
+    )
+    const result = await runTeamSourceSubprocess({ cwd: workDir, home })
+    assertEquals(result, { value: "ENG", source: "global-config" })
+  } finally {
+    await Deno.remove(workDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - project .env yields project-env source", async () => {
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(`${projectDir}/.env`, "LINEAR_TEAM_ID=ENG\n")
+    const result = await runTeamSourceSubprocess({ cwd: projectDir, home })
+    assertEquals(result, { value: "ENG", source: "project-env" })
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - process env wins over project .env and is classified env", async () => {
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(`${projectDir}/.env`, "LINEAR_TEAM_ID=ENG\n")
+    const result = await runTeamSourceSubprocess({
+      cwd: projectDir,
+      home,
+      extraEnv: { LINEAR_TEAM_ID: "OPS" },
+    })
+    assertEquals(result, { value: "OPS", source: "env" })
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - invalid project value shadows valid global value", async () => {
+  // A present-but-invalid higher-precedence value must block fallback to a
+  // lower-precedence source, matching the pre-split spread-merge behavior.
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.mkdir(`${home}/.config/linear`, { recursive: true })
+    await Deno.writeTextFile(
+      `${home}/.config/linear/linear.toml`,
+      'team_id = "ENG"\n',
+    )
+    await Deno.writeTextFile(`${projectDir}/.linear.toml`, "team_id = 5\n")
+    const result = await runTeamSourceSubprocess({ cwd: projectDir, home })
+    assertEquals(result, null)
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - cli value yields cli source", () => {
+  const result = getOptionWithSource("team_id", "eng")
+  assertEquals(result, { value: "eng", source: "cli" })
 })
