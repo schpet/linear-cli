@@ -1,8 +1,9 @@
 import { Command } from "@cliffy/command"
 import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
+import type { DocumentCreateInput } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { resolveProjectId } from "../../utils/linear.ts"
+import { getTeamKey } from "../../utils/linear.ts"
 import { getEditor, openEditor } from "../../utils/editor.ts"
 import { readIdsFromStdin } from "../../utils/bulk.ts"
 import {
@@ -11,6 +12,13 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import {
+  type DocumentTarget,
+  type DocumentTargetOptions,
+  parseDocumentTargetOptions,
+  resolveDocumentTarget,
+  toDocumentTargetInput,
+} from "./attachment-target.ts"
 
 /**
  * Read content from stdin if available (piped input, with timeout)
@@ -49,6 +57,22 @@ export const createCommand = new Command()
     "Attach to project (UUID, slug ID, or name)",
   )
   .option("--issue <issue:string>", "Attach to issue (identifier like TC-123)")
+  .option(
+    "--initiative <initiative:string>",
+    "Attach to initiative (UUID, slug ID, or name)",
+  )
+  .option(
+    "--team <team:string>",
+    "Attach to team (key); with --cycle, scopes the cycle lookup instead",
+  )
+  .option(
+    "--cycle <cycle:string>",
+    "Attach to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)",
+  )
+  .option(
+    "--release <release:string>",
+    "Attach to release (UUID, name, or version)",
+  )
   .option("--icon <icon:string>", "Document icon (emoji)")
   .option("-i, --interactive", "Interactive mode with prompts")
   .action(
@@ -58,47 +82,68 @@ export const createCommand = new Command()
       contentFile,
       project,
       issue,
+      initiative,
+      team,
+      cycle,
+      release,
       icon,
       interactive,
     }) => {
       try {
-        const client = getGraphQLClient()
+        const targetOptions: DocumentTargetOptions = {
+          project,
+          issue,
+          initiative,
+          team,
+          cycle,
+          release,
+        }
+        const anyTargetFlag = Object.values(targetOptions).some(
+          (value) => value != null,
+        )
 
         // Determine if we should use interactive mode
         let useInteractive = interactive && Deno.stdout.isTerminal()
 
         // If no title and not interactive, check if we should enter interactive mode
         const noFlagsProvided = !title && !content && !contentFile &&
-          !project &&
-          !issue && !icon
+          !anyTargetFlag && !icon
         if (noFlagsProvided && Deno.stdout.isTerminal()) {
           useInteractive = true
         }
 
         // Interactive mode
         if (useInteractive) {
+          // Interactive mode picks its target via prompts; mixing in target
+          // flags would silently lose one of the two, so reject up front.
+          if (anyTargetFlag) {
+            throw new ValidationError(
+              "Attachment target flags cannot be combined with interactive mode",
+              {
+                suggestion:
+                  "Drop the target flags to choose the attachment interactively, or drop -i/--interactive to use the flags.",
+              },
+            )
+          }
+
           const result = await promptInteractiveCreate()
 
           if (!result.title) {
             throw new ValidationError("Title is required")
           }
 
-          const input: Record<string, string | undefined> = {
+          const input: DocumentCreateInput = {
             title: result.title,
-            content: result.content,
-            icon: result.icon,
-            projectId: result.projectId,
-            issueId: result.issueId,
+            ...toDocumentTargetInput(result.target),
+          }
+          if (result.content != null) {
+            input.content = result.content
+          }
+          if (result.icon != null) {
+            input.icon = result.icon
           }
 
-          // Remove undefined values
-          Object.keys(input).forEach((key) => {
-            if (input[key] === undefined) {
-              delete input[key]
-            }
-          })
-
-          await createDocument(client, input)
+          await createDocument(input)
           return
         }
 
@@ -108,6 +153,13 @@ export const createCommand = new Command()
             suggestion: "Use --title or run with -i for interactive mode.",
           })
         }
+
+        // Validate target cardinality before any content work so a bad flag
+        // combination fails before an editor is opened or stdin is read.
+        const selector = parseDocumentTargetOptions(
+          targetOptions,
+          "exactly-one",
+        )
 
         // Resolve content from various sources
         let finalContent: string | undefined
@@ -147,40 +199,20 @@ export const createCommand = new Command()
           }
         }
 
-        // Resolve project ID if provided
-        let projectId: string | undefined
-        if (project) {
-          projectId = await resolveProjectId(project)
-        }
+        const target = await resolveDocumentTarget(selector)
 
-        // Resolve issue ID if provided
-        let issueId: string | undefined
-        if (issue) {
-          issueId = await resolveIssueId(client, issue)
-          if (!issueId) {
-            throw new NotFoundError("Issue", issue, {
-              suggestion: "Provide a valid issue identifier (e.g., TC-123).",
-            })
-          }
-        }
-
-        // Build input
-        const input: Record<string, string | undefined> = {
+        const input: DocumentCreateInput = {
           title,
-          content: finalContent,
-          icon,
-          projectId,
-          issueId,
+          ...toDocumentTargetInput(target),
+        }
+        if (finalContent != null) {
+          input.content = finalContent
+        }
+        if (icon != null) {
+          input.icon = icon
         }
 
-        // Remove undefined values
-        Object.keys(input).forEach((key) => {
-          if (input[key] === undefined) {
-            delete input[key]
-          }
-        })
-
-        await createDocument(client, input)
+        await createDocument(input)
       } catch (error) {
         handleError(error, "Failed to create document")
       }
@@ -191,8 +223,7 @@ async function promptInteractiveCreate(): Promise<{
   title?: string
   content?: string
   icon?: string
-  projectId?: string
-  issueId?: string
+  target: DocumentTarget
 }> {
   // Prompt for title
   const title = await Input.prompt({
@@ -256,79 +287,78 @@ async function promptInteractiveCreate(): Promise<{
     default: "",
   })
 
-  // Ask about attachment
-  const attachTo = await Select.prompt({
-    message: "Attach document to",
-    options: [
-      { name: "Nothing (workspace document)", value: "none" },
-      { name: "Project", value: "project" },
-      { name: "Issue", value: "issue" },
-    ],
-    default: "none",
-  })
-
-  let projectId: string | undefined
-  let issueId: string | undefined
-
-  if (attachTo === "project") {
-    const projectInput = await Input.prompt({
-      message: "Project (UUID, slug ID, or name)",
-    })
-    projectId = await resolveProjectId(projectInput)
-  } else if (attachTo === "issue") {
-    const issueInput = await Input.prompt({
-      message: "Issue identifier (e.g., TC-123)",
-    })
-    const client = getGraphQLClient()
-    issueId = await resolveIssueId(client, issueInput)
-    if (!issueId) {
-      throw new NotFoundError("Issue", issueInput, {
-        suggestion: "Provide a valid issue identifier (e.g., TC-123).",
-      })
-    }
-  }
+  // Ask about attachment. The API requires exactly one target, so there is
+  // no "workspace document" option.
+  const target = await promptForTarget()
 
   return {
     title,
     content,
     icon: icon.trim() || undefined,
-    projectId,
-    issueId,
+    target,
   }
 }
 
-async function resolveIssueId(
-  // deno-lint-ignore no-explicit-any
-  client: any,
-  issueIdentifier: string,
-): Promise<string | undefined> {
-  const issueQuery = gql(`
-    query GetIssueForDocument($id: String!) {
-      issue(id: $id) {
-        id
-        identifier
-      }
-    }
-  `)
+async function promptForTarget(): Promise<DocumentTarget> {
+  const attachTo = await Select.prompt({
+    message: "Attach document to",
+    options: [
+      { name: "Project", value: "project" },
+      { name: "Issue", value: "issue" },
+      { name: "Team", value: "team" },
+      { name: "Initiative", value: "initiative" },
+      { name: "Cycle", value: "cycle" },
+      { name: "Release", value: "release" },
+    ],
+    default: "project",
+  })
 
-  try {
-    const result = await client.request(issueQuery, { id: issueIdentifier })
-    if (result.issue) {
-      return result.issue.id
-    }
-  } catch {
-    // Issue not found
+  if (attachTo === "project") {
+    const project = await Input.prompt({
+      message: "Project (UUID, slug ID, or name)",
+    })
+    return await resolveDocumentTarget({ kind: "project", project })
   }
-
-  return undefined
+  if (attachTo === "issue") {
+    const issue = await Input.prompt({
+      message: "Issue identifier (e.g., TC-123)",
+    })
+    return await resolveDocumentTarget({ kind: "issue", issue })
+  }
+  if (attachTo === "team") {
+    const team = await Input.prompt({
+      message: "Team key (e.g., ENG)",
+      default: getTeamKey(),
+    })
+    return await resolveDocumentTarget({ kind: "team", team })
+  }
+  if (attachTo === "initiative") {
+    const initiative = await Input.prompt({
+      message: "Initiative (UUID, slug ID, or name)",
+    })
+    return await resolveDocumentTarget({ kind: "initiative", initiative })
+  }
+  if (attachTo === "cycle") {
+    const team = await Input.prompt({
+      message: "Team key for the cycle (e.g., ENG)",
+      default: getTeamKey(),
+    })
+    const cycle = await Input.prompt({
+      message: "Cycle (name, number, 'active', 'next', or 'previous')",
+    })
+    return await resolveDocumentTarget({ kind: "cycle", cycle, team })
+  }
+  if (attachTo === "release") {
+    const release = await Input.prompt({
+      message: "Release (UUID, name, or version)",
+    })
+    return await resolveDocumentTarget({ kind: "release", release })
+  }
+  throw new ValidationError(`Unknown attachment target: ${attachTo}`)
 }
 
-async function createDocument(
-  // deno-lint-ignore no-explicit-any
-  client: any,
-  input: Record<string, string | undefined>,
-): Promise<void> {
-  const createMutation = gql(`
+async function createDocument(input: DocumentCreateInput): Promise<void> {
+  const createMutation = gql(/* GraphQL */ `
     mutation CreateDocument($input: DocumentCreateInput!) {
       documentCreate(input: $input) {
         success
@@ -342,6 +372,7 @@ async function createDocument(
     }
   `)
 
+  const client = getGraphQLClient()
   const result = await client.request(createMutation, { input })
 
   if (!result.documentCreate.success) {

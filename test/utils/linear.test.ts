@@ -2,8 +2,10 @@ import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert"
 import {
   getIssueIdentifier,
   isLinearUuid,
+  resolveInitiativeId,
   resolveMilestoneId,
   resolveProjectId,
+  resolveReleaseId,
   resolveWorkflowState,
   searchIssuesByTerm,
   type WorkflowState,
@@ -372,4 +374,148 @@ Deno.test("workflowStateNotFoundError - handles a team with no states", () => {
     error.suggestion,
     "Team ENG has no workflow states. Run `linear team states ENG`.",
   )
+})
+
+Deno.test("resolveInitiativeId - accepts a UUID without an API call", async () => {
+  const { cleanup } = await setupMockLinearServer([])
+  try {
+    const uuid = "0f61a24d-4c30-4d68-a146-30bdcf1b3e1a"
+    assertEquals(await resolveInitiativeId(uuid), uuid)
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveInitiativeId - falls back from slug to name", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveInitiativeBySlug",
+      variables: { slugId: "Dev Experience" },
+      response: { data: { initiatives: { nodes: [] } } },
+    },
+    {
+      queryName: "ResolveInitiativeByName",
+      variables: { name: "Dev Experience" },
+      response: { data: { initiatives: { nodes: [{ id: "init-uuid-1" }] } } },
+    },
+  ])
+  try {
+    assertEquals(await resolveInitiativeId("Dev Experience"), "init-uuid-1")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveInitiativeId - throws ValidationError when a name is ambiguous", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveInitiativeBySlug",
+      response: { data: { initiatives: { nodes: [] } } },
+    },
+    {
+      queryName: "ResolveInitiativeByName",
+      response: {
+        data: {
+          initiatives: {
+            nodes: [
+              { id: "init-1", name: "Platform", slugId: "platform-1" },
+              { id: "init-2", name: "Platform", slugId: "platform-2" },
+            ],
+          },
+        },
+      },
+    },
+  ])
+  try {
+    await assertRejects(
+      () => resolveInitiativeId("platform"),
+      ValidationError,
+      "ambiguous",
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveInitiativeId - throws NotFoundError when nothing matches", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveInitiativeBySlug",
+      response: { data: { initiatives: { nodes: [] } } },
+    },
+    {
+      queryName: "ResolveInitiativeByName",
+      response: { data: { initiatives: { nodes: [] } } },
+    },
+  ])
+  try {
+    await assertRejects(
+      () => resolveInitiativeId("nope"),
+      NotFoundError,
+      "Initiative",
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveReleaseId - accepts a UUID without an API call", async () => {
+  const { cleanup } = await setupMockLinearServer([])
+  try {
+    const uuid = "9b2c1f5e-7d84-4b3a-a2c1-5e6f7a8b9c0d"
+    assertEquals(await resolveReleaseId(uuid), uuid)
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveReleaseId - throws NotFoundError when nothing matches", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveReleases",
+      response: {
+        data: {
+          releases: {
+            nodes: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ])
+  try {
+    await assertRejects(
+      () => resolveReleaseId("nope"),
+      NotFoundError,
+      "Release",
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveReleaseId - same release matched by name and version is not ambiguous", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveReleases",
+      response: {
+        data: {
+          releases: {
+            // The OR filter can return one release twice conceptually; the
+            // resolver dedupes by id, so a single distinct match resolves.
+            nodes: [
+              { id: "rel-1", name: "1.0", version: "1.0" },
+              { id: "rel-1", name: "1.0", version: "1.0" },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ])
+  try {
+    assertEquals(await resolveReleaseId("1.0"), "rel-1")
+  } finally {
+    await cleanup()
+  }
 })

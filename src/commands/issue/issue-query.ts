@@ -1,7 +1,7 @@
 import { Command, EnumType } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { rgb24 } from "@std/fmt/colors"
-import { resolveIssueSort } from "../../config.ts"
+import { type OptionSource, resolveIssueSort } from "../../config.ts"
 import {
   colorCycleShort,
   type CycleDisplayInfo,
@@ -17,7 +17,7 @@ import {
   getProjectIdByName,
   getProjectOptionsByName,
   getTeamIdByKey,
-  getTeamKey,
+  getTeamKeyWithSource,
   isIssueBlocked,
   isLinearUuid,
   resolveMilestoneId,
@@ -242,7 +242,7 @@ export const queryCommand = new Command()
         resolvedTeamKeys = teamKeys
         isMultiTeam = teamKeys.length > 1
       } else {
-        const defaultTeam = getTeamKey()
+        const defaultTeam = getTeamKeyWithSource()
         if (!defaultTeam) {
           throw new ValidationError(
             "No default team configured and no team scope provided",
@@ -252,10 +252,12 @@ export const queryCommand = new Command()
             },
           )
         }
-        console.error(
-          `Note: using default team ${defaultTeam}. Pass --team <key> or --all-teams to be explicit.`,
-        )
-        resolvedTeamKeys = [defaultTeam]
+        if (shouldShowDefaultTeamNote(defaultTeam.source)) {
+          console.error(
+            `Note: using default team ${defaultTeam.key}. Pass --team <key> or --all-teams to be explicit.`,
+          )
+        }
+        resolvedTeamKeys = [defaultTeam.key]
       }
 
       // --- Resolve entity IDs ---
@@ -406,6 +408,24 @@ export const queryCommand = new Command()
       handleError(error, "Failed to query issues")
     }
   })
+
+/**
+ * The default-team note warns that an ambient default (global config file or
+ * shell-exported env var) silently scoped the query. A team configured by the
+ * project itself — a linear.toml in the directory/repo, or a project .env —
+ * is explicit local intent, so the note would be noise.
+ */
+export function shouldShowDefaultTeamNote(source: OptionSource): boolean {
+  switch (source) {
+    case "cli":
+    case "project-env":
+    case "project-config":
+      return false
+    case "env":
+    case "global-config":
+      return true
+  }
+}
 
 async function outputPaged(
   outputLines: string[],

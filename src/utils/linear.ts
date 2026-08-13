@@ -12,10 +12,15 @@ import type {
   IssueFilter,
   IssueSortInput,
   PaginationOrderBy,
+  ResolveReleasesQuery,
   SearchIssuesQuery,
 } from "../__codegen__/graphql.ts"
 import { Select } from "@cliffy/prompt"
-import { getOption, resolveIssueSort } from "../config.ts"
+import {
+  getOptionWithSource,
+  type OptionSource,
+  resolveIssueSort,
+} from "../config.ts"
 import { CliError, NotFoundError, ValidationError } from "./errors.ts"
 import { getGraphQLClient } from "./graphql.ts"
 import { normalizeIssueIdentifier } from "./issue-identifier.ts"
@@ -73,12 +78,18 @@ export function formatIssueIdentifier(providedId: string): string {
   return normalizeIssueIdentifier(providedId) ?? providedId.toUpperCase()
 }
 
-export function getTeamKey(): string | undefined {
-  const teamId = getOption("team_id")
-  if (teamId) {
-    return teamId.toUpperCase()
+export function getTeamKeyWithSource():
+  | { key: string; source: OptionSource }
+  | undefined {
+  const resolved = getOptionWithSource("team_id")
+  if (resolved == null || resolved.value === "") {
+    return undefined
   }
-  return undefined
+  return { key: resolved.value.toUpperCase(), source: resolved.source }
+}
+
+export function getTeamKey(): string | undefined {
+  return getTeamKeyWithSource()?.key
 }
 
 /**
@@ -2041,6 +2052,137 @@ export async function getCycleIdByNameOrNumber(
     throw new NotFoundError("Cycle", cycleNameOrNumber)
   }
   return match.id
+}
+
+/**
+ * Resolve an initiative to its UUID. Accepts a UUID, slug ID, or exact
+ * (case-insensitive) name. Throws NotFoundError when nothing matches and
+ * ValidationError when the name is ambiguous — initiative names are not
+ * unique, so an ambiguous match must not pick silently.
+ */
+export async function resolveInitiativeId(input: string): Promise<string> {
+  if (isLinearUuid(input)) return input
+
+  const client = getGraphQLClient()
+
+  const slugQuery = gql(/* GraphQL */ `
+    query ResolveInitiativeBySlug($slugId: String!) {
+      initiatives(filter: { slugId: { eq: $slugId } }) {
+        nodes {
+          id
+        }
+      }
+    }
+  `)
+  const slugData = await client.request(slugQuery, { slugId: input })
+  const slugMatch = slugData.initiatives?.nodes[0]?.id
+  if (slugMatch) return slugMatch
+
+  const nameQuery = gql(/* GraphQL */ `
+    query ResolveInitiativeByName($name: String!) {
+      initiatives(filter: { name: { eqIgnoreCase: $name } }) {
+        nodes {
+          id
+          name
+          slugId
+        }
+      }
+    }
+  `)
+  const nameData = await client.request(nameQuery, { name: input })
+  const nameMatches = nameData.initiatives?.nodes ?? []
+  if (nameMatches.length > 1) {
+    const listing = nameMatches
+      .map((n) => `  ${n.name} — ${n.slugId} (${n.id})`)
+      .join("\n")
+    throw new ValidationError(
+      `Initiative "${input}" is ambiguous; it matches multiple initiatives:\n${listing}`,
+      { suggestion: "Pass the initiative's slug ID or UUID instead." },
+    )
+  }
+  if (nameMatches.length === 1) {
+    return nameMatches[0].id
+  }
+
+  throw new NotFoundError("Initiative", input, {
+    suggestion: "Pass an initiative UUID, slug ID, or exact initiative name.",
+  })
+}
+
+/**
+ * Resolve a release to its UUID. Accepts a UUID, exact (case-insensitive)
+ * name, or exact version. Throws NotFoundError when nothing matches and
+ * ValidationError when the name/version is ambiguous — releases have no
+ * unique human identifier, so an ambiguous match must not pick silently.
+ */
+export async function resolveReleaseId(input: string): Promise<string> {
+  if (isLinearUuid(input)) return input
+
+  const client = getGraphQLClient()
+  const query = gql(/* GraphQL */ `
+    query ResolveReleases($input: String!, $after: String) {
+      releases(
+        filter: {
+          or: [
+            { name: { eqIgnoreCase: $input } }
+            { version: { eq: $input } }
+          ]
+        }
+        first: 100
+        after: $after
+      ) {
+        nodes {
+          id
+          name
+          version
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  `)
+
+  // Paginate to exhaustion: ambiguity detection is only trustworthy when the
+  // full candidate set has been seen.
+  const candidates = new Map<
+    string,
+    { name: string; version?: string | null }
+  >()
+  let after: string | null | undefined = null
+  while (true) {
+    // Annotate with the codegen type: reusing `after` across iterations would
+    // otherwise make the request's result type circular (self-referential).
+    const data: ResolveReleasesQuery = await client.request(query, {
+      input,
+      after,
+    })
+    for (const node of data.releases?.nodes || []) {
+      candidates.set(node.id, { name: node.name, version: node.version })
+    }
+    const pageInfo = data.releases?.pageInfo
+    if (!pageInfo?.hasNextPage) break
+    after = pageInfo.endCursor
+  }
+
+  if (candidates.size === 0) {
+    throw new NotFoundError("Release", input, {
+      suggestion: "Pass a release UUID, exact release name, or exact version.",
+    })
+  }
+  if (candidates.size > 1) {
+    const listing = [...candidates.entries()]
+      .map(([id, r]) =>
+        `  ${r.name}${r.version != null ? ` (${r.version})` : ""} — ${id}`
+      )
+      .join("\n")
+    throw new ValidationError(
+      `Release "${input}" is ambiguous; it matches multiple releases:\n${listing}`,
+      { suggestion: "Pass the release UUID instead." },
+    )
+  }
+  return [...candidates.keys()][0]
 }
 
 export async function selectOption(
