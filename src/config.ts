@@ -81,7 +81,7 @@ async function loadConfig() {
 // Load .env files
 async function loadEnvFiles() {
   let envVars: Record<string, string> = {}
-  if (await Deno.stat(".env").catch(() => null)) {
+  if ((await Deno.stat(".env").catch(() => null))?.isFile) {
     envVars = await load()
   } else {
     try {
@@ -96,7 +96,7 @@ async function loadEnvFiles() {
         .trim()
 
       const gitRootEnvPath = join(gitRoot, ".env")
-      if (await Deno.stat(gitRootEnvPath).catch(() => null)) {
+      if ((await Deno.stat(gitRootEnvPath).catch(() => null))?.isFile) {
         envVars = await load({ envPath: gitRootEnvPath })
       }
     } catch {

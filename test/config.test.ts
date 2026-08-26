@@ -837,6 +837,21 @@ Deno.test("getOptionWithSource - process env wins over project .env and is class
   }
 })
 
+Deno.test("getOptionWithSource - a .env directory is ignored, not fatal", async () => {
+  // Some monorepos have a `.env` directory. Loading it must not crash startup
+  // (previously threw IsADirectory); it is silently ignored like a missing file.
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.mkdir(`${projectDir}/.env`)
+    const result = await runTeamSourceSubprocess({ cwd: projectDir, home })
+    assertEquals(result, null)
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
 Deno.test("getOptionWithSource - invalid project value shadows valid global value", async () => {
   // A present-but-invalid higher-precedence value must block fallback to a
   // lower-precedence source, matching the pre-split spread-merge behavior.
