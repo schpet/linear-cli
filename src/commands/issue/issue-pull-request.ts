@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { fetchIssueDetails, getIssueIdentifier } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import { getOption } from "../../config.ts"
 
 export const pullRequestCommand = new Command()
   .name("pull-request")
@@ -27,44 +28,55 @@ export const pullRequestCommand = new Command()
     "--head <branch:string>",
     "The branch that contains commits for your pull request",
   )
+  .option(
+    "-T, --template <template:string>",
+    "Optional template filename for the pull request body",
+  )
   .arguments("[issueId:string]")
-  .action(async ({ base, draft, title: customTitle, web, head }, issueId) => {
-    try {
-      const resolvedId = await getIssueIdentifier(issueId)
-      if (!resolvedId) {
-        throw new ValidationError(
-          "Could not determine issue ID",
-          { suggestion: "Please provide an issue ID like 'ENG-123'." },
+  .action(
+    async (
+      { base, draft, title: customTitle, web, head, template },
+      issueId,
+    ) => {
+      template = template ?? getOption("pr_template")
+      try {
+        const resolvedId = await getIssueIdentifier(issueId)
+        if (!resolvedId) {
+          throw new ValidationError(
+            "Could not determine issue ID",
+            { suggestion: "Please provide an issue ID like 'ENG-123'." },
+          )
+        }
+        const { title, url } = await fetchIssueDetails(
+          resolvedId,
+          shouldShowSpinner(),
         )
-      }
-      const { title, url } = await fetchIssueDetails(
-        resolvedId,
-        shouldShowSpinner(),
-      )
 
-      const process = new Deno.Command("gh", {
-        args: [
-          "pr",
-          "create",
-          "--title",
-          `${resolvedId} ${customTitle ?? title}`,
-          "--body",
-          url,
-          ...(base ? ["--base", base] : []),
-          ...(head ? ["--head", head] : []),
-          ...(draft ? ["--draft"] : []),
-          ...(web ? ["--web"] : []),
-        ],
-        stdin: "inherit",
-        stdout: "inherit",
-        stderr: "inherit",
-      })
+        const process = new Deno.Command("gh", {
+          args: [
+            "pr",
+            "create",
+            "--title",
+            `${resolvedId} ${customTitle ?? title}`,
+            "--body",
+            url,
+            ...(base ? ["--base", base] : []),
+            ...(head ? ["--head", head] : []),
+            ...(draft ? ["--draft"] : []),
+            ...(web ? ["--web"] : []),
+            ...(template && template.length ? ["--template", template] : []),
+          ],
+          stdin: "inherit",
+          stdout: "inherit",
+          stderr: "inherit",
+        })
 
-      const status = await process.spawn().status
-      if (!status.success) {
-        throw new CliError("Failed to create pull request")
+        const status = await process.spawn().status
+        if (!status.success) {
+          throw new CliError("Failed to create pull request")
+        }
+      } catch (error) {
+        handleError(error, "Failed to create pull request")
       }
-    } catch (error) {
-      handleError(error, "Failed to create pull request")
-    }
-  })
+    },
+  )
