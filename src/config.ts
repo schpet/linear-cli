@@ -156,6 +156,7 @@ const OptionSchemas = {
   hyperlink_format: v.optional(v.string()),
   attachment_dir: v.optional(v.string()),
   auto_download_attachments: v.optional(BooleanLike),
+  pr_template: v.optional(v.string()),
 }
 
 export type OptionName = keyof typeof OptionSchemas
