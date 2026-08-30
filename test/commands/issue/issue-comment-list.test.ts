@@ -115,6 +115,7 @@ await snapshotTest({
       },
       {
         queryName: "GetIssueComments",
+        queryIncludes: "editedAt",
         response: {
           data: {
             issue: {
@@ -125,8 +126,10 @@ await snapshotTest({
                     body: "This is a comment",
                     createdAt: "2024-01-15T10:30:00Z",
                     updatedAt: "2024-01-15T10:30:00Z",
+                    editedAt: null,
                     url: "https://linear.app/issue/TEST-123#comment-uuid-456",
                     user: {
+                      id: "user-uuid-123",
                       name: "testuser",
                       displayName: "Test User",
                     },
