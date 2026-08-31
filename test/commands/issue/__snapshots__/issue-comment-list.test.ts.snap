@@ -33,6 +33,7 @@ stdout:
         "displayName": "Test User"
       },
       "externalUser": null,
+      "botActor": null,
       "parent": null
     }
   ],
@@ -49,6 +50,103 @@ stderr:
 snapshot[`Issue Comment List Command - No Comments 1`] = `
 stdout:
 "No comments found for this issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Comment List Command - JSON Output With External And Bot Authors 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "comment-uuid-1",
+      "body": "From a workspace user",
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-16T09:00:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/issue/TEST-123#comment-uuid-1",
+      "user": {
+        "id": "user-uuid-123",
+        "name": "testuser",
+        "displayName": "Ada Lovelace"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": null
+    },
+    {
+      "id": "comment-uuid-2",
+      "body": "From an external user with a colliding display name",
+      "createdAt": "2024-01-15T11:00:00Z",
+      "updatedAt": "2024-01-15T11:30:00Z",
+      "editedAt": "2024-01-15T11:30:00Z",
+      "url": "https://linear.app/issue/TEST-123#comment-uuid-2",
+      "user": null,
+      "externalUser": {
+        "id": "external-uuid-456",
+        "name": "ada",
+        "displayName": "Ada Lovelace"
+      },
+      "botActor": null,
+      "parent": null
+    },
+    {
+      "id": "comment-uuid-3",
+      "body": "Merged in abc1234",
+      "createdAt": "2024-01-15T12:00:00Z",
+      "updatedAt": "2024-01-15T12:00:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/issue/TEST-123#comment-uuid-3",
+      "user": null,
+      "externalUser": null,
+      "botActor": {
+        "id": "bot-uuid-789",
+        "name": "GitHub",
+        "type": "github",
+        "subType": "pullRequest"
+      },
+      "parent": null
+    },
+    {
+      "id": "comment-uuid-4",
+      "body": "From a bot with no id",
+      "createdAt": "2024-01-15T13:00:00Z",
+      "updatedAt": "2024-01-15T13:00:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/issue/TEST-123#comment-uuid-4",
+      "user": null,
+      "externalUser": null,
+      "botActor": {
+        "id": null,
+        "name": null,
+        "type": "workflow",
+        "subType": null
+      },
+      "parent": null
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Issue Comment List Command - Bot Authors Render A Name 1`] = `
+stdout:
+"@Unknown commented 1/15/2024 [comment-uuid-3]
+Genuinely author-less
+
+@GitHub commented 1/15/2024 [comment-uuid-1]
+Merged in abc1234
+
+  @workflow replied 1/15/2024 [comment-uuid-2]
+  Falls back to the bot type when name is null
+
 "
 stderr:
 ""

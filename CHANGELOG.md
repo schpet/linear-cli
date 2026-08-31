@@ -2,17 +2,21 @@
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- linear no longer crashes on startup when `.env` is a directory rather than a file, and no longer hangs forever on a `.env` written to be `source`d by a shell (a self-referential value such as `export PATH=$PATH:/opt/bin` spun the dotenv expander's loop indefinitely). An unusable `.env` is now reported as a warning on stderr and skipped, and the repository-root `.env` is still consulted as a fallback
+- issue comment list --json now exposes stable author identity: `user.id`, `externalUser.id`, and a `botActor` object (`id`, `name`, `type`, `subType`) for comments posted by integrations. Display names are editable and can collide across a workspace — an external user's display name can even match a real member's — so programs consuming the JSON previously had nothing reliable to attribute a comment with
+- issue comment list --json now includes `editedAt`, which is set only when a comment's author revised it. `updatedAt` also moves for unrelated backend churn, so it could not answer "has this been changed since it was written?"
+- `LINEAR_IGNORE_ENV_FILE=1` skips `.env` loading entirely, for repositories whose `.env` is not dotenv-shaped
 
 ### Changed
 
 - an unquoted `$VAR` reference in a `LINEAR_`/`GH_`/`GITHUB_` value is now skipped with a warning rather than expanded. Expansion of an unset variable silently produced the string `"undefined"`, and a self-referential one hung. Quoted values are unaffected, since dotenv never expanded those
 
-### Added
+### Fixed
 
-- `LINEAR_IGNORE_ENV_FILE=1` skips `.env` loading entirely, for repositories whose `.env` is not dotenv-shaped
+- linear no longer crashes on startup when `.env` is a directory rather than a file, and no longer hangs forever on a `.env` written to be `source`d by a shell (a self-referential value such as `export PATH=$PATH:/opt/bin` spun the dotenv expander's loop indefinitely). An unusable `.env` is now reported as a warning on stderr and skipped, and the repository-root `.env` is still consulted as a fallback
+- issue comment list showed `@Unknown` for every comment posted by an integration or bot, because the query never asked for `botActor`; those comments now render the bot's name (falling back to its type)
+- issue comment add --id now rejects a value that is not a v4 UUID (the format Linear documents for the field) with an actionable error, instead of forwarding it and surfacing a raw API error
 
 ## [2.5.0] - 2026-08-11
 

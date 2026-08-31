@@ -134,6 +134,7 @@ await snapshotTest({
                       displayName: "Test User",
                     },
                     externalUser: null,
+                    botActor: null,
                     parent: null,
                   },
                 ],
@@ -187,6 +188,201 @@ await snapshotTest({
                   hasNextPage: false,
                   endCursor: null,
                 },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await commentListCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// A comment written by an integration has neither `user` nor `externalUser`, so
+// before botActor was selected it carried no author identity at all in --json
+// and rendered as "@Unknown".
+await snapshotTest({
+  name:
+    "Issue Comment List Command - JSON Output With External And Bot Authors",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-123", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetIssueId",
+        variables: { id: "TEST-123" },
+        response: { data: { issue: { id: "issue-uuid-123" } } },
+      },
+      {
+        queryName: "GetIssueComments",
+        queryIncludes: "botActor",
+        response: {
+          data: {
+            issue: {
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-uuid-1",
+                    body: "From a workspace user",
+                    createdAt: "2024-01-15T10:30:00Z",
+                    // updatedAt moved without the author editing anything.
+                    updatedAt: "2024-01-16T09:00:00Z",
+                    editedAt: null,
+                    url: "https://linear.app/issue/TEST-123#comment-uuid-1",
+                    user: {
+                      id: "user-uuid-123",
+                      name: "testuser",
+                      displayName: "Ada Lovelace",
+                    },
+                    externalUser: null,
+                    botActor: null,
+                    parent: null,
+                  },
+                  {
+                    id: "comment-uuid-2",
+                    body: "From an external user with a colliding display name",
+                    createdAt: "2024-01-15T11:00:00Z",
+                    updatedAt: "2024-01-15T11:30:00Z",
+                    // The author did revise this one.
+                    editedAt: "2024-01-15T11:30:00Z",
+                    url: "https://linear.app/issue/TEST-123#comment-uuid-2",
+                    user: null,
+                    externalUser: {
+                      id: "external-uuid-456",
+                      name: "ada",
+                      displayName: "Ada Lovelace",
+                    },
+                    botActor: null,
+                    parent: null,
+                  },
+                  {
+                    id: "comment-uuid-3",
+                    body: "Merged in abc1234",
+                    createdAt: "2024-01-15T12:00:00Z",
+                    updatedAt: "2024-01-15T12:00:00Z",
+                    editedAt: null,
+                    url: "https://linear.app/issue/TEST-123#comment-uuid-3",
+                    user: null,
+                    externalUser: null,
+                    botActor: {
+                      id: "bot-uuid-789",
+                      name: "GitHub",
+                      type: "github",
+                      subType: "pullRequest",
+                    },
+                    parent: null,
+                  },
+                  {
+                    id: "comment-uuid-4",
+                    body: "From a bot with no id",
+                    createdAt: "2024-01-15T13:00:00Z",
+                    updatedAt: "2024-01-15T13:00:00Z",
+                    editedAt: null,
+                    url: "https://linear.app/issue/TEST-123#comment-uuid-4",
+                    user: null,
+                    externalUser: null,
+                    // ActorBot is not a Node; id and name are both nullable.
+                    botActor: {
+                      id: null,
+                      name: null,
+                      type: "workflow",
+                      subType: null,
+                    },
+                    parent: null,
+                  },
+                ],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await commentListCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Comment List Command - Bot Authors Render A Name",
+  meta: import.meta,
+  colors: false,
+  args: ["TEST-123"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetIssueId",
+        variables: { id: "TEST-123" },
+        response: { data: { issue: { id: "issue-uuid-123" } } },
+      },
+      {
+        queryName: "GetIssueComments",
+        queryIncludes: "botActor",
+        response: {
+          data: {
+            issue: {
+              comments: {
+                nodes: [
+                  {
+                    id: "comment-uuid-1",
+                    body: "Merged in abc1234",
+                    createdAt: "2024-01-15T12:00:00Z",
+                    updatedAt: "2024-01-15T12:00:00Z",
+                    editedAt: null,
+                    url: "https://linear.app/issue/TEST-123#comment-uuid-1",
+                    user: null,
+                    externalUser: null,
+                    botActor: {
+                      id: "bot-uuid-789",
+                      name: "GitHub",
+                      type: "github",
+                      subType: "pullRequest",
+                    },
+                    parent: null,
+                  },
+                  {
+                    id: "comment-uuid-2",
+                    body: "Falls back to the bot type when name is null",
+                    createdAt: "2024-01-15T12:05:00Z",
+                    updatedAt: "2024-01-15T12:05:00Z",
+                    editedAt: null,
+                    url: "https://linear.app/issue/TEST-123#comment-uuid-2",
+                    user: null,
+                    externalUser: null,
+                    botActor: {
+                      id: null,
+                      name: null,
+                      type: "workflow",
+                      subType: null,
+                    },
+                    parent: { id: "comment-uuid-1" },
+                  },
+                  {
+                    id: "comment-uuid-3",
+                    body: "Genuinely author-less",
+                    createdAt: "2024-01-15T12:10:00Z",
+                    updatedAt: "2024-01-15T12:10:00Z",
+                    editedAt: null,
+                    url: "https://linear.app/issue/TEST-123#comment-uuid-3",
+                    user: null,
+                    externalUser: null,
+                    botActor: null,
+                    parent: null,
+                  },
+                ],
+                pageInfo: { hasNextPage: false, endCursor: null },
               },
             },
           },
