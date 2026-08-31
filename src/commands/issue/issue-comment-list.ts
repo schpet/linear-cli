@@ -32,8 +32,10 @@ export const commentListCommand = new Command()
                 body
                 createdAt
                 updatedAt
+                editedAt
                 url
                 user {
+                  id
                   name
                   displayName
                 }

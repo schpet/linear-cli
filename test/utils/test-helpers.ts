@@ -7,6 +7,7 @@ export const commonDenoArgs = ["--allow-all", "--quiet"]
 export async function setupMockLinearServer(
   mockResponses: Array<{
     queryName: string
+    queryIncludes?: string
     variables?: Record<string, unknown>
     response: Record<string, unknown>
   }>,

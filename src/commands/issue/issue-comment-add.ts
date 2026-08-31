@@ -25,6 +25,9 @@ export const commentAddCommand = new Command()
     "Read comment body from a file (preferred for markdown content)",
   )
   .option("-p, --parent <id:string>", "Parent comment ID for replies")
+  .option("--id <uuid:string>", "Caller-supplied UUID for the new comment", {
+    hidden: true,
+  })
   .option(
     "-a, --attach <filepath:string>",
     "Upload a file and add its Markdown link to the comment (images render inline; repeatable)",
@@ -35,7 +38,7 @@ export const commentAddCommand = new Command()
     "Upload attached images to a public, unauthenticated URL (default: private, workspace-members only)",
   )
   .action(async (options, issueId) => {
-    const { body, bodyFile, parent, attach, public: makePublic } = options
+    const { body, bodyFile, parent, id, attach, public: makePublic } = options
 
     try {
       // Validate that body and bodyFile are not both provided
@@ -167,6 +170,8 @@ export const commentAddCommand = new Command()
         body: commentBody,
         issueId: resolvedIdentifier,
       }
+
+      if (id) input.id = id
 
       if (parent) {
         input.parentId = parent

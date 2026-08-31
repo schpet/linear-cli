@@ -57,6 +57,59 @@ await snapshotTest({
   },
 })
 
+await snapshotTest({
+  name: "Issue Comment Add Command - With Caller Supplied ID",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "TEST-123",
+    "--body",
+    "Bound authority marker",
+    "--id",
+    "123e4567-e89b-42d3-a456-426614174000",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetIssueId",
+        variables: { id: "TEST-123" },
+        response: { data: { issue: { id: "issue-uuid-123" } } },
+      },
+      {
+        queryName: "AddComment",
+        variables: {
+          input: {
+            body: "Bound authority marker",
+            id: "123e4567-e89b-42d3-a456-426614174000",
+            issueId: "TEST-123",
+          },
+        },
+        response: {
+          data: {
+            commentCreate: {
+              success: true,
+              comment: {
+                id: "123e4567-e89b-42d3-a456-426614174000",
+                body: "Bound authority marker",
+                createdAt: "2024-01-15T10:30:00Z",
+                url: "https://linear.app/issue/TEST-123#comment-uuid",
+                user: { name: "testuser", displayName: "Test User" },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await commentAddCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
 // Test replying to a comment with parent flag
 await snapshotTest({
   name: "Issue Comment Add Command - With Parent Flag",
