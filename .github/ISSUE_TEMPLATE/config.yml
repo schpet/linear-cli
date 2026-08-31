@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or usage help
+    url: https://github.com/schpet/linear-cli/discussions
+    about: Ask about installing, configuring, or using linear-cli.
