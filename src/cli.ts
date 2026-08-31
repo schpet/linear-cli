@@ -32,7 +32,8 @@ export const cli = new Command()
     `Handy linear commands from the command line.
 
 Environment Variables:
-  LINEAR_DEBUG=1    Show full error details including stack traces`,
+  LINEAR_DEBUG=1              Show full error details including stack traces
+  LINEAR_IGNORE_ENV_FILE=1    Skip loading .env files`,
   )
   .globalOption(
     "--workspace <slug:string>",
