@@ -68,6 +68,7 @@ Deno.test("Issue List Command - Filter By Label", async () => {
                   name: "In Progress",
                   color: "#f2c94c",
                   type: "started",
+                  position: 2.0,
                 },
                 labels: {
                   nodes: [{
