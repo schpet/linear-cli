@@ -15,7 +15,7 @@ Deno.test("Issue Start Command - Does Not Require Sort Config", async () => {
       queryName: "GetIssuesForState",
       variables: {
         sort: [
-          { workflowState: { order: "Descending" } },
+          { workflowState: { order: "Ascending" } },
           { priority: { nulls: "last", order: "Descending" } },
           { manual: { nulls: "last", order: "Ascending" } },
         ],

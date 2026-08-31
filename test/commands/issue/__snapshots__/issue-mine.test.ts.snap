@@ -34,3 +34,18 @@ Options:
 stderr:
 ""
 `;
+
+snapshot[`Issue Mine Command - Groups Statuses In Linear's Order 1`] = `
+stdout:
+"◌   ID    TITLE                LABELS B E STATE       UPDATED     
+--- ENG-1 Someday                       - Backlog     155 days ago
+--- ENG-5 Next up                       - Todo        155 days ago
+--- ENG-3 Doing it                      - In Progress 155 days ago
+--- ENG-2 Reviewing                     - In Review   155 days ago
+--- ENG-4 Shipped                       - Done        155 days ago
+--- ENG-6 Rejected work                 - Rejected    155 days ago
+--- ENG-7 From a future status          - Paused      155 days ago
+"
+stderr:
+""
+`;

@@ -59,7 +59,8 @@ stdout:
         "id": "state-1",
         "name": "In Progress",
         "color": "#f2c94c",
-        "type": "started"
+        "type": "started",
+        "position": 2
       },
       "assignee": {
         "id": "user-1",

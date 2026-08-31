@@ -40,6 +40,7 @@ const mockIssueNode = {
     name: "In Progress",
     color: "#f2c94c",
     type: "started",
+    position: 2.0,
   },
   assignee: {
     id: "user-1",
@@ -68,6 +69,13 @@ const mockIssueNode = {
   inverseRelations: { nodes: [] },
 }
 
+// `SearchIssues` selects state { id name color type } without `position`, so the
+// search fixture must not carry it — otherwise the search JSON snapshot would
+// assert a field the command never requested.
+const { position: _searchStatePosition, ...mockSearchState } =
+  mockIssueNode.state
+const mockSearchIssueNode = { ...mockIssueNode, state: mockSearchState }
+
 // Test JSON output with filter mode (issues() backend)
 await snapshotTest({
   name: "Issue Query Command - JSON Output",
@@ -91,7 +99,7 @@ await snapshotTest({
             state: { type: { in: ["started"] } },
           },
           sort: [
-            { workflowState: { order: "Descending" } },
+            { workflowState: { order: "Ascending" } },
             { priority: { nulls: "last", order: "Descending" } },
             { manual: { nulls: "last", order: "Ascending" } },
           ],
@@ -145,7 +153,7 @@ await snapshotTest({
           data: {
             searchIssues: {
               nodes: [{
-                ...mockIssueNode,
+                ...mockSearchIssueNode,
                 metadata: { context: {}, score: 0.42 },
               }],
               pageInfo: { hasNextPage: false, endCursor: "cursor-1" },
@@ -185,7 +193,7 @@ Deno.test("Issue Query Command - All Teams shows TEAM column", async () => {
       queryName: "GetIssuesForQuery",
       variables: {
         sort: [
-          { workflowState: { order: "Descending" } },
+          { workflowState: { order: "Ascending" } },
           { priority: { nulls: "last", order: "Descending" } },
           { manual: { nulls: "last", order: "Ascending" } },
         ],
@@ -707,5 +715,130 @@ Deno.test("shouldShowDefaultTeamNote - full source matrix", () => {
       expectations[source],
       source,
     )
+  }
+})
+
+// Cross-team results must not compare one team's state positions against
+// another's — those numbers are team-local and unrelated. So a multi-team
+// listing groups by type group only and otherwise preserves the server's
+// ordering, which keeps priority order intact inside each group.
+//
+// Here APP's "Doing" sits at position 900 and ENG's "Backlog" at 7. Ranking
+// those numbers globally would interleave the two teams incoherently and, worse,
+// would reorder issues across teams by an arbitrary number rather than by
+// priority. The expected result groups both `backlog` issues first (backlog
+// precedes started in Linear's type order), then both `started` issues, with
+// each group keeping the server's priority order.
+Deno.test("Issue Query Command - Multi-team results group by type without comparing team-local positions", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetIssuesForQuery",
+      queryIncludes: "position",
+      response: {
+        data: {
+          issues: {
+            nodes: [
+              {
+                ...mockIssueNode,
+                id: "i-eng-1",
+                identifier: "ENG-1",
+                priority: 1,
+                state: {
+                  id: "s-eng-1",
+                  name: "In Progress",
+                  color: "#e2e2e2",
+                  type: "started",
+                  position: 2,
+                },
+                team: {
+                  id: "team-eng",
+                  key: "ENG",
+                  name: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
+              },
+              {
+                ...mockIssueNode,
+                id: "i-app-1",
+                identifier: "APP-1",
+                priority: 2,
+                state: {
+                  id: "s-app-1",
+                  name: "Doing",
+                  color: "#e2e2e2",
+                  type: "started",
+                  position: 900,
+                },
+                team: {
+                  id: "team-app",
+                  key: "APP",
+                  name: "APP",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
+              },
+              {
+                ...mockIssueNode,
+                id: "i-app-2",
+                identifier: "APP-2",
+                priority: 1,
+                state: {
+                  id: "s-app-2",
+                  name: "Icebox",
+                  color: "#e2e2e2",
+                  type: "backlog",
+                  position: 0,
+                },
+                team: {
+                  id: "team-app",
+                  key: "APP",
+                  name: "APP",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
+              },
+              {
+                ...mockIssueNode,
+                id: "i-eng-2",
+                identifier: "ENG-2",
+                priority: 3,
+                state: {
+                  id: "s-eng-2",
+                  name: "Backlog",
+                  color: "#e2e2e2",
+                  type: "backlog",
+                  position: 7,
+                },
+                team: {
+                  id: "team-eng",
+                  key: "ENG",
+                  name: "ENG",
+                  cyclesEnabled: false,
+                  activeCycle: null,
+                },
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], { NO_COLOR: "true" })
+
+  const logs: string[] = []
+  const logStub = stub(console, "log", (...args: unknown[]) => {
+    logs.push(args.map(String).join(" "))
+  })
+
+  try {
+    await queryCommand.parse(["--all-teams"])
+    const order = logs.join("\n").split("\n")
+      .map((line) => line.match(/\b(?:ENG|APP)-\d+/)?.[0])
+      .filter((id): id is string => id != null)
+    assertEquals(order, ["APP-2", "ENG-2", "ENG-1", "APP-1"])
+  } finally {
+    logStub.restore()
+    await cleanup()
   }
 })
