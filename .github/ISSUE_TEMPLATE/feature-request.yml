@@ -1,0 +1,30 @@
+name: Feature request
+description: Propose a change to linear-cli.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are for bugs and feature requests in linear-cli. Usage questions belong in [Discussions](https://github.com/schpet/linear-cli/discussions). See [CONTRIBUTING.md](https://github.com/schpet/linear-cli/blob/main/CONTRIBUTING.md) for what is in scope.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What were you trying to do, and what got in the way? Describe the use case, not only the fix you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What you would like linear-cli to do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds or other approaches you looked at.
