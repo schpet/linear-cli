@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "@std/assert"
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert"
 import { fromFileUrl } from "@std/path"
 import {
   getOption,
@@ -735,11 +735,30 @@ Deno.test("resolveIssueSort - defaults to priority when nothing is configured", 
 // directory as XDG_CONFIG_HOME so one global config file covers both
 // platforms' lookup paths.
 
-async function runTeamSourceSubprocess(options: {
+async function initGitRepo(dir: string): Promise<void> {
+  const { success } = await new Deno.Command("git", {
+    args: ["init", "--quiet"],
+    cwd: dir,
+    stdout: "null",
+    stderr: "null",
+  }).output()
+  if (!success) throw new Error(`git init failed in ${dir}`)
+}
+
+interface TeamSourceRun {
+  result: unknown
+  stderr: string
+}
+
+/**
+ * Like runTeamSourceSubprocess, but returns stderr instead of echoing it, so
+ * tests can assert on the startup warnings config.ts emits there.
+ */
+async function runTeamSourceSubprocessRaw(options: {
   cwd: string
   home: string
   extraEnv?: Record<string, string>
-}): Promise<unknown> {
+}): Promise<TeamSourceRun> {
   const configUrl = new URL("../src/config.ts", import.meta.url)
   const denoJsonPath = fromFileUrl(new URL("../deno.json", import.meta.url))
   const homeDir = Deno.env.get("HOME")
@@ -757,6 +776,8 @@ async function runTeamSourceSubprocess(options: {
       HOME: options.home,
       XDG_CONFIG_HOME: `${options.home}/.config`,
       PATH: Deno.env.get("PATH") ?? "",
+      // Keep startup warnings free of ANSI escapes so tests can match on text.
+      NO_COLOR: "1",
       ...(denoDir == null ? {} : { DENO_DIR: denoDir }),
       ...(Deno.build.os === "windows"
         ? {
@@ -768,13 +789,27 @@ async function runTeamSourceSubprocess(options: {
     },
     stdout: "piped",
     stderr: "piped",
+    // A .env that makes module init hang would otherwise wedge the suite
+    // forever rather than fail; see the shell-variable test below.
+    signal: AbortSignal.timeout(60_000),
   })
   const { stdout, stderr } = await command.output()
-  const errorOutput = new TextDecoder().decode(stderr)
-  if (errorOutput) {
-    console.error("Subprocess stderr:", errorOutput)
+  return {
+    result: JSON.parse(new TextDecoder().decode(stdout).trim()),
+    stderr: new TextDecoder().decode(stderr),
   }
-  return JSON.parse(new TextDecoder().decode(stdout).trim())
+}
+
+async function runTeamSourceSubprocess(options: {
+  cwd: string
+  home: string
+  extraEnv?: Record<string, string>
+}): Promise<unknown> {
+  const { result, stderr } = await runTeamSourceSubprocessRaw(options)
+  if (stderr) {
+    console.error("Subprocess stderr:", stderr)
+  }
+  return result
 }
 
 Deno.test("getOptionWithSource - project config file yields project-config source", async () => {
@@ -846,6 +881,228 @@ Deno.test("getOptionWithSource - a .env directory is ignored, not fatal", async 
     await Deno.mkdir(`${projectDir}/.env`)
     const result = await runTeamSourceSubprocess({ cwd: projectDir, home })
     assertEquals(result, null)
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - an unusable .env warns on stderr instead of passing silently", async () => {
+  // Staying silent would hide a file the user probably believes is configuring
+  // the CLI, so the compromise is: never fatal, but always say so on stderr.
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.mkdir(`${projectDir}/.env`)
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: projectDir,
+      home,
+    })
+    assertEquals(result, null)
+    assertStringIncludes(stderr, "Warning: Ignoring")
+    assertStringIncludes(stderr, "it is a directory, not a file")
+    assertStringIncludes(stderr, "LINEAR_IGNORE_ENV_FILE=1")
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - a .env directory falls back to the repository root .env", async () => {
+  const repoDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await initGitRepo(repoDir)
+    await Deno.writeTextFile(`${repoDir}/.env`, "LINEAR_TEAM_ID=ENG\n")
+    const packageDir = `${repoDir}/packages/app`
+    await Deno.mkdir(`${packageDir}/.env`, { recursive: true })
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: packageDir,
+      home,
+    })
+    assertEquals(result, { value: "ENG", source: "project-env" })
+    assertStringIncludes(stderr, "Warning: Ignoring")
+  } finally {
+    await Deno.remove(repoDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - a repository root .env directory is ignored, not fatal", async () => {
+  const repoDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await initGitRepo(repoDir)
+    await Deno.mkdir(`${repoDir}/.env`)
+    const packageDir = `${repoDir}/packages/app`
+    await Deno.mkdir(packageDir, { recursive: true })
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: packageDir,
+      home,
+    })
+    assertEquals(result, null)
+    assertStringIncludes(stderr, "Warning: Ignoring")
+  } finally {
+    await Deno.remove(repoDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - a shell-style .env with variable references does not hang startup", async () => {
+  // `export PATH=$PATH:/opt/bin` is ordinary in a .env meant to be sourced by a
+  // shell, and it used to spin @std/dotenv's expansion loop forever, hanging
+  // every command before it dispatched. A regression here fails on the
+  // subprocess timeout rather than returning a wrong value.
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(
+      `${projectDir}/.env`,
+      [
+        "export PATH=$PATH:/opt/bin",
+        'if [[ -n "$CI" ]]; then',
+        "  echo building",
+        "fi",
+        "LINEAR_TEAM_ID=ENG",
+        "",
+      ].join("\n"),
+    )
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: projectDir,
+      home,
+    })
+    assertEquals(result, { value: "ENG", source: "project-env" })
+    // PATH is not a key this CLI applies, so skipping it is not worth a warning.
+    assertEquals(stderr, "")
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - a shell variable reference in a linear key is refused, not silently corrupted", async () => {
+  // The dotenv expander resolves an unset reference to the literal string
+  // "undefined"; refusing the value and saying so beats a corrupt team id.
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(
+      `${projectDir}/.env`,
+      "LINEAR_TEAM_ID=$SOME_UNSET_VARIABLE\n",
+    )
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: projectDir,
+      home,
+    })
+    assertEquals(result, null)
+    assertStringIncludes(stderr, "LINEAR_TEAM_ID")
+    assertStringIncludes(stderr, "references a shell variable")
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - a dollar sign that cannot expand does not block the value", async () => {
+  // Only real `${NAME}` / `$NAME` references are refused. A `$` inside a
+  // trailing comment or a quoted value never reaches the expander, so treating
+  // it as one would drop a perfectly good setting.
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(
+      `${projectDir}/.env`,
+      "LINEAR_TEAM_ID=ENG # owned by $TEAM\n",
+    )
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: projectDir,
+      home,
+    })
+    assertEquals(result, { value: "ENG", source: "project-env" })
+    assertEquals(stderr, "")
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - a quoted value containing a hash is kept intact", async () => {
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(
+      `${projectDir}/.env`,
+      'LINEAR_TEAM_ID="ENG # 1"\n',
+    )
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: projectDir,
+      home,
+    })
+    assertEquals(result, { value: "ENG # 1", source: "project-env" })
+    assertEquals(stderr, "")
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - a quoted dollar reference is kept, since dotenv never expands it", async () => {
+  // @std/dotenv expands `$NAME` only in unquoted values, so a quoted one is
+  // neither a hang risk nor a corruption risk and must survive the filter.
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(
+      `${projectDir}/.env`,
+      "LINEAR_TEAM_ID='$ENG'\n",
+    )
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: projectDir,
+      home,
+    })
+    assertEquals(result, { value: "$ENG", source: "project-env" })
+    assertEquals(stderr, "")
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - a skipped key the environment already sets is not reported", async () => {
+  // The .env value would have lost to the process environment regardless, so
+  // warning that we skipped it would point at a problem that changed nothing.
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(
+      `${projectDir}/.env`,
+      "LINEAR_TEAM_ID=$SOME_UNSET_VARIABLE\n",
+    )
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: projectDir,
+      home,
+      extraEnv: { LINEAR_TEAM_ID: "OPS" },
+    })
+    assertEquals(result, { value: "OPS", source: "env" })
+    assertEquals(stderr, "")
+  } finally {
+    await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+Deno.test("getOptionWithSource - LINEAR_IGNORE_ENV_FILE skips .env loading entirely", async () => {
+  const projectDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.mkdir(`${projectDir}/.env`)
+    const { result, stderr } = await runTeamSourceSubprocessRaw({
+      cwd: projectDir,
+      home,
+      extraEnv: { LINEAR_IGNORE_ENV_FILE: "1" },
+    })
+    assertEquals(result, null)
+    assertEquals(stderr, "")
   } finally {
     await Deno.remove(projectDir, { recursive: true })
     await Deno.remove(home, { recursive: true })

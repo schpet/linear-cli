@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- linear no longer crashes on startup when `.env` is a directory rather than a file, and no longer hangs forever on a `.env` written to be `source`d by a shell (a self-referential value such as `export PATH=$PATH:/opt/bin` spun the dotenv expander's loop indefinitely). An unusable `.env` is now reported as a warning on stderr and skipped, and the repository-root `.env` is still consulted as a fallback
+
+### Changed
+
+- an unquoted `$VAR` reference in a `LINEAR_`/`GH_`/`GITHUB_` value is now skipped with a warning rather than expanded. Expansion of an unset variable silently produced the string `"undefined"`, and a self-referential one hung. Quoted values are unaffected, since dotenv never expanded those
+
+### Added
+
+- `LINEAR_IGNORE_ENV_FILE=1` skips `.env` loading entirely, for repositories whose `.env` is not dotenv-shaped
+
 ## [2.5.0] - 2026-08-11
 
 ### Changed
