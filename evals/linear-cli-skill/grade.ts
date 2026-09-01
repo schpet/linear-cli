@@ -23,6 +23,7 @@ export interface ShimEntry {
   tool: "linear" | "curl" | "npx" | "npm"
   argv: string[]
   stdin: string
+  body?: string
 }
 
 export interface TrialRecord {

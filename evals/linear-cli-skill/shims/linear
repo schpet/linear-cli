@@ -9,7 +9,7 @@
 set -u
 
 LOG="${LINEAR_SHIM_LOG:?LINEAR_SHIM_LOG must be set}"
-REPO="${LINEAR_SHIM_REPO:?LINEAR_SHIM_REPO must be set}"
+REPO="${LINEAR_SHIM_REPO:-}"
 
 # Capture GraphQL heredocs piped to `linear api` so grading can inspect the
 # query text. Other commands never read stdin.
@@ -18,15 +18,74 @@ if [ "${1:-}" = "api" ] && [ ! -t 0 ]; then
   STDIN_DATA=$(cat)
 fi
 
+# Capture Markdown at the CLI boundary so behavioral evals can grade what an
+# agent actually submitted without letting the fake mutation touch Linear.
+BODY=""
+PREV=""
+for ARG in "$@"; do
+  case "$PREV" in
+    --body | -b | --description | -d)
+      BODY="$ARG"
+      break
+      ;;
+    --body-file | --description-file)
+      if [ -r "$ARG" ]; then BODY=$(cat -- "$ARG"); fi
+      break
+      ;;
+  esac
+  case "$ARG" in
+    --body=* | --description=*)
+      BODY="${ARG#*=}"
+      break
+      ;;
+    --body-file=* | --description-file=*)
+      BODY_FILE="${ARG#*=}"
+      if [ -r "$BODY_FILE" ]; then BODY=$(cat -- "$BODY_FILE"); fi
+      break
+      ;;
+  esac
+  PREV="$ARG"
+done
+
 # Argv goes to jq on stdin, delimited by the ASCII unit separator (0x1f):
 # jq's --args treats dash-prefixed values (e.g. --team) as its own options,
 # and jq strings cannot represent NUL, so neither works for arbitrary argv.
 if [ "$#" -eq 0 ]; then
-  jq -cn --arg stdin "$STDIN_DATA" \
-    '{tool: "linear", argv: [], stdin: $stdin}' >> "$LOG"
+  jq -cn --arg stdin "$STDIN_DATA" --arg body "$BODY" \
+    '{tool: "linear", argv: [], stdin: $stdin, body: $body}' >> "$LOG"
 else
-  printf '%s\x1f' "$@" | jq -Rsc --arg stdin "$STDIN_DATA" \
-    '{tool: "linear", argv: split("\u001f")[:-1], stdin: $stdin}' >> "$LOG"
+  printf '%s\x1f' "$@" | jq -Rsc --arg stdin "$STDIN_DATA" --arg body "$BODY" \
+    '{tool: "linear", argv: split("\u001f")[:-1], stdin: $stdin, body: $body}' >> "$LOG"
+fi
+
+# The Claude Markdown eval must be hermetic. Its subject can ask for discovery,
+# but discovery is answered locally instead of executing the repository CLI.
+# Keep this after logging so every attempted command remains auditable.
+if [ "${LINEAR_SHIM_OFFLINE:-}" = "1" ]; then
+  if [ "${1:-}" = "__eval-environment" ]; then exit 0; fi
+  for arg in "$@"; do
+    case "$arg" in
+      --version)
+        printf 'linear 2.5.0 (eval shim)\n'
+        exit 0
+        ;;
+      --help | -h)
+        printf 'Linear CLI eval shim. Dedicated commands accept the documented arguments.\n'
+        exit 0
+        ;;
+    esac
+  done
+  if [ "${1:-}" = "schema" ]; then
+    OUTPUT=""
+    PREV=""
+    for arg in "$@"; do
+      if [ "$PREV" = "-o" ] || [ "$PREV" = "--output" ]; then OUTPUT="$arg"; fi
+      PREV="$arg"
+    done
+    SCHEMA='type User { id: ID! name: String! displayName: String! url: String! }'
+    if [ -n "$OUTPUT" ]; then printf '%s\n' "$SCHEMA" > "$OUTPUT"; else printf '%s\n' "$SCHEMA"; fi
+    exit 0
+  fi
 fi
 
 # Discovery goes to the real CLI so help output is accurate for the skill
@@ -34,11 +93,13 @@ fi
 for arg in "$@"; do
   case "$arg" in
     --help | -h | --version)
+      [ -n "$REPO" ] || { printf 'LINEAR_SHIM_REPO must be set outside offline mode\n' >&2; exit 1; }
       NO_COLOR=1 exec deno run --quiet --allow-all "$REPO/src/main.ts" "$@"
       ;;
   esac
 done
 if [ "${1:-}" = "schema" ]; then
+  [ -n "$REPO" ] || { printf 'LINEAR_SHIM_REPO must be set outside offline mode\n' >&2; exit 1; }
   NO_COLOR=1 exec deno run --quiet --allow-all "$REPO/src/main.ts" "$@"
 fi
 
@@ -204,6 +265,25 @@ case "${1:-} ${2:-}" in
   "issue title")
     printf 'Fix login redirect loop\n'
     ;;
+  "user list")
+    if has_flag --json "$@" || has_flag -j "$@"; then
+      printf '%s\n' '{"nodes":[{"id":"user-priya","name":"Priya Patel","displayName":"priya","email":"priya@acme.test","active":true,"url":"https://linear.app/acme/profiles/priya"},{"id":"user-sam","name":"Sam Reyes","displayName":"sam","email":"sam@acme.test","active":true,"url":"https://linear.app/acme/profiles/sam"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}'
+    else
+      printf 'Workspace Members (2):\n\npriya [PP]\n  Email: priya@acme.test\n\nsam [SR]\n  Email: sam@acme.test\n\n'
+    fi
+    ;;
+  "team members")
+    TEAM="${3:-ENG}"
+    if has_flag --json "$@" || has_flag -j "$@"; then
+      if [ "$TEAM" = "OPS" ]; then
+        printf '%s\n' '{"nodes":[{"id":"user-sam","name":"Sam Reyes","displayName":"sam","email":"sam@acme.test","active":true,"url":"https://linear.app/acme/profiles/sam"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}'
+      else
+        printf '%s\n' '{"nodes":[{"id":"user-priya","name":"Priya Patel","displayName":"priya","email":"priya@acme.test","active":true,"url":"https://linear.app/acme/profiles/priya"}],"pageInfo":{"hasNextPage":false,"endCursor":null}}'
+      fi
+    else
+      printf 'Team Members (1):\n\n%s\n' "$TEAM"
+    fi
+    ;;
   "issue create")
     TITLE=$(flag_value "--title -t" "$@") || TITLE="New issue"
     PREFIX=$(flag_value "--team" "$@") || PREFIX="ENG"
@@ -287,12 +367,6 @@ case "${1:-} ${2:-}" in
     ;;
   "team states")
     printf 'Triage\nBacklog\nTodo\nIn Progress\nIn Review\nDone\nCanceled\n'
-    ;;
-  "team members")
-    printf 'sam    Sam Reyes\npriya  Priya Patel\n'
-    ;;
-  "user list")
-    printf 'sam    Sam Reyes    sam@acme.test\npriya  Priya Patel  priya@acme.test\n'
     ;;
   "label list")
     printf 'bug\ndocs\napi\ninfra\nsecurity\ntech-debt\n'

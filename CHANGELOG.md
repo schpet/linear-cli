@@ -4,6 +4,7 @@
 
 ### Added
 
+- `team members --json` and `user list --json` now include each member's canonical Linear `url`, so callers can create real Markdown mentions without guessing profile slugs
 - `issue pr` accepts `--template/-T <file>` to start the pull request body from a template file, with a `pr_template` config option (`LINEAR_PR_TEMPLATE`) as a per-project default and `--no-template` to skip that default for one invocation. The Linear issue URL is appended after the template, so the pull request stays linked to its issue
 - issue comment list --json now exposes stable author identity: `user.id`, `externalUser.id`, and a `botActor` object (`id`, `name`, `type`, `subType`) for comments posted by integrations. Display names are editable and can collide across a workspace — an external user's display name can even match a real member's — so programs consuming the JSON previously had nothing reliable to attribute a comment with
 - issue comment list --json now includes `editedAt`, which is set only when a comment's author revised it. `updatedAt` also moves for unrelated backend churn, so it could not answer "has this been changed since it was written?"
