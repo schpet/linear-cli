@@ -1801,6 +1801,7 @@ export async function getTeamMembers(
             admin
             owner
             isMe
+            url
           }
           pageInfo {
             hasNextPage
@@ -1890,6 +1891,7 @@ export async function getOrganizationMembers(
               admin
               owner
               isMe
+              url
             }
             pageInfo {
               hasNextPage
