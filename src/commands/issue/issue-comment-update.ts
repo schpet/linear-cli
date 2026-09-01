@@ -3,10 +3,11 @@ import { Input } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 export const commentUpdateCommand = new Command()
   .name("update")
-  .description("Update an existing comment")
+  .description(withMarkdownHint("Update an existing comment"))
   .arguments("<commentId:string>")
   .option("-b, --body <text:string>", "New comment body text")
   .option(

@@ -19,6 +19,7 @@ import {
   resolveDocumentTarget,
   toDocumentTargetInput,
 } from "./attachment-target.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 const GetDocumentForEdit = gql(`
   query GetDocumentForEdit($id: String!) {
@@ -177,7 +178,7 @@ async function readContentFromStdin(): Promise<string | undefined> {
 
 export const updateCommand = new Command()
   .name("update")
-  .description("Update an existing document")
+  .description(withMarkdownHint("Update an existing document"))
   .alias("u")
   .arguments("<documentId:string>")
   .option("-t, --title <title:string>", "New title for the document")

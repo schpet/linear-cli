@@ -152,7 +152,12 @@ Usage:   linear issue comment add [issueId]
 
 Description:
 
-  Add a comment or reply; images uploaded with --attach render inline
+  Add a comment or reply; images uploaded with --attach render inline             
+                                                                                  
+  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
+  and `[Name](url)` do not. Get a person's URL from the `url` field of            
+  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+  Run `linear markdown` for collapsible sections and the full reference.          
 
 Options:
 
@@ -205,7 +210,12 @@ Usage:   linear issue comment update <commentId>
 
 Description:
 
-  Update an existing comment
+  Update an existing comment                                                      
+                                                                                  
+  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
+  and `[Name](url)` do not. Get a person's URL from the `url` field of            
+  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+  Run `linear markdown` for collapsible sections and the full reference.          
 
 Options:
 
@@ -241,7 +251,12 @@ Usage:   linear issue create
 
 Description:
 
-  Create a linear issue
+  Create a linear issue                                                           
+                                                                                  
+  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
+  and `[Name](url)` do not. Get a person's URL from the `url` field of            
+  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+  Run `linear markdown` for collapsible sections and the full reference.          
 
 Options:
 
@@ -394,13 +409,16 @@ Description:
 
 Options:
 
-  -h, --help             - Show this help.                                                         
-  --workspace  <slug>    - Target workspace (uses credentials)                                     
-  --base       <branch>  - The branch into which you want your code merged                         
-  --draft                - Create the pull request as a draft                                      
-  -t, --title  <title>   - Optional title for the pull request (Linear issue ID will be prefixed)  
-  --web                  - Open the pull request in the browser after creating it                  
-  --head       <branch>  - The branch that contains commits for your pull request
+  -h, --help                - Show this help.                                                               
+  --workspace     <slug>    - Target workspace (uses credentials)                                           
+  --base          <branch>  - The branch into which you want your code merged                               
+  --draft                   - Create the pull request as a draft                                            
+  -t, --title     <title>   - Optional title for the pull request (Linear issue ID will be prefixed)        
+  --web                     - Open the pull request in the browser after creating it                        
+  --head          <branch>  - The branch that contains commits for your pull request                        
+  -T, --template  <file>    - Start the pull request body from this template file (the Linear issue URL is  
+                              appended)                                                                     
+  --no-template             - Ignore the pr_template config option for this pull request
 ```
 
 ### query
@@ -567,7 +585,12 @@ Usage:   linear issue update [issueId]
 
 Description:
 
-  Update a linear issue
+  Update a linear issue                                                           
+                                                                                  
+  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
+  and `[Name](url)` do not. Get a person's URL from the `url` field of            
+  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+  Run `linear markdown` for collapsible sections and the full reference.          
 
 Options:
 

@@ -19,6 +19,7 @@ import {
   PROJECT_DESCRIPTION_MAX_LENGTH,
   resolveProjectDescription,
 } from "./project-description.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 const UpdateProject = gql(`
   mutation UpdateProject($id: String!, $input: ProjectUpdateInput!) {
@@ -60,7 +61,7 @@ const STATUS_TYPE_MAPPING: Record<string, string> = {
 
 export const updateCommand = new Command()
   .name("update")
-  .description("Update a Linear project")
+  .description(withMarkdownHint("Update a Linear project"))
   .arguments("<projectId:string>")
   .option("-n, --name <name:string>", "Project name")
   .option(

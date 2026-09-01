@@ -12,6 +12,7 @@
 
 ### Changed
 
+- CLI help now explains how to create real Linear Markdown mentions and collapsible sections, so an agent driving the CLI without the bundled skill still gets it right. The ten commands that take a Markdown body carry the rule inline (`@name` mentions nobody; a plain Linear URL does) and point at a new `linear markdown` reference, and `team members --json` / `user list --json` say what the `url` field is for
 - `issue mine`, `issue query`, `issue start`, and `team states` now group statuses in the same order as the Linear app: by workflow state type, then by the team's configured position within that type. Issue listings previously ran the order backwards (canceled and done first), and every status list sorted on raw position alone, which stranded a late-positioned status such as an "In Review" at position 1002 after "Duplicate" instead of beside "In Progress"
 - when `--limit` truncates an issue listing, the retained issues are now the most actionable rather than the most recently closed. The Linear API cannot sort by a team's configured positions, so it still selects which issues are fetched; that selection changed from closed-first to open-first. A status this build does not recognize sorts after all known ones
 - an unquoted `$VAR` reference in a `LINEAR_`/`GH_`/`GITHUB_` value is now skipped with a warning rather than expanded. Expansion of an unset variable silently produced the string `"undefined"`, and a self-referential one hung. Quoted values are unaffected, since dotenv never expanded those

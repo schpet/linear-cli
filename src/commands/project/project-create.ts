@@ -22,6 +22,7 @@ import {
   PROJECT_DESCRIPTION_MAX_LENGTH,
   resolveProjectDescription,
 } from "./project-description.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 const CreateProject = gql(`
   mutation CreateProject($input: ProjectCreateInput!) {
@@ -160,7 +161,7 @@ export async function resolveProjectContent(
 
 export const createCommand = new Command()
   .name("create")
-  .description("Create a new Linear project")
+  .description(withMarkdownHint("Create a new Linear project"))
   .option("-n, --name <name:string>", "Project name (required)")
   .option(
     "-d, --description <description:string>",

@@ -12,6 +12,7 @@ import {
 } from "../../utils/upload.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 // Linear documents CommentCreateInput.id as "The identifier in UUID v4 format".
 const UUID_V4_REGEX =
@@ -20,7 +21,9 @@ const UUID_V4_REGEX =
 export const commentAddCommand = new Command()
   .name("add")
   .description(
-    "Add a comment or reply; images uploaded with --attach render inline",
+    withMarkdownHint(
+      "Add a comment or reply; images uploaded with --attach render inline",
+    ),
   )
   .arguments("[issueId:string]")
   .option("-b, --body <text:string>", "Comment body text")
