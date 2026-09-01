@@ -808,6 +808,8 @@ Deno.test("Issue Mine Command - Shows Cycle Column", async () => {
 //
 // `queryIncludes` pins the GraphQL selection: the mock echoes fixtures verbatim,
 // so without it this would still pass if the query stopped requesting position.
+// Use a fixed future update time because this snapshot tests ordering, not the
+// current date; formatRelativeTime renders future values deterministically.
 await cliffySnapshotTest({
   name: "Issue Mine Command - Groups Statuses In Linear's Order",
   meta: import.meta,
@@ -846,7 +848,7 @@ await cliffySnapshotTest({
                     activeCycle: null,
                   },
                   inverseRelations: { nodes: [] },
-                  updatedAt: "2026-03-29T10:00:00.000Z",
+                  updatedAt: "2099-03-29T10:00:00.000Z",
                 },
                 {
                   id: "issue-eng-2",
@@ -871,7 +873,7 @@ await cliffySnapshotTest({
                     activeCycle: null,
                   },
                   inverseRelations: { nodes: [] },
-                  updatedAt: "2026-03-29T10:00:00.000Z",
+                  updatedAt: "2099-03-29T10:00:00.000Z",
                 },
                 {
                   id: "issue-eng-4",
@@ -896,7 +898,7 @@ await cliffySnapshotTest({
                     activeCycle: null,
                   },
                   inverseRelations: { nodes: [] },
-                  updatedAt: "2026-03-29T10:00:00.000Z",
+                  updatedAt: "2099-03-29T10:00:00.000Z",
                 },
                 {
                   id: "issue-eng-1",
@@ -921,7 +923,7 @@ await cliffySnapshotTest({
                     activeCycle: null,
                   },
                   inverseRelations: { nodes: [] },
-                  updatedAt: "2026-03-29T10:00:00.000Z",
+                  updatedAt: "2099-03-29T10:00:00.000Z",
                 },
                 {
                   id: "issue-eng-7",
@@ -946,7 +948,7 @@ await cliffySnapshotTest({
                     activeCycle: null,
                   },
                   inverseRelations: { nodes: [] },
-                  updatedAt: "2026-03-29T10:00:00.000Z",
+                  updatedAt: "2099-03-29T10:00:00.000Z",
                 },
                 {
                   id: "issue-eng-3",
@@ -971,7 +973,7 @@ await cliffySnapshotTest({
                     activeCycle: null,
                   },
                   inverseRelations: { nodes: [] },
-                  updatedAt: "2026-03-29T10:00:00.000Z",
+                  updatedAt: "2099-03-29T10:00:00.000Z",
                 },
                 {
                   id: "issue-eng-5",
@@ -996,7 +998,7 @@ await cliffySnapshotTest({
                     activeCycle: null,
                   },
                   inverseRelations: { nodes: [] },
-                  updatedAt: "2026-03-29T10:00:00.000Z",
+                  updatedAt: "2099-03-29T10:00:00.000Z",
                 },
               ],
               pageInfo: { hasNextPage: false, endCursor: null },
