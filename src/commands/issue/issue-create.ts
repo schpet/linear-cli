@@ -37,6 +37,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 type IssueLabel = { id: string; name: string; color: string }
 type ProjectOption = { id: string; name: string }
@@ -596,7 +597,7 @@ async function promptInteractiveIssueCreation(
 
 export const createCommand = new Command()
   .name("create")
-  .description("Create a linear issue")
+  .description(withMarkdownHint("Create a linear issue"))
   .option(
     "--start",
     "Start the issue after creation",

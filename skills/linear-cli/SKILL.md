@@ -237,6 +237,8 @@ linear label create
 linear label delete
 linear label list
 
+linear markdown
+
 linear milestone
 linear milestone create
 linear milestone delete
@@ -281,6 +283,7 @@ linear user list
 - [initiative-update](references/initiative-update.md) - Manage initiative status updates (timeline posts)
 - [issue](references/issue.md) - Manage Linear issues
 - [label](references/label.md) - Manage Linear issue labels
+- [markdown](references/markdown.md) - Linear-flavored Markdown: mentions and collapsible sections
 - [milestone](references/milestone.md) - Manage Linear project milestones
 - [project](references/project.md) - Manage Linear projects
 - [project-update](references/project-update.md) - Manage project status updates

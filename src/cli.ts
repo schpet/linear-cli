@@ -16,6 +16,7 @@ import { documentCommand } from "./commands/document/document.ts"
 import { configCommand } from "./commands/config.ts"
 import { schemaCommand } from "./commands/schema.ts"
 import { apiCommand } from "./commands/api.ts"
+import { markdownCommand } from "./commands/markdown.ts"
 import { setCliWorkspace } from "./config.ts"
 
 // Import config and credentials setup
@@ -72,3 +73,4 @@ Environment Variables:
   .alias("configure")
   .command("schema", schemaCommand)
   .command("api", apiCommand)
+  .command("markdown", markdownCommand)

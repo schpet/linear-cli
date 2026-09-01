@@ -36,8 +36,10 @@ Description:
 
 Options:
 
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -a, --all            - Include inactive members             
-  -j, --json           - Output as JSON
+  -h, --help           - Show this help.                                                               
+  --workspace  <slug>  - Target workspace (uses credentials)                                           
+  -a, --all            - Include inactive members                                                      
+  -j, --json           - Output as JSON; a member's url mentions them when pasted into Markdown. This  
+                         searches the whole workspace — prefer `linear team members <TEAM>`, and       
+                         confirm before mentioning someone outside the team
 ```

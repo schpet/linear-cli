@@ -11,9 +11,9 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.           
-  -a, --all   - Include inactive members  
-  -j, --json  - Output as JSON            
+  -h, --help  - Show this help.                                                         
+  -a, --all   - Include inactive members                                                
+  -j, --json  - Output as JSON; a member's url mentions them when pasted into Markdown  
 
 "
 stderr:

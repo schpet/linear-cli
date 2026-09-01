@@ -12,6 +12,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 type ProjectUpdateHealth = "onTrack" | "atRisk" | "offTrack"
 
@@ -55,7 +56,7 @@ const CreateProjectUpdate = gql(`
 
 export const createCommand = new Command()
   .name("create")
-  .description("Create a new status update for a project")
+  .description(withMarkdownHint("Create a new status update for a project"))
   .alias("c")
   .arguments("<projectId:string>")
   .option("--body <body:string>", "Update content (inline)")

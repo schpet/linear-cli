@@ -11,6 +11,7 @@
 - [initiative-update](./initiative-update.md) - Manage initiative status updates (timeline posts)
 - [issue](./issue.md) - Manage Linear issues
 - [label](./label.md) - Manage Linear issue labels
+- [markdown](./markdown.md) - Linear-flavored Markdown: mentions and collapsible sections
 - [milestone](./milestone.md) - Manage Linear project milestones
 - [project](./project.md) - Manage Linear projects
 - [project-update](./project-update.md) - Manage project status updates
