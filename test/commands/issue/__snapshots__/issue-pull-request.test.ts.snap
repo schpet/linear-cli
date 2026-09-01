@@ -1,0 +1,27 @@
+export const snapshot = {};
+
+snapshot[`Issue Pull Request Command - Help Text 1`] = `
+stdout:
+"
+Usage: pull-request [issueId]
+
+Description:
+
+  Create a GitHub pull request with issue details
+
+Options:
+
+  -h, --help                - Show this help.                                                               
+  --base          <branch>  - The branch into which you want your code merged                               
+  --draft                   - Create the pull request as a draft                                            
+  -t, --title     <title>   - Optional title for the pull request (Linear issue ID will be prefixed)        
+  --web                     - Open the pull request in the browser after creating it                        
+  --head          <branch>  - The branch that contains commits for your pull request                        
+  -T, --template  <file>    - Start the pull request body from this template file (the Linear issue URL is  
+                              appended)                                                                     
+  --no-template             - Ignore the pr_template config option for this pull request                    
+
+"
+stderr:
+""
+`;

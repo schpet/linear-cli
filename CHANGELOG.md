@@ -2,22 +2,17 @@
 
 ## [Unreleased]
 
-### Fixed
-
-- `issue mine`, `issue query`, `issue start`, and `team states` now group statuses in the same order as the Linear app: by workflow state type, then by the team's configured position within that type. Issue listings previously ran the order backwards (canceled and done first), and every status list sorted on raw position alone, which stranded a late-positioned status such as an "In Review" at position 1002 after "Duplicate" instead of beside "In Progress"
-
-### Changed
-
-- when `--limit` truncates an issue listing, the retained issues are now the most actionable rather than the most recently closed. The Linear API cannot sort by a team's configured positions, so it still selects which issues are fetched; that selection changed from closed-first to open-first. A status this build does not recognize sorts after all known ones
-
 ### Added
 
+- `issue pr` accepts `--template/-T <file>` to start the pull request body from a template file, with a `pr_template` config option (`LINEAR_PR_TEMPLATE`) as a per-project default and `--no-template` to skip that default for one invocation. The Linear issue URL is appended after the template, so the pull request stays linked to its issue
 - issue comment list --json now exposes stable author identity: `user.id`, `externalUser.id`, and a `botActor` object (`id`, `name`, `type`, `subType`) for comments posted by integrations. Display names are editable and can collide across a workspace — an external user's display name can even match a real member's — so programs consuming the JSON previously had nothing reliable to attribute a comment with
 - issue comment list --json now includes `editedAt`, which is set only when a comment's author revised it. `updatedAt` also moves for unrelated backend churn, so it could not answer "has this been changed since it was written?"
 - `LINEAR_IGNORE_ENV_FILE=1` skips `.env` loading entirely, for repositories whose `.env` is not dotenv-shaped
 
 ### Changed
 
+- `issue mine`, `issue query`, `issue start`, and `team states` now group statuses in the same order as the Linear app: by workflow state type, then by the team's configured position within that type. Issue listings previously ran the order backwards (canceled and done first), and every status list sorted on raw position alone, which stranded a late-positioned status such as an "In Review" at position 1002 after "Duplicate" instead of beside "In Progress"
+- when `--limit` truncates an issue listing, the retained issues are now the most actionable rather than the most recently closed. The Linear API cannot sort by a team's configured positions, so it still selects which issues are fetched; that selection changed from closed-first to open-first. A status this build does not recognize sorts after all known ones
 - an unquoted `$VAR` reference in a `LINEAR_`/`GH_`/`GITHUB_` value is now skipped with a warning rather than expanded. Expansion of an unset variable silently produced the string `"undefined"`, and a self-referential one hung. Quoted values are unaffected, since dotenv never expanded those
 
 ### Fixed
