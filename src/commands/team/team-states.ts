@@ -43,7 +43,9 @@ export const statesCommand = new Command()
         return
       }
 
-      // States arrive sorted by position; keep that order (it is meaningful).
+      // States arrive in the app's display order (type group, then position
+      // descending). Mirror it, so `team states` and `issue mine` group
+      // statuses identically.
       const NAME_WIDTH = Math.max(
         unicodeWidth("NAME"),
         ...states.map((s) => unicodeWidth(s.name)),

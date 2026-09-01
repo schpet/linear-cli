@@ -8,13 +8,15 @@ import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 const denoArgs = ["--allow-all", "--quiet"]
 
 // Deliberately out of order to prove the command sorts states the way the Linear
-// app does: by type group first, then by configured position inside that group.
+// app does: by type group first, then by position DESCENDING inside that group.
+// `team states` deliberately shares that order with `issue mine`, so a person
+// reading the workflow sees the same grouping either way.
 //
 // "In Review" is the case that matters. It is type `started` at position 1002,
-// so a plain position sort drops it to the very end, after `Duplicate` — which
-// is exactly what this command used to print. It belongs right after
-// "In Progress". "Rejected" is the mirror image: a `canceled` state positioned
-// at 0.5 must not be promoted above the backlog.
+// so a plain position sort drops it to the very end, after `Duplicate`, and an
+// ascending within-group tiebreak puts it behind "In Progress" (2). It belongs
+// ahead of "In Progress". "Rejected" is the mirror image: a `canceled` state
+// positioned at 0.5 must not be promoted above the backlog.
 const UNSORTED_STATES = {
   data: {
     team: {

@@ -91,6 +91,6 @@ stdout:
 ""
 stderr:
 "✗ Failed to create issue: Workflow state not found: 'Nope' for team ENG
-  Valid states: \\"Todo\\" (unstarted), \\"In Progress\\" (started), \\"Done\\" (completed). Run \`linear team states ENG\` to list them.
+  Valid states: \\"In Progress\\" (started), \\"Todo\\" (unstarted), \\"Done\\" (completed). Run \`linear team states ENG\` to list them.
 "
 `;

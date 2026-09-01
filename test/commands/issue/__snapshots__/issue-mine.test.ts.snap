@@ -38,10 +38,11 @@ stderr:
 snapshot[`Issue Mine Command - Groups Statuses In Linear's Order 1`] = `
 stdout:
 "◌   ID    TITLE                LABELS B E STATE       UPDATED 
---- ENG-1 Someday                       - Backlog     just now
---- ENG-5 Next up                       - Todo        just now
---- ENG-3 Doing it                      - In Progress just now
 --- ENG-2 Reviewing                     - In Review   just now
+--- ENG-3 Doing it                      - In Progress just now
+--- ENG-8 Waiting on someone            - Blocked     just now
+--- ENG-5 Next up                       - Todo        just now
+--- ENG-1 Someday                       - Backlog     just now
 --- ENG-4 Shipped                       - Done        just now
 --- ENG-6 Rejected work                 - Rejected    just now
 --- ENG-7 From a future status          - Paused      just now

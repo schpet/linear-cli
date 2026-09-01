@@ -723,12 +723,14 @@ Deno.test("shouldShowDefaultTeamNote - full source matrix", () => {
 // listing groups by type group only and otherwise preserves the server's
 // ordering, which keeps priority order intact inside each group.
 //
-// Here APP's "Doing" sits at position 900 and ENG's "Backlog" at 7. Ranking
+// Here APP's "Doing" sits at position 900 and ENG's "In Progress" at 2. Ranking
 // those numbers globally would interleave the two teams incoherently and, worse,
 // would reorder issues across teams by an arbitrary number rather than by
-// priority. The expected result groups both `backlog` issues first (backlog
-// precedes started in Linear's type order), then both `started` issues, with
-// each group keeping the server's priority order.
+// priority. The expected result groups both `started` issues first (started
+// precedes backlog in the app's type order), then both `backlog` issues, with
+// each group keeping the server's priority order — note "Doing" (900) stays
+// behind "In Progress" (2) despite the descending within-group tiebreak that
+// applies to single-team results.
 Deno.test("Issue Query Command - Multi-team results group by type without comparing team-local positions", async () => {
   const { cleanup } = await setupMockLinearServer([
     {
@@ -836,7 +838,7 @@ Deno.test("Issue Query Command - Multi-team results group by type without compar
     const order = logs.join("\n").split("\n")
       .map((line) => line.match(/\b(?:ENG|APP)-\d+/)?.[0])
       .filter((id): id is string => id != null)
-    assertEquals(order, ["APP-2", "ENG-2", "ENG-1", "APP-1"])
+    assertEquals(order, ["ENG-1", "APP-1", "APP-2", "ENG-2"])
   } finally {
     logStub.restore()
     await cleanup()

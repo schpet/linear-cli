@@ -141,21 +141,16 @@ export async function getIssueId(
   return data.issue?.id
 }
 
-// Linear documents WorkflowState.position as ordering states "in ascending
-// order of position within their type group", so the type group is the primary
-// key and position only orders states inside it. Sorting on position alone
-// strands a late-positioned state: this workspace has "In Review" at position
-// 1002 with type "started", which belongs right after "In Progress" (2), not
-// after "Duplicate" (5).
-// ASSUMPTION: the schema documents these type strings and says position orders
-// states within a type group, but it does not state that this listing order is
-// the app's group order. It matches Linear's observed lifecycle ordering; if a
-// future release contradicts it, this list is the single place to fix.
+// The order the app groups statuses in. It is NOT lifecycle order: `started`
+// sits above `unstarted`, so the states a person is working on lead the listing
+// and the finished ones trail it.
+//
+// This table is the single place to fix if a future release moves a group.
 const WORKFLOW_STATE_TYPE_ORDER: readonly string[] = [
   "triage",
-  "backlog",
-  "unstarted",
   "started",
+  "unstarted",
+  "backlog",
   "completed",
   "canceled",
   "duplicate",
@@ -190,13 +185,55 @@ function assertFinitePosition(
   return state.position
 }
 
-/** Order two workflow states of the SAME team the way the Linear app does. */
+/**
+ * Order two workflow states of the SAME team the way the Linear app does: type
+ * group first, then position DESCENDING inside the group.
+ *
+ * The descending tiebreak contradicts the schema, which documents `position` as
+ * "States are displayed in ascending order of position within their type group"
+ * (graphql/schema.graphql). The app does the opposite, and the app is what this
+ * listing is trying to match, so do not "correct" this back to ascending on the
+ * strength of the doc comment alone.
+ *
+ * Note this is a display order, not a workflow order. To ask which state a bare
+ * type name refers to, use `lowestPositionStateOfType` — under this comparator
+ * the first state of a type in a sorted list is the LAST one in the workflow.
+ */
 export function compareWorkflowStates(
   a: { name: string; type: string; position: number },
   b: { name: string; type: string; position: number },
 ): number {
   return compareWorkflowStateTypes(a.type, b.type) ||
-    assertFinitePosition(a) - assertFinitePosition(b)
+    assertFinitePosition(b) - assertFinitePosition(a)
+}
+
+/**
+ * The state a bare type name refers to: the earliest one of that type in the
+ * team's configured workflow, i.e. the LOWEST position.
+ *
+ * Deliberately independent of the order of `states`. Callers used to take the
+ * first match out of a list that happened to be sorted by ascending position;
+ * `compareWorkflowStates` now sorts descending, which silently turned that read
+ * into "the last state of the type" — `issue start` would have begun moving
+ * issues to the final started state instead of the first.
+ */
+export function lowestPositionStateOfType<
+  T extends { name: string; type: string; position: number },
+>(states: readonly T[], type: string): T | undefined {
+  let lowest: T | undefined
+  let lowestPosition = Number.POSITIVE_INFINITY
+  for (const state of states) {
+    if (state.type !== type) continue
+    // Check every candidate before it can win or lose. Validating inside the
+    // comparison would let the first match through unchecked, and a malformed
+    // position is a malformed response whether or not it ends up being used.
+    const position = assertFinitePosition(state)
+    if (lowest == null || position < lowestPosition) {
+      lowest = state
+      lowestPosition = position
+    }
+  }
+  return lowest
 }
 
 type IssueWorkflowFields = {
@@ -210,7 +247,7 @@ type IssueWorkflowFields = {
  * `position` is only meaningful within one team, so the key depends on scope:
  *
  * - Single-team results (every `issue mine`/`issue start` call, and a scoped
- *   `issue query`) sort by type group then configured position — exactly the
+ *   `issue query`) sort by type group then position descending — exactly the
  *   app's status order.
  * - Multi-team results sort by type group only. Ranking one team's position
  *   against another's compares unrelated numbers, and doing it per-pair would
@@ -263,20 +300,19 @@ export async function getStartedState(
   teamKey: string,
 ): Promise<{ id: string; name: string }> {
   const states = await getWorkflowStates(teamKey)
-  const startedStates = states.filter((s) => s.type === "started")
+  const started = lowestPositionStateOfType(states, "started")
 
-  if (!startedStates.length) {
+  if (!started) {
     throw new Error("No 'started' state found in workflow")
   }
 
-  return { id: startedStates[0].id, name: startedStates[0].name }
+  return { id: started.id, name: started.name }
 }
 
 /**
  * Resolve a workflow state from an already-fetched list by name
- * (case-insensitive) or by type. Duplicate types resolve to the first matching
- * state in the input order — callers pass the position-sorted list from
- * `getWorkflowStates`, so that is the lowest-position state of that type.
+ * (case-insensitive) or by type. A type with several states resolves to the
+ * lowest-position one, independent of the order of `states`.
  */
 export function resolveWorkflowState(
   states: readonly WorkflowState[],
@@ -289,7 +325,7 @@ export function resolveWorkflowState(
     return nameMatch
   }
 
-  return states.find((s) => s.type === nameOrType.toLowerCase())
+  return lowestPositionStateOfType(states, nameOrType.toLowerCase())
 }
 
 /**

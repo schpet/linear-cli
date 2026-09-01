@@ -795,12 +795,16 @@ Deno.test("Issue Mine Command - Shows Cycle Column", async () => {
   }
 })
 
-// The reported bug: `issue mine --all-states` grouped statuses in the reverse of
-// the Linear app's order. The mock returns them scrambled, so the rendered order
-// is entirely the CLI's doing. It proves three things at once:
+// `issue mine --all-states` must group statuses the way the Linear app does. The
+// mock returns them scrambled, so the rendered order is entirely the CLI's
+// doing. It proves four things at once:
 //
 //   - type group is the primary key, so "In Review" (started, position 1002)
-//     lands right after "In Progress" (started, 2) rather than dead last;
+//     stays with "In Progress" (started, 2) rather than landing dead last;
+//   - within a type group position sorts DESCENDING, so "In Review" (1002)
+//     leads "In Progress" (2) and "Blocked" (unstarted, 900) leads "Todo"
+//     (unstarted, 1). Two states sharing a type never consult the type table, so
+//     this pair is the only thing pinning the tiebreak direction;
 //   - position cannot promote a state across type groups, so "Rejected"
 //     (canceled, 0.5) stays at the bottom instead of jumping above the backlog;
 //   - a state type this build does not know ("onhold") sorts after every known
@@ -988,6 +992,31 @@ await cliffySnapshotTest({
                     color: "#e2e2e2",
                     type: "unstarted",
                     position: 1,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+                {
+                  id: "issue-eng-8",
+                  identifier: "ENG-8",
+                  title: "Waiting on someone",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-blocked",
+                    name: "Blocked",
+                    color: "#e2e2e2",
+                    type: "unstarted",
+                    position: 900,
                   },
                   labels: { nodes: [] },
                   cycle: null,

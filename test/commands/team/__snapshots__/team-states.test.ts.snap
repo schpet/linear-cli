@@ -23,10 +23,10 @@ snapshot[`Team States Command - Table 1`] = `
 stdout:
 "NAME        TYPE     
 Triage      triage   
-Backlog     backlog  
-Todo        unstarted
-In Progress started  
 In Review   started  
+In Progress started  
+Todo        unstarted
+Backlog     backlog  
 Done        completed
 Rejected    canceled 
 Duplicate   duplicate
@@ -46,16 +46,10 @@ stdout:
       "position": 900
     },
     {
-      "id": "s-backlog",
-      "name": "Backlog",
-      "type": "backlog",
-      "position": 0
-    },
-    {
-      "id": "s-todo",
-      "name": "Todo",
-      "type": "unstarted",
-      "position": 1
+      "id": "s-review",
+      "name": "In Review",
+      "type": "started",
+      "position": 1002
     },
     {
       "id": "s-progress",
@@ -64,10 +58,16 @@ stdout:
       "position": 2
     },
     {
-      "id": "s-review",
-      "name": "In Review",
-      "type": "started",
-      "position": 1002
+      "id": "s-todo",
+      "name": "Todo",
+      "type": "unstarted",
+      "position": 1
+    },
+    {
+      "id": "s-backlog",
+      "name": "Backlog",
+      "type": "backlog",
+      "position": 0
     },
     {
       "id": "s-done",
@@ -98,10 +98,10 @@ snapshot[`Team States Command - Configured Team Fallback 1`] = `
 stdout:
 "NAME        TYPE     
 Triage      triage   
-Backlog     backlog  
-Todo        unstarted
-In Progress started  
 In Review   started  
+In Progress started  
+Todo        unstarted
+Backlog     backlog  
 Done        completed
 Rejected    canceled 
 Duplicate   duplicate

@@ -1,7 +1,11 @@
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert"
+import { assertThrows } from "@std/assert"
 import {
+  compareWorkflowStates,
   getIssueIdentifier,
+  getStartedState,
   isLinearUuid,
+  lowestPositionStateOfType,
   resolveInitiativeId,
   resolveMilestoneId,
   resolveProjectId,
@@ -11,7 +15,11 @@ import {
   type WorkflowState,
   workflowStateNotFoundError,
 } from "../../src/utils/linear.ts"
-import { NotFoundError, ValidationError } from "../../src/utils/errors.ts"
+import {
+  CliError,
+  NotFoundError,
+  ValidationError,
+} from "../../src/utils/errors.ts"
 import { setupMockLinearServer } from "../utils/test-helpers.ts"
 
 Deno.test("getIssueId - handles full issue identifiers", async () => {
@@ -306,14 +314,15 @@ Deno.test("resolveMilestoneId - errors when a name is passed without a project",
   }
 })
 
-// States are passed to resolveWorkflowState already sorted by position, mirroring
-// getWorkflowStates. Duplicate "started" states are ordered so the lower position
-// comes first.
+// In the display order getWorkflowStates now returns: type group first, then
+// position descending. The two "started" states sit far apart on purpose, and
+// the higher-positioned one comes FIRST — so any code that resolves a bare type
+// by taking the first match out of this list picks the wrong state.
 const WORKFLOW_STATES: WorkflowState[] = [
-  { id: "s-backlog", name: "Backlog", type: "backlog", position: 0 },
-  { id: "s-todo", name: "Todo", type: "unstarted", position: 1 },
+  { id: "s-review", name: "In Review", type: "started", position: 1002 },
   { id: "s-progress", name: "In Progress", type: "started", position: 2 },
-  { id: "s-review", name: "In Review", type: "started", position: 3 },
+  { id: "s-todo", name: "Todo", type: "unstarted", position: 1 },
+  { id: "s-backlog", name: "Backlog", type: "backlog", position: 0 },
   { id: "s-done", name: "Done", type: "completed", position: 4 },
 ]
 
@@ -336,11 +345,158 @@ Deno.test("resolveWorkflowState - matches by type when no name matches", () => {
   )
 })
 
-Deno.test("resolveWorkflowState - duplicate types resolve to the first by position", () => {
+Deno.test("resolveWorkflowState - a type resolves to its lowest position, whatever the list order", () => {
   assertEquals(
     resolveWorkflowState(WORKFLOW_STATES, "started")?.id,
     "s-progress",
   )
+  // Same answer from a list sorted the other way. Pinning this against a single
+  // fixture would only restate that fixture's order; the point of the function
+  // is that the caller's order cannot change the answer.
+  assertEquals(
+    resolveWorkflowState([...WORKFLOW_STATES].reverse(), "started")?.id,
+    "s-progress",
+  )
+})
+
+// The bug this ordering was introduced to fix: two states sharing a type never
+// consult the type table, so the position tiebreak is the only thing ordering
+// them — and it runs descending, matching the app rather than the schema's
+// `position` doc comment.
+Deno.test("compareWorkflowStates - same type orders by position descending", () => {
+  const high = { name: "In Review", type: "started", position: 1002 }
+  const low = { name: "In Progress", type: "started", position: 2 }
+  assertEquals(compareWorkflowStates(high, low) < 0, true)
+  assertEquals(compareWorkflowStates(low, high) > 0, true)
+})
+
+Deno.test("compareWorkflowStates - type group outranks position", () => {
+  // The started state has the far higher position and still sorts first: a
+  // position can never promote a state out of its type group.
+  const started = { name: "In Progress", type: "started", position: 1002 }
+  const unstarted = { name: "Todo", type: "unstarted", position: 1 }
+  assertEquals(compareWorkflowStates(started, unstarted) < 0, true)
+})
+
+Deno.test("compareWorkflowStates - unknown types sort last, grouped by name", () => {
+  const known = { name: "Duplicate", type: "duplicate", position: 0 }
+  const onhold = { name: "Paused", type: "onhold", position: 0 }
+  const waiting = { name: "Waiting", type: "waiting", position: 0 }
+  assertEquals(compareWorkflowStates(known, onhold) < 0, true)
+  assertEquals(compareWorkflowStates(onhold, waiting) < 0, true)
+  // Two states of the SAME unknown type still fall through to the tiebreak.
+  assertEquals(
+    compareWorkflowStates(
+      { name: "Paused long", type: "onhold", position: 9 },
+      { name: "Paused", type: "onhold", position: 1 },
+    ) < 0,
+    true,
+  )
+})
+
+Deno.test("compareWorkflowStates - a non-finite position throws", () => {
+  assertThrows(
+    () =>
+      compareWorkflowStates(
+        { name: "Broken", type: "started", position: Number.NaN },
+        { name: "In Progress", type: "started", position: 2 },
+      ),
+    CliError,
+    'Workflow state "Broken" has no usable position',
+  )
+})
+
+Deno.test("lowestPositionStateOfType - ignores list order and non-matching types", () => {
+  assertEquals(
+    lowestPositionStateOfType(WORKFLOW_STATES, "started")?.id,
+    "s-progress",
+  )
+  assertEquals(
+    lowestPositionStateOfType([...WORKFLOW_STATES].reverse(), "started")?.id,
+    "s-progress",
+  )
+  assertEquals(
+    lowestPositionStateOfType(WORKFLOW_STATES, "canceled"),
+    undefined,
+  )
+  assertEquals(lowestPositionStateOfType([], "started"), undefined)
+})
+
+Deno.test("lowestPositionStateOfType - rejects a malformed sole candidate", () => {
+  // The one match is also the first, so nothing else can force it through a
+  // comparison. It must still be validated rather than handed back as the
+  // answer to `issue start` or the issue-create default.
+  assertThrows(
+    () =>
+      lowestPositionStateOfType([
+        { name: "Broken", type: "started", position: Number.NaN },
+      ], "started"),
+    CliError,
+    'Workflow state "Broken" has no usable position',
+  )
+})
+
+Deno.test("lowestPositionStateOfType - rejects a malformed candidate it would discard", () => {
+  // The broken state loses on position, but a malformed API response is still a
+  // malformed API response.
+  assertThrows(
+    () =>
+      lowestPositionStateOfType([
+        { name: "In Progress", type: "started", position: 2 },
+        { name: "Broken", type: "started", position: Number.POSITIVE_INFINITY },
+      ], "started"),
+    CliError,
+    'Workflow state "Broken" has no usable position',
+  )
+})
+
+// getStartedState is what `issue start` moves an issue to. It reads a
+// display-ordered list, where the first "started" entry is the LAST state of the
+// workflow — so it must select by position, not by index.
+Deno.test("getStartedState - picks the lowest-position started state", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetWorkflowStates",
+      variables: { teamKey: "ENG" },
+      response: {
+        data: {
+          team: {
+            states: {
+              nodes: [
+                {
+                  id: "s-ship",
+                  name: "Ready to Ship",
+                  type: "started",
+                  position: 4000,
+                },
+                {
+                  id: "s-review",
+                  name: "In Review",
+                  type: "started",
+                  position: 1002,
+                },
+                {
+                  id: "s-progress",
+                  name: "In Progress",
+                  type: "started",
+                  position: 2,
+                },
+                { id: "s-todo", name: "Todo", type: "unstarted", position: 1 },
+              ],
+            },
+          },
+        },
+      },
+    },
+  ])
+  try {
+    assertEquals(await getStartedState("ENG"), {
+      id: "s-progress",
+      name: "In Progress",
+    })
+  } finally {
+    await cleanup()
+  }
 })
 
 Deno.test("resolveWorkflowState - returns undefined when nothing matches", () => {
