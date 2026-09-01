@@ -1,5 +1,5 @@
 import { parse } from "@std/toml"
-import { join, resolve } from "@std/path"
+import { dirname, join, resolve } from "@std/path"
 import { parse as parseDotenv } from "@std/dotenv"
 import { gray, yellow } from "@std/fmt/colors"
 import * as v from "valibot"
@@ -7,6 +7,11 @@ import { ValidationError } from "./utils/errors.ts"
 
 let globalConfig: Record<string, unknown> = {}
 let projectConfig: Record<string, unknown> = {}
+// Which file each of the above came from, so a relative path written in a
+// config file can be resolved against that file rather than the working
+// directory. See optionBaseDir().
+let globalConfigPath: string | null = null
+let projectConfigPath: string | null = null
 
 // Env keys that loadEnvFiles() actually wrote from a project .env file, as
 // opposed to values that were already present in the process environment.
@@ -65,6 +70,7 @@ async function loadConfig() {
     const loaded = await loadConfigFromPath(path)
     if (loaded) {
       globalConfig = loaded
+      globalConfigPath = path
       break
     }
   }
@@ -74,6 +80,7 @@ async function loadConfig() {
     const loaded = await loadConfigFromPath(path)
     if (loaded) {
       projectConfig = loaded
+      projectConfigPath = path
       break
     }
   }
@@ -448,6 +455,31 @@ function resolveRawOption(
   return undefined
 }
 
+/**
+ * The directory a relative path from `source` should resolve against, or
+ * undefined to use the working directory.
+ *
+ * A path written in a config file is relative to that file. Resolving it
+ * against the working directory instead would make a project-wide setting such
+ * as `pr_template = ".github/pull_request_template.md"` work at the repository
+ * root and fail in every subdirectory, even though the very same config file is
+ * the one that supplied it. Values given at invocation time -- a CLI flag or an
+ * environment variable -- stay relative to the working directory, which is what
+ * a shell user expects.
+ */
+export function optionBaseDir(source: OptionSource): string | undefined {
+  switch (source) {
+    case "project-config":
+      return projectConfigPath == null ? undefined : dirname(projectConfigPath)
+    case "global-config":
+      return globalConfigPath == null ? undefined : dirname(globalConfigPath)
+    case "cli":
+    case "env":
+    case "project-env":
+      return undefined
+  }
+}
+
 export function getOptionWithSource<T extends OptionName>(
   optionName: T,
   cliValue?: string,
@@ -495,6 +527,43 @@ export function resolveIssueSort(cliValue?: string): IssueSort {
     )
   }
   return parsed.output
+}
+
+/**
+ * Resolve the pull request template path from `--template`, LINEAR_PR_TEMPLATE,
+ * or the `pr_template` config option, with `false` meaning `--no-template`.
+ *
+ * Follows resolveIssueSort() rather than getOption(): getOption() silently
+ * returns undefined for a value that fails to parse, which would create a pull
+ * request quietly missing the template the user configured. An explicitly
+ * configured value must work or error.
+ *
+ * A path from a config file is resolved against that file's directory; see
+ * optionBaseDir().
+ */
+export function resolvePrTemplate(
+  cliValue?: string | false,
+): string | undefined {
+  if (cliValue === false) return undefined
+  const resolved = resolveRawOption("pr_template", cliValue)
+  if (resolved == null || resolved.raw == null) return undefined
+  const parsed = v.safeParse(
+    v.pipe(v.string(), v.trim(), v.nonEmpty()),
+    resolved.raw,
+  )
+  if (!parsed.success) {
+    throw new ValidationError(
+      `Invalid pull request template: ${JSON.stringify(resolved.raw)}`,
+      {
+        suggestion:
+          "Set a non-empty file path via --template, the pr_template config option, or LINEAR_PR_TEMPLATE; use --no-template to skip the template.",
+      },
+    )
+  }
+  const base = optionBaseDir(resolved.source)
+  // resolve() returns an absolute path unchanged, so an absolute value is
+  // honoured as written.
+  return base == null ? parsed.output : resolve(base, parsed.output)
 }
 
 // CLI workspace set via --workspace flag

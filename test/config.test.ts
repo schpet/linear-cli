@@ -4,6 +4,7 @@ import {
   getOption,
   getOptionWithSource,
   resolveIssueSort,
+  resolvePrTemplate,
 } from "../src/config.ts"
 import { ValidationError } from "../src/utils/errors.ts"
 
@@ -1105,6 +1106,87 @@ Deno.test("getOptionWithSource - LINEAR_IGNORE_ENV_FILE skips .env loading entir
     assertEquals(stderr, "")
   } finally {
     await Deno.remove(projectDir, { recursive: true })
+    await Deno.remove(home, { recursive: true })
+  }
+})
+
+// getOption() silently drops a value that fails to parse, which would create a
+// pull request quietly missing the configured template. resolvePrTemplate must
+// error instead -- explicit input works or errors, it never falls back.
+Deno.test("resolvePrTemplate - rejects an empty explicit value", () => {
+  assertThrows(
+    () => resolvePrTemplate(""),
+    ValidationError,
+    "Invalid pull request template",
+  )
+})
+
+Deno.test("resolvePrTemplate - false means --no-template and yields no path", () => {
+  assertEquals(resolvePrTemplate(false), undefined)
+})
+
+Deno.test("resolvePrTemplate - an explicit path is left relative to the cwd", () => {
+  // Only config-file values are rebased; a path typed on the command line means
+  // what it means in the shell the user typed it in.
+  assertEquals(resolvePrTemplate("docs/pr.md"), "docs/pr.md")
+})
+
+// A path written in a config file is relative to that file. The config loader
+// finds <repo-root>/.linear.toml from any subdirectory, so resolving its value
+// against the working directory instead would make a project-wide setting work
+// at the repo root and fail everywhere below it.
+Deno.test("optionBaseDir - a project config value resolves against the config file, not the cwd", async () => {
+  const repoDir = await Deno.makeTempDir()
+  const home = await Deno.makeTempDir()
+  try {
+    await Deno.writeTextFile(
+      `${repoDir}/.linear.toml`,
+      'pr_template = ".github/pull_request_template.md"\n',
+    )
+    const nested = `${repoDir}/packages/app`
+    await Deno.mkdir(nested, { recursive: true })
+    // The repo-root config paths are only searched inside a git work tree.
+    await initGitRepo(repoDir)
+
+    const configUrl = new URL("../src/config.ts", import.meta.url)
+    const denoJsonPath = fromFileUrl(new URL("../deno.json", import.meta.url))
+    const homeDir = Deno.env.get("HOME")
+    const denoDir = Deno.env.get("DENO_DIR") ??
+      (homeDir == null ? undefined : `${homeDir}/.cache/deno`)
+    const command = new Deno.Command(Deno.execPath(), {
+      args: [
+        "eval",
+        `--config=${denoJsonPath}`,
+        `import { getOptionWithSource, optionBaseDir } from "${configUrl}";
+         const r = getOptionWithSource("pr_template");
+         console.log(JSON.stringify({ source: r?.source ?? null, base: optionBaseDir(r.source) ?? null }));`,
+      ],
+      cwd: nested,
+      clearEnv: true,
+      env: {
+        HOME: home,
+        XDG_CONFIG_HOME: `${home}/.config`,
+        PATH: Deno.env.get("PATH") ?? "",
+        NO_COLOR: "1",
+        ...(denoDir == null ? {} : { DENO_DIR: denoDir }),
+      },
+      stdout: "piped",
+      stderr: "piped",
+    })
+    const { stdout, stderr } = await command.output()
+    const out = new TextDecoder().decode(stdout).trim()
+    if (out === "") {
+      throw new Error(
+        `subprocess produced no output: ${new TextDecoder().decode(stderr)}`,
+      )
+    }
+    const result = JSON.parse(out)
+
+    assertEquals(result.source, "project-config")
+    // The base is the directory holding the config file, not the nested cwd.
+    assertEquals(result.base, repoDir)
+  } finally {
+    await Deno.remove(repoDir, { recursive: true })
     await Deno.remove(home, { recursive: true })
   }
 })
