@@ -22,6 +22,7 @@ import {
   getWorkflowStates,
   isLinearUuid,
   lookupUserId,
+  lowestPositionStateOfType,
   resolveMilestoneId,
   resolveWorkflowState,
   searchTeamsByKeySubstring,
@@ -36,6 +37,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 type IssueLabel = { id: string; name: string; color: string }
 type ProjectOption = { id: string; name: string }
@@ -187,7 +189,7 @@ const ADDITIONAL_FIELDS: AdditionalField[] = [
       const states = preloaded?.states ?? await getWorkflowStates(teamKey)
       if (states.length === 0) return undefined
 
-      const defaultState = states.find((s) => s.type === "unstarted") ||
+      const defaultState = lowestPositionStateOfType(states, "unstarted") ??
         states[0]
       return await Select.prompt({
         message: "Which workflow state should this issue be in?",
@@ -296,7 +298,7 @@ async function promptAdditionalFields(
   // Build options that display defaults in parentheses for workflow state and assignee
   let defaultStateName: string | null = null
   if (states.length > 0) {
-    const defaultState = states.find((s) => s.type === "unstarted") ||
+    const defaultState = lowestPositionStateOfType(states, "unstarted") ??
       states[0]
     defaultStateName = defaultState.name
   }
@@ -515,7 +517,10 @@ async function promptInteractiveIssueCreation(
   const labels = await labelsPromise
   let defaultState: WorkflowState | undefined
   if (states.length > 0) {
-    defaultState = states.find((s) => s.type === "unstarted") || states[0]
+    // `states` arrives in display order, so `states[0]` is the top of the
+    // listing, not the earliest state in the workflow. It only applies to a team
+    // with no unstarted state at all.
+    defaultState = lowestPositionStateOfType(states, "unstarted") ?? states[0]
   }
 
   // What's next? prompt
@@ -592,7 +597,7 @@ async function promptInteractiveIssueCreation(
 
 export const createCommand = new Command()
   .name("create")
-  .description("Create a linear issue")
+  .description(withMarkdownHint("Create a linear issue"))
   .option(
     "--start",
     "Start the issue after creation",

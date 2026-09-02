@@ -11,6 +11,7 @@ import {
 } from "../../utils/errors.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 const HEALTH_VALUES = ["onTrack", "atRisk", "offTrack"] as const
 type HealthValue = (typeof HEALTH_VALUES)[number]
@@ -98,7 +99,7 @@ async function resolveInitiativeId(
 
 export const createCommand = new Command()
   .name("create")
-  .description("Create a new status update for an initiative")
+  .description(withMarkdownHint("Create a new status update for an initiative"))
   .alias("c")
   .arguments("<initiativeId:string>")
   .option("--body <body:string>", "Update content (markdown)")

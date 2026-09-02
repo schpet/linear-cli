@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible problem with linear-cli.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are for bugs and feature requests in linear-cli. Usage questions belong in [Discussions](https://github.com/schpet/linear-cli/discussions). See [CONTRIBUTING.md](https://github.com/schpet/linear-cli/blob/main/CONTRIBUTING.md) for what is in scope.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What linear-cli did, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Commands and inputs needed to reproduce it. Remove API keys and other sensitive data.
+      placeholder: |
+        1. Run `linear ...`
+        2. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `linear --version`.
+      placeholder: linear 2.5.0
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system and how you installed linear-cli.
+      placeholder: macOS 15, installed with Homebrew
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Error messages or logs. Run with `LINEAR_DEBUG=1` for a stack trace. Remove API keys and other sensitive data.
+      render: shell

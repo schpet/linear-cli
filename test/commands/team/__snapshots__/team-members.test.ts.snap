@@ -11,9 +11,9 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.           
-  -a, --all   - Include inactive members  
-  -j, --json  - Output as JSON            
+  -h, --help  - Show this help.                                                         
+  -a, --all   - Include inactive members                                                
+  -j, --json  - Output as JSON; a member's url mentions them when pasted into Markdown  
 
 "
 stderr:
@@ -72,6 +72,7 @@ stdout:
       "admin": false,
       "owner": false,
       "isMe": true,
+      "url": "https://linear.app/acme/profiles/pat",
       "id": "u-pat",
       "displayName": "pat"
     },
@@ -90,6 +91,7 @@ stdout:
       "admin": true,
       "owner": true,
       "isMe": false,
+      "url": "https://linear.app/acme/profiles/zoe",
       "id": "u-zoe",
       "displayName": "zoe"
     }
@@ -123,6 +125,7 @@ stdout:
       "admin": false,
       "owner": false,
       "isMe": false,
+      "url": "https://linear.app/acme/profiles/olduser",
       "id": "u-old",
       "displayName": "olduser"
     },
@@ -141,6 +144,7 @@ stdout:
       "admin": false,
       "owner": false,
       "isMe": true,
+      "url": "https://linear.app/acme/profiles/pat",
       "id": "u-pat",
       "displayName": "pat"
     },
@@ -159,6 +163,7 @@ stdout:
       "admin": true,
       "owner": true,
       "isMe": false,
+      "url": "https://linear.app/acme/profiles/zoe",
       "id": "u-zoe",
       "displayName": "zoe"
     }
@@ -206,6 +211,7 @@ stdout:
       "admin": false,
       "owner": false,
       "isMe": false,
+      "url": "https://linear.app/acme/profiles/aaron",
       "id": "u-first",
       "displayName": "aaron"
     },
@@ -224,6 +230,7 @@ stdout:
       "admin": false,
       "owner": false,
       "isMe": false,
+      "url": "https://linear.app/acme/profiles/mona",
       "id": "u-mid",
       "displayName": "mona"
     }

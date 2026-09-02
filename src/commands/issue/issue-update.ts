@@ -24,10 +24,11 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 export const updateCommand = new Command()
   .name("update")
-  .description("Update a linear issue")
+  .description(withMarkdownHint("Update a linear issue"))
   .arguments("[issueId:string]")
   .option(
     "-a, --assignee <assignee:string>",

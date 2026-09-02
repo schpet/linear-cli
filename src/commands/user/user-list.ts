@@ -8,7 +8,10 @@ export const listCommand = new Command()
   .name("list")
   .description("List members of the workspace")
   .option("-a, --all", "Include inactive members")
-  .option("-j, --json", "Output as JSON")
+  .option(
+    "-j, --json",
+    "Output as JSON; a member's url mentions them when pasted into Markdown. This searches the whole workspace \u2014 prefer `linear team members <TEAM>`, and confirm before mentioning someone outside the team",
+  )
   .action(async ({ all, json }) => {
     const showSpinner = !json && shouldShowSpinner()
     let spinner: { start: () => void; stop: () => void } | null = null

@@ -141,6 +141,135 @@ export async function getIssueId(
   return data.issue?.id
 }
 
+// The order the app groups statuses in. It is NOT lifecycle order: `started`
+// sits above `unstarted`, so the states a person is working on lead the listing
+// and the finished ones trail it.
+//
+// This table is the single place to fix if a future release moves a group.
+const WORKFLOW_STATE_TYPE_ORDER: readonly string[] = [
+  "triage",
+  "started",
+  "unstarted",
+  "backlog",
+  "completed",
+  "canceled",
+  "duplicate",
+]
+
+function compareWorkflowStateTypes(a: string, b: string): number {
+  const aRank = WORKFLOW_STATE_TYPE_ORDER.indexOf(a)
+  const bRank = WORKFLOW_STATE_TYPE_ORDER.indexOf(b)
+  // A type Linear adds later sorts after every known one, grouped by its own
+  // name. An unrecognized status is not a broken invariant and must not take
+  // down a listing, but it must not be promoted ahead of the known lifecycle
+  // either.
+  if (aRank === -1 && bRank === -1) return a.localeCompare(b)
+  if (aRank === -1) return 1
+  if (bRank === -1) return -1
+  return aRank - bRank
+}
+
+function assertFinitePosition(
+  state: { name: string; position: number },
+): number {
+  // `WorkflowState.position` is `Float!`, so a non-finite value means the
+  // response (or a test fixture) is malformed. Crash rather than continue: a
+  // NaN comparator result reads as "equal" and would silently degrade the
+  // listing to some other order instead of failing.
+  if (!Number.isFinite(state.position)) {
+    throw new CliError(
+      `Workflow state "${state.name}" has no usable position`,
+      { suggestion: "This indicates a malformed Linear API response." },
+    )
+  }
+  return state.position
+}
+
+/**
+ * Order two workflow states of the SAME team the way the Linear app does: type
+ * group first, then position DESCENDING inside the group.
+ *
+ * The descending tiebreak contradicts the schema, which documents `position` as
+ * "States are displayed in ascending order of position within their type group"
+ * (graphql/schema.graphql). The app does the opposite, and the app is what this
+ * listing is trying to match, so do not "correct" this back to ascending on the
+ * strength of the doc comment alone.
+ *
+ * Note this is a display order, not a workflow order. To ask which state a bare
+ * type name refers to, use `lowestPositionStateOfType` — under this comparator
+ * the first state of a type in a sorted list is the LAST one in the workflow.
+ */
+export function compareWorkflowStates(
+  a: { name: string; type: string; position: number },
+  b: { name: string; type: string; position: number },
+): number {
+  return compareWorkflowStateTypes(a.type, b.type) ||
+    assertFinitePosition(b) - assertFinitePosition(a)
+}
+
+/**
+ * The state a bare type name refers to: the earliest one of that type in the
+ * team's configured workflow, i.e. the LOWEST position.
+ *
+ * Deliberately independent of the order of `states`. Callers used to take the
+ * first match out of a list that happened to be sorted by ascending position;
+ * `compareWorkflowStates` now sorts descending, which silently turned that read
+ * into "the last state of the type" — `issue start` would have begun moving
+ * issues to the final started state instead of the first.
+ */
+export function lowestPositionStateOfType<
+  T extends { name: string; type: string; position: number },
+>(states: readonly T[], type: string): T | undefined {
+  let lowest: T | undefined
+  let lowestPosition = Number.POSITIVE_INFINITY
+  for (const state of states) {
+    if (state.type !== type) continue
+    // Check every candidate before it can win or lose. Validating inside the
+    // comparison would let the first match through unchecked, and a malformed
+    // position is a malformed response whether or not it ends up being used.
+    const position = assertFinitePosition(state)
+    if (lowest == null || position < lowestPosition) {
+      lowest = state
+      lowestPosition = position
+    }
+  }
+  return lowest
+}
+
+type IssueWorkflowFields = {
+  state: { name: string; type: string; position: number }
+  team: { key: string }
+}
+
+/**
+ * Order issues by status the way the Linear app groups them.
+ *
+ * `position` is only meaningful within one team, so the key depends on scope:
+ *
+ * - Single-team results (every `issue mine`/`issue start` call, and a scoped
+ *   `issue query`) sort by type group then position descending — exactly the
+ *   app's status order.
+ * - Multi-team results sort by type group only. Ranking one team's position
+ *   against another's compares unrelated numbers, and doing it per-pair would
+ *   not even be transitive: with A(teamA,5), B(teamB,0), C(teamA,0) you would
+ *   get A == B, B == C, yet A > C, which breaks the comparator contract.
+ *
+ * Either way ties fall through to a stable sort (guaranteed since ES2019),
+ * preserving the priority/manual ordering the server already applied — so a
+ * cross-team listing keeps its priority order within each status group.
+ */
+function sortIssuesByWorkflowState<T extends IssueWorkflowFields>(
+  issues: T[],
+): T[] {
+  const firstTeam = issues[0]?.team.key
+  const multiTeam = issues.some((issue) => issue.team.key !== firstTeam)
+  return issues.sort(
+    multiTeam
+      ? (a, b) => compareWorkflowStateTypes(a.state.type, b.state.type)
+      : (a, b) => compareWorkflowStates(a.state, b.state),
+  )
+}
+
 export async function getWorkflowStates(
   teamKey: string,
 ) {
@@ -161,10 +290,7 @@ export async function getWorkflowStates(
 
   const client = getGraphQLClient()
   const result = await client.request(query, { teamKey })
-  return result.team.states.nodes.sort(
-    (a: { position: number }, b: { position: number }) =>
-      a.position - b.position,
-  )
+  return result.team.states.nodes.sort(compareWorkflowStates)
 }
 export type WorkflowState = Awaited<
   ReturnType<typeof getWorkflowStates>
@@ -174,20 +300,19 @@ export async function getStartedState(
   teamKey: string,
 ): Promise<{ id: string; name: string }> {
   const states = await getWorkflowStates(teamKey)
-  const startedStates = states.filter((s) => s.type === "started")
+  const started = lowestPositionStateOfType(states, "started")
 
-  if (!startedStates.length) {
+  if (!started) {
     throw new Error("No 'started' state found in workflow")
   }
 
-  return { id: startedStates[0].id, name: startedStates[0].name }
+  return { id: started.id, name: started.name }
 }
 
 /**
  * Resolve a workflow state from an already-fetched list by name
- * (case-insensitive) or by type. Duplicate types resolve to the first matching
- * state in the input order — callers pass the position-sorted list from
- * `getWorkflowStates`, so that is the lowest-position state of that type.
+ * (case-insensitive) or by type. A type with several states resolves to the
+ * lowest-position one, independent of the order of `states`.
  */
 export function resolveWorkflowState(
   states: readonly WorkflowState[],
@@ -200,7 +325,7 @@ export function resolveWorkflowState(
     return nameMatch
   }
 
-  return states.find((s) => s.type === nameOrType.toLowerCase())
+  return lowestPositionStateOfType(states, nameOrType.toLowerCase())
 }
 
 /**
@@ -588,6 +713,39 @@ export async function fetchParentIssueData(parentId: string): Promise<
   }
 }
 
+/**
+ * The server-side sort for issue listings.
+ *
+ * The `workflowState` clause no longer decides display order — issues are
+ * reordered locally by `compareIssuesByWorkflowState` afterwards, because the
+ * API cannot sort by a team's configured state positions. It still decides
+ * which issues survive `--limit` truncation, and `Ascending` keeps open work
+ * ahead of terminal work there. Under `Descending` a truncated
+ * `--all-states` listing filled up with canceled issues before reaching any of
+ * the user's actual work.
+ */
+function getIssueSortPayload(
+  sort: "manual" | "priority",
+): Array<IssueSortInput> {
+  switch (sort) {
+    case "manual":
+      return [
+        { workflowState: { order: "Ascending" } },
+        { manual: { nulls: "last" as const, order: "Ascending" as const } },
+      ]
+    case "priority":
+      return [
+        { workflowState: { order: "Ascending" } },
+        { priority: { nulls: "last" as const, order: "Descending" as const } },
+        { manual: { nulls: "last" as const, order: "Ascending" as const } },
+      ]
+    default:
+      throw new ValidationError(`Unknown sort type: ${sort}`, {
+        suggestion: "Use 'manual' or 'priority'",
+      })
+  }
+}
+
 export async function fetchIssuesForState(
   teamKey: string,
   state: string[] | undefined,
@@ -679,6 +837,7 @@ export async function fetchIssuesForState(
             name
             color
             type
+            position
           }
           cycle {
             id
@@ -728,26 +887,7 @@ export async function fetchIssuesForState(
     }
   `)
 
-  let sortPayload: Array<IssueSortInput>
-  switch (sort) {
-    case "manual":
-      sortPayload = [
-        { workflowState: { order: "Descending" } },
-        { manual: { nulls: "last" as const, order: "Ascending" as const } },
-      ]
-      break
-    case "priority":
-      sortPayload = [
-        { workflowState: { order: "Descending" } },
-        { priority: { nulls: "last" as const, order: "Descending" as const } },
-        { manual: { nulls: "last" as const, order: "Ascending" as const } },
-      ]
-      break
-    default:
-      throw new ValidationError(`Unknown sort type: ${sort}`, {
-        suggestion: "Use 'manual' or 'priority'",
-      })
-  }
+  const sortPayload = getIssueSortPayload(sort)
 
   const client = getGraphQLClient()
 
@@ -777,9 +917,11 @@ export async function fetchIssuesForState(
     after = result.issues?.pageInfo?.endCursor
   }
 
+  // Slice first, then sort: the cutoff stays determined purely by the server's
+  // order, instead of depending on how far the last page happened to overfetch.
   return {
     issues: {
-      nodes: allIssues.slice(0, limit),
+      nodes: sortIssuesByWorkflowState(allIssues.slice(0, limit)),
     },
   }
 }
@@ -814,6 +956,7 @@ const queryIssuesQuery = gql(/* GraphQL */ `
           name
           color
           type
+          position
         }
         assignee {
           id
@@ -979,26 +1122,7 @@ export async function fetchIssuesForQuery(
   }
 
   const sort = options.sort ?? "priority"
-  let sortPayload: Array<IssueSortInput>
-  switch (sort) {
-    case "manual":
-      sortPayload = [
-        { workflowState: { order: "Descending" } },
-        { manual: { nulls: "last" as const, order: "Ascending" as const } },
-      ]
-      break
-    case "priority":
-      sortPayload = [
-        { workflowState: { order: "Descending" } },
-        { priority: { nulls: "last" as const, order: "Descending" as const } },
-        { manual: { nulls: "last" as const, order: "Ascending" as const } },
-      ]
-      break
-    default:
-      throw new ValidationError(`Unknown sort type: ${sort}`, {
-        suggestion: "Use 'manual' or 'priority'",
-      })
-  }
+  const sortPayload = getIssueSortPayload(sort)
 
   const client = getGraphQLClient()
   const fetchAll = options.limit === 0
@@ -1035,8 +1159,13 @@ export async function fetchIssuesForQuery(
     }
   }
 
+  // pageInfo still describes the server's pagination order while the nodes are
+  // reordered locally; preserving the connection shape beats inventing
+  // client-side pagination metadata.
   return {
-    nodes: fetchAll ? allNodes : allNodes.slice(0, limit),
+    nodes: sortIssuesByWorkflowState(
+      fetchAll ? allNodes : allNodes.slice(0, limit),
+    ),
     pageInfo: lastPageInfo,
   }
 }
@@ -1708,6 +1837,7 @@ export async function getTeamMembers(
             admin
             owner
             isMe
+            url
           }
           pageInfo {
             hasNextPage
@@ -1797,6 +1927,7 @@ export async function getOrganizationMembers(
               admin
               owner
               isMe
+              url
             }
             pageInfo {
               hasNextPage

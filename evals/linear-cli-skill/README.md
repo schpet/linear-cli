@@ -81,3 +81,15 @@ Results land in `results/<condition>.jsonl` (sanitized trial records — argv, e
 - Canned outputs are plausible but static; an agent that cross-checks results may notice. Trials are graded on tool choice, which is decided before any output is seen.
 - The shim source is readable by the subject (it's an executable on PATH); one baseline trial did read it, without changing its behavior. A subject that games the eval after reading the shim would be visible in the committed event commands.
 - Results are specific to the recorded codex version, model, and reasoning effort.
+
+## Claude Markdown forward eval
+
+`run-claude-markdown.ts` is a small forward test for Linear-specific Markdown behavior. It drives Claude Code through the local `claude-agent` adapter in safe mode, explicitly points Claude at a copied skill under test, and puts recording shims first on the subject shell's `PATH`. The subject shell receives an isolated home/config without Linear credentials, and each trial records and verifies that isolation before continuing. CLI discovery is answered offline. The fake `linear` command captures the submitted `--body` or `--body-file` Markdown; no Linear API mutation is performed.
+
+```bash
+deno task skill-eval-claude-markdown \
+  --condition mention-post-change \
+  --skill-dir skills/linear-cli
+```
+
+The frozen cases cover two differently phrased user mentions, one collapsible section, and a verbatim-comment control. The deterministic grader requires the canonical plain profile URL returned by the stubbed team-member lookup, rejects literal `@name` substitutes and GraphQL mutations, checks the balanced `+++ [title]` / `+++` syntax, and ensures the new guidance does not rewrite content requested verbatim. Each result records a SHA-256 hash of the exact `SKILL.md` under test. Issue #112's single-trial-per-case baseline scored 1/4; after the skill update the same cases scored 4/4. See `results/mention-baseline.jsonl` and `results/mention-post-change.jsonl` for the captured commands and Markdown.

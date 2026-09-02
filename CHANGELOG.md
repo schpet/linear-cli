@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Added
+
+- `team members --json` and `user list --json` now include each member's canonical Linear `url`, so callers can create real Markdown mentions without guessing profile slugs
+- `issue pr` accepts `--template/-T <file>` to start the pull request body from a template file, with a `pr_template` config option (`LINEAR_PR_TEMPLATE`) as a per-project default and `--no-template` to skip that default for one invocation. The Linear issue URL is appended after the template, so the pull request stays linked to its issue
+- issue comment list --json now exposes stable author identity: `user.id`, `externalUser.id`, and a `botActor` object (`id`, `name`, `type`, `subType`) for comments posted by integrations. Display names are editable and can collide across a workspace — an external user's display name can even match a real member's — so programs consuming the JSON previously had nothing reliable to attribute a comment with
+- issue comment list --json now includes `editedAt`, which is set only when a comment's author revised it. `updatedAt` also moves for unrelated backend churn, so it could not answer "has this been changed since it was written?"
+- `LINEAR_IGNORE_ENV_FILE=1` skips `.env` loading entirely, for repositories whose `.env` is not dotenv-shaped
+
+### Changed
+
+- CLI help now explains how to create real Linear Markdown mentions and collapsible sections, so an agent driving the CLI without the bundled skill still gets it right. The ten commands that take a Markdown body carry the rule inline (`@name` mentions nobody; a plain Linear URL does) and point at a new `linear markdown` reference, and `team members --json` / `user list --json` say what the `url` field is for
+- `issue mine`, `issue query`, `issue start`, and `team states` now group statuses in the same order as the Linear app: by workflow state type, then by the team's configured position within that type. Issue listings previously ran the order backwards (canceled and done first), and every status list sorted on raw position alone, which stranded a late-positioned status such as an "In Review" at position 1002 after "Duplicate" instead of beside "In Progress"
+- when `--limit` truncates an issue listing, the retained issues are now the most actionable rather than the most recently closed. The Linear API cannot sort by a team's configured positions, so it still selects which issues are fetched; that selection changed from closed-first to open-first. A status this build does not recognize sorts after all known ones
+- an unquoted `$VAR` reference in a `LINEAR_`/`GH_`/`GITHUB_` value is now skipped with a warning rather than expanded. Expansion of an unset variable silently produced the string `"undefined"`, and a self-referential one hung. Quoted values are unaffected, since dotenv never expanded those
+
+### Fixed
+
+- linear no longer crashes on startup when `.env` is a directory rather than a file, and no longer hangs forever on a `.env` written to be `source`d by a shell (a self-referential value such as `export PATH=$PATH:/opt/bin` spun the dotenv expander's loop indefinitely). An unusable `.env` is now reported as a warning on stderr and skipped, and the repository-root `.env` is still consulted as a fallback
+- issue comment list showed `@Unknown` for every comment posted by an integration or bot, because the query never asked for `botActor`; those comments now render the bot's name (falling back to its type)
+- issue comment add --id now rejects a value that is not a v4 UUID (the format Linear documents for the field) with an actionable error, instead of forwarding it and surfacing a raw API error
+
 ## [2.5.0] - 2026-08-11
 
 ### Changed

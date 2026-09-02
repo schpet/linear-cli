@@ -16,6 +16,7 @@ import { documentCommand } from "./commands/document/document.ts"
 import { configCommand } from "./commands/config.ts"
 import { schemaCommand } from "./commands/schema.ts"
 import { apiCommand } from "./commands/api.ts"
+import { markdownCommand } from "./commands/markdown.ts"
 import { setCliWorkspace } from "./config.ts"
 
 // Import config and credentials setup
@@ -32,7 +33,8 @@ export const cli = new Command()
     `Handy linear commands from the command line.
 
 Environment Variables:
-  LINEAR_DEBUG=1    Show full error details including stack traces`,
+  LINEAR_DEBUG=1              Show full error details including stack traces
+  LINEAR_IGNORE_ENV_FILE=1    Skip loading .env files`,
   )
   .globalOption(
     "--workspace <slug:string>",
@@ -71,3 +73,4 @@ Environment Variables:
   .alias("configure")
   .command("schema", schemaCommand)
   .command("api", apiCommand)
+  .command("markdown", markdownCommand)

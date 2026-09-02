@@ -26,6 +26,7 @@ function member(
     admin: false,
     owner: false,
     isMe: false,
+    url: `https://linear.app/acme/profiles/${overrides.displayName}`,
     ...overrides,
   }
 }

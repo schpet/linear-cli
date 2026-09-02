@@ -67,6 +67,7 @@ Deno.test("Issue Mine Command - Filter By Label", async () => {
                   name: "In Progress",
                   color: "#f2c94c",
                   type: "started",
+                  position: 2.0,
                 },
                 labels: {
                   nodes: [{
@@ -147,7 +148,7 @@ Deno.test("Issue Mine Command - Defaults To Priority Sort Without Flag Or Env Va
       queryName: "GetIssuesForState",
       variables: {
         sort: [
-          { workflowState: { order: "Descending" } },
+          { workflowState: { order: "Ascending" } },
           { priority: { nulls: "last", order: "Descending" } },
           { manual: { nulls: "last", order: "Ascending" } },
         ],
@@ -168,6 +169,7 @@ Deno.test("Issue Mine Command - Defaults To Priority Sort Without Flag Or Env Va
                   name: "In Progress",
                   color: "#f2c94c",
                   type: "started",
+                  position: 2.0,
                 },
                 labels: { nodes: [] },
                 cycle: null,
@@ -214,7 +216,7 @@ Deno.test("Issue Mine Command - Configured Sort Order Wins Over Default", async 
       queryName: "GetIssuesForState",
       variables: {
         sort: [
-          { workflowState: { order: "Descending" } },
+          { workflowState: { order: "Ascending" } },
           { manual: { nulls: "last", order: "Ascending" } },
         ],
       },
@@ -234,6 +236,7 @@ Deno.test("Issue Mine Command - Configured Sort Order Wins Over Default", async 
                   name: "In Progress",
                   color: "#f2c94c",
                   type: "started",
+                  position: 2.0,
                 },
                 labels: { nodes: [] },
                 cycle: null,
@@ -311,7 +314,7 @@ Deno.test("Issue Mine Command - Defaults To Priority Sort When Nothing Is Config
       queryName: "GetIssuesForState",
       variables: {
         sort: [
-          { workflowState: { order: "Descending" } },
+          { workflowState: { order: "Ascending" } },
           { priority: { nulls: "last", order: "Descending" } },
           { manual: { nulls: "last", order: "Ascending" } },
         ],
@@ -332,6 +335,7 @@ Deno.test("Issue Mine Command - Defaults To Priority Sort When Nothing Is Config
                   name: "In Progress",
                   color: "#f2c94c",
                   type: "started",
+                  position: 2.0,
                 },
                 labels: { nodes: [] },
                 cycle: null,
@@ -506,6 +510,7 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
     name: "Todo",
     color: "#e2e2e2",
     type: "unstarted",
+    position: 1,
   }
 
   const { cleanup } = await setupMockLinearServer([
@@ -703,6 +708,7 @@ Deno.test("Issue Mine Command - Shows Cycle Column", async () => {
                   name: "In Progress",
                   color: "#f2c94c",
                   type: "started",
+                  position: 2.0,
                 },
                 labels: {
                   nodes: [{
@@ -737,6 +743,7 @@ Deno.test("Issue Mine Command - Shows Cycle Column", async () => {
                   name: "In Progress",
                   color: "#f2c94c",
                   type: "started",
+                  position: 2.0,
                 },
                 labels: { nodes: [] },
                 cycle: {
@@ -786,4 +793,254 @@ Deno.test("Issue Mine Command - Shows Cycle Column", async () => {
     setColorEnabled(originalColorEnabled)
     await cleanup()
   }
+})
+
+// `issue mine --all-states` must group statuses the way the Linear app does. The
+// mock returns them scrambled, so the rendered order is entirely the CLI's
+// doing. It proves four things at once:
+//
+//   - type group is the primary key, so "In Review" (started, position 1002)
+//     stays with "In Progress" (started, 2) rather than landing dead last;
+//   - within a type group position sorts DESCENDING, so "In Review" (1002)
+//     leads "In Progress" (2) and "Blocked" (unstarted, 900) leads "Todo"
+//     (unstarted, 1). Two states sharing a type never consult the type table, so
+//     this pair is the only thing pinning the tiebreak direction;
+//   - position cannot promote a state across type groups, so "Rejected"
+//     (canceled, 0.5) stays at the bottom instead of jumping above the backlog;
+//   - a state type this build does not know ("onhold") sorts after every known
+//     one instead of being silently ranked first.
+//
+// `queryIncludes` pins the GraphQL selection: the mock echoes fixtures verbatim,
+// so without it this would still pass if the query stopped requesting position.
+// Use a fixed future update time because this snapshot tests ordering, not the
+// current date; formatRelativeTime renders future values deterministically.
+await cliffySnapshotTest({
+  name: "Issue Mine Command - Groups Statuses In Linear's Order",
+  meta: import.meta,
+  colors: false,
+  args: ["--all-states"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetIssuesForState",
+        queryIncludes: "position",
+        response: {
+          data: {
+            issues: {
+              nodes: [
+                {
+                  id: "issue-eng-6",
+                  identifier: "ENG-6",
+                  title: "Rejected work",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-rej",
+                    name: "Rejected",
+                    color: "#e2e2e2",
+                    type: "canceled",
+                    position: 0.5,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+                {
+                  id: "issue-eng-2",
+                  identifier: "ENG-2",
+                  title: "Reviewing",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-rev",
+                    name: "In Review",
+                    color: "#e2e2e2",
+                    type: "started",
+                    position: 1002,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+                {
+                  id: "issue-eng-4",
+                  identifier: "ENG-4",
+                  title: "Shipped",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-done",
+                    name: "Done",
+                    color: "#e2e2e2",
+                    type: "completed",
+                    position: 3,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+                {
+                  id: "issue-eng-1",
+                  identifier: "ENG-1",
+                  title: "Someday",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-back",
+                    name: "Backlog",
+                    color: "#e2e2e2",
+                    type: "backlog",
+                    position: 0,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+                {
+                  id: "issue-eng-7",
+                  identifier: "ENG-7",
+                  title: "From a future status",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-new",
+                    name: "Paused",
+                    color: "#e2e2e2",
+                    type: "onhold",
+                    position: 0,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+                {
+                  id: "issue-eng-3",
+                  identifier: "ENG-3",
+                  title: "Doing it",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-prog",
+                    name: "In Progress",
+                    color: "#e2e2e2",
+                    type: "started",
+                    position: 2,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+                {
+                  id: "issue-eng-5",
+                  identifier: "ENG-5",
+                  title: "Next up",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-todo",
+                    name: "Todo",
+                    color: "#e2e2e2",
+                    type: "unstarted",
+                    position: 1,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+                {
+                  id: "issue-eng-8",
+                  identifier: "ENG-8",
+                  title: "Waiting on someone",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-blocked",
+                    name: "Blocked",
+                    color: "#e2e2e2",
+                    type: "unstarted",
+                    position: 900,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ], { NO_COLOR: "true", LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await mineCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
 })

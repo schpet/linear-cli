@@ -7,13 +7,28 @@ import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 // Common Deno args for permissions
 const denoArgs = ["--allow-all", "--quiet"]
 
-// Deliberately out of position order to prove the command sorts by position.
+// Deliberately out of order to prove the command sorts states the way the Linear
+// app does: by type group first, then by position DESCENDING inside that group.
+// `team states` deliberately shares that order with `issue mine`, so a person
+// reading the workflow sees the same grouping either way.
+//
+// "In Review" is the case that matters. It is type `started` at position 1002,
+// so a plain position sort drops it to the very end, after `Duplicate`, and an
+// ascending within-group tiebreak puts it behind "In Progress" (2). It belongs
+// ahead of "In Progress". "Rejected" is the mirror image: a `canceled` state
+// positioned at 0.5 must not be promoted above the backlog.
 const UNSORTED_STATES = {
   data: {
     team: {
       states: {
         nodes: [
           { id: "s-done", name: "Done", type: "completed", position: 3 },
+          {
+            id: "s-review",
+            name: "In Review",
+            type: "started",
+            position: 1002,
+          },
           { id: "s-backlog", name: "Backlog", type: "backlog", position: 0 },
           {
             id: "s-progress",
@@ -21,7 +36,15 @@ const UNSORTED_STATES = {
             type: "started",
             position: 2,
           },
+          {
+            id: "s-rejected",
+            name: "Rejected",
+            type: "canceled",
+            position: 0.5,
+          },
+          { id: "s-dupe", name: "Duplicate", type: "duplicate", position: 5 },
           { id: "s-todo", name: "Todo", type: "unstarted", position: 1 },
+          { id: "s-triage", name: "Triage", type: "triage", position: 900 },
         ],
       },
     },

@@ -2,12 +2,20 @@ import { assertEquals, assertStringIncludes } from "@std/assert"
 import { getGraphQLClient } from "../src/utils/graphql.ts"
 import { cli } from "../src/cli.ts"
 import { configCommand } from "../src/commands/config.ts"
+import { markdownCommand } from "../src/commands/markdown.ts"
 
 // Regression guard for #245: `configure` is a natural name users (and the
 // CLI's own help text) reach for, so it resolves to the canonical `config`
 // command instead of erroring with "Unknown command".
 Deno.test("cli - `configure` is an alias for the config command", () => {
   assertEquals(cli.getCommand("configure"), configCommand)
+})
+
+// An exported but unregistered command type-checks and passes its own tests
+// while being unreachable from the CLI, which is the whole point of the
+// Markdown reference: agents have to be able to find it.
+Deno.test("cli - `markdown` reference is reachable as a top-level command", () => {
+  assertEquals(cli.getCommand("markdown"), markdownCommand)
 })
 
 // Mock fetch function for testing

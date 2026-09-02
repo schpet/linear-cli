@@ -57,6 +57,59 @@ await snapshotTest({
   },
 })
 
+await snapshotTest({
+  name: "Issue Comment Add Command - With Caller Supplied ID",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "TEST-123",
+    "--body",
+    "Bound authority marker",
+    "--id",
+    "123e4567-e89b-42d3-a456-426614174000",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetIssueId",
+        variables: { id: "TEST-123" },
+        response: { data: { issue: { id: "issue-uuid-123" } } },
+      },
+      {
+        queryName: "AddComment",
+        variables: {
+          input: {
+            body: "Bound authority marker",
+            id: "123e4567-e89b-42d3-a456-426614174000",
+            issueId: "TEST-123",
+          },
+        },
+        response: {
+          data: {
+            commentCreate: {
+              success: true,
+              comment: {
+                id: "123e4567-e89b-42d3-a456-426614174000",
+                body: "Bound authority marker",
+                createdAt: "2024-01-15T10:30:00Z",
+                url: "https://linear.app/issue/TEST-123#comment-uuid",
+                user: { name: "testuser", displayName: "Test User" },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await commentAddCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
 // Test replying to a comment with parent flag
 await snapshotTest({
   name: "Issue Comment Add Command - With Parent Flag",
@@ -211,4 +264,82 @@ await snapshotTest({
   async fn() {
     await commentAddCommand.parse()
   },
+})
+
+// A malformed --id is rejected before any API call, with a message that says how
+// to fix it, rather than surfacing a raw GraphQL error from Linear. Uses the
+// stubbed-Deno.exit pattern because handleError exits rather than returning.
+Deno.test("Issue Comment Add Command - rejects a non-UUID --id", async () => {
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  let exited = false
+  try {
+    await commentAddCommand.parse([
+      "TEST-123",
+      "--body",
+      "Nope",
+      "--id",
+      "not-a-uuid",
+    ])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+    exited = true
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+  }
+
+  assertEquals(exited, true)
+  assertEquals(
+    errorLogs.some((l) => l.includes("Invalid comment ID: not-a-uuid")),
+    true,
+  )
+  assertEquals(
+    errorLogs.some((l) => l.includes("--id must be a v4 UUID")),
+    true,
+  )
+})
+
+// Linear documents the field as UUID v4 specifically, so a well-formed UUID of
+// another version is still rejected rather than forwarded to fail server-side.
+Deno.test("Issue Comment Add Command - rejects a non-v4 UUID --id", async () => {
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  let exited = false
+  try {
+    await commentAddCommand.parse([
+      "TEST-123",
+      "--body",
+      "Nope",
+      "--id",
+      // Valid UUID syntax, but version 1.
+      "123e4567-e89b-12d3-a456-426614174000",
+    ])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+    exited = true
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+  }
+
+  assertEquals(exited, true)
+  assertEquals(
+    errorLogs.some((l) =>
+      l.includes("Invalid comment ID: 123e4567-e89b-12d3-a456-426614174000")
+    ),
+    true,
+  )
 })

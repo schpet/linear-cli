@@ -5,6 +5,17 @@ import {
   setupMockLinearServer,
 } from "../../utils/test-helpers.ts"
 
+await snapshotTest({
+  name: "Issue Comment Update Command - Help Text",
+  meta: import.meta,
+  colors: false,
+  args: ["--help"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    await commentUpdateCommand.parse()
+  },
+})
+
 // Test updating a comment with body flag
 await snapshotTest({
   name: "Issue Comment Update Command - With Body Flag",

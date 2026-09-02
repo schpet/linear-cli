@@ -7,7 +7,12 @@ Usage: create
 
 Description:
 
-  Create a linear issue
+  Create a linear issue                                                           
+                                                                                  
+  Linear Markdown: a plain Linear URL creates a mention; \`@name\`, \`@[Name](id)\`,  
+  and \`[Name](url)\` do not. Get a person's URL from the \`url\` field of            
+  \`linear team members <TEAM> --json\`, or an issue's from \`linear issue url <ID>\`.
+  Run \`linear markdown\` for collapsible sections and the full reference.          
 
 Options:
 
@@ -91,6 +96,6 @@ stdout:
 ""
 stderr:
 "✗ Failed to create issue: Workflow state not found: 'Nope' for team ENG
-  Valid states: \\"Todo\\" (unstarted), \\"In Progress\\" (started), \\"Done\\" (completed). Run \`linear team states ENG\` to list them.
+  Valid states: \\"In Progress\\" (started), \\"Todo\\" (unstarted), \\"Done\\" (completed). Run \`linear team states ENG\` to list them.
 "
 `;

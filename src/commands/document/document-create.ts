@@ -19,6 +19,7 @@ import {
   resolveDocumentTarget,
   toDocumentTargetInput,
 } from "./attachment-target.ts"
+import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 /**
  * Read content from stdin if available (piped input, with timeout)
@@ -47,7 +48,7 @@ async function readContentFromStdin(): Promise<string | undefined> {
 
 export const createCommand = new Command()
   .name("create")
-  .description("Create a new document")
+  .description(withMarkdownHint("Create a new document"))
   .alias("c")
   .option("-t, --title <title:string>", "Document title (required)")
   .option("-c, --content <content:string>", "Markdown content (inline)")

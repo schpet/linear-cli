@@ -22,10 +22,14 @@ stderr:
 snapshot[`Team States Command - Table 1`] = `
 stdout:
 "NAME        TYPE     
-Backlog     backlog  
-Todo        unstarted
+Triage      triage   
+In Review   started  
 In Progress started  
+Todo        unstarted
+Backlog     backlog  
 Done        completed
+Rejected    canceled 
+Duplicate   duplicate
 "
 stderr:
 ""
@@ -36,16 +40,16 @@ stdout:
 '{
   "nodes": [
     {
-      "id": "s-backlog",
-      "name": "Backlog",
-      "type": "backlog",
-      "position": 0
+      "id": "s-triage",
+      "name": "Triage",
+      "type": "triage",
+      "position": 900
     },
     {
-      "id": "s-todo",
-      "name": "Todo",
-      "type": "unstarted",
-      "position": 1
+      "id": "s-review",
+      "name": "In Review",
+      "type": "started",
+      "position": 1002
     },
     {
       "id": "s-progress",
@@ -54,10 +58,34 @@ stdout:
       "position": 2
     },
     {
+      "id": "s-todo",
+      "name": "Todo",
+      "type": "unstarted",
+      "position": 1
+    },
+    {
+      "id": "s-backlog",
+      "name": "Backlog",
+      "type": "backlog",
+      "position": 0
+    },
+    {
       "id": "s-done",
       "name": "Done",
       "type": "completed",
       "position": 3
+    },
+    {
+      "id": "s-rejected",
+      "name": "Rejected",
+      "type": "canceled",
+      "position": 0.5
+    },
+    {
+      "id": "s-dupe",
+      "name": "Duplicate",
+      "type": "duplicate",
+      "position": 5
     }
   ]
 }
@@ -69,10 +97,14 @@ stderr:
 snapshot[`Team States Command - Configured Team Fallback 1`] = `
 stdout:
 "NAME        TYPE     
-Backlog     backlog  
-Todo        unstarted
+Triage      triage   
+In Review   started  
 In Progress started  
+Todo        unstarted
+Backlog     backlog  
 Done        completed
+Rejected    canceled 
+Duplicate   duplicate
 "
 stderr:
 ""
