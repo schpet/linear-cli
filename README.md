@@ -199,6 +199,7 @@ linear project view    # view project details
 linear project view <projectId> --json  # project details as JSON
 linear project create --name "API v2" --team ENG --content-file overview.md
 linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com
+linear project update <projectId> --content-file overview.md  # replace the project's overview body
 ```
 
 ### cycle commands
