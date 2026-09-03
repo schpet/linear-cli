@@ -1,18 +1,19 @@
 import { Command } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { gql } from "../../__codegen__/gql.ts"
+import type { GetProjectMilestonesQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
-import { handleError } from "../../utils/errors.ts"
+import { CliError, handleError, NotFoundError } from "../../utils/errors.ts"
 
 const GetProjectMilestones = gql(`
-  query GetProjectMilestones($projectId: String!) {
+  query GetProjectMilestones($projectId: String!, $first: Int, $after: String) {
     project(id: $projectId) {
       id
       name
-      projectMilestones {
+      projectMilestones(first: $first, after: $after) {
         nodes {
           id
           name
@@ -22,6 +23,10 @@ const GetProjectMilestones = gql(`
             id
             name
           }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
         }
       }
     }
@@ -36,9 +41,10 @@ export const listCommand = new Command()
     "Project (UUID, slug ID, or name)",
     { required: true },
   )
-  .action(async ({ project: projectIdOrSlug }) => {
+  .option("-j, --json", "Output as JSON")
+  .action(async ({ project: projectIdOrSlug, json }) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = shouldShowSpinner()
+    const showSpinner = !json && shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 
@@ -47,17 +53,40 @@ export const listCommand = new Command()
       const projectId = await resolveProjectId(projectIdOrSlug)
 
       const client = getGraphQLClient()
-      const result = await client.request(GetProjectMilestones, {
-        projectId,
-      })
-      spinner?.stop()
 
-      const milestones = result.project?.projectMilestones?.nodes || []
-
-      if (milestones.length === 0) {
-        console.log("No milestones found for this project.")
-        return
+      type MilestonesConnection = NonNullable<
+        GetProjectMilestonesQuery["project"]
+      >["projectMilestones"]
+      const milestones: MilestonesConnection["nodes"] = []
+      let pageInfo: MilestonesConnection["pageInfo"] = {
+        hasNextPage: false,
+        endCursor: null,
       }
+      let after: string | null | undefined = undefined
+
+      do {
+        const result = await client.request(GetProjectMilestones, {
+          projectId,
+          first: 100,
+          after,
+        })
+        if (!result.project) {
+          throw new NotFoundError("Project", projectIdOrSlug)
+        }
+
+        milestones.push(...result.project.projectMilestones.nodes)
+        pageInfo = result.project.projectMilestones.pageInfo
+
+        if (pageInfo.hasNextPage && !pageInfo.endCursor) {
+          throw new CliError(
+            "Linear reported more milestones but returned no pagination cursor",
+            { suggestion: "Retry the command." },
+          )
+        }
+        after = pageInfo.endCursor
+      } while (pageInfo.hasNextPage)
+
+      spinner?.stop()
 
       // Sort milestones by targetDate (nulls last) then by name
       const sortedMilestones = milestones.sort((a, b) => {
@@ -69,6 +98,18 @@ export const listCommand = new Command()
           ? dateComparison
           : a.name.localeCompare(b.name)
       })
+
+      if (json) {
+        console.log(
+          JSON.stringify({ nodes: sortedMilestones, pageInfo }, null, 2),
+        )
+        return
+      }
+
+      if (sortedMilestones.length === 0) {
+        console.log("No milestones found for this project.")
+        return
+      }
 
       // Calculate column widths
       const { columns } = Deno.stdout.isTerminal()

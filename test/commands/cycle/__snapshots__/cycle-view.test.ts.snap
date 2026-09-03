@@ -13,6 +13,7 @@ Options:
 
   -h, --help          - Show this help.                      
   --team      <team>  - Team key (defaults to current team)  
+  -j, --json          - Output as JSON                       
 
 "
 stderr:
@@ -113,6 +114,148 @@ Completed sprint
 
 _...and 5 more issues_
 "
+stderr:
+""
+`;
+
+snapshot[`Cycle View Command - JSON Output Includes All Issues 1`] = `
+stdout:
+'{
+  "id": "cycle-1",
+  "number": 12,
+  "name": "Sprint 12",
+  "description": null,
+  "startsAt": "2026-02-10T00:00:00.000Z",
+  "endsAt": "2026-02-24T00:00:00.000Z",
+  "completedAt": "2026-02-24T00:00:00.000Z",
+  "isActive": false,
+  "isFuture": false,
+  "isPast": true,
+  "createdAt": "2026-02-01T00:00:00.000Z",
+  "updatedAt": "2026-02-24T00:00:00.000Z",
+  "team": {
+    "id": "team-eng-id",
+    "key": "ENG",
+    "name": "Engineering"
+  },
+  "issues": {
+    "nodes": [
+      {
+        "id": "issue-1",
+        "identifier": "ENG-1",
+        "title": "Issue 1",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-2",
+        "identifier": "ENG-2",
+        "title": "Issue 2",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-3",
+        "identifier": "ENG-3",
+        "title": "Issue 3",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-4",
+        "identifier": "ENG-4",
+        "title": "Issue 4",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-5",
+        "identifier": "ENG-5",
+        "title": "Issue 5",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-6",
+        "identifier": "ENG-6",
+        "title": "Issue 6",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-7",
+        "identifier": "ENG-7",
+        "title": "Issue 7",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-8",
+        "identifier": "ENG-8",
+        "title": "Issue 8",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-9",
+        "identifier": "ENG-9",
+        "title": "Issue 9",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-10",
+        "identifier": "ENG-10",
+        "title": "Issue 10",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-11",
+        "identifier": "ENG-11",
+        "title": "Issue 11",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      },
+      {
+        "id": "issue-12",
+        "identifier": "ENG-12",
+        "title": "Issue 12",
+        "state": {
+          "name": "Done",
+          "type": "completed"
+        }
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": true,
+      "endCursor": "issues-cursor-1"
+    }
+  }
+}
+'
 stderr:
 ""
 `;

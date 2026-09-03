@@ -214,6 +214,7 @@ linear issue delete TEAM-123
 
 ```bash
 linear team list
+linear team list --json   # machine-readable, e.g. to map a team name to its key
 ```
 
 #### get team id
@@ -277,6 +278,7 @@ linear project list
 
 ```bash
 linear project view PROJECT-ID
+linear project view PROJECT-ID --json
 ```
 
 ### shell completions

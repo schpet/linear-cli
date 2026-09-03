@@ -14,6 +14,7 @@ Options:
   -h, --help  - Show this help.      
   -w, --web   - Open in web browser  
   -a, --app   - Open in Linear.app   
+  -j, --json  - Output as JSON       
 
 "
 stderr:
@@ -97,6 +98,80 @@ stdout:
 **Created:** 1/20/2024
 **Updated:** 1/20/2024
 "
+stderr:
+""
+`;
+
+snapshot[`Project View Command - JSON Output 1`] = `
+stdout:
+'{
+  "id": "project-123",
+  "name": "Authentication System Redesign",
+  "description": "Overhaul auth.",
+  "slugId": "auth-redesign-2024",
+  "icon": "🔐",
+  "color": "#3b82f6",
+  "status": {
+    "id": "status-1",
+    "name": "In Progress",
+    "color": "#f59e0b"
+  },
+  "creator": {
+    "name": "john.admin",
+    "displayName": "John Admin"
+  },
+  "lead": {
+    "name": "jane.lead",
+    "displayName": "Jane Lead"
+  },
+  "priority": 2,
+  "health": "onTrack",
+  "startDate": "2024-01-15",
+  "targetDate": "2024-03-31",
+  "startedAt": "2024-01-15T09:00:00Z",
+  "completedAt": null,
+  "canceledAt": null,
+  "updatedAt": "2024-01-25T14:30:00Z",
+  "createdAt": "2024-01-10T10:00:00Z",
+  "url": "https://linear.app/acme/project/auth-redesign-2024",
+  "teams": {
+    "nodes": [
+      {
+        "id": "team-1",
+        "key": "BACKEND",
+        "name": "Backend Team"
+      }
+    ]
+  },
+  "issues": {
+    "nodes": [
+      {
+        "id": "issue-1",
+        "identifier": "AUTH-101",
+        "title": "Implement OAuth 2.0 flow",
+        "state": {
+          "name": "In Progress",
+          "type": "started"
+        }
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": true,
+      "endCursor": "issues-cursor-1"
+    }
+  },
+  "lastUpdate": {
+    "id": "update-1",
+    "body": "On track.",
+    "health": "onTrack",
+    "createdAt": "2024-01-25T14:30:00Z",
+    "user": {
+      "name": "jane.lead",
+      "displayName": "Jane Lead"
+    }
+  }
+}
+'
 stderr:
 ""
 `;

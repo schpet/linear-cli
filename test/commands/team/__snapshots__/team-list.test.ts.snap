@@ -14,6 +14,7 @@ Options:
   -h, --help  - Show this help.      
   -w, --web   - Open in web browser  
   -a, --app   - Open in Linear.app   
+  -j, --json  - Output as JSON       
 
 "
 stderr:
@@ -24,6 +25,114 @@ snapshot[`Team List Command - No Teams Found 1`] = `
 stdout:
 "No teams found.
 "
+stderr:
+""
+`;
+
+snapshot[`Team List Command - JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "description": null,
+      "icon": null,
+      "color": "#3b82f6",
+      "cyclesEnabled": true,
+      "createdAt": "2024-01-01T10:00:00.000Z",
+      "updatedAt": "2024-06-01T10:00:00.000Z",
+      "archivedAt": null,
+      "organization": {
+        "id": "org-1",
+        "name": "Acme Corp"
+      },
+      "id": "team-eng",
+      "key": "ENG",
+      "name": "Engineering"
+    },
+    {
+      "description": "Tier 1",
+      "icon": "🎧",
+      "color": "#3b82f6",
+      "cyclesEnabled": true,
+      "createdAt": "2024-01-01T10:00:00.000Z",
+      "updatedAt": "2024-06-01T10:00:00.000Z",
+      "archivedAt": null,
+      "organization": {
+        "id": "org-1",
+        "name": "Acme Corp"
+      },
+      "id": "team-sup",
+      "key": "SUP",
+      "name": "Support - Front Line - Team"
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Team List Command - Empty JSON 1`] = `
+stdout:
+'{
+  "nodes": [],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Team List Command - JSON Output With Pagination 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "description": null,
+      "icon": null,
+      "color": "#3b82f6",
+      "cyclesEnabled": false,
+      "createdAt": "2024-01-01T10:00:00.000Z",
+      "updatedAt": "2024-06-01T10:00:00.000Z",
+      "archivedAt": null,
+      "organization": {
+        "id": "org-1",
+        "name": "Acme Corp"
+      },
+      "id": "team-a",
+      "key": "ALPHA",
+      "name": "Alpha Team"
+    },
+    {
+      "description": null,
+      "icon": null,
+      "color": "#3b82f6",
+      "cyclesEnabled": false,
+      "createdAt": "2024-01-01T10:00:00.000Z",
+      "updatedAt": "2024-06-01T10:00:00.000Z",
+      "archivedAt": null,
+      "organization": {
+        "id": "org-1",
+        "name": "Acme Corp"
+      },
+      "id": "team-b",
+      "key": "BETA",
+      "name": "Beta Team"
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
 stderr:
 ""
 `;

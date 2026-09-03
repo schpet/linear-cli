@@ -45,6 +45,10 @@ const GetCycleDetails = gql(`
             type
           }
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
     }
   }
@@ -56,7 +60,8 @@ export const viewCommand = new Command()
   .alias("v")
   .arguments("<cycleRef:string>")
   .option("--team <team:string>", "Team key (defaults to current team)")
-  .action(async ({ team }, cycleRef) => {
+  .option("-j, --json", "Output as JSON")
+  .action(async ({ team, json }, cycleRef) => {
     try {
       const teamKey = team || getTeamKey()
       if (!teamKey) {
@@ -73,7 +78,7 @@ export const viewCommand = new Command()
       const cycleId = await getCycleIdByNameOrNumber(cycleRef, teamId)
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
+      const showSpinner = !json && shouldShowSpinner()
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 
@@ -84,6 +89,11 @@ export const viewCommand = new Command()
       const cycle = result.cycle
       if (!cycle) {
         throw new NotFoundError("Cycle", cycleRef)
+      }
+
+      if (json) {
+        console.log(JSON.stringify(cycle, null, 2))
+        return
       }
 
       const lines: string[] = []
