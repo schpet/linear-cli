@@ -21,6 +21,8 @@ Options:
   -d, --description       <description>  - Project description (max 255 characters, enforced by Linear's API)          
   -f, --description-file  <path>         - Read project description from file (still subject to the 255-character API  
                                            limit)                                                                      
+  --content               <markdown>     - Project overview markdown                                                   
+  --content-file          <path>         - Read project overview markdown from a file                                  
   -s, --status            <status>       - Status (planned, started, paused, completed, canceled, backlog)             
   -l, --lead              <lead>         - Project lead (username, email, or @me)                                      
   --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                     
@@ -64,6 +66,42 @@ snapshot[`Project Update Command - Replace Labels 1`] = `
 stdout:
 "✓ Updated project: Test Project
 https://linear.app/test/project/proj-labels
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Update Content 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-content
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Update Content File 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-content
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Update Description And Content 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-content
+"
+stderr:
+""
+`;
+
+snapshot[`Project Update Command - Empty Content File Sends Empty String 1`] = `
+stdout:
+"✓ Updated project: Test Project
+https://linear.app/test/project/proj-content
 "
 stderr:
 ""

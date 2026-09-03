@@ -19,6 +19,7 @@ import {
   PROJECT_DESCRIPTION_MAX_LENGTH,
   resolveProjectDescription,
 } from "./project-description.ts"
+import { resolveProjectContent } from "./project-create.ts"
 import { withMarkdownHint } from "../../utils/markdown-help.ts"
 
 const UpdateProject = gql(`
@@ -72,6 +73,11 @@ export const updateCommand = new Command()
     "-f, --description-file <path:string>",
     `Read project description from file (still subject to the ${PROJECT_DESCRIPTION_MAX_LENGTH}-character API limit)`,
   )
+  .option("--content <markdown:string>", "Project overview markdown")
+  .option(
+    "--content-file <path:string>",
+    "Read project overview markdown from a file",
+  )
   .option(
     "-s, --status <status:string>",
     "Status (planned, started, paused, completed, canceled, backlog)",
@@ -95,6 +101,8 @@ export const updateCommand = new Command()
         name,
         description,
         descriptionFile,
+        content,
+        contentFile,
         status,
         lead,
         startDate,
@@ -109,8 +117,11 @@ export const updateCommand = new Command()
       const spinner = showSpinner ? new Spinner() : null
 
       try {
+        // Null checks, not truthiness: an empty --content-file is still an
+        // explicit value to forward, so it must count as an update.
         if (
-          !name && description == null && descriptionFile == null && !status &&
+          !name && description == null && descriptionFile == null &&
+          content == null && contentFile == null && !status &&
           !lead && !startDate && !targetDate &&
           (!teams || teams.length === 0) && (!labels || labels.length === 0)
         ) {
@@ -118,7 +129,7 @@ export const updateCommand = new Command()
             "At least one update option must be provided",
             {
               suggestion:
-                "Use --name, --description, --description-file, --status, --lead, --start-date, --target-date, --team, or --label",
+                "Use --name, --description, --description-file, --content, --content-file, --status, --lead, --start-date, --target-date, --team, or --label",
             },
           )
         }
@@ -137,6 +148,10 @@ export const updateCommand = new Command()
           description,
           descriptionFile,
         )
+        const resolvedContent = await resolveProjectContent(
+          content,
+          contentFile,
+        )
 
         if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
           throw new ValidationError("Start date must be in YYYY-MM-DD format")
@@ -154,6 +169,7 @@ export const updateCommand = new Command()
 
         if (name) input.name = name
         if (resolvedDescription != null) input.description = resolvedDescription
+        if (resolvedContent != null) input.content = resolvedContent
         if (startDate) input.startDate = startDate
         if (targetDate) input.targetDate = targetDate
 

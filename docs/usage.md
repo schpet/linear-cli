@@ -268,6 +268,16 @@ linear project create --name "API v2" --team ENG --content-file overview.md
 linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com --icon rocket --color "#5E6AD2"
 ```
 
+#### update a project
+
+```bash
+# --description is the short summary; --content is the long-form overview body
+linear project update PROJECT-ID --description "Short summary" --content "## Overview"
+
+# Replace the overview body from a markdown file
+linear project update PROJECT-ID --content-file overview.md
+```
+
 #### list projects
 
 ```bash

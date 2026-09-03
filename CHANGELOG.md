@@ -4,6 +4,7 @@
 
 ### Added
 
+- `project update --content <markdown>` and `--content-file <path>` replace a project's long-form overview body, matching the flags `project create` already had. Previously the only way to change the body after creation was a hand-written `projectUpdate` mutation through `linear api`
 - `--json` (`-j`) on `team list`, `cycle list`, `cycle view`, `milestone list`, `milestone view`, and `project view`, the last read commands without machine-readable output. List commands emit the same `{ nodes, pageInfo }` connection shape as the other list commands, after the same filtering and ordering as the table; view commands emit the GraphQL object as fetched, including every issue rather than the ten-item preview, and `milestone view --all --json` includes every page. (A 2.0.0 entry claimed `cycle list --json`; that change never actually landed.) ([#276](https://github.com/schpet/linear-cli/issues/276); thanks @lakardion)
 
 ### Fixed
