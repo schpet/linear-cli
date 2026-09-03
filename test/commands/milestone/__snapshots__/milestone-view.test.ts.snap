@@ -14,6 +14,7 @@ Options:
   -h, --help             - Show this help.                                                                   
   --all                  - Fetch and list every issue attached to the milestone (paginates the Linear API).  
   --project   <project>  - Project for resolving a milestone name (UUID, slug ID, or name)                   
+  -j, --json             - Output as JSON                                                                    
 
 "
 stderr:
@@ -222,6 +223,138 @@ stdout:
 - BIG-51: Issue 51 (Done)
 - BIG-52: Issue 52 (Done)
 "
+stderr:
+""
+`;
+
+snapshot[`Milestone View Command - JSON Output Preserves First Page 1`] = `
+stdout:
+'{
+  "id": "milestone-json",
+  "name": "JSON Milestone",
+  "description": "Machine readable",
+  "targetDate": "2026-06-30",
+  "sortOrder": 1,
+  "createdAt": "2020-01-01T12:00:00Z",
+  "updatedAt": "2020-01-02T12:00:00Z",
+  "project": {
+    "id": "project-1",
+    "name": "P",
+    "slugId": "p",
+    "url": "https://linear.app/test/project/p"
+  },
+  "issues": {
+    "nodes": [
+      {
+        "id": "id-0",
+        "identifier": "JSN-1",
+        "title": "Issue 1",
+        "state": {
+          "name": "Todo",
+          "type": "unstarted"
+        }
+      },
+      {
+        "id": "id-1",
+        "identifier": "JSN-2",
+        "title": "Issue 2",
+        "state": {
+          "name": "Todo",
+          "type": "unstarted"
+        }
+      },
+      {
+        "id": "id-2",
+        "identifier": "JSN-3",
+        "title": "Issue 3",
+        "state": {
+          "name": "Todo",
+          "type": "unstarted"
+        }
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": true,
+      "endCursor": "issues-cursor-1"
+    }
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Milestone View Command - --all JSON Paginates 1`] = `
+stdout:
+'{
+  "id": "milestone-json",
+  "name": "JSON Milestone",
+  "description": "Machine readable",
+  "targetDate": "2026-06-30",
+  "sortOrder": 1,
+  "createdAt": "2020-01-01T12:00:00Z",
+  "updatedAt": "2020-01-02T12:00:00Z",
+  "project": {
+    "id": "project-1",
+    "name": "P",
+    "slugId": "p",
+    "url": "https://linear.app/test/project/p"
+  },
+  "issues": {
+    "nodes": [
+      {
+        "id": "id-0",
+        "identifier": "JSN-1",
+        "title": "Issue 1",
+        "state": {
+          "name": "Todo",
+          "type": "unstarted"
+        }
+      },
+      {
+        "id": "id-1",
+        "identifier": "JSN-2",
+        "title": "Issue 2",
+        "state": {
+          "name": "Todo",
+          "type": "unstarted"
+        }
+      },
+      {
+        "id": "id-2",
+        "identifier": "JSN-3",
+        "title": "Issue 3",
+        "state": {
+          "name": "Todo",
+          "type": "unstarted"
+        }
+      },
+      {
+        "id": "id-3",
+        "identifier": "JSN-4",
+        "title": "Issue 4",
+        "state": {
+          "name": "Todo",
+          "type": "unstarted"
+        }
+      },
+      {
+        "id": "id-4",
+        "identifier": "JSN-5",
+        "title": "Issue 5",
+        "state": {
+          "name": "Todo",
+          "type": "unstarted"
+        }
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  }
+}
+'
 stderr:
 ""
 `;

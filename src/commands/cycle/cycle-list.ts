@@ -2,23 +2,25 @@ import { Command } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { green } from "@std/fmt/colors"
 import { gql } from "../../__codegen__/gql.ts"
+import type { GetTeamCyclesQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
 import { getTeamIdByKey, getTeamKey } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { header, muted } from "../../utils/styling.ts"
 import {
+  CliError,
   handleError,
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
 
 const GetTeamCycles = gql(`
-  query GetTeamCycles($teamId: String!) {
+  query GetTeamCycles($teamId: String!, $first: Int, $after: String) {
     team(id: $teamId) {
       id
       name
-      cycles {
+      cycles(first: $first, after: $after) {
         nodes {
           id
           number
@@ -29,6 +31,10 @@ const GetTeamCycles = gql(`
           isActive
           isFuture
           isPast
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
         }
       }
     }
@@ -56,7 +62,8 @@ export const listCommand = new Command()
   .name("list")
   .description("List cycles for a team")
   .option("--team <team:string>", "Team key (defaults to current team)")
-  .action(async ({ team }) => {
+  .option("-j, --json", "Output as JSON")
+  .action(async ({ team, json }) => {
     try {
       const teamKey = team || getTeamKey()
       if (!teamKey) {
@@ -71,24 +78,57 @@ export const listCommand = new Command()
       }
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
-      const showSpinner = shouldShowSpinner()
+      const showSpinner = !json && shouldShowSpinner()
       const spinner = showSpinner ? new Spinner() : null
       spinner?.start()
 
       const client = getGraphQLClient()
-      const result = await client.request(GetTeamCycles, { teamId })
-      spinner?.stop()
 
-      const cycles = result.team?.cycles?.nodes || []
-
-      if (cycles.length === 0) {
-        console.log("No cycles found for this team.")
-        return
+      type CyclesConnection = NonNullable<GetTeamCyclesQuery["team"]>["cycles"]
+      const cycles: CyclesConnection["nodes"] = []
+      let pageInfo: CyclesConnection["pageInfo"] = {
+        hasNextPage: false,
+        endCursor: null,
       }
+      let after: string | null | undefined = undefined
+
+      do {
+        const result = await client.request(GetTeamCycles, {
+          teamId,
+          first: 100,
+          after,
+        })
+        if (!result.team) {
+          throw new NotFoundError("Team", teamKey)
+        }
+
+        cycles.push(...result.team.cycles.nodes)
+        pageInfo = result.team.cycles.pageInfo
+
+        if (pageInfo.hasNextPage && !pageInfo.endCursor) {
+          throw new CliError(
+            "Linear reported more cycles but returned no pagination cursor",
+            { suggestion: "Retry the command." },
+          )
+        }
+        after = pageInfo.endCursor
+      } while (pageInfo.hasNextPage)
+
+      spinner?.stop()
 
       const sortedCycles = [...cycles].sort((a, b) =>
         b.startsAt.localeCompare(a.startsAt)
       )
+
+      if (json) {
+        console.log(JSON.stringify({ nodes: sortedCycles, pageInfo }, null, 2))
+        return
+      }
+
+      if (sortedCycles.length === 0) {
+        console.log("No cycles found for this team.")
+        return
+      }
 
       const { columns } = Deno.stdout.isTerminal()
         ? Deno.consoleSize()

@@ -39,7 +39,8 @@ Options:
 
   -h, --help           - Show this help.                      
   --workspace  <slug>  - Target workspace (uses credentials)  
-  --team       <team>  - Team key (defaults to current team)
+  --team       <team>  - Team key (defaults to current team)  
+  -j, --json           - Output as JSON
 ```
 
 ### view
@@ -57,5 +58,6 @@ Options:
 
   -h, --help           - Show this help.                      
   --workspace  <slug>  - Target workspace (uses credentials)  
-  --team       <team>  - Team key (defaults to current team)
+  --team       <team>  - Team key (defaults to current team)  
+  -j, --json           - Output as JSON
 ```

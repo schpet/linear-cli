@@ -426,3 +426,118 @@ Deno.test("Milestone View Command - --all errors on inconsistent pagination", as
     true,
   )
 })
+
+function milestoneJsonPage(
+  issues: unknown[],
+  pageInfo: { hasNextPage: boolean; endCursor: string | null },
+) {
+  return {
+    data: {
+      projectMilestone: {
+        id: "milestone-json",
+        name: "JSON Milestone",
+        description: "Machine readable",
+        targetDate: "2026-06-30",
+        sortOrder: 1,
+        createdAt: "2020-01-01T12:00:00Z",
+        updatedAt: "2020-01-02T12:00:00Z",
+        project: {
+          id: "project-1",
+          name: "P",
+          slugId: "p",
+          url: "https://linear.app/test/project/p",
+        },
+        issues: { nodes: issues, pageInfo },
+      },
+    },
+  }
+}
+
+function jsonIssues(count: number, offset = 0) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `id-${offset + i}`,
+    identifier: `JSN-${offset + i + 1}`,
+    title: `Issue ${offset + i + 1}`,
+    state: { name: "Todo", type: "unstarted" },
+  }))
+}
+
+// Without --all, JSON is the first page exactly as fetched and pageInfo
+// reports that more exist. (Small fixtures: the mock pins `first: 50` but
+// does not need 50 nodes to prove the shape.)
+await snapshotTest({
+  name: "Milestone View Command - JSON Output Preserves First Page",
+  meta: import.meta,
+  colors: false,
+  args: ["milestone-json", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetMilestoneDetails",
+        variables: { id: "milestone-json", first: 50 },
+        response: milestoneJsonPage(jsonIssues(3), {
+          hasNextPage: true,
+          endCursor: "issues-cursor-1",
+        }),
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// --all --json concatenates every page into issues.nodes and reports the last
+// page's pageInfo. The cursor-specific mock is listed first because the mock
+// matcher treats pinned variables as a subset and takes the first hit.
+await snapshotTest({
+  name: "Milestone View Command - --all JSON Paginates",
+  meta: import.meta,
+  colors: false,
+  args: ["milestone-json", "--all", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetMilestoneDetails",
+        variables: {
+          id: "milestone-json",
+          first: 50,
+          after: "issues-cursor-1",
+        },
+        response: milestoneJsonPage(jsonIssues(2, 3), {
+          hasNextPage: false,
+          endCursor: null,
+        }),
+      },
+      {
+        queryName: "GetMilestoneDetails",
+        variables: { id: "milestone-json", first: 50 },
+        response: milestoneJsonPage(jsonIssues(3), {
+          hasNextPage: true,
+          endCursor: "issues-cursor-1",
+        }),
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})

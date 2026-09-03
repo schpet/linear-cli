@@ -13,6 +13,7 @@ Options:
 
   -h, --help          - Show this help.                      
   --team      <team>  - Team key (defaults to current team)  
+  -j, --json          - Output as JSON                       
 
 "
 stderr:
@@ -34,6 +35,94 @@ snapshot[`Cycle List Command - No Cycles Found 1`] = `
 stdout:
 "No cycles found for this team.
 "
+stderr:
+""
+`;
+
+snapshot[`Cycle List Command - JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "name": null,
+      "startsAt": "2026-02-24T00:00:00.000Z",
+      "endsAt": "2026-03-10T00:00:00.000Z",
+      "completedAt": null,
+      "isActive": true,
+      "isFuture": false,
+      "isPast": false,
+      "id": "cycle-2",
+      "number": 13
+    },
+    {
+      "name": "Sprint 12",
+      "startsAt": "2026-02-10T00:00:00.000Z",
+      "endsAt": "2026-02-24T00:00:00.000Z",
+      "completedAt": "2026-02-24T00:00:00.000Z",
+      "isActive": false,
+      "isFuture": false,
+      "isPast": true,
+      "id": "cycle-1",
+      "number": 12
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Cycle List Command - Empty JSON 1`] = `
+stdout:
+'{
+  "nodes": [],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Cycle List Command - JSON Output With Pagination 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "name": null,
+      "startsAt": "2026-06-01T00:00:00.000Z",
+      "endsAt": "2026-06-15T00:00:00.000Z",
+      "completedAt": null,
+      "isActive": false,
+      "isFuture": true,
+      "isPast": false,
+      "id": "cycle-2",
+      "number": 2
+    },
+    {
+      "name": null,
+      "startsAt": "2026-01-01T00:00:00.000Z",
+      "endsAt": "2026-01-15T00:00:00.000Z",
+      "completedAt": null,
+      "isActive": false,
+      "isFuture": false,
+      "isPast": true,
+      "id": "cycle-1",
+      "number": 1
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
 stderr:
 ""
 `;

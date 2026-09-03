@@ -313,3 +313,91 @@ await snapshotTest({
     }
   },
 })
+
+// JSON is the GraphQL cycle object as selected: every returned issue (the human
+// view previews ten), no derived status or progress, plus the issues
+// connection's pageInfo so callers can tell when Linear's page was partial.
+await snapshotTest({
+  name: "Cycle View Command - JSON Output Includes All Issues",
+  meta: import.meta,
+  colors: false,
+  args: ["12", "--team", "ENG", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetTeamIdByKey",
+        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      },
+      {
+        queryName: "GetTeamCyclesForLookup",
+        variables: { teamId: "team-eng-id", after: null },
+        response: {
+          data: {
+            team: {
+              key: "ENG",
+              cyclesEnabled: true,
+              cycles: {
+                nodes: [
+                  {
+                    id: "cycle-1",
+                    number: 12,
+                    name: "Sprint 12",
+                    startsAt: "2026-02-10T00:00:00.000Z",
+                    endsAt: "2026-02-24T00:00:00.000Z",
+                    isActive: false,
+                  },
+                ],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+              activeCycle: null,
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetCycleDetails",
+        variables: { id: "cycle-1" },
+        response: {
+          data: {
+            cycle: {
+              id: "cycle-1",
+              number: 12,
+              name: "Sprint 12",
+              description: null,
+              startsAt: "2026-02-10T00:00:00.000Z",
+              endsAt: "2026-02-24T00:00:00.000Z",
+              completedAt: "2026-02-24T00:00:00.000Z",
+              isActive: false,
+              isFuture: false,
+              isPast: true,
+              createdAt: "2026-02-01T00:00:00.000Z",
+              updatedAt: "2026-02-24T00:00:00.000Z",
+              team: { id: "team-eng-id", key: "ENG", name: "Engineering" },
+              issues: {
+                nodes: Array.from({ length: 12 }, (_, i) => ({
+                  id: `issue-${i + 1}`,
+                  identifier: `ENG-${i + 1}`,
+                  title: `Issue ${i + 1}`,
+                  state: { name: "Done", type: "completed" },
+                })),
+                pageInfo: { hasNextPage: true, endCursor: "issues-cursor-1" },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await viewCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})

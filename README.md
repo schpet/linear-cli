@@ -175,6 +175,7 @@ linear issue comment add ENG-123 -a ./screenshot.png --public   # public image U
 
 ```bash
 linear team list       # list teams
+linear team list --json  # as JSON, e.g. to map a team name to its key or id in scripts
 linear team id         # print out the team id (e.g. for scripts)
 linear team members    # list team members
 linear team members --all --json  # include inactive members, as JSON
@@ -195,8 +196,18 @@ linear user list --json # machine-readable output
 ```bash
 linear project list    # list projects
 linear project view    # view project details
+linear project view <projectId> --json  # project details as JSON
 linear project create --name "API v2" --team ENG --content-file overview.md
 linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com
+```
+
+### cycle commands
+
+```bash
+linear cycle list --team ENG          # list a team's cycles
+linear cycle list --team ENG --json   # as JSON
+linear cycle view 12 --team ENG       # view a cycle by number or name
+linear cycle view 12 --team ENG --json  # cycle details and its issues, as JSON
 ```
 
 ### milestone commands
@@ -204,8 +215,10 @@ linear project create --name "Mobile launch" --team APP --priority high --label 
 ```bash
 linear milestone list --project <projectId>     # list milestones for a project
 linear m list --project <projectId>             # list milestones (alias)
+linear milestone list --project <projectId> --json  # as JSON
 linear milestone view <milestoneId>             # view milestone details
 linear m view <milestoneId>                     # view milestone (alias)
+linear milestone view <milestoneId> --all --json  # every attached issue, as JSON
 linear milestone create --project <projectId> --name "Q1 Goals" --target-date "2026-03-31"  # create a milestone
 linear m create --project <projectId>           # create a milestone (interactive)
 linear milestone update <milestoneId> --name "New Name"  # update milestone name
