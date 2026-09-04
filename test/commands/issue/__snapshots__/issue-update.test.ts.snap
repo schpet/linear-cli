@@ -19,10 +19,13 @@ Options:
   -h, --help                         - Show this help.                                                                  
   -a, --assignee      <assignee>     - Assign the issue to 'self' or someone (by username or name)                      
   --unassign                         - Clear the issue's assignee (cannot be combined with --assignee)                  
-  --due-date          <dueDate>      - Due date of the issue                                                            
-  --parent            <parent>       - Parent issue (if any) as a team_number code                                      
+  --due-date          <dueDate>      - Due date of the issue. Use --clear-due-date to remove it                         
+  --clear-due-date                   - Remove the issue's due date (cannot be combined with --due-date)                 
+  --parent            <parent>       - Parent issue (if any) as a team_number code. Use --clear-parent to remove it     
+  --clear-parent                     - Remove the issue's parent (cannot be combined with --parent)                     
   -p, --priority      <priority>     - Priority of the issue (1-4, descending priority)                                 
-  --estimate          <estimate>     - Points estimate of the issue                                                     
+  --estimate          <estimate>     - Points estimate of the issue. Use --clear-estimate to remove it                  
+  --clear-estimate                   - Remove the issue's estimate (cannot be combined with --estimate)                 
   -d, --description   <description>  - Description of the issue                                                         
   --description-file  <path>         - Read description from a file (preferred for markdown content)                    
   -l, --label         <label>        - Issue label associated with the issue; replaces the issue's entire label set.    
@@ -31,10 +34,15 @@ Options:
   --remove-label      <label>        - Remove a label from the issue, keeping its other labels (does not delete the     
                                        label from the team). May be repeated.                                           
   --team              <team>         - Team (key, name, or ID) to move the issue to                                     
-  --project           <project>      - Project to assign the issue to (UUID, slug ID, or name)                          
+  --project           <project>      - Project to assign the issue to (UUID, slug ID, or name). Use --clear-project to  
+                                       remove it                                                                        
+  --clear-project                    - Remove the issue from its project (cannot be combined with --project or          
+                                       --milestone)                                                                     
   -s, --state         <state>        - Workflow state for the issue (by name or type)                                   
   --milestone         <milestone>    - Project milestone (UUID, or name when --project is set or the issue already has  
-                                       a project)                                                                       
+                                       a project). Use --clear-milestone to remove it                                   
+  --clear-milestone                  - Remove the issue from its project milestone (cannot be combined with             
+                                       --milestone)                                                                     
   --cycle             <cycle>        - Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset     
                                        like +1 (use --cycle=-1 for negatives). Use --clear-cycle to remove the issue    
                                        from its cycle                                                                   
@@ -353,6 +361,28 @@ stdout:
 
 ✓ Updated issue APP-7: Moved
 https://linear.app/test-team/issue/APP-7/moved
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Clear Flags Send Null 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Update Command - Project With Clear Milestone 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue ENG-123: Some issue
+https://linear.app/test-team/issue/ENG-123/some-issue
 "
 stderr:
 ""

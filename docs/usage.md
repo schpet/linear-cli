@@ -180,6 +180,21 @@ linear issue update TEAM-123 --remove-label sprint-42 --add-label sprint-43
 linear issue update TEAM-123 --label bug --label frontend
 ```
 
+clear optional fields (each `--clear-*` flag conflicts with its set flag):
+
+```bash
+# Remove the due date, estimate, parent, project, or milestone
+linear issue update TEAM-123 --clear-due-date
+linear issue update TEAM-123 --clear-estimate --clear-parent
+linear issue update TEAM-123 --clear-project --clear-milestone
+
+# Move to another project and detach the milestone in one update
+linear issue update TEAM-123 --project "Mobile App" --clear-milestone
+
+# Assignee and cycle have their own clearing flags
+linear issue update TEAM-123 --unassign --clear-cycle
+```
+
 #### other issue commands
 
 get issue id from current git branch:
@@ -299,6 +314,9 @@ linear project update PROJECT-ID --description "Short summary" --content "## Ove
 
 # Replace the overview body from a markdown file
 linear project update PROJECT-ID --content-file overview.md
+
+# Remove the lead, start date, or target date (each conflicts with its set flag)
+linear project update PROJECT-ID --clear-lead --clear-start-date --clear-target-date
 ```
 
 #### list projects

@@ -82,9 +82,30 @@ export const updateCommand = new Command()
     "-s, --status <status:string>",
     "Status (planned, started, paused, completed, canceled, backlog)",
   )
-  .option("-l, --lead <lead:string>", "Project lead (username, email, or @me)")
-  .option("--start-date <startDate:string>", "Start date (YYYY-MM-DD)")
-  .option("--target-date <targetDate:string>", "Target date (YYYY-MM-DD)")
+  .option(
+    "-l, --lead <lead:string>",
+    "Project lead (username, email, or @me). Use --clear-lead to remove it",
+  )
+  .option(
+    "--clear-lead",
+    "Remove the project's lead (cannot be combined with --lead)",
+  )
+  .option(
+    "--start-date <startDate:string>",
+    "Start date (YYYY-MM-DD). Use --clear-start-date to remove it",
+  )
+  .option(
+    "--clear-start-date",
+    "Remove the project's start date (cannot be combined with --start-date)",
+  )
+  .option(
+    "--target-date <targetDate:string>",
+    "Target date (YYYY-MM-DD). Use --clear-target-date to remove it",
+  )
+  .option(
+    "--clear-target-date",
+    "Remove the project's target date (cannot be combined with --target-date)",
+  )
   .option(
     "-t, --team <team:string>",
     "Team key, name, or ID (can be repeated for multiple teams)",
@@ -105,8 +126,11 @@ export const updateCommand = new Command()
         contentFile,
         status,
         lead,
+        clearLead,
         startDate,
+        clearStartDate,
         targetDate,
+        clearTargetDate,
         team: teams,
         label: labels,
       },
@@ -122,14 +146,45 @@ export const updateCommand = new Command()
         if (
           !name && description == null && descriptionFile == null &&
           content == null && contentFile == null && !status &&
-          !lead && !startDate && !targetDate &&
+          !lead && !clearLead && !startDate && !clearStartDate &&
+          !targetDate && !clearTargetDate &&
           (!teams || teams.length === 0) && (!labels || labels.length === 0)
         ) {
           throw new ValidationError(
             "At least one update option must be provided",
             {
               suggestion:
-                "Use --name, --description, --description-file, --content, --content-file, --status, --lead, --start-date, --target-date, --team, or --label",
+                "Use --name, --description, --description-file, --content, --content-file, --status, --lead, --clear-lead, --start-date, --clear-start-date, --target-date, --clear-target-date, --team, or --label",
+            },
+          )
+        }
+
+        if (clearLead && lead != null) {
+          throw new ValidationError(
+            "Cannot specify both --lead and --clear-lead",
+            {
+              suggestion:
+                "Use --lead <user> to set a lead, or --clear-lead on its own to remove it.",
+            },
+          )
+        }
+
+        if (clearStartDate && startDate != null) {
+          throw new ValidationError(
+            "Cannot specify both --start-date and --clear-start-date",
+            {
+              suggestion:
+                "Use --start-date <date> to set a start date, or --clear-start-date on its own to remove it.",
+            },
+          )
+        }
+
+        if (clearTargetDate && targetDate != null) {
+          throw new ValidationError(
+            "Cannot specify both --target-date and --clear-target-date",
+            {
+              suggestion:
+                "Use --target-date <date> to set a target date, or --clear-target-date on its own to remove it.",
             },
           )
         }
@@ -170,8 +225,18 @@ export const updateCommand = new Command()
         if (name) input.name = name
         if (resolvedDescription != null) input.description = resolvedDescription
         if (resolvedContent != null) input.content = resolvedContent
-        if (startDate) input.startDate = startDate
-        if (targetDate) input.targetDate = targetDate
+        // Clearing a field requires an explicit flag; never set a field to
+        // null implicitly.
+        if (clearStartDate) {
+          input.startDate = null
+        } else if (startDate) {
+          input.startDate = startDate
+        }
+        if (clearTargetDate) {
+          input.targetDate = null
+        } else if (targetDate) {
+          input.targetDate = targetDate
+        }
 
         if (status) {
           const statusLower = status.toLowerCase()
@@ -195,7 +260,9 @@ export const updateCommand = new Command()
           input.statusId = matchingStatus.id
         }
 
-        if (lead) {
+        if (clearLead) {
+          input.leadId = null
+        } else if (lead) {
           const leadId = await lookupUserId(lead)
           if (!leadId) {
             spinner?.stop()

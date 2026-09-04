@@ -1946,3 +1946,190 @@ await snapshotTest({
     }
   },
 })
+
+// Every clear flag must send its field as an explicit null. As with
+// --unassign and --clear-cycle above, the exact-variables mock proves each key
+// is present AND null. There are no GetProjectIdByName, GetIssueProjectId,
+// GetProjectMilestonesForLookup, or GetIssueId mocks: clearing must not
+// resolve anything.
+await snapshotTest({
+  name: "Issue Update Command - Clear Flags Send Null",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "ENG-123",
+    "--clear-due-date",
+    "--clear-estimate",
+    "--clear-parent",
+    "--clear-project",
+    "--clear-milestone",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: {
+            dueDate: null,
+            parentId: null,
+            estimate: null,
+            teamId: "team-eng-id",
+            projectId: null,
+            projectMilestoneId: null,
+          },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Moving an issue to a project while detaching its milestone: the project is
+// resolved, the milestone is nulled, and neither GetIssueProjectId nor a
+// milestone lookup runs (no mocks for them).
+await snapshotTest({
+  name: "Issue Update Command - Project With Clear Milestone",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--project", "Mobile App", "--clear-milestone"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
+      {
+        queryName: "GetProjectIdByName",
+        variables: { name: "Mobile App" },
+        response: {
+          data: { projects: { nodes: [{ id: "project-mobile" }] } },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: {
+            teamId: "team-eng-id",
+            projectId: "project-mobile",
+            projectMilestoneId: null,
+          },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Each clear flag conflicts with its set flag. The endpoint is dead, so these
+// only pass if the command errors before any request. `--estimate 0` guards
+// the null check: zero is an explicit value, not an omission.
+Deno.test("Issue Update Command - clear flags reject their set flags", async (t) => {
+  const { assertEquals } = await import("@std/assert")
+  const { stub } = await import("@std/testing/mock")
+  const cases: { args: string[]; message: string; suggestion: string }[] = [
+    {
+      args: ["--due-date", "2026-10-01", "--clear-due-date"],
+      message: "Cannot specify both --due-date and --clear-due-date",
+      suggestion: "--clear-due-date on its own",
+    },
+    {
+      args: ["--estimate", "0", "--clear-estimate"],
+      message: "Cannot specify both --estimate and --clear-estimate",
+      suggestion: "--clear-estimate on its own",
+    },
+    {
+      args: ["--parent", "ENG-1", "--clear-parent"],
+      message: "Cannot specify both --parent and --clear-parent",
+      suggestion: "--clear-parent on its own",
+    },
+    {
+      args: ["--project", "Mobile App", "--clear-project"],
+      message: "Cannot specify both --project and --clear-project",
+      suggestion: "--clear-project on its own",
+    },
+    {
+      args: ["--milestone", "Phase 2", "--clear-milestone"],
+      message: "Cannot specify both --milestone and --clear-milestone",
+      suggestion: "--clear-milestone on its own",
+    },
+    {
+      args: [
+        "--clear-project",
+        "--milestone",
+        "0d7a1d1e-4b1e-4d7e-9c5e-1f0f8a2b3c4d",
+      ],
+      message: "Cannot specify --milestone while clearing the issue's project",
+      suggestion: "replace it with --clear-milestone",
+    },
+  ]
+
+  Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1")
+  Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+  try {
+    for (const c of cases) {
+      await t.step(c.args.join(" "), async () => {
+        const errorLogs: string[] = []
+        const errorStub = stub(console, "error", (...args: unknown[]) => {
+          errorLogs.push(args.map(String).join(" "))
+        })
+        const exitStub = stub(Deno, "exit", (_code?: number) => {
+          throw new Error("EXIT")
+        })
+        let exited = false
+        try {
+          await updateCommand.parse(["ENG-123", ...c.args])
+        } catch (e) {
+          if (!(e instanceof Error) || e.message !== "EXIT") throw e
+          exited = true
+        } finally {
+          errorStub.restore()
+          exitStub.restore()
+        }
+        assertEquals(exited, true)
+        assertEquals(errorLogs.some((l) => l.includes(c.message)), true)
+        assertEquals(errorLogs.some((l) => l.includes(c.suggestion)), true)
+      })
+    }
+  } finally {
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+  }
+})

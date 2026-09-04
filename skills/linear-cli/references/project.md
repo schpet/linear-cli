@@ -200,9 +200,12 @@ Options:
   --content               <markdown>     - Project overview markdown                                                   
   --content-file          <path>         - Read project overview markdown from a file                                  
   -s, --status            <status>       - Status (planned, started, paused, completed, canceled, backlog)             
-  -l, --lead              <lead>         - Project lead (username, email, or @me)                                      
-  --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                     
-  --target-date           <targetDate>   - Target date (YYYY-MM-DD)                                                    
+  -l, --lead              <lead>         - Project lead (username, email, or @me). Use --clear-lead to remove it       
+  --clear-lead                           - Remove the project's lead (cannot be combined with --lead)                  
+  --start-date            <startDate>    - Start date (YYYY-MM-DD). Use --clear-start-date to remove it                
+  --clear-start-date                     - Remove the project's start date (cannot be combined with --start-date)      
+  --target-date           <targetDate>   - Target date (YYYY-MM-DD). Use --clear-target-date to remove it              
+  --clear-target-date                    - Remove the project's target date (cannot be combined with --target-date)    
   -t, --team              <team>         - Team key, name, or ID (can be repeated for multiple teams)                  
   --label                 <label>        - Replace the project's labels. May be repeated to set multiple labels.
 ```
