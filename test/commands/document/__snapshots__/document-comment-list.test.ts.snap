@@ -1,0 +1,162 @@
+export const snapshot = {};
+
+snapshot[`Document Comment List Command - Threads With Inline Comment 1`] = `
+stdout:
+"@Ada Lovelace commented 1/15/2024 [comment-uuid-3]
+> handles 500 requests per second
+This number is out of date.
+
+@Ada Lovelace commented 1/15/2024 [comment-uuid-1]
+Should this section mention the rollout plan?
+
+  @Grace Hopper replied 1/15/2024 [comment-uuid-2]
+  Yes, adding it now.
+
+"
+stderr:
+""
+`;
+
+snapshot[`Document Comment List Command - JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "comment-uuid-1",
+      "body": "Should this section mention the rollout plan?",
+      "quotedText": null,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/document/spec-abc123#comment-uuid-1",
+      "user": {
+        "id": "user-uuid-1",
+        "name": "ada",
+        "displayName": "Ada Lovelace"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": null
+    },
+    {
+      "id": "comment-uuid-2",
+      "body": "Yes, adding it now.",
+      "quotedText": null,
+      "createdAt": "2024-01-15T11:00:00Z",
+      "updatedAt": "2024-01-15T11:00:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/document/spec-abc123#comment-uuid-2",
+      "user": {
+        "id": "user-uuid-2",
+        "name": "grace",
+        "displayName": "Grace Hopper"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": {
+        "id": "comment-uuid-1"
+      }
+    },
+    {
+      "id": "comment-uuid-3",
+      "body": "This number is out of date.",
+      "quotedText": "handles 500 requests per second",
+      "createdAt": "2024-01-15T12:30:00Z",
+      "updatedAt": "2024-01-15T12:30:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/document/spec-abc123#comment-uuid-3",
+      "user": {
+        "id": "user-uuid-1",
+        "name": "ada",
+        "displayName": "Ada Lovelace"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": null
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": "comment-uuid-3"
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Document Comment List Command - No Comments 1`] = `
+stdout:
+"No comments found for this document
+"
+stderr:
+""
+`;
+
+snapshot[`Document Comment List Command - JSON Output Follows Pagination 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "comment-uuid-1",
+      "body": "Should this section mention the rollout plan?",
+      "quotedText": null,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/document/spec-abc123#comment-uuid-1",
+      "user": {
+        "id": "user-uuid-1",
+        "name": "ada",
+        "displayName": "Ada Lovelace"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": null
+    },
+    {
+      "id": "comment-uuid-2",
+      "body": "Yes, adding it now.",
+      "quotedText": null,
+      "createdAt": "2024-01-15T11:00:00Z",
+      "updatedAt": "2024-01-15T11:00:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/document/spec-abc123#comment-uuid-2",
+      "user": {
+        "id": "user-uuid-2",
+        "name": "grace",
+        "displayName": "Grace Hopper"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": {
+        "id": "comment-uuid-1"
+      }
+    },
+    {
+      "id": "comment-uuid-3",
+      "body": "This number is out of date.",
+      "quotedText": "handles 500 requests per second",
+      "createdAt": "2024-01-15T12:30:00Z",
+      "updatedAt": "2024-01-15T12:30:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/document/spec-abc123#comment-uuid-3",
+      "user": {
+        "id": "user-uuid-1",
+        "name": "ada",
+        "displayName": "Ada Lovelace"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": null
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": "cursor-2"
+  }
+}
+'
+stderr:
+""
+`;

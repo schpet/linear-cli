@@ -623,6 +623,7 @@ const issueDetailsWithCommentsQuery = gql(/* GraphQL */ `
         nodes {
           id
           body
+          quotedText
           createdAt
           url
           resolvedAt

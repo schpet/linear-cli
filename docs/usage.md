@@ -213,6 +213,21 @@ delete an issue:
 linear issue delete TEAM-123
 ```
 
+#### issue comments
+
+```bash
+# List comments (threads, newest first); --json keeps the GraphQL connection
+linear issue comment list TEAM-123
+linear issue comment list TEAM-123 --json
+
+# Add a comment; --body-file is preferred for markdown
+linear issue comment add TEAM-123 --body "Reproduced on staging"
+linear issue comment add TEAM-123 --body-file notes.md
+
+# Reply to a top-level comment (-p / --parent are aliases of --reply-to)
+linear issue comment add TEAM-123 --body "Fixed in #42" --reply-to COMMENT-ID
+```
+
 ### teams
 
 wherever a command takes a team, pass its key, its name, or its UUID. keys are canonical; an unknown team errors and lists the valid keys.
@@ -297,6 +312,31 @@ linear project list
 ```bash
 linear project view PROJECT-ID
 linear project view PROJECT-ID --json
+```
+
+#### project comments
+
+```bash
+# A project is a UUID, slug ID, or exact name
+linear project comment list "Mobile launch"
+linear project comment list PROJECT-ID --json
+
+linear project comment add PROJECT-ID --body "Kickoff is Monday"
+linear project comment add PROJECT-ID --body-file update.md --reply-to COMMENT-ID
+```
+
+### documents and initiatives
+
+Documents and initiatives take the same `comment list` and `comment add` subcommands as issues and projects. A document is a UUID or slug; an initiative is a UUID, slug, or name.
+
+```bash
+linear document comment list DOC-SLUG          # inline comments show the text they quote
+linear document comment list DOC-SLUG --json   # quotedText and parent are in the JSON
+linear document comment add DOC-SLUG --body-file review.md
+linear document comment add DOC-SLUG --body "Agreed" --reply-to COMMENT-ID
+
+linear initiative comment list "Platform"
+linear initiative comment add "Platform" --body "Scope locked for Q3"
 ```
 
 ### shell completions

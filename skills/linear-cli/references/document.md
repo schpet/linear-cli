@@ -23,9 +23,73 @@ Commands:
   create, c                - Create a new document             
   update, u  <documentId>  - Update an existing document       
   delete, d  [documentId]  - Delete a document (moves to trash)
+  comment                  - Manage document comments
 ```
 
 ## Subcommands
+
+### comment
+
+> Manage document comments
+
+```
+Usage:   linear document comment
+
+Description:
+
+  Manage document comments
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+
+Commands:
+
+  add   <document>  - Add a comment or reply to a document (by ID or slug)
+  list  <document>  - List comments on a document (by ID or slug)
+```
+
+#### comment subcommands
+
+##### add
+
+```
+Usage:   linear document comment add <document>
+
+Description:
+
+  Add a comment or reply to a document (by ID or slug)                            
+                                                                                  
+  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
+  and `[Name](url)` do not. Get a person's URL from the `url` field of            
+  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+  Run `linear markdown` for collapsible sections and the full reference.          
+
+Options:
+
+  -h, --help                             - Show this help.                                                   
+  --workspace               <slug>       - Target workspace (uses credentials)                               
+  -b, --body                <text>       - Comment body text                                                 
+  --body-file               <path>       - Read comment body from a file (preferred for markdown content)    
+  -p, --parent, --reply-to  <commentId>  - Reply to a top-level comment by ID (the reply joins that thread)
+```
+
+##### list
+
+```
+Usage:   linear document comment list <document>
+
+Description:
+
+  List comments on a document (by ID or slug)
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json           - Output as JSON
+```
 
 ### create
 

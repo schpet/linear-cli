@@ -1,21 +1,21 @@
 import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getIssueIdentifier } from "../../utils/linear.ts"
 import {
   handleError,
   NotFoundError,
   translateNotFound,
-  ValidationError,
 } from "../../utils/errors.ts"
 import {
   collectCommentPages,
   renderCommentThreads,
 } from "../../utils/comments.ts"
 
-const GetIssueComments = gql(`
-  query GetIssueComments($id: String!, $after: String) {
-    issue(id: $id) {
+// `document(id:)` accepts a UUID or a slug ID, so no resolver is needed.
+const GetDocumentComments = gql(`
+  query GetDocumentComments($id: String!, $after: String) {
+    document(id: $id) {
+      id
       comments(first: 50, after: $after, orderBy: createdAt) {
         nodes {
           ...CommentListFields
@@ -31,33 +31,24 @@ const GetIssueComments = gql(`
 
 export const commentListCommand = new Command()
   .name("list")
-  .description("List comments for an issue")
-  .arguments("[issueId:string]")
+  .description("List comments on a document (by ID or slug)")
+  .arguments("<document:string>")
   .option("-j, --json", "Output as JSON")
-  .action(async (options, issueId) => {
+  .action(async (options, document) => {
     const { json } = options
 
     try {
-      const resolvedIdentifier = await getIssueIdentifier(issueId)
-      if (!resolvedIdentifier) {
-        throw new ValidationError(
-          "Could not determine issue ID",
-          { suggestion: "Please provide an issue ID like 'ENG-123'." },
-        )
-      }
-
       const client = getGraphQLClient()
       const comments = await collectCommentPages(async (after) => {
         const data = await translateNotFound(
-          "Issue",
-          resolvedIdentifier,
-          () =>
-            client.request(GetIssueComments, { id: resolvedIdentifier, after }),
+          "Document",
+          document,
+          () => client.request(GetDocumentComments, { id: document, after }),
         )
-        if (!data.issue) {
-          throw new NotFoundError("Issue", resolvedIdentifier)
+        if (!data.document) {
+          throw new NotFoundError("Document", document)
         }
-        return data.issue.comments
+        return data.document.comments
       })
 
       if (json) {
@@ -66,7 +57,7 @@ export const commentListCommand = new Command()
       }
 
       renderCommentThreads(comments.nodes, {
-        emptyMessage: "No comments found for this issue",
+        emptyMessage: "No comments found for this document",
       })
     } catch (error) {
       handleError(error, "Failed to list comments")

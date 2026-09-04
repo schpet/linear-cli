@@ -1,0 +1,24 @@
+export const snapshot = {};
+
+snapshot[`Initiative Comment Command - Help Through Parent 1`] = `
+stdout:
+"
+Usage: COMMAND comment
+
+Description:
+
+  Manage initiative comments
+
+Options:
+
+  -h, --help  - Show this help.  
+
+Commands:
+
+  add   <initiative>  - Add a comment or reply to an initiative's discussion (by ID, slug, or name)
+  list  <initiative>  - List comments on an initiative (by ID, slug, or name)                      
+
+"
+stderr:
+""
+`;

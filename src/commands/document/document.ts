@@ -4,6 +4,7 @@ import { viewCommand } from "./document-view.ts"
 import { createCommand } from "./document-create.ts"
 import { updateCommand } from "./document-update.ts"
 import { deleteCommand } from "./document-delete.ts"
+import { commentCommand } from "./document-comment.ts"
 
 export const documentCommand = new Command()
   .name("document")
@@ -18,3 +19,4 @@ export const documentCommand = new Command()
   .command("create", createCommand)
   .command("update", updateCommand)
   .command("delete", deleteCommand)
+  .command("comment", commentCommand)

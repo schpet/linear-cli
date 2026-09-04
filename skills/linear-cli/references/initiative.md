@@ -26,7 +26,8 @@ Commands:
   unarchive       <initiativeId>          - Unarchive a Linear initiative         
   delete          [initiativeId]          - Permanently delete a Linear initiative
   add-project     <initiative> <project>  - Link a project to an initiative       
-  remove-project  <initiative> <project>  - Unlink a project from an initiative
+  remove-project  <initiative> <project>  - Unlink a project from an initiative   
+  comment                                 - Manage initiative comments
 ```
 
 ## Subcommands
@@ -68,6 +69,69 @@ Options:
   --bulk        <ids...>  - Archive multiple initiatives by ID, slug, or name  
   --bulk-file   <file>    - Read initiative IDs from a file (one per line)     
   --bulk-stdin            - Read initiative IDs from stdin
+```
+
+### comment
+
+> Manage initiative comments
+
+```
+Usage:   linear initiative comment
+
+Description:
+
+  Manage initiative comments
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+
+Commands:
+
+  add   <initiative>  - Add a comment or reply to an initiative's discussion (by ID, slug, or name)
+  list  <initiative>  - List comments on an initiative (by ID, slug, or name)
+```
+
+#### comment subcommands
+
+##### add
+
+```
+Usage:   linear initiative comment add <initiative>
+
+Description:
+
+  Add a comment or reply to an initiative's discussion (by ID, slug, or name)     
+                                                                                  
+  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
+  and `[Name](url)` do not. Get a person's URL from the `url` field of            
+  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+  Run `linear markdown` for collapsible sections and the full reference.          
+
+Options:
+
+  -h, --help                             - Show this help.                                                   
+  --workspace               <slug>       - Target workspace (uses credentials)                               
+  -b, --body                <text>       - Comment body text                                                 
+  --body-file               <path>       - Read comment body from a file (preferred for markdown content)    
+  -p, --parent, --reply-to  <commentId>  - Reply to a top-level comment by ID (the reply joins that thread)
+```
+
+##### list
+
+```
+Usage:   linear initiative comment list <initiative>
+
+Description:
+
+  List comments on an initiative (by ID, slug, or name)
+
+Options:
+
+  -h, --help           - Show this help.                      
+  --workspace  <slug>  - Target workspace (uses credentials)  
+  -j, --json           - Output as JSON
 ```
 
 ### create
