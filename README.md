@@ -148,7 +148,8 @@ linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing i
 linear issue delete    # delete an issue
 linear issue comment list          # list comments on current issue
 linear issue comment add           # add a comment to current issue
-linear issue comment add -p <id>   # reply to a specific comment
+linear issue comment add --reply-to <id>   # reply to a comment (-p / --parent are aliases)
+linear issue comment list --json   # comments as JSON, with quotedText and parent for inline comments and replies
 linear issue comment update <id>   # update a comment
 linear issue commits               # show all commits for an issue (jj only)
 ```
@@ -201,6 +202,19 @@ linear project view <projectId> --json  # project details as JSON
 linear project create --name "API v2" --team ENG --content-file overview.md
 linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com
 linear project update <projectId> --content-file overview.md  # replace the project's overview body
+linear project comment list <project>                         # list the project's discussion thread (UUID, slug, or name)
+linear project comment add <project> --body "Kickoff Monday"  # comment on a project
+linear project comment add <project> --body "+1" --reply-to <commentId>  # reply in a thread
+```
+
+### initiative commands
+
+```bash
+linear initiative list                                            # list initiatives
+linear initiative view <initiative>                               # view an initiative (UUID, slug, or name)
+linear initiative comment list <initiative>                       # list the initiative's discussion thread
+linear initiative comment add <initiative> --body-file note.md   # comment on an initiative
+linear initiative comment add <initiative> --body "+1" --reply-to <commentId>  # reply in a thread
 ```
 
 ### cycle commands
@@ -250,6 +264,12 @@ linear document view <slug>                     # view document rendered in term
 linear document view <slug> --raw               # output raw markdown (for piping)
 linear document view <slug> --web               # open in browser
 linear document view <slug> --json              # output as JSON, including document comments
+
+# comment on a document
+linear document comment list <slug>             # list comments; inline comments show the text they quote
+linear document comment list <slug> --json      # comments as JSON (quotedText, parent, ...)
+linear document comment add <slug> --body "Looks good"              # add a top-level comment
+linear document comment add <slug> --body-file note.md --reply-to <commentId>  # reply in a thread
 
 # create a document (exactly one attachment target is required)
 linear document create --title "Doc" --project <project>              # attach to project

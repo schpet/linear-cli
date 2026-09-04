@@ -161,15 +161,15 @@ Description:
 
 Options:
 
-  -h, --help                - Show this help.                                                                
-  --workspace   <slug>      - Target workspace (uses credentials)                                            
-  -b, --body    <text>      - Comment body text                                                              
-  --body-file   <path>      - Read comment body from a file (preferred for markdown content)                 
-  -p, --parent  <id>        - Parent comment ID for replies                                                  
-  -a, --attach  <filepath>  - Upload a file and add its Markdown link to the comment (images render inline;  
-                              repeatable)                                                                    
-  --public                  - Upload attached images to a public, unauthenticated URL (default: private,     
-                              workspace-members only)
+  -h, --help                             - Show this help.                                                                
+  --workspace               <slug>       - Target workspace (uses credentials)                                            
+  -b, --body                <text>       - Comment body text                                                              
+  --body-file               <path>       - Read comment body from a file (preferred for markdown content)                 
+  -p, --parent, --reply-to  <commentId>  - Reply to a top-level comment by ID (the reply joins that thread)               
+  -a, --attach              <filepath>   - Upload a file and add its Markdown link to the comment (images render inline;  
+                                           repeatable)                                                                    
+  --public                               - Upload attached images to a public, unauthenticated URL (default: private,     
+                                           workspace-members only)
 ```
 
 ##### delete

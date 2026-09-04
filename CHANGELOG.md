@@ -4,6 +4,7 @@
 
 ### Added
 
+- `document comment list|add`, `project comment list|add`, and `initiative comment list|add`, mirroring `issue comment`. Documents take a UUID or slug, projects and initiatives a UUID, slug, or name; `add` takes `--body` or `--body-file`. Every comment `add`, including `issue comment add`, now takes `--reply-to <commentId>` to answer in a thread (`-p`/`--parent` remain aliases). Comment lists now fetch every page instead of stopping at 50, and their `--json` nodes, plus the comments in `issue view --json`, carry `quotedText` (the passage an inline comment is anchored to) alongside `parent.id` ([#230](https://github.com/schpet/linear-cli/issues/230))
 - every command that takes a team now accepts its key, name, or UUID, resolved through one shared lookup: `team states`, `team members`, `team delete`, `label list/create/delete --team`, `cycle list/view --team`, `project list/create/update --team`, `document list/create/update --team`, and `issue query/mine/create/update --team`. Keys stay canonical and win over a same-spelled name; an unknown team errors with the list of valid keys instead of an empty result or a raw API error. Previously only keys worked, which is why [#276](https://github.com/schpet/linear-cli/issues/276) asked for `team list --json` as a name-to-key lookup
 - `issue query --state` and `issue mine --state` accept a workflow state name or ID as well as the six state types, looked up within the queried team scope (all teams under `--all-teams`, where a name matches every team's same-named state). An unknown name errors and lists the scope's states, and types and names can be mixed
 - `project update --content <markdown>` and `--content-file <path>` replace a project's long-form overview body, matching the flags `project create` already had. Previously the only way to change the body after creation was a hand-written `projectUpdate` mutation through `linear api`
@@ -11,6 +12,7 @@
 
 ### Fixed
 
+- an unknown document, project, initiative, or issue passed to `document view` or any `comment` command is reported as `<Type> not found: <reference>` instead of Linear's raw "Could not find referenced …" wording, and `document view` no longer exits with a stack trace for an unknown slug (its not-found branch re-threw instead of reporting, and was unreachable until the not-found detection was fixed)
 - `cycle list` and `milestone list` now paginate instead of taking Linear's default page, so a team with more than 50 cycles or a project with more than 50 milestones is no longer silently truncated
 
 ## [2.6.0] - 2026-09-02

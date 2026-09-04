@@ -182,6 +182,9 @@ linear cycle list
 linear cycle view
 
 linear document
+linear document comment
+linear document comment add
+linear document comment list
 linear document create
 linear document delete
 linear document list
@@ -191,6 +194,9 @@ linear document view
 linear initiative
 linear initiative add-project
 linear initiative archive
+linear initiative comment
+linear initiative comment add
+linear initiative comment list
 linear initiative create
 linear initiative delete
 linear initiative list
@@ -247,6 +253,9 @@ linear milestone update
 linear milestone view
 
 linear project
+linear project comment
+linear project comment add
+linear project comment list
 linear project create
 linear project delete
 linear project list
