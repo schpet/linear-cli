@@ -11,9 +11,9 @@ Description:
 
 Options:
 
-  -h, --help          - Show this help.                      
-  --team      <team>  - Team key (defaults to current team)  
-  -j, --json          - Output as JSON                       
+  -h, --help          - Show this help.                                   
+  --team      <team>  - Team key, name, or ID (defaults to current team)  
+  -j, --json          - Output as JSON                                    
 
 "
 stderr:

@@ -25,11 +25,11 @@ await cliffySnapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
+        queryName: "ResolveTeam",
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -109,11 +109,11 @@ await cliffySnapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
+        queryName: "ResolveTeam",
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -151,8 +151,14 @@ await cliffySnapshotTest({
 })
 
 const TEAM_LOOKUP = {
-  queryName: "GetTeamIdByKey",
-  response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+  queryName: "ResolveTeam",
+  response: {
+    data: {
+      teams: {
+        nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+      },
+    },
+  },
 }
 
 function cycle(
@@ -342,4 +348,46 @@ Deno.test("Cycle List Command - errors on inconsistent pagination", async () => 
 
   assertEquals(exited, true)
   assertStringIncludes(errorLogs.join("\n"), "no pagination cursor")
+})
+
+// --team accepts a name; the cycles query gets the resolved UUID.
+await cliffySnapshotTest({
+  name: "Cycle List Command - By Team Name",
+  meta: import.meta,
+  colors: false,
+  args: ["--team", "Engineering", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      { ...TEAM_LOOKUP, variables: { reference: "Engineering" } },
+      {
+        queryName: "GetTeamCycles",
+        variables: { teamId: "team-eng-id", first: 100, after: undefined },
+        response: {
+          data: {
+            team: {
+              id: "team-eng-id",
+              name: "Engineering",
+              cycles: {
+                nodes: [cycle({ id: "cycle-1", number: 1, name: "Sprint 1" })],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await listCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
 })

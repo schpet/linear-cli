@@ -53,7 +53,7 @@ export const startCommand = new Command()
       if (!resolvedId) {
         const result = await fetchIssuesForState(
           teamId,
-          ["unstarted"],
+          { types: ["unstarted"], stateIds: [] },
           undefined,
           unassigned,
           allAssignees,

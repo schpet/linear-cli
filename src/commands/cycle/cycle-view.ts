@@ -5,8 +5,8 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import {
   getCycleIdByNameOrNumber,
-  getTeamIdByKey,
   getTeamKey,
+  resolveTeam,
 } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import {
@@ -59,7 +59,10 @@ export const viewCommand = new Command()
   .description("View cycle details")
   .alias("v")
   .arguments("<cycleRef:string>")
-  .option("--team <team:string>", "Team key (defaults to current team)")
+  .option(
+    "--team <team:string>",
+    "Team key, name, or ID (defaults to current team)",
+  )
   .option("-j, --json", "Output as JSON")
   .action(async ({ team, json }, cycleRef) => {
     try {
@@ -70,10 +73,7 @@ export const viewCommand = new Command()
         )
       }
 
-      const teamId = await getTeamIdByKey(teamKey)
-      if (!teamId) {
-        throw new NotFoundError("Team", teamKey)
-      }
+      const teamId = (await resolveTeam(teamKey)).id
 
       const cycleId = await getCycleIdByNameOrNumber(cycleRef, teamId)
 

@@ -6,6 +6,7 @@ import { stub } from "@std/testing/mock"
 import { mineCommand } from "../../../src/commands/issue/issue-mine.ts"
 import {
   commonDenoArgs,
+  resolveTeamMock,
   setupMockLinearServer,
 } from "../../utils/test-helpers.ts"
 
@@ -39,12 +40,12 @@ Deno.test("Issue Mine Command - Filter By Label", async () => {
 
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -144,6 +145,7 @@ Deno.test("Issue Mine Command - Defaults To Priority Sort Without Flag Or Env Va
   // repo's own .linear.toml also sets issue_sort = "priority", so the truly
   // unconfigured default is covered by the subprocess test below.
   const { cleanup } = await setupMockLinearServer([
+    resolveTeamMock("ENG"),
     {
       queryName: "GetIssuesForState",
       variables: {
@@ -212,6 +214,7 @@ Deno.test("Issue Mine Command - Configured Sort Order Wins Over Default", async 
   // not override the configured sort. The mock only matches the manual sort
   // payload, so if the default won the request would not match.
   const { cleanup } = await setupMockLinearServer([
+    resolveTeamMock("ENG"),
     {
       queryName: "GetIssuesForState",
       variables: {
@@ -310,6 +313,7 @@ Deno.test("Issue Mine Command - Defaults To Priority Sort When Nothing Is Config
   // HOME and env, so no config file or env var supplies issue_sort. Versions
   // that required sort configuration exit with "Sort must be provided" here.
   const { server, cleanup } = await setupMockLinearServer([
+    resolveTeamMock("ENG"),
     {
       queryName: "GetIssuesForState",
       variables: {
@@ -463,7 +467,7 @@ Deno.test("Issue Mine Command - No Team Error Outside A Repo", async () => {
     assertEquals(
       errorOutput.trim(),
       "✗ Failed to list issues: No default team configured and no team scope provided\n" +
-        "  Use --team <key> to specify a team.",
+        "  Use --team <key, name, or ID> to specify a team.",
     )
   } finally {
     await Deno.remove(tempDir, { recursive: true })
@@ -482,7 +486,7 @@ Deno.test("Issue Mine Command - No Team Error Inside A Repo Suggests linear conf
     assertEquals(
       errorOutput.trim(),
       "✗ Failed to list issues: No default team configured and no team scope provided\n" +
-        "  Use --team <key> to specify a team, or run `linear config` to link this repository to a team.",
+        "  Use --team <key, name, or ID> to specify a team, or run `linear config` to link this repository to a team.",
     )
   } finally {
     await Deno.remove(tempDir, { recursive: true })
@@ -515,9 +519,15 @@ Deno.test("Issue Mine Command - Shows Blocked Indicator", async () => {
 
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
-      response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+          },
+        },
+      },
     },
     {
       queryName: "GetIssuesForState",
@@ -680,12 +690,12 @@ Deno.test("Issue Mine Command - Shows Cycle Column", async () => {
 
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -1036,6 +1046,135 @@ await cliffySnapshotTest({
         },
       },
     ], { NO_COLOR: "true", LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await mineCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// --state accepts a workflow state name, looked up in the configured team.
+// A fixed future update time keeps the relative-time column deterministic.
+await cliffySnapshotTest({
+  name: "Issue Mine Command - State By Name",
+  meta: import.meta,
+  colors: false,
+  args: ["--state", "In Review"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetWorkflowStatesInScope",
+        variables: { filter: { team: { key: { in: ["ENG"] } } } },
+        response: {
+          data: {
+            workflowStates: {
+              nodes: [
+                {
+                  id: "s-todo",
+                  name: "Todo",
+                  type: "unstarted",
+                  team: { key: "ENG" },
+                },
+                {
+                  id: "s-rev",
+                  name: "In Review",
+                  type: "started",
+                  team: { key: "ENG" },
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetIssuesForState",
+        variables: {
+          filter: {
+            team: { key: { eq: "ENG" } },
+            state: { id: { in: ["s-rev"] } },
+            assignee: { isMe: { eq: true } },
+          },
+        },
+        response: {
+          data: {
+            issues: {
+              nodes: [
+                {
+                  id: "issue-eng-2",
+                  identifier: "ENG-2",
+                  title: "Reviewing",
+                  priority: 0,
+                  estimate: null,
+                  assignee: { initials: "PS" },
+                  state: {
+                    id: "s-rev",
+                    name: "In Review",
+                    color: "#f2c94c",
+                    type: "started",
+                    position: 1002,
+                  },
+                  labels: { nodes: [] },
+                  cycle: null,
+                  team: {
+                    id: "team-eng-id",
+                    key: "ENG",
+                    cyclesEnabled: false,
+                    activeCycle: null,
+                  },
+                  inverseRelations: { nodes: [] },
+                  updatedAt: "2099-03-29T10:00:00.000Z",
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG", NO_COLOR: "true" })
+
+    try {
+      await mineCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// An unknown state name is an error listing the team's states, not an empty
+// table.
+await cliffySnapshotTest({
+  name: "Issue Mine Command - Unknown State Name",
+  meta: import.meta,
+  colors: false,
+  args: ["--state", "Done"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetWorkflowStatesInScope",
+        variables: { filter: { team: { key: { in: ["ENG"] } } } },
+        response: {
+          data: {
+            workflowStates: {
+              nodes: [
+                {
+                  id: "s-todo",
+                  name: "Todo",
+                  type: "unstarted",
+                  team: { key: "ENG" },
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG", NO_COLOR: "true" })
 
     try {
       await mineCommand.parse()

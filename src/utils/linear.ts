@@ -9,6 +9,7 @@ import type {
   GetOrganizationMembersQuery,
   GetProjectsForTeamQuery,
   GetTeamMembersQuery,
+  GetWorkflowStatesInScopeQuery,
   IssueFilter,
   IssueSortInput,
   PaginationOrderBy,
@@ -349,6 +350,194 @@ export function workflowStateNotFoundError(
     `'${requested}' for team ${teamKey}`,
     { suggestion },
   )
+}
+
+/**
+ * The workflow state types `issue query --state` / `issue mine --state` accept
+ * as bare type tokens. Matched exactly (lowercase), so `Backlog` is a state
+ * name lookup while `backlog` selects every state of that type.
+ */
+export const ISSUE_STATE_TYPES = [
+  "triage",
+  "backlog",
+  "unstarted",
+  "started",
+  "completed",
+  "canceled",
+] as const
+
+export type StateScope =
+  | { teamKeys: readonly string[] }
+  | { allTeams: true }
+
+/** A `--state` selection after names and IDs have been resolved to state IDs. */
+export type StateSelection = { types: string[]; stateIds: string[] }
+
+function isIssueStateType(value: string): boolean {
+  return (ISSUE_STATE_TYPES as readonly string[]).includes(value)
+}
+
+type ScopedWorkflowState = {
+  id: string
+  name: string
+  type: string
+  team: { key: string }
+}
+
+async function getWorkflowStatesInScope(
+  scope: StateScope,
+): Promise<ScopedWorkflowState[]> {
+  const query = gql(/* GraphQL */ `
+    query GetWorkflowStatesInScope(
+      $filter: WorkflowStateFilter
+      $first: Int
+      $after: String
+    ) {
+      workflowStates(filter: $filter, first: $first, after: $after) {
+        nodes {
+          id
+          name
+          type
+          team {
+            key
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  `)
+  const filter = "allTeams" in scope
+    ? undefined
+    : { team: { key: { in: [...scope.teamKeys] } } }
+
+  const client = getGraphQLClient()
+  const states: ScopedWorkflowState[] = []
+  let after: string | null | undefined = undefined
+  let hasNextPage = true
+  while (hasNextPage) {
+    const result: GetWorkflowStatesInScopeQuery = await client.request(query, {
+      filter,
+      first: 250,
+      after,
+    })
+    states.push(...result.workflowStates.nodes)
+    hasNextPage = result.workflowStates.pageInfo.hasNextPage
+    const endCursor = result.workflowStates.pageInfo.endCursor
+    // A page that claims to continue but offers no new cursor would refetch
+    // itself forever; treat it as the malformed response it is.
+    if (hasNextPage && (endCursor == null || endCursor === after)) {
+      throw new CliError(
+        "Linear reported more workflow states but returned no new pagination cursor",
+        { suggestion: "Retry the command." },
+      )
+    }
+    after = endCursor
+  }
+  return states
+}
+
+/**
+ * Turn `--state` values into a selection of state types and state IDs.
+ *
+ * A value equal to one of ISSUE_STATE_TYPES is a type. Anything else is a
+ * workflow state name (case-insensitive, matching every same-named state in the
+ * scope, which may span several teams) or a state UUID, and must exist in the
+ * scope: a state from a team outside the scope would otherwise silently match
+ * nothing. Type-only input makes no API call.
+ */
+export async function resolveStateSelection(
+  values: readonly string[],
+  scope: StateScope,
+): Promise<StateSelection> {
+  const types: string[] = []
+  const lookups: string[] = []
+  for (const value of values) {
+    if (value.trim() === "") {
+      throw new ValidationError("--state value is empty", {
+        suggestion: `Pass a state type (${
+          ISSUE_STATE_TYPES.join(", ")
+        }), name, or ID.`,
+      })
+    }
+    if (isIssueStateType(value)) {
+      if (!types.includes(value)) types.push(value)
+    } else if (!lookups.includes(value)) {
+      lookups.push(value)
+    }
+  }
+  if (lookups.length === 0) {
+    return { types, stateIds: [] }
+  }
+
+  const states = await getWorkflowStatesInScope(scope)
+  const stateIds: string[] = []
+  for (const value of lookups) {
+    // Linear returns lowercase UUIDs; accept any casing on input, as
+    // isLinearUuid already does.
+    const wanted = value.toLowerCase()
+    const matches = isLinearUuid(value)
+      ? states.filter((s) => s.id.toLowerCase() === wanted)
+      : states.filter((s) => s.name.toLowerCase() === wanted)
+    if (matches.length === 0) {
+      throw stateNotFoundInScopeError(value, scope, states)
+    }
+    for (const match of matches) {
+      if (!stateIds.includes(match.id)) stateIds.push(match.id)
+    }
+  }
+  return { types, stateIds }
+}
+
+function stateNotFoundInScopeError(
+  value: string,
+  scope: StateScope,
+  states: readonly ScopedWorkflowState[],
+): NotFoundError {
+  const singleTeam = !("allTeams" in scope) && scope.teamKeys.length === 1
+  const where = "allTeams" in scope
+    ? "any team"
+    : `team${scope.teamKeys.length === 1 ? "" : "s"} ${
+      scope.teamKeys.join(", ")
+    }`
+  const listed = states
+    .slice()
+    .sort((a, b) =>
+      a.team.key.localeCompare(b.team.key) || a.name.localeCompare(b.name)
+    )
+    .map((s) =>
+      singleTeam
+        ? `${JSON.stringify(s.name)} (${s.type})`
+        : `${JSON.stringify(s.name)} (${s.type}, ${s.team.key})`
+    )
+  const valid = listed.length > 0 ? `Valid states: ${listed.join(", ")}. ` : ""
+  return new NotFoundError("Workflow state", `'${value}' in ${where}`, {
+    suggestion: `${valid}State types: ${
+      ISSUE_STATE_TYPES.join(", ")
+    }. Run \`linear team states <team>\` to list a team's states.`,
+  })
+}
+
+/**
+ * The GraphQL `state` filter for a selection. Type-only selections keep the
+ * `{ type: { in } }` shape the CLI has always sent.
+ */
+export function workflowStateFilter(
+  selection: StateSelection,
+): IssueFilter["state"] {
+  const { types, stateIds } = selection
+  if (types.length > 0 && stateIds.length > 0) {
+    return { or: [{ type: { in: types } }, { id: { in: stateIds } }] }
+  }
+  if (stateIds.length > 0) {
+    return { id: { in: stateIds } }
+  }
+  if (types.length > 0) {
+    return { type: { in: types } }
+  }
+  throw new ValidationError("--state selection is empty")
 }
 
 export async function updateIssueState(
@@ -748,7 +937,7 @@ function getIssueSortPayload(
 
 export async function fetchIssuesForState(
   teamKey: string,
-  state: string[] | undefined,
+  state: StateSelection | undefined,
   assignee?: string,
   unassigned = false,
   allAssignees = false,
@@ -769,7 +958,7 @@ export async function fetchIssuesForState(
   }
 
   if (state) {
-    filter.state = { type: { in: state } }
+    filter.state = workflowStateFilter(state)
   }
 
   if (unassigned) {
@@ -1032,7 +1221,7 @@ export type FetchedQueryIssuePayload = {
 export interface FetchIssuesForQueryOptions {
   teamKeys?: string[]
   allTeams?: boolean
-  state?: string[]
+  state?: StateSelection
   assignee?: string
   unassigned?: boolean
   sort?: "manual" | "priority"
@@ -1064,8 +1253,8 @@ export async function fetchIssuesForQuery(
     }
   }
 
-  if (options.state && options.state.length > 0) {
-    filter.state = { type: { in: options.state } }
+  if (options.state) {
+    filter.state = workflowStateFilter(options.state)
   }
 
   if (options.unassigned) {
@@ -1282,7 +1471,7 @@ export type FetchedIssueSearchPayload = {
 export interface SearchIssuesByTermOptions {
   teamKey?: string
   teamKeys?: string[]
-  state?: string[]
+  state?: StateSelection
   assignee?: string
   unassigned?: boolean
   limit?: number
@@ -1315,8 +1504,8 @@ export async function searchIssuesByTerm(
     filter.team = { key: { eq: options.teamKey } }
   }
 
-  if (options.state != null && options.state.length > 0) {
-    filter.state = { type: { in: options.state } }
+  if (options.state != null) {
+    filter.state = workflowStateFilter(options.state)
   }
 
   if (options.unassigned) {
@@ -1547,21 +1736,140 @@ export async function getProjectsForTeam(
   )
 }
 
-export async function getTeamIdByKey(
-  team: string,
-): Promise<string | undefined> {
+export type ResolvedTeam = { id: string; key: string; name: string }
+
+/**
+ * Look up a team by key, name, or UUID in one round trip. Returns undefined
+ * when nothing matches; use [[resolveTeam]] when a miss should throw.
+ *
+ * Precedence is key, then UUID, then name, and it is applied client-side so it
+ * does not depend on what shapes Linear allows a key to take: a reference that
+ * equals one team's key and another team's name always means the key. Keys and
+ * names match case-insensitively; the returned `key` is the server's canonical
+ * (uppercase) form, so callers never need to normalize user input themselves.
+ */
+export async function findTeam(
+  reference: string,
+): Promise<ResolvedTeam | undefined> {
+  if (reference.trim() === "") {
+    throw new ValidationError("Team reference is empty", {
+      suggestion: "Pass a team key, name, or ID, e.g. --team ENG.",
+    })
+  }
   const client = getGraphQLClient()
   const query = gql(/* GraphQL */ `
-    query GetTeamIdByKey($team: String!) {
-      teams(filter: { key: { eq: $team } }) {
+    query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {
+      teams(
+        filter: {
+          or: [
+            { key: { eqIgnoreCase: $reference } }
+            { name: { eqIgnoreCase: $reference } }
+          ]
+        }
+      ) {
         nodes {
           id
+          key
+          name
+        }
+      }
+      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {
+        nodes {
+          id
+          key
+          name
         }
       }
     }
   `)
-  const data = await client.request(query, { team })
-  return data.teams?.nodes[0]?.id
+  const isUuid = isLinearUuid(reference)
+  const data = await client.request(query, {
+    reference,
+    id: isUuid ? reference : null,
+    isUuid,
+  })
+
+  const wanted = reference.toLowerCase()
+  const candidates = data.teams.nodes
+  for (const team of candidates) {
+    assertTeamShape(team)
+  }
+  const byKey = candidates.find((t) => t.key.toLowerCase() === wanted)
+  if (byKey) return byKey
+
+  const byId = data.teamById?.nodes[0]
+  if (byId) {
+    assertTeamShape(byId)
+    return byId
+  }
+
+  const byName = candidates.filter((t) => t.name.toLowerCase() === wanted)
+  if (byName.length > 1) {
+    throw new ValidationError(
+      `Team name "${reference}" is ambiguous: ${
+        byName.map(formatTeamOption).join(", ")
+      }`,
+      { suggestion: "Use the team key instead of the name." },
+    )
+  }
+  return byName[0]
+}
+
+// The GraphQL client does not validate responses at runtime. A team without a
+// string key or name is a malformed response (or a test mock missing fields),
+// and the precedence logic above would otherwise crash on it with a TypeError.
+function assertTeamShape(team: { id: string; key: string; name: string }) {
+  if (typeof team.key !== "string" || typeof team.name !== "string") {
+    throw new CliError(
+      `Malformed team in API response: ${JSON.stringify(team)}`,
+    )
+  }
+}
+
+function formatTeamOption(team: { key: string; name: string }): string {
+  return `${team.key} (${team.name})`
+}
+
+/**
+ * Resolve a team reference (key, name, or UUID) or throw a NotFoundError whose
+ * suggestion lists every valid team key.
+ */
+export async function resolveTeam(reference: string): Promise<ResolvedTeam> {
+  const team = await findTeam(reference)
+  if (team) return team
+  throw await teamNotFoundError(reference)
+}
+
+/**
+ * Resolve several team references in parallel, keeping input order and
+ * dropping duplicates that resolve to the same team (e.g. `ENG` and `eng`).
+ */
+export async function resolveTeams(
+  references: readonly string[],
+): Promise<ResolvedTeam[]> {
+  const resolved = await Promise.all(references.map(resolveTeam))
+  const seen = new Set<string>()
+  return resolved.filter((team) => {
+    if (seen.has(team.id)) return false
+    seen.add(team.id)
+    return true
+  })
+}
+
+export async function teamNotFoundError(
+  reference: string,
+): Promise<NotFoundError> {
+  const teams = await getAllTeams()
+  const suggestion = teams.length > 0
+    ? `Valid team keys: ${
+      teams
+        .slice()
+        .sort((a, b) => a.key.localeCompare(b.key))
+        .map(formatTeamOption)
+        .join(", ")
+    }. Run \`linear team list\` to see all teams.`
+    : "This workspace has no teams you can access."
+  return new NotFoundError("Team", reference, { suggestion })
 }
 
 export async function searchTeamsByKeySubstring(

@@ -3,12 +3,12 @@ import type { DocumentFilter } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
   getCycleIdByNameOrNumber,
-  getTeamIdByKey,
   getTeamKey,
   isLinearUuid,
   resolveInitiativeId,
   resolveProjectId,
   resolveReleaseId,
+  resolveTeam,
 } from "../../utils/linear.ts"
 import {
   isClientError,
@@ -139,14 +139,8 @@ async function resolveIssueId(input: string): Promise<string> {
   })
 }
 
-async function resolveTeamIdStrict(teamKey: string): Promise<string> {
-  const teamId = await getTeamIdByKey(teamKey.toUpperCase())
-  if (!teamId) {
-    throw new NotFoundError("Team", teamKey, {
-      suggestion: "Pass a team key, e.g. --team ENG.",
-    })
-  }
-  return teamId
+async function resolveTeamIdStrict(team: string): Promise<string> {
+  return (await resolveTeam(team)).id
 }
 
 async function resolveCycleScopeTeamId(explicitTeam?: string): Promise<string> {
@@ -160,7 +154,7 @@ async function resolveCycleScopeTeamId(explicitTeam?: string): Promise<string> {
     return await resolveTeamIdStrict(configTeam)
   }
   throw new ValidationError("--cycle requires a team to look the cycle up in", {
-    suggestion: "Pass --team <key> or configure a default team.",
+    suggestion: "Pass --team <key, name, or ID> or configure a default team.",
   })
 }
 

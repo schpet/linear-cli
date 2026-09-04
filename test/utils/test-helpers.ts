@@ -41,3 +41,21 @@ export async function setupMockLinearServer(
 
   return { server, cleanup }
 }
+
+export const ENG_TEAM = { id: "team-eng-id", key: "ENG", name: "Engineering" }
+
+/**
+ * Mock for the shared team resolver's key/name lookup. The server matches
+ * keys and names case-insensitively, so pass the exact reference the test
+ * sends and the team it should resolve to.
+ */
+export function resolveTeamMock(
+  reference: string,
+  team: { id: string; key: string; name: string } = ENG_TEAM,
+) {
+  return {
+    queryName: "ResolveTeam",
+    variables: { reference },
+    response: { data: { teams: { nodes: [team] } } },
+  }
+}

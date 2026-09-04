@@ -26,7 +26,7 @@ Options:
   -d, --description          <description>  - Description of the issue                                                      
   --description-file         <path>         - Read description from a file (preferred for markdown content)                 
   -l, --label                <label>        - Issue label associated with the issue. May be repeated.                       
-  --team                     <team>         - Team associated with the issue (if not your default team)                     
+  --team                     <team>         - Team (key, name, or ID) for the issue, if not your default team               
   --project                  <project>      - Project for the issue (UUID, slug ID, or name)                                
   -s, --state                <state>        - Workflow state for the issue (by name or type)                                
   --milestone                <milestone>    - Project milestone (UUID, or name when --project is set)                       
@@ -98,4 +98,23 @@ stderr:
 "✗ Failed to create issue: Workflow state not found: 'Nope' for team ENG
   Valid states: \\"In Progress\\" (started), \\"Todo\\" (unstarted), \\"Done\\" (completed). Run \`linear team states ENG\` to list them.
 "
+`;
+
+snapshot[`Issue Create Command - Unknown Explicit Team Lists Keys 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to create issue: Team not found: Nope
+  Valid team keys: ENG (Engineering). Run \`linear team list\` to see all teams.
+"
+`;
+
+snapshot[`Issue Create Command - Team By Name 1`] = `
+stdout:
+"Creating issue in ENG
+
+https://linear.app/test-team/issue/ENG-1/by-name
+"
+stderr:
+""
 `;

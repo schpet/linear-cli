@@ -11,13 +11,13 @@ Description:
 
 Options:
 
-  -h, --help             - Show this help.               
-  --team       <team>    - Filter by team key            
-  --all-teams            - Show projects from all teams  
-  --status     <status>  - Filter by status name         
-  -w, --web              - Open in web browser           
-  -a, --app              - Open in Linear.app            
-  -j, --json             - Output as JSON                
+  -h, --help             - Show this help.                  
+  --team       <team>    - Filter by team key, name, or ID  
+  --all-teams            - Show projects from all teams     
+  --status     <status>  - Filter by status name            
+  -w, --web              - Open in web browser              
+  -a, --app              - Open in Linear.app               
+  -j, --json             - Output as JSON                   
 
 "
 stderr:
@@ -178,4 +178,13 @@ stdout:
 '
 stderr:
 ""
+`;
+
+snapshot[`Project List Command - Web With Unknown Team 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to open projects: Team not found: Nope
+  Valid team keys: ENG (Engineering). Run \`linear team list\` to see all teams.
+"
 `;

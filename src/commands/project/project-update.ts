@@ -4,9 +4,9 @@ import type { ProjectUpdateInput } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
   getProjectLabelIdByName,
-  getTeamIdByKey,
   lookupUserId,
   resolveProjectId,
+  resolveTeams,
 } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import {
@@ -87,7 +87,7 @@ export const updateCommand = new Command()
   .option("--target-date <targetDate:string>", "Target date (YYYY-MM-DD)")
   .option(
     "-t, --team <team:string>",
-    "Team key (can be repeated for multiple teams)",
+    "Team key, name, or ID (can be repeated for multiple teams)",
     { collect: true },
   )
   .option(
@@ -205,16 +205,7 @@ export const updateCommand = new Command()
         }
 
         if (teams && teams.length > 0) {
-          const teamIds: string[] = []
-          for (const teamKey of teams) {
-            const teamId = await getTeamIdByKey(teamKey.toUpperCase())
-            if (!teamId) {
-              spinner?.stop()
-              throw new NotFoundError("Team", teamKey)
-            }
-            teamIds.push(teamId)
-          }
-          input.teamIds = teamIds
+          input.teamIds = (await resolveTeams(teams)).map((t) => t.id)
         }
 
         if (labels && labels.length > 0) {

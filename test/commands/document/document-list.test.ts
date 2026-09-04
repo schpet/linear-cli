@@ -235,9 +235,15 @@ await snapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "eng" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "ListDocuments",
@@ -462,4 +468,61 @@ Deno.test("formatDocumentAttachment - labels each target type", () => {
     "Release: Summer Launch",
   )
   assertEquals(formatDocumentAttachment({}), "-")
+})
+
+// A team UUID goes through the resolver's id lookup and lands in the same
+// TeamFilter.id filter.
+await snapshotTest({
+  name: "Document List Command - Filter By Team ID JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["--team", "11111111-2222-3333-4444-555555555555", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "ResolveTeam",
+        variables: {
+          reference: "11111111-2222-3333-4444-555555555555",
+          id: "11111111-2222-3333-4444-555555555555",
+          isUuid: true,
+        },
+        response: {
+          data: {
+            teams: { nodes: [] },
+            teamById: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "ListDocuments",
+        variables: {
+          filter: { team: { id: { eq: "team-eng-id" } } },
+          first: 50,
+        },
+        response: {
+          data: {
+            documents: {
+              nodes: [],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await listCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
 })

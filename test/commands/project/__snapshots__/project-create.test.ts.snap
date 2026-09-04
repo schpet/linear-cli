@@ -23,7 +23,7 @@ Options:
                                            limit)                                                                      
   --content               <markdown>     - Project overview markdown                                                   
   --content-file          <path>         - Read project overview markdown from a file                                  
-  -t, --team              <team>         - Team key (required, can be repeated for multiple teams)                     
+  -t, --team              <team>         - Team key, name, or ID (required, can be repeated for multiple teams)        
   -l, --lead              <lead>         - Project lead (username, email, or @me)                                      
   -s, --status            <status>       - Project status (planned, started, paused, completed, canceled, backlog)     
   --start-date            <startDate>    - Start date (YYYY-MM-DD)                                                     
@@ -102,6 +102,16 @@ stdout:
   }
 }
 '
+stderr:
+""
+`;
+
+snapshot[`Project Create Command - Team By Name 1`] = `
+stdout:
+"✓ Created project: API v2
+  Slug: api-v2-abc
+  URL: https://linear.app/test/project/api-v2-abc
+"
 stderr:
 ""
 `;

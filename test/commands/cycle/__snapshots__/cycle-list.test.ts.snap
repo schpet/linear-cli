@@ -11,9 +11,9 @@ Description:
 
 Options:
 
-  -h, --help          - Show this help.                      
-  --team      <team>  - Team key (defaults to current team)  
-  -j, --json          - Output as JSON                       
+  -h, --help          - Show this help.                                   
+  --team      <team>  - Team key, name, or ID (defaults to current team)  
+  -j, --json          - Output as JSON                                    
 
 "
 stderr:
@@ -107,6 +107,32 @@ stdout:
     },
     {
       "name": null,
+      "startsAt": "2026-01-01T00:00:00.000Z",
+      "endsAt": "2026-01-15T00:00:00.000Z",
+      "completedAt": null,
+      "isActive": false,
+      "isFuture": false,
+      "isPast": true,
+      "id": "cycle-1",
+      "number": 1
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Cycle List Command - By Team Name 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "name": "Sprint 1",
       "startsAt": "2026-01-01T00:00:00.000Z",
       "endsAt": "2026-01-15T00:00:00.000Z",
       "completedAt": null,

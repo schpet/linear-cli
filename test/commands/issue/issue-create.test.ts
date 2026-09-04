@@ -5,6 +5,7 @@ import { stub } from "@std/testing/mock"
 import { createCommand } from "../../../src/commands/issue/issue-create.ts"
 import {
   commonDenoArgs,
+  resolveTeamMock,
   setupMockLinearServer,
 } from "../../utils/test-helpers.ts"
 
@@ -43,14 +44,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey() - converting team key to ID
+      // Mock response for resolveTeam() - converting team key to ID
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -116,14 +117,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey()
+      // Mock response for resolveTeam()
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -206,14 +207,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey() - converting team key to ID
+      // Mock response for resolveTeam() - converting team key to ID
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -282,14 +283,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey()
+      // Mock response for resolveTeam()
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -367,14 +368,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey()
+      // Mock response for resolveTeam()
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -468,12 +469,12 @@ Deno.test("Issue Create Command - Explicit Project Still Uses Interactive Mode",
       },
     },
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -590,12 +591,12 @@ Deno.test("Issue Create Command - Interactive Project Prompt Uses Team Projects"
       },
     },
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -726,12 +727,12 @@ Deno.test("Issue Create Command - Additional Fields Can Set Project", async () =
       },
     },
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -860,12 +861,12 @@ Deno.test("Issue Create Command - Additional Fields Can Set Project", async () =
 Deno.test("Issue Create Command - Inherits Parent Project When Project Not Set", async () => {
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -944,12 +945,12 @@ Deno.test("Issue Create Command - Inherits Parent Project When Project Not Set",
 Deno.test("Issue Create Command - Explicit Project Overrides Parent Project", async () => {
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -1042,12 +1043,12 @@ Deno.test("Issue Create Command - Explicit Project Overrides Parent Project", as
 Deno.test("Issue Create Command - Invalid Parent Project Combination Surfaces Backend Error", async () => {
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -1140,12 +1141,12 @@ Deno.test("Issue Create Command - Invalid Parent Project Combination Surfaces Ba
 Deno.test("Issue Create Command - Config Can Assign Self By Default", async () => {
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -1219,12 +1220,12 @@ Deno.test("Issue Create Command - Auto Assign Mode Respects Linear User Setting 
       },
     },
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -1328,12 +1329,12 @@ Deno.test("Issue Create Command - Auto Assign Mode Respects Linear User Setting 
 Deno.test("Issue Create Command - Explicit Assignee Overrides Config Self Assignment", async () => {
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -1415,12 +1416,12 @@ Deno.test("Issue Create Command - Explicit Assignee Overrides Config Self Assign
 Deno.test("Issue Create Command - Interactive Assignee Can Override Config Self Assignment", async () => {
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },
@@ -1559,9 +1560,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetWorkflowStates",
@@ -1595,6 +1602,87 @@ await snapshotTest({
         },
       },
     ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// An explicit --team that matches nothing errors with the valid keys, even in
+// interactive mode: only the configured default may fall back to a picker.
+await snapshotTest({
+  name: "Issue Create Command - Unknown Explicit Team Lists Keys",
+  meta: import.meta,
+  colors: false,
+  args: ["--title", "Nope", "--team", "Nope", "--no-interactive"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "ResolveTeam",
+        variables: { reference: "Nope" },
+        response: { data: { teams: { nodes: [] } } },
+      },
+      {
+        queryName: "GetAllTeams",
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// --team by name: the mutation gets the UUID.
+await snapshotTest({
+  name: "Issue Create Command - Team By Name",
+  meta: import.meta,
+  colors: false,
+  args: ["--title", "By name", "--team", "Engineering", "--no-interactive"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("Engineering"),
+      {
+        queryName: "CreateIssue",
+        variables: {
+          input: {
+            title: "By name",
+            labelIds: [],
+            teamId: "team-eng-id",
+            useDefaultTemplate: true,
+          },
+        },
+        response: {
+          data: {
+            issueCreate: {
+              success: true,
+              issue: {
+                id: "issue-new-1",
+                identifier: "ENG-1",
+                url: "https://linear.app/test-team/issue/ENG-1/by-name",
+                team: { key: "ENG" },
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG", LINEAR_ISSUE_CREATE_ASSIGN_SELF: "never" })
 
     try {
       await createCommand.parse()

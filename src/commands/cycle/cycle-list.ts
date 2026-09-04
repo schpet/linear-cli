@@ -5,7 +5,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import type { GetTeamCyclesQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
-import { getTeamIdByKey, getTeamKey } from "../../utils/linear.ts"
+import { getTeamKey, resolveTeam } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { header, muted } from "../../utils/styling.ts"
 import {
@@ -61,7 +61,10 @@ function formatDate(dateString: string): string {
 export const listCommand = new Command()
   .name("list")
   .description("List cycles for a team")
-  .option("--team <team:string>", "Team key (defaults to current team)")
+  .option(
+    "--team <team:string>",
+    "Team key, name, or ID (defaults to current team)",
+  )
   .option("-j, --json", "Output as JSON")
   .action(async ({ team, json }) => {
     try {
@@ -72,10 +75,7 @@ export const listCommand = new Command()
         )
       }
 
-      const teamId = await getTeamIdByKey(teamKey)
-      if (!teamId) {
-        throw new NotFoundError("Team", teamKey)
-      }
+      const teamId = (await resolveTeam(teamKey)).id
 
       const { Spinner } = await import("@std/cli/unstable-spinner")
       const showSpinner = !json && shouldShowSpinner()

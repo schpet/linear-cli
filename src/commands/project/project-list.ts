@@ -9,7 +9,7 @@ import type {
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay } from "../../utils/display.ts"
 import { LINEAR_WEB_BASE_URL } from "../../const.ts"
-import { getTeamKey } from "../../utils/linear.ts"
+import { getTeamKey, resolveTeam } from "../../utils/linear.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { handleError, ValidationError } from "../../utils/errors.ts"
@@ -62,7 +62,7 @@ const GetProjects = gql(`
 export const listCommand = new Command()
   .name("list")
   .description("List projects")
-  .option("--team <team:string>", "Filter by team key")
+  .option("--team <team:string>", "Filter by team key, name, or ID")
   .option("--all-teams", "Show projects from all teams")
   .option("--status <status:string>", "Filter by status name")
   .option("-w, --web", "Open in web browser")
@@ -70,31 +70,37 @@ export const listCommand = new Command()
   .option("-j, --json", "Output as JSON")
   .action(async ({ team, allTeams, status, web, app, json }) => {
     if (web || app) {
-      let workspace = getOption("workspace")
-      if (!workspace) {
-        // Get workspace from viewer if not configured
-        const client = getGraphQLClient()
-        const viewerQuery = gql(`
-          query GetViewer {
-            viewer {
-              organization {
-                urlKey
+      try {
+        let workspace = getOption("workspace")
+        if (!workspace) {
+          // Get workspace from viewer if not configured
+          const client = getGraphQLClient()
+          const viewerQuery = gql(`
+            query GetViewer {
+              viewer {
+                organization {
+                  urlKey
+                }
               }
             }
-          }
-        `)
-        const result = await client.request(viewerQuery)
-        workspace = result.viewer.organization.urlKey
-      }
+          `)
+          const result = await client.request(viewerQuery)
+          workspace = result.viewer.organization.urlKey
+        }
 
-      // Determine team to filter by for URL construction
-      const teamKey = allTeams ? null : (team?.toUpperCase() || getTeamKey())
-      const url = teamKey
-        ? `${LINEAR_WEB_BASE_URL}/${workspace}/team/${teamKey}/projects/all`
-        : `${LINEAR_WEB_BASE_URL}/${workspace}/projects/all`
-      const destination = app ? "Linear.app" : "web browser"
-      console.log(`Opening ${url} in ${destination}`)
-      await open(url, app ? { app: { name: "Linear" } } : undefined)
+        // Determine team to filter by for URL construction
+        const teamKey = allTeams
+          ? null
+          : (team ? (await resolveTeam(team)).key : getTeamKey())
+        const url = teamKey
+          ? `${LINEAR_WEB_BASE_URL}/${workspace}/team/${teamKey}/projects/all`
+          : `${LINEAR_WEB_BASE_URL}/${workspace}/projects/all`
+        const destination = app ? "Linear.app" : "web browser"
+        console.log(`Opening ${url} in ${destination}`)
+        await open(url, app ? { app: { name: "Linear" } } : undefined)
+      } catch (error) {
+        handleError(error, "Failed to open projects")
+      }
       return
     }
     const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -111,7 +117,9 @@ export const listCommand = new Command()
       }
 
       // Determine team to filter by
-      const teamKey = allTeams ? null : (team?.toUpperCase() || getTeamKey())
+      const teamKey = allTeams
+        ? null
+        : (team ? (await resolveTeam(team)).key : getTeamKey())
 
       let filter = {}
       if (teamKey) {
