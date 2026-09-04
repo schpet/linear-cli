@@ -40,11 +40,19 @@ export const updateCommand = new Command()
   )
   .option(
     "--due-date <dueDate:string>",
-    "Due date of the issue",
+    "Due date of the issue. Use --clear-due-date to remove it",
+  )
+  .option(
+    "--clear-due-date",
+    "Remove the issue's due date (cannot be combined with --due-date)",
   )
   .option(
     "--parent <parent:string>",
-    "Parent issue (if any) as a team_number code",
+    "Parent issue (if any) as a team_number code. Use --clear-parent to remove it",
+  )
+  .option(
+    "--clear-parent",
+    "Remove the issue's parent (cannot be combined with --parent)",
   )
   .option(
     "-p, --priority <priority:number>",
@@ -52,7 +60,11 @@ export const updateCommand = new Command()
   )
   .option(
     "--estimate <estimate:number>",
-    "Points estimate of the issue",
+    "Points estimate of the issue. Use --clear-estimate to remove it",
+  )
+  .option(
+    "--clear-estimate",
+    "Remove the issue's estimate (cannot be combined with --estimate)",
   )
   .option(
     "-d, --description <description:string>",
@@ -83,7 +95,11 @@ export const updateCommand = new Command()
   )
   .option(
     "--project <project:string>",
-    "Project to assign the issue to (UUID, slug ID, or name)",
+    "Project to assign the issue to (UUID, slug ID, or name). Use --clear-project to remove it",
+  )
+  .option(
+    "--clear-project",
+    "Remove the issue from its project (cannot be combined with --project or --milestone)",
   )
   .option(
     "-s, --state <state:string>",
@@ -91,7 +107,11 @@ export const updateCommand = new Command()
   )
   .option(
     "--milestone <milestone:string>",
-    "Project milestone (UUID, or name when --project is set or the issue already has a project)",
+    "Project milestone (UUID, or name when --project is set or the issue already has a project). Use --clear-milestone to remove it",
+  )
+  .option(
+    "--clear-milestone",
+    "Remove the issue from its project milestone (cannot be combined with --milestone)",
   )
   .option(
     "--cycle <cycle:string>",
@@ -109,9 +129,12 @@ export const updateCommand = new Command()
         unassign,
         clearCycle,
         dueDate,
+        clearDueDate,
         parent,
+        clearParent,
         priority,
         estimate,
+        clearEstimate,
         description,
         descriptionFile,
         label: labels,
@@ -119,8 +142,10 @@ export const updateCommand = new Command()
         removeLabel,
         team,
         project,
+        clearProject,
         state,
         milestone,
+        clearMilestone,
         cycle,
         title,
       },
@@ -143,6 +168,70 @@ export const updateCommand = new Command()
             {
               suggestion:
                 "Use --cycle <cycle> to set a cycle, or --clear-cycle on its own to remove it.",
+            },
+          )
+        }
+
+        if (clearDueDate && dueDate != null) {
+          throw new ValidationError(
+            "Cannot specify both --due-date and --clear-due-date",
+            {
+              suggestion:
+                "Use --due-date <date> to set a due date, or --clear-due-date on its own to remove it.",
+            },
+          )
+        }
+
+        // `!= null`, not truthiness: `--estimate 0` is an explicit value.
+        if (clearEstimate && estimate != null) {
+          throw new ValidationError(
+            "Cannot specify both --estimate and --clear-estimate",
+            {
+              suggestion:
+                "Use --estimate <points> to set an estimate, or --clear-estimate on its own to remove it.",
+            },
+          )
+        }
+
+        if (clearParent && parent != null) {
+          throw new ValidationError(
+            "Cannot specify both --parent and --clear-parent",
+            {
+              suggestion:
+                "Use --parent <issue> to set a parent, or --clear-parent on its own to remove it.",
+            },
+          )
+        }
+
+        if (clearProject && project != null) {
+          throw new ValidationError(
+            "Cannot specify both --project and --clear-project",
+            {
+              suggestion:
+                "Use --project <project> to set a project, or --clear-project on its own to remove it.",
+            },
+          )
+        }
+
+        // A milestone belongs to a project, so keeping one while removing the
+        // project is contradictory (and a milestone name would resolve against
+        // the project being removed).
+        if (clearProject && milestone != null) {
+          throw new ValidationError(
+            "Cannot specify --milestone while clearing the issue's project",
+            {
+              suggestion:
+                "Drop --milestone, or replace it with --clear-milestone to remove both the project and the milestone.",
+            },
+          )
+        }
+
+        if (clearMilestone && milestone != null) {
+          throw new ValidationError(
+            "Cannot specify both --milestone and --clear-milestone",
+            {
+              suggestion:
+                "Use --milestone <milestone> to set a milestone, or --clear-milestone on its own to remove it.",
             },
           )
         }
@@ -329,8 +418,14 @@ export const updateCommand = new Command()
         } else if (assigneeId != null) {
           input.assigneeId = assigneeId
         }
-        if (dueDate !== undefined) input.dueDate = dueDate
-        if (parent !== undefined) {
+        if (clearDueDate) {
+          input.dueDate = null
+        } else if (dueDate !== undefined) {
+          input.dueDate = dueDate
+        }
+        if (clearParent) {
+          input.parentId = null
+        } else if (parent !== undefined) {
           const parentIdentifier = await getIssueIdentifier(parent)
           if (!parentIdentifier) {
             throw new ValidationError(
@@ -344,7 +439,11 @@ export const updateCommand = new Command()
           input.parentId = parentId
         }
         if (priority !== undefined) input.priority = priority
-        if (estimate !== undefined) input.estimate = estimate
+        if (clearEstimate) {
+          input.estimate = null
+        } else if (estimate !== undefined) {
+          input.estimate = estimate
+        }
         if (finalDescription !== undefined) input.description = finalDescription
         if (labels != null) {
           input.labelIds = labelIds
@@ -353,8 +452,14 @@ export const updateCommand = new Command()
           if (removeLabel != null) input.removedLabelIds = removedLabelIds
         }
         if (teamId !== undefined) input.teamId = teamId
-        if (projectId !== undefined) input.projectId = projectId
-        if (projectMilestoneId !== undefined) {
+        if (clearProject) {
+          input.projectId = null
+        } else if (projectId !== undefined) {
+          input.projectId = projectId
+        }
+        if (clearMilestone) {
+          input.projectMilestoneId = null
+        } else if (projectMilestoneId !== undefined) {
           input.projectMilestoneId = projectMilestoneId
         }
         if (clearCycle) {

@@ -508,6 +508,11 @@ Deno.test("Project Update Command - requires at least one option", async () => {
     ),
     true,
   )
+  for (
+    const flag of ["--clear-lead", "--clear-start-date", "--clear-target-date"]
+  ) {
+    assertEquals(errorLogs.some((l) => l.includes(flag)), true, flag)
+  }
 })
 
 // --- content (the long-form overview body) ---------------------------------
@@ -735,4 +740,95 @@ Deno.test("Project Update Command - errors on a missing content file", async () 
     ),
     true,
   )
+})
+
+// Each clear flag on its own is a valid update (it passes the at-least-one
+// option guard) and sends its field as an explicit null. The exact-variables
+// mock proves the key is present AND null and that nothing else is sent. There
+// is no GetViewerId/user lookup mock: --clear-lead must not resolve a user.
+Deno.test("Project Update Command - clear flags send null", async (t) => {
+  const cases: { flag: string; input: Record<string, null> }[] = [
+    { flag: "--clear-lead", input: { leadId: null } },
+    { flag: "--clear-start-date", input: { startDate: null } },
+    { flag: "--clear-target-date", input: { targetDate: null } },
+  ]
+  for (const c of cases) {
+    await t.step(c.flag, async () => {
+      const server = new MockLinearServer([
+        {
+          queryName: "UpdateProject",
+          variables: {
+            id: "550e8400-e29b-41d4-a716-446655440009",
+            input: c.input,
+          },
+          response: {
+            data: {
+              projectUpdate: {
+                success: true,
+                project: {
+                  id: "550e8400-e29b-41d4-a716-446655440009",
+                  slugId: "proj-clear",
+                  name: "Test Project",
+                  description: null,
+                  url: "https://linear.app/test/project/proj-clear",
+                  updatedAt: "2024-01-20T15:30:00Z",
+                },
+              },
+            },
+          },
+        },
+      ])
+      const logs: string[] = []
+      const logStub = stub(console, "log", (...args: unknown[]) => {
+        logs.push(args.map(String).join(" "))
+      })
+      try {
+        await server.start()
+        Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+        Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+        await updateCommand.parse([
+          "550e8400-e29b-41d4-a716-446655440009",
+          c.flag,
+        ])
+      } finally {
+        logStub.restore()
+        await server.stop()
+        Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+        Deno.env.delete("LINEAR_API_KEY")
+      }
+      assertEquals(logs.some((l) => l.includes("✓ Updated project")), true)
+    })
+  }
+})
+
+// Each clear flag conflicts with its set flag. No server is configured, so
+// these only pass if the command errors before making any request.
+Deno.test("Project Update Command - clear flags reject their set flags", async (t) => {
+  const cases: { args: string[]; message: string; suggestion: string }[] = [
+    {
+      args: ["--lead", "jane", "--clear-lead"],
+      message: "Cannot specify both --lead and --clear-lead",
+      suggestion: "--clear-lead on its own",
+    },
+    {
+      args: ["--start-date", "2026-09-10", "--clear-start-date"],
+      message: "Cannot specify both --start-date and --clear-start-date",
+      suggestion: "--clear-start-date on its own",
+    },
+    {
+      args: ["--target-date", "2026-10-10", "--clear-target-date"],
+      message: "Cannot specify both --target-date and --clear-target-date",
+      suggestion: "--clear-target-date on its own",
+    },
+  ]
+  for (const c of cases) {
+    await t.step(c.args.join(" "), async () => {
+      const errorLogs = await expectUpdateToFail([
+        "550e8400-e29b-41d4-a716-446655440009",
+        ...c.args,
+      ])
+      assertEquals(errorLogs.some((l) => l.includes(c.message)), true)
+      assertEquals(errorLogs.some((l) => l.includes(c.suggestion)), true)
+    })
+  }
 })

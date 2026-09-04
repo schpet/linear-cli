@@ -145,6 +145,7 @@ linear issue create -t "title" -d "description"  # create with flags
 linear issue create --project "My Project" --milestone "Phase 1"  # create with milestone
 linear issue update    # update an issue (interactive prompts)
 linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing issue
+linear issue update ENG-123 --clear-due-date --clear-parent  # remove values (also --clear-estimate, --clear-project, --clear-milestone, --clear-cycle, --unassign)
 linear issue delete    # delete an issue
 linear issue comment list          # list comments on current issue
 linear issue comment add           # add a comment to current issue
@@ -202,6 +203,7 @@ linear project view <projectId> --json  # project details as JSON
 linear project create --name "API v2" --team ENG --content-file overview.md
 linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com
 linear project update <projectId> --content-file overview.md  # replace the project's overview body
+linear project update <projectId> --clear-lead --clear-target-date  # remove values (also --clear-start-date)
 linear project comment list <project>                         # list the project's discussion thread (UUID, slug, or name)
 linear project comment add <project> --body "Kickoff Monday"  # comment on a project
 linear project comment add <project> --body "+1" --reply-to <commentId>  # reply in a thread
