@@ -1,0 +1,34 @@
+export const snapshot = {};
+
+snapshot[`Label Create Command - Help Text 1`] = `
+stdout:
+"
+Usage: create
+
+Description:
+
+  Create a new issue label
+
+Options:
+
+  -h, --help                        - Show this help.                                                             
+  -n, --name         <name>         - Label name (required)                                                       
+  -c, --color        <color>        - Color hex code (e.g., #EB5757)                                              
+  -d, --description  <description>  - Label description                                                           
+  -t, --team         <team>         - Team key, name, or ID for a team-specific label (omit for workspace label)  
+  -i, --interactive                 - Interactive mode (default if no flags provided)                             
+
+"
+stderr:
+""
+`;
+
+snapshot[`Label Create Command - Team By Name 1`] = `
+stdout:
+"✓ Created label: backend
+  Color: #5e6ad2
+  Scope: Engineering (ENG)
+"
+stderr:
+""
+`;

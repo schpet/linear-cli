@@ -53,7 +53,7 @@ Options:
   --project           <project>     - Attach to project (UUID, slug ID, or name)                                        
   --issue             <issue>       - Attach to issue (identifier like TC-123)                                          
   --initiative        <initiative>  - Attach to initiative (UUID, slug ID, or name)                                     
-  --team              <team>        - Attach to team (key); with --cycle, scopes the cycle lookup instead               
+  --team              <team>        - Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead  
   --cycle             <cycle>       - Attach to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative  
                                       offset like +1 (team from --team or config)                                       
   --release           <release>     - Attach to release (UUID, name, or version)                                        
@@ -100,7 +100,7 @@ Options:
   --project     <project>     - Filter by project (UUID, slug ID, or name)                                                     
   --issue       <issue>       - Filter by issue (identifier like TC-123)                                                       
   --initiative  <initiative>  - Filter by initiative (UUID, slug ID, or name)                                                  
-  --team        <team>        - Filter by team (key); with --cycle, scopes the cycle lookup instead                            
+  --team        <team>        - Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead               
   --cycle       <cycle>       - Filter by cycle: name, number, 'active'/'now', 'next', 'previous', or a relative               
                                 offset like +1 (team from --team or config)                                                    
   --release     <release>     - Filter by release (UUID, name, or version)                                                     
@@ -135,7 +135,8 @@ Options:
   --project           <project>     - Re-point to project (UUID, slug ID, or name); replaces the current attachment     
   --issue             <issue>       - Re-point to issue (identifier like TC-123); replaces the current attachment       
   --initiative        <initiative>  - Re-point to initiative (UUID, slug ID, or name); replaces the current attachment  
-  --team              <team>        - Re-point to team (key); with --cycle, scopes the cycle lookup instead             
+  --team              <team>        - Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup        
+                                      instead                                                                           
   --cycle             <cycle>       - Re-point to cycle: name, number, 'active'/'now', 'next', 'previous', or a         
                                       relative offset like +1 (team from --team or config)                              
   --release           <release>     - Re-point to release (UUID, name, or version); replaces the current attachment     

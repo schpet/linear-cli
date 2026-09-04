@@ -7,9 +7,9 @@ import type { GraphQLClient } from "graphql-request"
 import {
   getAllTeams,
   getProjectLabelIdByName,
-  getTeamIdByKey,
   getTeamKey,
   lookupUserId,
+  resolveTeams,
 } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import {
@@ -178,7 +178,7 @@ export const createCommand = new Command()
   )
   .option(
     "-t, --team <team:string>",
-    "Team key (required, can be repeated for multiple teams)",
+    "Team key, name, or ID (required, can be repeated for multiple teams)",
     { collect: true },
   )
   .option(
@@ -389,14 +389,7 @@ export const createCommand = new Command()
         }
 
         // Resolve team IDs
-        const teamIds: string[] = []
-        for (const teamKey of teams) {
-          const teamId = await getTeamIdByKey(teamKey.toUpperCase())
-          if (!teamId) {
-            throw new NotFoundError("Team", teamKey)
-          }
-          teamIds.push(teamId)
-        }
+        const teamIds = (await resolveTeams(teams)).map((t) => t.id)
 
         // Build input - resolve all optional fields first
         let leadId: string | undefined

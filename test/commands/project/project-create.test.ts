@@ -45,12 +45,12 @@ await cliffySnapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-123" }],
+              nodes: [{ id: "team-eng-123", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -103,12 +103,12 @@ await cliffySnapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-123" }],
+              nodes: [{ id: "team-eng-123", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -185,12 +185,12 @@ await cliffySnapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-123" }],
+              nodes: [{ id: "team-eng-123", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -331,12 +331,12 @@ await cliffySnapshotTest({
 
     const server = new MockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-123" }],
+              nodes: [{ id: "team-eng-123", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -457,9 +457,15 @@ Deno.test("Project Create Command - rejects an invalid priority", async () => {
 Deno.test("Project Create Command - rejects an unknown project label", async () => {
   const server = new MockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
-      response: { data: { teams: { nodes: [{ id: "team-eng-123" }] } } },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-123", key: "ENG", name: "Engineering" }],
+          },
+        },
+      },
     },
     {
       queryName: "GetProjectLabelIdByName",
@@ -512,9 +518,15 @@ Deno.test("Project Create Command - rejects an unknown project label", async () 
 Deno.test("Project Create Command - rejects an unknown member", async () => {
   const server = new MockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
-      response: { data: { teams: { nodes: [{ id: "team-eng-123" }] } } },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-123", key: "ENG", name: "Engineering" }],
+          },
+        },
+      },
     },
     {
       queryName: "LookupUser",
@@ -562,4 +574,57 @@ Deno.test("Project Create Command - rejects an unknown member", async () => {
     errorLogs.some((l) => l.includes("User not found: ghostuser")),
     true,
   )
+})
+
+// -t accepts a team name; the mutation receives the UUID.
+await cliffySnapshotTest({
+  name: "Project Create Command - Team By Name",
+  meta: import.meta,
+  colors: false,
+  args: ["--name", "API v2", "-t", "Engineering"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "ResolveTeam",
+        variables: { reference: "Engineering" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
+      },
+      {
+        queryName: "CreateProject",
+        variables: { input: { name: "API v2", teamIds: ["team-eng-id"] } },
+        response: {
+          data: {
+            projectCreate: {
+              success: true,
+              project: {
+                id: "project-1",
+                name: "API v2",
+                url: "https://linear.app/test/project/api-v2-abc",
+                slugId: "api-v2-abc",
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await createCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
 })

@@ -64,7 +64,7 @@ export const createCommand = new Command()
   )
   .option(
     "--team <team:string>",
-    "Attach to team (key); with --cycle, scopes the cycle lookup instead",
+    "Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead",
   )
   .option(
     "--cycle <cycle:string>",

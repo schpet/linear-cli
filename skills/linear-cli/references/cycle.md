@@ -37,9 +37,9 @@ Description:
 
 Options:
 
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  --team       <team>  - Team key (defaults to current team)  
+  -h, --help           - Show this help.                                   
+  --workspace  <slug>  - Target workspace (uses credentials)               
+  --team       <team>  - Team key, name, or ID (defaults to current team)  
   -j, --json           - Output as JSON
 ```
 
@@ -56,8 +56,8 @@ Description:
 
 Options:
 
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  --team       <team>  - Team key (defaults to current team)  
+  -h, --help           - Show this help.                                   
+  --workspace  <slug>  - Target workspace (uses credentials)               
+  --team       <team>  - Team key, name, or ID (defaults to current team)  
   -j, --json           - Output as JSON
 ```

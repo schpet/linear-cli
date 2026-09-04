@@ -617,3 +617,50 @@ await cliffySnapshotTest({
     }
   },
 })
+
+// An unknown --team in web mode is a clean error through handleError, not an
+// uncaught stack trace: the resolver runs inside the action's error handling.
+await cliffySnapshotTest({
+  name: "Project List Command - Web With Unknown Team",
+  meta: import.meta,
+  colors: false,
+  args: ["--web", "--team", "Nope"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "GetViewer",
+        response: { data: { viewer: { organization: { urlKey: "acme" } } } },
+      },
+      {
+        queryName: "ResolveTeam",
+        variables: { reference: "Nope" },
+        response: { data: { teams: { nodes: [] } } },
+      },
+      {
+        queryName: "GetAllTeams",
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+      await listCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})

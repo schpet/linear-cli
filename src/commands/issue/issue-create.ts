@@ -7,6 +7,7 @@ import { getEditor, openEditor } from "../../utils/editor.ts"
 import { getPriorityDisplay } from "../../utils/display.ts"
 import {
   fetchParentIssueData,
+  findTeam,
   getAllTeams,
   getCycleIdByNameOrNumber,
   getIssueId,
@@ -17,13 +18,13 @@ import {
   getProjectIdByName,
   getProjectOptionsByName,
   getProjectsForTeam,
-  getTeamIdByKey,
   getTeamKey,
   getWorkflowStates,
   isLinearUuid,
   lookupUserId,
   lowestPositionStateOfType,
   resolveMilestoneId,
+  resolveTeam,
   resolveWorkflowState,
   searchTeamsByKeySubstring,
   selectOption,
@@ -403,11 +404,11 @@ async function promptInteractiveIssueCreation(
   const teamResolutionPromise = (async () => {
     const defaultTeamKey = getTeamKey()
     if (defaultTeamKey) {
-      const teamId = await getTeamIdByKey(defaultTeamKey)
-      if (teamId) {
+      const team = await findTeam(defaultTeamKey)
+      if (team) {
         return {
-          teamId: teamId,
-          teamKey: defaultTeamKey,
+          teamId: team.id,
+          teamKey: team.key,
           needsTeamSelection: false,
         }
       }
@@ -637,7 +638,7 @@ export const createCommand = new Command()
   )
   .option(
     "--team <team:string>",
-    "Team associated with the issue (if not your default team)",
+    "Team (key, name, or ID) for the issue, if not your default team",
   )
   .option(
     "--project <project:string>",
@@ -775,11 +776,8 @@ export const createCommand = new Command()
           console.log(issue.url)
 
           if (interactiveData.start) {
-            const teamKey = issue.team.key
-            const teamIdForStartWork = await getTeamIdByKey(teamKey)
-            if (teamIdForStartWork) {
-              await startWorkOnIssue(issueId, teamIdForStartWork)
-            }
+            const teamIdForStartWork = (await resolveTeam(issue.team.key)).id
+            await startWorkOnIssue(issueId, teamIdForStartWork)
           }
           return
         } catch (error) {
@@ -803,21 +801,35 @@ export const createCommand = new Command()
       const spinner = shouldShowSpinner() ? new Spinner() : null
       spinner?.start()
       try {
-        team = (team == null) ? getTeamKey() : team.toUpperCase()
-        if (!team) {
-          throw new ValidationError("Could not determine team key")
-        }
-
-        // For functions that need actual team IDs (like createIssue), get the ID
-        let teamId = await getTeamIdByKey(team)
-        if (interactive && !teamId) {
-          const teamIds = await searchTeamsByKeySubstring(team)
-          spinner?.stop()
-          teamId = await selectOption("Team", team, teamIds)
-          spinner?.start()
-        }
-        if (!teamId) {
-          throw new NotFoundError("Team", team)
+        // An explicit --team (key, name, or UUID) must resolve or error. Only
+        // the configured default, which the user did not type, may fall back
+        // to the interactive substring picker.
+        let teamId: string
+        if (team != null) {
+          const resolved = await resolveTeam(team)
+          teamId = resolved.id
+          team = resolved.key
+        } else {
+          team = getTeamKey()
+          if (!team) {
+            throw new ValidationError("Could not determine team key")
+          }
+          const found = await findTeam(team)
+          if (found) {
+            teamId = found.id
+          } else {
+            let picked: string | undefined
+            if (interactive) {
+              const teamIds = await searchTeamsByKeySubstring(team)
+              spinner?.stop()
+              picked = await selectOption("Team", team, teamIds)
+              spinner?.start()
+            }
+            if (!picked) {
+              throw new NotFoundError("Team", team)
+            }
+            teamId = picked
+          }
         }
         if (start && assignee === undefined) {
           assignee = "self"

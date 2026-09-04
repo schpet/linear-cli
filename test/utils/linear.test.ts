@@ -2,6 +2,7 @@ import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert"
 import { assertThrows } from "@std/assert"
 import {
   compareWorkflowStates,
+  findTeam,
   getIssueIdentifier,
   getStartedState,
   isLinearUuid,
@@ -10,9 +11,13 @@ import {
   resolveMilestoneId,
   resolveProjectId,
   resolveReleaseId,
+  resolveStateSelection,
+  resolveTeam,
+  resolveTeams,
   resolveWorkflowState,
   searchIssuesByTerm,
   type WorkflowState,
+  workflowStateFilter,
   workflowStateNotFoundError,
 } from "../../src/utils/linear.ts"
 import {
@@ -671,6 +676,401 @@ Deno.test("resolveReleaseId - same release matched by name and version is not am
   ])
   try {
     assertEquals(await resolveReleaseId("1.0"), "rel-1")
+  } finally {
+    await cleanup()
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Team resolver: key, name, or UUID through one operation
+// ---------------------------------------------------------------------------
+
+const ENG = { id: "team-eng-id", key: "ENG", name: "Engineering" }
+const APP = { id: "team-app-id", key: "APP", name: "Apps" }
+
+const ALL_TEAMS_MOCK = {
+  queryName: "GetAllTeams",
+  response: {
+    data: {
+      teams: {
+        nodes: [ENG, APP],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      },
+    },
+  },
+}
+
+Deno.test("resolveTeam - a key match wins over another team's name", async () => {
+  // "OPS" is both PLT's name and OPS's key. The server returns both under the
+  // or-filter; the key must win regardless of the order they come back in.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveTeam",
+      variables: { reference: "OPS", isUuid: false },
+      response: {
+        data: {
+          teams: {
+            nodes: [
+              { id: "team-by-name", key: "PLT", name: "OPS" },
+              { id: "team-by-key", key: "OPS", name: "Operations" },
+            ],
+          },
+        },
+      },
+    },
+  ])
+  try {
+    const team = await resolveTeam("OPS")
+    assertEquals(team.id, "team-by-key")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveTeam - lowercase key returns the canonical key", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveTeam",
+      variables: { reference: "eng" },
+      response: { data: { teams: { nodes: [ENG] } } },
+    },
+  ])
+  try {
+    assertEquals(await resolveTeam("eng"), ENG)
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveTeam - a name resolves when no key matches", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveTeam",
+      variables: { reference: "engineering" },
+      response: { data: { teams: { nodes: [ENG] } } },
+    },
+  ])
+  try {
+    assertEquals((await resolveTeam("engineering")).key, "ENG")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveTeam - a UUID resolves through the id lookup", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveTeam",
+      variables: { reference: UUID, id: UUID, isUuid: true },
+      response: {
+        data: { teams: { nodes: [] }, teamById: { nodes: [ENG] } },
+      },
+    },
+  ])
+  try {
+    assertEquals((await resolveTeam(UUID)).key, "ENG")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveTeam - two teams with the same name is an error naming their keys", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveTeam",
+      variables: { reference: "Platform" },
+      response: {
+        data: {
+          teams: {
+            nodes: [
+              { id: "t1", key: "PLA", name: "Platform" },
+              { id: "t2", key: "PLT", name: "Platform" },
+            ],
+          },
+        },
+      },
+    },
+  ])
+  try {
+    const error = await assertRejects(
+      () => resolveTeam("Platform"),
+      ValidationError,
+      "ambiguous",
+    )
+    assertStringIncludes(error.message, "PLA (Platform), PLT (Platform)")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveTeam - no match lists every valid team key", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveTeam",
+      variables: { reference: "Nope" },
+      response: { data: { teams: { nodes: [] } } },
+    },
+    ALL_TEAMS_MOCK,
+  ])
+  try {
+    const error = await assertRejects(
+      () => resolveTeam("Nope"),
+      NotFoundError,
+      "Team not found: Nope",
+    )
+    assertEquals(
+      error.suggestion,
+      "Valid team keys: APP (Apps), ENG (Engineering). Run `linear team list` to see all teams.",
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("findTeam - blank reference is rejected before any request", async () => {
+  const { cleanup } = await setupMockLinearServer([])
+  try {
+    await assertRejects(() => findTeam("  "), ValidationError, "empty")
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveTeams - drops references that resolve to the same team", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
+      response: { data: { teams: { nodes: [ENG] } } },
+    },
+    {
+      queryName: "ResolveTeam",
+      variables: { reference: "Engineering" },
+      response: { data: { teams: { nodes: [ENG] } } },
+    },
+    {
+      queryName: "ResolveTeam",
+      variables: { reference: "APP" },
+      response: { data: { teams: { nodes: [APP] } } },
+    },
+  ])
+  try {
+    const teams = await resolveTeams(["ENG", "APP", "Engineering"])
+    assertEquals(teams.map((t) => t.key), ["ENG", "APP"])
+  } finally {
+    await cleanup()
+  }
+})
+
+// ---------------------------------------------------------------------------
+// --state selection: type tokens, names, and IDs
+// ---------------------------------------------------------------------------
+
+const SCOPED_STATES = [
+  {
+    id: "s-eng-backlog",
+    name: "Backlog",
+    type: "backlog",
+    team: { key: "ENG" },
+  },
+  {
+    id: "s-eng-review",
+    name: "In Review",
+    type: "started",
+    team: { key: "ENG" },
+  },
+  {
+    id: "s-app-review",
+    name: "In Review",
+    type: "started",
+    team: { key: "APP" },
+  },
+]
+
+function scopedStatesMock(filter: unknown, nodes = SCOPED_STATES) {
+  return {
+    queryName: "GetWorkflowStatesInScope",
+    variables: { filter },
+    response: {
+      data: {
+        workflowStates: {
+          nodes,
+          pageInfo: { hasNextPage: false, endCursor: null },
+        },
+      },
+    },
+  }
+}
+
+Deno.test("workflowStateFilter - keeps the type-only shape and mixes with or", () => {
+  assertEquals(workflowStateFilter({ types: ["started"], stateIds: [] }), {
+    type: { in: ["started"] },
+  })
+  assertEquals(workflowStateFilter({ types: [], stateIds: ["s1"] }), {
+    id: { in: ["s1"] },
+  })
+  assertEquals(
+    workflowStateFilter({ types: ["started"], stateIds: ["s1"] }),
+    { or: [{ type: { in: ["started"] } }, { id: { in: ["s1"] } }] },
+  )
+  assertThrows(
+    () => workflowStateFilter({ types: [], stateIds: [] }),
+    ValidationError,
+  )
+})
+
+Deno.test("resolveStateSelection - bare types need no request", async () => {
+  const { cleanup } = await setupMockLinearServer([])
+  try {
+    const selection = await resolveStateSelection(
+      ["started", "started", "backlog"],
+      { teamKeys: ["ENG"] },
+    )
+    assertEquals(selection, { types: ["started", "backlog"], stateIds: [] })
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveStateSelection - a name matches every same-named state in scope", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    scopedStatesMock({ team: { key: { in: ["ENG", "APP"] } } }),
+  ])
+  try {
+    const selection = await resolveStateSelection(
+      ["completed", "in review"],
+      { teamKeys: ["ENG", "APP"] },
+    )
+    assertEquals(selection, {
+      types: ["completed"],
+      stateIds: ["s-eng-review", "s-app-review"],
+    })
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveStateSelection - a capitalized type token is a name lookup", async () => {
+  // Type tokens are the six lowercase words; "Backlog" is the state called
+  // Backlog, not every backlog-type state.
+  const { cleanup } = await setupMockLinearServer([
+    scopedStatesMock({ team: { key: { in: ["ENG"] } } }),
+  ])
+  try {
+    const selection = await resolveStateSelection(["Backlog"], {
+      teamKeys: ["ENG"],
+    })
+    assertEquals(selection, { types: [], stateIds: ["s-eng-backlog"] })
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveStateSelection - all teams sends no team filter", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    scopedStatesMock(undefined),
+  ])
+  try {
+    const selection = await resolveStateSelection(["In Review"], {
+      allTeams: true,
+    })
+    assertEquals(selection.stateIds, ["s-eng-review", "s-app-review"])
+    await assertRejects(
+      () => resolveStateSelection([UUID], { allTeams: true }),
+      NotFoundError,
+      `Workflow state not found: '${UUID}' in any team`,
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveStateSelection - an unknown name lists the scope's states", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    scopedStatesMock(
+      { team: { key: { in: ["ENG"] } } },
+      SCOPED_STATES.filter((s) => s.team.key === "ENG"),
+    ),
+  ])
+  try {
+    const error = await assertRejects(
+      () => resolveStateSelection(["Done"], { teamKeys: ["ENG"] }),
+      NotFoundError,
+      "Workflow state not found: 'Done' in team ENG",
+    )
+    assertEquals(
+      error.suggestion,
+      'Valid states: "Backlog" (backlog), "In Review" (started). ' +
+        "State types: triage, backlog, unstarted, started, completed, canceled. " +
+        "Run `linear team states <team>` to list a team's states.",
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveStateSelection - a state ID outside the scope is not found", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    scopedStatesMock(
+      { team: { key: { in: ["ENG", "APP"] } } },
+    ),
+  ])
+  try {
+    const error = await assertRejects(
+      () => resolveStateSelection([UUID], { teamKeys: ["ENG", "APP"] }),
+      NotFoundError,
+      "in teams ENG, APP",
+    )
+    // Multi-team scope labels each state with its team.
+    assertStringIncludes(error.suggestion ?? "", '"In Review" (started, APP)')
+    assertStringIncludes(error.suggestion ?? "", '"In Review" (started, ENG)')
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveStateSelection - a state ID matches regardless of case", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    scopedStatesMock({ team: { key: { in: ["ENG"] } } }, [
+      {
+        id: UUID.replace(/0/g, "a"),
+        name: "Todo",
+        type: "unstarted",
+        team: { key: "ENG" },
+      },
+    ]),
+  ])
+  try {
+    const selection = await resolveStateSelection(
+      [UUID.replace(/0/g, "A")],
+      { teamKeys: ["ENG"] },
+    )
+    assertEquals(selection.stateIds, [UUID.replace(/0/g, "a")])
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveStateSelection - a page that never advances is an error, not a hang", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetWorkflowStatesInScope",
+      response: {
+        data: {
+          workflowStates: {
+            nodes: SCOPED_STATES,
+            pageInfo: { hasNextPage: true, endCursor: null },
+          },
+        },
+      },
+    },
+  ])
+  try {
+    await assertRejects(
+      () => resolveStateSelection(["In Review"], { teamKeys: ["ENG"] }),
+      CliError,
+      "no new pagination cursor",
+    )
   } finally {
     await cleanup()
   }

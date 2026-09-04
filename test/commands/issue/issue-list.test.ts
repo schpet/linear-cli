@@ -40,12 +40,12 @@ Deno.test("Issue List Command - Filter By Label", async () => {
 
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
       response: {
         data: {
           teams: {
-            nodes: [{ id: "team-eng-id" }],
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
           },
         },
       },

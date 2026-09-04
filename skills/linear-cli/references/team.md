@@ -18,13 +18,13 @@ Options:
 
 Commands:
 
-  create                - Create a linear team                                                         
-  delete     <teamKey>  - Delete a Linear team                                                         
-  list                  - List teams                                                                   
-  id                    - Print the configured team id                                                 
-  autolinks             - Configure GitHub repository autolinks for Linear issues with this team prefix
-  members    [teamKey]  - List team members                                                            
-  states     [teamKey]  - List workflow states for a team
+  create             - Create a linear team                                                         
+  delete     <team>  - Delete a Linear team                                                         
+  list               - List teams                                                                   
+  id                 - Print the configured team id                                                 
+  autolinks          - Configure GitHub repository autolinks for Linear issues with this team prefix
+  members    [team]  - List team members (team by key, name, or ID)                                 
+  states     [team]  - List workflow states for a team (by key, name, or ID)
 ```
 
 ## Subcommands
@@ -73,7 +73,7 @@ Options:
 > Delete a Linear team
 
 ```
-Usage:   linear team delete <teamKey>
+Usage:   linear team delete <team>
 
 Description:
 
@@ -81,9 +81,9 @@ Description:
 
 Options:
 
-  -h, --help                   - Show this help.                                  
-  --workspace    <slug>        - Target workspace (uses credentials)              
-  --move-issues  <targetTeam>  - Move all issues to another team before deletion  
+  -h, --help                   - Show this help.                                                     
+  --workspace    <slug>        - Target workspace (uses credentials)                                 
+  --move-issues  <targetTeam>  - Move all issues to another team (key, name, or ID) before deletion  
   -y, --force                  - Skip confirmation prompt
 ```
 
@@ -126,14 +126,14 @@ Options:
 
 ### members
 
-> List team members
+> List team members (team by key, name, or ID)
 
 ```
-Usage:   linear team members [teamKey]
+Usage:   linear team members [team]
 
 Description:
 
-  List team members
+  List team members (team by key, name, or ID)
 
 Options:
 
@@ -145,14 +145,14 @@ Options:
 
 ### states
 
-> List workflow states for a team
+> List workflow states for a team (by key, name, or ID)
 
 ```
-Usage:   linear team states [teamKey]
+Usage:   linear team states [team]
 
 Description:
 
-  List workflow states for a team
+  List workflow states for a team (by key, name, or ID)
 
 Options:
 

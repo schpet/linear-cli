@@ -30,7 +30,7 @@ Options:
   --add-label         <label>        - Add a label to the issue, keeping its existing labels. May be repeated.          
   --remove-label      <label>        - Remove a label from the issue, keeping its other labels (does not delete the     
                                        label from the team). May be repeated.                                           
-  --team              <team>         - Team associated with the issue (if not your default team)                        
+  --team              <team>         - Team (key, name, or ID) to move the issue to                                     
   --project           <project>      - Project to assign the issue to (UUID, slug ID, or name)                          
   -s, --state         <state>        - Workflow state for the issue (by name or type)                                   
   --milestone         <milestone>    - Project milestone (UUID, or name when --project is set or the issue already has  
@@ -345,4 +345,15 @@ stderr:
 "✗ Failed to update issue: Issue label not found: nosuch
   Run \`linear label list --team ENG\` to see available labels.
 "
+`;
+
+snapshot[`Issue Update Command - Team By Name 1`] = `
+stdout:
+"Updating issue ENG-123
+
+✓ Updated issue APP-7: Moved
+https://linear.app/test-team/issue/APP-7/moved
+"
+stderr:
+""
 `;

@@ -137,6 +137,7 @@ linear issue list -w   # open issue list in web browser
 linear issue list -a   # open issue list in Linear.app
 linear issue query --search "login bug"  # search issues by text in your configured team
 linear issue query --search "oauth timeout" --team ENG --json  # structured search output for agents
+linear issue query --team "Engineering" --state "In Review" --json  # teams by key, name, or ID; states by type, name, or ID
 linear issue query --all-teams --json --limit 0  # export all issues as JSON
 linear issue start     # create/switch to issue branch and mark as started
 linear issue create    # create a new issue (interactive prompts)
@@ -205,7 +206,7 @@ linear project update <projectId> --content-file overview.md  # replace the proj
 ### cycle commands
 
 ```bash
-linear cycle list --team ENG          # list a team's cycles
+linear cycle list --team ENG          # list a team's cycles (--team takes a key, name, or ID)
 linear cycle list --team ENG --json   # as JSON
 linear cycle view 12 --team ENG       # view a cycle by number or name
 linear cycle view 12 --team ENG --json  # cycle details and its issues, as JSON

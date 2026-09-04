@@ -2,7 +2,7 @@ import { Command } from "@cliffy/command"
 import { Confirm, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getAllTeams, getTeamIdByKey } from "../../utils/linear.ts"
+import { getAllTeams, resolveTeam } from "../../utils/linear.ts"
 import {
   CliError,
   handleError,
@@ -30,21 +30,18 @@ const GetTeamIssuesForMove = gql(`
 export const deleteCommand = new Command()
   .name("delete")
   .description("Delete a Linear team")
-  .arguments("<teamKey:string>")
+  .arguments("<team:string>")
   .option(
     "--move-issues <targetTeam:string>",
-    "Move all issues to another team before deletion",
+    "Move all issues to another team (key, name, or ID) before deletion",
   )
   .option("-y, --force", "Skip confirmation prompt")
   .action(async ({ moveIssues, force }, teamKey) => {
     try {
       const client = getGraphQLClient()
 
-      // Resolve the team ID from the key
-      const teamId = await getTeamIdByKey(teamKey.toUpperCase())
-      if (!teamId) {
-        throw new NotFoundError("Team", teamKey)
-      }
+      // Resolve the team ID from the key, name, or ID
+      const teamId = (await resolveTeam(teamKey)).id
 
       // Get team details for confirmation message
       const teamDetailsQuery = gql(`
@@ -108,10 +105,7 @@ export const deleteCommand = new Command()
         await moveIssuesToTeam(client, teamId, targetTeamId, issueCount)
       } else if (issueCount > 0 && moveIssues) {
         // Resolve the target team
-        const targetTeamId = await getTeamIdByKey(moveIssues.toUpperCase())
-        if (!targetTeamId) {
-          throw new NotFoundError("Target team", moveIssues)
-        }
+        const targetTeamId = (await resolveTeam(moveIssues)).id
 
         if (targetTeamId === teamId) {
           throw new ValidationError("Cannot move issues to the same team")

@@ -271,7 +271,7 @@ Options:
   -d, --description          <description>  - Description of the issue                                                      
   --description-file         <path>         - Read description from a file (preferred for markdown content)                 
   -l, --label                <label>        - Issue label associated with the issue. May be repeated.                       
-  --team                     <team>         - Team associated with the issue (if not your default team)                     
+  --team                     <team>         - Team (key, name, or ID) for the issue, if not your default team               
   --project                  <project>      - Project for the issue (UUID, slug ID, or name)                                
   -s, --state                <state>        - Workflow state for the issue (by name or type)                                
   --milestone                <milestone>    - Project milestone (UUID, or name when --project is set)                       
@@ -375,24 +375,24 @@ Description:
 
 Options:
 
-  -h, --help                       - Show this help.                                                                                                                         
-  --workspace      <slug>          - Target workspace (uses credentials)                                                                                                     
-  -s, --state      <state>         - Filter by issue state (can be repeated for multiple states)                      (Default: [ "unstarted" ], Values: "triage", "backlog",
-                                                                                                                      "unstarted", "started", "completed", "canceled")       
-  --all-states                     - Show issues from all states                                                                                                             
-  --sort           <sort>          - Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)            (Values: "manual", "priority")                         
-  --team           <team>          - Team to list issues for (if not your default team)                                                                                      
-  --project        <project>       - Filter by project (UUID, slug ID, or name)                                                                                              
-  --project-label  <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                           
-  --cycle          <cycle>         - Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative                                                         
-                                     offset like +1                                                                                                                          
-  --milestone      <milestone>     - Filter by project milestone (UUID, or name when --project is set)                                                                       
-  -l, --label      <label>         - Filter by label name (can be repeated for multiple labels)                                                                              
-  --limit          <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)             (Default: 50)                                          
-  --created-after  <date>          - Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                                          
-  --updated-after  <date>          - Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                                          
-  -w, --web                        - Open in web browser                                                                                                                     
-  -a, --app                        - Open in Linear.app                                                                                                                      
+  -h, --help                       - Show this help.                                                                                                
+  --workspace      <slug>          - Target workspace (uses credentials)                                                                            
+  -s, --state      <state>         - Filter by workflow state type (triage, backlog, unstarted, started, completed,   (Default: [ "unstarted" ])    
+                                     canceled), name, or ID (can be repeated for multiple states)                                                   
+  --all-states                     - Show issues from all states                                                                                    
+  --sort           <sort>          - Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)            (Values: "manual", "priority")
+  --team           <team>          - Team key, name, or ID to list issues for (if not your default team)                                            
+  --project        <project>       - Filter by project (UUID, slug ID, or name)                                                                     
+  --project-label  <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                  
+  --cycle          <cycle>         - Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative                                
+                                     offset like +1                                                                                                 
+  --milestone      <milestone>     - Filter by project milestone (UUID, or name when --project is set)                                              
+  -l, --label      <label>         - Filter by label name (can be repeated for multiple labels)                                                     
+  --limit          <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)             (Default: 50)                 
+  --created-after  <date>          - Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                 
+  --updated-after  <date>          - Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                 
+  -w, --web                        - Open in web browser                                                                                            
+  -a, --app                        - Open in Linear.app                                                                                             
   --no-pager                       - Disable automatic paging for long output
 ```
 
@@ -434,30 +434,30 @@ Description:
 
 Options:
 
-  -h, --help                           - Show this help.                                                                                                                       
-  --workspace          <slug>          - Target workspace (uses credentials)                                                                                                   
-  --search             <term>          - Full-text search term                                                                                                                 
-  --search-comments                    - Also search inside issue comments (requires --search)                                                                                 
-  --team               <team>          - Filter by team key (can be repeated for multiple teams)                                                                               
-  --all-teams                          - Query across all teams                                                                                                                
-  -s, --state          <state>         - Filter by issue state (can be repeated for multiple states)                      (Values: "triage", "backlog", "unstarted", "started",
-                                                                                                                          "completed", "canceled")                             
-  --all-states                         - Show issues from all states (this is the default)                                                                                     
-  --assignee           <assignee>      - Filter by assignee (username)                                                                                                         
-  -A, --all-assignees                  - Show issues for all assignees (this is the default)                                                                                   
-  -U, --unassigned                     - Show only unassigned issues                                                                                                           
-  --sort               <sort>          - Sort order: manual or priority (default: priority, not available with --search)  (Values: "manual", "priority")                       
-  --project            <project>       - Filter by project (UUID, slug ID, or name)                                                                                            
-  --project-label      <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                                         
-  --cycle              <cycle>         - Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative                                                       
-                                         offset like +1                                                                                                                        
-  --milestone          <milestone>     - Filter by project milestone (UUID, or name when --project is set)                                                                     
-  -l, --label          <label>         - Filter by label name (can be repeated for multiple labels)                                                                            
-  --limit              <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)             (Default: 50)                                        
-  --created-after      <date>          - Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                                        
-  --updated-after      <date>          - Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                                        
-  --include-archived                   - Include archived issues                                                                                                               
-  -j, --json                           - Output results as JSON                                                                                                                
+  -h, --help                           - Show this help.                                                                                                
+  --workspace          <slug>          - Target workspace (uses credentials)                                                                            
+  --search             <term>          - Full-text search term                                                                                          
+  --search-comments                    - Also search inside issue comments (requires --search)                                                          
+  --team               <team>          - Filter by team key, name, or ID (can be repeated for multiple teams)                                           
+  --all-teams                          - Query across all teams                                                                                         
+  -s, --state          <state>         - Filter by workflow state type (triage, backlog, unstarted, started, completed,                                 
+                                         canceled), name, or ID (can be repeated for multiple states)                                                   
+  --all-states                         - Show issues from all states (this is the default)                                                              
+  --assignee           <assignee>      - Filter by assignee (username)                                                                                  
+  -A, --all-assignees                  - Show issues for all assignees (this is the default)                                                            
+  -U, --unassigned                     - Show only unassigned issues                                                                                    
+  --sort               <sort>          - Sort order: manual or priority (default: priority, not available with --search)  (Values: "manual", "priority")
+  --project            <project>       - Filter by project (UUID, slug ID, or name)                                                                     
+  --project-label      <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                  
+  --cycle              <cycle>         - Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative                                
+                                         offset like +1                                                                                                 
+  --milestone          <milestone>     - Filter by project milestone (UUID, or name when --project is set)                                              
+  -l, --label          <label>         - Filter by label name (can be repeated for multiple labels)                                                     
+  --limit              <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)             (Default: 50)                 
+  --created-after      <date>          - Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                 
+  --updated-after      <date>          - Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                 
+  --include-archived                   - Include archived issues                                                                                        
+  -j, --json                           - Output results as JSON                                                                                         
   --no-pager                           - Disable automatic paging for long output
 ```
 
@@ -609,7 +609,7 @@ Options:
   --add-label         <label>        - Add a label to the issue, keeping its existing labels. May be repeated.          
   --remove-label      <label>        - Remove a label from the issue, keeping its other labels (does not delete the     
                                        label from the team). May be repeated.                                           
-  --team              <team>         - Team associated with the issue (if not your default team)                        
+  --team              <team>         - Team (key, name, or ID) to move the issue to                                     
   --project           <project>      - Project to assign the issue to (UUID, slug ID, or name)                          
   -s, --state         <state>        - Workflow state for the issue (by name or type)                                   
   --milestone         <milestone>    - Project milestone (UUID, or name when --project is set or the issue already has  

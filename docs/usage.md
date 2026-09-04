@@ -35,6 +35,10 @@ linear issue list --all-states
 
 # List multiple states
 linear issue list --state unstarted --state started
+
+# A state name or ID works too, and mixes with types
+linear issue list --state "In Review"
+linear issue list --state started --state "In Review"
 ```
 
 filter by assignee:
@@ -56,8 +60,9 @@ linear issue list --all-assignees
 other options:
 
 ```bash
-# List issues for specific team
+# List issues for specific team (key, name, or ID)
 linear issue list --team TEAM
+linear issue list --team "Team Name"
 
 # Sort by priority instead of manual order
 linear issue list --sort priority
@@ -138,7 +143,7 @@ linear issue create --estimate 3
 # Create with labels
 linear issue create --label bug --label frontend
 
-# Create for specific team
+# Create for specific team (key, name, or ID)
 linear issue create --team TEAM
 
 # Create and start working on it
@@ -210,6 +215,8 @@ linear issue delete TEAM-123
 
 ### teams
 
+wherever a command takes a team, pass its key, its name, or its UUID. keys are canonical; an unknown team errors and lists the valid keys.
+
 #### list teams
 
 ```bash
@@ -237,6 +244,7 @@ list members of a specific team:
 
 ```bash
 linear team members TEAM
+linear team members "Team Name"
 ```
 
 #### create a team

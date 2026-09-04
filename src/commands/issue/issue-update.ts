@@ -10,11 +10,11 @@ import {
   getIssueLabelIdByNameForTeam,
   getIssueProjectId,
   getProjectIdByName,
-  getTeamIdByKey,
   getWorkflowStates,
   isLinearUuid,
   lookupUserId,
   resolveMilestoneId,
+  resolveTeam,
   resolveWorkflowState,
   workflowStateNotFoundError,
 } from "../../utils/linear.ts"
@@ -79,7 +79,7 @@ export const updateCommand = new Command()
   )
   .option(
     "--team <team:string>",
-    "Team associated with the issue (if not your default team)",
+    "Team (key, name, or ID) to move the issue to",
   )
   .option(
     "--project <project:string>",
@@ -211,22 +211,17 @@ export const updateCommand = new Command()
         const spinner = shouldShowSpinner() ? new Spinner() : null
         spinner?.start()
 
-        // Extract team from issue ID if not provided
-        let teamKey = team
-        if (!teamKey) {
-          teamKey = getTeamKeyFromIssueIdentifier(issueId)
-        }
-        if (!teamKey) {
+        // An explicit --team may be a key, name, or UUID; otherwise the team
+        // is the one in the issue identifier.
+        const teamRef = team ?? getTeamKeyFromIssueIdentifier(issueId)
+        if (!teamRef) {
           throw new ValidationError(
             "Could not determine team key from issue ID",
           )
         }
 
-        // Convert team key to team ID for some operations
-        const teamId = await getTeamIdByKey(teamKey)
-        if (!teamId) {
-          throw new NotFoundError("Team", teamKey)
-        }
+        // The mutation needs the UUID; state and label lookups use the key.
+        const { id: teamId, key: teamKey } = await resolveTeam(teamRef)
 
         let stateId: string | undefined
         if (state != null) {
