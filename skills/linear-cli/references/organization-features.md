@@ -56,6 +56,15 @@ linear project view <id>
 linear project create --name "New Feature" --team DEV
 linear project create --name "Q1 Work" --team DEV --initiative "Q1 Goals"
 linear project create -i  # Interactive mode
+
+# Change a project's teams, labels, or initiatives incrementally
+linear project update <id> --add-team OPS --remove-team APP
+linear project update <id> --add-label "Launch" --remove-label "Beta"
+linear project update <id> --add-initiative "Q1 Goals"   # ID, slug, or name
+
+# Replace a whole set (cannot be combined with that set's --add-*/--remove-*)
+linear project update <id> --team DEV --team OPS
+linear project update <id> --initiative "Q1 Goals" --initiative "Platform"
 ```
 
 ## Bulk Operations

@@ -204,6 +204,8 @@ linear project create --name "API v2" --team ENG --content-file overview.md
 linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com
 linear project update <projectId> --content-file overview.md  # replace the project's overview body
 linear project update <projectId> --clear-lead --clear-target-date  # remove values (also --clear-start-date)
+linear project update <projectId> --add-team OPS --remove-label Launch --add-initiative "Q4 Bets"  # change teams, labels, initiatives incrementally
+linear project update <projectId> --team ENG --team OPS   # replace the whole team set (--label and --initiative replace likewise)
 linear project comment list <project>                         # list the project's discussion thread (UUID, slug, or name)
 linear project comment add <project> --body "Kickoff Monday"  # comment on a project
 linear project comment add <project> --body "+1" --reply-to <commentId>  # reply in a thread
