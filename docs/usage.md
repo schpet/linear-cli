@@ -317,6 +317,15 @@ linear project update PROJECT-ID --content-file overview.md
 
 # Remove the lead, start date, or target date (each conflicts with its set flag)
 linear project update PROJECT-ID --clear-lead --clear-start-date --clear-target-date
+
+# Teams, labels, and initiatives are sets. --team, --label, and --initiative
+# replace the whole set; --add-*/--remove-* change it incrementally. All are
+# repeatable, and a replace flag cannot be combined with its add/remove flags.
+linear project update PROJECT-ID --add-team OPS --remove-team APP
+linear project update PROJECT-ID --add-label Launch --remove-label Beta
+linear project update PROJECT-ID --add-initiative "Q4 Bets"     # ID, slug, or name
+linear project update PROJECT-ID --initiative "Q4 Bets" --initiative "Platform"  # exactly these
+# Removing a team, label, or initiative the project does not have is an error.
 ```
 
 #### list projects
