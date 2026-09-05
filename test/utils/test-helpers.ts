@@ -1,3 +1,4 @@
+import { stub } from "@std/testing/mock"
 import { MockLinearServer } from "./mock_linear_server.ts"
 
 // Common Deno args for permissions used across all tests
@@ -58,4 +59,39 @@ export function resolveTeamMock(
     variables: { reference },
     response: { data: { teams: { nodes: [team] } } },
   }
+}
+
+/**
+ * Run a command that is expected to fail through `handleError`, which calls
+ * `Deno.exit(1)`. The exit is stubbed to throw so the test process survives.
+ * Returns everything the command wrote to `console.error`, joined by newlines,
+ * and throws when the command did not exit.
+ */
+export async function captureCommandError(
+  run: () => Promise<unknown>,
+): Promise<string> {
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number): never => {
+    throw new Error("EXIT")
+  })
+  let exited = false
+  try {
+    await run()
+  } catch (error) {
+    if (error instanceof Error && error.message === "EXIT") {
+      exited = true
+    } else {
+      throw error
+    }
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+  }
+  if (!exited) {
+    throw new Error("Expected the command to exit with an error")
+  }
+  return errorLogs.join("\n")
 }
