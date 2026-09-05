@@ -12,6 +12,7 @@ import { milestoneCommand } from "./commands/milestone/milestone.ts"
 import { initiativeCommand } from "./commands/initiative/initiative.ts"
 import { initiativeUpdateCommand } from "./commands/initiative-update/initiative-update.ts"
 import { labelCommand } from "./commands/label/label.ts"
+import { templateCommand } from "./commands/template/template.ts"
 import { documentCommand } from "./commands/document/document.ts"
 import { configCommand } from "./commands/config.ts"
 import { schemaCommand } from "./commands/schema.ts"
@@ -67,6 +68,7 @@ Environment Variables:
   .alias("iu")
   .command("label", labelCommand)
   .alias("l")
+  .command("template", templateCommand)
   .command("document", documentCommand)
   .command("completions", new CompletionsCommand())
   .command("config", configCommand)

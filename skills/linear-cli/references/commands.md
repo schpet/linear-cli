@@ -17,6 +17,7 @@
 - [project-update](./project-update.md) - Manage project status updates
 - [schema](./schema.md) - Print the GraphQL schema to stdout
 - [team](./team.md) - Manage Linear teams
+- [template](./template.md) - Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.
 - [user](./user.md) - Manage Linear users
 
 ## Quick Reference
