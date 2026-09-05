@@ -143,6 +143,7 @@ linear issue start     # create/switch to issue branch and mark as started
 linear issue create    # create a new issue (interactive prompts)
 linear issue create -t "title" -d "description"  # create with flags
 linear issue create --project "My Project" --milestone "Phase 1"  # create with milestone
+linear issue create --template "Bug report" -t "Login fails"  # create from a template (see template commands)
 linear issue update    # update an issue (interactive prompts)
 linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing issue
 linear issue update ENG-123 --clear-due-date --clear-parent  # remove values (also --clear-estimate, --clear-project, --clear-milestone, --clear-cycle, --unassign)
@@ -202,6 +203,7 @@ linear project view    # view project details
 linear project view <projectId> --json  # project details as JSON
 linear project create --name "API v2" --team ENG --content-file overview.md
 linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com
+linear project create --name "Q3 launch" --team APP --template "Kickoff"  # create from a project template
 linear project update <projectId> --content-file overview.md  # replace the project's overview body
 linear project update <projectId> --clear-lead --clear-target-date  # remove values (also --clear-start-date)
 linear project update <projectId> --add-team OPS --remove-label Launch --add-initiative "Q4 Bets"  # change teams, labels, initiatives incrementally
@@ -299,6 +301,23 @@ linear document delete --bulk <slug1> <slug2>   # bulk delete
 ```
 
 content updates are refused by default when a document has active inline Linear comments, because replacing markdown can detach or hide those anchors. top-level document comments do not block updates. review the inline comment first, then rerun with `--force` if you intentionally want to replace the content anyway.
+
+### template commands
+
+```bash
+linear template list                       # every issue, project, and document template in the workspace
+linear template list --type issue --team ENG  # ENG's issue templates plus workspace-level ones
+linear template list --json                # the raw template objects (templateData is a JSON-encoded string)
+linear template view "Bug report"          # what the template pre-fills: title, priority, labels, body, sub-issues, ...
+linear template view <template-id> --json  # raw GraphQL object; `jq '.templateData | fromjson'` decodes the data
+
+# apply a template on create (name or ID). Linear fills the template in server-side.
+linear issue create --team ENG --template "Bug report"                    # the template supplies the title
+linear issue create --team ENG --template "Bug report" -t "Login fails" -l security  # flags override, labels merge
+linear project create --name "Q3 launch" --team APP --template "Kickoff"
+```
+
+`--template` takes the place of the team's default template, so it never needs `--no-use-default-template` (passing both is fine). Anything you pass explicitly overrides the template's value; `--label` merges with the template's labels; `--description` replaces the template body, so leave it out to keep the body. Document templates can be listed and viewed, but Linear's API has no way to apply one when creating a document.
 
 ### other commands
 

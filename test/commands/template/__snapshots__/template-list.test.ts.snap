@@ -1,0 +1,224 @@
+export const snapshot = {};
+
+snapshot[`Template List Command - Help Text 1`] = `
+stdout:
+\`
+Usage: list
+
+Description:
+
+  List templates. Without --team, every template in the workspace is shown.
+
+Options:
+
+  -h, --help          - Show this help.                                                                                                       
+  --type      <type>  - Only templates of this type (issue, project, or document)                     (Values: \\x1b[32m"issue"\\x1b[39m, \\x1b[32m"project"\\x1b[39m, \\x1b[32m"document"\\x1b[39m)
+  --team      <team>  - Team key, name, or ID. Shows that team's templates plus workspace templates.                                          
+  -j, --json          - Output as JSON                                                                                                        
+
+\`
+stderr:
+""
+`;
+
+snapshot[`Template List Command - JSON Output 1`] = `
+stdout:
+'[
+  {
+    "id": "tpl-design",
+    "name": "Design doc",
+    "description": "Design doc description",
+    "type": "document",
+    "icon": null,
+    "color": null,
+    "hasFormFields": false,
+    "lastAppliedAt": null,
+    "sortOrder": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-02T00:00:00.000Z",
+    "team": {
+      "id": "team-eng-id",
+      "key": "ENG",
+      "name": "Engineering"
+    },
+    "inheritedFrom": null,
+    "creator": {
+      "id": "user-1",
+      "name": "Sam"
+    },
+    "templateData": "{\\\\"title\\\\":\\\\"Untitled\\\\"}"
+  },
+  {
+    "id": "tpl-bug-workspace",
+    "name": "Bug report",
+    "description": "Bug report description",
+    "type": "issue",
+    "icon": null,
+    "color": null,
+    "hasFormFields": false,
+    "lastAppliedAt": null,
+    "sortOrder": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-02T00:00:00.000Z",
+    "team": null,
+    "inheritedFrom": null,
+    "creator": {
+      "id": "user-1",
+      "name": "Sam"
+    },
+    "templateData": "{\\\\"title\\\\":\\\\"Untitled\\\\"}"
+  },
+  {
+    "id": "tpl-bug-eng",
+    "name": "Bug report",
+    "description": "Bug report description",
+    "type": "issue",
+    "icon": null,
+    "color": null,
+    "hasFormFields": false,
+    "lastAppliedAt": null,
+    "sortOrder": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-02T00:00:00.000Z",
+    "team": {
+      "id": "team-eng-id",
+      "key": "ENG",
+      "name": "Engineering"
+    },
+    "inheritedFrom": null,
+    "creator": {
+      "id": "user-1",
+      "name": "Sam"
+    },
+    "templateData": "{\\\\"title\\\\":\\\\"Bug: \\\\",\\\\"priority\\\\":2,\\\\"labelIds\\\\":[\\\\"label-bug\\\\"]}"
+  },
+  {
+    "id": "tpl-bug-ops",
+    "name": "Bug report",
+    "description": "Bug report description",
+    "type": "issue",
+    "icon": null,
+    "color": null,
+    "hasFormFields": false,
+    "lastAppliedAt": null,
+    "sortOrder": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-02T00:00:00.000Z",
+    "team": {
+      "id": "team-ops-id",
+      "key": "OPS",
+      "name": "Operations"
+    },
+    "inheritedFrom": null,
+    "creator": {
+      "id": "user-1",
+      "name": "Sam"
+    },
+    "templateData": "{\\\\"title\\\\":\\\\"Untitled\\\\"}"
+  },
+  {
+    "id": "tpl-intake-eng",
+    "name": "Intake form",
+    "description": "Intake form description",
+    "type": "issue",
+    "icon": null,
+    "color": null,
+    "hasFormFields": true,
+    "lastAppliedAt": null,
+    "sortOrder": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-02T00:00:00.000Z",
+    "team": {
+      "id": "team-eng-id",
+      "key": "ENG",
+      "name": "Engineering"
+    },
+    "inheritedFrom": null,
+    "creator": {
+      "id": "user-1",
+      "name": "Sam"
+    },
+    "templateData": "{\\\\"title\\\\":\\\\"Untitled\\\\"}"
+  },
+  {
+    "id": "tpl-kickoff",
+    "name": "Kickoff",
+    "description": "Kickoff description",
+    "type": "project",
+    "icon": null,
+    "color": null,
+    "hasFormFields": false,
+    "lastAppliedAt": null,
+    "sortOrder": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-02T00:00:00.000Z",
+    "team": null,
+    "inheritedFrom": null,
+    "creator": {
+      "id": "user-1",
+      "name": "Sam"
+    },
+    "templateData": "{\\\\"name\\\\":\\\\"Kickoff: \\\\",\\\\"priority\\\\":3}"
+  }
+]
+'
+stderr:
+""
+`;
+
+snapshot[`Template List Command - Filter By Type 1`] = `
+stdout:
+"ID                                   NAME        TYPE         TEAM     
+tpl-bug-workspace                    Bug report  issue        Workspace
+tpl-bug-eng                          Bug report  issue        ENG      
+tpl-bug-ops                          Bug report  issue        OPS      
+tpl-intake-eng                       Intake form issue (form) ENG      
+
+4 templates found.
+"
+stderr:
+""
+`;
+
+snapshot[`Template List Command - Filter By Team Keeps Workspace Templates 1`] = `
+stdout:
+"ID                                   NAME        TYPE         TEAM     
+tpl-design                           Design doc  document     ENG      
+tpl-bug-workspace                    Bug report  issue        Workspace
+tpl-bug-eng                          Bug report  issue        ENG      
+tpl-intake-eng                       Intake form issue (form) ENG      
+tpl-kickoff                          Kickoff     project      Workspace
+
+5 templates found.
+"
+stderr:
+""
+`;
+
+snapshot[`Template List Command - Truncates Wide Names By Display Width 1`] = `
+stdout:
+"ID                                   NAME                                                            TYPE     TEAM     
+tpl-narrow                           Short                                                           document Workspace
+tpl-wide                             模板模板模板模板模板模板模板模板模板模板模板模板模板模板模板... document Workspace
+
+2 templates found.
+"
+stderr:
+""
+`;
+
+snapshot[`Template List Command - Empty 1`] = `
+stdout:
+"No templates found.
+"
+stderr:
+""
+`;
+
+snapshot[`Template List Command - Empty JSON Output 1`] = `
+stdout:
+"[]
+"
+stderr:
+""
+`;

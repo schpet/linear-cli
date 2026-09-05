@@ -1,0 +1,115 @@
+export const snapshot = {};
+
+snapshot[`Template View Command - Help Text 1`] = `
+stdout:
+"
+Usage: view <template>
+
+Description:
+
+  Show a template and what it pre-fills. Pass its name or ID.
+
+Options:
+
+  -h, --help  - Show this help.                                                                 
+  -j, --json  - Output the template as JSON (templateData stays a JSON-encoded string; use \`jq  
+                '.templateData | fromjson'\`)                                                    
+
+"
+stderr:
+""
+`;
+
+snapshot[`Template View Command - By ID Renders The Body 1`] = `
+stdout:
+"Bug report
+Issue template · Team ENG (Engineering)
+ID: 11111111-1111-4111-8111-111111111111
+Description: Standard bug intake
+Created by: Sam
+Updated: 1/2/2024
+
+Pre-fills:
+  title: Bug: 
+  priority: 2 (high)
+  estimate: 3
+  labelIds: label-bug
+  stateId: state-todo
+  subIssueData: 2 items
+    - Write regression test
+        description: Cover the bug with a test
+        labelIds: label-test
+    - Fix it
+  descriptionData:
+    ## Steps to reproduce
+
+    1. 
+
+    ## Expected
+
+    Describe the expected behaviour.
+
+References are IDs. Map them with \`linear team states\`, \`linear label list\`, \`linear user list\`, or \`linear project list\`.
+"
+stderr:
+""
+`;
+
+snapshot[`Template View Command - By Name Shows Every Key 1`] = `
+stdout:
+"Kickoff
+Project template · Workspace
+ID: tpl-kickoff
+Form template: yes (its form is filled in inside Linear; applying it from the CLI creates the entity with the form unanswered)
+Inherited from: Parent kickoff (tpl-parent)
+Updated: 1/2/2024
+
+Pre-fills:
+  name: Kickoff: 
+  content:
+    ## Goals
+
+    ## Milestones
+  labelIds: (none)
+  priority: 3 (medium)
+  custom:
+    flag: true
+    nested:
+      depth: 2
+
+References are IDs. Map them with \`linear team states\`, \`linear label list\`, \`linear user list\`, or \`linear project list\`.
+"
+stderr:
+""
+`;
+
+snapshot[`Template View Command - JSON Output Keeps templateData Encoded 1`] = `
+stdout:
+'{
+  "id": "11111111-1111-4111-8111-111111111111",
+  "name": "Bug report",
+  "description": "Standard bug intake",
+  "type": "issue",
+  "icon": null,
+  "color": null,
+  "hasFormFields": false,
+  "lastAppliedAt": null,
+  "sortOrder": 0,
+  "createdAt": "2024-01-01T12:00:00.000Z",
+  "updatedAt": "2024-01-02T12:00:00.000Z",
+  "team": {
+    "id": "team-eng-id",
+    "key": "ENG",
+    "name": "Engineering"
+  },
+  "inheritedFrom": null,
+  "creator": {
+    "id": "user-1",
+    "name": "Sam"
+  },
+  "templateData": "{\\\\"title\\\\":\\\\"Bug: \\\\",\\\\"priority\\\\":2,\\\\"estimate\\\\":3,\\\\"labelIds\\\\":[\\\\"label-bug\\\\"],\\\\"stateId\\\\":\\\\"state-todo\\\\",\\\\"subIssueData\\\\":[{\\\\"title\\\\":\\\\"Write regression test\\\\",\\\\"description\\\\":\\\\"Cover the bug with a test\\\\",\\\\"labelIds\\\\":[\\\\"label-test\\\\"]},{\\\\"title\\\\":\\\\"Fix it\\\\"}],\\\\"descriptionData\\\\":{\\\\"type\\\\":\\\\"doc\\\\",\\\\"content\\\\":[{\\\\"type\\\\":\\\\"heading\\\\",\\\\"attrs\\\\":{\\\\"level\\\\":2},\\\\"content\\\\":[{\\\\"type\\\\":\\\\"text\\\\",\\\\"text\\\\":\\\\"Steps to reproduce\\\\"}]},{\\\\"type\\\\":\\\\"ordered_list\\\\",\\\\"attrs\\\\":{\\\\"order\\\\":1},\\\\"content\\\\":[{\\\\"type\\\\":\\\\"list_item\\\\",\\\\"content\\\\":[{\\\\"type\\\\":\\\\"paragraph\\\\"}]}]},{\\\\"type\\\\":\\\\"heading\\\\",\\\\"attrs\\\\":{\\\\"level\\\\":2},\\\\"content\\\\":[{\\\\"type\\\\":\\\\"text\\\\",\\\\"text\\\\":\\\\"Expected\\\\"}]},{\\\\"type\\\\":\\\\"paragraph\\\\",\\\\"content\\\\":[{\\\\"type\\\\":\\\\"text\\\\",\\\\"text\\\\":\\\\"Describe the \\\\"},{\\\\"type\\\\":\\\\"text\\\\",\\\\"text\\\\":\\\\"expected\\\\",\\\\"marks\\\\":[{\\\\"type\\\\":\\\\"bold\\\\"}]},{\\\\"type\\\\":\\\\"text\\\\",\\\\"text\\\\":\\\\" behaviour.\\\\"}]}]}}"
+}
+'
+stderr:
+""
+`;
