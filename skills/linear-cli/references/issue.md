@@ -278,6 +278,11 @@ Options:
   --cycle                    <cycle>        - Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset  
                                               like +1 (use --cycle=-1 for negatives)                                        
   --no-use-default-template                 - Do not use default template for the issue                                     
+  --template                 <template>     - Issue template to apply, by name or ID (the team's templates plus workspace   
+                                              ones). Takes the place of the team's default template. The template fills in  
+                                              anything you do not pass: explicit flags override it, --label merges with     
+                                              the template's labels, and --description replaces the template body (omit it  
+                                              to keep the body). Makes --title optional.                                    
   --no-interactive                          - Disable interactive prompts                                                   
   -t, --title                <title>        - Title of the issue
 ```

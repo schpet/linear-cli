@@ -67,6 +67,17 @@ linear issue update ENG-123 --remove-label sprint-42 --add-label sprint-43  # at
 linear issue update ENG-123 --label infra --label security   # replaces the label set
 ```
 
+### Create an issue or project from a template
+
+```bash
+linear template list --type issue --team ENG              # find the template a team expects
+linear template view "Bug report"                         # see what it pre-fills (title, fields, body, sub-issues)
+linear issue create --team ENG --template "Bug report" --title "Login fails on Safari"
+linear project create --name "Q3 launch" --team ENG --template "Kickoff"
+```
+
+Explicit flags override the template's values, `--label` merges with its labels, and `--description` replaces its body (omit it to keep the body). Document templates cannot be applied through the API.
+
 ### Add a comment
 
 ```bash

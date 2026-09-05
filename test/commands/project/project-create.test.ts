@@ -1,12 +1,15 @@
 import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
-import { assertEquals, assertRejects } from "@std/assert"
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert"
 import { stub } from "@std/testing/mock"
 import {
   createCommand,
   resolveProjectContent,
 } from "../../../src/commands/project/project-create.ts"
 import { ValidationError } from "../../../src/utils/errors.ts"
-import { commonDenoArgs } from "../../utils/test-helpers.ts"
+import {
+  captureCommandError,
+  commonDenoArgs,
+} from "../../utils/test-helpers.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
 const descriptionFilePath = await Deno.makeTempFile({ suffix: ".md" })
@@ -627,4 +630,149 @@ await cliffySnapshotTest({
       Deno.env.delete("LINEAR_API_KEY")
     }
   },
+})
+
+// --template: resolved against the project's teams and sent as templateId.
+const KICKOFF_TEMPLATE_ID = "22222222-2222-4222-8222-222222222222"
+
+const projectTemplatesMock = {
+  queryName: "GetTemplates",
+  response: {
+    data: {
+      templates: [
+        {
+          id: KICKOFF_TEMPLATE_ID,
+          name: "Kickoff",
+          description: null,
+          type: "project",
+          icon: null,
+          color: null,
+          hasFormFields: false,
+          lastAppliedAt: null,
+          sortOrder: 0,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+          team: null,
+          inheritedFrom: null,
+          creator: null,
+          templateData: '{"name":"Kickoff: ","priority":3}',
+        },
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          name: "Bug report",
+          description: null,
+          type: "issue",
+          icon: null,
+          color: null,
+          hasFormFields: false,
+          lastAppliedAt: null,
+          sortOrder: 0,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+          team: { id: "team-eng-123", key: "ENG", name: "Engineering" },
+          inheritedFrom: null,
+          creator: null,
+          templateData: '{"title":"Bug: "}',
+        },
+      ],
+    },
+  },
+}
+
+await cliffySnapshotTest({
+  name: "Project Create Command - With Template By Name",
+  meta: import.meta,
+  colors: false,
+  args: ["--name", "Mobile launch", "--team", "ENG", "--template", "kickoff"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "ResolveTeam",
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-123", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
+      },
+      projectTemplatesMock,
+      {
+        queryName: "CreateProject",
+        // Exact key set: no useDefaultTemplate travels with templateId.
+        variables: {
+          input: {
+            name: "Mobile launch",
+            teamIds: ["team-eng-123"],
+            templateId: KICKOFF_TEMPLATE_ID,
+          },
+        },
+        response: {
+          data: {
+            projectCreate: {
+              success: true,
+              project: {
+                id: "550e8400-e29b-41d4-a716-446655440077",
+                slugId: "mobile-launch",
+                name: "Mobile launch",
+                url: "https://linear.app/test/project/mobile-launch",
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await createCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+Deno.test("Project Create Command - an issue template is rejected before the mutation", async () => {
+  // No CreateProject mock: reaching the mutation would surface a different error.
+  const server = new MockLinearServer([
+    {
+      queryName: "ResolveTeam",
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-123", key: "ENG", name: "Engineering" }],
+          },
+        },
+      },
+    },
+    projectTemplatesMock,
+  ])
+  try {
+    await server.start()
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    const output = await captureCommandError(() =>
+      createCommand.parse([
+        "--name",
+        "Mobile launch",
+        "--team",
+        "ENG",
+        "--template",
+        "Bug report",
+      ])
+    )
+    assertStringIncludes(
+      output,
+      '✗ Failed to create project: Template "Bug report" is an issue template, not a project template',
+    )
+  } finally {
+    await server.stop()
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+  }
 })

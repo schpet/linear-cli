@@ -1,9 +1,11 @@
 import { snapshotTest } from "@cliffy/testing"
-import { assertEquals, assertStringIncludes } from "@std/assert"
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert"
 import { Checkbox, Input, Select } from "@cliffy/prompt"
 import { stub } from "@std/testing/mock"
 import { createCommand } from "../../../src/commands/issue/issue-create.ts"
+import { ValidationError } from "../../../src/utils/errors.ts"
 import {
+  captureCommandError,
   commonDenoArgs,
   resolveTeamMock,
   setupMockLinearServer,
@@ -1690,4 +1692,220 @@ await snapshotTest({
       await cleanup()
     }
   },
+})
+
+// --template: the template is resolved against the team and sent as
+// templateId, with useDefaultTemplate left out (Linear rejects the pair).
+const BUG_TEMPLATE_ID = "11111111-1111-4111-8111-111111111111"
+const KICKOFF_TEMPLATE_ID = "22222222-2222-4222-8222-222222222222"
+
+function templateFixture(
+  id: string,
+  name: string,
+  type: string,
+  team: { id: string; key: string; name: string } | null,
+) {
+  return {
+    id,
+    name,
+    description: null,
+    type,
+    icon: null,
+    color: null,
+    hasFormFields: false,
+    lastAppliedAt: null,
+    sortOrder: 0,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T00:00:00.000Z",
+    team,
+    inheritedFrom: null,
+    creator: null,
+    templateData: '{"title":"Bug: ","priority":2}',
+  }
+}
+
+const templatesMock = {
+  queryName: "GetTemplates",
+  response: {
+    data: {
+      templates: [
+        templateFixture(BUG_TEMPLATE_ID, "Bug report", "issue", {
+          id: "team-eng-id",
+          key: "ENG",
+          name: "Engineering",
+        }),
+        templateFixture(KICKOFF_TEMPLATE_ID, "Kickoff", "project", null),
+      ],
+    },
+  },
+}
+
+function createdIssueMock(variables: Record<string, unknown>) {
+  return {
+    queryName: "CreateIssue",
+    variables,
+    response: {
+      data: {
+        issueCreate: {
+          success: true,
+          issue: {
+            id: "issue-from-template",
+            identifier: "ENG-321",
+            url: "https://linear.app/test-team/issue/ENG-321/from-template",
+            team: { key: "ENG" },
+          },
+        },
+      },
+    },
+  }
+}
+
+await snapshotTest({
+  name: "Issue Create Command - With Template By Name",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--title",
+    "Login fails on Safari",
+    "--team",
+    "ENG",
+    "--template",
+    "bug report",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
+      templatesMock,
+      // Exact key set: the request body carries only defined fields, so an
+      // accidental useDefaultTemplate (true or false) would not match.
+      createdIssueMock({
+        input: {
+          title: "Login fails on Safari",
+          labelIds: [],
+          teamId: "team-eng-id",
+          templateId: BUG_TEMPLATE_ID,
+        },
+      }),
+    ])
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+await snapshotTest({
+  name: "Issue Create Command - Template Supplies The Title",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--team",
+    "ENG",
+    "--template",
+    BUG_TEMPLATE_ID,
+    "--no-use-default-template",
+    "--no-interactive",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
+      {
+        queryName: "GetTemplate",
+        variables: { id: BUG_TEMPLATE_ID },
+        response: {
+          data: {
+            template: templateFixture(BUG_TEMPLATE_ID, "Bug report", "issue", {
+              id: "team-eng-id",
+              key: "ENG",
+              name: "Engineering",
+            }),
+          },
+        },
+      },
+      createdIssueMock({
+        input: {
+          labelIds: [],
+          teamId: "team-eng-id",
+          templateId: BUG_TEMPLATE_ID,
+        },
+      }),
+    ])
+
+    try {
+      await createCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+Deno.test("Issue Create Command - a project template is rejected before the mutation", async () => {
+  // No CreateIssue mock: reaching the mutation would surface a different error.
+  const { cleanup } = await setupMockLinearServer([
+    resolveTeamMock("ENG"),
+    templatesMock,
+  ])
+  try {
+    const output = await captureCommandError(() =>
+      createCommand.parse([
+        "--title",
+        "Plan the launch",
+        "--team",
+        "ENG",
+        "--template",
+        "Kickoff",
+        "--no-interactive",
+      ])
+    )
+    assertStringIncludes(
+      output,
+      '✗ Failed to create issue: Template "Kickoff" is a project template, not an issue template',
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("Issue Create Command - an unknown template lists the team's issue templates", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    resolveTeamMock("ENG"),
+    templatesMock,
+  ])
+  try {
+    const output = await captureCommandError(() =>
+      createCommand.parse([
+        "--title",
+        "Plan the launch",
+        "--team",
+        "ENG",
+        "--template",
+        "Incident",
+        "--no-interactive",
+      ])
+    )
+    assertStringIncludes(
+      output,
+      "✗ Failed to create issue: Template not found: Incident",
+    )
+    assertStringIncludes(output, 'Available issue templates: "Bug report".')
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("Issue Create Command - a title is still required without a template", async () => {
+  const error = await assertRejects(
+    () => createCommand.parse(["--team", "ENG", "--no-interactive"]),
+    ValidationError,
+    "Title is required when not using interactive mode",
+  )
+  assertStringIncludes(
+    error.suggestion ?? "",
+    "pass --template to take the title from a template",
+  )
 })

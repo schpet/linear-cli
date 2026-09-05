@@ -39,6 +39,7 @@ import {
   ValidationError,
 } from "../../utils/errors.ts"
 import { withMarkdownHint } from "../../utils/markdown-help.ts"
+import { resolveTemplate } from "../../utils/templates.ts"
 
 type IssueLabel = { id: string; name: string; color: string }
 type ProjectOption = { id: string; name: string }
@@ -660,6 +661,10 @@ export const createCommand = new Command()
     "--no-use-default-template",
     "Do not use default template for the issue",
   )
+  .option(
+    "--template <template:string>",
+    "Issue template to apply, by name or ID (the team's templates plus workspace ones). Takes the place of the team's default template. The template fills in anything you do not pass: explicit flags override it, --label merges with the template's labels, and --description replaces the template body (omit it to keep the body). Makes --title optional.",
+  )
   .option("--no-interactive", "Disable interactive prompts")
   .option("-t, --title <title:string>", "Title of the issue")
   .action(
@@ -680,6 +685,7 @@ export const createCommand = new Command()
         state,
         milestone,
         cycle,
+        template,
         interactive,
         title,
       },
@@ -715,7 +721,7 @@ export const createCommand = new Command()
         !dueDate &&
         priority === undefined && estimate === undefined && !finalDescription &&
         (!labels || labels.length === 0) &&
-        !team && !state && !milestone && !cycle && !start
+        !team && !state && !milestone && !cycle && !start && template == null
 
       if (onlyInteractiveSeedFlagsProvided && interactive) {
         try {
@@ -785,13 +791,13 @@ export const createCommand = new Command()
         }
       }
 
-      // Fallback to flag-based mode
-      if (!title) {
+      // Fallback to flag-based mode. A template can supply the title.
+      if (!title && template == null) {
         throw new ValidationError(
           "Title is required when not using interactive mode",
           {
             suggestion:
-              "Use --title or run without any flags (or only --parent/--project) for interactive mode.",
+              "Use --title, pass --template to take the title from a template, or run without any flags (or only --parent/--project) for interactive mode.",
           },
         )
       }
@@ -831,6 +837,11 @@ export const createCommand = new Command()
             teamId = picked
           }
         }
+        // Linear rejects useDefaultTemplate next to templateId, so an explicit
+        // template also drops the default-template flag.
+        const templateId = template == null ? undefined : (
+          await resolveTemplate(template, { type: "issue", teamIds: [teamId] })
+        ).id
         if (start && assignee === undefined) {
           assignee = "self"
         }
@@ -932,7 +943,8 @@ export const createCommand = new Command()
           projectMilestoneId,
           cycleId,
           stateId,
-          useDefaultTemplate,
+          templateId,
+          useDefaultTemplate: template == null ? useDefaultTemplate : undefined,
           description: finalDescription,
         }
         spinner?.stop()
