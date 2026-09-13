@@ -243,6 +243,12 @@ delete an issue:
 linear issue delete TEAM-123
 ```
 
+archive an issue:
+
+```bash
+linear issue archive TEAM-123 --confirm
+```
+
 #### issue comments
 
 ```bash

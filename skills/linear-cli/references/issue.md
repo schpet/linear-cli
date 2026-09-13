@@ -28,6 +28,7 @@ Commands:
   describe          [issueId]             - Print the issue title and Linear-issue trailer                            
   commits           [issueId]             - Show all commits for a Linear issue (jj only)                             
   pull-request, pr  [issueId]             - Create a GitHub pull request with issue details                           
+  archive           [issueId]             - Archive an issue                                                          
   delete, d         [issueId]             - Delete an issue                                                           
   create                                  - Create a linear issue                                                     
   update            [issueId]             - Update a linear issue                                                     
@@ -96,6 +97,24 @@ Options:
   -h, --help           - Show this help.                      
   --workspace  <slug>  - Target workspace (uses credentials)  
   -j, --json           - Output as JSON
+```
+
+### archive
+
+> Archive an issue
+
+```
+Usage:   linear issue archive [issueId]
+
+Description:
+
+  Archive an issue
+
+Options:
+
+  -h, --help             - Show this help.                      
+  --workspace    <slug>  - Target workspace (uses credentials)  
+  -y, --confirm          - Skip confirmation prompt
 ```
 
 ### attach

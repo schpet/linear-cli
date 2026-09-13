@@ -1,0 +1,45 @@
+export const snapshot = {};
+
+snapshot[`Issue Archive Command - Help Text 1`] = `
+stdout:
+"
+Usage: archive [issueId]
+
+Description:
+
+  Archive an issue
+
+Options:
+
+  -h, --help     - Show this help.           
+  -y, --confirm  - Skip confirmation prompt  
+
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Archive Command - With Confirm 1`] = `
+stdout:
+"✓ Successfully archived issue: ENG-123: Archive this issue
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Archive Command - Requires Confirmation 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to archive issue: Interactive confirmation required
+  Use --confirm to skip.
+"
+`;
+
+snapshot[`Issue Archive Command - Issue Not Found 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to archive issue: Issue not found: ENG-404
+"
+`;

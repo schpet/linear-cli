@@ -224,6 +224,7 @@ linear issue
 linear issue agent-session
 linear issue agent-session list
 linear issue agent-session view
+linear issue archive
 linear issue attach
 linear issue comment
 linear issue comment add
