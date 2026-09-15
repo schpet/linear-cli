@@ -27,7 +27,11 @@ interface IssueArchiveResult extends BulkOperationResult {
 
 export const archiveCommand = new Command()
   .name("archive")
-  .description("Archive an issue")
+  .description(
+    `Archive an issue
+
+Linear archives closed issues on its own, and its docs say "archiving happens automatically with no option to manually archive items". Prefer closing (issue update --state) and letting auto-archive run, or issue delete to trash. This command calls the issueArchive mutation, which the Linear app and its official MCP server do not expose; archived issues drop out of list, query, and search results unless --include-archived is passed. See https://linear.app/docs/delete-archive-issues`,
+  )
   .arguments("[issueId:string]")
   .option("-y, --confirm", "Skip confirmation prompt")
   .option(

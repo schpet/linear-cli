@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `issue archive` help, `docs/usage.md`, the README, and the linear-cli skill now explain that Linear archives closed issues automatically and offers no manual archive in its app or official MCP server, quoting and linking Linear's docs, so the command reads as an escape hatch rather than the normal way to retire an issue
+
 ### Added
 
 - `issue archive <id>` archives an issue through Linear's `issueArchive` mutation, distinct from `issue delete`, which trashes it. It resolves identifiers like the other issue commands, prompts with the identifier and title unless `--confirm`/`-y` is passed, reports an already-archived issue instead of silently succeeding, and takes `--bulk`, `--bulk-file`, and `--bulk-stdin` like `issue delete` ([#285](https://github.com/schpet/linear-cli/pull/285); thanks @martin-piliar for the command and the report in [#284](https://github.com/schpet/linear-cli/issues/284))

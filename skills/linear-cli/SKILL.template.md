@@ -100,6 +100,16 @@ linear issue view ENG-123 --json   # structured output
 linear issue url ENG-123           # print just the URL
 ```
 
+### Close, delete, or archive an issue
+
+```bash
+linear issue update ENG-123 --state Done       # or Canceled; Linear auto-archives closed issues later
+linear issue delete ENG-123                    # trash; restorable in Linear for 30 days
+linear issue archive ENG-123 --confirm         # rarely appropriate, see below
+```
+
+Prefer closing or deleting over archiving. Linear's docs say "archiving happens automatically with no option to manually archive items" (https://linear.app/docs/delete-archive-issues): closed issues are auto-archived after the team's configured period, and Linear removed manual archiving from its app because people used it as a trash can. `issue archive` calls the `issueArchive` mutation directly, bypassing auto-archive's checks for open parents, sub-issues, cycles, and projects, and archived issues vanish from `issue list`, `issue query`, and search unless `--include-archived` is passed. Only archive when the user explicitly asks for it.
+
 ## Best Practices for Markdown Content
 
 When working with issue descriptions or comment bodies that contain markdown, **always prefer using file-based flags** instead of passing content as command-line arguments:

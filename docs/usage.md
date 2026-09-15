@@ -250,6 +250,10 @@ linear issue archive TEAM-123 --confirm
 linear issue archive --confirm --bulk TEAM-123 TEAM-124   # several at once; --bulk-file and --bulk-stdin also work
 ```
 
+Archiving is normally something Linear does for you, not something you do by hand. Linear's [delete and archive issues](https://linear.app/docs/delete-archive-issues) docs state that "archiving happens automatically with no option to manually archive items": closed issues are auto-archived after the period set in Team settings, and the manual action Linear offers is delete, which keeps the issue in the trash for 30 days. Linear removed manual archiving from its app in 2021 because "most users used the archive as a trash can", reasoning that "the archive is something that Linear should manage for you while deleting issues is your own choice" ([changelog](https://linear.app/changelog/2021-04-15-auto-archive-cycles-and-projects-and-deleting-issues)). Its official MCP server has no archive tool either.
+
+`issue archive` calls the `issueArchive` mutation directly, so it skips the checks auto-archive applies (open parent, open sub-issues, active cycle or project), and archived issues disappear from `issue list`, `issue query`, and search unless you pass `--include-archived`. Reach for it only when an issue should leave the active workspace without being canceled or trashed; otherwise close it with `issue update --state` or remove it with `issue delete`. Archived issues can be restored from the team's archives page in Linear.
+
 #### issue comments
 
 ```bash
