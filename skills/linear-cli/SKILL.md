@@ -353,6 +353,8 @@ grep -A 30 "^type Issue " "${TMPDIR:-/tmp}/linear-schema.graphql"
 
 ### Make a GraphQL request
 
+`linear api` takes the GraphQL document as its only positional argument and has no subcommands. Put a leading `query` or `mutation` keyword inside that quoted document: use `linear api 'query { ... }'`, never `linear api query '...'`. `linear issue query` is a separate, real subcommand for searching issues.
+
 **Important:** GraphQL queries containing non-null type markers (e.g. `String` followed by an exclamation mark) must be passed via heredoc stdin to avoid escaping issues. Simple queries without those markers can be passed inline.
 
 ```bash
