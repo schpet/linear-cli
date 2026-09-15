@@ -148,6 +148,7 @@ linear issue update    # update an issue (interactive prompts)
 linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing issue
 linear issue update ENG-123 --clear-due-date --clear-parent  # remove values (also --clear-estimate, --clear-project, --clear-milestone, --clear-cycle, --unassign)
 linear issue archive ENG-123 --confirm  # archive an issue
+linear issue archive --confirm --bulk ENG-123 ENG-124  # archive several issues
 linear issue delete    # delete an issue
 linear issue comment list          # list comments on current issue
 linear issue comment add           # add a comment to current issue
