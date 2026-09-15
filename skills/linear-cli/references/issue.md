@@ -112,9 +112,12 @@ Description:
 
 Options:
 
-  -h, --help             - Show this help.                      
-  --workspace    <slug>  - Target workspace (uses credentials)  
-  -y, --confirm          - Skip confirmation prompt
+  -h, --help               - Show this help.                                              
+  --workspace    <slug>    - Target workspace (uses credentials)                          
+  -y, --confirm            - Skip confirmation prompt                                     
+  --bulk         <ids...>  - Archive multiple issues by identifier (e.g., TC-123 TC-124)  
+  --bulk-file    <file>    - Read issue identifiers from a file (one per line)            
+  --bulk-stdin             - Read issue identifiers from stdin
 ```
 
 ### attach

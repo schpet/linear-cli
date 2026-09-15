@@ -11,8 +11,11 @@ Description:
 
 Options:
 
-  -h, --help     - Show this help.           
-  -y, --confirm  - Skip confirmation prompt  
+  -h, --help               - Show this help.                                              
+  -y, --confirm            - Skip confirmation prompt                                     
+  --bulk         <ids...>  - Archive multiple issues by identifier (e.g., TC-123 TC-124)  
+  --bulk-file    <file>    - Read issue identifiers from a file (one per line)            
+  --bulk-stdin             - Read issue identifiers from stdin                            
 
 "
 stderr:
@@ -41,5 +44,73 @@ stdout:
 ""
 stderr:
 "✗ Failed to archive issue: Issue not found: ENG-404
+"
+`;
+
+snapshot[`Issue Archive Command - Already Archived 1`] = `
+stdout:
+'Issue "ENG-123: Archive this issue" is already archived.
+'
+stderr:
+""
+`;
+
+snapshot[`Issue Archive Command - Mutation Failure 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to archive issue: Linear reported the archive as unsuccessful
+"
+`;
+
+snapshot[`Issue Archive Command - Bulk Archive 1`] = `
+stdout:
+"Found 2 issue(s) to archive.
+
+✓ Successfully archived 2 issues
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Archive Command - Bulk Archive Reports Unknown Issue 1`] = `
+stdout:
+"Found 2 issue(s) to archive.
+
+Completed: 1/2 issues archived
+  ✓ Succeeded: 1
+  ✗ Failed: 1
+
+Failed operations:
+  - ENG-404: Issue not found
+"
+stderr:
+""
+`;
+
+snapshot[`Issue Archive Command - Bulk Requires Confirmation 1`] = `
+stdout:
+"Found 1 issue(s) to archive.
+"
+stderr:
+"✗ Failed to archive issue: Interactive confirmation required
+  Use --confirm to skip.
+"
+`;
+
+snapshot[`Issue Archive Command - Issue Not Found API Error 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to archive issue: Issue not found: ENG-404
+"
+`;
+
+snapshot[`Issue Archive Command - Rejects Positional With Bulk 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to archive issue: Cannot combine a positional issue ID with --bulk
+  Pass every identifier through --bulk (or --bulk-file / --bulk-stdin), or drop the positional one.
 "
 `;

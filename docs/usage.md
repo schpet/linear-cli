@@ -247,6 +247,7 @@ archive an issue:
 
 ```bash
 linear issue archive TEAM-123 --confirm
+linear issue archive --confirm --bulk TEAM-123 TEAM-124   # several at once; --bulk-file and --bulk-stdin also work
 ```
 
 #### issue comments
