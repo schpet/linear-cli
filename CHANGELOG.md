@@ -16,6 +16,7 @@
 
 ### Fixed
 
+- `linear api` help now labels its positional `[graphqlDocument]` instead of `[query]`, which read like a subcommand and invited `linear api query '...'` (rejected with "Too many arguments"). The description states that the document is the only argument and that `api` has no subcommands, and an `Examples:` section covers inline, stdin, file, variable, and `--paginate` forms. No parsing change ([#286](https://github.com/schpet/linear-cli/issues/286))
 - an unknown document, project, initiative, or issue passed to `document view` or any `comment` command is reported as `<Type> not found: <reference>` instead of Linear's raw "Could not find referenced …" wording, and `document view` no longer exits with a stack trace for an unknown slug (its not-found branch re-threw instead of reporting, and was unreachable until the not-found detection was fixed)
 - `cycle list` and `milestone list` now paginate instead of taking Linear's default page, so a team with more than 50 cycles or a project with more than 50 milestones is no longer silently truncated
 
