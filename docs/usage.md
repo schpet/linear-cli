@@ -365,9 +365,13 @@ linear project list
 
 #### view project details
 
+Shows the project's overview body, milestones, resources, documents, attachments, related projects, latest status update, issue counts, and details. A project is a UUID, slug ID, or exact name.
+
 ```bash
 linear project view PROJECT-ID
+linear project view "Mobile launch"
 linear project view PROJECT-ID --json
+linear project view PROJECT-ID --no-pager
 ```
 
 #### project comments

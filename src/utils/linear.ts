@@ -1638,7 +1638,21 @@ export async function getProjectIdByName(
     }
   `)
   const nameData = await client.request(nameQuery, { name: input })
-  const nameMatch = nameData.projects?.nodes[0]?.id
+  const nameMatches = nameData.projects?.nodes ?? []
+  if (nameMatches.length > 1) {
+    // Linear does not require project names to be unique, so picking the first
+    // match would act on an arbitrary project the caller never named.
+    throw new ValidationError(
+      `Project "${input}" is ambiguous; it matches ${nameMatches.length} projects:\n${
+        nameMatches.map((project) => `  ${project.id}`).join("\n")
+      }`,
+      {
+        suggestion:
+          "Pass the project's UUID or slug ID instead. `linear project list` shows both.",
+      },
+    )
+  }
+  const nameMatch = nameMatches[0]?.id
   if (nameMatch) return nameMatch
 
   const slugQuery = gql(/* GraphQL */ `

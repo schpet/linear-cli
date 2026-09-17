@@ -167,3 +167,21 @@ export function formatRelativeTime(dateString: string): string {
     return commentDate.toLocaleDateString()
   }
 }
+
+const PROJECT_PRIORITY_LABELS: Record<number, string> = {
+  0: "None",
+  1: "Urgent",
+  2: "High",
+  3: "Medium",
+  4: "Low",
+}
+
+/**
+ * Linear reports project priority as the same 0-4 scale it uses for issues, but
+ * project surfaces label it with words rather than the bar glyphs
+ * [[getPriorityDisplay]] renders. Unknown values fall through to the number so a
+ * new priority level is visible rather than silently displayed as "None".
+ */
+export function getProjectPriorityLabel(priority: number): string {
+  return PROJECT_PRIORITY_LABELS[priority] ?? String(priority)
+}
