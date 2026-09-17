@@ -201,7 +201,8 @@ linear user list --json # machine-readable output
 
 ```bash
 linear project list    # list projects
-linear project view    # view project details
+linear project view <projectId>   # overview, milestones, resources, documents, related projects
+linear project view "Mobile launch"   # a UUID, slug ID, or exact name all work
 linear project view <projectId> --json  # project details as JSON
 linear project create --name "API v2" --team ENG --content-file overview.md
 linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com

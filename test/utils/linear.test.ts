@@ -247,6 +247,35 @@ Deno.test("resolveProjectId - falls back to slug ID when name does not match", a
   }
 })
 
+Deno.test("resolveProjectId - rejects a name shared by several projects", async () => {
+  // Linear does not require project names to be unique, so a name that matches
+  // more than one project names no project in particular.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetProjectIdByName",
+      variables: { name: "Platform" },
+      response: {
+        data: {
+          projects: {
+            nodes: [{ id: "proj-one-uuid" }, { id: "proj-two-uuid" }],
+          },
+        },
+      },
+    },
+  ])
+  try {
+    const error = await assertRejects(
+      () => resolveProjectId("Platform"),
+      ValidationError,
+      'Project "Platform" is ambiguous',
+    )
+    assertStringIncludes(error.message, "proj-one-uuid")
+    assertStringIncludes(error.message, "proj-two-uuid")
+  } finally {
+    await cleanup()
+  }
+})
+
 Deno.test("resolveProjectId - throws NotFoundError when nothing matches", async () => {
   const { cleanup } = await setupMockLinearServer([
     {
