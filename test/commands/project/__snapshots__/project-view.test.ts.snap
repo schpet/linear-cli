@@ -3,7 +3,7 @@ export const snapshot = {};
 snapshot[`Project View Command - Help Text 1`] = `
 stdout:
 "
-Usage: view <projectId>
+Usage: view [projectId]
 
 Description:
 

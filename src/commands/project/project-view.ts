@@ -2,14 +2,17 @@ import { Command } from "@cliffy/command"
 import { renderMarkdown } from "@littletof/charmd"
 import type { Extension } from "@littletof/charmd"
 import { gql } from "../../__codegen__/gql.ts"
-import type { GetProjectDetailsQuery } from "../../__codegen__/graphql.ts"
+import type {
+  GetProjectDetailsQuery,
+  GetProjectsForPickerQuery,
+} from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
   formatRelativeTime,
   getProjectPriorityLabel,
 } from "../../utils/display.ts"
 import { openProjectPage } from "../../utils/actions.ts"
-import { resolveProjectId } from "../../utils/linear.ts"
+import { getTeamKey, resolveProjectId } from "../../utils/linear.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import {
   shouldEnableHyperlinks,
@@ -17,7 +20,12 @@ import {
 } from "../../utils/hyperlink.ts"
 import { createHyperlinkExtension } from "../../utils/charmd-hyperlink-extension.ts"
 import { getOption } from "../../config.ts"
-import { CliError, handleError, NotFoundError } from "../../utils/errors.ts"
+import {
+  CliError,
+  handleError,
+  NotFoundError,
+  ValidationError,
+} from "../../utils/errors.ts"
 
 /**
  * Linear caps connection pages at 250. Every connection below is requested at
@@ -766,11 +774,192 @@ export function formatProjectAsMarkdown(project: ProjectDetails): string {
   return markdown
 }
 
+const PICKER_PAGE_SIZE = 100
+
+const GetProjectsForPicker = gql(`
+  query GetProjectsForPicker($filter: ProjectFilter, $first: Int!, $after: String) {
+    projects(filter: $filter, first: $first, after: $after) {
+      nodes {
+        id
+        name
+        slugId
+        status {
+          name
+        }
+        teams(first: 10) {
+          nodes {
+            key
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`)
+
+type PickerProject = GetProjectsForPickerQuery["projects"]["nodes"][number]
+
+export interface ProjectPickerOption {
+  name: string
+  value: string
+}
+
+/**
+ * Label a project for the picker.
+ *
+ * Project names are not unique and a project can span several teams, so the
+ * status, team keys and slug all stay in the label: they disambiguate two
+ * same-named projects and they give the prompt's type-to-filter search more to
+ * match against. The value is always the UUID, so what the user sees can never
+ * change which project is opened.
+ */
+export function buildProjectPickerOptions(
+  projects: readonly PickerProject[],
+): ProjectPickerOption[] {
+  return [...projects]
+    .sort((a, b) => {
+      const byName = a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      if (byName !== 0) return byName
+      const bySlug = a.slugId.localeCompare(b.slugId)
+      if (bySlug !== 0) return bySlug
+      return a.id.localeCompare(b.id)
+    })
+    .map((project) => {
+      const teams = project.teams.nodes.map((team) => team.key).join(", ")
+      const parts = [project.name, project.status.name]
+      if (teams !== "") parts.push(teams)
+      parts.push(project.slugId)
+      return { name: parts.join("  ·  "), value: project.id }
+    })
+}
+
+/**
+ * Fetch every project the picker can offer.
+ *
+ * The prompt filters client-side, so anything left unfetched is simply
+ * undiscoverable — hence every page rather than a cap. Scope matches
+ * `project list`: the configured team when there is one, otherwise everything
+ * accessible.
+ */
+async function fetchProjectsForPicker(
+  teamKey: string | undefined,
+): Promise<PickerProject[]> {
+  const client = getGraphQLClient()
+  const filter = teamKey != null
+    ? { accessibleTeams: { some: { key: { eq: teamKey } } } }
+    : undefined
+
+  const projects: PickerProject[] = []
+  // Annotated because `after` is assigned from a value derived from the request
+  // it is passed to, which TypeScript cannot infer without help.
+  let after: string | undefined = undefined
+
+  while (true) {
+    const data: GetProjectsForPickerQuery = await client.request(
+      GetProjectsForPicker,
+      {
+        filter,
+        first: PICKER_PAGE_SIZE,
+        after,
+      },
+    )
+    projects.push(...data.projects.nodes)
+
+    const pageInfo = data.projects.pageInfo
+    if (!pageInfo.hasNextPage) break
+    if (pageInfo.endCursor == null || pageInfo.endCursor === after) {
+      throw new CliError(
+        "Linear reported more projects but returned no new cursor to fetch them.",
+        { suggestion: "Retry, or pass a project explicitly." },
+      )
+    }
+    after = pageInfo.endCursor
+  }
+
+  return projects
+}
+
+/** Injected in tests so the selection flow can be exercised without a terminal. */
+export type ProjectPrompt = (
+  options: ProjectPickerOption[],
+) => Promise<string>
+
+async function promptForProject(
+  options: ProjectPickerOption[],
+): Promise<string> {
+  const { Select } = await import("@cliffy/prompt")
+  return await Select.prompt({
+    message: "Select a project",
+    options,
+    search: true,
+    searchLabel: "Search projects",
+  })
+}
+
+/**
+ * Resolve the project to act on when no argument was given.
+ *
+ * Prompting is only ever right when a person is actually there to answer, so
+ * every other case errors up front — before any network call — rather than
+ * hanging a pipeline on a prompt nobody can see or interleaving prompt output
+ * with JSON on stdout.
+ */
+export async function selectProject(
+  options: { json: boolean; prompt?: ProjectPrompt },
+): Promise<string> {
+  if (options.json) {
+    throw new ValidationError(
+      "A project is required with --json",
+      {
+        suggestion:
+          "Pass a project UUID, slug ID, or exact name, or drop --json to pick one from a list.",
+      },
+    )
+  }
+
+  // Some CI runners allocate a pseudo-terminal, which makes both isTerminal()
+  // checks pass even though nobody is there to answer the prompt. CI is
+  // therefore treated as non-interactive regardless of what the tty looks like.
+  const inCi = Deno.env.get("CI") != null && Deno.env.get("CI") !== "false" &&
+    Deno.env.get("CI") !== ""
+  const interactive = options.prompt != null ||
+    (!inCi && Deno.stdin.isTerminal() && Deno.stdout.isTerminal())
+  if (!interactive) {
+    throw new ValidationError(
+      "No project specified",
+      {
+        suggestion:
+          "Pass a project UUID, slug ID, or exact name. Running `linear project view` with no argument picks from a list, but only on a terminal.",
+      },
+    )
+  }
+
+  const teamKey = getTeamKey()
+  const projects = await fetchProjectsForPicker(teamKey)
+  if (projects.length === 0) {
+    throw new NotFoundError(
+      "Project",
+      teamKey != null ? `team ${teamKey}` : "this workspace",
+      {
+        suggestion: teamKey != null
+          ? `No projects are accessible to team ${teamKey}. Check \`linear project list --all-teams\`, or create one with \`linear project create\`.`
+          : "Create one with `linear project create`.",
+      },
+    )
+  }
+
+  const prompt = options.prompt ?? promptForProject
+  return await prompt(buildProjectPickerOptions(projects))
+}
+
 export const viewCommand = new Command()
   .name("view")
   .description("View project details")
   .alias("v")
-  .arguments("<projectId:string>")
+  .arguments("[projectId:string]")
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
   .option("-j, --json", "Output as JSON")
@@ -786,8 +975,13 @@ export const viewCommand = new Command()
     try {
       // Resolving up front means a project name works everywhere the command
       // accepts an identifier, rather than only on the paths that happen to hit
-      // the GraphQL `project(id:)` field.
-      const resolvedId = await resolveProjectId(projectId)
+      // the GraphQL `project(id:)` field. With no argument at all, the picker
+      // already hands back a UUID.
+      const reference = projectId ??
+        await selectProject({ json: json === true })
+      const resolvedId = projectId == null
+        ? reference
+        : await resolveProjectId(reference)
 
       if (web || app) {
         await openProjectPage(resolvedId, { app, web: !app })
@@ -795,7 +989,7 @@ export const viewCommand = new Command()
       }
 
       spinner?.start()
-      const project = await fetchProjectDetails(resolvedId, projectId)
+      const project = await fetchProjectDetails(resolvedId, reference)
       spinner?.stop()
 
       if (json) {

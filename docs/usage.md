@@ -372,6 +372,9 @@ linear project view PROJECT-ID
 linear project view "Mobile launch"
 linear project view PROJECT-ID --json
 linear project view PROJECT-ID --no-pager
+
+# with no argument, pick from a searchable list (terminal only)
+linear project view
 ```
 
 #### project comments

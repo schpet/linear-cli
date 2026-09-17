@@ -1,6 +1,12 @@
 import { snapshotTest } from "@cliffy/testing"
 import { assertEquals, assertStringIncludes } from "@std/assert"
-import { viewCommand } from "../../../src/commands/project/project-view.ts"
+import {
+  buildProjectPickerOptions,
+  type ProjectPickerOption,
+  selectProject,
+  viewCommand,
+} from "../../../src/commands/project/project-view.ts"
+import { ValidationError } from "../../../src/utils/errors.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
 // Common Deno args for permissions
@@ -646,4 +652,173 @@ Deno.test("project view marks an inline list that was cut off", async () => {
     // partial list ends in an ellipsis rather than reading as complete.
     assertStringIncludes(output.join("\n"), "**Labels:** security, …")
   })
+})
+
+function pickerProject(
+  id: string,
+  name: string,
+  slugId: string,
+  statusName = "Backlog",
+  teamKeys: string[] = ["ENG"],
+) {
+  return {
+    id,
+    name,
+    slugId,
+    status: { name: statusName },
+    teams: { nodes: teamKeys.map((key) => ({ key })) },
+  }
+}
+
+Deno.test("project picker labels and orders projects for searching", () => {
+  const options = buildProjectPickerOptions([
+    pickerProject("id-c", "zeta", "slug-c", "Completed", ["OPS"]),
+    pickerProject("id-b", "Alpha", "slug-b2", "In Progress", ["ENG", "OPS"]),
+    // Same name as the one above: the slug is what separates them.
+    pickerProject("id-a", "Alpha", "slug-a1", "Backlog", ["ENG"]),
+  ])
+
+  assertEquals(options.map((option) => option.value), [
+    "id-a",
+    "id-b",
+    "id-c",
+  ])
+  assertEquals(options[0].name, "Alpha  ·  Backlog  ·  ENG  ·  slug-a1")
+  assertEquals(
+    options[1].name,
+    "Alpha  ·  In Progress  ·  ENG, OPS  ·  slug-b2",
+  )
+  // Ordering is case-insensitive, so "zeta" sorts after "Alpha".
+  assertEquals(options[2].name, "zeta  ·  Completed  ·  OPS  ·  slug-c")
+})
+
+Deno.test("project picker refuses to prompt when output is machine-readable", async () => {
+  let prompted = false
+  const error = await selectProject({
+    json: true,
+    prompt: () => {
+      prompted = true
+      return Promise.resolve("never")
+    },
+  }).catch((error: unknown) => error)
+
+  assertEquals(prompted, false)
+  assertEquals(error instanceof ValidationError, true)
+  assertStringIncludes(String(error), "A project is required with --json")
+})
+
+Deno.test("project picker gathers every page before prompting", async () => {
+  // MockLinearServer matches a mock when every variable it names matches, so
+  // the cursor-bearing page has to come first or the first-page mock would also
+  // answer the second request.
+  await withMockServer([
+    {
+      queryName: "GetProjectsForPicker",
+      variables: { first: 100, after: "page-1" },
+      response: {
+        data: {
+          projects: {
+            nodes: [pickerProject("id-1", "Alpha", "slug-1")],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+    {
+      queryName: "GetProjectsForPicker",
+      variables: { first: 100 },
+      response: {
+        data: {
+          projects: {
+            nodes: [pickerProject("id-2", "Beta", "slug-2")],
+            pageInfo: { hasNextPage: true, endCursor: "page-1" },
+          },
+        },
+      },
+    },
+  ], async () => {
+    let offered: ProjectPickerOption[] = []
+    const chosen = await selectProject({
+      json: false,
+      prompt: (options) => {
+        offered = options
+        return Promise.resolve(options[0].value)
+      },
+    })
+
+    // The second page must be in the list, or it would be unreachable: the
+    // prompt only filters what it was handed.
+    assertEquals(offered.map((option) => option.value), ["id-1", "id-2"])
+    assertEquals(chosen, "id-1")
+  })
+})
+
+Deno.test("project picker errors instead of opening an empty prompt", async () => {
+  await withMockServer([
+    {
+      queryName: "GetProjectsForPicker",
+      variables: { first: 100 },
+      response: {
+        data: {
+          projects: {
+            nodes: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ], async () => {
+    let prompted = false
+    const error = await selectProject({
+      json: false,
+      prompt: () => {
+        prompted = true
+        return Promise.resolve("never")
+      },
+    }).catch((error: unknown) => error)
+
+    assertEquals(prompted, false)
+    assertStringIncludes(String(error), "Project not found")
+  })
+})
+
+Deno.test("project picker refuses a project cursor that never advances", async () => {
+  await withMockServer([
+    {
+      queryName: "GetProjectsForPicker",
+      variables: { first: 100 },
+      response: {
+        data: {
+          projects: {
+            nodes: [pickerProject("id-1", "Alpha", "slug-1")],
+            pageInfo: { hasNextPage: true, endCursor: null },
+          },
+        },
+      },
+    },
+  ], async () => {
+    const error = await selectProject({
+      json: false,
+      prompt: () => Promise.resolve("never"),
+    }).catch((error: unknown) => error)
+
+    assertStringIncludes(String(error), "no new cursor")
+  })
+})
+
+Deno.test("project picker treats CI as non-interactive even with a tty", async () => {
+  const originalCi = Deno.env.get("CI")
+  Deno.env.set("CI", "true")
+  try {
+    const error = await selectProject({ json: false }).catch((
+      error: unknown,
+    ) => error)
+    assertStringIncludes(String(error), "No project specified")
+  } finally {
+    if (originalCi == null) {
+      Deno.env.delete("CI")
+    } else {
+      Deno.env.set("CI", originalCi)
+    }
+  }
 })
