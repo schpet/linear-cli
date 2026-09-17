@@ -1,6 +1,12 @@
 import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
 import { snapshotTest } from "../../utils/snapshot_with_fake_time.ts"
-import { listCommand } from "../../../src/commands/project/project-list.ts"
+import {
+  compareProjectsForDisplay,
+  listCommand,
+  type ProjectDisplayOrderKey,
+} from "../../../src/commands/project/project-list.ts"
+import type { ProjectStatusType } from "../../../src/__codegen__/graphql.ts"
+import { assertEquals, assertStringIncludes } from "@std/assert"
 import { commonDenoArgs } from "../../utils/test-helpers.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 
@@ -39,6 +45,7 @@ await snapshotTest({
                   name: "Authentication System",
                   description: "Core authentication and authorization system",
                   slugId: "auth-sys",
+                  sortOrder: 100,
                   icon: "🔐",
                   color: "#3b82f6",
                   status: {
@@ -46,6 +53,7 @@ await snapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
+                    position: 2,
                   },
                   lead: {
                     name: "jane.smith",
@@ -75,6 +83,7 @@ await snapshotTest({
                   description:
                     "Complete redesign of the mobile application interface",
                   slugId: "mobile-ui",
+                  sortOrder: 200,
                   icon: "📱",
                   color: "#ef4444",
                   status: {
@@ -82,6 +91,7 @@ await snapshotTest({
                     name: "Planned",
                     color: "#6366f1",
                     type: "planned",
+                    position: 1,
                   },
                   lead: {
                     name: "alex.designer",
@@ -110,6 +120,7 @@ await snapshotTest({
                   name: "API Documentation",
                   description: "Comprehensive API documentation and examples",
                   slugId: "api-docs",
+                  sortOrder: 300,
                   icon: null,
                   color: "#10b981",
                   status: {
@@ -117,6 +128,7 @@ await snapshotTest({
                     name: "Completed",
                     color: "#059669",
                     type: "completed",
+                    position: 4,
                   },
                   lead: null,
                   priority: 4,
@@ -261,6 +273,7 @@ await cliffySnapshotTest({
                   name: "JSON Test Project",
                   description: "A project for JSON output",
                   slugId: "json-proj",
+                  sortOrder: 400,
                   icon: null,
                   color: "#3b82f6",
                   status: {
@@ -268,6 +281,7 @@ await cliffySnapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
+                    position: 2,
                   },
                   lead: {
                     name: "test.user",
@@ -337,6 +351,7 @@ await snapshotTest({
                   name: "Alpha Project",
                   description: "First project on page 1",
                   slugId: "alpha-proj",
+                  sortOrder: 500,
                   icon: "🅰️",
                   color: "#3b82f6",
                   status: {
@@ -344,6 +359,7 @@ await snapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
+                    position: 2,
                   },
                   lead: {
                     name: "alice",
@@ -369,6 +385,7 @@ await snapshotTest({
                   name: "Beta Project",
                   description: "Second project on page 1",
                   slugId: "beta-proj",
+                  sortOrder: 600,
                   icon: "🅱️",
                   color: "#ef4444",
                   status: {
@@ -376,6 +393,7 @@ await snapshotTest({
                     name: "Planned",
                     color: "#6366f1",
                     type: "planned",
+                    position: 1,
                   },
                   lead: {
                     name: "bob",
@@ -422,6 +440,7 @@ await snapshotTest({
                   name: "Gamma Project",
                   description: "First project on page 2",
                   slugId: "gamma-proj",
+                  sortOrder: 700,
                   icon: "🔤",
                   color: "#10b981",
                   status: {
@@ -429,6 +448,7 @@ await snapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
+                    position: 2,
                   },
                   lead: {
                     name: "carol",
@@ -454,6 +474,7 @@ await snapshotTest({
                   name: "Delta Project",
                   description: "Second project on page 2",
                   slugId: "delta-proj",
+                  sortOrder: 800,
                   icon: "🔺",
                   color: "#f59e0b",
                   status: {
@@ -461,6 +482,7 @@ await snapshotTest({
                     name: "Completed",
                     color: "#059669",
                     type: "completed",
+                    position: 4,
                   },
                   lead: null,
                   priority: 4,
@@ -522,6 +544,7 @@ await cliffySnapshotTest({
                   name: "Alpha Project",
                   description: "First page project",
                   slugId: "alpha-proj",
+                  sortOrder: 900,
                   icon: null,
                   color: "#3b82f6",
                   status: {
@@ -529,6 +552,7 @@ await cliffySnapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
+                    position: 2,
                   },
                   lead: null,
                   priority: 2,
@@ -566,6 +590,7 @@ await cliffySnapshotTest({
                   name: "Beta Project",
                   description: "Second page project",
                   slugId: "beta-proj",
+                  sortOrder: 1000,
                   icon: null,
                   color: "#10b981",
                   status: {
@@ -573,6 +598,7 @@ await cliffySnapshotTest({
                     name: "Planned",
                     color: "#6366f1",
                     type: "planned",
+                    position: 1,
                   },
                   lead: {
                     name: "pat.planner",
@@ -663,4 +689,150 @@ await cliffySnapshotTest({
       Deno.env.delete("LINEAR_API_KEY")
     }
   },
+})
+
+// The two command-level ordering snapshots above are still `ignore: true` for a
+// pre-existing mock-server problem, so the ordering rule is exercised directly
+// here rather than going unverified.
+Deno.test("project list orders projects the way Linear's project flow does", () => {
+  const project = (
+    id: string,
+    name: string,
+    type: ProjectStatusType,
+    position: number,
+    sortOrder: number,
+  ): ProjectDisplayOrderKey => ({
+    id,
+    name,
+    status: { type, position },
+    sortOrder,
+  })
+
+  // Deliberately scrambled, and covering every status type.
+  const scrambled = [
+    project("id-canceled", "Canceled work", "canceled", 5, 0),
+    project("id-started-b", "Second in flight", "started", 2, 50),
+    project("id-backlog-late", "Later backlog status", "backlog", 1, 0),
+    project("id-completed", "Finished work", "completed", 4, 0),
+    project("id-started-a", "First in flight", "started", 2, 10),
+    project("id-paused", "On hold", "paused", 3, 0),
+    project("id-planned", "Planned work", "planned", 1, 0),
+    project("id-backlog-early", "Earlier backlog status", "backlog", 0, 999),
+  ]
+
+  const ordered = [...scrambled].sort(compareProjectsForDisplay)
+
+  assertEquals(ordered.map((p) => p.id), [
+    // Status type first, in flow order.
+    // Within backlog, the status's own position wins over sortOrder: the
+    // earlier status sorts first even though its project's manual order is
+    // much later.
+    "id-backlog-early",
+    "id-backlog-late",
+    "id-planned",
+    // Within one status, the manual sortOrder decides. Alphabetically
+    // "First in flight" would come first either way, so the values are set so
+    // that only sortOrder produces this order.
+    "id-started-a",
+    "id-started-b",
+    "id-paused",
+    "id-completed",
+    "id-canceled",
+  ])
+})
+
+Deno.test("project list breaks exact ties by name and then id", () => {
+  const tied = (id: string, name: string): ProjectDisplayOrderKey => ({
+    id,
+    name,
+    status: { type: "backlog", position: 0 },
+    sortOrder: 1,
+  })
+
+  const ordered = [
+    tied("id-z", "Same name"),
+    tied("id-a", "Same name"),
+    tied("id-m", "Another name"),
+  ].sort(compareProjectsForDisplay)
+
+  assertEquals(ordered.map((p) => p.id), ["id-m", "id-a", "id-z"])
+})
+
+// A `Float!` that arrives null would make the comparator return NaN and
+// scramble the listing. It can only be constructed on the wire, not in a typed
+// fixture, so it is exercised through the mock server.
+Deno.test("project list reports a non-numeric sort key instead of scrambling the order", async () => {
+  const node = (id: string, name: string, sortOrder: number | null) => ({
+    id,
+    name,
+    description: "",
+    slugId: id,
+    sortOrder,
+    icon: null,
+    color: "#3b82f6",
+    status: {
+      id: "status-1",
+      name: "Backlog",
+      color: "#94a3b8",
+      type: "backlog",
+      position: 0,
+    },
+    lead: null,
+    priority: 0,
+    health: null,
+    startDate: null,
+    targetDate: null,
+    startedAt: null,
+    completedAt: null,
+    canceledAt: null,
+    createdAt: "2024-01-10T10:00:00Z",
+    updatedAt: "2024-01-20T15:30:00Z",
+    url: `https://linear.app/test/project/${id}`,
+    teams: { nodes: [{ key: "ENG" }] },
+  })
+
+  const server = new MockLinearServer([
+    {
+      queryName: "GetProjects",
+      variables: { filter: undefined, first: 100, after: undefined },
+      response: {
+        data: {
+          projects: {
+            nodes: [node("broken", "Broken", null), node("fine", "Fine", 2)],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ])
+
+  const originalError = console.error
+  const originalExit = Deno.exit
+  const errors: string[] = []
+  let exitCode: number | undefined
+  console.error = (...args: unknown[]) => {
+    errors.push(args.map(String).join(" "))
+  }
+  Deno.exit = ((code?: number) => {
+    exitCode = code
+    throw new Error("exit")
+  }) as typeof Deno.exit
+
+  try {
+    await server.start()
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await listCommand.parse(["--all-teams"])
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "exit") throw error
+  } finally {
+    console.error = originalError
+    Deno.exit = originalExit
+    await server.stop()
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+  }
+
+  assertEquals(exitCode, 1)
+  assertStringIncludes(errors.join("\n"), "non-numeric sortOrder")
 })
