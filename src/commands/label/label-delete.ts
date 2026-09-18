@@ -4,6 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTeamKey, resolveTeam } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
+import { rejectLinearUrl } from "../../utils/linear-url.ts"
 import {
   CliError,
   handleError,
@@ -66,6 +67,7 @@ async function resolveLabelId(
   nameOrId: string,
   teamKey?: string,
 ): Promise<Label | undefined> {
+  rejectLinearUrl(nameOrId, "a label name or UUID")
   // Try as UUID first
   if (
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

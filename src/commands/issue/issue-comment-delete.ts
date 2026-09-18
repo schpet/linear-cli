@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { CliError, handleError } from "../../utils/errors.ts"
+import { rejectCommentUrl, rejectLinearUrl } from "../../utils/linear-url.ts"
 
 export const commentDeleteCommand = new Command()
   .name("delete")
@@ -9,6 +10,8 @@ export const commentDeleteCommand = new Command()
   .arguments("<commentId:string>")
   .action(async (_options, commentId) => {
     try {
+      rejectCommentUrl(commentId)
+      rejectLinearUrl(commentId, "a comment UUID")
       const mutation = gql(`
         mutation DeleteComment($id: String!) {
           commentDelete(id: $id) {

@@ -25,6 +25,7 @@ import {
 import { CliError, NotFoundError, ValidationError } from "./errors.ts"
 import { getGraphQLClient } from "./graphql.ts"
 import { normalizeIssueIdentifier } from "./issue-identifier.ts"
+import { expectLinearUrlKind, rejectLinearUrl } from "./linear-url.ts"
 import { getCurrentIssueFromVcs } from "./vcs.ts"
 
 /**
@@ -102,6 +103,18 @@ export async function getIssueIdentifier(
   providedId?: string,
 ): Promise<string | undefined> {
   if (providedId) {
+    // A pasted issue URL carries the identifier in its path. Reading it here
+    // covers every command and flag that funnels through this function,
+    // including --parent and both sides of `issue relation`.
+    const urlRef = expectLinearUrlKind(
+      providedId,
+      "issue",
+      "an issue URL or an identifier like ENG-123",
+    )
+    if (urlRef != null) {
+      return urlRef.identifier
+    }
+
     const normalizedIdentifier = normalizeIssueIdentifier(providedId)
     if (normalizedIdentifier) {
       return normalizedIdentifier
@@ -1617,6 +1630,22 @@ export function isLinearUuid(value: string): boolean {
 }
 
 /**
+ * Normalise a document reference.
+ *
+ * `document(id:)` already accepts a UUID or a slug ID, so a pasted document URL
+ * only has to be reduced to its slug ID. Anything that is not a Linear URL is
+ * handed back untouched.
+ */
+export function resolveDocumentReference(input: string): string {
+  const urlRef = expectLinearUrlKind(
+    input,
+    "document",
+    "a document URL, UUID, or slug ID",
+  )
+  return urlRef?.slugId ?? input
+}
+
+/**
  * Look up a project ID by UUID, slug ID, or exact name.
  * Returns undefined when no project matches. Use [[resolveProjectId]] when
  * you want a missing project to throw.
@@ -1624,6 +1653,15 @@ export function isLinearUuid(value: string): boolean {
 export async function getProjectIdByName(
   input: string,
 ): Promise<string | undefined> {
+  const urlRef = expectLinearUrlKind(
+    input,
+    "project",
+    "a project URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    input = urlRef.slugId
+  }
+
   if (isLinearUuid(input)) return input
 
   const client = getGraphQLClient()
@@ -1770,6 +1808,14 @@ export async function findTeam(
     throw new ValidationError("Team reference is empty", {
       suggestion: "Pass a team key, name, or ID, e.g. --team ENG.",
     })
+  }
+  const urlRef = expectLinearUrlKind(
+    reference,
+    "team",
+    "a team URL, key, name, or ID",
+  )
+  if (urlRef != null) {
+    reference = urlRef.teamKey
   }
   const client = getGraphQLClient()
   const query = gql(/* GraphQL */ `
@@ -2324,6 +2370,9 @@ export async function resolveMilestoneId(
   input: string,
   projectId?: string,
 ): Promise<string> {
+  // Linear has no milestone URL, so a pasted URL here is always a mistake and
+  // is said so plainly rather than looked up as a milestone name.
+  rejectLinearUrl(input, "a milestone name or UUID")
   if (isLinearUuid(input)) return input
   if (!projectId) {
     throw new ValidationError(
@@ -2372,6 +2421,7 @@ export async function getCycleIdByNameOrNumber(
   cycleNameOrNumber: string,
   teamId: string,
 ): Promise<string> {
+  rejectLinearUrl(cycleNameOrNumber, "a cycle number, name, or UUID")
   const client = getGraphQLClient()
   const query = gql(/* GraphQL */ `
     query GetTeamCyclesForLookup($teamId: String!, $after: String) {
@@ -2515,6 +2565,15 @@ export async function getCycleIdByNameOrNumber(
  * unique, so an ambiguous match must not pick silently.
  */
 export async function resolveInitiativeId(input: string): Promise<string> {
+  const urlRef = expectLinearUrlKind(
+    input,
+    "initiative",
+    "an initiative URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    input = urlRef.slugId
+  }
+
   if (isLinearUuid(input)) return input
 
   const client = getGraphQLClient()
@@ -2570,6 +2629,7 @@ export async function resolveInitiativeId(input: string): Promise<string> {
  * unique human identifier, so an ambiguous match must not pick silently.
  */
 export async function resolveReleaseId(input: string): Promise<string> {
+  rejectLinearUrl(input, "a release name, version, or UUID")
   if (isLinearUuid(input)) return input
 
   const client = getGraphQLClient()

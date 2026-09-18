@@ -9,6 +9,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { expectLinearUrlKind } from "../../utils/linear-url.ts"
 
 export const unarchiveCommand = new Command()
   .name("unarchive")
@@ -124,6 +125,15 @@ async function resolveInitiativeId(
   client: any,
   idOrSlugOrName: string,
 ): Promise<string | undefined> {
+  const urlRef = expectLinearUrlKind(
+    idOrSlugOrName,
+    "initiative",
+    "an initiative URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    idOrSlugOrName = urlRef.slugId
+  }
+
   // Try as UUID first
   if (
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

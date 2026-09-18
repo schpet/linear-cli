@@ -15,6 +15,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { resolveDocumentReference } from "../../utils/linear.ts"
 
 interface DocumentDeleteResult extends BulkOperationResult {
   title?: string
@@ -71,7 +72,7 @@ export const deleteCommand = new Command()
 async function handleSingleDelete(
   // deno-lint-ignore no-explicit-any
   client: any,
-  documentId: string,
+  rawDocumentId: string,
   options: { yes?: boolean },
 ): Promise<void> {
   const { yes } = options
@@ -87,10 +88,11 @@ async function handleSingleDelete(
     }
   `)
 
+  const documentId = resolveDocumentReference(rawDocumentId)
   const documentDetails = await client.request(detailsQuery, { id: documentId })
 
   if (!documentDetails?.document) {
-    throw new NotFoundError("Document", documentId)
+    throw new NotFoundError("Document", rawDocumentId)
   }
 
   const document = documentDetails.document
@@ -189,11 +191,14 @@ async function handleBulkDelete(
       }
     `)
 
-    let documentUuid = docId
+    const resolvedDocId = resolveDocumentReference(docId)
+    let documentUuid = resolvedDocId
     let title = docId
 
     try {
-      const details = await client.request(detailsQuery, { id: docId })
+      const details = await client.request(detailsQuery, {
+        id: resolvedDocId,
+      })
       if (details?.document) {
         documentUuid = details.document.id
         title = details.document.title

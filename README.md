@@ -201,6 +201,7 @@ linear user list --json # machine-readable output
 
 ```bash
 linear project list    # list projects
+linear project view https://linear.app/acme/project/mobile-launch-272f50ef9250  # paste a URL from Linear
 linear project view    # pick from a searchable list of projects
 linear project view <projectId>   # overview, milestones, resources, documents, related projects
 linear project view "Mobile launch"   # a UUID, slug ID, or exact name all work
