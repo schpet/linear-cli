@@ -24,6 +24,7 @@ import {
 } from "./project-description.ts"
 import { withMarkdownHint } from "../../utils/markdown-help.ts"
 import { resolveTemplate } from "../../utils/templates.ts"
+import { expectLinearUrlKind } from "../../utils/linear-url.ts"
 
 const CreateProject = gql(`
   mutation CreateProject($input: ProjectCreateInput!) {
@@ -81,6 +82,15 @@ async function resolveInitiativeId(
   client: GraphQLClient,
   idOrSlugOrName: string,
 ): Promise<string | undefined> {
+  const urlRef = expectLinearUrlKind(
+    idOrSlugOrName,
+    "initiative",
+    "an initiative URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    idOrSlugOrName = urlRef.slugId
+  }
+
   // Try as UUID first
   if (
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

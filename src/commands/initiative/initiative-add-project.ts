@@ -3,6 +3,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { CliError, handleError, NotFoundError } from "../../utils/errors.ts"
+import { expectLinearUrlKind } from "../../utils/linear-url.ts"
 
 const AddProjectToInitiative = gql(`
   mutation AddProjectToInitiative($input: InitiativeToProjectCreateInput!) {
@@ -20,6 +21,14 @@ async function resolveInitiativeId(
   client: any,
   idOrSlugOrName: string,
 ): Promise<{ id: string; name: string } | undefined> {
+  const urlRef = expectLinearUrlKind(
+    idOrSlugOrName,
+    "initiative",
+    "an initiative URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    idOrSlugOrName = urlRef.slugId
+  }
   // Try as UUID first
   if (
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -99,6 +108,14 @@ async function resolveProjectId(
   client: any,
   idOrSlugOrName: string,
 ): Promise<{ id: string; name: string } | undefined> {
+  const urlRef = expectLinearUrlKind(
+    idOrSlugOrName,
+    "project",
+    "a project URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    idOrSlugOrName = urlRef.slugId
+  }
   // Try as UUID first
   if (
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

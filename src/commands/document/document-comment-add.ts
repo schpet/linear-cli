@@ -16,6 +16,7 @@ import {
   REPLY_TO_DESCRIPTION,
   resolveCommentBody,
 } from "../../utils/comments.ts"
+import { resolveDocumentReference } from "../../utils/linear.ts"
 
 // A document comment attaches to the document's content record, not to the
 // document itself, so look that id up first. `document(id:)` accepts a UUID or
@@ -39,10 +40,13 @@ export const commentAddCommand = new Command()
   .option("-b, --body <text:string>", COMMENT_BODY_DESCRIPTION)
   .option("--body-file <path:string>", COMMENT_BODY_FILE_DESCRIPTION)
   .option("-p, --parent, --reply-to <commentId:string>", REPLY_TO_DESCRIPTION)
-  .action(async (options, document) => {
+  .action(async (options, rawDocument) => {
     const { body, bodyFile, parent } = options
 
     try {
+      // Inside the try: resolution rejects a wrong-kind or cross-workspace URL,
+      // and those errors have to reach handleError like every other failure.
+      const document = resolveDocumentReference(rawDocument)
       const textBody = await resolveCommentBody({ body, bodyFile })
 
       const client = getGraphQLClient()

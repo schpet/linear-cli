@@ -4,6 +4,7 @@ import {
   compareWorkflowStates,
   findTeam,
   getIssueIdentifier,
+  getProjectIdByName,
   getStartedState,
   isLinearUuid,
   lowestPositionStateOfType,
@@ -1102,5 +1103,67 @@ Deno.test("resolveStateSelection - a page that never advances is an error, not a
     )
   } finally {
     await cleanup()
+  }
+})
+
+Deno.test("getProjectIdByName resolves a project URL through its slug ID", async () => {
+  const previousWorkspace = Deno.env.get("LINEAR_WORKSPACE")
+  Deno.env.set("LINEAR_WORKSPACE", "url-test-workspace")
+  // Both lookups are pinned to the twelve-character slug. Had the whole URL
+  // been forwarded — which the real API happens to tolerate through an
+  // undocumented behavior — neither mock would match and this would throw.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetProjectIdByName",
+      variables: { name: "576342554a6e" },
+      response: { data: { projects: { nodes: [] } } },
+    },
+    {
+      queryName: "GetProjectIdBySlugId",
+      variables: { slugId: "576342554a6e" },
+      response: { data: { projects: { nodes: [{ id: "project-uuid" }] } } },
+    },
+  ])
+  try {
+    const id = await getProjectIdByName(
+      "https://linear.app/url-test-workspace/project/mobile-launch-576342554a6e",
+    )
+    assertEquals(id, "project-uuid")
+  } finally {
+    await cleanup()
+    if (previousWorkspace == null) {
+      Deno.env.delete("LINEAR_WORKSPACE")
+    } else {
+      Deno.env.set("LINEAR_WORKSPACE", previousWorkspace)
+    }
+  }
+})
+
+Deno.test("getIssueIdentifier reads the identifier out of an issue URL", async () => {
+  const previousWorkspace = Deno.env.get("LINEAR_WORKSPACE")
+  Deno.env.set("LINEAR_WORKSPACE", "url-test-workspace")
+  const { cleanup } = await setupMockLinearServer([])
+  try {
+    // No request should be needed: the identifier is in the path.
+    assertEquals(
+      await getIssueIdentifier(
+        "https://linear.app/url-test-workspace/issue/ENG-123/some-title",
+      ),
+      "ENG-123",
+    )
+    // A comment link still names its issue.
+    assertEquals(
+      await getIssueIdentifier(
+        "https://linear.app/url-test-workspace/issue/ENG-123/t#comment-325482e4",
+      ),
+      "ENG-123",
+    )
+  } finally {
+    await cleanup()
+    if (previousWorkspace == null) {
+      Deno.env.delete("LINEAR_WORKSPACE")
+    } else {
+      Deno.env.set("LINEAR_WORKSPACE", previousWorkspace)
+    }
   }
 })
