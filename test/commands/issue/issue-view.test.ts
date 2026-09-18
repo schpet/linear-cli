@@ -531,6 +531,8 @@ await snapshotTest({
     const server = new MockLinearServer([
       {
         queryName: "GetIssueDetailsWithComments",
+        // Fails if the selection ever drops the inline-comment anchor.
+        queryIncludes: "quotedText",
         variables: { id: "TEST-123" },
         response: {
           data: {
@@ -561,6 +563,7 @@ await snapshotTest({
                 nodes: [
                   {
                     id: "comment-1",
+                    quotedText: "session timeout",
                     body:
                       "I've reproduced this issue on staging. The session timeout seems to be too aggressive.",
                     createdAt: "2024-01-15T10:30:00Z",
@@ -573,6 +576,7 @@ await snapshotTest({
                   },
                   {
                     id: "comment-2",
+                    quotedText: null,
                     body:
                       "Working on a fix. Will increase the session timeout and add proper error handling.",
                     createdAt: "2024-01-15T14:22:00Z",

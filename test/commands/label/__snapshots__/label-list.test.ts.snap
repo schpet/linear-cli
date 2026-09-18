@@ -45,3 +45,28 @@ stdout:
 stderr:
 ""
 `;
+
+snapshot[`Label List Command - Team By Name JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "label-2",
+      "name": "backend",
+      "description": "Backend label",
+      "color": "#00ff00",
+      "team": {
+        "key": "ENG",
+        "name": "Engineering"
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;

@@ -110,7 +110,7 @@ export const listCommand = new Command()
   )
   .option(
     "--team <team:string>",
-    "Filter by team (key); with --cycle, scopes the cycle lookup instead",
+    "Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead",
   )
   .option(
     "--cycle <cycle:string>",

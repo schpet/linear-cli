@@ -1,4 +1,6 @@
 import { snapshotTest } from "@cliffy/testing"
+import { assertEquals } from "@std/assert"
+import { stub } from "@std/testing/mock"
 import { viewCommand } from "../../../src/commands/document/document-view.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 import { commonDenoArgs } from "../../utils/test-helpers.ts"
@@ -368,4 +370,60 @@ await snapshotTest({
       Deno.env.delete("LINEAR_API_KEY")
     }
   },
+})
+
+// Linear reports an unknown document as a GraphQL error whose user-facing
+// message is "Could not find referenced Document." (no "not found" in it).
+// That has to become a clean not-found message naming the reference; the
+// command used to re-throw from its catch block and print a stack trace.
+Deno.test("Document View Command - unknown document is reported as not found", async () => {
+  const server = new MockLinearServer([
+    {
+      queryName: "GetDocument",
+      response: {
+        errors: [{
+          message: "Entity not found: Document",
+          extensions: {
+            type: "invalid input",
+            userError: true,
+            userPresentableMessage: "Could not find referenced Document.",
+          },
+        }],
+      },
+    },
+  ])
+  await server.start()
+  Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+  Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  let exited = false
+  try {
+    await viewCommand.parse(["doc-missing", "--raw"])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+    exited = true
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+    await server.stop()
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+  }
+
+  assertEquals(exited, true)
+  assertEquals(
+    errorLogs.some((l) =>
+      l.toLowerCase().includes("not found") && l.includes("doc-missing")
+    ),
+    true,
+    errorLogs.join("\n"),
+  )
 })

@@ -1,10 +1,13 @@
 import { Command } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { gql } from "../../__codegen__/gql.ts"
-import type { GetIssueLabelsQuery } from "../../__codegen__/graphql.ts"
+import type {
+  GetIssueLabelsQuery,
+  IssueLabelFilter,
+} from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { padDisplay } from "../../utils/display.ts"
-import { getTeamKey } from "../../utils/linear.ts"
+import { getTeamKey, resolveTeam } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { handleError } from "../../utils/errors.ts"
 
@@ -35,8 +38,8 @@ export const listCommand = new Command()
   .name("list")
   .description("List issue labels")
   .option(
-    "--team <teamKey:string>",
-    "Filter by team (e.g., TC). Shows team-specific labels only.",
+    "--team <team:string>",
+    "Filter by team key, name, or ID (e.g., TC). Shows that team's labels plus workspace labels.",
   )
   .option(
     "--workspace",
@@ -57,17 +60,17 @@ export const listCommand = new Command()
       const client = getGraphQLClient()
 
       // Build filter based on options
-      // deno-lint-ignore no-explicit-any
-      let filter: any = {}
+      let filter: IssueLabelFilter = {}
 
       if (workspace) {
         // Only workspace labels (no team)
         filter = { team: { null: true } }
       } else if (teamKey) {
         // Only labels for a specific team (includes workspace labels)
+        const team = await resolveTeam(teamKey)
         filter = {
           or: [
-            { team: { key: { eq: teamKey.toUpperCase() } } },
+            { team: { key: { eq: team.key } } },
             { team: { null: true } },
           ],
         }

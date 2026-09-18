@@ -137,17 +137,23 @@ linear issue list -w   # open issue list in web browser
 linear issue list -a   # open issue list in Linear.app
 linear issue query --search "login bug"  # search issues by text in your configured team
 linear issue query --search "oauth timeout" --team ENG --json  # structured search output for agents
+linear issue query --team "Engineering" --state "In Review" --json  # teams by key, name, or ID; states by type, name, or ID
 linear issue query --all-teams --json --limit 0  # export all issues as JSON
 linear issue start     # create/switch to issue branch and mark as started
 linear issue create    # create a new issue (interactive prompts)
 linear issue create -t "title" -d "description"  # create with flags
 linear issue create --project "My Project" --milestone "Phase 1"  # create with milestone
+linear issue create --template "Bug report" -t "Login fails"  # create from a template (see template commands)
 linear issue update    # update an issue (interactive prompts)
 linear issue update ENG-123 --milestone "Phase 2"  # set milestone on existing issue
+linear issue update ENG-123 --clear-due-date --clear-parent  # remove values (also --clear-estimate, --clear-project, --clear-milestone, --clear-cycle, --unassign)
+linear issue archive ENG-123 --confirm  # archive an issue (Linear normally auto-archives closed issues; see docs/usage.md)
+linear issue archive --confirm --bulk ENG-123 ENG-124  # archive several issues
 linear issue delete    # delete an issue
 linear issue comment list          # list comments on current issue
 linear issue comment add           # add a comment to current issue
-linear issue comment add -p <id>   # reply to a specific comment
+linear issue comment add --reply-to <id>   # reply to a comment (-p / --parent are aliases)
+linear issue comment list --json   # comments as JSON, with quotedText and parent for inline comments and replies
 linear issue comment update <id>   # update a comment
 linear issue commits               # show all commits for an issue (jj only)
 ```
@@ -175,6 +181,7 @@ linear issue comment add ENG-123 -a ./screenshot.png --public   # public image U
 
 ```bash
 linear team list       # list teams
+linear team list --json  # as JSON, e.g. to map a team name to its key or id in scripts
 linear team id         # print out the team id (e.g. for scripts)
 linear team members    # list team members
 linear team members --all --json  # include inactive members, as JSON
@@ -194,9 +201,39 @@ linear user list --json # machine-readable output
 
 ```bash
 linear project list    # list projects
-linear project view    # view project details
+linear project view    # pick from a searchable list of projects
+linear project view <projectId>   # overview, milestones, resources, documents, related projects
+linear project view "Mobile launch"   # a UUID, slug ID, or exact name all work
+linear project view <projectId> --json  # project details as JSON
 linear project create --name "API v2" --team ENG --content-file overview.md
 linear project create --name "Mobile launch" --team APP --priority high --label Launch --member jane@example.com
+linear project create --name "Q3 launch" --team APP --template "Kickoff"  # create from a project template
+linear project update <projectId> --content-file overview.md  # replace the project's overview body
+linear project update <projectId> --clear-lead --clear-target-date  # remove values (also --clear-start-date)
+linear project update <projectId> --add-team OPS --remove-label Launch --add-initiative "Q4 Bets"  # change teams, labels, initiatives incrementally
+linear project update <projectId> --team ENG --team OPS   # replace the whole team set (--label and --initiative replace likewise)
+linear project comment list <project>                         # list the project's discussion thread (UUID, slug, or name)
+linear project comment add <project> --body "Kickoff Monday"  # comment on a project
+linear project comment add <project> --body "+1" --reply-to <commentId>  # reply in a thread
+```
+
+### initiative commands
+
+```bash
+linear initiative list                                            # list initiatives
+linear initiative view <initiative>                               # view an initiative (UUID, slug, or name)
+linear initiative comment list <initiative>                       # list the initiative's discussion thread
+linear initiative comment add <initiative> --body-file note.md   # comment on an initiative
+linear initiative comment add <initiative> --body "+1" --reply-to <commentId>  # reply in a thread
+```
+
+### cycle commands
+
+```bash
+linear cycle list --team ENG          # list a team's cycles (--team takes a key, name, or ID)
+linear cycle list --team ENG --json   # as JSON
+linear cycle view 12 --team ENG       # view a cycle by number or name
+linear cycle view 12 --team ENG --json  # cycle details and its issues, as JSON
 ```
 
 ### milestone commands
@@ -204,8 +241,10 @@ linear project create --name "Mobile launch" --team APP --priority high --label 
 ```bash
 linear milestone list --project <projectId>     # list milestones for a project
 linear m list --project <projectId>             # list milestones (alias)
+linear milestone list --project <projectId> --json  # as JSON
 linear milestone view <milestoneId>             # view milestone details
 linear m view <milestoneId>                     # view milestone (alias)
+linear milestone view <milestoneId> --all --json  # every attached issue, as JSON
 linear milestone create --project <projectId> --name "Q1 Goals" --target-date "2026-03-31"  # create a milestone
 linear m create --project <projectId>           # create a milestone (interactive)
 linear milestone update <milestoneId> --name "New Name"  # update milestone name
@@ -236,6 +275,12 @@ linear document view <slug> --raw               # output raw markdown (for pipin
 linear document view <slug> --web               # open in browser
 linear document view <slug> --json              # output as JSON, including document comments
 
+# comment on a document
+linear document comment list <slug>             # list comments; inline comments show the text they quote
+linear document comment list <slug> --json      # comments as JSON (quotedText, parent, ...)
+linear document comment add <slug> --body "Looks good"              # add a top-level comment
+linear document comment add <slug> --body-file note.md --reply-to <commentId>  # reply in a thread
+
 # create a document (exactly one attachment target is required)
 linear document create --title "Doc" --project <project>              # attach to project
 linear document create --title "Notes" --issue TC-123                 # attach to issue
@@ -260,6 +305,23 @@ linear document delete --bulk <slug1> <slug2>   # bulk delete
 ```
 
 content updates are refused by default when a document has active inline Linear comments, because replacing markdown can detach or hide those anchors. top-level document comments do not block updates. review the inline comment first, then rerun with `--force` if you intentionally want to replace the content anyway.
+
+### template commands
+
+```bash
+linear template list                       # every issue, project, and document template in the workspace
+linear template list --type issue --team ENG  # ENG's issue templates plus workspace-level ones
+linear template list --json                # the raw template objects (templateData is a JSON-encoded string)
+linear template view "Bug report"          # what the template pre-fills: title, priority, labels, body, sub-issues, ...
+linear template view <template-id> --json  # raw GraphQL object; `jq '.templateData | fromjson'` decodes the data
+
+# apply a template on create (name or ID). Linear fills the template in server-side.
+linear issue create --team ENG --template "Bug report"                    # the template supplies the title
+linear issue create --team ENG --template "Bug report" -t "Login fails" -l security  # flags override, labels merge
+linear project create --name "Q3 launch" --team APP --template "Kickoff"
+```
+
+`--template` takes the place of the team's default template, so it never needs `--no-use-default-template` (passing both is fine). Anything you pass explicitly overrides the template's value; `--label` merges with the template's labels; `--description` replaces the template body, so leave it out to keep the body. Document templates can be listed and viewed, but Linear's API has no way to apply one when creating a document.
 
 ### other commands
 

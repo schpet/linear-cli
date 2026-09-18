@@ -1,28 +1,33 @@
 import { Command } from "@cliffy/command"
-import { getTeamKey, getTeamMembers } from "../../utils/linear.ts"
+import { getTeamKey, getTeamMembers, resolveTeam } from "../../utils/linear.ts"
 import { printMembers } from "../../utils/member-display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { handleError, ValidationError } from "../../utils/errors.ts"
 
 export const membersCommand = new Command()
   .name("members")
-  .description("List team members")
-  .arguments("[teamKey:string]")
+  .description("List team members (team by key, name, or ID)")
+  .arguments("[team:string]")
   .option("-a, --all", "Include inactive members")
   .option(
     "-j, --json",
     "Output as JSON; a member's url mentions them when pasted into Markdown",
   )
-  .action(async ({ all, json }, teamKey?: string) => {
+  .action(async ({ all, json }, team?: string) => {
     const showSpinner = !json && shouldShowSpinner()
     let spinner: { start: () => void; stop: () => void } | null = null
 
     try {
-      const resolvedTeamKey = teamKey || getTeamKey()
+      const resolvedTeamKey = team
+        ? (await resolveTeam(team)).key
+        : getTeamKey()
       if (!resolvedTeamKey) {
         throw new ValidationError(
           "Could not determine team key from directory name",
-          { suggestion: "Please specify a team key as an argument." },
+          {
+            suggestion:
+              "Please specify a team key, name, or ID as an argument.",
+          },
         )
       }
 

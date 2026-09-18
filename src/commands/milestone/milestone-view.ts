@@ -63,9 +63,10 @@ export const viewCommand = new Command()
     "--project <project:string>",
     "Project for resolving a milestone name (UUID, slug ID, or name)",
   )
-  .action(async ({ all, project }, milestoneInput) => {
+  .option("-j, --json", "Output as JSON")
+  .action(async ({ all, project, json }, milestoneInput) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = shouldShowSpinner()
+    const showSpinner = !json && shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
     spinner?.start()
 
@@ -124,6 +125,19 @@ export const viewCommand = new Command()
       }
 
       spinner?.stop()
+
+      if (json) {
+        // Same connection the human output works from: the first page, or
+        // every page under --all. The 10-item preview is presentation only.
+        console.log(
+          JSON.stringify(
+            { ...milestone, issues: { nodes: issues, pageInfo } },
+            null,
+            2,
+          ),
+        )
+        return
+      }
 
       const truncated = !all && pageInfo.hasNextPage
 

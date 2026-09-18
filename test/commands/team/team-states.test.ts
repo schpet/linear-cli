@@ -3,6 +3,7 @@ import { assertEquals } from "@std/assert"
 import { statesCommand } from "../../../src/commands/team/team-states.ts"
 import { teamCommand } from "../../../src/commands/team/team.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
+import { resolveTeamMock } from "../../utils/test-helpers.ts"
 
 // Common Deno args for permissions
 const denoArgs = ["--allow-all", "--quiet"]
@@ -79,6 +80,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       { queryName: "GetWorkflowStates", response: UNSORTED_STATES },
     ])
     try {
@@ -103,6 +105,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       { queryName: "GetWorkflowStates", response: UNSORTED_STATES },
     ])
     try {
@@ -158,6 +161,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "GetWorkflowStates",
         response: { data: { team: { states: { nodes: [] } } } },
@@ -185,6 +189,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "GetWorkflowStates",
         response: { data: { team: { states: { nodes: [] } } } },
@@ -219,6 +224,78 @@ await cliffySnapshotTest({
       await statesCommand.parse()
     } finally {
       Deno.env.delete("LINEAR_TEAM_ID")
+    }
+  },
+})
+
+// A team name resolves to its key before the states are fetched.
+await cliffySnapshotTest({
+  name: "Team States Command - By Team Name",
+  meta: import.meta,
+  colors: false,
+  args: ["Engineering", "--json"],
+  denoArgs,
+  async fn() {
+    const server = new MockLinearServer([
+      resolveTeamMock("Engineering"),
+      {
+        queryName: "GetWorkflowStates",
+        variables: { teamKey: "ENG" },
+        response: UNSORTED_STATES,
+      },
+    ])
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await statesCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
+    }
+  },
+})
+
+// An unknown team is an error that lists every valid key.
+await cliffySnapshotTest({
+  name: "Team States Command - Unknown Team Lists Keys",
+  meta: import.meta,
+  colors: false,
+  args: ["Nope"],
+  denoArgs,
+  canFail: true,
+  async fn() {
+    const server = new MockLinearServer([
+      {
+        queryName: "ResolveTeam",
+        variables: { reference: "Nope" },
+        response: { data: { teams: { nodes: [] } } },
+      },
+      {
+        queryName: "GetAllTeams",
+        response: {
+          data: {
+            teams: {
+              nodes: [
+                { id: "team-eng-id", key: "ENG", name: "Engineering" },
+                { id: "team-app-id", key: "APP", name: "Apps" },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ])
+    try {
+      await server.start()
+      Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+      Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+      await statesCommand.parse()
+    } finally {
+      await server.stop()
+      Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+      Deno.env.delete("LINEAR_API_KEY")
     }
   },
 })

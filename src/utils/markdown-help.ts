@@ -1,6 +1,6 @@
 // Linear-specific Markdown guidance, surfaced through `--help` so an agent
 // driving this CLI without the bundled skill still learns it. Both strings live
-// here so the ten Markdown-writing commands, the `linear markdown` reference,
+// here so the thirteen Markdown-writing commands, the `linear markdown` reference,
 // and the generated skill docs cannot drift apart.
 //
 // Cliffy pads description lines but does not re-wrap them, so the line breaks

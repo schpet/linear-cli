@@ -1,0 +1,124 @@
+export const snapshot = {};
+
+snapshot[`Project Comment List Command - By UUID 1`] = `
+stdout:
+"@Ada Lovelace commented 1/15/2024 [comment-uuid-1]
+Kickoff is Monday.
+
+  @Grace Hopper replied 1/15/2024 [comment-uuid-2]
+  I'll be there.
+
+"
+stderr:
+""
+`;
+
+snapshot[`Project Comment List Command - By Name JSON Output 1`] = `
+stdout:
+\`{
+  "nodes": [
+    {
+      "id": "comment-uuid-1",
+      "body": "Kickoff is Monday.",
+      "quotedText": null,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/project/mobile-abc123/activity#comment-uuid-1",
+      "user": {
+        "id": "user-uuid-1",
+        "name": "ada",
+        "displayName": "Ada Lovelace"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": null
+    },
+    {
+      "id": "comment-uuid-2",
+      "body": "I'll be there.",
+      "quotedText": null,
+      "createdAt": "2024-01-15T11:00:00Z",
+      "updatedAt": "2024-01-15T11:00:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/project/mobile-abc123/activity#comment-uuid-2",
+      "user": {
+        "id": "user-uuid-2",
+        "name": "grace",
+        "displayName": "Grace Hopper"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": {
+        "id": "comment-uuid-1"
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": "comment-uuid-2"
+  }
+}
+\`
+stderr:
+""
+`;
+
+snapshot[`Project Comment List Command - No Comments 1`] = `
+stdout:
+"No comments found for this project
+"
+stderr:
+""
+`;
+
+snapshot[`Project Comment List Command - JSON Output Follows Pagination 1`] = `
+stdout:
+\`{
+  "nodes": [
+    {
+      "id": "comment-uuid-1",
+      "body": "Kickoff is Monday.",
+      "quotedText": null,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/project/mobile-abc123/activity#comment-uuid-1",
+      "user": {
+        "id": "user-uuid-1",
+        "name": "ada",
+        "displayName": "Ada Lovelace"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": null
+    },
+    {
+      "id": "comment-uuid-2",
+      "body": "I'll be there.",
+      "quotedText": null,
+      "createdAt": "2024-01-15T11:00:00Z",
+      "updatedAt": "2024-01-15T11:00:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/project/mobile-abc123/activity#comment-uuid-2",
+      "user": {
+        "id": "user-uuid-2",
+        "name": "grace",
+        "displayName": "Grace Hopper"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": {
+        "id": "comment-uuid-1"
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": "cursor-2"
+  }
+}
+\`
+stderr:
+""
+`;

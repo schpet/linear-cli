@@ -7,7 +7,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getTimeAgo, padDisplay } from "../../utils/display.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
-import { handleError, ValidationError } from "../../utils/errors.ts"
+import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 import { LINEAR_WEB_BASE_URL } from "../../const.ts"
 
 const GetTeams = gql(`
@@ -42,9 +42,10 @@ export const listCommand = new Command()
   .description("List teams")
   .option("-w, --web", "Open in web browser")
   .option("-a, --app", "Open in Linear.app")
-  .action(async ({ web, app }) => {
+  .option("-j, --json", "Output as JSON")
+  .action(async ({ web, app, json }) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
-    const showSpinner = shouldShowSpinner()
+    const showSpinner = !json && shouldShowSpinner()
     const spinner = showSpinner ? new Spinner() : null
 
     try {
@@ -69,35 +70,48 @@ export const listCommand = new Command()
 
       // Fetch all teams with pagination
       const allTeams: GetTeamsQuery["teams"]["nodes"] = []
-      let hasNextPage = true
+      let pageInfo: GetTeamsQuery["teams"]["pageInfo"] = {
+        hasNextPage: false,
+        endCursor: null,
+      }
       let after: string | null | undefined = undefined
 
-      while (hasNextPage) {
+      do {
         const result: GetTeamsQuery = await client.request(GetTeams, {
           filter: undefined,
           first: 100,
           after,
         })
 
-        const teams = result.teams?.nodes || []
-        allTeams.push(...teams)
+        allTeams.push(...result.teams.nodes)
+        pageInfo = result.teams.pageInfo
 
-        hasNextPage = result.teams?.pageInfo?.hasNextPage || false
-        after = result.teams?.pageInfo?.endCursor
-      }
+        if (pageInfo.hasNextPage && !pageInfo.endCursor) {
+          throw new CliError(
+            "Linear reported more teams but returned no pagination cursor",
+            { suggestion: "Retry the command." },
+          )
+        }
+        after = pageInfo.endCursor
+      } while (pageInfo.hasNextPage)
 
       spinner?.stop()
 
-      // Filter out archived teams
-      let teams = allTeams.filter((team) => !team.archivedAt)
+      // Filter out archived teams and sort alphabetically by name. --json is an
+      // output format, not a raw dump: it gets the same nodes the table shows.
+      const teams = allTeams
+        .filter((team) => !team.archivedAt)
+        .sort((a, b) => a.name.localeCompare(b.name))
+
+      if (json) {
+        console.log(JSON.stringify({ nodes: teams, pageInfo }, null, 2))
+        return
+      }
 
       if (teams.length === 0) {
         console.log("No teams found.")
         return
       }
-
-      // Sort teams alphabetically by name
-      teams = teams.sort((a, b) => a.name.localeCompare(b.name))
 
       // Define column widths based on actual data
       const { columns } = Deno.stdout.isTerminal()

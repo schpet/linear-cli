@@ -114,8 +114,11 @@ export function extractGraphQLMessage(error: ClientError): string {
  * Check if a GraphQL error indicates an entity was not found.
  */
 export function isNotFoundError(error: ClientError): boolean {
+  // Linear's raw message is "Entity not found: <Type>", but its
+  // userPresentableMessage -- which extractGraphQLMessage prefers -- reads
+  // "Could not find referenced <Type>.", so match both spellings.
   const message = extractGraphQLMessage(error).toLowerCase()
-  return message.includes("not found") || message.includes("entity not found")
+  return message.includes("not found") || message.includes("could not find")
 }
 
 /**
@@ -123,6 +126,27 @@ export function isNotFoundError(error: ClientError): boolean {
  */
 export function isClientError(error: unknown): error is ClientError {
   return error instanceof ClientError
+}
+
+/**
+ * Run a request whose root field is a non-null entity lookup (`issue(id:)`,
+ * `document(id:)`, `project(id:)`, `initiative(id:)`). Linear answers a missing
+ * entity with a GraphQL error rather than a null field, so translate that into
+ * a NotFoundError and let every other error propagate untouched.
+ */
+export async function translateNotFound<T>(
+  entityType: string,
+  identifier: string,
+  request: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await request()
+  } catch (error) {
+    if (isClientError(error) && isNotFoundError(error)) {
+      throw new NotFoundError(entityType, identifier)
+    }
+    throw error
+  }
 }
 
 /**

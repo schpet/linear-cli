@@ -202,7 +202,7 @@ export const updateCommand = new Command()
   )
   .option(
     "--team <team:string>",
-    "Re-point to team (key); with --cycle, scopes the cycle lookup instead",
+    "Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead",
   )
   .option(
     "--cycle <cycle:string>",

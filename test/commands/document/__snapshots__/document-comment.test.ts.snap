@@ -1,0 +1,24 @@
+export const snapshot = {};
+
+snapshot[`Document Comment Command - Help Through Parent 1`] = `
+stdout:
+"
+Usage: document comment
+
+Description:
+
+  Manage document comments
+
+Options:
+
+  -h, --help  - Show this help.  
+
+Commands:
+
+  add   <document>  - Add a comment or reply to a document (by ID or slug)
+  list  <document>  - List comments on a document (by ID or slug)         
+
+"
+stderr:
+""
+`;

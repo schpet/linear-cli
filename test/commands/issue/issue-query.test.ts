@@ -9,6 +9,7 @@ import {
 import type { OptionSource } from "../../../src/config.ts"
 import {
   commonDenoArgs,
+  resolveTeamMock,
   setupMockLinearServer,
 } from "../../utils/test-helpers.ts"
 
@@ -91,6 +92,7 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "GetIssuesForQuery",
         variables: {
@@ -140,6 +142,7 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "SearchIssues",
         variables: {
@@ -261,6 +264,7 @@ Deno.test("Issue Query Command - Shows Blocked Indicator", async () => {
   setColorEnabled(false)
 
   const { cleanup } = await setupMockLinearServer([
+    resolveTeamMock("ENG"),
     {
       queryName: "GetIssuesForQuery",
       response: {
@@ -485,6 +489,7 @@ Deno.test("Issue Query Command - Shows Cycle Column", async () => {
   }
 
   const { cleanup } = await setupMockLinearServer([
+    resolveTeamMock("ENG"),
     {
       queryName: "GetIssuesForQuery",
       response: {
@@ -576,6 +581,7 @@ Deno.test("Issue Query Command - Hides Cycle Column When Cycles Disabled", async
   setColorEnabled(false)
 
   const { cleanup } = await setupMockLinearServer([
+    resolveTeamMock("ENG"),
     {
       queryName: "GetIssuesForQuery",
       response: {
@@ -650,7 +656,7 @@ Deno.test("Issue Query Command - shows note when default team comes from env var
   assertEquals(
     errorLogs.some((l) =>
       l.includes(
-        "Note: using default team ENG. Pass --team <key> or --all-teams to be explicit.",
+        "Note: using default team ENG. Pass --team <key, name, or ID> or --all-teams to be explicit.",
       )
     ),
     true,
@@ -843,4 +849,233 @@ Deno.test("Issue Query Command - Multi-team results group by type without compar
     logStub.restore()
     await cleanup()
   }
+})
+
+// --- --state accepts workflow state names and IDs, resolved within the scope ---
+
+const ENG_STATES_MOCK = {
+  queryName: "GetWorkflowStatesInScope",
+  variables: { filter: { team: { key: { in: ["ENG"] } } } },
+  response: {
+    data: {
+      workflowStates: {
+        nodes: [
+          {
+            id: "s-backlog",
+            name: "Backlog",
+            type: "backlog",
+            team: { key: "ENG" },
+          },
+          {
+            id: "s-review",
+            name: "In Review",
+            type: "started",
+            team: { key: "ENG" },
+          },
+        ],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      },
+    },
+  },
+}
+
+// A state name is looked up in the scoped team and sent as an id filter.
+await snapshotTest({
+  name: "Issue Query Command - State By Name JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["--team", "ENG", "--state", "in review", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
+      ENG_STATES_MOCK,
+      {
+        queryName: "GetIssuesForQuery",
+        variables: {
+          filter: {
+            team: { key: { eq: "ENG" } },
+            state: { id: { in: ["s-review"] } },
+          },
+        },
+        response: {
+          data: {
+            issues: {
+              nodes: [mockIssueNode],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ], { NO_COLOR: "true" })
+
+    try {
+      await queryCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Mixing a type with a name produces an or-filter; a state ID needs no name
+// match but must exist in the scope.
+await snapshotTest({
+  name: "Issue Query Command - Mixed State Types And Names JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "--team",
+    "ENG",
+    "--state",
+    "started",
+    "--state",
+    "In Review",
+    "--json",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
+      ENG_STATES_MOCK,
+      {
+        queryName: "GetIssuesForQuery",
+        variables: {
+          filter: {
+            team: { key: { eq: "ENG" } },
+            state: {
+              or: [{ type: { in: ["started"] } }, { id: { in: ["s-review"] } }],
+            },
+          },
+        },
+        response: {
+          data: {
+            issues: {
+              nodes: [mockIssueNode],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ], { NO_COLOR: "true" })
+
+    try {
+      await queryCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// An unknown state name errors before any issues are fetched and lists what
+// the team actually has.
+await snapshotTest({
+  name: "Issue Query Command - Unknown State Name Lists Valid States",
+  meta: import.meta,
+  colors: false,
+  args: ["--team", "ENG", "--state", "Done"],
+  denoArgs: commonDenoArgs,
+  canFail: true,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
+      ENG_STATES_MOCK,
+    ], { NO_COLOR: "true" })
+
+    try {
+      await queryCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// With --all-teams a name matches the same-named state in every team, and the
+// state lookup carries no team filter.
+await snapshotTest({
+  name: "Issue Query Command - All Teams State By Name JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["--all-teams", "--state", "In Review", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetWorkflowStatesInScope",
+        variables: { filter: undefined },
+        response: {
+          data: {
+            workflowStates: {
+              nodes: [
+                {
+                  id: "s-eng-review",
+                  name: "In Review",
+                  type: "started",
+                  team: { key: "ENG" },
+                },
+                {
+                  id: "s-app-review",
+                  name: "In Review",
+                  type: "started",
+                  team: { key: "APP" },
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+      {
+        queryName: "GetIssuesForQuery",
+        variables: {
+          filter: { state: { id: { in: ["s-eng-review", "s-app-review"] } } },
+        },
+        response: {
+          data: {
+            issues: {
+              nodes: [mockIssueNode],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ], { NO_COLOR: "true" })
+
+    try {
+      await queryCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// --team accepts a name; the issue filter still uses the canonical key.
+await snapshotTest({
+  name: "Issue Query Command - Team By Name JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["--team", "engineering", "--json"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("engineering"),
+      {
+        queryName: "GetIssuesForQuery",
+        variables: { filter: { team: { key: { eq: "ENG" } } } },
+        response: {
+          data: {
+            issues: {
+              nodes: [mockIssueNode],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    ], { NO_COLOR: "true" })
+
+    try {
+      await queryCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
 })

@@ -4,6 +4,7 @@ import { viewCommand } from "./project-view.ts"
 import { createCommand } from "./project-create.ts"
 import { updateCommand } from "./project-update.ts"
 import { deleteCommand } from "./project-delete.ts"
+import { commentCommand } from "./project-comment.ts"
 
 export const projectCommand = new Command()
   .description("Manage Linear projects")
@@ -15,3 +16,4 @@ export const projectCommand = new Command()
   .command("create", createCommand)
   .command("update", updateCommand)
   .command("delete", deleteCommand)
+  .command("comment", commentCommand)

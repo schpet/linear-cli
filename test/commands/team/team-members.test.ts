@@ -3,6 +3,7 @@ import { assertEquals } from "@std/assert"
 import { membersCommand } from "../../../src/commands/team/team-members.ts"
 import { teamCommand } from "../../../src/commands/team/team.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
+import { resolveTeamMock } from "../../utils/test-helpers.ts"
 
 const denoArgs = ["--allow-all", "--quiet"]
 
@@ -81,6 +82,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "GetTeamMembers",
         variables: { teamKey: "ENG", includeDisabled: false },
@@ -112,6 +114,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "GetTeamMembers",
         variables: { teamKey: "ENG", includeDisabled: true },
@@ -142,6 +145,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "GetTeamMembers",
         variables: { teamKey: "ENG", includeDisabled: false },
@@ -169,6 +173,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "GetTeamMembers",
         variables: { teamKey: "ENG", includeDisabled: true },
@@ -197,6 +202,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "GetTeamMembers",
         variables: { teamKey: "ENG", includeDisabled: false },
@@ -227,6 +233,7 @@ await cliffySnapshotTest({
   denoArgs,
   async fn() {
     const server = new MockLinearServer([
+      resolveTeamMock("ENG"),
       {
         queryName: "GetTeamMembers",
         variables: { teamKey: "ENG", includeDisabled: false, after: undefined },

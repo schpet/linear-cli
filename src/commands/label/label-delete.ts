@@ -2,7 +2,7 @@ import { Command } from "@cliffy/command"
 import { Confirm, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getTeamKey } from "../../utils/linear.ts"
+import { getTeamKey, resolveTeam } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import {
   CliError,
@@ -142,16 +142,19 @@ export const deleteCommand = new Command()
   .description("Delete an issue label")
   .arguments("<nameOrId:string>")
   .option(
-    "-t, --team <teamKey:string>",
-    "Team key to disambiguate labels with same name",
+    "-t, --team <team:string>",
+    "Team key, name, or ID to disambiguate labels with the same name",
   )
   .option("-f, --force", "Skip confirmation prompt")
   .action(async ({ team: teamKey, force }, nameOrId) => {
     try {
       const client = getGraphQLClient()
 
-      // Use configured team if not specified
-      const effectiveTeamKey = teamKey || getTeamKey()
+      // An explicit team may be a key, name, or ID; labels are matched on the
+      // canonical key. The configured default is already a key.
+      const effectiveTeamKey = teamKey
+        ? (await resolveTeam(teamKey)).key
+        : getTeamKey()
 
       // Resolve label
       const label = await resolveLabelId(client, nameOrId, effectiveTeamKey)

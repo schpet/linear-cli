@@ -23,6 +23,7 @@ stdout:
     {
       "id": "comment-uuid-456",
       "body": "This is a comment",
+      "quotedText": "the sentence it is anchored to",
       "createdAt": "2024-01-15T10:30:00Z",
       "updatedAt": "2024-01-15T10:30:00Z",
       "editedAt": null,
@@ -148,6 +149,57 @@ Merged in abc1234
   Falls back to the bot type when name is null
 
 "
+stderr:
+""
+`;
+
+snapshot[`Issue Comment List Command - JSON Output Follows Pagination 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "comment-uuid-1",
+      "body": "First page",
+      "quotedText": null,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/issue/TEST-123#comment-uuid-1",
+      "user": {
+        "id": "user-uuid-123",
+        "name": "testuser",
+        "displayName": "Test User"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": null
+    },
+    {
+      "id": "comment-uuid-2",
+      "body": "Second page",
+      "quotedText": null,
+      "createdAt": "2024-01-15T11:30:00Z",
+      "updatedAt": "2024-01-15T11:30:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/issue/TEST-123#comment-uuid-2",
+      "user": {
+        "id": "user-uuid-123",
+        "name": "testuser",
+        "displayName": "Test User"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": {
+        "id": "comment-uuid-1"
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": "cursor-2"
+  }
+}
+'
 stderr:
 ""
 `;

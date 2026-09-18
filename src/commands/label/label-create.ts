@@ -2,14 +2,9 @@ import { Command } from "@cliffy/command"
 import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getAllTeams, getTeamIdByKey, getTeamKey } from "../../utils/linear.ts"
+import { getAllTeams, getTeamKey, resolveTeam } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
-import {
-  CliError,
-  handleError,
-  NotFoundError,
-  ValidationError,
-} from "../../utils/errors.ts"
+import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 
 const CreateIssueLabel = gql(`
   mutation CreateIssueLabel($input: IssueLabelCreateInput!) {
@@ -53,8 +48,8 @@ export const createCommand = new Command()
   )
   .option("-d, --description <description:string>", "Label description")
   .option(
-    "-t, --team <teamKey:string>",
-    "Team key for team-specific label (omit for workspace label)",
+    "-t, --team <team:string>",
+    "Team key, name, or ID for a team-specific label (omit for workspace label)",
   )
   .option(
     "-i, --interactive",
@@ -183,10 +178,7 @@ export const createCommand = new Command()
       // Build input
       let teamId: string | undefined
       if (teamKey) {
-        teamId = await getTeamIdByKey(teamKey.toUpperCase())
-        if (!teamId) {
-          throw new NotFoundError("Team", teamKey)
-        }
+        teamId = (await resolveTeam(teamKey)).id
       }
 
       const input = {

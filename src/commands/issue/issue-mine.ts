@@ -16,11 +16,13 @@ import {
   getCycleIdByNameOrNumber,
   getProjectIdByName,
   getProjectOptionsByName,
-  getTeamIdByKey,
   getTeamKey,
   isIssueBlocked,
   isLinearUuid,
+  ISSUE_STATE_TYPES,
   resolveMilestoneId,
+  resolveStateSelection,
+  resolveTeam,
   selectOption,
 } from "../../utils/linear.ts"
 import { openTeamAssigneeView } from "../../utils/actions.ts"
@@ -34,23 +36,16 @@ import {
 } from "../../utils/errors.ts"
 
 const SortType = new EnumType(["manual", "priority"])
-const StateType = new EnumType([
-  "triage",
-  "backlog",
-  "unstarted",
-  "started",
-  "completed",
-  "canceled",
-])
 
 export const mineCommand = new Command()
   .name("mine")
   .description("List your issues")
   .type("sort", SortType)
-  .type("state", StateType)
   .option(
-    "-s, --state <state:state>",
-    "Filter by issue state (can be repeated for multiple states)",
+    "-s, --state <state:string>",
+    `Filter by workflow state type (${
+      ISSUE_STATE_TYPES.join(", ")
+    }), name, or ID (can be repeated for multiple states)`,
     {
       default: ["unstarted"],
       collect: true,
@@ -69,7 +64,7 @@ export const mineCommand = new Command()
   )
   .option(
     "--team <team:string>",
-    "Team to list issues for (if not your default team)",
+    "Team key, name, or ID to list issues for (if not your default team)",
   )
   .option(
     "--project <project:string>",
@@ -180,14 +175,17 @@ export const mineCommand = new Command()
         }
 
         const sort = resolveIssueSort(sortFlag)
-        const teamKey = team || getTeamKey()
+        // An explicit team may be a key, name, or UUID; keep the resolved
+        // team so --cycle can reuse its UUID. The configured default is a key.
+        const explicitTeam = team ? await resolveTeam(team) : undefined
+        const teamKey = explicitTeam?.key ?? getTeamKey()
         if (!teamKey) {
           throw new ValidationError(
             "No default team configured and no team scope provided",
             {
               suggestion: (await isInsideGitRepo())
-                ? "Use --team <key> to specify a team, or run `linear config` to link this repository to a team."
-                : "Use --team <key> to specify a team.",
+                ? "Use --team <key, name, or ID> to specify a team, or run `linear config` to link this repository to a team."
+                : "Use --team <key, name, or ID> to specify a team.",
             },
           )
         }
@@ -223,10 +221,7 @@ export const mineCommand = new Command()
 
         let cycleId: string | undefined
         if (cycle != null) {
-          const teamId = await getTeamIdByKey(teamKey)
-          if (!teamId) {
-            throw new NotFoundError("Team", teamKey)
-          }
+          const teamId = explicitTeam?.id ?? (await resolveTeam(teamKey)).id
           cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
         }
 
@@ -266,9 +261,13 @@ export const mineCommand = new Command()
         const spinner = showSpinner ? new Spinner() : null
         spinner?.start()
 
+        const stateSelection = allStates
+          ? undefined
+          : await resolveStateSelection(stateArray, { teamKeys: [teamKey] })
+
         const result = await fetchIssuesForState(
           teamKey,
-          allStates ? undefined : stateArray,
+          stateSelection,
           undefined, // assignee — always self
           false, // unassigned
           false, // allAssignees

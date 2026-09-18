@@ -166,6 +166,59 @@ await snapshotTest({
   },
 })
 
+// --reply-to is the documented spelling of --parent. The mock requires both
+// issueId and parentId in the input: Linear rejects a reply that names only
+// its parent, so the reply must stay attached to the issue.
+await snapshotTest({
+  name: "Issue Comment Add Command - With Reply To Flag",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "TEST-123",
+    "--body",
+    "Replying via --reply-to",
+    "--reply-to",
+    "parent-comment-uuid-123",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      {
+        queryName: "GetIssueId",
+        variables: { id: "TEST-123" },
+        response: { data: { issue: { id: "issue-uuid-123" } } },
+      },
+      {
+        queryName: "AddComment",
+        variables: {
+          input: {
+            body: "Replying via --reply-to",
+            issueId: "TEST-123",
+            parentId: "parent-comment-uuid-123",
+          },
+        },
+        response: {
+          data: {
+            commentCreate: {
+              success: true,
+              comment: {
+                id: "comment-uuid-reply-790",
+                url: "https://linear.app/issue/TEST-123#comment-uuid-reply-790",
+              },
+            },
+          },
+        },
+      },
+    ])
+
+    try {
+      await commentAddCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
 // Test validation: --public with no attachments is rejected before any work
 Deno.test("Issue Comment Add Command - rejects --public without --attach", async () => {
   const errorLogs: string[] = []

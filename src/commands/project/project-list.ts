@@ -7,12 +7,16 @@ import type {
   ProjectStatusType,
 } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { getTimeAgo, padDisplay } from "../../utils/display.ts"
+import {
+  getProjectPriorityLabel,
+  getTimeAgo,
+  padDisplay,
+} from "../../utils/display.ts"
 import { LINEAR_WEB_BASE_URL } from "../../const.ts"
-import { getTeamKey } from "../../utils/linear.ts"
+import { getTeamKey, resolveTeam } from "../../utils/linear.ts"
 import { getOption } from "../../config.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
-import { handleError, ValidationError } from "../../utils/errors.ts"
+import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 
 const GetProjects = gql(`
   query GetProjects($filter: ProjectFilter, $first: Int, $after: String) {
@@ -24,11 +28,13 @@ const GetProjects = gql(`
         slugId
         icon
         color
+        sortOrder
         status {
           id
           name
           color
           type
+          position
         }
         lead {
           name
@@ -59,10 +65,104 @@ const GetProjects = gql(`
   }
 `)
 
+/**
+ * Just the fields the display order is computed from. Narrower than the query
+ * node so the comparator states what it actually reads, and so tests can build
+ * ordering cases without standing up a whole project.
+ */
+export interface ProjectDisplayOrderKey {
+  id: string
+  name: string
+  sortOrder: number
+  status: { type: ProjectStatusType; position: number }
+}
+
+/**
+ * Rank a project status by where its category sits in Linear's project flow.
+ *
+ * `ProjectStatusType`'s order in the SDL is alphabetical and so says nothing
+ * about the lifecycle; the flow order below is the one Linear lays its project
+ * statuses out in. The `switch` is exhaustive on purpose: a status type added
+ * to the schema should fail the type check here, where someone has to decide
+ * where it belongs, rather than silently sort to the end.
+ */
+function statusTypeRank(type: ProjectStatusType): number {
+  switch (type) {
+    case "backlog":
+      return 0
+    case "planned":
+      return 1
+    case "started":
+      return 2
+    case "paused":
+      return 3
+    case "completed":
+      return 4
+    case "canceled":
+      return 5
+    default: {
+      const unreachable: never = type
+      throw new CliError(
+        `Linear returned an unknown project status type: ${
+          String(unreachable)
+        }`,
+        { suggestion: "Update the CLI, or report this if it persists." },
+      )
+    }
+  }
+}
+
+/**
+ * Compare two `Float!` sort keys. A null or NaN key would make the comparator
+ * return NaN, which scrambles the listing in a way that is much harder to spot
+ * than an error.
+ */
+function compareNumericKey(a: number, b: number, field: string): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new CliError(
+      `Linear returned a non-numeric ${field} for a project.`,
+      { suggestion: "Retry, or report this if it keeps happening." },
+    )
+  }
+  return a - b
+}
+
+/**
+ * Order projects the way Linear's own project list does.
+ *
+ * Reconstructed from the schema rather than observed in the app: `position` is
+ * documented as ordering statuses "within its type group", so the type's place
+ * in the flow comes first and the configured position refines it, and
+ * `sortOrder` is documented as the manual order used in list views. Name and id
+ * only break ties, so the result is stable across runs.
+ */
+export function compareProjectsForDisplay(
+  a: ProjectDisplayOrderKey,
+  b: ProjectDisplayOrderKey,
+): number {
+  const byType = statusTypeRank(a.status.type) - statusTypeRank(b.status.type)
+  if (byType !== 0) return byType
+
+  const byPosition = compareNumericKey(
+    a.status.position,
+    b.status.position,
+    "status position",
+  )
+  if (byPosition !== 0) return byPosition
+
+  const byManualOrder = compareNumericKey(a.sortOrder, b.sortOrder, "sortOrder")
+  if (byManualOrder !== 0) return byManualOrder
+
+  const byName = a.name.localeCompare(b.name)
+  if (byName !== 0) return byName
+
+  return a.id.localeCompare(b.id)
+}
+
 export const listCommand = new Command()
   .name("list")
   .description("List projects")
-  .option("--team <team:string>", "Filter by team key")
+  .option("--team <team:string>", "Filter by team key, name, or ID")
   .option("--all-teams", "Show projects from all teams")
   .option("--status <status:string>", "Filter by status name")
   .option("-w, --web", "Open in web browser")
@@ -70,31 +170,37 @@ export const listCommand = new Command()
   .option("-j, --json", "Output as JSON")
   .action(async ({ team, allTeams, status, web, app, json }) => {
     if (web || app) {
-      let workspace = getOption("workspace")
-      if (!workspace) {
-        // Get workspace from viewer if not configured
-        const client = getGraphQLClient()
-        const viewerQuery = gql(`
-          query GetViewer {
-            viewer {
-              organization {
-                urlKey
+      try {
+        let workspace = getOption("workspace")
+        if (!workspace) {
+          // Get workspace from viewer if not configured
+          const client = getGraphQLClient()
+          const viewerQuery = gql(`
+            query GetViewer {
+              viewer {
+                organization {
+                  urlKey
+                }
               }
             }
-          }
-        `)
-        const result = await client.request(viewerQuery)
-        workspace = result.viewer.organization.urlKey
-      }
+          `)
+          const result = await client.request(viewerQuery)
+          workspace = result.viewer.organization.urlKey
+        }
 
-      // Determine team to filter by for URL construction
-      const teamKey = allTeams ? null : (team?.toUpperCase() || getTeamKey())
-      const url = teamKey
-        ? `${LINEAR_WEB_BASE_URL}/${workspace}/team/${teamKey}/projects/all`
-        : `${LINEAR_WEB_BASE_URL}/${workspace}/projects/all`
-      const destination = app ? "Linear.app" : "web browser"
-      console.log(`Opening ${url} in ${destination}`)
-      await open(url, app ? { app: { name: "Linear" } } : undefined)
+        // Determine team to filter by for URL construction
+        const teamKey = allTeams
+          ? null
+          : (team ? (await resolveTeam(team)).key : getTeamKey())
+        const url = teamKey
+          ? `${LINEAR_WEB_BASE_URL}/${workspace}/team/${teamKey}/projects/all`
+          : `${LINEAR_WEB_BASE_URL}/${workspace}/projects/all`
+        const destination = app ? "Linear.app" : "web browser"
+        console.log(`Opening ${url} in ${destination}`)
+        await open(url, app ? { app: { name: "Linear" } } : undefined)
+      } catch (error) {
+        handleError(error, "Failed to open projects")
+      }
       return
     }
     const { Spinner } = await import("@std/cli/unstable-spinner")
@@ -111,7 +217,9 @@ export const listCommand = new Command()
       }
 
       // Determine team to filter by
-      const teamKey = allTeams ? null : (team?.toUpperCase() || getTeamKey())
+      const teamKey = allTeams
+        ? null
+        : (team ? (await resolveTeam(team)).key : getTeamKey())
 
       let filter = {}
       if (teamKey) {
@@ -175,30 +283,7 @@ export const listCommand = new Command()
         return
       }
 
-      // Sort projects logically by status then by relevant date
-      const statusOrder: Record<ProjectStatusType, number> = {
-        "started": 1,
-        "planned": 2,
-        "backlog": 3,
-        "paused": 4,
-        "completed": 5,
-        "canceled": 6,
-      }
-
-      projects = projects.sort((a, b) => {
-        // First sort by status type priority
-        const statusA =
-          statusOrder[a.status.type as keyof typeof statusOrder] || 999
-        const statusB =
-          statusOrder[b.status.type as keyof typeof statusOrder] || 999
-
-        if (statusA !== statusB) {
-          return statusA - statusB
-        }
-
-        // Then sort alphabetically by name
-        return a.name.localeCompare(b.name)
-      })
+      projects = [...projects].sort(compareProjectsForDisplay)
 
       if (json) {
         console.log(JSON.stringify(
@@ -257,21 +342,11 @@ export const listCommand = new Command()
         ...projects.map((project) => project.status.name.length),
       )
 
-      // Calculate priority and health widths based on actual values
-      const priorityMap = {
-        0: "None",
-        1: "Urgent",
-        2: "High",
-        3: "Medium",
-        4: "Low",
-      }
       const PRIORITY_WIDTH = Math.max(
         8, // minimum width for "PRIORITY" header
-        ...projects.map((project) => {
-          const priority =
-            priorityMap[project.priority as keyof typeof priorityMap] || "None"
-          return priority.length
-        }),
+        ...projects.map((project) =>
+          getProjectPriorityLabel(project.priority).length
+        ),
       )
       const HEALTH_WIDTH = Math.max(
         6, // minimum width for "HEALTH" header
@@ -334,15 +409,7 @@ export const listCommand = new Command()
 
       // Print each project
       for (const project of projects) {
-        const priorityMap = {
-          0: "None",
-          1: "Urgent",
-          2: "High",
-          3: "Medium",
-          4: "Low",
-        }
-        const priority =
-          priorityMap[project.priority as keyof typeof priorityMap] || "None"
+        const priority = getProjectPriorityLabel(project.priority)
         const health = project.health || "Unknown"
         const lead = project.lead?.initials || "-"
         const teams = project.teams.nodes.map((t) => t.key).join(",") || "-"

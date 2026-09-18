@@ -7,9 +7,9 @@ import type { GraphQLClient } from "graphql-request"
 import {
   getAllTeams,
   getProjectLabelIdByName,
-  getTeamIdByKey,
   getTeamKey,
   lookupUserId,
+  resolveTeams,
 } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import {
@@ -23,6 +23,7 @@ import {
   resolveProjectDescription,
 } from "./project-description.ts"
 import { withMarkdownHint } from "../../utils/markdown-help.ts"
+import { resolveTemplate } from "../../utils/templates.ts"
 
 const CreateProject = gql(`
   mutation CreateProject($input: ProjectCreateInput!) {
@@ -178,7 +179,7 @@ export const createCommand = new Command()
   )
   .option(
     "-t, --team <team:string>",
-    "Team key (required, can be repeated for multiple teams)",
+    "Team key, name, or ID (required, can be repeated for multiple teams)",
     { collect: true },
   )
   .option(
@@ -215,6 +216,10 @@ export const createCommand = new Command()
     "Add to initiative immediately (ID, slug, or name)",
   )
   .option(
+    "--template <template:string>",
+    "Project template to apply, by name or ID (workspace templates plus those of the project's teams). The template fills in anything you do not pass; explicit flags override it. Applied on create only.",
+  )
+  .option(
     "-i, --interactive",
     "Interactive mode (default if no flags provided)",
   )
@@ -239,6 +244,7 @@ export const createCommand = new Command()
           icon: providedIcon,
           color: providedColor,
           initiative: providedInitiative,
+          template: providedTemplate,
           interactive: interactiveFlag,
           json: jsonOutput,
         } = options
@@ -389,14 +395,16 @@ export const createCommand = new Command()
         }
 
         // Resolve team IDs
-        const teamIds: string[] = []
-        for (const teamKey of teams) {
-          const teamId = await getTeamIdByKey(teamKey.toUpperCase())
-          if (!teamId) {
-            throw new NotFoundError("Team", teamKey)
-          }
-          teamIds.push(teamId)
-        }
+        const teamIds = (await resolveTeams(teams)).map((t) => t.id)
+
+        // A template must be a project template available to one of the
+        // project's teams (or a workspace template).
+        const templateId = providedTemplate == null ? undefined : (
+          await resolveTemplate(providedTemplate, {
+            type: "project",
+            teamIds,
+          })
+        ).id
 
         // Build input - resolve all optional fields first
         let leadId: string | undefined
@@ -481,6 +489,7 @@ export const createCommand = new Command()
           ...(memberIds.length > 0 && { memberIds }),
           ...(providedIcon != null && { icon: providedIcon }),
           ...(providedColor != null && { color: providedColor }),
+          ...(templateId != null && { templateId }),
         }
 
         const { Spinner } = await import("@std/cli/unstable-spinner")

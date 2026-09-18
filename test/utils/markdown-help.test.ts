@@ -32,13 +32,16 @@ const MARKDOWN_BODY_OPTIONS = [
 // existing one) forces a deliberate decision about the guidance rather than
 // silently shipping a command an agent will misuse.
 const EXPECTED_MARKDOWN_COMMANDS = [
+  "document comment add",
   "document create",
   "document update",
+  "initiative comment add",
   "initiative-update create",
   "issue comment add",
   "issue comment update",
   "issue create",
   "issue update",
+  "project comment add",
   "project create",
   "project update",
   "project-update create",

@@ -1,4 +1,6 @@
 import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
+import { assertEquals, assertStringIncludes } from "@std/assert"
+import { fromFileUrl, join } from "@std/path"
 import { apiCommand } from "../../src/commands/api.ts"
 import { loadCredentials } from "../../src/credentials.ts"
 import { MockLinearServer } from "../utils/mock_linear_server.ts"
@@ -14,6 +16,81 @@ await cliffySnapshotTest({
   async fn() {
     await apiCommand.parse()
   },
+})
+
+// The `[query]` positional label used to read like a subcommand, so
+// `linear api query '<document>'` was a natural mistake (#286). Parsing is
+// unchanged; the snapshot pins the help that cliffy prints above the error,
+// which now names the positional and explains that api has no subcommands.
+await cliffySnapshotTest({
+  name: "API Command - Query Keyword Mistaken For Subcommand",
+  meta: import.meta,
+  colors: false,
+  args: ["query", "query { viewer { id } }"],
+  denoArgs,
+  canFail: true,
+  async fn() {
+    await apiCommand.parse()
+  },
+})
+
+// Runs the real entry point so the root command's help row and the exit code
+// are covered; the cliffy snapshot helper imports apiCommand directly and, with
+// canFail, accepts any non-zero status.
+async function runMain(
+  args: string[],
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const mainPath = fromFileUrl(new URL("../../src/main.ts", import.meta.url))
+  const denoJsonPath = fromFileUrl(new URL("../../deno.json", import.meta.url))
+  const homeDir = Deno.env.get("HOME")
+  const denoDir = Deno.env.get("DENO_DIR") ??
+    (homeDir == null ? undefined : join(homeDir, ".cache", "deno"))
+  const command = new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-all",
+      "--quiet",
+      `--config=${denoJsonPath}`,
+      mainPath,
+      ...args,
+    ],
+    clearEnv: true,
+    env: {
+      PATH: Deno.env.get("PATH") ?? "",
+      HOME: homeDir ?? "",
+      ...(denoDir == null ? {} : { DENO_DIR: denoDir }),
+      ...(Deno.build.os === "windows"
+        ? { SystemRoot: Deno.env.get("SystemRoot") ?? "" }
+        : {}),
+      LINEAR_API_KEY: "Bearer test-token",
+      NO_COLOR: "true",
+    },
+    stdout: "piped",
+    stderr: "piped",
+  })
+  const { code, stdout, stderr } = await command.output()
+  return {
+    code,
+    stdout: new TextDecoder().decode(stdout),
+    stderr: new TextDecoder().decode(stderr),
+  }
+}
+
+Deno.test("API Command - Root Help Names The Positional", async () => {
+  const { code, stdout } = await runMain(["--help"])
+  assertEquals(code, 0)
+  const apiRow = stdout.split("\n").find((line) => /^\s+api\s/.test(line))
+  assertStringIncludes(apiRow ?? "", "[graphqlDocument]")
+})
+
+Deno.test("API Command - Query Keyword Still Exits 2", async () => {
+  const { code, stderr } = await runMain([
+    "api",
+    "query",
+    "query { viewer { id } }",
+  ])
+  assertEquals(code, 2)
+  assertStringIncludes(stderr, "Too many arguments: query { viewer { id } }")
 })
 
 await cliffySnapshotTest({

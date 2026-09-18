@@ -67,6 +67,17 @@ linear issue update ENG-123 --remove-label sprint-42 --add-label sprint-43  # at
 linear issue update ENG-123 --label infra --label security   # replaces the label set
 ```
 
+### Create an issue or project from a template
+
+```bash
+linear template list --type issue --team ENG              # find the template a team expects
+linear template view "Bug report"                         # see what it pre-fills (title, fields, body, sub-issues)
+linear issue create --team ENG --template "Bug report" --title "Login fails on Safari"
+linear project create --name "Q3 launch" --team ENG --template "Kickoff"
+```
+
+Explicit flags override the template's values, `--label` merges with its labels, and `--description` replaces its body (omit it to keep the body). Document templates cannot be applied through the API.
+
 ### Add a comment
 
 ```bash
@@ -88,6 +99,16 @@ linear issue view ENG-123          # details incl. comments
 linear issue view ENG-123 --json   # structured output
 linear issue url ENG-123           # print just the URL
 ```
+
+### Close, delete, or archive an issue
+
+```bash
+linear issue update ENG-123 --state Done       # or Canceled; Linear auto-archives closed issues later
+linear issue delete ENG-123                    # trash; restorable in Linear for 30 days
+linear issue archive ENG-123 --confirm         # rarely appropriate, see below
+```
+
+Prefer closing or deleting over archiving. Linear's docs say "archiving happens automatically with no option to manually archive items" (https://linear.app/docs/delete-archive-issues): closed issues are auto-archived after the team's configured period, and Linear removed manual archiving from its app because people used it as a trash can. `issue archive` calls the `issueArchive` mutation directly, bypassing auto-archive's checks for open parents, sub-issues, cycles, and projects, and archived issues vanish from `issue list`, `issue query`, and search unless `--include-archived` is passed. Only archive when the user explicitly asks for it.
 
 ## Best Practices for Markdown Content
 
@@ -188,7 +209,7 @@ Each command has detailed help output describing all available flags and options
 
 Some commands have required flags that aren't obvious. Notable examples:
 
-- `issue list` sorts by priority by default — override via `--sort` (valid values: `manual`, `priority`), the `issue_sort` config option, or the `LINEAR_ISSUE_SORT` env var. Requires `--team <key>` unless the team can be inferred from the directory — if unknown, run `linear team list` first.
+- `issue list` sorts by priority by default — override via `--sort` (valid values: `manual`, `priority`), the `issue_sort` config option, or the `LINEAR_ISSUE_SORT` env var. Requires `--team <key>` unless the team can be inferred from the directory — if unknown, run `linear team list` first (`linear team list --json` maps team names to their `key` and `id`).
 - `--no-pager` is only supported on `issue list` — passing it to other commands like `project list` will error.
 
 ## Using the Linear GraphQL API Directly
@@ -206,6 +227,8 @@ grep -A 30 "^type Issue " "${TMPDIR:-/tmp}/linear-schema.graphql"
 ```
 
 ### Make a GraphQL request
+
+`linear api` takes the GraphQL document as its only positional argument and has no subcommands. Put a leading `query` or `mutation` keyword inside that quoted document: use `linear api 'query { ... }'`, never `linear api query '...'`. `linear issue query` is a separate, real subcommand for searching issues.
 
 **Important:** GraphQL queries containing non-null type markers (e.g. `String` followed by an exclamation mark) must be passed via heredoc stdin to avoid escaping issues. Simple queries without those markers can be passed inline.
 

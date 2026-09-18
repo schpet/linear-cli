@@ -222,11 +222,17 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const server = new MockLinearServer([
-      // Team keys are uppercased before lookup
+      // The resolver matches keys case-insensitively server-side
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "eng" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "CreateDocument",
@@ -288,9 +294,15 @@ await snapshotTest({
   async fn() {
     const server = new MockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetTeamCyclesForLookup",

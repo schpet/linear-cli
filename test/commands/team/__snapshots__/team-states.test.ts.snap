@@ -3,11 +3,11 @@ export const snapshot = {};
 snapshot[`Team States Command - Help Text 1`] = `
 stdout:
 "
-Usage: states [teamKey]
+Usage: states [team]
 
 Description:
 
-  List workflow states for a team
+  List workflow states for a team (by key, name, or ID)
 
 Options:
 
@@ -133,6 +133,74 @@ stdout:
 ""
 stderr:
 "✗ Failed to fetch workflow states: Could not determine team key from directory name
-  Please specify a team key as an argument.
+  Please specify a team key, name, or ID as an argument.
+"
+`;
+
+snapshot[`Team States Command - By Team Name 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "s-triage",
+      "name": "Triage",
+      "type": "triage",
+      "position": 900
+    },
+    {
+      "id": "s-review",
+      "name": "In Review",
+      "type": "started",
+      "position": 1002
+    },
+    {
+      "id": "s-progress",
+      "name": "In Progress",
+      "type": "started",
+      "position": 2
+    },
+    {
+      "id": "s-todo",
+      "name": "Todo",
+      "type": "unstarted",
+      "position": 1
+    },
+    {
+      "id": "s-backlog",
+      "name": "Backlog",
+      "type": "backlog",
+      "position": 0
+    },
+    {
+      "id": "s-done",
+      "name": "Done",
+      "type": "completed",
+      "position": 3
+    },
+    {
+      "id": "s-rejected",
+      "name": "Rejected",
+      "type": "canceled",
+      "position": 0.5
+    },
+    {
+      "id": "s-dupe",
+      "name": "Duplicate",
+      "type": "duplicate",
+      "position": 5
+    }
+  ]
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Team States Command - Unknown Team Lists Keys 1`] = `
+stdout:
+""
+stderr:
+"✗ Failed to fetch workflow states: Team not found: Nope
+  Valid team keys: APP (Apps), ENG (Engineering). Run \`linear team list\` to see all teams.
 "
 `;

@@ -3,7 +3,7 @@ export const snapshot = {};
 snapshot[`Project View Command - Help Text 1`] = `
 stdout:
 "
-Usage: view <projectId>
+Usage: view [projectId]
 
 Description:
 
@@ -11,9 +11,11 @@ Description:
 
 Options:
 
-  -h, --help  - Show this help.      
-  -w, --web   - Open in web browser  
-  -a, --app   - Open in Linear.app   
+  -h, --help  - Show this help.                           
+  -w, --web   - Open in web browser                       
+  -a, --app   - Open in Linear.app                        
+  -j, --json  - Output as JSON                            
+  --no-pager  - Disable automatic paging for long output  
 
 "
 stderr:
@@ -22,64 +24,72 @@ stderr:
 
 snapshot[`Project View Command - With Project Details 1`] = `
 stdout:
-"# 🔐 Authentication System Redesign
+"# Authentication System Redesign [PRJ-12]
 
-**Slug:** auth-redesign-2024
-**URL:** https://linear.app/acme/project/auth-redesign-2024
-**Status:** In Progress
-**Priority:** High
-**Health:** onTrack
-**Creator:** John Admin
-**Lead:** Jane Lead
-**Start Date:** 2024-01-15
-**Target Date:** 2024-04-30
-**Started At:** 1/16/2024
-**Teams:** Backend Team (BACKEND), Security Team (SECURITY)
+**Status:** In Progress | **Priority:** High | **Health:** atRisk | **Lead:** @Jane Lead | **Teams:** Backend Team (BACKEND), Security Team (SECURITY) | **Labels:** security, q1 | **Initiatives:** Platform Hardening | **Progress:** 31%
 
-**Created:** 1/10/2024
-**Updated:** 1/25/2024
+Overhaul of the authentication system.
 
-## Description
+## Overview
 
-Complete overhaul of the authentication system to improve security and user experience.
+# Goals
 
-## Goals
-- Implement OAuth 2.0 / OpenID Connect
+- Implement OAuth 2.0
 - Add multi-factor authentication
-- Improve password reset flow
-- Add social login options
 
-## Technical Requirements
-- JWT tokens with proper rotation
-- Rate limiting on auth endpoints
-- Audit logging for security events
-- GDPR compliance for user data
+
+## Milestones
+
+- **Design complete** _[next, 25%, target 2024-02-01]_
+  Sign-off from security.
+- **Rollout** _[unstarted, 0%, target 2024-03-15]_
+
+## Resources
+
+- **Design doc**: https://example.com/design
+- **Figma board**: https://figma.com/file/abc
+
+## Documents
+
+- **Rollout plan**: https://linear.app/acme/document/rollout-plan
+- **Threat model**: https://linear.app/acme/document/threat-model
+
+## Attachments
+
+- **Build #4127**: https://ci.example.com/builds/4127 _[ci]_
+  _passing in 3m12s_
+
+## Related projects
+
+- **Blocks** Session Service: https://linear.app/acme/project/session-service
+- **Blocked by** Identity Provider Swap: https://linear.app/acme/project/idp-swap
 
 ## Latest Update
 
 **By:** Jane Lead
 **When:** 1/22/2024
-**Health:** onTrack
+**Health:** atRisk
 
-Great progress this week! The OAuth implementation is nearly complete and we're on track for our Q1 delivery. The team has been collaborating well across backend and security concerns.
+OAuth implementation is nearly complete.
 
-**This week's highlights:**
-- OAuth 2.0 flow implementation 80% complete
-- MFA design reviews completed
-- Security penetration testing scheduled
+## Issues
 
-**Next week:**
-- Complete OAuth testing
-- Begin MFA implementation
-- Finalize UI designs
+3 total · 1 to do · 1 in progress · 1 completed
 
-## Issues Summary
+## Details
 
-**Total Issues:** 4
-**Completed:** 1
-**In Progress:** 1
-**To Do:** 1
-**Canceled:** 1
+- **Slug:** auth-redesign-2024
+- **URL:** https://linear.app/acme/project/auth-redesign-2024
+- **Icon:** Rocket
+- **Creator:** John Admin
+- **Members:** Jane Lead
+- **Scope:** 8
+- **Start date:** 2024-01-15
+- **Target date:** 2024-03-31 (quarter)
+- **Started:** 1/15/2024
+- **Health updated:** 1/24/2024
+- **Created:** 1/10/2024
+- **Updated:** 1/25/2024
 "
 stderr:
 ""
@@ -89,14 +99,264 @@ snapshot[`Project View Command - Minimal Project 1`] = `
 stdout:
 "# Simple Project
 
-**Slug:** simple
-**URL:** https://linear.app/acme/project/simple
-**Status:** Backlog
-**Priority:** None
+**Status:** Backlog | **Priority:** None | **Lead:** Unassigned | **Progress:** 0%
 
-**Created:** 1/20/2024
-**Updated:** 1/20/2024
+## Details
+
+- **Slug:** simple
+- **URL:** https://linear.app/acme/project/simple
+- **Created:** 1/20/2024
+- **Updated:** 1/20/2024
 "
+stderr:
+""
+`;
+
+snapshot[`Project View Command - JSON Output 1`] = `
+stdout:
+'{
+  "id": "85d3dad6-136e-49ff-9593-33dc4b22b5ee",
+  "name": "Authentication System Redesign",
+  "identifier": "PRJ-12",
+  "description": "Overhaul of the authentication system.",
+  "content": "# Goals\\\\n\\\\n- Implement OAuth 2.0\\\\n- Add multi-factor authentication\\\\n",
+  "slugId": "auth-redesign-2024",
+  "icon": "Rocket",
+  "color": "#3b82f6",
+  "progress": 0.3125,
+  "scope": 8,
+  "url": "https://linear.app/acme/project/auth-redesign-2024",
+  "priority": 2,
+  "health": "atRisk",
+  "healthUpdatedAt": "2024-01-24T10:00:00Z",
+  "startDate": "2024-01-15",
+  "startDateResolution": null,
+  "targetDate": "2024-03-31",
+  "targetDateResolution": "quarter",
+  "startedAt": "2024-01-15T09:00:00Z",
+  "completedAt": null,
+  "canceledAt": null,
+  "archivedAt": null,
+  "autoArchivedAt": null,
+  "createdAt": "2024-01-10T10:00:00Z",
+  "updatedAt": "2024-01-25T14:30:00Z",
+  "status": {
+    "id": "status-1",
+    "name": "In Progress",
+    "color": "#f59e0b",
+    "type": "started",
+    "position": 2
+  },
+  "creator": {
+    "id": "u1",
+    "name": "john.admin",
+    "displayName": "John Admin"
+  },
+  "lead": {
+    "id": "u2",
+    "name": "jane.lead",
+    "displayName": "Jane Lead"
+  },
+  "teams": {
+    "nodes": [
+      {
+        "id": "team-1",
+        "key": "BACKEND",
+        "name": "Backend Team"
+      },
+      {
+        "id": "team-2",
+        "key": "SECURITY",
+        "name": "Security Team"
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "labels": {
+    "nodes": [
+      {
+        "id": "l1",
+        "name": "security",
+        "color": "#22c55e"
+      },
+      {
+        "id": "l2",
+        "name": "q1",
+        "color": "#f97316"
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "members": {
+    "nodes": [
+      {
+        "id": "u2",
+        "name": "jane.lead",
+        "displayName": "Jane Lead"
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "initiatives": {
+    "nodes": [
+      {
+        "id": "i1",
+        "name": "Platform Hardening",
+        "url": "https://linear.app/acme/initiative/platform-hardening"
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "projectMilestones": {
+    "nodes": [
+      {
+        "id": "m2",
+        "name": "Rollout",
+        "description": null,
+        "targetDate": "2024-03-15",
+        "progress": 0,
+        "status": "unstarted",
+        "sortOrder": 900
+      },
+      {
+        "id": "m1",
+        "name": "Design complete",
+        "description": "Sign-off from security.",
+        "targetDate": "2024-02-01",
+        "progress": 25,
+        "status": "next",
+        "sortOrder": -3
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "externalLinks": {
+    "nodes": [
+      {
+        "id": "e2",
+        "label": "Figma board",
+        "url": "https://figma.com/file/abc",
+        "sortOrder": 900
+      },
+      {
+        "id": "e1",
+        "label": "Design doc",
+        "url": "https://example.com/design",
+        "sortOrder": 4
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "documents": {
+    "nodes": [
+      {
+        "id": "d2",
+        "title": "Threat model",
+        "url": "https://linear.app/acme/document/threat-model",
+        "sortOrder": 20
+      },
+      {
+        "id": "d1",
+        "title": "Rollout plan",
+        "url": "https://linear.app/acme/document/rollout-plan",
+        "sortOrder": 10
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "attachments": {
+    "nodes": [],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "relations": {
+    "nodes": [],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "inverseRelations": {
+    "nodes": [],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "issues": {
+    "nodes": [
+      {
+        "id": "issue-1",
+        "identifier": "AUTH-101",
+        "title": "Implement OAuth 2.0 flow",
+        "state": {
+          "id": "s1",
+          "name": "In Progress",
+          "type": "started"
+        }
+      },
+      {
+        "id": "issue-2",
+        "identifier": "AUTH-102",
+        "title": "Add MFA support",
+        "state": {
+          "id": "s2",
+          "name": "To Do",
+          "type": "unstarted"
+        }
+      },
+      {
+        "id": "issue-3",
+        "identifier": "AUTH-103",
+        "title": "Design new login UI",
+        "state": {
+          "id": "s3",
+          "name": "Done",
+          "type": "completed"
+        }
+      }
+    ],
+    "pageInfo": {
+      "hasNextPage": false,
+      "endCursor": null
+    }
+  },
+  "lastUpdate": {
+    "id": "update-1",
+    "body": "OAuth implementation is nearly complete.",
+    "health": "atRisk",
+    "createdAt": "2024-01-22T16:00:00Z",
+    "user": {
+      "id": "u2",
+      "name": "jane.lead",
+      "displayName": "Jane Lead"
+    }
+  }
+}
+'
 stderr:
 ""
 `;

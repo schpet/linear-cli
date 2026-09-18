@@ -83,6 +83,7 @@ Options:
   -h, --help              - Show this help.                                
   --workspace  <slug>     - Target workspace (uses credentials)            
   --project    <project>  - Project (UUID, slug ID, or name)     (required)
+  -j, --json              - Output as JSON
 ```
 
 ### update
@@ -123,5 +124,6 @@ Options:
   -h, --help              - Show this help.                                                                   
   --workspace  <slug>     - Target workspace (uses credentials)                                               
   --all                   - Fetch and list every issue attached to the milestone (paginates the Linear API).  
-  --project    <project>  - Project for resolving a milestone name (UUID, slug ID, or name)
+  --project    <project>  - Project for resolving a milestone name (UUID, slug ID, or name)                   
+  -j, --json              - Output as JSON
 ```

@@ -16,13 +16,17 @@ import {
   getCycleIdByNameOrNumber,
   getProjectIdByName,
   getProjectOptionsByName,
-  getTeamIdByKey,
   getTeamKeyWithSource,
   isIssueBlocked,
   isLinearUuid,
+  ISSUE_STATE_TYPES,
   resolveMilestoneId,
+  resolveStateSelection,
+  resolveTeam,
+  resolveTeams,
   searchIssuesByTerm,
   selectOption,
+  type StateSelection,
 } from "../../utils/linear.ts"
 import { pipeToUserPager, shouldUsePager } from "../../utils/pager.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
@@ -34,20 +38,11 @@ import {
 } from "../../utils/errors.ts"
 
 const SortType = new EnumType(["manual", "priority"])
-const StateType = new EnumType([
-  "triage",
-  "backlog",
-  "unstarted",
-  "started",
-  "completed",
-  "canceled",
-])
 
 export const queryCommand = new Command()
   .name("query")
   .description("Query issues with structured filters")
   .type("sort", SortType)
-  .type("state", StateType)
   .option(
     "--search <term:string>",
     "Full-text search term",
@@ -58,13 +53,15 @@ export const queryCommand = new Command()
   )
   .option(
     "--team <team:string>",
-    "Filter by team key (can be repeated for multiple teams)",
+    "Filter by team key, name, or ID (can be repeated for multiple teams)",
     { collect: true },
   )
   .option("--all-teams", "Query across all teams")
   .option(
-    "-s, --state <state:state>",
-    "Filter by issue state (can be repeated for multiple states)",
+    "-s, --state <state:string>",
+    `Filter by workflow state type (${
+      ISSUE_STATE_TYPES.join(", ")
+    }), name, or ID (can be repeated for multiple states)`,
     { collect: true },
   )
   .option("--all-states", "Show issues from all states (this is the default)")
@@ -148,13 +145,11 @@ export const queryCommand = new Command()
     try {
       // --- Validation ---
 
-      const teamKeys = teamFlags
-        ? (Array.isArray(teamFlags) ? teamFlags.flat() : [teamFlags]).map((
-          t: string,
-        ) => t.toUpperCase())
+      const teamRefs = teamFlags
+        ? (Array.isArray(teamFlags) ? teamFlags.flat() : [teamFlags])
         : undefined
 
-      if (teamKeys && teamKeys.length > 0 && allTeams) {
+      if (teamRefs && teamRefs.length > 0 && allTeams) {
         throw new ValidationError(
           "Cannot use both --team and --all-teams flags",
         )
@@ -234,13 +229,19 @@ export const queryCommand = new Command()
 
       let resolvedTeamKeys: string[] | undefined
       let isMultiTeam = false
+      // The UUID of the single scoped team when `--team` was explicit; only
+      // `--cycle` needs it, and resolving the flag already fetched it.
+      let explicitTeamId: string | undefined
 
       if (allTeams) {
         resolvedTeamKeys = undefined
         isMultiTeam = true
-      } else if (teamKeys && teamKeys.length > 0) {
-        resolvedTeamKeys = teamKeys
-        isMultiTeam = teamKeys.length > 1
+      } else if (teamRefs && teamRefs.length > 0) {
+        // Keys, names, or UUIDs; downstream filters use the canonical keys.
+        const teams = await resolveTeams(teamRefs)
+        resolvedTeamKeys = teams.map((t) => t.key)
+        isMultiTeam = teams.length > 1
+        explicitTeamId = teams.length === 1 ? teams[0].id : undefined
       } else {
         const defaultTeam = getTeamKeyWithSource()
         if (!defaultTeam) {
@@ -248,19 +249,31 @@ export const queryCommand = new Command()
             "No default team configured and no team scope provided",
             {
               suggestion:
-                "Use --team <key> to specify a team, or --all-teams to query the whole workspace.",
+                "Use --team <key, name, or ID> to specify a team, or --all-teams to query the whole workspace.",
             },
           )
         }
         if (shouldShowDefaultTeamNote(defaultTeam.source)) {
           console.error(
-            `Note: using default team ${defaultTeam.key}. Pass --team <key> or --all-teams to be explicit.`,
+            `Note: using default team ${defaultTeam.key}. Pass --team <key, name, or ID> or --all-teams to be explicit.`,
           )
         }
         resolvedTeamKeys = [defaultTeam.key]
       }
 
       // --- Resolve entity IDs ---
+
+      // State names and IDs are looked up within the team scope, so this has
+      // to wait until the scope is known. Bare types need no lookup.
+      const stateSelection: StateSelection | undefined =
+        stateArray && stateArray.length > 0
+          ? await resolveStateSelection(
+            stateArray,
+            resolvedTeamKeys
+              ? { teamKeys: resolvedTeamKeys }
+              : { allTeams: true },
+          )
+          : undefined
 
       let projectId: string | undefined
       if (project != null) {
@@ -289,14 +302,12 @@ export const queryCommand = new Command()
             "--cycle requires a single team scope",
             {
               suggestion:
-                "Use --team <key> to specify exactly one team when filtering by cycle.",
+                "Use --team <key, name, or ID> to specify exactly one team when filtering by cycle.",
             },
           )
         }
-        const teamId = await getTeamIdByKey(resolvedTeamKeys[0])
-        if (!teamId) {
-          throw new NotFoundError("Team", resolvedTeamKeys[0])
-        }
+        const teamId = explicitTeamId ??
+          (await resolveTeam(resolvedTeamKeys[0])).id
         cycleId = await getCycleIdByNameOrNumber(cycle, teamId)
       }
 
@@ -330,7 +341,7 @@ export const queryCommand = new Command()
 
         const result = await searchIssuesByTerm(searchTerm, {
           teamKeys: resolvedTeamKeys,
-          state: stateArray,
+          state: stateSelection,
           assignee,
           unassigned,
           limit: limit === 0 ? 0 : limit,
@@ -368,7 +379,7 @@ export const queryCommand = new Command()
         const result = await fetchIssuesForQuery({
           teamKeys: resolvedTeamKeys,
           allTeams: allTeams === true,
-          state: stateArray,
+          state: stateSelection,
           assignee,
           unassigned,
           sort,

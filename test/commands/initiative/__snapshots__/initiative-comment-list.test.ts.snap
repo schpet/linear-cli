@@ -1,0 +1,74 @@
+export const snapshot = {};
+
+snapshot[`Initiative Comment List Command - By UUID 1`] = `
+stdout:
+"@Ada Lovelace commented 1/15/2024 [comment-uuid-1]
+Scope is locked for Q3.
+
+  @Slack replied 1/15/2024 [comment-uuid-2]
+  Noted.
+
+"
+stderr:
+""
+`;
+
+snapshot[`Initiative Comment List Command - By Slug JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "id": "comment-uuid-1",
+      "body": "Scope is locked for Q3.",
+      "quotedText": null,
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/initiative/platform-abc123/activity#comment-uuid-1",
+      "user": {
+        "id": "user-uuid-1",
+        "name": "ada",
+        "displayName": "Ada Lovelace"
+      },
+      "externalUser": null,
+      "botActor": null,
+      "parent": null
+    },
+    {
+      "id": "comment-uuid-2",
+      "body": "Noted.",
+      "quotedText": null,
+      "createdAt": "2024-01-15T11:00:00Z",
+      "updatedAt": "2024-01-15T11:00:00Z",
+      "editedAt": null,
+      "url": "https://linear.app/team/initiative/platform-abc123/activity#comment-uuid-2",
+      "user": null,
+      "externalUser": null,
+      "botActor": {
+        "id": "bot-uuid-1",
+        "name": "Slack",
+        "type": "slack",
+        "subType": null
+      },
+      "parent": {
+        "id": "comment-uuid-1"
+      }
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": "comment-uuid-2"
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Initiative Comment List Command - No Comments 1`] = `
+stdout:
+"No comments found for this initiative
+"
+stderr:
+""
+`;

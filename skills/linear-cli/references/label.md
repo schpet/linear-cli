@@ -38,12 +38,12 @@ Description:
 
 Options:
 
-  -h, --help                        - Show this help.                                              
-  --workspace        <slug>         - Target workspace (uses credentials)                          
-  -n, --name         <name>         - Label name (required)                                        
-  -c, --color        <color>        - Color hex code (e.g., #EB5757)                               
-  -d, --description  <description>  - Label description                                            
-  -t, --team         <teamKey>      - Team key for team-specific label (omit for workspace label)  
+  -h, --help                        - Show this help.                                                             
+  --workspace        <slug>         - Target workspace (uses credentials)                                         
+  -n, --name         <name>         - Label name (required)                                                       
+  -c, --color        <color>        - Color hex code (e.g., #EB5757)                                              
+  -d, --description  <description>  - Label description                                                           
+  -t, --team         <team>         - Team key, name, or ID for a team-specific label (omit for workspace label)  
   -i, --interactive                 - Interactive mode (default if no flags provided)
 ```
 
@@ -60,10 +60,10 @@ Description:
 
 Options:
 
-  -h, --help              - Show this help.                                 
-  --workspace  <slug>     - Target workspace (uses credentials)             
-  -t, --team   <teamKey>  - Team key to disambiguate labels with same name  
-  -f, --force             - Skip confirmation prompt
+  -h, --help           - Show this help.                                                  
+  --workspace  <slug>  - Target workspace (uses credentials)                              
+  -t, --team   <team>  - Team key, name, or ID to disambiguate labels with the same name  
+  -f, --force          - Skip confirmation prompt
 ```
 
 ### list
@@ -79,9 +79,10 @@ Description:
 
 Options:
 
-  -h, --help              - Show this help.                                              
-  --team       <teamKey>  - Filter by team (e.g., TC). Shows team-specific labels only.  
-  --workspace             - Show only workspace-level labels (not team-specific)         
-  --all                   - Show all labels (both workspace and team)                    
-  -j, --json              - Output as JSON
+  -h, --help           - Show this help.                                                            
+  --team       <team>  - Filter by team key, name, or ID (e.g., TC). Shows that team's labels plus  
+                         workspace labels.                                                          
+  --workspace          - Show only workspace-level labels (not team-specific)                       
+  --all                - Show all labels (both workspace and team)                                  
+  -j, --json           - Output as JSON
 ```

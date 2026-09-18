@@ -26,9 +26,13 @@ class VariableType extends Type<[string, string]> {
 
 export const apiCommand = new Command()
   .name("api")
-  .description("Make a raw GraphQL API request")
+  .description(
+    `Make a raw GraphQL API request
+
+Pass the GraphQL document as one quoted argument or on stdin. The api command has no subcommands: a leading query or mutation keyword belongs inside that document.`,
+  )
   .type("variable", new VariableType())
-  .arguments("[query:string]")
+  .arguments("[graphqlDocument:string]")
   .option(
     "--variable <variable:variable>",
     "Variable in key=value format (coerces booleans, numbers, null; @file reads from path)",
@@ -45,6 +49,20 @@ export const apiCommand = new Command()
   .option(
     "--silent",
     "Suppress response output (exit code still reflects errors)",
+  )
+  .example("Run an inline document", "linear api '{ viewer { id name } }'")
+  .example(
+    "Run a named query with variables",
+    "linear api 'query RecentIssues($first: Int) { issues(first: $first) { nodes { identifier title } } }' --variable first=5",
+  )
+  .example(
+    "Pipe a document from stdin",
+    "echo '{ viewer { id } }' | linear api",
+  )
+  .example("Read a document from a file", "linear api - < issues.graphql")
+  .example(
+    "Auto-paginate a connection",
+    "linear api --paginate 'query($after: String) { issues(first: 50, after: $after) { nodes { identifier } pageInfo { hasNextPage endCursor } } }'",
   )
   .action(async (options, query?: string) => {
     try {

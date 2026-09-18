@@ -290,9 +290,11 @@ export const viewCommand = new Command()
       console.log(renderMarkdown(markdown, { lineWidth: terminalWidth }))
     } catch (error) {
       spinner?.stop()
-      if (isClientError(error) && isNotFoundError(error)) {
-        throw new NotFoundError("Document", id)
-      }
-      handleError(error, "Failed to view document")
+      // Report through handleError like every other failure; throwing from
+      // here would escape the action and print a stack trace instead.
+      const reported = isClientError(error) && isNotFoundError(error)
+        ? new NotFoundError("Document", id)
+        : error
+      handleError(reported, "Failed to view document")
     }
   })

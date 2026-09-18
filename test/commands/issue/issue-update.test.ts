@@ -2,6 +2,7 @@ import { snapshotTest } from "@cliffy/testing"
 import { updateCommand } from "../../../src/commands/issue/issue-update.ts"
 import {
   commonDenoArgs,
+  resolveTeamMock,
   setupMockLinearServer,
 } from "../../utils/test-helpers.ts"
 
@@ -38,14 +39,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey() - converting team key to ID
+      // Mock response for resolveTeam() - converting team key to ID
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -103,14 +104,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey() - team keys may contain digits
+      // Mock response for resolveTeam() - team keys may contain digits
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "PLA4" },
+        queryName: "ResolveTeam",
+        variables: { reference: "PLA4" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-pla4-id" }],
+              nodes: [{ id: "team-pla4-id", key: "PLA4", name: "Platform" }],
             },
           },
         },
@@ -157,14 +158,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey()
+      // Mock response for resolveTeam()
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -238,14 +239,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey() - converting team key to ID
+      // Mock response for resolveTeam() - converting team key to ID
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -307,14 +308,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey()
+      // Mock response for resolveTeam()
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -371,14 +372,14 @@ await snapshotTest({
   denoArgs: commonDenoArgs,
   async fn() {
     const { cleanup } = await setupMockLinearServer([
-      // Mock response for getTeamIdByKey()
+      // Mock response for resolveTeam()
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
         response: {
           data: {
             teams: {
-              nodes: [{ id: "team-eng-id" }],
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
             },
           },
         },
@@ -459,9 +460,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "UpdateIssue",
@@ -498,9 +505,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "UpdateIssue",
@@ -540,9 +553,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetWorkflowStates",
@@ -600,9 +619,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       // No GetViewerId mock: --unassign must not perform a user lookup.
       {
@@ -646,9 +671,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "UpdateIssue",
@@ -696,9 +727,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetViewerId",
@@ -766,9 +803,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "UpdateIssue",
@@ -810,9 +853,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetTeamCyclesForLookup",
@@ -899,9 +948,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetTeamCyclesForLookup",
@@ -1003,9 +1058,15 @@ Deno.test("Issue Update Command - relative cycle offset requires an active cycle
   const { stub } = await import("@std/testing/mock")
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
-      response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+          },
+        },
+      },
     },
     {
       queryName: "GetTeamCyclesForLookup",
@@ -1068,9 +1129,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetTeamCyclesForLookup",
@@ -1159,9 +1226,15 @@ Deno.test("Issue Update Command - --cycle errors when team has cycles disabled",
   const { stub } = await import("@std/testing/mock")
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
-      response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+          },
+        },
+      },
     },
     {
       queryName: "GetTeamCyclesForLookup",
@@ -1210,9 +1283,15 @@ Deno.test("Issue Update Command - --cycle now errors helpfully when no cycle is 
   const { stub } = await import("@std/testing/mock")
   const { cleanup } = await setupMockLinearServer([
     {
-      queryName: "GetTeamIdByKey",
-      variables: { team: "ENG" },
-      response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+      queryName: "ResolveTeam",
+      variables: { reference: "ENG" },
+      response: {
+        data: {
+          teams: {
+            nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+          },
+        },
+      },
     },
     {
       queryName: "GetTeamCyclesForLookup",
@@ -1281,9 +1360,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetIssueLabelIdByNameForTeam",
@@ -1339,9 +1424,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetIssueLabelIdByNameForTeam",
@@ -1403,9 +1494,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetIssueLabelIdByNameForTeam",
@@ -1467,9 +1564,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetIssueLabelIdByNameForTeam",
@@ -1539,9 +1642,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetIssueLabelIdByNameForTeam",
@@ -1668,9 +1777,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetIssueLabelIdByNameForTeam",
@@ -1711,9 +1826,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetIssueLabelIdByNameForTeam",
@@ -1740,9 +1861,15 @@ await snapshotTest({
   async fn() {
     const { cleanup } = await setupMockLinearServer([
       {
-        queryName: "GetTeamIdByKey",
-        variables: { team: "ENG" },
-        response: { data: { teams: { nodes: [{ id: "team-eng-id" }] } } },
+        queryName: "ResolveTeam",
+        variables: { reference: "ENG" },
+        response: {
+          data: {
+            teams: {
+              nodes: [{ id: "team-eng-id", key: "ENG", name: "Engineering" }],
+            },
+          },
+        },
       },
       {
         queryName: "GetIssueLabelIdByNameForTeam",
@@ -1757,4 +1884,252 @@ await snapshotTest({
       await cleanup()
     }
   },
+})
+
+// --team accepts a name: the mutation gets the UUID and the state lookup uses
+// the canonical key.
+await snapshotTest({
+  name: "Issue Update Command - Team By Name",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--team", "Apps", "--state", "Todo"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("Apps", { id: "team-app-id", key: "APP", name: "Apps" }),
+      {
+        queryName: "GetWorkflowStates",
+        variables: { teamKey: "APP" },
+        response: {
+          data: {
+            team: {
+              states: {
+                nodes: [
+                  {
+                    id: "s-app-todo",
+                    name: "Todo",
+                    type: "unstarted",
+                    position: 1,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: { teamId: "team-app-id", stateId: "s-app-todo" },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "APP-7",
+                url: "https://linear.app/test-team/issue/APP-7/moved",
+                title: "Moved",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Every clear flag must send its field as an explicit null. As with
+// --unassign and --clear-cycle above, the exact-variables mock proves each key
+// is present AND null. There are no GetProjectIdByName, GetIssueProjectId,
+// GetProjectMilestonesForLookup, or GetIssueId mocks: clearing must not
+// resolve anything.
+await snapshotTest({
+  name: "Issue Update Command - Clear Flags Send Null",
+  meta: import.meta,
+  colors: false,
+  args: [
+    "ENG-123",
+    "--clear-due-date",
+    "--clear-estimate",
+    "--clear-parent",
+    "--clear-project",
+    "--clear-milestone",
+  ],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: {
+            dueDate: null,
+            parentId: null,
+            estimate: null,
+            teamId: "team-eng-id",
+            projectId: null,
+            projectMilestoneId: null,
+          },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Moving an issue to a project while detaching its milestone: the project is
+// resolved, the milestone is nulled, and neither GetIssueProjectId nor a
+// milestone lookup runs (no mocks for them).
+await snapshotTest({
+  name: "Issue Update Command - Project With Clear Milestone",
+  meta: import.meta,
+  colors: false,
+  args: ["ENG-123", "--project", "Mobile App", "--clear-milestone"],
+  denoArgs: commonDenoArgs,
+  async fn() {
+    const { cleanup } = await setupMockLinearServer([
+      resolveTeamMock("ENG"),
+      {
+        queryName: "GetProjectIdByName",
+        variables: { name: "Mobile App" },
+        response: {
+          data: { projects: { nodes: [{ id: "project-mobile" }] } },
+        },
+      },
+      {
+        queryName: "UpdateIssue",
+        variables: {
+          id: "ENG-123",
+          input: {
+            teamId: "team-eng-id",
+            projectId: "project-mobile",
+            projectMilestoneId: null,
+          },
+        },
+        response: {
+          data: {
+            issueUpdate: {
+              success: true,
+              issue: {
+                id: "issue-existing-123",
+                identifier: "ENG-123",
+                url: "https://linear.app/test-team/issue/ENG-123/some-issue",
+                title: "Some issue",
+              },
+            },
+          },
+        },
+      },
+    ], { LINEAR_TEAM_ID: "ENG" })
+
+    try {
+      await updateCommand.parse()
+    } finally {
+      await cleanup()
+    }
+  },
+})
+
+// Each clear flag conflicts with its set flag. The endpoint is dead, so these
+// only pass if the command errors before any request. `--estimate 0` guards
+// the null check: zero is an explicit value, not an omission.
+Deno.test("Issue Update Command - clear flags reject their set flags", async (t) => {
+  const { assertEquals } = await import("@std/assert")
+  const { stub } = await import("@std/testing/mock")
+  const cases: { args: string[]; message: string; suggestion: string }[] = [
+    {
+      args: ["--due-date", "2026-10-01", "--clear-due-date"],
+      message: "Cannot specify both --due-date and --clear-due-date",
+      suggestion: "--clear-due-date on its own",
+    },
+    {
+      args: ["--estimate", "0", "--clear-estimate"],
+      message: "Cannot specify both --estimate and --clear-estimate",
+      suggestion: "--clear-estimate on its own",
+    },
+    {
+      args: ["--parent", "ENG-1", "--clear-parent"],
+      message: "Cannot specify both --parent and --clear-parent",
+      suggestion: "--clear-parent on its own",
+    },
+    {
+      args: ["--project", "Mobile App", "--clear-project"],
+      message: "Cannot specify both --project and --clear-project",
+      suggestion: "--clear-project on its own",
+    },
+    {
+      args: ["--milestone", "Phase 2", "--clear-milestone"],
+      message: "Cannot specify both --milestone and --clear-milestone",
+      suggestion: "--clear-milestone on its own",
+    },
+    {
+      args: [
+        "--clear-project",
+        "--milestone",
+        "0d7a1d1e-4b1e-4d7e-9c5e-1f0f8a2b3c4d",
+      ],
+      message: "Cannot specify --milestone while clearing the issue's project",
+      suggestion: "replace it with --clear-milestone",
+    },
+  ]
+
+  Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1")
+  Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+  try {
+    for (const c of cases) {
+      await t.step(c.args.join(" "), async () => {
+        const errorLogs: string[] = []
+        const errorStub = stub(console, "error", (...args: unknown[]) => {
+          errorLogs.push(args.map(String).join(" "))
+        })
+        const exitStub = stub(Deno, "exit", (_code?: number) => {
+          throw new Error("EXIT")
+        })
+        let exited = false
+        try {
+          await updateCommand.parse(["ENG-123", ...c.args])
+        } catch (e) {
+          if (!(e instanceof Error) || e.message !== "EXIT") throw e
+          exited = true
+        } finally {
+          errorStub.restore()
+          exitStub.restore()
+        }
+        assertEquals(exited, true)
+        assertEquals(errorLogs.some((l) => l.includes(c.message)), true)
+        assertEquals(errorLogs.some((l) => l.includes(c.suggestion)), true)
+      })
+    }
+  } finally {
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+  }
 })

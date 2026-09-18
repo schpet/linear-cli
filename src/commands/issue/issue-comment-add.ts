@@ -1,7 +1,4 @@
 import { Command } from "@cliffy/command"
-import { Input } from "@cliffy/prompt"
-import { gql } from "../../__codegen__/gql.ts"
-import { getGraphQLClient } from "../../utils/graphql.ts"
 import { getIssueIdentifier } from "../../utils/linear.ts"
 import {
   formatAsMarkdownLink,
@@ -11,8 +8,16 @@ import {
   validateFilePath,
 } from "../../utils/upload.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
-import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import { handleError, ValidationError } from "../../utils/errors.ts"
 import { withMarkdownHint } from "../../utils/markdown-help.ts"
+import {
+  COMMENT_BODY_DESCRIPTION,
+  COMMENT_BODY_FILE_DESCRIPTION,
+  createComment,
+  promptCommentBody,
+  REPLY_TO_DESCRIPTION,
+  resolveCommentBody,
+} from "../../utils/comments.ts"
 
 // Linear documents CommentCreateInput.id as "The identifier in UUID v4 format".
 const UUID_V4_REGEX =
@@ -26,12 +31,10 @@ export const commentAddCommand = new Command()
     ),
   )
   .arguments("[issueId:string]")
-  .option("-b, --body <text:string>", "Comment body text")
-  .option(
-    "--body-file <path:string>",
-    "Read comment body from a file (preferred for markdown content)",
-  )
-  .option("-p, --parent <id:string>", "Parent comment ID for replies")
+  .option("-b, --body <text:string>", COMMENT_BODY_DESCRIPTION)
+  .option("--body-file <path:string>", COMMENT_BODY_FILE_DESCRIPTION)
+  // `--parent` and `-p` predate `--reply-to`; all three spellings set `parent`.
+  .option("-p, --parent, --reply-to <commentId:string>", REPLY_TO_DESCRIPTION)
   // Hidden: a caller-supplied id makes retries idempotent (re-sending the same
   // id fails rather than posting a duplicate), which is useful to scripts but
   // noise in the help output.
@@ -51,13 +54,6 @@ export const commentAddCommand = new Command()
     const { body, bodyFile, parent, id, attach, public: makePublic } = options
 
     try {
-      // Validate that body and bodyFile are not both provided
-      if (body && bodyFile) {
-        throw new ValidationError(
-          "Cannot specify both --body and --body-file",
-        )
-      }
-
       // Reject a malformed --id here rather than letting the API reject it, so
       // the user gets an actionable message instead of a raw GraphQL error.
       // CommentCreateInput.id is documented as "The identifier in UUID v4
@@ -74,22 +70,7 @@ export const commentAddCommand = new Command()
         )
       }
 
-      // Read body from file if provided
-      let commentBody = body
-      if (bodyFile) {
-        try {
-          commentBody = await Deno.readTextFile(bodyFile)
-        } catch (error) {
-          throw new ValidationError(
-            `Failed to read body file: ${bodyFile}`,
-            {
-              suggestion: `Error: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            },
-          )
-        }
-      }
+      const textBody = await resolveCommentBody({ body, bodyFile })
 
       const resolvedIdentifier = await getIssueIdentifier(issueId)
       if (!resolvedIdentifier) {
@@ -142,81 +123,26 @@ export const commentAddCommand = new Command()
         }
       }
 
-      // If no body provided and no attachments, prompt for it
-      if (!commentBody && uploadedFiles.length === 0) {
-        commentBody = await Input.prompt({
-          message: "Comment body",
-          default: "",
+      // Attachment links alone are a valid body; otherwise prompt for text.
+      const promptedBody = textBody == null && uploadedFiles.length === 0
+        ? await promptCommentBody()
+        : textBody
+
+      const attachmentLinks = uploadedFiles.map((file) =>
+        formatAsMarkdownLink({
+          filename: file.filename,
+          assetUrl: file.assetUrl,
+          contentType: file.isImage ? "image/png" : "application/octet-stream",
         })
+      )
+      const commentBody = [promptedBody, attachmentLinks.join("\n")]
+        .filter((part) => part != null && part !== "")
+        .join("\n\n")
 
-        if (!commentBody.trim()) {
-          throw new ValidationError("Comment body cannot be empty")
-        }
-      }
-
-      // Append attachment links to comment body
-      if (uploadedFiles.length > 0) {
-        const attachmentLinks = uploadedFiles.map((file) => {
-          return formatAsMarkdownLink({
-            filename: file.filename,
-            assetUrl: file.assetUrl,
-            contentType: file.isImage
-              ? "image/png"
-              : "application/octet-stream",
-          })
-        })
-
-        if (commentBody) {
-          commentBody = `${commentBody}\n\n${attachmentLinks.join("\n")}`
-        } else {
-          commentBody = attachmentLinks.join("\n")
-        }
-      }
-
-      const mutation = gql(`
-        mutation AddComment($input: CommentCreateInput!) {
-          commentCreate(input: $input) {
-            success
-            comment {
-              id
-              body
-              createdAt
-              url
-              user {
-                name
-                displayName
-              }
-            }
-          }
-        }
-      `)
-
-      const client = getGraphQLClient()
-      const input: Record<string, unknown> = {
-        body: commentBody,
-        issueId: resolvedIdentifier,
-      }
-
-      if (id != null) {
-        input.id = id
-      }
-
-      if (parent) {
-        input.parentId = parent
-      }
-
-      const data = await client.request(mutation, {
-        input,
-      })
-
-      if (!data.commentCreate.success) {
-        throw new CliError("Failed to create comment")
-      }
-
-      const comment = data.commentCreate.comment
-      if (!comment) {
-        throw new CliError("Comment creation failed - no comment returned")
-      }
+      const comment = await createComment(
+        { kind: "issue", issueId: resolvedIdentifier },
+        { body: commentBody, parentId: parent, id },
+      )
 
       console.log(`✓ Comment added to ${resolvedIdentifier}`)
       console.log(comment.url)

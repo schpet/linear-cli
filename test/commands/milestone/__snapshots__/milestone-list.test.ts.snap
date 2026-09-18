@@ -13,6 +13,7 @@ Options:
 
   -h, --help             - Show this help.                             
   --project   <project>  - Project (UUID, slug ID, or name)  (required)
+  -j, --json             - Output as JSON                              
 
 "
 stderr:
@@ -34,6 +35,110 @@ snapshot[`Milestone List Command - No Milestones Found 1`] = `
 stdout:
 "No milestones found for this project.
 "
+stderr:
+""
+`;
+
+snapshot[`Milestone List Command - JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "targetDate": "2026-01-31",
+      "sortOrder": 1,
+      "project": {
+        "id": "project-123",
+        "name": "Test Project"
+      },
+      "id": "m-first",
+      "name": "Kickoff"
+    },
+    {
+      "targetDate": "2026-03-31",
+      "sortOrder": 2,
+      "project": {
+        "id": "project-123",
+        "name": "Test Project"
+      },
+      "id": "m-alpha",
+      "name": "Alpha"
+    },
+    {
+      "targetDate": "2026-03-31",
+      "sortOrder": 3,
+      "project": {
+        "id": "project-123",
+        "name": "Test Project"
+      },
+      "id": "m-beta",
+      "name": "Beta"
+    },
+    {
+      "targetDate": null,
+      "sortOrder": 4,
+      "project": {
+        "id": "project-123",
+        "name": "Test Project"
+      },
+      "id": "m-undated",
+      "name": "Someday"
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Milestone List Command - Empty JSON 1`] = `
+stdout:
+'{
+  "nodes": [],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
+stderr:
+""
+`;
+
+snapshot[`Milestone List Command - JSON Output With Pagination 1`] = `
+stdout:
+'{
+  "nodes": [
+    {
+      "targetDate": "2026-01-31",
+      "sortOrder": 1,
+      "project": {
+        "id": "project-123",
+        "name": "Test Project"
+      },
+      "id": "m-1",
+      "name": "Sooner"
+    },
+    {
+      "targetDate": "2026-06-30",
+      "sortOrder": 1,
+      "project": {
+        "id": "project-123",
+        "name": "Test Project"
+      },
+      "id": "m-2",
+      "name": "Later"
+    }
+  ],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
 stderr:
 ""
 `;

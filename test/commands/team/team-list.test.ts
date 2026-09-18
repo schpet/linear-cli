@@ -1,4 +1,6 @@
 import { snapshotTest as cliffySnapshotTest } from "@cliffy/testing"
+import { assertEquals, assertStringIncludes } from "@std/assert"
+import { stub } from "@std/testing/mock"
 import { snapshotTest } from "../../utils/snapshot_with_fake_time.ts"
 import { listCommand } from "../../../src/commands/team/team-list.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
@@ -292,4 +294,183 @@ await snapshotTest({
       Deno.env.delete("LINEAR_API_KEY")
     }
   },
+})
+
+// JSON fixtures carry raw ISO timestamps, so these tests need no fake clock and
+// can use the plain cliffy snapshot runner (the fake-time runner hangs the mock
+// server because FakeTime replaces the setTimeout its start() awaits).
+function team(
+  overrides: Record<string, unknown> & {
+    id: string
+    key: string
+    name: string
+  },
+) {
+  return {
+    description: null,
+    icon: null,
+    color: "#3b82f6",
+    cyclesEnabled: false,
+    createdAt: "2024-01-01T10:00:00.000Z",
+    updatedAt: "2024-06-01T10:00:00.000Z",
+    archivedAt: null,
+    organization: { id: "org-1", name: "Acme Corp" },
+    ...overrides,
+  }
+}
+
+function teamsPage(
+  nodes: unknown[],
+  pageInfo: { hasNextPage: boolean; endCursor: string | null },
+) {
+  return { data: { teams: { nodes, pageInfo } } }
+}
+
+const FIRST_PAGE_VARS = { filter: undefined, first: 100, after: undefined }
+
+async function runWithServer(server: MockLinearServer, args?: string[]) {
+  try {
+    await server.start()
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await listCommand.parse(args)
+  } finally {
+    await server.stop()
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+  }
+}
+
+// JSON is an output format for the same list the table shows: every selected
+// GraphQL field, archived teams removed, sorted by name, connection shape kept.
+await cliffySnapshotTest({
+  name: "Team List Command - JSON Output",
+  meta: import.meta,
+  colors: false,
+  args: ["--json"],
+  denoArgs,
+  async fn() {
+    await runWithServer(
+      new MockLinearServer([
+        {
+          queryName: "GetTeams",
+          variables: FIRST_PAGE_VARS,
+          response: teamsPage(
+            [
+              team({
+                id: "team-sup",
+                key: "SUP",
+                name: "Support - Front Line - Team",
+                cyclesEnabled: true,
+                description: "Tier 1",
+                icon: "🎧",
+              }),
+              team({
+                id: "team-old",
+                key: "OLD",
+                name: "Archived Team",
+                archivedAt: "2023-12-01T10:00:00.000Z",
+              }),
+              team({
+                id: "team-eng",
+                key: "ENG",
+                name: "Engineering",
+                cyclesEnabled: true,
+              }),
+            ],
+            { hasNextPage: false, endCursor: null },
+          ),
+        },
+      ]),
+    )
+  },
+})
+
+// An empty workspace must still emit a connection, not prose.
+await cliffySnapshotTest({
+  name: "Team List Command - Empty JSON",
+  meta: import.meta,
+  colors: false,
+  args: ["--json"],
+  denoArgs,
+  async fn() {
+    await runWithServer(
+      new MockLinearServer([
+        {
+          queryName: "GetTeams",
+          variables: FIRST_PAGE_VARS,
+          response: teamsPage([], { hasNextPage: false, endCursor: null }),
+        },
+      ]),
+    )
+  },
+})
+
+// Pages are concatenated before sorting (the lexically-first team is on page
+// two) and the emitted pageInfo is the last page's.
+await cliffySnapshotTest({
+  name: "Team List Command - JSON Output With Pagination",
+  meta: import.meta,
+  colors: false,
+  args: ["--json"],
+  denoArgs,
+  async fn() {
+    await runWithServer(
+      new MockLinearServer([
+        {
+          queryName: "GetTeams",
+          variables: FIRST_PAGE_VARS,
+          response: teamsPage(
+            [team({ id: "team-b", key: "BETA", name: "Beta Team" })],
+            { hasNextPage: true, endCursor: "teams-cursor-1" },
+          ),
+        },
+        {
+          queryName: "GetTeams",
+          variables: { filter: undefined, first: 100, after: "teams-cursor-1" },
+          response: teamsPage(
+            [team({ id: "team-a", key: "ALPHA", name: "Alpha Team" })],
+            { hasNextPage: false, endCursor: null },
+          ),
+        },
+      ]),
+    )
+  },
+})
+
+// Linear claiming another page without a cursor must fail loudly rather than
+// loop or silently return a partial list.
+Deno.test("Team List Command - errors on inconsistent pagination", async () => {
+  const server = new MockLinearServer([
+    {
+      queryName: "GetTeams",
+      variables: FIRST_PAGE_VARS,
+      response: teamsPage(
+        [team({ id: "team-a", key: "ALPHA", name: "Alpha Team" })],
+        { hasNextPage: true, endCursor: null },
+      ),
+    },
+  ])
+
+  const errorLogs: string[] = []
+  const errorStub = stub(console, "error", (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "))
+  })
+  const exitStub = stub(Deno, "exit", (_code?: number) => {
+    throw new Error("EXIT")
+  })
+
+  let exited = false
+  try {
+    await runWithServer(server, ["--json"])
+  } catch (e) {
+    if (!(e instanceof Error) || e.message !== "EXIT") throw e
+    exited = true
+  } finally {
+    errorStub.restore()
+    exitStub.restore()
+  }
+
+  assertEquals(exited, true)
+  assertStringIncludes(errorLogs.join("\n"), "no pagination cursor")
 })

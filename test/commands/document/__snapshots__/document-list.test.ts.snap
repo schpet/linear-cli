@@ -15,7 +15,7 @@ Options:
   --project     <project>     - Filter by project (UUID, slug ID, or name)                                                     
   --issue       <issue>       - Filter by issue (identifier like TC-123)                                                       
   --initiative  <initiative>  - Filter by initiative (UUID, slug ID, or name)                                                  
-  --team        <team>        - Filter by team (key); with --cycle, scopes the cycle lookup instead                            
+  --team        <team>        - Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead               
   --cycle       <cycle>       - Filter by cycle: name, number, 'active'/'now', 'next', 'previous', or a relative               
                                 offset like +1 (team from --team or config)                                                    
   --release     <release>     - Filter by release (UUID, name, or version)                                                     
@@ -229,6 +229,20 @@ snapshot[`Document List Command - Empty Results 1`] = `
 stdout:
 "No documents found.
 "
+stderr:
+""
+`;
+
+snapshot[`Document List Command - Filter By Team ID JSON Output 1`] = `
+stdout:
+'{
+  "nodes": [],
+  "pageInfo": {
+    "hasNextPage": false,
+    "endCursor": null
+  }
+}
+'
 stderr:
 ""
 `;

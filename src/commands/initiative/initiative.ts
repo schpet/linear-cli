@@ -9,6 +9,7 @@ import { unarchiveCommand } from "./initiative-unarchive.ts"
 import { deleteCommand } from "./initiative-delete.ts"
 import { addProjectCommand } from "./initiative-add-project.ts"
 import { removeProjectCommand } from "./initiative-remove-project.ts"
+import { commentCommand } from "./initiative-comment.ts"
 
 export const initiativeCommand = new Command()
   .description("Manage Linear initiatives")
@@ -25,3 +26,4 @@ export const initiativeCommand = new Command()
   .command("delete", deleteCommand)
   .command("add-project", addProjectCommand)
   .command("remove-project", removeProjectCommand)
+  .command("comment", commentCommand)

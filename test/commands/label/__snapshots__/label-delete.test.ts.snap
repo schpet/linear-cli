@@ -1,0 +1,29 @@
+export const snapshot = {};
+
+snapshot[`Label Delete Command - Help Text 1`] = `
+stdout:
+"
+Usage: delete <nameOrId>
+
+Description:
+
+  Delete an issue label
+
+Options:
+
+  -h, --help           - Show this help.                                                  
+  -t, --team   <team>  - Team key, name, or ID to disambiguate labels with the same name  
+  -f, --force          - Skip confirmation prompt                                         
+
+"
+stderr:
+""
+`;
+
+snapshot[`Label Delete Command - Team By Name Disambiguates 1`] = `
+stdout:
+"✓ Deleted label: bug (APP)
+"
+stderr:
+""
+`;

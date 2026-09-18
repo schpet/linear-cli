@@ -3,11 +3,11 @@ export const snapshot = {};
 snapshot[`Team Members Command - Help Text 1`] = `
 stdout:
 "
-Usage: members [teamKey]
+Usage: members [team]
 
 Description:
 
-  List team members
+  List team members (team by key, name, or ID)
 
 Options:
 
