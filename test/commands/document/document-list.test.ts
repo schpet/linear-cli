@@ -6,6 +6,7 @@ import {
 } from "../../../src/commands/document/document-list.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
 import { commonDenoArgs } from "../../utils/test-helpers.ts"
+import { assertStringIncludes } from "@std/assert"
 
 // Test help output
 await snapshotTest({
@@ -525,4 +526,77 @@ await snapshotTest({
       Deno.env.delete("LINEAR_API_KEY")
     }
   },
+})
+
+// `--issue` on the document commands resolves through its own lookup rather
+// than `getIssueIdentifier`. Both mocks are pinned to the extracted identifier:
+// if the whole URL were uppercased and sent, as it once was, nothing would
+// match and the command would fail.
+Deno.test("document list --issue accepts a pasted issue URL", async () => {
+  const previousWorkspace = Deno.env.get("LINEAR_WORKSPACE")
+  Deno.env.set("LINEAR_WORKSPACE", "url-test-workspace")
+  const server = new MockLinearServer([
+    {
+      queryName: "GetIssueForDocumentTarget",
+      variables: { id: "TC-123" },
+      response: { data: { issue: { id: "issue-uuid-1" } } },
+    },
+    {
+      queryName: "ListDocuments",
+      variables: {
+        filter: { issue: { id: { eq: "issue-uuid-1" } } },
+        first: 50,
+      },
+      response: {
+        data: {
+          documents: {
+            nodes: [{
+              id: "doc-2",
+              title: "Migration Runbook",
+              slugId: "a1c27f6d8e04",
+              url:
+                "https://linear.app/test/document/migration-runbook-a1c27f6d8e04",
+              updatedAt: "2026-01-20T14:15:00Z",
+              project: null,
+              issue: { identifier: "TC-123", title: "Plan the migration" },
+              initiative: null,
+              team: null,
+              cycle: null,
+              release: null,
+              creator: { name: "Jane Smith" },
+            }],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      },
+    },
+  ])
+
+  const originalLog = console.log
+  const output: string[] = []
+  console.log = (...args: unknown[]) => {
+    output.push(args.map(String).join(" "))
+  }
+  try {
+    await server.start()
+    Deno.env.set("LINEAR_GRAPHQL_ENDPOINT", server.getEndpoint())
+    Deno.env.set("LINEAR_API_KEY", "Bearer test-token")
+    await listCommand.parse([
+      "--issue",
+      "https://linear.app/url-test-workspace/issue/TC-123/plan-the-migration",
+      "--json",
+    ])
+  } finally {
+    console.log = originalLog
+    await server.stop()
+    Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
+    Deno.env.delete("LINEAR_API_KEY")
+    if (previousWorkspace == null) {
+      Deno.env.delete("LINEAR_WORKSPACE")
+    } else {
+      Deno.env.set("LINEAR_WORKSPACE", previousWorkspace)
+    }
+  }
+
+  assertStringIncludes(output.join("\n"), "Migration Runbook")
 })

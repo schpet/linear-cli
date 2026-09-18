@@ -363,6 +363,19 @@ linear project update PROJECT-ID --initiative "Q4 Bets" --initiative "Platform" 
 linear project list
 ```
 
+#### referring to things by URL
+
+Anywhere the CLI takes an issue, project, document, initiative, team, or cycle, you can paste the URL from Linear instead of its ID, slug, or name.
+
+```bash
+linear issue view https://linear.app/acme/issue/ENG-123/some-title
+linear project view https://linear.app/acme/project/mobile-launch-272f50ef9250
+linear issue query --project https://linear.app/acme/project/mobile-launch-272f50ef9250
+linear cycle view https://linear.app/acme/team/ENG/cycle/active
+```
+
+The scheme is optional, and query strings and title slugs are ignored. A URL for the wrong kind of thing, or from another workspace, is reported as such.
+
 #### view project details
 
 Shows the project's overview body, milestones, resources, documents, attachments, related projects, latest status update, issue counts, and details. A project is a UUID, slug ID, or exact name.

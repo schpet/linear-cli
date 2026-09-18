@@ -39,6 +39,7 @@
     "@std/path": "jsr:@std/path@^1.1.4",
     "@std/toml": "jsr:@std/toml@^1.0.11",
     "@types/mdast": "npm:@types/mdast@^4.0.4",
+    "fast-check": "npm:fast-check@^4.10.2",
     "mdast": "npm:@types/mdast@^4.0.4",
     "graphql": "npm:graphql@^16.13.2",
     "./__generated__/graphql": "./src/__codegen__/graphql.ts",

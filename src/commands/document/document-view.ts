@@ -16,6 +16,7 @@ import {
   isNotFoundError,
   NotFoundError,
 } from "../../utils/errors.ts"
+import { resolveDocumentReference } from "../../utils/linear.ts"
 
 const GetDocument = gql(`
   query GetDocument($id: String!) {
@@ -174,13 +175,14 @@ export const viewCommand = new Command()
   .option("-w, --web", "Open document in browser")
   .option("--json", "Output full document as JSON")
   .option("--no-download", "Keep remote URLs instead of downloading files")
-  .action(async ({ raw, web, json, download }, id) => {
+  .action(async ({ raw, web, json, download }, rawId) => {
     const { Spinner } = await import("@std/cli/unstable-spinner")
     const showSpinner = shouldShowSpinner() && !raw && !json
     const spinner = showSpinner ? new Spinner() : null
-    spinner?.start()
 
     try {
+      const id = resolveDocumentReference(rawId)
+      spinner?.start()
       const client = getGraphQLClient()
       const result = json
         ? { document: await getDocumentWithAllComments(client, id) }
@@ -293,7 +295,7 @@ export const viewCommand = new Command()
       // Report through handleError like every other failure; throwing from
       // here would escape the action and print a stack trace instead.
       const reported = isClientError(error) && isNotFoundError(error)
-        ? new NotFoundError("Document", id)
+        ? new NotFoundError("Document", rawId)
         : error
       handleError(reported, "Failed to view document")
     }

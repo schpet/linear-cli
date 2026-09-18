@@ -14,6 +14,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { expectLinearUrlKind } from "../../utils/linear-url.ts"
 
 const GetCycleDetails = gql(`
   query GetCycleDetails($id: String!) {
@@ -66,7 +67,15 @@ export const viewCommand = new Command()
   .option("-j, --json", "Output as JSON")
   .action(async ({ team, json }, cycleRef) => {
     try {
-      const teamKey = team || getTeamKey()
+      // A pasted cycle URL names its team. With no --team, that is the team
+      // meant — not whichever one happens to be configured. An explicit --team
+      // still wins, and the lookup refuses it if it contradicts the URL.
+      const urlTeamKey = expectLinearUrlKind(
+        cycleRef,
+        "cycle",
+        "a cycle URL, number, or name",
+      )?.teamKey
+      const teamKey = team || urlTeamKey || getTeamKey()
       if (!teamKey) {
         throw new ValidationError(
           "Could not determine team key from directory name or team flag",

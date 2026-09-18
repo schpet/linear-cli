@@ -4,6 +4,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { resolveProjectId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import { rejectLinearUrl } from "../../utils/linear-url.ts"
 
 const UpdateProjectMilestone = gql(`
   mutation UpdateProjectMilestone($id: String!, $input: ProjectMilestoneUpdateInput!) {
@@ -43,6 +44,12 @@ export const updateCommand = new Command()
       { name, description, targetDate, sortOrder, project: projectIdOrSlug },
       id,
     ) => {
+      try {
+        rejectLinearUrl(id, "a milestone UUID")
+      } catch (error) {
+        handleError(error, "Failed to update milestone")
+      }
+
       if (
         !name && !description && !targetDate && sortOrder == null &&
         !projectIdOrSlug

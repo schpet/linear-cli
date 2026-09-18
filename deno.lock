@@ -46,6 +46,7 @@
     "npm:@graphql-typed-document-node/core@^3.2.0": "3.2.0_graphql@16.13.2",
     "npm:@types/mdast@^4.0.4": "4.0.4",
     "npm:@types/node@*": "24.2.0",
+    "npm:fast-check@^4.10.2": "4.10.2",
     "npm:graphql-request@^7.4.0": "7.4.0_graphql@16.13.2",
     "npm:graphql@^16.13.2": "16.13.2",
     "npm:lefthook@^2.1.4": "2.1.4",
@@ -1408,6 +1409,12 @@
     "extend@3.0.2": {
       "integrity": "sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g=="
     },
+    "fast-check@4.10.2": {
+      "integrity": "sha512-iK2f+YrcmoeGqk6fA0ea2bptcu/itMIm4NfEozq6N25+aG6h7s5HZbB/k1aV7b5w5sFLMCbbtRUsTVR+BgC3xw==",
+      "dependencies": [
+        "pure-rand"
+      ]
+    },
     "fast-glob@3.3.3": {
       "integrity": "sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==",
       "dependencies": [
@@ -2286,6 +2293,9 @@
     "picomatch@2.3.2": {
       "integrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="
     },
+    "pure-rand@8.4.2": {
+      "integrity": "sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng=="
+    },
     "queue-microtask@1.2.3": {
       "integrity": "sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A=="
     },
@@ -2686,6 +2696,7 @@
       "npm:@graphql-codegen/cli@^6.2.1",
       "npm:@graphql-typed-document-node/core@^3.2.0",
       "npm:@types/mdast@^4.0.4",
+      "npm:fast-check@^4.10.2",
       "npm:graphql-request@^7.4.0",
       "npm:graphql@^16.13.2",
       "npm:lefthook@^2.1.4",

@@ -14,6 +14,7 @@ import type {
 import { getGraphQLClient } from "./graphql.ts"
 import { formatRelativeTime } from "./display.ts"
 import { CliError, ValidationError } from "./errors.ts"
+import { rejectCommentUrl, rejectLinearUrl } from "./linear-url.ts"
 
 /** Shared option descriptions so the four `comment add` commands read alike. */
 export const COMMENT_BODY_DESCRIPTION = "Comment body text"
@@ -48,6 +49,11 @@ export function buildCommentCreateInput(
 ): CommentCreateInput {
   const input: CommentCreateInput = { body: options.body }
   if (options.parentId != null) {
+    // Every comment-add command's --reply-to lands here. A pasted comment link
+    // carries only the first eight characters of the comment's ID, so it gets
+    // the specific explanation; any other Linear URL gets the general one.
+    rejectCommentUrl(options.parentId)
+    rejectLinearUrl(options.parentId, "the UUID of the comment to reply to")
     input.parentId = options.parentId
   }
   if (options.id != null) {
