@@ -16,6 +16,8 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { expectLinearUrlKind } from "../../utils/linear-url.ts"
+import { findInitiativeIdBySlug } from "../../utils/linear.ts"
 
 interface InitiativeArchiveResult extends BulkOperationResult {
   name: string
@@ -299,6 +301,19 @@ async function resolveInitiativeId(
   client: any,
   idOrSlugOrName: string,
 ): Promise<string | undefined> {
+  const urlRef = expectLinearUrlKind(
+    idOrSlugOrName,
+    "initiative",
+    "an initiative URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    const fromUrl = await findInitiativeIdBySlug(urlRef.slugId)
+    if (fromUrl == null) return undefined
+    // Now a UUID, so the UUID branch below takes it and a URL never
+    // falls through to a name lookup another initiative could win.
+    idOrSlugOrName = fromUrl
+  }
+
   // Try as UUID first
   if (
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

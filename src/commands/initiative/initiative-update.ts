@@ -2,9 +2,10 @@ import { Command } from "@cliffy/command"
 import { Input, Select } from "@cliffy/prompt"
 import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
-import { lookupUserId } from "../../utils/linear.ts"
+import { findInitiativeIdBySlug, lookupUserId } from "../../utils/linear.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { CliError, handleError, NotFoundError } from "../../utils/errors.ts"
+import { expectLinearUrlKind } from "../../utils/linear-url.ts"
 
 // Initiative status options from Linear API
 const INITIATIVE_STATUSES = [
@@ -229,6 +230,19 @@ async function resolveInitiativeId(
   client: any,
   idOrSlugOrName: string,
 ): Promise<string | undefined> {
+  const urlRef = expectLinearUrlKind(
+    idOrSlugOrName,
+    "initiative",
+    "an initiative URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    const fromUrl = await findInitiativeIdBySlug(urlRef.slugId)
+    if (fromUrl == null) return undefined
+    // Now a UUID, so the UUID branch below takes it and a URL never
+    // falls through to a name lookup another initiative could win.
+    idOrSlugOrName = fromUrl
+  }
+
   // Try as UUID first
   if (
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

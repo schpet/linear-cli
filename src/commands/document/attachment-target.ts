@@ -16,6 +16,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../../utils/errors.ts"
+import { expectLinearUrlKind } from "../../utils/linear-url.ts"
 
 // A Linear document is attached to exactly one target. The API enforces
 // "exactly one of initiativeId, teamId, issueId, releaseId, cycleId or
@@ -120,7 +121,19 @@ const GetIssueForDocumentTarget = gql(/* GraphQL */ `
 
 async function resolveIssueId(input: string): Promise<string> {
   const client = getGraphQLClient()
-  const id = isLinearUuid(input) ? input : input.toUpperCase()
+  // `--issue` on document create/list/update comes through here rather than
+  // `getIssueIdentifier`, so a pasted issue URL has to be read here too —
+  // otherwise it is uppercased whole and sent to the API as an identifier.
+  const urlRef = expectLinearUrlKind(
+    input,
+    "issue",
+    "an issue URL, identifier like ENG-123, or UUID",
+  )
+  const id = urlRef != null
+    ? urlRef.identifier
+    : isLinearUuid(input)
+    ? input
+    : input.toUpperCase()
   try {
     const result = await client.request(GetIssueForDocumentTarget, { id })
     if (result.issue) {

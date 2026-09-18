@@ -4,6 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
+import { rejectLinearUrl } from "../../utils/linear-url.ts"
 
 const DeleteProjectMilestone = gql(`
   mutation DeleteProjectMilestone($id: String!) {
@@ -19,6 +20,14 @@ export const deleteCommand = new Command()
   .arguments("<id:string>")
   .option("-f, --force", "Skip confirmation prompt")
   .action(async ({ force }, id) => {
+    // Milestones have no URL of their own. Refused before the confirmation
+    // prompt, so nobody is asked to confirm deleting a URL.
+    try {
+      rejectLinearUrl(id, "a milestone UUID")
+    } catch (error) {
+      handleError(error, "Failed to delete milestone")
+    }
+
     // Confirmation prompt unless --force is used
     if (!force) {
       if (!Deno.stdin.isTerminal()) {
