@@ -3,3 +3,4 @@
 .idea/
 src/__codegen__/
 npm
+rust/target/

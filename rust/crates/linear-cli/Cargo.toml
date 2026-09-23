@@ -1,0 +1,20 @@
+[package]
+name = "linear-cli"
+version = "2.6.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "linear_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "linear"
+path = "src/main.rs"
+
+[dev-dependencies]
+serde_json = "1"
+
+[[test]]
+name = "contracts"
+path = "tests/contracts/main.rs"

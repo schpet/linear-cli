@@ -1,0 +1,204 @@
+use std::collections::BTreeMap;
+
+use linear_cli::app::{AppContext, run, write_final_error};
+use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
+
+fn invoke(args: &[&str]) -> (ExitStatus, String, String) {
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let mut context = AppContext {
+        env: BTreeMap::new(),
+        cwd: std::env::temp_dir(),
+        stdout: &mut stdout,
+        stderr: &mut stderr,
+        stdout_tty: false,
+        stderr_tty: false,
+        startup_diagnostics: Vec::new(),
+    };
+    let args = args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
+    let status = match run(&args, &mut context) {
+        Ok(status) => status,
+        Err(error) => write_final_error(&mut context, &error).expect("writable stderr"),
+    };
+    (
+        status,
+        String::from_utf8(stdout).expect("UTF-8 stdout"),
+        String::from_utf8(stderr).expect("UTF-8 stderr"),
+    )
+}
+
+#[test]
+fn known_bare_routes_and_short_version() {
+    assert_eq!(
+        invoke(&[]),
+        (
+            ExitStatus::Success,
+            "Use --help to see available commands\n".to_owned(),
+            String::new()
+        )
+    );
+    assert_eq!(
+        invoke(&["docs"]),
+        (
+            ExitStatus::Success,
+            "Use --help to see available subcommands\n".to_owned(),
+            String::new()
+        )
+    );
+    assert_eq!(
+        invoke(&["-V"]),
+        (ExitStatus::Success, "2.6.0\n".to_owned(), String::new())
+    );
+}
+
+#[test]
+fn unimplemented_aliases_fail_visibly() {
+    let (status, stdout, stderr) = invoke(&["issue", "list"]);
+    assert_eq!(status, ExitStatus::HandledFailure);
+    assert!(stdout.is_empty());
+    assert!(
+        stderr.contains("linear issue mine is registered, but this action is not implemented yet")
+    );
+}
+
+#[test]
+fn leaf_positionals_reach_the_registered_unimplemented_action() {
+    let (status, stdout, stderr) = invoke(&["issue", "view", "ABC-1"]);
+    assert_eq!(status, ExitStatus::HandledFailure);
+    assert!(stdout.is_empty());
+    assert_eq!(
+        stderr,
+        "✗ linear issue view is registered, but this action is not implemented yet\n"
+    );
+}
+
+#[test]
+fn usage_and_domain_validation_have_distinct_statuses_and_writers() {
+    let (status, stdout, stderr) = invoke(&["frobnicate"]);
+    assert_eq!(status, ExitStatus::UsageFailure);
+    assert!(stdout.is_empty());
+    assert_eq!(
+        stderr,
+        "\x1b[31m  error: unknown command: frobnicate\x1b[39m\n"
+    );
+
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let mut context = AppContext {
+        env: BTreeMap::new(),
+        cwd: std::env::temp_dir(),
+        stdout: &mut stdout,
+        stderr: &mut stderr,
+        stdout_tty: false,
+        stderr_tty: false,
+        startup_diagnostics: Vec::new(),
+    };
+    let error = AppError::new(
+        AppErrorKind::Validation,
+        "Cannot specify both --body and --body-file",
+    );
+    assert_eq!(
+        write_final_error(&mut context, &error).unwrap(),
+        ExitStatus::HandledFailure
+    );
+    assert!(stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(stderr).unwrap(),
+        "✗ Cannot specify both --body and --body-file\n"
+    );
+}
+
+#[test]
+fn handled_error_tty_color_wraps_complete_lines() {
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let mut context = AppContext {
+        env: BTreeMap::new(),
+        cwd: std::env::temp_dir(),
+        stdout: &mut stdout,
+        stderr: &mut stderr,
+        stdout_tty: true,
+        stderr_tty: true,
+        startup_diagnostics: Vec::new(),
+    };
+    let error = AppError::new(AppErrorKind::Auth, "missing key");
+    assert_eq!(
+        write_final_error(&mut context, &error).unwrap(),
+        ExitStatus::HandledFailure
+    );
+    assert_eq!(
+        stderr,
+        b"\x1b[31m\xe2\x9c\x97 missing key\x1b[39m\n\x1b[90m  Run `linear auth login` to authenticate.\x1b[39m\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn unrelated_non_utf8_environment_does_not_block_short_version() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+    use std::process::Command;
+
+    let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+        .arg("-V")
+        .env_clear()
+        .env("HOME", std::env::temp_dir())
+        .env("XDG_CONFIG_HOME", std::env::temp_dir())
+        .env("APPDATA", std::env::temp_dir())
+        .env("JUNK", OsString::from_vec(vec![0xff]))
+        .output()
+        .expect("binary runs");
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"2.6.0\n");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn typed_error_context_and_suggestion_survive() {
+    let error = AppError::new(AppErrorKind::Auth, "missing key")
+        .with_context("load credentials")
+        .with_context("Failed to view issue");
+    assert_eq!(
+        error.display_message(),
+        "Failed to view issue: load credentials: missing key"
+    );
+    assert_eq!(
+        error.suggestion.as_deref(),
+        Some("Run `linear auth login` to authenticate.")
+    );
+    assert_eq!(
+        AppError::not_found("Issue", "ABC-1").display_message(),
+        "Issue not found: ABC-1"
+    );
+}
+
+#[test]
+fn empty_no_color_preserves_color_but_nonempty_disables_it() {
+    for (value, expected_color) in [(None, true), (Some(""), true), (Some("1"), false)] {
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        let mut environment = BTreeMap::new();
+        if let Some(value) = value {
+            environment.insert("NO_COLOR".to_owned(), value.to_owned());
+        }
+        let mut context = AppContext {
+            env: environment,
+            cwd: std::env::temp_dir(),
+            stdout: &mut stdout,
+            stderr: &mut stderr,
+            stdout_tty: false,
+            stderr_tty: true,
+            startup_diagnostics: Vec::new(),
+        };
+        assert_eq!(context.no_color(), !expected_color);
+        assert_eq!(context.help_color(), expected_color);
+        assert_eq!(context.handled_color(), expected_color);
+        let error = AppError::new(AppErrorKind::Auth, "missing key");
+        assert_eq!(
+            write_final_error(&mut context, &error).expect("writable stderr"),
+            ExitStatus::HandledFailure
+        );
+        let diagnostic = String::from_utf8(stderr).expect("UTF-8 stderr");
+        assert_eq!(diagnostic.contains("\x1b["), expected_color);
+    }
+}

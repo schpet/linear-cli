@@ -1,0 +1,108 @@
+use std::error::Error;
+use std::fmt;
+use std::num::NonZeroU8;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExitStatus {
+    Success,
+    HandledFailure,
+    UsageFailure,
+    ChildCode(NonZeroU8),
+}
+
+impl ExitStatus {
+    pub fn code(self) -> u8 {
+        match self {
+            Self::Success => 0,
+            Self::HandledFailure => 1,
+            Self::UsageFailure => 2,
+            Self::ChildCode(code) => code.get(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AppErrorKind {
+    Validation,
+    Usage,
+    NotFound,
+    Auth,
+    GraphQl,
+    Transport,
+    IoProcess,
+    Cancellation,
+    Invariant,
+    Unimplemented,
+}
+
+#[derive(Debug)]
+pub struct AppError {
+    pub kind: AppErrorKind,
+    pub message: String,
+    pub context: Option<String>,
+    pub suggestion: Option<String>,
+    source: Option<Box<dyn Error + Send + Sync>>,
+}
+
+impl AppError {
+    pub fn new(kind: AppErrorKind, message: impl Into<String>) -> Self {
+        let suggestion = match kind {
+            AppErrorKind::Auth => Some("Run `linear auth login` to authenticate.".to_owned()),
+            _ => None,
+        };
+        Self {
+            kind,
+            message: message.into(),
+            context: None,
+            suggestion,
+            source: None,
+        }
+    }
+
+    pub fn not_found(entity: &str, identifier: &str) -> Self {
+        Self::new(
+            AppErrorKind::NotFound,
+            format!("{entity} not found: {identifier}"),
+        )
+    }
+
+    pub fn with_context(mut self, context: impl Into<String>) -> Self {
+        let context = context.into();
+        self.context = Some(match self.context.take() {
+            Some(inner) => format!("{context}: {inner}"),
+            None => context,
+        });
+        self
+    }
+
+    pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
+        self.suggestion = Some(suggestion.into());
+        self
+    }
+
+    pub fn with_source(mut self, source: impl Error + Send + Sync + 'static) -> Self {
+        self.source = Some(Box::new(source));
+        self
+    }
+
+    pub fn display_message(&self) -> String {
+        match &self.context {
+            Some(context) => format!("{context}: {}", self.message),
+            None => self.message.clone(),
+        }
+    }
+}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.display_message())
+    }
+}
+
+impl Error for AppError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.source
+            .as_ref()
+            .map(|source| -> &(dyn Error + 'static) { source.as_ref() })
+    }
+}
