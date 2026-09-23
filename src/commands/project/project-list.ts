@@ -2,10 +2,7 @@ import { Command } from "@cliffy/command"
 import { unicodeWidth } from "@std/cli"
 import { open } from "@opensrc/deno-open"
 import { gql } from "../../__codegen__/gql.ts"
-import type {
-  GetProjectsQuery,
-  ProjectStatusType,
-} from "../../__codegen__/graphql.ts"
+import type { GetProjectsQuery } from "../../__codegen__/graphql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import {
   getProjectPriorityLabel,
@@ -34,7 +31,6 @@ const GetProjects = gql(`
           name
           color
           type
-          position
         }
         lead {
           name
@@ -74,42 +70,6 @@ export interface ProjectDisplayOrderKey {
   id: string
   name: string
   sortOrder: number
-  status: { type: ProjectStatusType; position: number }
-}
-
-/**
- * Rank a project status by where its category sits in Linear's project flow.
- *
- * `ProjectStatusType`'s order in the SDL is alphabetical and so says nothing
- * about the lifecycle; the flow order below is the one Linear lays its project
- * statuses out in. The `switch` is exhaustive on purpose: a status type added
- * to the schema should fail the type check here, where someone has to decide
- * where it belongs, rather than silently sort to the end.
- */
-function statusTypeRank(type: ProjectStatusType): number {
-  switch (type) {
-    case "backlog":
-      return 0
-    case "planned":
-      return 1
-    case "started":
-      return 2
-    case "paused":
-      return 3
-    case "completed":
-      return 4
-    case "canceled":
-      return 5
-    default: {
-      const unreachable: never = type
-      throw new CliError(
-        `Linear returned an unknown project status type: ${
-          String(unreachable)
-        }`,
-        { suggestion: "Update the CLI, or report this if it persists." },
-      )
-    }
-  }
 }
 
 /**
@@ -128,28 +88,24 @@ function compareNumericKey(a: number, b: number, field: string): number {
 }
 
 /**
- * Order projects the way Linear's own project list does.
+ * Order projects the way Linear's own project list does: by `sortOrder`
+ * ascending, the manual order projects are dragged into, with status ignored.
  *
- * Reconstructed from the schema rather than observed in the app: `position` is
- * documented as ordering statuses "within its type group", so the type's place
- * in the flow comes first and the configured position refines it, and
- * `sortOrder` is documented as the manual order used in list views. Name and id
- * only break ties, so the result is stable across runs.
+ * Observed in the app rather than read off the schema. In a workspace holding
+ * backlog, planned, in progress, completed and canceled projects, Linear's
+ * projects list showed every project strictly by `sortOrder`: backlog projects
+ * with a higher `sortOrder` sat after the canceled one instead of being grouped
+ * with the backlog project that led the list. Whether that view had customised
+ * grouping or ordering settings is not yet confirmed. `prioritySortOrder`
+ * matched `sortOrder` for every project there, so the observation cannot tell
+ * the two apart; `sortOrder` is the one the schema documents as the manual
+ * order used in list views. Name and id only break ties, so the result is
+ * stable across runs.
  */
 export function compareProjectsForDisplay(
   a: ProjectDisplayOrderKey,
   b: ProjectDisplayOrderKey,
 ): number {
-  const byType = statusTypeRank(a.status.type) - statusTypeRank(b.status.type)
-  if (byType !== 0) return byType
-
-  const byPosition = compareNumericKey(
-    a.status.position,
-    b.status.position,
-    "status position",
-  )
-  if (byPosition !== 0) return byPosition
-
   const byManualOrder = compareNumericKey(a.sortOrder, b.sortOrder, "sortOrder")
   if (byManualOrder !== 0) return byManualOrder
 
@@ -324,8 +280,18 @@ export const listCommand = new Command()
               : `Created ${getTimeAgo(new Date(project.createdAt))}`
           case "backlog":
           case "paused":
-          default:
             return `Updated ${getTimeAgo(new Date(project.updatedAt))}`
+          default: {
+            // Exhaustive so a status type added to the schema fails the type
+            // check here instead of silently getting the backlog date.
+            const unreachable: never = project.status.type
+            throw new CliError(
+              `Linear returned an unknown project status type: ${
+                String(unreachable)
+              }`,
+              { suggestion: "Update the CLI, or report this if it persists." },
+            )
+          }
         }
       }
 
