@@ -17,7 +17,9 @@
     "validate": "deno task check && deno fmt && deno lint",
     "generate-skill-docs": "deno run --allow-run --allow-read --allow-write skills/linear-cli/scripts/generate-docs.ts",
     "skill-eval": "deno run --allow-all evals/linear-cli-skill/run.ts",
-    "skill-eval-claude-markdown": "deno run --allow-all evals/linear-cli-skill/run-claude-markdown.ts"
+    "skill-eval-claude-markdown": "deno run --allow-all evals/linear-cli-skill/run-claude-markdown.ts",
+    "parity": "deno run --frozen --allow-all --quiet --config rust/parity/deno.json rust/parity/runner/main.ts",
+    "parity:test": "deno test --frozen --allow-all --quiet --config rust/parity/deno.json rust/parity/"
   },
   "imports": {
     "@cliffy/ansi": "jsr:@cliffy/ansi@^1.0.0",
@@ -77,6 +79,11 @@
     "exclude": [
       "__generated__/",
       "src/__codegen__/"
+    ]
+  },
+  "test": {
+    "exclude": [
+      "rust/"
     ]
   },
   "unstable": [

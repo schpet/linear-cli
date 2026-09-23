@@ -63,6 +63,20 @@ function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
+/**
+ * jj snapshots the working copy on every command and needs HOME (and the XDG
+ * config dir) to read the user's git config and global excludes; with a bare
+ * PATH it would snapshot globally ignored files into `@`.
+ */
+function jjEnv(): Record<string, string> {
+  const env: Record<string, string> = { PATH: "/usr/local/bin:/usr/bin:/bin" }
+  for (const key of ["HOME", "XDG_CONFIG_HOME"]) {
+    const value = Deno.env.get(key)
+    if (value != null && value !== "") env[key] = value
+  }
+  return env
+}
+
 async function sha256(path: string): Promise<string> {
   const bytes = await Deno.readFile(path)
   const digest = await crypto.subtle.digest("SHA-256", bytes)
@@ -243,7 +257,7 @@ export async function verifyBaseline(
     "jj",
     ["log", "-R", reference, "-r", "@-", "--no-graph", "-T", "commit_id"],
     reference,
-    { PATH: "/usr/local/bin:/usr/bin:/bin" },
+    jjEnv(),
   )
   assert(
     revision.code === 0 &&
@@ -263,11 +277,49 @@ export async function verifyBaseline(
       'if(empty, "empty", "nonempty")',
     ],
     reference,
-    { PATH: "/usr/local/bin:/usr/bin:/bin" },
+    jjEnv(),
   )
   assert(
     empty.code === 0 && empty.stdout.trim() === "empty",
     "reference workspace @ is not empty",
+  )
+}
+
+/**
+ * Root deno.json additions reviewed for the parity harness. Everything else in
+ * the root config, and all of src, deno.lock and graphql, must match the
+ * frozen reference exactly.
+ */
+export const APPROVED_ROOT_TASKS: Record<string, string> = {
+  parity:
+    "deno run --frozen --allow-all --quiet --config rust/parity/deno.json rust/parity/runner/main.ts",
+  "parity:test":
+    "deno test --frozen --allow-all --quiet --config rust/parity/deno.json rust/parity/",
+}
+export const APPROVED_ROOT_TEST_EXCLUDE = ["rust/"]
+
+/** Structural comparison of the current root config with the frozen one. */
+export function compareRootConfig(frozen: unknown, current: unknown): void {
+  assert(
+    isRecord(frozen) && isRecord(current),
+    "root deno.json is not an object",
+  )
+  const pruned = structuredClone(current)
+  if (isRecord(pruned.tasks)) {
+    for (const [name, command] of Object.entries(APPROVED_ROOT_TASKS)) {
+      if (pruned.tasks[name] === command) delete pruned.tasks[name]
+    }
+  }
+  if (
+    isRecord(pruned.test) &&
+    JSON.stringify(pruned.test) ===
+      JSON.stringify({ exclude: APPROVED_ROOT_TEST_EXCLUDE })
+  ) {
+    delete pruned.test
+  }
+  assert(
+    JSON.stringify(pruned) === JSON.stringify(frozen),
+    "root deno.json differs from the frozen reference beyond the approved parity task and test.exclude additions",
   )
 }
 
@@ -287,16 +339,26 @@ export async function verifySourceBinding(
       "--summary",
       "--",
       "src",
-      "deno.json",
       "deno.lock",
       "graphql",
     ],
     root,
-    { PATH: "/usr/local/bin:/usr/bin:/bin" },
+    jjEnv(),
   )
   assert(
     diff.code === 0 && diff.stdout.trim() === "",
     `exporter source differs from frozen reference: ${diff.stderr}${diff.stdout}`,
+  )
+  const frozen = await run(
+    "jj",
+    ["file", "show", "-R", root, "-r", baseline.referenceRevision, "deno.json"],
+    root,
+    jjEnv(),
+  )
+  assert(frozen.code === 0, `cannot read frozen deno.json: ${frozen.stderr}`)
+  compareRootConfig(
+    JSON.parse(frozen.stdout),
+    JSON.parse(await Deno.readTextFile(join(root, "deno.json"))),
   )
 }
 

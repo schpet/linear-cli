@@ -1,0 +1,332 @@
+// Integration of sandbox, engine, fixture server, comparison and descriptor
+// logic with small shell programs; the namespace lane is exercised by
+// `deno task parity` itself.
+import { assert, assertEquals } from "@std/assert"
+import { join } from "@std/path"
+import type { LoadedCase } from "./cases.ts"
+import { loadCases } from "./cases.ts"
+import { type RunContext, runCorpus } from "./run.ts"
+import type { Program } from "./program.ts"
+import { readManifest } from "../verify.ts"
+import { toReportCase } from "./report.ts"
+import { parseCase } from "./schema.ts"
+import { validCase } from "./test-fixtures.ts"
+
+async function withDir<T>(
+  fn: (dir: string, ctx: RunContext) => Promise<T>,
+): Promise<T> {
+  const dir = await Deno.makeTempDir({ prefix: "linear-parity-run-" })
+  const denoDir = join(dir, "deno-dir")
+  await Deno.mkdir(denoDir)
+  try {
+    return await fn(dir, { denoDir, sandboxParent: dir })
+  } finally {
+    await Deno.remove(dir, { recursive: true })
+  }
+}
+
+async function script(
+  dir: string,
+  name: string,
+  body: string,
+): Promise<string> {
+  const path = join(dir, `${name}.sh`)
+  await Deno.writeTextFile(path, `#!/bin/sh\n${body}\n`, { mode: 0o755 })
+  return path
+}
+
+function loadedCase(overrides: Record<string, unknown>): LoadedCase {
+  const spec = parseCase({ ...validCase(), ...overrides })
+  return { file: `${spec.id}.json`, spec, fixtureDir: null }
+}
+
+Deno.test("descriptor decides not-implemented without invoking the candidate; claimed routes must pass or fail", async () => {
+  await withDir(async (dir, ctx) => {
+    const marker = join(dir, "invoked.marker")
+    const good = await script(dir, "good", `printf 'hello'`)
+    const bad = await script(dir, "bad", `printf 'hello'; exit 3`)
+    const spy = await script(
+      dir,
+      "spy",
+      `printf 'x' > ${marker}; printf 'hello'`,
+    )
+    const loaded = loadedCase({
+      id: "hello",
+      route: "linear",
+      argv: [],
+      expected: {
+        exit: { code: 0 },
+        stdout: { utf8: "hello" },
+        stderr: { utf8: "" },
+        fileEffects: [],
+      },
+    })
+    const baseline: Program = { kind: "executable", path: good }
+
+    const [identical] = await runCorpus([loaded], baseline, {
+      name: "same",
+      program: baseline,
+      implementedRoutes: new Set(["linear"]),
+    }, ctx)
+    assertEquals(identical.status, "pass")
+    assertEquals(identical.candidate?.mismatches, [])
+
+    const [missing] = await runCorpus([loaded], baseline, {
+      name: "spy",
+      program: { kind: "executable", path: spy },
+      implementedRoutes: new Set(["linear api"]),
+    }, ctx)
+    assertEquals(missing.status, "not-implemented")
+    assertEquals(missing.candidate, null)
+    assertEquals(await Deno.stat(marker).then(() => true, () => false), false)
+
+    const [claimed] = await runCorpus([loaded], baseline, {
+      name: "bad",
+      program: { kind: "executable", path: bad },
+      implementedRoutes: new Set(["linear"]),
+    }, ctx)
+    assertEquals(claimed.status, "fail")
+    assertEquals(claimed.candidate?.mismatches.map((m) => m.surface), ["exit"])
+
+    const [drift] = await runCorpus(
+      [loaded],
+      { kind: "executable", path: bad },
+      {
+        name: "same",
+        program: baseline,
+        implementedRoutes: new Set(["linear"]),
+      },
+      ctx,
+    )
+    assertEquals(drift.status, "baseline-drift")
+    assertEquals(drift.candidate, null)
+    assertEquals(drift.baseline.mismatches.map((m) => m.surface), ["exit"])
+  })
+})
+
+Deno.test("sandbox paths, file effects and sanitized evidence flow through a case run", async () => {
+  await withDir(async (dir, ctx) => {
+    const writer = await script(
+      dir,
+      "writer",
+      `printf 'k = 1' > "$HOME/config.toml"; case "$PWD" in */cwd) printf ok ;; esac`,
+    )
+    const sha =
+      "d6c92dbc3ea62b6b32ac6ea33b7b1ea9f6f8bf1f2e9d3c9d3b5bde7d9e58d2f2"
+    const loaded = loadedCase({
+      id: "writer",
+      argv: [],
+      expected: {
+        exit: { code: 0 },
+        stdout: { utf8: "ok" },
+        stderr: { utf8: "" },
+        fileEffects: [{
+          path: "home/config.toml",
+          change: "created",
+          kind: "file",
+          sha256: sha,
+        }],
+      },
+    })
+    const program: Program = { kind: "executable", path: writer }
+    const [result] = await runCorpus([loaded], program, {
+      name: "w",
+      program,
+      implementedRoutes: new Set(["linear"]),
+    }, ctx)
+    assertEquals(result.status, "baseline-drift")
+    const detail = result.baseline.mismatches[0].detail
+    assert(
+      detail.startsWith(
+        "file effects differ; missing [created file home/config.toml " + sha +
+          "] unexpected [created file home/config.toml ",
+      ),
+      detail,
+    )
+    assert(!detail.includes(dir), "evidence must not leak sandbox paths")
+    assertEquals(result.baseline.fileEffects.length, 1)
+    const entries: string[] = []
+    for await (const entry of Deno.readDir(dir)) entries.push(entry.name)
+    assertEquals(
+      entries.filter((name) => name.startsWith("linear-parity-case-")),
+      [],
+      "sandboxes are removed",
+    )
+  })
+})
+
+Deno.test("a child-created FIFO fails only its case on the files surface", async () => {
+  await withDir(async (dir, ctx) => {
+    const baseline: Program = {
+      kind: "executable",
+      path: await script(dir, "baseline", "printf x"),
+    }
+    const candidate: Program = {
+      kind: "executable",
+      path: await script(
+        dir,
+        "candidate",
+        'if [ "$1" = fifo ]; then /usr/bin/mkfifo "$HOME/pipe"; fi; printf x',
+      ),
+    }
+    const expected = {
+      exit: { code: 0 },
+      stdout: { utf8: "x" },
+      stderr: { utf8: "" },
+      fileEffects: [],
+    }
+    const first = loadedCase({ id: "fifo", argv: ["fifo"], expected })
+    const second = loadedCase({ id: "normal", argv: ["normal"], expected })
+    const results = await runCorpus([first, second], baseline, {
+      name: "candidate",
+      program: candidate,
+      implementedRoutes: new Set(["linear"]),
+    }, ctx)
+    assertEquals(results.map((result) => result.status), ["fail", "pass"])
+    assertEquals(results[0].candidate?.mismatches.map((item) => item.surface), [
+      "files",
+    ])
+    assert(results[0].candidate?.mismatches[0].detail.includes("home/pipe"))
+    const leftovers: string[] = []
+    for await (const entry of Deno.readDir(dir)) {
+      if (entry.name.startsWith("linear-parity-case-")) {
+        leftovers.push(entry.name)
+      }
+    }
+    assertEquals(leftovers, [])
+  })
+})
+
+Deno.test("fixture server port substitution reaches argv, env and expected output, and Authorization is checked", async () => {
+  await withDir(async (dir, ctx) => {
+    const client = join(dir, "client.ts")
+    await Deno.writeTextFile(
+      client,
+      `const response = await fetch(Deno.env.get("URL")!, { method: "POST", headers: { authorization: Deno.env.get("KEY") ?? "" }, body: "{}" })
+Deno.stdout.writeSync(new TextEncoder().encode(await response.text()))
+Deno.exit(response.status === 200 ? 0 : 1)`,
+    )
+    const program: Program = {
+      kind: "executable",
+      path: await script(
+        dir,
+        "client",
+        `exec ${Deno.execPath()} run --cached-only --no-config --no-lock --allow-net --allow-env --quiet ${client}`,
+      ),
+    }
+    const withKey = loadedCase({
+      id: "fixture",
+      argv: [],
+      env: {
+        ...parseCase(validCase()).env,
+        URL: "http://127.0.0.1:{{fixturePort}}/graphql",
+        KEY: "lin_api_fake",
+      },
+      substitutions: ["home", "configHome", "bin", "denoDir", "fixturePort"],
+      fixtureServer: {
+        path: "/graphql",
+        responses: [{
+          status: 200,
+          headers: {},
+          body: { utf8: "port {{fixturePort}}" },
+        }],
+        expectedRequests: 1,
+        expectedAuthorization: "lin_api_fake",
+      },
+      expected: {
+        exit: { code: 0 },
+        stdout: { utf8: "port {{fixturePort}}" },
+        stderr: { utf8: "" },
+        fileEffects: [],
+      },
+    })
+    const [ok] = await runCorpus([withKey], program, {
+      name: "c",
+      program,
+      implementedRoutes: new Set(["linear"]),
+    }, ctx)
+    assertEquals(ok.status, "pass", JSON.stringify(ok.baseline.mismatches))
+    assertEquals(ok.baseline.fixture?.authorizationMatched, [true])
+    assert(!JSON.stringify(toReportCase(ok)).includes("lin_api_fake"))
+
+    const withoutKey = loadedCase({
+      ...withKey.spec,
+      env: { ...withKey.spec.env, KEY: "" },
+    })
+    const [noAuth] = await runCorpus([withoutKey], program, {
+      name: "c",
+      program,
+      implementedRoutes: new Set(["linear"]),
+    }, ctx)
+    assertEquals(noAuth.status, "baseline-drift")
+    assertEquals(noAuth.baseline.mismatches.map((m) => m.surface), ["fixture"])
+
+    // Count mismatch is rejected at case loading, before either child runs.
+  })
+})
+
+Deno.test("the committed corpus loads against the manifest and rejects a broken file", async () => {
+  const manifest = readManifest(JSON.parse(
+    await Deno.readTextFile(new URL("../manifest.json", import.meta.url)),
+  ))
+  const routes = new Set<string>(manifest.routes.map((route) => {
+    if (typeof route.path !== "string") {
+      throw new Error("manifest route has no path")
+    }
+    return route.path
+  }))
+  const cases = await loadCases(
+    new URL("./cases", import.meta.url).pathname,
+    routes,
+  )
+  assert(cases.length >= 13)
+  assert(cases.some((loaded) => loaded.spec.fixtureServer != null))
+  const filtered = await loadCases(
+    new URL("./cases", import.meta.url).pathname,
+    routes,
+    "loopback",
+  )
+  assertEquals(
+    filtered.every((loaded) => loaded.spec.id.includes("loopback")),
+    true,
+  )
+
+  const dir = await Deno.makeTempDir({ prefix: "linear-parity-cases-" })
+  try {
+    await Deno.writeTextFile(
+      join(dir, "sample.json"),
+      JSON.stringify({ ...validCase(), route: "linear nope" }),
+    )
+    await loadCases(dir, routes).then(
+      () => assert(false, "unknown route accepted"),
+      (error) =>
+        assert(String(error).includes("not in rust/parity/manifest.json")),
+    )
+    await Deno.writeTextFile(
+      join(dir, "sample.json"),
+      JSON.stringify({ ...validCase(), argv: ["{{cwd}}"] }),
+    )
+    await loadCases(dir, routes).then(
+      () => assert(false, "undeclared placeholder accepted"),
+      (error) => assert(String(error).includes("not declared")),
+    )
+    await Deno.writeTextFile(
+      join(dir, "sample.json"),
+      JSON.stringify({ ...validCase(), id: "other" }),
+    )
+    await loadCases(dir, routes).then(
+      () => assert(false, "id/file mismatch accepted"),
+      (error) => assert(String(error).includes("does not match the file name")),
+    )
+    await Deno.writeTextFile(
+      join(dir, "sample.json"),
+      JSON.stringify({ ...validCase(), cwdFixture: "missing" }),
+    )
+    await loadCases(dir, routes).then(
+      () => assert(false, "missing fixture accepted"),
+      (error) => assert(String(error).includes("fixture directory")),
+    )
+  } finally {
+    await Deno.remove(dir, { recursive: true })
+  }
+})

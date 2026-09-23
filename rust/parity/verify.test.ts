@@ -1,7 +1,15 @@
 import { assertEquals, assertThrows } from "@std/assert"
 import { fromFileUrl, join } from "@std/path"
 import { withSourceMap } from "./source-map.ts"
-import { compareManifest, exportRuntime, readManifest } from "./verify.ts"
+import {
+  APPROVED_ROOT_TASKS,
+  compareManifest,
+  compareRootConfig,
+  exportRuntime,
+  readBaseline,
+  readManifest,
+  verifySourceBinding,
+} from "./verify.ts"
 
 const parity = fromFileUrl(new URL("./", import.meta.url))
 
@@ -93,4 +101,102 @@ Deno.test("an edited route alias or option fails inventory verification", async 
   findRoute(updatedCoverage.routes, "linear issue mine").fixtureStatus =
     "captured"
   compareManifest(updatedCoverage, runtime)
+})
+
+function frozenRootConfig(): Record<string, unknown> {
+  return {
+    name: "@schpet/linear-cli",
+    version: "2.6.0",
+    tasks: {
+      test: "deno test --allow-all --quiet",
+      check: "deno check src/main.ts",
+    },
+    imports: { valibot: "npm:valibot@^1.3.1" },
+    unstable: ["sloppy-imports"],
+  }
+}
+
+function withApprovedAdditions(): Record<string, unknown> {
+  const current = frozenRootConfig()
+  current.tasks = {
+    ...recordField(current, "tasks"),
+    ...APPROVED_ROOT_TASKS,
+  }
+  current.test = { exclude: ["rust/"] }
+  return current
+}
+
+function recordField(
+  value: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> {
+  const field = value[key]
+  if (!isRecord(field)) {
+    throw new Error(`${key} is not an object`)
+  }
+  return field
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value != null && !Array.isArray(value)
+}
+
+Deno.test("source binding accepts only the reviewed parity task and test.exclude additions", () => {
+  compareRootConfig(frozenRootConfig(), frozenRootConfig())
+  compareRootConfig(frozenRootConfig(), withApprovedAdditions())
+  const cases: Array<[string, (current: Record<string, unknown>) => void]> = [
+    ["version", (current) => (current.version = "2.6.1")],
+    [
+      "imports",
+      (
+        current,
+      ) => (recordField(current, "imports").valibot = "npm:valibot@^1.4.0"),
+    ],
+    [
+      "tasks.test",
+      (
+        current,
+      ) => (recordField(current, "tasks").test = "deno test --allow-all"),
+    ],
+    ["unstable", (current) => (current.unstable = [])],
+    [
+      "extra task",
+      (
+        current,
+      ) => (recordField(current, "tasks").extra = "deno run x"),
+    ],
+    [
+      "changed parity task",
+      (
+        current,
+      ) => (recordField(current, "tasks").parity =
+        "deno run --allow-all rust/parity/runner/main.ts"),
+    ],
+    [
+      "extra exclude",
+      (current) => (current.test = { exclude: ["rust/", "test/"] }),
+    ],
+    [
+      "extra test key",
+      (current) => (current.test = { exclude: ["rust/"], include: ["src/"] }),
+    ],
+    ["new top-level key", (current) => (current.compilerOptions = {})],
+  ]
+  for (const [label, mutate] of cases) {
+    const current = withApprovedAdditions()
+    mutate(current)
+    assertThrows(
+      () => compareRootConfig(frozenRootConfig(), current),
+      Error,
+      "approved",
+      label,
+    )
+  }
+})
+
+Deno.test("the working copy is bound to the frozen reference source", async () => {
+  const baseline = readBaseline(
+    JSON.parse(await Deno.readTextFile(join(parity, "baseline.json"))),
+  )
+  await verifySourceBinding(baseline)
 })
