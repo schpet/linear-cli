@@ -1,0 +1,45 @@
+{
+  "id": "parent-initiative-update-bare",
+  "route": "linear initiative-update",
+  "reason": "F01-A frozen Deno oracle: exact parent presentation or root version variant.",
+  "argv": [
+    "initiative-update"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear initiative-update\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m2.6.0\u001b[39m                   \n\n\u001b[1mDescription:\u001b[22m\n\n  Manage initiative status updates (timeline posts)\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                      \n  \u001b[94m--workspace\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)  \n\n\u001b[1mCommands:\u001b[22m\n\n  \u001b[94mcreate\u001b[39m, \u001b[94mc\u001b[39m    \u001b[33m<\u001b[39m\u001b[95minitiativeId\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Create a new status update for an initiative\n  \u001b[94mlist\u001b[39m, \u001b[94ml\u001b[39m, \u001b[94mls\u001b[39m  \u001b[33m<\u001b[39m\u001b[95minitiativeId\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List status updates for an initiative       \n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

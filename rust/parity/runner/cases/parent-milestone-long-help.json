@@ -1,0 +1,46 @@
+{
+  "id": "parent-milestone-long-help",
+  "route": "linear milestone",
+  "reason": "F01-A frozen Deno oracle: exact parent presentation or root version variant.",
+  "argv": [
+    "milestone",
+    "--help"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear milestone\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m2.6.0\u001b[39m           \n\n\u001b[1mDescription:\u001b[22m\n\n  Manage Linear project milestones\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                      \n  \u001b[94m--workspace\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)  \n\n\u001b[1mCommands:\u001b[22m\n\n  \u001b[94mlist\u001b[39m                  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List milestones for a project                                                 \n  \u001b[94mview\u001b[39m, \u001b[94mv\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mmilestone\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m View milestone details. By default lists the first 10 attached issues from the\n                          first page of 50; use --all to paginate the full set.                         \n  \u001b[94mcreate\u001b[39m                \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Create a new project milestone                                                \n  \u001b[94mupdate\u001b[39m   \u001b[33m<\u001b[39m\u001b[95mid\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Update an existing project milestone                                          \n  \u001b[94mdelete\u001b[39m   \u001b[33m<\u001b[39m\u001b[95mid\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Delete a project milestone                                                    \n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}
