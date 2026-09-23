@@ -1,5 +1,6 @@
-// Fresh per-run filesystem sandbox with synthetic HOME/config/cwd/bin and a
-// content hash of the whole tree for exact file-effect comparison.
+// Fresh per-run filesystem sandbox with synthetic HOME/config/cwd/bin, a
+// case-owned tmp/ that the confinement wrapper binds to /tmp, and a content
+// hash of the whole tree for exact file-effect comparison.
 import { join, relative } from "@std/path"
 import { copy } from "@std/fs/copy"
 import { sha256Hex } from "./bytes.ts"
@@ -11,6 +12,8 @@ export interface Sandbox {
   configHome: string
   cwd: string
   bin: string
+  /** Bound to /tmp inside the sandbox, so implicit temp writes are file effects. */
+  tmp: string
   remove(): Promise<void>
 }
 
@@ -26,8 +29,9 @@ export async function createSandbox(
   const configHome = join(root, "config")
   const cwd = join(root, "cwd")
   const bin = join(root, "bin")
+  const tmp = join(root, "tmp")
   try {
-    for (const dir of [home, configHome, bin]) await Deno.mkdir(dir)
+    for (const dir of [home, configHome, bin, tmp]) await Deno.mkdir(dir)
     if (fixtureDir == null) await Deno.mkdir(cwd)
     else await copy(fixtureDir, cwd)
   } catch (error) {
@@ -40,6 +44,7 @@ export async function createSandbox(
     configHome,
     cwd,
     bin,
+    tmp,
     remove: () => Deno.remove(root, { recursive: true }),
   }
 }
@@ -81,6 +86,20 @@ export async function hashTree(root: string): Promise<Map<string, TreeEntry>> {
   }
   await walk(root)
   return new Map([...entries].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+}
+
+/** Stable digest of a whole tree (paths, kinds, file hashes, symlink targets). */
+export async function treeDigest(
+  root: string,
+): Promise<{ entries: number; sha256: string }> {
+  const tree = await hashTree(root)
+  const lines = [...tree].map(([path, entry]) =>
+    `${path}\t${JSON.stringify(entry)}`
+  )
+  return {
+    entries: tree.size,
+    sha256: await sha256Hex(new TextEncoder().encode(lines.join("\n"))),
+  }
 }
 
 function sameEntry(a: TreeEntry, b: TreeEntry): boolean {

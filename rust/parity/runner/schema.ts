@@ -19,15 +19,6 @@ export type SubstitutionName =
   | "denoDir"
   | "fixturePort"
 
-export const SIGNALS = [
-  "SIGABRT",
-  "SIGINT",
-  "SIGKILL",
-  "SIGPIPE",
-  "SIGSEGV",
-  "SIGTERM",
-]
-
 const UNSUPPORTED_FIELDS: Record<string, string> = {
   graphql:
     "GraphQL operation expectations (documents, variables, pagination, effects, concurrency groups) are P03 work; the P02 runner only supports scripted loopback responses under fixtureServer",
@@ -71,12 +62,9 @@ export const ByteValueSchema = v.union([
   }),
 ], "byte fields must be {utf8} or {base64} objects")
 
-const ExitSchema = v.union([
-  v.strictObject({
-    code: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(255)),
-  }),
-  v.strictObject({ signal: v.picklist(SIGNALS) }),
-], "exit must be {code} or {signal}")
+const ExitSchema = v.strictObject({
+  code: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(255)),
+})
 
 const relativePath = v.pipe(
   v.string(),
@@ -318,6 +306,16 @@ function rejectUnsupported(input: unknown, label: string): void {
 
 export function parseCase(input: unknown, label = "case"): CaseSpec {
   rejectUnsupported(input, label)
+  if (
+    typeof input === "object" && input != null && "expected" in input &&
+    typeof input.expected === "object" && input.expected != null &&
+    "exit" in input.expected && typeof input.expected.exit === "object" &&
+    input.expected.exit != null && "signal" in input.expected.exit
+  ) {
+    throw new SchemaError(
+      `${label}: expected.exit.signal is unavailable through the Bubblewrap reaper; P04 must add out-of-band signal status capture`,
+    )
+  }
   const result = v.safeParse(CaseSchema, input)
   if (!result.success) {
     throw new SchemaError(`${label}: ${formatIssues(result.issues)}`)

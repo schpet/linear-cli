@@ -1,9 +1,11 @@
 // Parity runner entry point: `deno task parity -- --reference <workspace> --reference-binary <binary> [...]`.
 // The outer process verifies the pinned reference, stages its module cache,
 // then re-executes itself inside an unprivileged user/net/PID namespace where
-// the preflight, fixture server and every child run.
+// the preflight, fixture server and every child run; each child is further
+// confined to an allowlisted filesystem by Bubblewrap (bwrap.ts).
 import { fromFileUrl, join } from "@std/path"
 import { readBaseline, readManifest, verifyBaseline } from "../verify.ts"
+import { CASE_ROOT_PARENT, prepareConfinement, resolveBwrap } from "./bwrap.ts"
 import { encodeByteValue, sha256Hex } from "./bytes.ts"
 import { loadCases } from "./cases.ts"
 import {
@@ -21,6 +23,7 @@ import {
   toReportCase,
 } from "./report.ts"
 import { type Candidate, type RunContext, runCorpus } from "./run.ts"
+import { treeDigest } from "./sandbox.ts"
 import { parseCandidateDescriptor } from "./schema.ts"
 import { runSelfCheck } from "./self-check.ts"
 import { stageReference } from "./stage.ts"
@@ -256,6 +259,8 @@ function cacheHome(): string {
 }
 
 async function outer(options: Options, rawArgs: string[]): Promise<number> {
+  // Bubblewrap is a hard dependency of the lane: fail before staging anything.
+  await resolveBwrap()
   const pinned = await loadPinned()
   await verifyBaseline(
     pinned.baseline,
@@ -321,15 +326,43 @@ async function writeProposals(
 async function inner(options: Options): Promise<number> {
   if (options.denoDir == null) throw new Error("inner runner needs --deno-dir")
   await prepareNamespace()
+  // Case roots live under a private 0700 lane directory in /var/tmp, never
+  // under /tmp, because every sandbox binds its own tmp/ over /tmp.
+  const sandboxParent = await Deno.makeTempDir({
+    dir: CASE_ROOT_PARENT,
+    prefix: "linear-parity-lane-",
+  })
+  try {
+    return await innerInLane(options, sandboxParent)
+  } finally {
+    await Deno.remove(sandboxParent, { recursive: true }).catch(() => {})
+  }
+}
+
+async function innerInLane(
+  options: Options,
+  sandboxParent: string,
+): Promise<number> {
+  if (options.denoDir == null) throw new Error("inner runner needs --deno-dir")
+  const confinement = await prepareConfinement({
+    denoDir: options.denoDir,
+    referenceBinary: options.referenceBinary,
+  })
+  const stageBefore = await treeDigest(options.denoDir)
   const lane = await runPreflight({
     denoPath: Deno.execPath(),
     denoDir: options.denoDir,
     expectPidOne: true,
+    confinement,
+    laneDir: sandboxParent,
+    referenceBinary: options.referenceBinary,
   })
   console.log(
     `lane: pid ${lane.runnerPid}, interfaces [${
       lane.runnerInterfaces.join(", ")
-    }], outbound ${lane.canary.outbound}, dns ${lane.canary.dns}`,
+    }], outbound ${lane.canary.outbound}, dns ${lane.canary.dns}; bwrap ${lane.bwrap.version} uid ${lane.bwrap.uid} caps ${
+      String(lane.confinement.status)
+    }, marker read ${lane.confinement.markerRead}, socket ${lane.confinement.socket}`,
   )
   const pinned = await loadPinned()
   const cases = await loadCases(options.cases, pinned.routes, options.filter)
@@ -343,11 +376,9 @@ async function inner(options: Options): Promise<number> {
   const onSignal = () => abort.abort()
   Deno.addSignalListener("SIGINT", onSignal)
   Deno.addSignalListener("SIGTERM", onSignal)
-  const sandboxParent = await Deno.makeTempDir({
-    prefix: "linear-parity-lane-",
-  })
   const ctx: RunContext = {
     denoDir: options.denoDir,
+    confinement,
     sandboxParent,
     signal: abort.signal,
   }
@@ -373,6 +404,14 @@ async function inner(options: Options): Promise<number> {
       )
       : null
     const counts = countStatuses(results)
+    const stageAfter = await treeDigest(options.denoDir)
+    const stagedDenoDir = {
+      entries: stageAfter.entries,
+      sha256Before: stageBefore.sha256,
+      sha256After: stageAfter.sha256,
+      unchanged: stageBefore.sha256 === stageAfter.sha256 &&
+        stageBefore.entries === stageAfter.entries,
+    }
     const report: Report = {
       generatedAt: new Date().toISOString(),
       baseline: pinned.baseline,
@@ -384,6 +423,7 @@ async function inner(options: Options): Promise<number> {
       },
       lane,
       stagedDenoDirReused: options.stagedReused,
+      stagedDenoDir,
       counts,
       cases: results.map(toReportCase),
       selfCheck: selfCheck == null ? null : {
@@ -397,6 +437,14 @@ async function inner(options: Options): Promise<number> {
         JSON.stringify(report, null, 2) + "\n",
       )
     }
+    if (!stagedDenoDir.unchanged) {
+      throw new Error(
+        `staged DENO_DIR changed during the run (${stageBefore.entries} entries ${stageBefore.sha256} -> ${stageAfter.entries} entries ${stageAfter.sha256}); the read-only stage bind is not holding`,
+      )
+    }
+    console.log(
+      `staged DENO_DIR unchanged: ${stagedDenoDir.entries} entries, sha256 ${stagedDenoDir.sha256After}`,
+    )
     console.log(
       `parity: ${counts.pass} pass, ${counts.fail} fail, ${
         counts["not-implemented"]
@@ -414,7 +462,6 @@ async function inner(options: Options): Promise<number> {
   } finally {
     Deno.removeSignalListener("SIGINT", onSignal)
     Deno.removeSignalListener("SIGTERM", onSignal)
-    await Deno.remove(sandboxParent, { recursive: true }).catch(() => {})
   }
 }
 

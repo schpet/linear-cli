@@ -43,6 +43,13 @@ Deno.test("a complete case parses and keeps byte fields as utf8/base64 objects",
   assertEquals(spec.expected.stderr, { base64: "" })
 })
 
+Deno.test("signal exit expectations wait for the P04 status channel", () => {
+  rejects(
+    (spec) => (objectField(spec, "expected").exit = { signal: "SIGTERM" }),
+    "P04 must add out-of-band signal status capture",
+  )
+})
+
 Deno.test("unknown keys, unsupported surfaces and weak fields are rejected", () => {
   rejects((spec) => (spec.extra = 1), "extra")
   rejects((spec) => (spec.graphql = {}), "P03")

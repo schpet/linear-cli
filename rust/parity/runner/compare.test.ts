@@ -42,14 +42,6 @@ Deno.test("every mismatch surface is reported distinctly", () => {
   )
   assertEquals(
     compareObservation(
-      { ...expected, exit: { signal: "SIGTERM" } },
-      observation({ exit: { signal: "SIGTERM" } }),
-      [],
-    ),
-    [],
-  )
-  assertEquals(
-    compareObservation(
       expected,
       observation({ stdout: text(""), stderr: text("out") }),
       [],

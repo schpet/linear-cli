@@ -34,10 +34,7 @@ function describeExit(exit: ExitStatus | ExitExpectation): string {
 }
 
 function sameExit(expected: ExitExpectation, actual: ExitStatus): boolean {
-  if ("code" in expected) {
-    return "code" in actual && actual.code === expected.code
-  }
-  return "signal" in actual && actual.signal === expected.signal
+  return "code" in actual && actual.code === expected.code
 }
 
 function compareBytes(

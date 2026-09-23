@@ -1,8 +1,9 @@
-// Integration of sandbox, engine, fixture server, comparison and descriptor
-// logic with small shell programs; the namespace lane is exercised by
-// `deno task parity` itself.
+// Integration of sandbox, confinement wrapper, engine, fixture server,
+// comparison and descriptor logic with small shell programs; the namespace
+// lane is exercised by `deno task parity` itself.
 import { assert, assertEquals } from "@std/assert"
 import { join } from "@std/path"
+import { CASE_ROOT_PARENT, prepareConfinement } from "./bwrap.ts"
 import type { LoadedCase } from "./cases.ts"
 import { loadCases } from "./cases.ts"
 import { type RunContext, runCorpus } from "./run.ts"
@@ -15,11 +16,15 @@ import { validCase } from "./test-fixtures.ts"
 async function withDir<T>(
   fn: (dir: string, ctx: RunContext) => Promise<T>,
 ): Promise<T> {
-  const dir = await Deno.makeTempDir({ prefix: "linear-parity-run-" })
+  const dir = await Deno.makeTempDir({
+    dir: CASE_ROOT_PARENT,
+    prefix: "linear-parity-run-",
+  })
   const denoDir = join(dir, "deno-dir")
   await Deno.mkdir(denoDir)
   try {
-    return await fn(dir, { denoDir, sandboxParent: dir })
+    const confinement = await prepareConfinement({ denoDir })
+    return await fn(dir, { denoDir, confinement, sandboxParent: dir })
   } finally {
     await Deno.remove(dir, { recursive: true })
   }
@@ -199,21 +204,21 @@ Deno.test("a child-created FIFO fails only its case on the files surface", async
 
 Deno.test("fixture server port substitution reaches argv, env and expected output, and Authorization is checked", async () => {
   await withDir(async (dir, ctx) => {
-    const client = join(dir, "client.ts")
+    // A bash loopback client: only /usr is visible inside the sandbox.
+    const client = join(dir, "client.sh")
     await Deno.writeTextFile(
       client,
-      `const response = await fetch(Deno.env.get("URL")!, { method: "POST", headers: { authorization: Deno.env.get("KEY") ?? "" }, body: "{}" })
-Deno.stdout.writeSync(new TextEncoder().encode(await response.text()))
-Deno.exit(response.status === 200 ? 0 : 1)`,
+      `#!/usr/bin/bash
+port="\${URL##*:}"; port="\${port%%/*}"
+exec 3<>"/dev/tcp/127.0.0.1/$port"
+printf 'POST /graphql HTTP/1.0\r\nauthorization: %s\r\ncontent-length: 2\r\n\r\n{}' "$KEY" >&3
+IFS= read -r status <&3
+/usr/bin/sed '1,/^\r$/d' <&3
+case "$status" in *" 200 "*) exit 0 ;; *) exit 1 ;; esac
+`,
+      { mode: 0o755 },
     )
-    const program: Program = {
-      kind: "executable",
-      path: await script(
-        dir,
-        "client",
-        `exec ${Deno.execPath()} run --cached-only --no-config --no-lock --allow-net --allow-env --quiet ${client}`,
-      ),
-    }
+    const program: Program = { kind: "executable", path: client }
     const withKey = loadedCase({
       id: "fixture",
       argv: [],
@@ -324,6 +329,16 @@ Deno.test("the committed corpus loads against the manifest and rejects a broken 
     )
     await loadCases(dir, routes).then(
       () => assert(false, "missing fixture accepted"),
+      (error) => assert(String(error).includes("fixture directory")),
+    )
+    await Deno.mkdir(join(dir, "fixtures"))
+    await Deno.symlink(dir, join(dir, "fixtures", "linked"))
+    await Deno.writeTextFile(
+      join(dir, "sample.json"),
+      JSON.stringify({ ...validCase(), cwdFixture: "linked" }),
+    )
+    await loadCases(dir, routes).then(
+      () => assert(false, "symlinked fixture accepted"),
       (error) => assert(String(error).includes("fixture directory")),
     )
   } finally {

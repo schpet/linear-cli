@@ -17,6 +17,13 @@ export interface Report {
   candidate: { name: string; program: string; implementedRoutes: number }
   lane: LaneRecord
   stagedDenoDirReused: boolean
+  /** Content digest of the staged DENO_DIR before preflight and after the last child. */
+  stagedDenoDir: {
+    entries: number
+    sha256Before: string
+    sha256After: string
+    unchanged: boolean
+  }
   counts: Record<CaseStatus, number>
   cases: ReportCase[]
   selfCheck:

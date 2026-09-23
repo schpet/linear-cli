@@ -72,7 +72,7 @@ export async function loadCases(
     let fixtureDir: string | null = null
     if (spec.cwdFixture !== "empty") {
       fixtureDir = join(dir, "fixtures", spec.cwdFixture)
-      const info = await Deno.stat(fixtureDir).catch(() => null)
+      const info = await Deno.lstat(fixtureDir).catch(() => null)
       if (info == null || !info.isDirectory) {
         throw new SchemaError(
           `${file}: cwd fixture directory ${fixtureDir} is missing`,

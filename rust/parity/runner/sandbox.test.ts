@@ -15,7 +15,9 @@ Deno.test("sandbox copies the cwd fixture, hashes the tree and reports exact fil
       await Deno.readTextFile(join(sandbox.cwd, "sub/keep.txt")),
       "keep",
     )
-    for (const dir of [sandbox.home, sandbox.configHome, sandbox.bin]) {
+    for (
+      const dir of [sandbox.home, sandbox.configHome, sandbox.bin, sandbox.tmp]
+    ) {
       assertEquals((await Deno.stat(dir)).isDirectory, true)
     }
     const before = await hashTree(sandbox.root)
@@ -27,6 +29,7 @@ Deno.test("sandbox copies the cwd fixture, hashes the tree and reports exact fil
       "cwd/sub",
       "cwd/sub/keep.txt",
       "home",
+      "tmp",
     ])
 
     await Deno.writeTextFile(join(sandbox.cwd, "change.txt"), "after")

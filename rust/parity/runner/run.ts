@@ -1,12 +1,15 @@
-// Case execution: sandbox, optional loopback fixture server, isolated child,
-// tree hashing before and after, exact comparison, and cleanup in finally.
+// Case execution: sandbox, optional loopback fixture server, confined child
+// (bwrap.ts over engine.ts), tree hashing before and after, exact comparison,
+// and cleanup in finally. Confinement setup failures propagate as harness
+// errors; they are never recorded as candidate mismatches.
+import { type Confinement, programInvocation, runConfined } from "./bwrap.ts"
 import { sha256Hex } from "./bytes.ts"
 import type { LoadedCase } from "./cases.ts"
 import { resolveCase } from "./cases.ts"
 import { compareFixture, compareObservation, type Mismatch } from "./compare.ts"
-import { type Observation, runIsolated } from "./engine.ts"
+import type { Observation } from "./engine.ts"
 import { type FixtureServer, startFixtureServer } from "./fixture-server.ts"
-import { describeProgram, invocationFor, type Program } from "./program.ts"
+import { describeProgram, type Program } from "./program.ts"
 import {
   createSandbox,
   diffTrees,
@@ -18,8 +21,10 @@ import type { FileEffect } from "./schema.ts"
 export interface RunContext {
   /** Staged module cache handed to every child as DENO_DIR. */
   denoDir: string
-  /** Parent directory for per-case sandboxes; must be outside any repository. */
-  sandboxParent?: string
+  /** Bubblewrap facts and shared read-only binds; every child runs through it. */
+  confinement: Confinement
+  /** Parent directory for per-case sandboxes: a private lane directory under /var/tmp. */
+  sandboxParent: string
   signal?: AbortSignal
   /** Test hook: override case limits (used by self-check controls). */
   limits?: { timeoutMs?: number; outputCapBytes?: number }
@@ -105,11 +110,11 @@ export async function executeCase(
     }
     const resolved = resolveWithPort(server?.port ?? 0)
     const before = await hashTree(sandbox.root)
-    const invocation = invocationFor(program, resolved.argv)
-    const observation = await runIsolated({
-      executable: invocation.executable,
-      args: invocation.args,
+    const observation = await runConfined(ctx.confinement, {
+      ...programInvocation(program, resolved.argv),
+      caseRoot: sandbox.root,
       cwd: sandbox.cwd,
+      tmp: sandbox.tmp,
       env: resolved.env,
       stdin: resolved.stdin,
       timeoutMs: ctx.limits?.timeoutMs ?? loaded.spec.timeoutMs,
