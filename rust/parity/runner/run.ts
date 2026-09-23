@@ -87,6 +87,9 @@ export async function executeCase(
   ctx: RunContext,
 ): Promise<CaseRun> {
   if (ctx.signal?.aborted) throw new Error("aborted")
+  if (loaded.spec.graphql != null) {
+    throw new Error("GraphQL fixture execution is unavailable until P03B")
+  }
   const sandbox = await createSandbox(ctx.sandboxParent, loaded.fixtureDir)
   let server: FixtureServer | null = null
   try {

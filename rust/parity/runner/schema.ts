@@ -3,6 +3,10 @@
 // clock, keyring) cannot be smuggled in with weak defaults.
 import * as v from "valibot"
 
+// Frozen reference d4fe6fa7 embeds version 2.6.0. Do not follow the moving
+// checkout's deno.json: a later version bump must not change pinned fixtures.
+export const FROZEN_USER_AGENT = "schpet-linear-cli/2.6.0"
+
 export const SUBSTITUTION_NAMES = [
   "home",
   "configHome",
@@ -20,8 +24,6 @@ export type SubstitutionName =
   | "fixturePort"
 
 const UNSUPPORTED_FIELDS: Record<string, string> = {
-  graphql:
-    "GraphQL operation expectations (documents, variables, pagination, effects, concurrency groups) are P03 work; the P02 runner only supports scripted loopback responses under fixtureServer",
   pty: "PTY keystrokes and terminal traces are P04 work",
   terminal: "terminal size and TTY modes are P04 work",
   clock: "virtual clock bootstrap is P04 work",
@@ -122,6 +124,222 @@ export const FixtureServerSchema = v.strictObject({
   expectedAuthorization: nonEmpty,
 })
 
+function isJson(value: unknown): boolean {
+  if (
+    value == null || typeof value === "string" || typeof value === "boolean"
+  ) return true
+  if (typeof value === "number") return Number.isFinite(value)
+  if (Array.isArray(value)) return value.every(isJson)
+  if (typeof value !== "object") return false
+  if (
+    Object.getPrototypeOf(value) !== Object.prototype &&
+    Object.getPrototypeOf(value) !== null
+  ) return false
+  return Object.entries(value).every(([key, entry]) =>
+    key !== "__proto__" && isJson(entry)
+  )
+}
+
+const JsonSchema = v.pipe(
+  v.unknown(),
+  v.check(isJson, "expected finite JSON data"),
+)
+const JsonObjectSchema = v.pipe(
+  v.record(v.string(), JsonSchema),
+  v.check(
+    (value) => Object.keys(value).every((key) => key !== "__proto__"),
+    "unsafe object key",
+  ),
+)
+const count = v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(10_000))
+const boundedBytes = v.pipe(
+  ByteValueSchema,
+  v.check((value) => {
+    if ("utf8" in value) {
+      return new TextEncoder().encode(value.utf8).length <= 4 * 1024 * 1024
+    }
+    return value.base64.length <= 6 * 1024 * 1024
+  }, "GraphQL fixture byte payload exceeds 4 MiB"),
+)
+const safePath = v.pipe(
+  v.string(),
+  v.regex(
+    /^\/(?:[A-Za-z0-9._~!$&'()*+,;=:@%-]|\/)*(?:\?[A-Za-z0-9._~!$&'()*+,;=:@%/?-]*)?$/,
+    "path must be a safe origin-relative URL",
+  ),
+  v.check(
+    (path) =>
+      !path.startsWith("//") &&
+      !path.split("?")[0].split("/").some((part) =>
+        part === "." || part === ".." || /%2e/i.test(part)
+      ),
+    "path must not traverse or name another host",
+  ),
+)
+const headers = v.pipe(
+  v.record(v.string(), v.string()),
+  v.check(
+    (value) => Object.keys(value).every((key) => /^[A-Za-z0-9-]+$/.test(key)),
+    "invalid header name",
+  ),
+  v.check(
+    (value) => Object.values(value).every((entry) => !/[\r\n]/.test(entry)),
+    "header values must not contain newlines",
+  ),
+  v.check(
+    (value) =>
+      new Set(Object.keys(value).map((key) => key.toLowerCase())).size ===
+        Object.keys(value).length,
+    "header names must be unique case-insensitively",
+  ),
+)
+const requestIdentity = v.pipe(
+  v.strictObject({
+    authorization: v.nullable(v.pipe(v.string(), v.startsWith("lin_api_fake"))),
+    userAgent: v.literal(FROZEN_USER_AGENT),
+    headers,
+  }),
+  v.check(
+    (identity) =>
+      !Object.keys(identity.headers).some((key) =>
+        ["authorization", "user-agent"].includes(key.toLowerCase())
+      ),
+    "Authorization and User-Agent belong in identity fields",
+  ),
+)
+const GraphQLOperationSchema = v.strictObject({
+  document: nonEmpty,
+  operationName: v.optional(v.string()),
+  variables: v.optional(JsonObjectSchema),
+  exactOrigins: v.optional(v.array(nonEmpty)),
+  allowExtraTypename: v.optional(v.boolean()),
+})
+const GraphQLErrorSchema = v.strictObject({
+  message: nonEmpty,
+  locations: v.optional(
+    v.array(v.strictObject({ line: count, column: count })),
+  ),
+  path: v.optional(v.array(v.union([v.string(), count]))),
+  extensions: v.optional(JsonObjectSchema),
+})
+const GraphQLResponseSchema = v.variant("kind", [
+  v.strictObject({ kind: v.literal("data"), data: JsonSchema }),
+  v.strictObject({
+    kind: v.literal("graphqlErrors"),
+    status: v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(599)),
+    data: JsonSchema,
+    errors: v.pipe(v.array(GraphQLErrorSchema), v.minLength(1)),
+  }),
+  v.strictObject({
+    kind: v.literal("validationErrors"),
+    status: v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(599)),
+    errors: v.pipe(v.array(GraphQLErrorSchema), v.minLength(1)),
+  }),
+  v.strictObject({
+    kind: v.literal("transport"),
+    status: v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(599)),
+    headers,
+    body: boundedBytes,
+  }),
+])
+const EffectSchema = v.variant("kind", [
+  v.strictObject({
+    kind: v.literal("put"),
+    record: nonEmpty,
+    before: v.union([
+      v.strictObject({ absent: v.literal(true) }),
+      v.strictObject({ value: JsonSchema }),
+    ]),
+    after: JsonSchema,
+  }),
+  v.strictObject({
+    kind: v.literal("delete"),
+    record: nonEmpty,
+    before: v.strictObject({ value: JsonSchema }),
+  }),
+])
+const GraphQLStepSchema = v.strictObject({
+  kind: v.literal("graphql"),
+  id: nonEmpty,
+  operation: GraphQLOperationSchema,
+  identity: requestIdentity,
+  response: GraphQLResponseSchema,
+  effects: v.array(EffectSchema),
+  partialEffects: v.optional(v.boolean()),
+})
+const AssetStepSchema = v.pipe(
+  v.strictObject({
+    kind: v.literal("asset"),
+    id: nonEmpty,
+    method: v.picklist(["GET", "PUT"]),
+    path: safePath,
+    requiredHeaders: headers,
+    forbiddenHeaders: v.array(
+      v.pipe(v.string(), v.regex(/^[A-Za-z0-9-]+$/, "invalid header name")),
+    ),
+    body: boundedBytes,
+    response: v.strictObject({
+      status: v.pipe(v.number(), v.integer(), v.minValue(100), v.maxValue(599)),
+      headers,
+      body: boundedBytes,
+      location: v.optional(safePath),
+    }),
+  }),
+  v.check(
+    (step) => {
+      const required = new Set(
+        Object.keys(step.requiredHeaders).map((key) => key.toLowerCase()),
+      )
+      const forbidden = step.forbiddenHeaders.map((key) => key.toLowerCase())
+      const authorization = Object.entries(step.requiredHeaders).find(([key]) =>
+        key.toLowerCase() === "authorization"
+      )?.[1]
+      return new Set(forbidden).size === forbidden.length &&
+        forbidden.every((key) => !required.has(key)) &&
+        (authorization == null || authorization.startsWith("lin_api_fake"))
+    },
+    "asset headers must be unique, nonconflicting, and use only fake Authorization",
+  ),
+)
+const InteractionSchema = v.variant("kind", [
+  GraphQLStepSchema,
+  AssetStepSchema,
+])
+const GroupSchema = v.variant("mode", [
+  v.strictObject({
+    mode: v.literal("ordered"),
+    steps: v.pipe(v.array(InteractionSchema), v.minLength(1)),
+  }),
+  v.strictObject({
+    mode: v.literal("lanes"),
+    timeoutMs: v.pipe(
+      v.number(),
+      v.integer(),
+      v.minValue(1),
+      v.maxValue(600_000),
+    ),
+    lanes: v.pipe(
+      v.array(
+        v.strictObject({
+          id: nonEmpty,
+          steps: v.pipe(v.array(InteractionSchema), v.minLength(1)),
+        }),
+      ),
+      v.minLength(2),
+      v.maxLength(5),
+    ),
+  }),
+])
+export const GraphQLFixtureSchema = v.strictObject({
+  path: safePath,
+  schemaSha256: hex64,
+  expectedRequests: count,
+  initialRecords: JsonObjectSchema,
+  expectedRecords: JsonObjectSchema,
+  groups: v.pipe(v.array(GroupSchema), v.minLength(1)),
+})
+export type GraphQLFixtureSpec = v.InferOutput<typeof GraphQLFixtureSchema>
+
 const EnvSchema = v.pipe(
   v.record(
     v.pipe(
@@ -211,6 +429,7 @@ export const CaseSchema = v.pipe(
       v.maxValue(64 * 1024 * 1024),
     ),
     fixtureServer: v.nullable(FixtureServerSchema),
+    graphql: v.optional(v.nullable(GraphQLFixtureSchema)),
     expected: v.strictObject({
       exit: ExitSchema,
       stdout: ByteValueSchema,
@@ -223,13 +442,19 @@ export const CaseSchema = v.pipe(
   }),
   v.check(
     (spec) =>
-      spec.fixtureServer != null || !spec.substitutions.includes("fixturePort"),
-    "fixturePort substitution requires a fixtureServer",
+      spec.fixtureServer != null || spec.graphql != null ||
+      !spec.substitutions.includes("fixturePort"),
+    "fixturePort substitution requires a fixtureServer or graphql fixture",
   ),
   v.check(
     (spec) =>
-      spec.fixtureServer == null || spec.substitutions.includes("fixturePort"),
-    "a fixtureServer case must declare the fixturePort substitution so the endpoint is explicit",
+      (spec.fixtureServer == null && spec.graphql == null) ||
+      spec.substitutions.includes("fixturePort"),
+    "a network fixture case must declare the fixturePort substitution so the endpoint is explicit",
+  ),
+  v.check(
+    (spec) => spec.fixtureServer == null || spec.graphql == null,
+    "fixtureServer and graphql are mutually exclusive",
   ),
   v.check(
     (spec) =>
@@ -237,6 +462,16 @@ export const CaseSchema = v.pipe(
       spec.fixtureServer.responses.length ===
         spec.fixtureServer.expectedRequests,
     "fixture response count must equal expectedRequests",
+  ),
+  v.check(
+    (spec) =>
+      spec.graphql == null ||
+      spec.graphql.groups.flatMap((group) =>
+          group.mode === "ordered"
+            ? group.steps
+            : group.lanes.flatMap((lane) => lane.steps)
+        ).length === spec.graphql.expectedRequests,
+    "graphql expectedRequests must equal GraphQL plus asset interactions",
   ),
 )
 
@@ -294,6 +529,15 @@ function formatIssues(issues: readonly v.BaseIssue<unknown>[]): string {
 function rejectUnsupported(input: unknown, label: string): void {
   if (typeof input !== "object" || input == null || Array.isArray(input)) {
     throw new SchemaError(`${label}: expected an object`)
+  }
+  if (
+    "graphql" in input && typeof input.graphql === "object" &&
+    input.graphql != null && !Array.isArray(input.graphql) &&
+    Object.keys(input.graphql).length === 0
+  ) {
+    throw new SchemaError(
+      `${label}: P03 graphql fixture requires a complete schema, groups, and state`,
+    )
   }
   for (const [key, guidance] of Object.entries(UNSUPPORTED_FIELDS)) {
     if (key in input) {

@@ -1,12 +1,12 @@
 // Integration of sandbox, confinement wrapper, engine, fixture server,
 // comparison and descriptor logic with small shell programs; the namespace
 // lane is exercised by `deno task parity` itself.
-import { assert, assertEquals } from "@std/assert"
+import { assert, assertEquals, assertRejects } from "@std/assert"
 import { join } from "@std/path"
 import { CASE_ROOT_PARENT, prepareConfinement } from "./bwrap.ts"
 import type { LoadedCase } from "./cases.ts"
 import { loadCases } from "./cases.ts"
-import { type RunContext, runCorpus } from "./run.ts"
+import { executeCase, type RunContext, runCorpus } from "./run.ts"
 import type { Program } from "./program.ts"
 import { readManifest } from "../verify.ts"
 import { toReportCase } from "./report.ts"
@@ -44,6 +44,42 @@ function loadedCase(overrides: Record<string, unknown>): LoadedCase {
   const spec = parseCase({ ...validCase(), ...overrides })
   return { file: `${spec.id}.json`, spec, fixtureDir: null }
 }
+
+Deno.test("GraphQL cases fail closed before P03B starts a fixture server", async () => {
+  await withDir(async (_dir, ctx) => {
+    const loaded = loadedCase({
+      substitutions: ["home", "configHome", "bin", "denoDir", "fixturePort"],
+      graphql: {
+        path: "/graphql",
+        schemaSha256:
+          "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+        expectedRequests: 1,
+        initialRecords: {},
+        expectedRecords: {},
+        groups: [{
+          mode: "ordered",
+          steps: [{
+            kind: "graphql",
+            id: "viewer",
+            operation: { document: "{ viewer { id } }" },
+            identity: {
+              authorization: null,
+              userAgent: "schpet-linear-cli/2.6.0",
+              headers: {},
+            },
+            response: { kind: "data", data: { viewer: { id: "u1" } } },
+            effects: [],
+          }],
+        }],
+      },
+    })
+    await assertRejects(
+      () => executeCase(loaded, { kind: "executable", path: "/bin/true" }, ctx),
+      Error,
+      "unavailable until P03B",
+    )
+  })
+})
 
 Deno.test("descriptor decides not-implemented without invoking the candidate; claimed routes must pass or fail", async () => {
   await withDir(async (dir, ctx) => {
