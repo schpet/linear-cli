@@ -59,8 +59,52 @@ Deno.test("runtime inventory matches checked manifest and resolves key aliases",
   ) {
     throw new Error("missing option arrays")
   }
+  for (const route of runtime) {
+    for (const key of ["localOptions", "inheritedGlobalOptions"]) {
+      const options = route[key]
+      if (!Array.isArray(options)) {
+        throw new Error(`${route.path} has no ${key}`)
+      }
+      for (const option of options) {
+        if (
+          typeof option.description !== "string" ||
+          option.description.trim().length === 0
+        ) {
+          throw new Error(
+            `${route.path} ${key} ${option.name} lacks a description`,
+          )
+        }
+        assertEquals(option.name === "help" || option.name === "version", false)
+      }
+    }
+  }
   assertEquals(rootOptions.some((option) => option.name === "workspace"), true)
   assertEquals(labelOptions.some((option) => option.name === "workspace"), true)
+  const rootWorkspace = rootOptions.find((option) =>
+    option.name === "workspace"
+  )
+  assertEquals(
+    rootWorkspace?.description,
+    "Target workspace (uses credentials)",
+  )
+  assertEquals(
+    labelOptions.find((option) => option.name === "workspace")?.description,
+    "Show only workspace-level labels (not team-specific)",
+  )
+  const mineOptions = findRoute(runtime, "linear issue mine").localOptions
+  const mineGlobals =
+    findRoute(runtime, "linear issue mine").inheritedGlobalOptions
+  if (!Array.isArray(mineOptions) || !Array.isArray(mineGlobals)) {
+    throw new Error("missing issue mine options")
+  }
+  assertEquals(
+    mineOptions.find((option) => option.name === "sort")?.description,
+    "Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)",
+  )
+  assertEquals(
+    mineGlobals.find((option) => option.name === "workspace")?.description,
+    rootWorkspace?.description,
+  )
   // Cliffy shadows the inherited definition at this route. Its existence at
   // root is still recorded separately; parser resolution awaits P07 fixtures.
   assertEquals(
@@ -81,6 +125,19 @@ Deno.test("an edited route alias or option fails inventory verification", async 
   const changedOption = structuredClone(manifest)
   findRoute(changedOption.routes, "linear issue query").localOptions = []
   assertThrows(() => compareManifest(changedOption, runtime), Error, "drift")
+
+  const changedDescription = structuredClone(manifest)
+  const mineOptions =
+    findRoute(changedDescription.routes, "linear issue mine").localOptions
+  if (!Array.isArray(mineOptions)) throw new Error("missing issue mine options")
+  const sortOption = mineOptions.find((option) => option.name === "sort")
+  if (sortOption == null) throw new Error("missing issue mine sort option")
+  sortOption.description = "changed description"
+  assertThrows(
+    () => compareManifest(changedDescription, runtime),
+    Error,
+    "drift",
+  )
 
   const changedEnum = structuredClone(manifest)
   const types = findRoute(changedEnum.routes, "linear issue mine").localTypes

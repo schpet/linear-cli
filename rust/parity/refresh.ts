@@ -78,7 +78,8 @@ const manifest: Manifest = {
     },
   ],
   notes: {
-    helpVersion: "probe_sourced_lazy_options",
+    helpVersion:
+      'Cliffy lazily registers -h, --help ("Show this help.") as a global option first in every route option list; it registers -V, --version ("Show the version number for this program.") only at root, second there before --workspace. These options are omitted from the pre-registration inventory and corroborated by runner/cases/help-root.json.',
     parentActions:
       "pending_safe_fixture; public Cliffy inspection does not expose action handler",
     workspaceCollision:

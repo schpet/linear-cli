@@ -34,6 +34,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -108,6 +109,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -170,6 +172,7 @@
             "-k",
             "--key"
           ],
+          "description": "API key (prompted if not provided)",
           "typeDefinition": "<key:string>",
           "args": [
             {
@@ -196,6 +199,7 @@
           "flags": [
             "--plaintext"
           ],
+          "description": "Store API key in credentials file instead of system keyring",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -215,6 +219,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -278,6 +283,7 @@
             "-f",
             "--force"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -297,6 +303,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -351,6 +358,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -414,6 +422,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -468,6 +477,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -522,6 +532,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -576,6 +587,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -637,6 +649,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -711,6 +724,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -799,6 +813,7 @@
             "-s",
             "--state"
           ],
+          "description": "Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)",
           "typeDefinition": "<state:string>",
           "args": [
             {
@@ -827,6 +842,7 @@
           "flags": [
             "--all-states"
           ],
+          "description": "Show issues from all states",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -844,6 +860,7 @@
           "flags": [
             "--sort"
           ],
+          "description": "Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)",
           "typeDefinition": "<sort:sort>",
           "args": [
             {
@@ -870,6 +887,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Team key, name, or ID to list issues for (if not your default team)",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -896,6 +914,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Filter by project (UUID, slug ID, or name)",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -922,6 +941,7 @@
           "flags": [
             "--project-label"
           ],
+          "description": "Filter by project label name (shows issues from all projects with this label)",
           "typeDefinition": "<projectLabel:string>",
           "args": [
             {
@@ -948,6 +968,7 @@
           "flags": [
             "--cycle"
           ],
+          "description": "Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1",
           "typeDefinition": "<cycle:string>",
           "args": [
             {
@@ -974,6 +995,7 @@
           "flags": [
             "--milestone"
           ],
+          "description": "Filter by project milestone (UUID, or name when --project is set)",
           "typeDefinition": "<milestone:string>",
           "args": [
             {
@@ -1001,6 +1023,7 @@
             "-l",
             "--label"
           ],
+          "description": "Filter by label name (can be repeated for multiple labels)",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -1027,6 +1050,7 @@
           "flags": [
             "--limit"
           ],
+          "description": "Maximum number of issues to fetch (default: 50, use 0 for unlimited)",
           "typeDefinition": "<limit:number>",
           "args": [
             {
@@ -1053,6 +1077,7 @@
           "flags": [
             "--created-after"
           ],
+          "description": "Filter issues created after this date (ISO 8601 or YYYY-MM-DD)",
           "typeDefinition": "<date:string>",
           "args": [
             {
@@ -1079,6 +1104,7 @@
           "flags": [
             "--updated-after"
           ],
+          "description": "Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)",
           "typeDefinition": "<date:string>",
           "args": [
             {
@@ -1105,6 +1131,7 @@
           "flags": [
             "--assignee"
           ],
+          "description": "Removed: use `issue query --assignee` instead",
           "typeDefinition": "<assignee:string>",
           "args": [
             {
@@ -1132,6 +1159,7 @@
             "-A",
             "--all-assignees"
           ],
+          "description": "Removed: use `issue query --all-assignees` instead",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1150,6 +1178,7 @@
             "-U",
             "--unassigned"
           ],
+          "description": "Removed: use `issue query --unassigned` instead",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1168,6 +1197,7 @@
             "-w",
             "--web"
           ],
+          "description": "Open in web browser",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1186,6 +1216,7 @@
             "-a",
             "--app"
           ],
+          "description": "Open in Linear.app",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1203,6 +1234,7 @@
           "flags": [
             "--no-pager"
           ],
+          "description": "Disable automatic paging for long output",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1222,6 +1254,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -1304,6 +1337,7 @@
           "flags": [
             "--search"
           ],
+          "description": "Full-text search term",
           "typeDefinition": "<term:string>",
           "args": [
             {
@@ -1330,6 +1364,7 @@
           "flags": [
             "--search-comments"
           ],
+          "description": "Also search inside issue comments (requires --search)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1347,6 +1382,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Filter by team key, name, or ID (can be repeated for multiple teams)",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -1373,6 +1409,7 @@
           "flags": [
             "--all-teams"
           ],
+          "description": "Query across all teams",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1391,6 +1428,7 @@
             "-s",
             "--state"
           ],
+          "description": "Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)",
           "typeDefinition": "<state:string>",
           "args": [
             {
@@ -1417,6 +1455,7 @@
           "flags": [
             "--all-states"
           ],
+          "description": "Show issues from all states (this is the default)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1434,6 +1473,7 @@
           "flags": [
             "--assignee"
           ],
+          "description": "Filter by assignee (username)",
           "typeDefinition": "<assignee:string>",
           "args": [
             {
@@ -1461,6 +1501,7 @@
             "-A",
             "--all-assignees"
           ],
+          "description": "Show issues for all assignees (this is the default)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1479,6 +1520,7 @@
             "-U",
             "--unassigned"
           ],
+          "description": "Show only unassigned issues",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1496,6 +1538,7 @@
           "flags": [
             "--sort"
           ],
+          "description": "Sort order: manual or priority (default: priority, not available with --search)",
           "typeDefinition": "<sort:sort>",
           "args": [
             {
@@ -1522,6 +1565,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Filter by project (UUID, slug ID, or name)",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -1548,6 +1592,7 @@
           "flags": [
             "--project-label"
           ],
+          "description": "Filter by project label name (shows issues from all projects with this label)",
           "typeDefinition": "<projectLabel:string>",
           "args": [
             {
@@ -1574,6 +1619,7 @@
           "flags": [
             "--cycle"
           ],
+          "description": "Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1",
           "typeDefinition": "<cycle:string>",
           "args": [
             {
@@ -1600,6 +1646,7 @@
           "flags": [
             "--milestone"
           ],
+          "description": "Filter by project milestone (UUID, or name when --project is set)",
           "typeDefinition": "<milestone:string>",
           "args": [
             {
@@ -1627,6 +1674,7 @@
             "-l",
             "--label"
           ],
+          "description": "Filter by label name (can be repeated for multiple labels)",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -1653,6 +1701,7 @@
           "flags": [
             "--limit"
           ],
+          "description": "Maximum number of issues to fetch (default: 50, use 0 for unlimited)",
           "typeDefinition": "<limit:number>",
           "args": [
             {
@@ -1679,6 +1728,7 @@
           "flags": [
             "--created-after"
           ],
+          "description": "Filter issues created after this date (ISO 8601 or YYYY-MM-DD)",
           "typeDefinition": "<date:string>",
           "args": [
             {
@@ -1705,6 +1755,7 @@
           "flags": [
             "--updated-after"
           ],
+          "description": "Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)",
           "typeDefinition": "<date:string>",
           "args": [
             {
@@ -1731,6 +1782,7 @@
           "flags": [
             "--include-archived"
           ],
+          "description": "Include archived issues",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1749,6 +1801,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output results as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1766,6 +1819,7 @@
           "flags": [
             "--no-pager"
           ],
+          "description": "Disable automatic paging for long output",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1785,6 +1839,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -1848,6 +1903,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -1911,6 +1967,7 @@
             "-A",
             "--all-assignees"
           ],
+          "description": "Show issues for all assignees",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1929,6 +1986,7 @@
             "-U",
             "--unassigned"
           ],
+          "description": "Show only unassigned issues",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -1947,6 +2005,7 @@
             "-f",
             "--from-ref"
           ],
+          "description": "Git ref to create new branch from",
           "typeDefinition": "<fromRef:string>",
           "args": [
             {
@@ -1974,6 +2033,7 @@
             "-b",
             "--branch"
           ],
+          "description": "Custom branch name to use instead of the issue identifier",
           "typeDefinition": "<branch:string>",
           "args": [
             {
@@ -2002,6 +2062,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -2072,6 +2133,7 @@
             "-w",
             "--web"
           ],
+          "description": "Open in web browser",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2090,6 +2152,7 @@
             "-a",
             "--app"
           ],
+          "description": "Open in Linear.app",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2107,6 +2170,7 @@
           "flags": [
             "--no-comments"
           ],
+          "description": "Exclude comments from the output",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2124,6 +2188,7 @@
           "flags": [
             "--show-resolved-threads"
           ],
+          "description": "Include resolved comment threads in the output",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2141,6 +2206,7 @@
           "flags": [
             "--no-pager"
           ],
+          "description": "Disable automatic paging for long output",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2159,6 +2225,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output issue data as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2176,6 +2243,7 @@
           "flags": [
             "--no-download"
           ],
+          "description": "Keep remote URLs instead of downloading files",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2195,6 +2263,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -2258,6 +2327,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -2322,6 +2392,7 @@
             "--references",
             "--ref"
           ],
+          "description": "Use 'References' instead of 'Fixes' for the Linear issue link",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2341,6 +2412,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -2404,6 +2476,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -2473,6 +2546,7 @@
           "flags": [
             "--base"
           ],
+          "description": "The branch into which you want your code merged",
           "typeDefinition": "<branch:string>",
           "args": [
             {
@@ -2499,6 +2573,7 @@
           "flags": [
             "--draft"
           ],
+          "description": "Create the pull request as a draft",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2517,6 +2592,7 @@
             "-t",
             "--title"
           ],
+          "description": "Optional title for the pull request (Linear issue ID will be prefixed)",
           "typeDefinition": "<title:string>",
           "args": [
             {
@@ -2543,6 +2619,7 @@
           "flags": [
             "--web"
           ],
+          "description": "Open the pull request in the browser after creating it",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2560,6 +2637,7 @@
           "flags": [
             "--head"
           ],
+          "description": "The branch that contains commits for your pull request",
           "typeDefinition": "<branch:string>",
           "args": [
             {
@@ -2587,6 +2665,7 @@
             "-T",
             "--template"
           ],
+          "description": "Start the pull request body from this template file (the Linear issue URL is appended)",
           "typeDefinition": "<file:string>",
           "args": [
             {
@@ -2613,6 +2692,7 @@
           "flags": [
             "--no-template"
           ],
+          "description": "Ignore the pr_template config option for this pull request",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2632,6 +2712,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -2695,6 +2776,7 @@
             "-y",
             "--confirm"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2712,6 +2794,7 @@
           "flags": [
             "--bulk"
           ],
+          "description": "Archive multiple issues by identifier (e.g., TC-123 TC-124)",
           "typeDefinition": "<ids...:string>",
           "args": [
             {
@@ -2738,6 +2821,7 @@
           "flags": [
             "--bulk-file"
           ],
+          "description": "Read issue identifiers from a file (one per line)",
           "typeDefinition": "<file:string>",
           "args": [
             {
@@ -2764,6 +2848,7 @@
           "flags": [
             "--bulk-stdin"
           ],
+          "description": "Read issue identifiers from stdin",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2783,6 +2868,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -2853,6 +2939,7 @@
             "-y",
             "--confirm"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2870,6 +2957,7 @@
           "flags": [
             "--bulk"
           ],
+          "description": "Delete multiple issues by identifier (e.g., TC-123 TC-124)",
           "typeDefinition": "<ids...:string>",
           "args": [
             {
@@ -2896,6 +2984,7 @@
           "flags": [
             "--bulk-file"
           ],
+          "description": "Read issue identifiers from a file (one per line)",
           "typeDefinition": "<file:string>",
           "args": [
             {
@@ -2922,6 +3011,7 @@
           "flags": [
             "--bulk-stdin"
           ],
+          "description": "Read issue identifiers from stdin",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -2941,6 +3031,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -2994,6 +3085,7 @@
           "flags": [
             "--start"
           ],
+          "description": "Start the issue after creation",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -3012,6 +3104,7 @@
             "-a",
             "--assignee"
           ],
+          "description": "Assign the issue to 'self' or someone (by username or name)",
           "typeDefinition": "<assignee:string>",
           "args": [
             {
@@ -3038,6 +3131,7 @@
           "flags": [
             "--due-date"
           ],
+          "description": "Due date of the issue",
           "typeDefinition": "<dueDate:string>",
           "args": [
             {
@@ -3064,6 +3158,7 @@
           "flags": [
             "--parent"
           ],
+          "description": "Parent issue (if any) as a team_number code",
           "typeDefinition": "<parent:string>",
           "args": [
             {
@@ -3091,6 +3186,7 @@
             "-p",
             "--priority"
           ],
+          "description": "Priority of the issue (1-4, descending priority)",
           "typeDefinition": "<priority:number>",
           "args": [
             {
@@ -3117,6 +3213,7 @@
           "flags": [
             "--estimate"
           ],
+          "description": "Points estimate of the issue",
           "typeDefinition": "<estimate:number>",
           "args": [
             {
@@ -3144,6 +3241,7 @@
             "-d",
             "--description"
           ],
+          "description": "Description of the issue",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -3170,6 +3268,7 @@
           "flags": [
             "--description-file"
           ],
+          "description": "Read description from a file (preferred for markdown content)",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -3197,6 +3296,7 @@
             "-l",
             "--label"
           ],
+          "description": "Issue label associated with the issue. May be repeated.",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -3223,6 +3323,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Team (key, name, or ID) for the issue, if not your default team",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -3249,6 +3350,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Project for the issue (UUID, slug ID, or name)",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -3276,6 +3378,7 @@
             "-s",
             "--state"
           ],
+          "description": "Workflow state for the issue (by name or type)",
           "typeDefinition": "<state:string>",
           "args": [
             {
@@ -3302,6 +3405,7 @@
           "flags": [
             "--milestone"
           ],
+          "description": "Project milestone (UUID, or name when --project is set)",
           "typeDefinition": "<milestone:string>",
           "args": [
             {
@@ -3328,6 +3432,7 @@
           "flags": [
             "--cycle"
           ],
+          "description": "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives)",
           "typeDefinition": "<cycle:string>",
           "args": [
             {
@@ -3354,6 +3459,7 @@
           "flags": [
             "--no-use-default-template"
           ],
+          "description": "Do not use default template for the issue",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -3371,6 +3477,7 @@
           "flags": [
             "--template"
           ],
+          "description": "Issue template to apply, by name or ID (the team's templates plus workspace ones). Takes the place of the team's default template. The template fills in anything you do not pass: explicit flags override it, --label merges with the template's labels, and --description replaces the template body (omit it to keep the body). Makes --title optional.",
           "typeDefinition": "<template:string>",
           "args": [
             {
@@ -3397,6 +3504,7 @@
           "flags": [
             "--no-interactive"
           ],
+          "description": "Disable interactive prompts",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -3415,6 +3523,7 @@
             "-t",
             "--title"
           ],
+          "description": "Title of the issue",
           "typeDefinition": "<title:string>",
           "args": [
             {
@@ -3443,6 +3552,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -3506,6 +3616,7 @@
             "-a",
             "--assignee"
           ],
+          "description": "Assign the issue to 'self' or someone (by username or name)",
           "typeDefinition": "<assignee:string>",
           "args": [
             {
@@ -3532,6 +3643,7 @@
           "flags": [
             "--unassign"
           ],
+          "description": "Clear the issue's assignee (cannot be combined with --assignee)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -3549,6 +3661,7 @@
           "flags": [
             "--due-date"
           ],
+          "description": "Due date of the issue. Use --clear-due-date to remove it",
           "typeDefinition": "<dueDate:string>",
           "args": [
             {
@@ -3575,6 +3688,7 @@
           "flags": [
             "--clear-due-date"
           ],
+          "description": "Remove the issue's due date (cannot be combined with --due-date)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -3592,6 +3706,7 @@
           "flags": [
             "--parent"
           ],
+          "description": "Parent issue (if any) as a team_number code. Use --clear-parent to remove it",
           "typeDefinition": "<parent:string>",
           "args": [
             {
@@ -3618,6 +3733,7 @@
           "flags": [
             "--clear-parent"
           ],
+          "description": "Remove the issue's parent (cannot be combined with --parent)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -3636,6 +3752,7 @@
             "-p",
             "--priority"
           ],
+          "description": "Priority of the issue (1-4, descending priority)",
           "typeDefinition": "<priority:number>",
           "args": [
             {
@@ -3662,6 +3779,7 @@
           "flags": [
             "--estimate"
           ],
+          "description": "Points estimate of the issue. Use --clear-estimate to remove it",
           "typeDefinition": "<estimate:number>",
           "args": [
             {
@@ -3688,6 +3806,7 @@
           "flags": [
             "--clear-estimate"
           ],
+          "description": "Remove the issue's estimate (cannot be combined with --estimate)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -3706,6 +3825,7 @@
             "-d",
             "--description"
           ],
+          "description": "Description of the issue",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -3732,6 +3852,7 @@
           "flags": [
             "--description-file"
           ],
+          "description": "Read description from a file (preferred for markdown content)",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -3759,6 +3880,7 @@
             "-l",
             "--label"
           ],
+          "description": "Issue label associated with the issue; replaces the issue's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -3785,6 +3907,7 @@
           "flags": [
             "--add-label"
           ],
+          "description": "Add a label to the issue, keeping its existing labels. May be repeated.",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -3811,6 +3934,7 @@
           "flags": [
             "--remove-label"
           ],
+          "description": "Remove a label from the issue, keeping its other labels (does not delete the label from the team). May be repeated.",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -3837,6 +3961,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Team (key, name, or ID) to move the issue to",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -3863,6 +3988,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Project to assign the issue to (UUID, slug ID, or name). Use --clear-project to remove it",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -3889,6 +4015,7 @@
           "flags": [
             "--clear-project"
           ],
+          "description": "Remove the issue from its project (cannot be combined with --project or --milestone)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -3907,6 +4034,7 @@
             "-s",
             "--state"
           ],
+          "description": "Workflow state for the issue (by name or type)",
           "typeDefinition": "<state:string>",
           "args": [
             {
@@ -3933,6 +4061,7 @@
           "flags": [
             "--milestone"
           ],
+          "description": "Project milestone (UUID, or name when --project is set or the issue already has a project). Use --clear-milestone to remove it",
           "typeDefinition": "<milestone:string>",
           "args": [
             {
@@ -3959,6 +4088,7 @@
           "flags": [
             "--clear-milestone"
           ],
+          "description": "Remove the issue from its project milestone (cannot be combined with --milestone)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -3976,6 +4106,7 @@
           "flags": [
             "--cycle"
           ],
+          "description": "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives). Use --clear-cycle to remove the issue from its cycle",
           "typeDefinition": "<cycle:string>",
           "args": [
             {
@@ -4002,6 +4133,7 @@
           "flags": [
             "--clear-cycle"
           ],
+          "description": "Remove the issue from its cycle",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -4020,6 +4152,7 @@
             "-t",
             "--title"
           ],
+          "description": "Title of the issue",
           "typeDefinition": "<title:string>",
           "args": [
             {
@@ -4048,6 +4181,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -4102,6 +4236,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -4170,6 +4305,7 @@
             "-b",
             "--body"
           ],
+          "description": "Comment body text",
           "typeDefinition": "<text:string>",
           "args": [
             {
@@ -4196,6 +4332,7 @@
           "flags": [
             "--body-file"
           ],
+          "description": "Read comment body from a file (preferred for markdown content)",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -4224,6 +4361,7 @@
             "--parent",
             "--reply-to"
           ],
+          "description": "Reply to a top-level comment by ID (the reply joins that thread)",
           "typeDefinition": "<commentId:string>",
           "args": [
             {
@@ -4250,6 +4388,7 @@
           "flags": [
             "--id"
           ],
+          "description": "Caller-supplied UUID for the new comment",
           "typeDefinition": "<uuid:string>",
           "args": [
             {
@@ -4277,6 +4416,7 @@
             "-a",
             "--attach"
           ],
+          "description": "Upload a file and add its Markdown link to the comment (images render inline; repeatable)",
           "typeDefinition": "<filepath:string>",
           "args": [
             {
@@ -4303,6 +4443,7 @@
           "flags": [
             "--public"
           ],
+          "description": "Upload attached images to a public, unauthenticated URL (default: private, workspace-members only)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -4322,6 +4463,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -4385,6 +4527,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -4448,6 +4591,7 @@
             "-b",
             "--body"
           ],
+          "description": "New comment body text",
           "typeDefinition": "<text:string>",
           "args": [
             {
@@ -4474,6 +4618,7 @@
           "flags": [
             "--body-file"
           ],
+          "description": "Read comment body from a file (preferred for markdown content)",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -4502,6 +4647,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -4565,6 +4711,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -4584,6 +4731,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -4655,6 +4803,7 @@
             "-t",
             "--title"
           ],
+          "description": "Custom title for the attachment",
           "typeDefinition": "<title:string>",
           "args": [
             {
@@ -4682,6 +4831,7 @@
             "-c",
             "--comment"
           ],
+          "description": "Create a linked comment with this body; the file remains a sidebar attachment",
           "typeDefinition": "<body:string>",
           "args": [
             {
@@ -4708,6 +4858,7 @@
           "flags": [
             "--public"
           ],
+          "description": "Upload images to a public, unauthenticated URL (default: private, workspace-members only)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -4727,6 +4878,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -4811,6 +4963,7 @@
             "-t",
             "--title"
           ],
+          "description": "Custom title for the link",
           "typeDefinition": "<title:string>",
           "args": [
             {
@@ -4839,6 +4992,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -4893,6 +5047,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -4993,6 +5148,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5072,6 +5228,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5135,6 +5292,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5189,6 +5347,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5285,6 +5444,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -5302,6 +5462,7 @@
           "flags": [
             "--status"
           ],
+          "description": "Filter by session status",
           "typeDefinition": "<status:agentSessionStatus>",
           "args": [
             {
@@ -5330,6 +5491,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5400,6 +5562,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -5419,6 +5582,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5480,6 +5644,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5542,6 +5707,7 @@
             "-n",
             "--name"
           ],
+          "description": "Name of the team",
           "typeDefinition": "<name:string>",
           "args": [
             {
@@ -5569,6 +5735,7 @@
             "-d",
             "--description"
           ],
+          "description": "Description of the team",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -5596,6 +5763,7 @@
             "-k",
             "--key"
           ],
+          "description": "Team key (if not provided, will be generated from name)",
           "typeDefinition": "<key:string>",
           "args": [
             {
@@ -5622,6 +5790,7 @@
           "flags": [
             "--private"
           ],
+          "description": "Make the team private",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -5639,6 +5808,7 @@
           "flags": [
             "--no-interactive"
           ],
+          "description": "Disable interactive prompts",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -5658,6 +5828,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5720,6 +5891,7 @@
           "flags": [
             "--move-issues"
           ],
+          "description": "Move all issues to another team (key, name, or ID) before deletion",
           "typeDefinition": "<targetTeam:string>",
           "args": [
             {
@@ -5747,6 +5919,7 @@
             "-y",
             "--force"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -5766,6 +5939,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5820,6 +5994,7 @@
             "-w",
             "--web"
           ],
+          "description": "Open in web browser",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -5838,6 +6013,7 @@
             "-a",
             "--app"
           ],
+          "description": "Open in Linear.app",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -5856,6 +6032,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -5875,6 +6052,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5929,6 +6107,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -5983,6 +6162,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -6046,6 +6226,7 @@
             "-a",
             "--all"
           ],
+          "description": "Include inactive members",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6064,6 +6245,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON; a member's url mentions them when pasted into Markdown",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6083,6 +6265,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -6146,6 +6329,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6165,6 +6349,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -6226,6 +6411,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -6282,6 +6468,7 @@
             "-a",
             "--all"
           ],
+          "description": "Include inactive members",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6300,6 +6487,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON; a member's url mentions them when pasted into Markdown. This searches the whole workspace — prefer `linear team members <TEAM>`, and confirm before mentioning someone outside the team",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6319,6 +6507,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -6380,6 +6569,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -6440,6 +6630,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Filter by team key, name, or ID",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -6466,6 +6657,7 @@
           "flags": [
             "--all-teams"
           ],
+          "description": "Show projects from all teams",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6483,6 +6675,7 @@
           "flags": [
             "--status"
           ],
+          "description": "Filter by status name",
           "typeDefinition": "<status:string>",
           "args": [
             {
@@ -6510,6 +6703,7 @@
             "-w",
             "--web"
           ],
+          "description": "Open in web browser",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6528,6 +6722,7 @@
             "-a",
             "--app"
           ],
+          "description": "Open in Linear.app",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6546,6 +6741,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6565,6 +6761,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -6635,6 +6832,7 @@
             "-w",
             "--web"
           ],
+          "description": "Open in web browser",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6653,6 +6851,7 @@
             "-a",
             "--app"
           ],
+          "description": "Open in Linear.app",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6671,6 +6870,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6688,6 +6888,7 @@
           "flags": [
             "--no-pager"
           ],
+          "description": "Disable automatic paging for long output",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -6707,6 +6908,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -6761,6 +6963,7 @@
             "-n",
             "--name"
           ],
+          "description": "Project name (required)",
           "typeDefinition": "<name:string>",
           "args": [
             {
@@ -6788,6 +6991,7 @@
             "-d",
             "--description"
           ],
+          "description": "Project description (max 255 characters, enforced by Linear's API)",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -6815,6 +7019,7 @@
             "-f",
             "--description-file"
           ],
+          "description": "Read project description from file (still subject to the 255-character API limit)",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -6841,6 +7046,7 @@
           "flags": [
             "--content"
           ],
+          "description": "Project overview markdown",
           "typeDefinition": "<markdown:string>",
           "args": [
             {
@@ -6867,6 +7073,7 @@
           "flags": [
             "--content-file"
           ],
+          "description": "Read project overview markdown from a file",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -6894,6 +7101,7 @@
             "-t",
             "--team"
           ],
+          "description": "Team key, name, or ID (required, can be repeated for multiple teams)",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -6921,6 +7129,7 @@
             "-l",
             "--lead"
           ],
+          "description": "Project lead (username, email, or @me)",
           "typeDefinition": "<lead:string>",
           "args": [
             {
@@ -6948,6 +7157,7 @@
             "-s",
             "--status"
           ],
+          "description": "Project status (planned, started, paused, completed, canceled, backlog)",
           "typeDefinition": "<status:string>",
           "args": [
             {
@@ -6974,6 +7184,7 @@
           "flags": [
             "--start-date"
           ],
+          "description": "Start date (YYYY-MM-DD)",
           "typeDefinition": "<startDate:string>",
           "args": [
             {
@@ -7000,6 +7211,7 @@
           "flags": [
             "--target-date"
           ],
+          "description": "Target completion date (YYYY-MM-DD)",
           "typeDefinition": "<targetDate:string>",
           "args": [
             {
@@ -7026,6 +7238,7 @@
           "flags": [
             "--priority"
           ],
+          "description": "Project priority (none, urgent, high, medium, low)",
           "typeDefinition": "<priority:string>",
           "args": [
             {
@@ -7052,6 +7265,7 @@
           "flags": [
             "--label"
           ],
+          "description": "Project label associated with the project. May be repeated.",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -7078,6 +7292,7 @@
           "flags": [
             "--member"
           ],
+          "description": "Project member (username, email, display name, or @me). May be repeated.",
           "typeDefinition": "<user:string>",
           "args": [
             {
@@ -7104,6 +7319,7 @@
           "flags": [
             "--icon"
           ],
+          "description": "Project icon",
           "typeDefinition": "<icon:string>",
           "args": [
             {
@@ -7130,6 +7346,7 @@
           "flags": [
             "--color"
           ],
+          "description": "Project color as a HEX string",
           "typeDefinition": "<color:string>",
           "args": [
             {
@@ -7156,6 +7373,7 @@
           "flags": [
             "--initiative"
           ],
+          "description": "Add to initiative immediately (ID, slug, or name)",
           "typeDefinition": "<initiative:string>",
           "args": [
             {
@@ -7182,6 +7400,7 @@
           "flags": [
             "--template"
           ],
+          "description": "Project template to apply, by name or ID (workspace templates plus those of the project's teams). The template fills in anything you do not pass; explicit flags override it. Applied on create only.",
           "typeDefinition": "<template:string>",
           "args": [
             {
@@ -7209,6 +7428,7 @@
             "-i",
             "--interactive"
           ],
+          "description": "Interactive mode (default if no flags provided)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -7227,6 +7447,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output created project as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -7246,6 +7467,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -7309,6 +7531,7 @@
             "-n",
             "--name"
           ],
+          "description": "Project name",
           "typeDefinition": "<name:string>",
           "args": [
             {
@@ -7336,6 +7559,7 @@
             "-d",
             "--description"
           ],
+          "description": "Project description (max 255 characters, enforced by Linear's API)",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -7363,6 +7587,7 @@
             "-f",
             "--description-file"
           ],
+          "description": "Read project description from file (still subject to the 255-character API limit)",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -7389,6 +7614,7 @@
           "flags": [
             "--content"
           ],
+          "description": "Project overview markdown",
           "typeDefinition": "<markdown:string>",
           "args": [
             {
@@ -7415,6 +7641,7 @@
           "flags": [
             "--content-file"
           ],
+          "description": "Read project overview markdown from a file",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -7442,6 +7669,7 @@
             "-s",
             "--status"
           ],
+          "description": "Status (planned, started, paused, completed, canceled, backlog)",
           "typeDefinition": "<status:string>",
           "args": [
             {
@@ -7469,6 +7697,7 @@
             "-l",
             "--lead"
           ],
+          "description": "Project lead (username, email, or @me). Use --clear-lead to remove it",
           "typeDefinition": "<lead:string>",
           "args": [
             {
@@ -7495,6 +7724,7 @@
           "flags": [
             "--clear-lead"
           ],
+          "description": "Remove the project's lead (cannot be combined with --lead)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -7512,6 +7742,7 @@
           "flags": [
             "--start-date"
           ],
+          "description": "Start date (YYYY-MM-DD). Use --clear-start-date to remove it",
           "typeDefinition": "<startDate:string>",
           "args": [
             {
@@ -7538,6 +7769,7 @@
           "flags": [
             "--clear-start-date"
           ],
+          "description": "Remove the project's start date (cannot be combined with --start-date)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -7555,6 +7787,7 @@
           "flags": [
             "--target-date"
           ],
+          "description": "Target date (YYYY-MM-DD). Use --clear-target-date to remove it",
           "typeDefinition": "<targetDate:string>",
           "args": [
             {
@@ -7581,6 +7814,7 @@
           "flags": [
             "--clear-target-date"
           ],
+          "description": "Remove the project's target date (cannot be combined with --target-date)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -7599,6 +7833,7 @@
             "-t",
             "--team"
           ],
+          "description": "Team key, name, or ID; replaces the project's entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -7625,6 +7860,7 @@
           "flags": [
             "--add-team"
           ],
+          "description": "Add a team to the project, keeping its existing teams. May be repeated.",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -7651,6 +7887,7 @@
           "flags": [
             "--remove-team"
           ],
+          "description": "Remove a team from the project, keeping its other teams. May be repeated.",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -7677,6 +7914,7 @@
           "flags": [
             "--label"
           ],
+          "description": "Project label; replaces the project's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -7703,6 +7941,7 @@
           "flags": [
             "--add-label"
           ],
+          "description": "Add a label to the project, keeping its existing labels. May be repeated.",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -7729,6 +7968,7 @@
           "flags": [
             "--remove-label"
           ],
+          "description": "Remove a label from the project, keeping its other labels (does not delete the label). May be repeated.",
           "typeDefinition": "<label:string>",
           "args": [
             {
@@ -7755,6 +7995,7 @@
           "flags": [
             "--initiative"
           ],
+          "description": "Initiative ID, slug, or name; replaces the project's entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.",
           "typeDefinition": "<initiative:string>",
           "args": [
             {
@@ -7781,6 +8022,7 @@
           "flags": [
             "--add-initiative"
           ],
+          "description": "Add the project to an initiative, keeping its existing initiatives. May be repeated.",
           "typeDefinition": "<initiative:string>",
           "args": [
             {
@@ -7807,6 +8049,7 @@
           "flags": [
             "--remove-initiative"
           ],
+          "description": "Remove the project from an initiative, keeping its other initiatives (does not delete the initiative). May be repeated.",
           "typeDefinition": "<initiative:string>",
           "args": [
             {
@@ -7835,6 +8078,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -7898,6 +8142,7 @@
             "-f",
             "--force"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -7917,6 +8162,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -7971,6 +8217,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8037,6 +8284,7 @@
             "-b",
             "--body"
           ],
+          "description": "Comment body text",
           "typeDefinition": "<text:string>",
           "args": [
             {
@@ -8063,6 +8311,7 @@
           "flags": [
             "--body-file"
           ],
+          "description": "Read comment body from a file (preferred for markdown content)",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -8091,6 +8340,7 @@
             "--parent",
             "--reply-to"
           ],
+          "description": "Reply to a top-level comment by ID (the reply joins that thread)",
           "typeDefinition": "<commentId:string>",
           "args": [
             {
@@ -8119,6 +8369,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8182,6 +8433,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -8201,6 +8453,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8262,6 +8515,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8334,6 +8588,7 @@
           "flags": [
             "--body"
           ],
+          "description": "Update content (inline)",
           "typeDefinition": "<body:string>",
           "args": [
             {
@@ -8360,6 +8615,7 @@
           "flags": [
             "--body-file"
           ],
+          "description": "Read content from file",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -8386,6 +8642,7 @@
           "flags": [
             "--health"
           ],
+          "description": "Project health status (onTrack, atRisk, offTrack)",
           "typeDefinition": "<health:string>",
           "args": [
             {
@@ -8413,6 +8670,7 @@
             "-i",
             "--interactive"
           ],
+          "description": "Interactive mode with prompts",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -8432,6 +8690,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8501,6 +8760,7 @@
           "flags": [
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -8518,6 +8778,7 @@
           "flags": [
             "--limit"
           ],
+          "description": "Limit results",
           "typeDefinition": "<limit:number>",
           "args": [
             {
@@ -8546,6 +8807,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8607,6 +8869,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8663,6 +8926,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Team key, name, or ID (defaults to current team)",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -8690,6 +8954,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -8709,6 +8974,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8778,6 +9044,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Team key, name, or ID (defaults to current team)",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -8805,6 +9072,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -8824,6 +9092,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8885,6 +9154,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -8944,6 +9214,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Project (UUID, slug ID, or name)",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -8971,6 +9242,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -8990,6 +9262,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -9059,6 +9332,7 @@
           "flags": [
             "--all"
           ],
+          "description": "Fetch and list every issue attached to the milestone (paginates the Linear API).",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9076,6 +9350,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Project for resolving a milestone name (UUID, slug ID, or name)",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -9103,6 +9378,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9122,6 +9398,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -9175,6 +9452,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Project (UUID, slug ID, or name)",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -9201,6 +9479,7 @@
           "flags": [
             "--name"
           ],
+          "description": "Milestone name",
           "typeDefinition": "<name:string>",
           "args": [
             {
@@ -9227,6 +9506,7 @@
           "flags": [
             "--description"
           ],
+          "description": "Milestone description",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -9253,6 +9533,7 @@
           "flags": [
             "--target-date"
           ],
+          "description": "Target date (YYYY-MM-DD)",
           "typeDefinition": "<date:string>",
           "args": [
             {
@@ -9281,6 +9562,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -9343,6 +9625,7 @@
           "flags": [
             "--name"
           ],
+          "description": "Milestone name",
           "typeDefinition": "<name:string>",
           "args": [
             {
@@ -9369,6 +9652,7 @@
           "flags": [
             "--description"
           ],
+          "description": "Milestone description",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -9395,6 +9679,7 @@
           "flags": [
             "--target-date"
           ],
+          "description": "Target date (YYYY-MM-DD)",
           "typeDefinition": "<date:string>",
           "args": [
             {
@@ -9421,6 +9706,7 @@
           "flags": [
             "--sort-order"
           ],
+          "description": "Sort order relative to other milestones",
           "typeDefinition": "<value:number>",
           "args": [
             {
@@ -9447,6 +9733,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Move to a different project (UUID, slug ID, or name)",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -9475,6 +9762,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -9538,6 +9826,7 @@
             "-f",
             "--force"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9557,6 +9846,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -9618,6 +9908,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -9690,6 +9981,7 @@
             "-s",
             "--status"
           ],
+          "description": "Filter by status (active, planned, completed)",
           "typeDefinition": "<status:string>",
           "args": [
             {
@@ -9716,6 +10008,7 @@
           "flags": [
             "--all-statuses"
           ],
+          "description": "Show all statuses (default: active only)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9734,6 +10027,7 @@
             "-o",
             "--owner"
           ],
+          "description": "Filter by owner (username or email)",
           "typeDefinition": "<owner:string>",
           "args": [
             {
@@ -9761,6 +10055,7 @@
             "-w",
             "--web"
           ],
+          "description": "Open initiatives page in web browser",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9779,6 +10074,7 @@
             "-a",
             "--app"
           ],
+          "description": "Open initiatives page in Linear.app",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9797,6 +10093,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9814,6 +10111,7 @@
           "flags": [
             "--archived"
           ],
+          "description": "Include archived initiatives",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9833,6 +10131,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -9903,6 +10202,7 @@
             "-w",
             "--web"
           ],
+          "description": "Open in web browser",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9921,6 +10221,7 @@
             "-a",
             "--app"
           ],
+          "description": "Open in Linear.app",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9939,6 +10240,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -9958,6 +10260,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -10012,6 +10315,7 @@
             "-n",
             "--name"
           ],
+          "description": "Initiative name (required)",
           "typeDefinition": "<name:string>",
           "args": [
             {
@@ -10039,6 +10343,7 @@
             "-d",
             "--description"
           ],
+          "description": "Initiative description",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -10066,6 +10371,7 @@
             "-s",
             "--status"
           ],
+          "description": "Status: planned, active, completed (default: planned)",
           "typeDefinition": "<status:string>",
           "args": [
             {
@@ -10093,6 +10399,7 @@
             "-o",
             "--owner"
           ],
+          "description": "Owner (username, email, or @me for yourself)",
           "typeDefinition": "<owner:string>",
           "args": [
             {
@@ -10119,6 +10426,7 @@
           "flags": [
             "--target-date"
           ],
+          "description": "Target completion date (YYYY-MM-DD)",
           "typeDefinition": "<targetDate:string>",
           "args": [
             {
@@ -10146,6 +10454,7 @@
             "-c",
             "--color"
           ],
+          "description": "Color hex code (e.g., #5E6AD2)",
           "typeDefinition": "<color:string>",
           "args": [
             {
@@ -10172,6 +10481,7 @@
           "flags": [
             "--icon"
           ],
+          "description": "Icon name",
           "typeDefinition": "<icon:string>",
           "args": [
             {
@@ -10199,6 +10509,7 @@
             "-i",
             "--interactive"
           ],
+          "description": "Interactive mode (default if no flags provided)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -10218,6 +10529,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -10281,6 +10593,7 @@
             "-y",
             "--force"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -10298,6 +10611,7 @@
           "flags": [
             "--bulk"
           ],
+          "description": "Archive multiple initiatives by ID, slug, or name",
           "typeDefinition": "<ids...:string>",
           "args": [
             {
@@ -10324,6 +10638,7 @@
           "flags": [
             "--bulk-file"
           ],
+          "description": "Read initiative IDs from a file (one per line)",
           "typeDefinition": "<file:string>",
           "args": [
             {
@@ -10350,6 +10665,7 @@
           "flags": [
             "--bulk-stdin"
           ],
+          "description": "Read initiative IDs from stdin",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -10369,6 +10685,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -10432,6 +10749,7 @@
             "-n",
             "--name"
           ],
+          "description": "New name for the initiative",
           "typeDefinition": "<name:string>",
           "args": [
             {
@@ -10459,6 +10777,7 @@
             "-d",
             "--description"
           ],
+          "description": "New description",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -10485,6 +10804,7 @@
           "flags": [
             "--status"
           ],
+          "description": "New status (planned, active, completed, paused)",
           "typeDefinition": "<status:string>",
           "args": [
             {
@@ -10511,6 +10831,7 @@
           "flags": [
             "--owner"
           ],
+          "description": "New owner (username, email, or @me)",
           "typeDefinition": "<owner:string>",
           "args": [
             {
@@ -10537,6 +10858,7 @@
           "flags": [
             "--target-date"
           ],
+          "description": "Target completion date (YYYY-MM-DD)",
           "typeDefinition": "<targetDate:string>",
           "args": [
             {
@@ -10563,6 +10885,7 @@
           "flags": [
             "--color"
           ],
+          "description": "Initiative color (hex, e.g., #5E6AD2)",
           "typeDefinition": "<color:string>",
           "args": [
             {
@@ -10589,6 +10912,7 @@
           "flags": [
             "--icon"
           ],
+          "description": "Initiative icon name",
           "typeDefinition": "<icon:string>",
           "args": [
             {
@@ -10616,6 +10940,7 @@
             "-i",
             "--interactive"
           ],
+          "description": "Interactive mode for updates",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -10635,6 +10960,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -10698,6 +11024,7 @@
             "-y",
             "--force"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -10717,6 +11044,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -10780,6 +11108,7 @@
             "-y",
             "--force"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -10797,6 +11126,7 @@
           "flags": [
             "--bulk"
           ],
+          "description": "Delete multiple initiatives by ID, slug, or name",
           "typeDefinition": "<ids...:string>",
           "args": [
             {
@@ -10823,6 +11153,7 @@
           "flags": [
             "--bulk-file"
           ],
+          "description": "Read initiative IDs from a file (one per line)",
           "typeDefinition": "<file:string>",
           "args": [
             {
@@ -10849,6 +11180,7 @@
           "flags": [
             "--bulk-stdin"
           ],
+          "description": "Read initiative IDs from stdin",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -10868,6 +11200,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -10938,6 +11271,7 @@
           "flags": [
             "--sort-order"
           ],
+          "description": "Sort order within initiative",
           "typeDefinition": "<sortOrder:number>",
           "args": [
             {
@@ -10966,6 +11300,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -11037,6 +11372,7 @@
             "-y",
             "--force"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -11056,6 +11392,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -11110,6 +11447,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -11176,6 +11514,7 @@
             "-b",
             "--body"
           ],
+          "description": "Comment body text",
           "typeDefinition": "<text:string>",
           "args": [
             {
@@ -11202,6 +11541,7 @@
           "flags": [
             "--body-file"
           ],
+          "description": "Read comment body from a file (preferred for markdown content)",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -11230,6 +11570,7 @@
             "--parent",
             "--reply-to"
           ],
+          "description": "Reply to a top-level comment by ID (the reply joins that thread)",
           "typeDefinition": "<commentId:string>",
           "args": [
             {
@@ -11258,6 +11599,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -11321,6 +11663,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -11340,6 +11683,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -11401,6 +11745,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -11473,6 +11818,7 @@
           "flags": [
             "--body"
           ],
+          "description": "Update content (markdown)",
           "typeDefinition": "<body:string>",
           "args": [
             {
@@ -11499,6 +11845,7 @@
           "flags": [
             "--body-file"
           ],
+          "description": "Read content from file",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -11525,6 +11872,7 @@
           "flags": [
             "--health"
           ],
+          "description": "Health status (onTrack, atRisk, offTrack)",
           "typeDefinition": "<health:string>",
           "args": [
             {
@@ -11552,6 +11900,7 @@
             "-i",
             "--interactive"
           ],
+          "description": "Interactive mode with prompts",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -11571,6 +11920,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -11646,6 +11996,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -11663,6 +12014,7 @@
           "flags": [
             "--limit"
           ],
+          "description": "Limit results",
           "typeDefinition": "<limit:number>",
           "args": [
             {
@@ -11691,6 +12043,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -11752,6 +12105,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -11809,6 +12163,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Filter by team key, name, or ID (e.g., TC). Shows that team's labels plus workspace labels.",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -11835,6 +12190,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Show only workspace-level labels (not team-specific)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -11852,6 +12208,7 @@
           "flags": [
             "--all"
           ],
+          "description": "Show all labels (both workspace and team)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -11870,6 +12227,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -11916,6 +12274,7 @@
             "-n",
             "--name"
           ],
+          "description": "Label name (required)",
           "typeDefinition": "<name:string>",
           "args": [
             {
@@ -11943,6 +12302,7 @@
             "-c",
             "--color"
           ],
+          "description": "Color hex code (e.g., #EB5757)",
           "typeDefinition": "<color:string>",
           "args": [
             {
@@ -11970,6 +12330,7 @@
             "-d",
             "--description"
           ],
+          "description": "Label description",
           "typeDefinition": "<description:string>",
           "args": [
             {
@@ -11997,6 +12358,7 @@
             "-t",
             "--team"
           ],
+          "description": "Team key, name, or ID for a team-specific label (omit for workspace label)",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -12024,6 +12386,7 @@
             "-i",
             "--interactive"
           ],
+          "description": "Interactive mode (default if no flags provided)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -12043,6 +12406,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -12106,6 +12470,7 @@
             "-t",
             "--team"
           ],
+          "description": "Team key, name, or ID to disambiguate labels with the same name",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -12133,6 +12498,7 @@
             "-f",
             "--force"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -12152,6 +12518,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -12206,6 +12573,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -12286,6 +12654,7 @@
           "flags": [
             "--type"
           ],
+          "description": "Only templates of this type (issue, project, or document)",
           "typeDefinition": "<type:template-type>",
           "args": [
             {
@@ -12312,6 +12681,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Team key, name, or ID. Shows that team's templates plus workspace templates.",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -12339,6 +12709,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -12358,6 +12729,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -12428,6 +12800,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output the template as JSON (templateData stays a JSON-encoded string; use `jq '.templateData | fromjson'`)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -12447,6 +12820,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -12513,6 +12887,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -12580,6 +12955,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Filter by project (UUID, slug ID, or name)",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -12606,6 +12982,7 @@
           "flags": [
             "--issue"
           ],
+          "description": "Filter by issue (identifier like TC-123)",
           "typeDefinition": "<issue:string>",
           "args": [
             {
@@ -12632,6 +13009,7 @@
           "flags": [
             "--initiative"
           ],
+          "description": "Filter by initiative (UUID, slug ID, or name)",
           "typeDefinition": "<initiative:string>",
           "args": [
             {
@@ -12658,6 +13036,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -12684,6 +13063,7 @@
           "flags": [
             "--cycle"
           ],
+          "description": "Filter by cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)",
           "typeDefinition": "<cycle:string>",
           "args": [
             {
@@ -12710,6 +13090,7 @@
           "flags": [
             "--release"
           ],
+          "description": "Filter by release (UUID, name, or version)",
           "typeDefinition": "<release:string>",
           "args": [
             {
@@ -12736,6 +13117,7 @@
           "flags": [
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -12753,6 +13135,7 @@
           "flags": [
             "--limit"
           ],
+          "description": "Limit results",
           "typeDefinition": "<limit:number>",
           "args": [
             {
@@ -12781,6 +13164,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -12850,6 +13234,7 @@
           "flags": [
             "--raw"
           ],
+          "description": "Output raw markdown without rendering",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -12868,6 +13253,7 @@
             "-w",
             "--web"
           ],
+          "description": "Open document in browser",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -12885,6 +13271,7 @@
           "flags": [
             "--json"
           ],
+          "description": "Output full document as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -12902,6 +13289,7 @@
           "flags": [
             "--no-download"
           ],
+          "description": "Keep remote URLs instead of downloading files",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -12921,6 +13309,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -12982,6 +13371,7 @@
             "-t",
             "--title"
           ],
+          "description": "Document title (required)",
           "typeDefinition": "<title:string>",
           "args": [
             {
@@ -13009,6 +13399,7 @@
             "-c",
             "--content"
           ],
+          "description": "Markdown content (inline)",
           "typeDefinition": "<content:string>",
           "args": [
             {
@@ -13036,6 +13427,7 @@
             "-f",
             "--content-file"
           ],
+          "description": "Read content from file",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -13062,6 +13454,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Attach to project (UUID, slug ID, or name)",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -13088,6 +13481,7 @@
           "flags": [
             "--issue"
           ],
+          "description": "Attach to issue (identifier like TC-123)",
           "typeDefinition": "<issue:string>",
           "args": [
             {
@@ -13114,6 +13508,7 @@
           "flags": [
             "--initiative"
           ],
+          "description": "Attach to initiative (UUID, slug ID, or name)",
           "typeDefinition": "<initiative:string>",
           "args": [
             {
@@ -13140,6 +13535,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -13166,6 +13562,7 @@
           "flags": [
             "--cycle"
           ],
+          "description": "Attach to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)",
           "typeDefinition": "<cycle:string>",
           "args": [
             {
@@ -13192,6 +13589,7 @@
           "flags": [
             "--release"
           ],
+          "description": "Attach to release (UUID, name, or version)",
           "typeDefinition": "<release:string>",
           "args": [
             {
@@ -13218,6 +13616,7 @@
           "flags": [
             "--icon"
           ],
+          "description": "Document icon (emoji)",
           "typeDefinition": "<icon:string>",
           "args": [
             {
@@ -13245,6 +13644,7 @@
             "-i",
             "--interactive"
           ],
+          "description": "Interactive mode with prompts",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -13264,6 +13664,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -13334,6 +13735,7 @@
             "-t",
             "--title"
           ],
+          "description": "New title for the document",
           "typeDefinition": "<title:string>",
           "args": [
             {
@@ -13361,6 +13763,7 @@
             "-c",
             "--content"
           ],
+          "description": "New markdown content (inline)",
           "typeDefinition": "<content:string>",
           "args": [
             {
@@ -13388,6 +13791,7 @@
             "-f",
             "--content-file"
           ],
+          "description": "Read new content from file",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -13414,6 +13818,7 @@
           "flags": [
             "--icon"
           ],
+          "description": "New icon (emoji)",
           "typeDefinition": "<icon:string>",
           "args": [
             {
@@ -13440,6 +13845,7 @@
           "flags": [
             "--project"
           ],
+          "description": "Re-point to project (UUID, slug ID, or name); replaces the current attachment",
           "typeDefinition": "<project:string>",
           "args": [
             {
@@ -13466,6 +13872,7 @@
           "flags": [
             "--issue"
           ],
+          "description": "Re-point to issue (identifier like TC-123); replaces the current attachment",
           "typeDefinition": "<issue:string>",
           "args": [
             {
@@ -13492,6 +13899,7 @@
           "flags": [
             "--initiative"
           ],
+          "description": "Re-point to initiative (UUID, slug ID, or name); replaces the current attachment",
           "typeDefinition": "<initiative:string>",
           "args": [
             {
@@ -13518,6 +13926,7 @@
           "flags": [
             "--team"
           ],
+          "description": "Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead",
           "typeDefinition": "<team:string>",
           "args": [
             {
@@ -13544,6 +13953,7 @@
           "flags": [
             "--cycle"
           ],
+          "description": "Re-point to cycle: name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (team from --team or config)",
           "typeDefinition": "<cycle:string>",
           "args": [
             {
@@ -13570,6 +13980,7 @@
           "flags": [
             "--release"
           ],
+          "description": "Re-point to release (UUID, name, or version); replaces the current attachment",
           "typeDefinition": "<release:string>",
           "args": [
             {
@@ -13597,6 +14008,7 @@
             "-e",
             "--edit"
           ],
+          "description": "Open current content in $EDITOR for editing",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -13614,6 +14026,7 @@
           "flags": [
             "--force"
           ],
+          "description": "Update content even when document comments may lose inline anchors",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -13633,6 +14046,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -13703,6 +14117,7 @@
             "-y",
             "--yes"
           ],
+          "description": "Skip confirmation prompt",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -13720,6 +14135,7 @@
           "flags": [
             "--bulk"
           ],
+          "description": "Delete multiple documents by slug or ID",
           "typeDefinition": "<ids...:string>",
           "args": [
             {
@@ -13746,6 +14162,7 @@
           "flags": [
             "--bulk-file"
           ],
+          "description": "Read document slugs/IDs from a file (one per line)",
           "typeDefinition": "<file:string>",
           "args": [
             {
@@ -13772,6 +14189,7 @@
           "flags": [
             "--bulk-stdin"
           ],
+          "description": "Read document slugs/IDs from stdin",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -13791,6 +14209,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -13845,6 +14264,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -13911,6 +14331,7 @@
             "-b",
             "--body"
           ],
+          "description": "Comment body text",
           "typeDefinition": "<text:string>",
           "args": [
             {
@@ -13937,6 +14358,7 @@
           "flags": [
             "--body-file"
           ],
+          "description": "Read comment body from a file (preferred for markdown content)",
           "typeDefinition": "<path:string>",
           "args": [
             {
@@ -13965,6 +14387,7 @@
             "--parent",
             "--reply-to"
           ],
+          "description": "Reply to a top-level comment by ID (the reply joins that thread)",
           "typeDefinition": "<commentId:string>",
           "args": [
             {
@@ -13993,6 +14416,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -14056,6 +14480,7 @@
             "-j",
             "--json"
           ],
+          "description": "Output as JSON",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -14075,6 +14500,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -14161,6 +14587,7 @@
             "-n",
             "--name"
           ],
+          "description": "The name of the main command.",
           "typeDefinition": "<command-name>",
           "args": [
             {
@@ -14216,6 +14643,7 @@
             "-n",
             "--name"
           ],
+          "description": "The name of the main command.",
           "typeDefinition": "<command-name>",
           "args": [
             {
@@ -14271,6 +14699,7 @@
             "-n",
             "--name"
           ],
+          "description": "The name of the main command.",
           "typeDefinition": "<command-name>",
           "args": [
             {
@@ -14376,6 +14805,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -14429,6 +14859,7 @@
           "flags": [
             "--json"
           ],
+          "description": "Output as JSON introspection result instead of SDL",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -14447,6 +14878,7 @@
             "-o",
             "--output"
           ],
+          "description": "Write schema to file instead of stdout",
           "typeDefinition": "<file:string>",
           "args": [
             {
@@ -14475,6 +14907,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -14574,6 +15007,7 @@
           "flags": [
             "--variable"
           ],
+          "description": "Variable in key=value format (coerces booleans, numbers, null; @file reads from path)",
           "typeDefinition": "<variable:variable>",
           "args": [
             {
@@ -14600,6 +15034,7 @@
           "flags": [
             "--variables-json"
           ],
+          "description": "JSON object of variables (merged with --variable, which takes precedence)",
           "typeDefinition": "<json:string>",
           "args": [
             {
@@ -14626,6 +15061,7 @@
           "flags": [
             "--paginate"
           ],
+          "description": "Auto-paginate a single connection field using cursor pagination",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -14643,6 +15079,7 @@
           "flags": [
             "--silent"
           ],
+          "description": "Suppress response output (exit code still reflects errors)",
           "typeDefinition": "",
           "args": [],
           "required": false,
@@ -14662,6 +15099,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -14716,6 +15154,7 @@
           "flags": [
             "--workspace"
           ],
+          "description": "Target workspace (uses credentials)",
           "typeDefinition": "<slug:string>",
           "args": [
             {
@@ -14847,7 +15286,7 @@
     }
   ],
   "notes": {
-    "helpVersion": "probe_sourced_lazy_options",
+    "helpVersion": "Cliffy lazily registers -h, --help (\"Show this help.\") as a global option first in every route option list; it registers -V, --version (\"Show the version number for this program.\") only at root, second there before --workspace. These options are omitted from the pre-registration inventory and corroborated by runner/cases/help-root.json.",
     "parentActions": "pending_safe_fixture; public Cliffy inspection does not expose action handler",
     "workspaceCollision": "pending_safe_fixture; root global and label list local definitions both exported",
     "valueHandlers": "unknown_function when registered; runtime function body is deliberately not serialized",

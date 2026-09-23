@@ -39,6 +39,7 @@ function option(
     scope,
     name: opt.name,
     flags: opt.flags,
+    description: opt.description,
     typeDefinition: opt.typeDefinition ?? null,
     args: opt.args.map(argument),
     required: opt.required ?? false,
