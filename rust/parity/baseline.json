@@ -1,0 +1,12 @@
+{
+  "referenceRevision": "d4fe6fa7358f018fd1da0c6b96ec2b022247e898",
+  "denoVersion": "2.7.9",
+  "target": "x86_64-unknown-linux-gnu",
+  "codegenCommand": "deno task codegen",
+  "compileCommand": "deno compile --allow-all --quiet --output <artifact> src/main.ts",
+  "entrypoint": "src/main.ts",
+  "lockSha256": "3da729da08fe6d48236e055b2eaac95788b5e5ccfd0f66dacdc5f6a0b0b96403",
+  "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+  "binarySha256": "a17675c5ab9a0bf5f32f65e5e68112676576972a9979f5a97bc844f6b23e0835",
+  "localRepeatBuildSha256": "a17675c5ab9a0bf5f32f65e5e68112676576972a9979f5a97bc844f6b23e0835"
+}
