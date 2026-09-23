@@ -5,7 +5,6 @@ import {
   listCommand,
   type ProjectDisplayOrderKey,
 } from "../../../src/commands/project/project-list.ts"
-import type { ProjectStatusType } from "../../../src/__codegen__/graphql.ts"
 import { assertEquals, assertStringIncludes } from "@std/assert"
 import { commonDenoArgs } from "../../utils/test-helpers.ts"
 import { MockLinearServer } from "../../utils/mock_linear_server.ts"
@@ -53,7 +52,6 @@ await snapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
-                    position: 2,
                   },
                   lead: {
                     name: "jane.smith",
@@ -91,7 +89,6 @@ await snapshotTest({
                     name: "Planned",
                     color: "#6366f1",
                     type: "planned",
-                    position: 1,
                   },
                   lead: {
                     name: "alex.designer",
@@ -128,7 +125,6 @@ await snapshotTest({
                     name: "Completed",
                     color: "#059669",
                     type: "completed",
-                    position: 4,
                   },
                   lead: null,
                   priority: 4,
@@ -281,7 +277,6 @@ await cliffySnapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
-                    position: 2,
                   },
                   lead: {
                     name: "test.user",
@@ -359,7 +354,6 @@ await snapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
-                    position: 2,
                   },
                   lead: {
                     name: "alice",
@@ -393,7 +387,6 @@ await snapshotTest({
                     name: "Planned",
                     color: "#6366f1",
                     type: "planned",
-                    position: 1,
                   },
                   lead: {
                     name: "bob",
@@ -448,7 +441,6 @@ await snapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
-                    position: 2,
                   },
                   lead: {
                     name: "carol",
@@ -482,7 +474,6 @@ await snapshotTest({
                     name: "Completed",
                     color: "#059669",
                     type: "completed",
-                    position: 4,
                   },
                   lead: null,
                   priority: 4,
@@ -552,7 +543,6 @@ await cliffySnapshotTest({
                     name: "In Progress",
                     color: "#f59e0b",
                     type: "started",
-                    position: 2,
                   },
                   lead: null,
                   priority: 2,
@@ -598,7 +588,6 @@ await cliffySnapshotTest({
                     name: "Planned",
                     color: "#6366f1",
                     type: "planned",
-                    position: 1,
                   },
                   lead: {
                     name: "pat.planner",
@@ -694,58 +683,60 @@ await cliffySnapshotTest({
 // The two command-level ordering snapshots above are still `ignore: true` for a
 // pre-existing mock-server problem, so the ordering rule is exercised directly
 // here rather than going unverified.
-Deno.test("project list orders projects the way Linear's project flow does", () => {
+//
+// The cases are the projects of a real workspace, with the order Linear's
+// projects list showed for them. Their statuses are noted beside each one:
+// status plays no part in the order, which a comparator that grouped by
+// status would get wrong, since it would pull "E probe backlog" down to the
+// other backlog projects and push the canceled project to the end.
+Deno.test("project list orders projects by sortOrder the way Linear's project list does", () => {
   const project = (
     id: string,
     name: string,
-    type: ProjectStatusType,
-    position: number,
     sortOrder: number,
-  ): ProjectDisplayOrderKey => ({
-    id,
-    name,
-    status: { type, position },
-    sortOrder,
-  })
+  ): ProjectDisplayOrderKey => ({ id, name, sortOrder })
 
-  // Deliberately scrambled, and covering every status type.
+  const observedOrder = [
+    project("id-e", "E probe backlog", -9086), // backlog
+    project("id-d", "D probe planned", -8018), // planned
+    project("id-c", "C probe in progress", -7086), // started
+    project("id-b", "B probe completed", -6020), // completed
+    project("id-a", "A probe canceled", -4964), // canceled
+    project("id-triage", "Triage 221-225 2026-05-22", -3971), // backlog
+    project("id-qa", "QA Test Project", -2949), // backlog
+    project("id-pr-init", "PR Test Project with Initiative", -2032), // backlog
+    project("id-pr", "PR Test Project", -1019), // backlog
+    project("id-one", "Linear CLI One point oh", 20.21), // backlog
+  ]
+
+  // Scramble so the input order cannot produce the result by accident. Sorting
+  // by name would also be wrong here: the probes are lettered against their
+  // sortOrder, so "A probe canceled" would come first.
   const scrambled = [
-    project("id-canceled", "Canceled work", "canceled", 5, 0),
-    project("id-started-b", "Second in flight", "started", 2, 50),
-    project("id-backlog-late", "Later backlog status", "backlog", 1, 0),
-    project("id-completed", "Finished work", "completed", 4, 0),
-    project("id-started-a", "First in flight", "started", 2, 10),
-    project("id-paused", "On hold", "paused", 3, 0),
-    project("id-planned", "Planned work", "planned", 1, 0),
-    project("id-backlog-early", "Earlier backlog status", "backlog", 0, 999),
+    observedOrder[9],
+    observedOrder[4],
+    observedOrder[0],
+    observedOrder[7],
+    observedOrder[2],
+    observedOrder[5],
+    observedOrder[8],
+    observedOrder[1],
+    observedOrder[6],
+    observedOrder[3],
   ]
 
   const ordered = [...scrambled].sort(compareProjectsForDisplay)
 
-  assertEquals(ordered.map((p) => p.id), [
-    // Status type first, in flow order.
-    // Within backlog, the status's own position wins over sortOrder: the
-    // earlier status sorts first even though its project's manual order is
-    // much later.
-    "id-backlog-early",
-    "id-backlog-late",
-    "id-planned",
-    // Within one status, the manual sortOrder decides. Alphabetically
-    // "First in flight" would come first either way, so the values are set so
-    // that only sortOrder produces this order.
-    "id-started-a",
-    "id-started-b",
-    "id-paused",
-    "id-completed",
-    "id-canceled",
-  ])
+  assertEquals(
+    ordered.map((p) => p.id),
+    observedOrder.map((p) => p.id),
+  )
 })
 
 Deno.test("project list breaks exact ties by name and then id", () => {
   const tied = (id: string, name: string): ProjectDisplayOrderKey => ({
     id,
     name,
-    status: { type: "backlog", position: 0 },
     sortOrder: 1,
   })
 
@@ -758,39 +749,46 @@ Deno.test("project list breaks exact ties by name and then id", () => {
   assertEquals(ordered.map((p) => p.id), ["id-m", "id-a", "id-z"])
 })
 
-// A `Float!` that arrives null would make the comparator return NaN and
-// scramble the listing. It can only be constructed on the wire, not in a typed
-// fixture, so it is exercised through the mock server.
-Deno.test("project list reports a non-numeric sort key instead of scrambling the order", async () => {
-  const node = (id: string, name: string, sortOrder: number | null) => ({
-    id,
-    name,
-    description: "",
-    slugId: id,
-    sortOrder,
-    icon: null,
-    color: "#3b82f6",
-    status: {
-      id: "status-1",
-      name: "Backlog",
-      color: "#94a3b8",
-      type: "backlog",
-      position: 0,
-    },
-    lead: null,
-    priority: 0,
-    health: null,
-    startDate: null,
-    targetDate: null,
-    startedAt: null,
-    completedAt: null,
-    canceledAt: null,
-    createdAt: "2024-01-10T10:00:00Z",
-    updatedAt: "2024-01-20T15:30:00Z",
-    url: `https://linear.app/test/project/${id}`,
-    teams: { nodes: [{ key: "ENG" }] },
-  })
+// Fixture for the wire-level failure tests below, which need values a typed
+// fixture cannot hold.
+const wireNode = (
+  id: string,
+  name: string,
+  sortOrder: number | null,
+  statusType: string,
+) => ({
+  id,
+  name,
+  description: "",
+  slugId: id,
+  sortOrder,
+  icon: null,
+  color: "#3b82f6",
+  status: {
+    id: "status-1",
+    name: "Backlog",
+    color: "#94a3b8",
+    type: statusType,
+  },
+  lead: null,
+  priority: 0,
+  health: null,
+  startDate: null,
+  targetDate: null,
+  startedAt: null,
+  completedAt: null,
+  canceledAt: null,
+  createdAt: "2024-01-10T10:00:00Z",
+  updatedAt: "2024-01-20T15:30:00Z",
+  url: `https://linear.app/test/project/${id}`,
+  teams: { nodes: [{ key: "ENG" }] },
+})
 
+// Run `project list --all-teams` against the given nodes and return the exit
+// code and everything written to stderr.
+async function runListCapturingFailure(
+  nodes: ReturnType<typeof wireNode>[],
+): Promise<{ exitCode: number | undefined; stderr: string }> {
   const server = new MockLinearServer([
     {
       queryName: "GetProjects",
@@ -798,7 +796,7 @@ Deno.test("project list reports a non-numeric sort key instead of scrambling the
       response: {
         data: {
           projects: {
-            nodes: [node("broken", "Broken", null), node("fine", "Fine", 2)],
+            nodes,
             pageInfo: { hasNextPage: false, endCursor: null },
           },
         },
@@ -807,16 +805,18 @@ Deno.test("project list reports a non-numeric sort key instead of scrambling the
   ])
 
   const originalError = console.error
+  const originalLog = console.log
   const originalExit = Deno.exit
   const errors: string[] = []
   let exitCode: number | undefined
   console.error = (...args: unknown[]) => {
     errors.push(args.map(String).join(" "))
   }
-  Deno.exit = ((code?: number) => {
+  console.log = () => {}
+  Deno.exit = (code?: number): never => {
     exitCode = code
     throw new Error("exit")
-  }) as typeof Deno.exit
+  }
 
   try {
     await server.start()
@@ -827,12 +827,40 @@ Deno.test("project list reports a non-numeric sort key instead of scrambling the
     if (!(error instanceof Error) || error.message !== "exit") throw error
   } finally {
     console.error = originalError
+    console.log = originalLog
     Deno.exit = originalExit
     await server.stop()
     Deno.env.delete("LINEAR_GRAPHQL_ENDPOINT")
     Deno.env.delete("LINEAR_API_KEY")
   }
 
+  return { exitCode, stderr: errors.join("\n") }
+}
+
+// A `Float!` that arrives null would make the comparator return NaN and
+// scramble the listing. It can only be constructed on the wire, not in a typed
+// fixture, so it is exercised through the mock server.
+Deno.test("project list reports a non-numeric sort key instead of scrambling the order", async () => {
+  const { exitCode, stderr } = await runListCapturingFailure([
+    wireNode("broken", "Broken", null, "backlog"),
+    wireNode("fine", "Fine", 2, "backlog"),
+  ])
+
   assertEquals(exitCode, 1)
-  assertStringIncludes(errors.join("\n"), "non-numeric sortOrder")
+  assertStringIncludes(stderr, "non-numeric sortOrder")
+})
+
+// Status no longer feeds the order, so the table's date column is the one place
+// that still has to know every status type. One it has not been taught about
+// errors rather than silently being shown as if it were backlog.
+Deno.test("project list reports an unknown project status type", async () => {
+  const { exitCode, stderr } = await runListCapturingFailure([
+    wireNode("odd", "Odd", 1, "someNewType"),
+  ])
+
+  assertEquals(exitCode, 1)
+  assertStringIncludes(
+    stderr,
+    "unknown project status type: someNewType",
+  )
 })
