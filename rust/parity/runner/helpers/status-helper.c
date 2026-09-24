@@ -25,6 +25,8 @@
  * It creates a PTY inside bwrap, makes the exact target a session leader and
  * controlling-tty foreground group, and relays the master to helper stdout.
  * Helper stdin accepts canonical `ACTION <index> raw|cooked <key-hex>\n` lines.
+ * A one-byte key is non-NUL, non-ESC ASCII/control (01-1a or 1c-7f);
+ * ESC is accepted only as part of a supported cursor/delete sequence.
  * After exec confirmation, a matching termios gate, a zero-byte drain to
  * EAGAIN and a second matching gate, the helper writes one key event and
  * reports `APPLIED <nonce> <index> <relayed-byte-count>` on the status socket.
@@ -352,7 +354,8 @@ static int hex_digit(char c) {
 }
 
 static int one_key_event(const unsigned char *key, size_t length) {
-  if (length == 1) return key[0] < 0x80;
+  if (length == 1) return (key[0] >= 0x01 && key[0] <= 0x1a) ||
+                          (key[0] >= 0x1c && key[0] <= 0x7f);
   if (length == 3 && key[0] == 0x1b && key[1] == '[' && key[2] != 0 &&
       strchr("ABCDHF", key[2]) != NULL) return 1;
   if (length == 4 && key[0] == 0x1b && key[1] == '[' &&

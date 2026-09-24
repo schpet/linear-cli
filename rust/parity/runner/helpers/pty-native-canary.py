@@ -358,6 +358,42 @@ time.sleep(0.1)
         closing_frame(closed.conn, "DONE", len(output))
         print("target EOF leaves pending action unapplied without helper stderr: passed")
 
+        # Every key gets a fresh living target. Rejection must end the helper
+        # before any APPLIED/RESULT/DONE frame or target read can occur.
+        def raw_reader(length):
+            return f'''import os,termios
+t=termios.tcgetattr(0);t[3]&=~(termios.ECHO|termios.ICANON|termios.ISIG);termios.tcsetattr(0,termios.TCSANOW,t)
+print("READY",flush=True)
+key=b""
+while len(key)<{length}: key+=os.read(0,{length}-len(key))
+print("KEY",key.hex(),flush=True)
+'''
+
+        for rejected in ("00", "1b"):
+            session = Session(helper, "40x10", raw_reader(1))
+            session.read_until(b"READY\r\n")
+            session.action(0, "raw", rejected)
+            status, output, diagnostic = session.finish()
+            assert status == 122 and b"not one key event" in diagnostic, (rejected, status, diagnostic)
+            assert output == b"READY\r\n", (rejected, output)
+            assert session.conn.recv(1) == b"", f"{rejected}: unexpected status frame"
+            print(f"raw key {rejected} rejected before APPLIED/RESULT/DONE: passed")
+
+        for accepted, length in (("01", 1), ("1c", 1), ("7f", 1), ("1b5b41", 3)):
+            session = Session(helper, "40x10", raw_reader(length))
+            session.read_until(b"READY\r\n")
+            session.action(0, "raw", accepted)
+            applied = frame(session.conn)
+            assert applied == f"parity-status/3 APPLIED {NONCE} 0 7", (accepted, applied)
+            result = frame(session.conn)
+            assert " exited 0 pty 40 10 " in result, (accepted, result)
+            status, output, diagnostic = session.finish()
+            assert status == 0 and diagnostic == b"", (accepted, status, diagnostic)
+            assert output == b"READY\r\nKEY " + accepted.encode() + b"\r\n", (accepted, output)
+            closing_frame(session.conn, "DONE", len(output))
+            assert session.conn.recv(1) == b"", f"{accepted}: unexpected trailing status frame"
+            print(f"raw key {accepted} APPLIED and exact target read: passed")
+
         invalid = Session(helper, "40x10", 'import time;print("READY",flush=True);time.sleep(30)')
         invalid.read_until(b"READY\r\n")
         invalid.action(0, "cooked", "796e")  # two ASCII keys, not one event
