@@ -1,12 +1,20 @@
 use std::collections::BTreeSet;
 
 use clap::error::ErrorKind;
-use linear_cli::cli::{ROUTES, Route, RouteKind, clap_tree};
+use linear_cli::cli::{ROUTES, Route, RouteKind, RouteMeta, clap_tree};
 
-fn select(args: &[&str]) -> Route {
+fn select(args: &[&str], route: &RouteMeta) -> Route {
+    let mut argv = args.to_vec();
+    argv.extend(
+        route
+            .arguments
+            .iter()
+            .filter(|argument| !argument.optional)
+            .map(|_| "sample"),
+    );
     let matches = clap_tree::build()
         .expect("valid generated inventory")
-        .try_get_matches_from(args)
+        .try_get_matches_from(argv)
         .expect("registered route parses");
     clap_tree::selected_route(&matches).expect("selected route exists")
 }
@@ -23,13 +31,18 @@ fn every_canonical_route_and_alias_selects_its_generated_identity() {
             route.path
         );
         let path = route.path.split(' ').collect::<Vec<_>>();
-        assert_eq!(select(&path), route.route, "canonical path: {}", route.path);
+        assert_eq!(
+            select(&path, route),
+            route.route,
+            "canonical path: {}",
+            route.path
+        );
         for alias in route.aliases {
             let mut alias_path = path.clone();
             let last = alias_path.last_mut().expect("route has a name");
             *last = alias;
             assert_eq!(
-                select(&alias_path),
+                select(&alias_path, route),
                 route.route,
                 "alias {alias}: {}",
                 route.path
@@ -79,7 +92,12 @@ fn every_node_with_children_accepts_bare_selection() {
     assert_eq!(nodes.len(), 21);
     for route in nodes {
         let path = route.path.split(' ').collect::<Vec<_>>();
-        assert_eq!(select(&path), route.route, "bare route: {}", route.path);
+        assert_eq!(
+            select(&path, route),
+            route.route,
+            "bare route: {}",
+            route.path
+        );
     }
 }
 

@@ -6,6 +6,12 @@ The Rust CLI is a new major version. The frozen Deno 2.6.0 binary remains an ora
 
 This ledger distinguishes captured behavior from source reading and Rust-only observations. F01D3 selects the root and 19 parent routes for confined candidate comparison. Its integrated 121-case lane reported 92 selected passes, 0 failures, 29 omitted leaves and 0 baseline drift; staged DENO_DIR was unchanged and self-check caught 15/15 controls. A leaf may have exact help or usage output without its action being implemented.
 
+## R01B1 planned syntax: label workspace filter
+
+The Deno `linear label list --workspace` is registered as a local Boolean filter, colliding with the inherited credential selector of the same spelling. Under the pinned Deno binary with synthetic HOME/XDG and no credentials, that bare flag reaches a lookup for credential workspace `"true"` and exits 1; `linear label list --workspace acme` treats `acme` as surplus positional input and exits 2. The Deno `linear --workspace acme label list` selects credential workspace `acme`. These are direct probes recorded in the R01B plan.
+
+The Rust major version will use `linear label list --workspace-only` for the Boolean label filter and `linear label list --workspace acme` for credential selection. `linear --workspace acme label list --workspace-only` can combine them. Bare `linear label list --workspace` is a missing-value usage error (exit 2); repeating `--workspace` across levels is a usage error (exit 2). The local action identity remains `opt:workspace`, and the credential identity is `global:workspace`. Migration: replace the old local Boolean flag with `--workspace-only`; supply a slug to `--workspace` when selecting credentials. The shadow clap tests prove the parsed identities and duplicate rejection, while the production parser remains unchanged. R01H must capture reviewed Rust help/diagnostic goldens before R01C activates this syntax; the final rendered wording is still pending.
+
 ## Observed frozen oracle
 
 The reviewed terminal corpus includes root/parent help, version, parser diagnostics and selected leaf terminal cases. F01D3's confined report and artifact hashes are in `reviews/F01D3.md`. The frozen `parser-invalid-variable` case rejects `api --variable badformat` before action dispatch, with API short help, exit 2, and the captured Variable syntax message.
