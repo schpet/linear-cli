@@ -4,14 +4,16 @@ This records planning feedback, not implementation verification. No Rust command
 
 ## User-supplied constraints
 
-The user supplied these project instructions on 2026-09-23 in addition to the on-disk AGENTS.md. Preserve them for future execution sessions:
+The user supplied these project instructions on 2026-09-23 in addition to the on-disk AGENTS.md. The dependency rule below is historical and was superseded on 2026-09-24; preserve the others for future execution sessions:
 
 - “ask before adding a new dependency”
 - “never create issues or tickets (Linear, GitHub, etc.) unless explicitly requested”
 - Use jj for source control, keep an empty scratch `@` after recording work, and do not modify described/bookmarked/immutable changes directly.
 - This migration must not be pushed to main.
 
-On 2026-09-24 the user explicitly directed a new breaking Rust version and said to use clap-friendly syntax and improved Markdown output where beneficial, while keeping feature parity. This supersedes the original strict Cliffy-byte-parity policy and authorizes the `clap` dependency with an R01-reviewed pinned version/features and their transitive dependencies. It does not authorize `clap_complete` or the future config/keyring dependency bundle. The earlier S1 decision below is historical: P10 is now a final whole-surface gate, and a command may proceed with scoped frozen evidence. The user also asked to avoid unrelated security work.
+On 2026-09-24 the user explicitly changed the dependency rule: “for all dependencies, don't require my approval, just go forward if you determine them to be good and helpful.” Future implementation may choose justified dependencies without asking again. Record the purpose, exact features/version, lockfile delta, license, MSRV, target support and review evidence in the relevant work item. This later instruction takes precedence over the earlier quoted rule and over the older dependency-approval text in this document.
+
+On 2026-09-24 the user explicitly directed a new breaking Rust version and said to use clap-friendly syntax and improved Markdown output where beneficial, while keeping feature parity. This supersedes the original strict Cliffy-byte-parity policy and authorized the `clap` dependency with an R01-reviewed pinned version/features and their transitive dependencies. The earlier limitation on future config/keyring dependencies was superseded by the dependency rule above. The earlier S1 decision below is historical: P10 is now a final whole-surface gate, and a command may proceed with scoped frozen evidence. The user also asked to avoid unrelated security work.
 
 The first independent Claude review of the revised plan returned REVISE; its gate, scope, version, harness and order findings were applied. A second read-only closeout returned REVISE solely for the old blanket negative-control sentence in `PARITY_HARNESS.md:74` and requested explicit R01H ownership and a feedback artifact. A final read-only Claude review returned **SHIP** with no blockers; its optional wording clarifications were applied. The separate C085 microplan was reviewed twice; its corrected version received **SHIP**. See `untracked/notebook/2026-09-24-riir-state/breaking-v3/claude-feedback.md` for the finding/disposition summary. No C085 implementation is claimed by this plan review.
 
