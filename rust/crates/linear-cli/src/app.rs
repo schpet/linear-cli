@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use crate::cli::{self, DispatchAction, RouteMeta};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
+use crate::platform::output::{Output, Stream, failed_stream};
 
 pub struct AppContext<'a> {
     pub env: BTreeMap<String, String>,
@@ -36,18 +37,77 @@ impl AppContext<'_> {
     pub fn help_color(&self) -> bool {
         !self.no_color()
     }
+
+    fn write_stdout(&mut self, bytes: &[u8]) -> Result<(), AppError> {
+        Output::new(&mut *self.stdout, Stream::Stdout).write(bytes)
+    }
+
+    fn write_stderr(&mut self, bytes: &[u8]) -> Result<(), AppError> {
+        Output::new(&mut *self.stderr, Stream::Stderr).write(bytes)
+    }
+
+    fn flush_all(&mut self) -> Result<(), AppError> {
+        Output::new(&mut *self.stdout, Stream::Stdout).flush()?;
+        Output::new(&mut *self.stderr, Stream::Stderr).flush()
+    }
 }
 
 fn write_stdout(context: &mut AppContext<'_>, bytes: &[u8]) -> Result<(), AppError> {
-    context.stdout.write_all(bytes).map_err(|error| {
-        AppError::new(AppErrorKind::IoProcess, "failed to write stdout").with_source(error)
-    })
+    context.write_stdout(bytes)
 }
 
 fn write_stderr(context: &mut AppContext<'_>, bytes: &[u8]) -> Result<(), AppError> {
-    context.stderr.write_all(bytes).map_err(|error| {
-        AppError::new(AppErrorKind::IoProcess, "failed to write stderr").with_source(error)
-    })
+    context.write_stderr(bytes)
+}
+
+/// Emit one bootstrap diagnostic, including its flush. The caller returns status 1
+/// even when this diagnostic cannot be written.
+pub fn report_bootstrap_error(stderr: &mut dyn Write, error: &AppError) -> Result<(), AppError> {
+    Output::new(stderr, Stream::Stderr).write(format!("✗ {error}\n").as_bytes())
+}
+
+fn report_output_failure(context: &mut AppContext<'_>, error: &AppError) {
+    if failed_stream(error) == Some(Stream::Stdout) {
+        let _ = report_bootstrap_error(context.stderr, error);
+    }
+}
+
+/// Resolve route output and final stream flushes before the process chooses an exit code.
+/// A write or flush failure always wins over the route status, including usage/child codes.
+pub fn finalize(
+    result: Result<ExitStatus, AppError>,
+    context: &mut AppContext<'_>,
+) -> Result<ExitStatus, AppError> {
+    let (status, route_io_error, output_diagnostic_attempted) = match result {
+        Ok(status) => (status, None, false),
+        Err(error) => {
+            // A failed stderr write already was the diagnostic attempt.
+            if failed_stream(&error) == Some(Stream::Stderr) {
+                return Err(error);
+            }
+            match write_final_error(context, &error) {
+                Ok(status) => {
+                    let output_diagnostic_attempted = failed_stream(&error) == Some(Stream::Stdout);
+                    let io_error = (error.kind == AppErrorKind::IoProcess).then_some(error);
+                    (status, io_error, output_diagnostic_attempted)
+                }
+                Err(write_error) => {
+                    report_output_failure(context, &write_error);
+                    return Err(write_error);
+                }
+            }
+        }
+    };
+    if let Err(flush_error) = context.flush_all() {
+        if !output_diagnostic_attempted {
+            report_output_failure(context, &flush_error);
+        }
+        return Err(flush_error);
+    }
+    match route_io_error {
+        Some(error) => Err(error),
+        None => Ok(status),
+    }
 }
 
 pub fn run(argv: &[String], context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {

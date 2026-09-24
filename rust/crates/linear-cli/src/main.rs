@@ -13,11 +13,11 @@
 use std::collections::BTreeMap;
 use std::env;
 use std::ffi::OsString;
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, IsTerminal};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use linear_cli::app::{AppContext, run, write_final_error};
+use linear_cli::app::{AppContext, finalize, report_bootstrap_error, run};
 use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
 
 type ProcessInputs = (PathBuf, BTreeMap<String, String>, Vec<String>);
@@ -78,10 +78,6 @@ fn process_inputs() -> Result<ProcessInputs, AppError> {
     Ok((cwd, environment, argv))
 }
 
-fn write_bootstrap_error(stderr: &mut dyn Write, error: &AppError) -> io::Result<()> {
-    writeln!(stderr, "✗ {error}")
-}
-
 fn main() -> ExitCode {
     let stdout = io::stdout();
     let stderr = io::stderr();
@@ -90,10 +86,7 @@ fn main() -> ExitCode {
     let (cwd, environment, argv) = match process_inputs() {
         Ok(inputs) => inputs,
         Err(error) => {
-            if write_bootstrap_error(&mut err, &error).is_err() {
-                // The diagnostic channel itself is unavailable; preserve failure status.
-                return ExitCode::FAILURE;
-            }
+            let _ = report_bootstrap_error(&mut err, &error);
             return ExitCode::FAILURE;
         }
     };
@@ -106,18 +99,9 @@ fn main() -> ExitCode {
         stderr_tty: stderr.is_terminal(),
         startup_diagnostics: Vec::new(),
     };
-    let status = match run(&argv, &mut context) {
+    let status = match finalize(run(&argv, &mut context), &mut context) {
         Ok(status) => status,
-        Err(error) => match write_final_error(&mut context, &error) {
-            Ok(status) => status,
-            Err(write_error) => {
-                if write_bootstrap_error(context.stderr, &write_error).is_err() {
-                    // stderr is closed or broken; returning failure is the only remaining signal.
-                    return ExitCode::FAILURE;
-                }
-                ExitStatus::HandledFailure
-            }
-        },
+        Err(_) => ExitStatus::HandledFailure,
     };
     ExitCode::from(status.code())
 }
