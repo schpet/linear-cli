@@ -26,6 +26,7 @@ const CASES: &[&str] = &[
     "color-unknown-command-no-color-empty",
     "color-unknown-command-no-color-one",
     "parser-unknown-command",
+    "parser-invalid-variable",
     "parser-unknown-option",
 ];
 
@@ -175,6 +176,7 @@ fn direct_binary_parser_contracts() {
         "color-unknown-command-no-color-one",
         "color-unknown-command-no-color-empty",
         "c2-root-literal-double-dash",
+        "parser-invalid-variable",
     ] {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../parity/runner/cases")
@@ -364,4 +366,194 @@ fn source_derived_empty_next_value_and_zero_argument_inline_errors() {
         "Option \"--help\" doesn't take a value, but got \"1\".",
     );
     assert_eq!(run_args(&["issue", "--help="]).0, 0);
+}
+
+#[test]
+fn source_derived_canonical_missing_value_names() {
+    for args in [["issue", "mine", "-s"], ["issue", "mine", "--state"]] {
+        assert_source_usage(
+            &args,
+            "linear issue mine",
+            "Missing value for option \"--state\".",
+        );
+    }
+    for args in [["issue", "create", "-t"], ["issue", "create", "--title"]] {
+        assert_source_usage(
+            &args,
+            "linear issue create",
+            "Missing value for option \"--title\".",
+        );
+    }
+}
+
+#[test]
+fn source_derived_short_equals_and_variable_order() {
+    let combination = "Option \"--help\" cannot be combined with other options.";
+    for args in [
+        vec!["issue", "mine", "-s=priority", "--help"],
+        vec!["issue", "mine", "--state=priority", "--help"],
+        vec!["issue", "mine", "-s", "priority", "--help"],
+        vec!["--help", "issue", "mine", "-s=priority"],
+        vec!["--help", "issue", "mine", "--state=priority"],
+    ] {
+        assert_source_usage(&args, "linear issue mine", combination);
+    }
+    assert_source_usage(
+        &["issue", "view", "-j=1"],
+        "linear issue view",
+        "Option \"--json\" doesn't take a value, but got \"1\".",
+    );
+    assert_source_usage(
+        &["issue", "view", "--json=1"],
+        "linear issue view",
+        "Option \"--json\" doesn't take a value, but got \"1\".",
+    );
+    assert_source_usage(
+        &["api", "--variable", "badformat", "--help"],
+        "linear api",
+        "Invalid variable format: badformat. Variables must be in key=value format, e.g. --variable teamId=abc",
+    );
+    assert_source_usage(
+        &["api", "--variable", "key=a=b", "--help"],
+        "linear api",
+        combination,
+    );
+    for value in ["key=", "=value", "key=a=b"] {
+        assert_eq!(
+            run_args(&["api", "--variable", value]).0,
+            1,
+            "{value} passes Variable syntax and reaches visible unimplemented action"
+        );
+    }
+}
+
+#[test]
+fn source_derived_short_equals_preserves_typed_option_value() {
+    use linear_cli::cli::parser::{ParseOutcome, parse};
+    for args in [
+        vec!["issue", "mine", "-s=priority"],
+        vec!["issue", "mine", "--state=priority"],
+        vec!["issue", "mine", "-s", "priority"],
+    ] {
+        let args = args.into_iter().map(str::to_owned).collect::<Vec<_>>();
+        match parse(&args).expect("option parses") {
+            ParseOutcome::Action { route, options, .. } => {
+                assert_eq!(route.path, "linear issue mine");
+                assert!(
+                    options
+                        .iter()
+                        .any(|option| option.name == "state" && option.values == ["priority"])
+                );
+            }
+            ParseOutcome::Help { .. } | ParseOutcome::Version { .. } => panic!("expected action"),
+        }
+    }
+}
+
+#[test]
+fn direct_binary_source_derived_parser_matrix() {
+    use std::process::Command;
+    let variable = "Invalid variable format: badformat. Variables must be in key=value format, e.g. --variable teamId=abc";
+    let combination = "Option \"--help\" cannot be combined with other options.";
+    let cases: &[(&[&str], &str, &str)] = &[
+        (
+            &["issue", "mine", "-s"],
+            "linear issue mine",
+            "Missing value for option \"--state\".",
+        ),
+        (
+            &["issue", "mine", "--state"],
+            "linear issue mine",
+            "Missing value for option \"--state\".",
+        ),
+        (
+            &["issue", "create", "-t"],
+            "linear issue create",
+            "Missing value for option \"--title\".",
+        ),
+        (
+            &["issue", "create", "--title"],
+            "linear issue create",
+            "Missing value for option \"--title\".",
+        ),
+        (
+            &["issue", "mine", "-s=priority", "--help"],
+            "linear issue mine",
+            combination,
+        ),
+        (
+            &["issue", "mine", "--state=priority", "--help"],
+            "linear issue mine",
+            combination,
+        ),
+        (
+            &["issue", "mine", "-s", "priority", "--help"],
+            "linear issue mine",
+            combination,
+        ),
+        (
+            &["--help", "issue", "mine", "-s=priority"],
+            "linear issue mine",
+            combination,
+        ),
+        (
+            &["--help", "issue", "mine", "--state=priority"],
+            "linear issue mine",
+            combination,
+        ),
+        (
+            &["issue", "view", "-j=1"],
+            "linear issue view",
+            "Option \"--json\" doesn't take a value, but got \"1\".",
+        ),
+        (
+            &["issue", "view", "--json=1"],
+            "linear issue view",
+            "Option \"--json\" doesn't take a value, but got \"1\".",
+        ),
+        (
+            &["api", "--variable", "badformat", "--help"],
+            "linear api",
+            variable,
+        ),
+        (
+            &["api", "--variable", "key=a=b", "--help"],
+            "linear api",
+            combination,
+        ),
+    ];
+    for (args, route_path, message) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+            .args(*args)
+            .env_clear()
+            .env("HOME", std::env::temp_dir())
+            .env("XDG_CONFIG_HOME", std::env::temp_dir())
+            .env("APPDATA", std::env::temp_dir())
+            .env("PATH", "/usr/bin:/bin")
+            .env("TZ", "UTC")
+            .env("LANG", "C.UTF-8")
+            .env("LINEAR_IGNORE_ENV_FILE", "1")
+            .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
+            .output()
+            .expect("binary runs");
+        let route = linear_cli::cli::ROUTES
+            .iter()
+            .find(|route| route.path == *route_path)
+            .expect("route exists");
+        assert_eq!(output.status.code(), Some(2), "{args:?} exit");
+        assert_bytes(
+            &format!("{args:?}"),
+            "binary stdout",
+            &output.stdout,
+            linear_cli::cli::render::help(route, true, false)
+                .expect("route help")
+                .as_bytes(),
+        );
+        assert_bytes(
+            &format!("{args:?}"),
+            "binary stderr",
+            &output.stderr,
+            format!("\x1b[31m  \x1b[1merror\x1b[22m: {message}\n\x1b[39m\n").as_bytes(),
+        );
+    }
 }

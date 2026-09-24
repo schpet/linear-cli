@@ -4,3 +4,4 @@
 src/__codegen__/
 npm
 rust/target/
+rust/tools/__pycache__/

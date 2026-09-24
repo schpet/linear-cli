@@ -1,7 +1,7 @@
 //! Bounded Cliffy-compatible command selection and option parsing.
 use std::collections::VecDeque;
 
-use super::{OptionMeta, ROUTES, RouteMeta, resolve_child, root};
+use super::{OptionMeta, ROUTES, RouteMeta, TypeHandler, resolve_child, root};
 use crate::error::{AppError, AppErrorKind};
 
 #[derive(Clone, Debug)]
@@ -170,6 +170,40 @@ fn meta_candidate(option: &'static OptionMeta) -> Candidate {
     }
 }
 
+fn canonical_flag(option: OptionRef) -> String {
+    match option {
+        OptionRef::Help => "--help".to_owned(),
+        OptionRef::Version => "--version".to_owned(),
+        OptionRef::Meta(name) if name.chars().count() == 1 => format!("-{name}"),
+        OptionRef::Meta(name) => format!("--{name}"),
+    }
+}
+
+fn validate_option_value(
+    route: &'static RouteMeta,
+    argument: &super::ArgumentMeta,
+    value: &str,
+) -> Result<(), AppError> {
+    if let Some(type_meta) = route
+        .local_types
+        .iter()
+        .find(|type_meta| type_meta.name == argument.type_name)
+    {
+        match type_meta.handler {
+            TypeHandler::Variable if !value.contains('=') => {
+                return Err(AppError::usage(
+                    route.route,
+                    format!(
+                        "Invalid variable format: {value}. Variables must be in key=value format, e.g. --variable teamId=abc"
+                    ),
+                ));
+            }
+            TypeHandler::Variable | TypeHandler::Enum(_) => {}
+        }
+    }
+    Ok(())
+}
+
 fn parse_options(
     route: &'static RouteMeta,
     ctx: &mut ParseContext,
@@ -192,15 +226,26 @@ fn parse_options(
             continue;
         }
         if token.starts_with('-') && !token.starts_with("--") && token.chars().count() > 2 {
-            let parts = token
+            let short = token.trim_start_matches('-');
+            let (letters, suffix) = short
+                .split_once('=')
+                .map_or((short, None), |(letters, value)| (letters, Some(value)));
+            let mut parts = letters
                 .chars()
-                .skip(1)
                 .map(|letter| format!("-{letter}"))
                 .collect::<Vec<_>>();
-            for part in parts.into_iter().rev() {
-                source.push_front(part);
+            if parts.len() > 1 {
+                if let Some(suffix) = suffix
+                    && let Some(last) = parts.last_mut()
+                {
+                    last.push('=');
+                    last.push_str(suffix);
+                }
+                for part in parts.into_iter().rev() {
+                    source.push_front(part);
+                }
+                continue;
             }
-            continue;
         }
         let (flag, inline) = token
             .split_once('=')
@@ -232,12 +277,7 @@ fn parse_options(
         if let Some(value) = inline.filter(|value| !value.is_empty())
             && choice.args.is_empty()
         {
-            let option_name = match choice.kind {
-                OptionRef::Help => "--help".to_owned(),
-                OptionRef::Version => "--version".to_owned(),
-                OptionRef::Meta(name) if name.chars().count() == 1 => format!("-{name}"),
-                OptionRef::Meta(name) => format!("--{name}"),
-            };
+            let option_name = canonical_flag(choice.kind);
             return Err(AppError::usage(
                 route.route,
                 format!("Option \"{option_name}\" doesn't take a value, but got \"{value}\"."),
@@ -246,27 +286,33 @@ fn parse_options(
         let mut inline = inline.filter(|value| !value.is_empty()).map(str::to_owned);
         let mut values = Vec::new();
         for argument in choice.args {
-            if argument.optional {
-                if let Some(value) = inline.take() {
-                    values.push(value);
+            let value = if argument.optional {
+                if inline.is_some() {
+                    inline.take()
                 } else if source
                     .front()
                     .is_some_and(|next| !next.is_empty() && !next.starts_with('-'))
-                    && let Some(value) = source.pop_front()
                 {
-                    values.push(value);
+                    source.pop_front()
+                } else {
+                    None
                 }
-            } else if let Some(value) = inline.take() {
-                values.push(value);
-            } else if source.front().is_some_and(|next| !next.is_empty())
-                && let Some(value) = source.pop_front()
-            {
-                values.push(value);
+            } else if inline.is_some() {
+                inline.take()
+            } else if source.front().is_some_and(|next| !next.is_empty()) {
+                source.pop_front()
             } else {
                 return Err(AppError::usage(
                     route.route,
-                    format!("Missing value for option \"{flag}\"."),
+                    format!(
+                        "Missing value for option \"{}\".",
+                        canonical_flag(choice.kind)
+                    ),
                 ));
+            };
+            if let Some(value) = value {
+                validate_option_value(route, argument, &value)?;
+                values.push(value);
             }
         }
         if let OptionRef::Meta(name) = choice.kind {
