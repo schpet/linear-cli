@@ -4,6 +4,9 @@ version = "2.6.0"
 edition = "2024"
 publish = false
 
+[dependencies]
+unicode-width = "=0.2.2"
+
 [lib]
 name = "linear_cli"
 path = "src/lib.rs"

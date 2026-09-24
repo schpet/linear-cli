@@ -43,10 +43,78 @@ def strings(values):
     return "&[" + ", ".join(map(string, values)) + "]"
 
 
+ARG_TOKEN = re.compile(r"([<\[])([A-Za-z][A-Za-z0-9-]*)(\.\.\.)?(?::([A-Za-z][A-Za-z0-9-]*)(\[\])?)?([>\]])")
+FLAG_TOKEN = re.compile(r"--[A-Za-z][A-Za-z0-9-]*")
+
+
+def argument_definition(value):
+    if not isinstance(value, str):
+        fail("argument definition must be string")
+    if not value:
+        return
+    if value.strip() != value or "  " in value or any(char in value for char in "\n\r\t"):
+        fail(f"unsupported argument spacing: {value!r}")
+    for token in value.split(" "):
+        if FLAG_TOKEN.fullmatch(token):
+            continue
+        match = ARG_TOKEN.fullmatch(token)
+        if not match or (match.group(1), match.group(6)) not in (("<", ">"), ("[", "]")):
+            fail(f"unsupported argument token: {token!r}")
+
+
 def variant(path, index):
     parts = path.split()[1:]
     name = "".join(part.title().replace("-", "") for part in parts)
     return f"{name or 'Root'}R{index}"
+
+
+def argument(value):
+    if not isinstance(value, dict) or set(value) != {"name", "type", "action", "optional", "variadic", "list"}:
+        fail("argument schema changed")
+    return ("ArgumentMeta { name: " + string(value["name"])
+            + ", type_name: " + string(value["type"])
+            + ", action: " + string(value["action"])
+            + ", optional: " + boolean(value["optional"])
+            + ", variadic: " + boolean(value["variadic"])
+            + ", list: " + boolean(value["list"])
+            + " }")
+
+
+def arguments(values):
+    if not isinstance(values, list):
+        fail("arguments must be array")
+    return "&[" + ", ".join(argument(value) for value in values) + "]"
+
+
+def option_default(value, present):
+    if not present:
+        return "OptionDefault::Absent"
+    if value is None:
+        return "OptionDefault::Null"
+    if isinstance(value, int) and not isinstance(value, bool):
+        return f"OptionDefault::Integer({value})"
+    if isinstance(value, list) and len(value) == 1 and all(isinstance(item, str) and re.fullmatch(r"[A-Za-z0-9_-]+", item) for item in value):
+        return "OptionDefault::Strings(" + strings(value) + ")"
+    fail(f"unsupported option default: {value!r}")
+
+
+def local_type(value):
+    if not isinstance(value, dict) or set(value) != {"name", "global", "override", "handlerKind", "values"}:
+        fail("local type schema changed")
+    if value["global"] is not False or value["override"] is not False:
+        fail("global or overriding custom type needs inherited renderer metadata")
+    if value["handlerKind"] == "EnumType":
+        if not isinstance(value["values"], list) or any(not isinstance(item, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", item) for item in value["values"]):
+            fail("enum inspect formatting needs implementation for non-simple values")
+        handler = "TypeHandler::Enum(" + strings(value["values"]) + ")"
+    elif value["handlerKind"] == "VariableType" and value["values"] == "not_available":
+        handler = "TypeHandler::Variable"
+    else:
+        fail(f"unsupported local type: {value!r}")
+    return ("TypeMeta { name: " + string(value["name"])
+            + ", global: " + boolean(value["global"])
+            + ", override_existing: " + boolean(value["override"])
+            + ", handler: " + handler + " }")
 
 
 def option(option_value):
@@ -61,18 +129,17 @@ def option(option_value):
         fail("unknown option scope")
     if not isinstance(option_value["args"], list):
         fail("option args must be array")
-    for arg in option_value["args"]:
-        if not isinstance(arg, dict) or set(arg) != {"name", "type", "action", "optional", "variadic", "list"}:
-            fail("option arg schema changed")
-    default = json.dumps(option_value.get("default"), ensure_ascii=False, separators=(",", ":"))
-    args = json.dumps(option_value["args"], ensure_ascii=False, separators=(",", ":"))
-    return ("OptionMeta { scope: " + string(option_value["scope"])
+    argument_definition(option_value["typeDefinition"])
+    if option_value["conflicts"] != [] or option_value["depends"] != [] or option_value["valueHandler"] != "none":
+        fail(f"unsupported option behavior: {option_value['name']}")
+    scope = {"local": "OptionScope::Local", "inherited_global": "OptionScope::InheritedGlobal"}[option_value["scope"]]
+    return ("OptionMeta { scope: " + scope
             + ", name: " + string(option_value["name"])
             + ", flags: " + strings(option_value["flags"])
             + ", description: " + string(option_value["description"])
             + ", type_definition: " + string(option_value["typeDefinition"])
-            + ", args_json: " + string(args)
-            + ", default_json: " + string(default)
+            + ", args: " + arguments(option_value["args"])
+            + ", default: " + option_default(option_value.get("default"), "default" in option_value)
             + ", required: " + boolean(option_value["required"])
             + ", collect: " + boolean(option_value["collect"])
             + ", hidden: " + boolean(option_value["hidden"])
@@ -94,7 +161,7 @@ def generate():
     for route in routes:
         if not isinstance(route, dict):
             fail("route must be object")
-        required = {"path", "name", "aliases", "hidden", "description", "usage", "argsDefinition", "localOptions", "inheritedGlobalOptions", "kind", "parentAction", "children", "examples"}
+        required = {"path", "name", "aliases", "aliasResolution", "hidden", "description", "usage", "argsDefinition", "arguments", "localTypes", "allTypes", "localEnvVars", "inheritedGlobalEnvVars", "localOptions", "inheritedGlobalOptions", "kind", "parentAction", "children", "examples"}
         if not required <= set(route):
             fail(f"route fields missing: {required - set(route)}")
         if route["kind"] not in ("source_leaf", "parent_route", "generated_completion_child"):
@@ -105,8 +172,34 @@ def generate():
             fail(f"invalid route path: {route['path']}")
         if not isinstance(route["description"], str) or not isinstance(route["usage"], str):
             fail("description/usage must be strings")
+        if route["path"] == "linear completions":
+            shell_snippets = (
+                "~/.bashrc",
+                "source <(linear completions [shell])",
+                "linear completions [shell] --help",
+            )
+            if any(route["description"].count(snippet) != 1 for snippet in shell_snippets):
+                fail("generated completion description styling anchors changed")
         if route["argsDefinition"] is not None and not isinstance(route["argsDefinition"], str):
             fail("argsDefinition must be string or null")
+        argument_definition(route["usage"])
+        if route["argsDefinition"] is not None:
+            argument_definition(route["argsDefinition"])
+        if route["localEnvVars"] != [] or route["inheritedGlobalEnvVars"] != []:
+            fail("environment-variable help metadata is not implemented")
+        if route["allTypes"] != route["localTypes"]:
+            fail("inherited custom type help metadata is not implemented")
+        arguments(route["arguments"])
+        if not isinstance(route["localTypes"], list):
+            fail("localTypes must be array")
+        for definition in route["localTypes"]:
+            local_type(definition)
+        resolution = route["aliasResolution"]
+        if not isinstance(resolution, list) or len(resolution) != len(route["aliases"]):
+            fail("alias resolution count changed")
+        for alias, result in zip(route["aliases"], resolution):
+            if not isinstance(result, dict) or set(result) != {"alias", "resolves"} or result != {"alias": alias, "resolves": True}:
+                fail(f"unresolved alias for {route['path']}: {result!r}")
         if not isinstance(route["examples"], list):
             fail("examples must be array")
         for example in route["examples"]:
@@ -133,7 +226,7 @@ def generate():
 
     lines = [
         "// @generated by rust/tools/generate_routes.py; do not edit by hand.",
-        "use super::{ExampleMeta, OptionMeta, RouteMeta};",
+        "use super::{ArgumentMeta, ExampleMeta, OptionDefault, OptionMeta, OptionScope, ParentAction, RouteKind, RouteMeta, TypeHandler, TypeMeta};",
         "#[derive(Clone, Copy, Debug, Eq, PartialEq)]",
         "pub enum Route {",
     ]
@@ -143,15 +236,22 @@ def generate():
         local = ",\n            ".join(option(o) for o in route["localOptions"])
         inherited = ",\n            ".join(option(o) for o in route["inheritedGlobalOptions"])
         examples = ",\n            ".join("ExampleMeta { name: " + string(example["name"]) + ", description: " + string(example["description"]) + " }" for example in route["examples"])
+        local_types = ",\n            ".join(local_type(definition) for definition in route["localTypes"])
+        kind = {"source_leaf": "RouteKind::SourceLeaf", "parent_route": "RouteKind::ParentRoute", "generated_completion_child": "RouteKind::GeneratedCompletionChild"}[route["kind"]]
+        parent_action = {"not_applicable": "ParentAction::NotApplicable", "pending_safe_fixture": "ParentAction::PendingSafeFixture"}.get(route["parentAction"])
+        if parent_action is None:
+            fail(f"unknown parent action: {route['parentAction']}")
         lines += [
             "    RouteMeta {",
             f"        route: Route::{v}, path: {string(route['path'])}, name: {string(route['name'])},",
             f"        aliases: {strings(route['aliases'])}, hidden: {boolean(route['hidden'])},",
             f"        description: {string(route['description'])}, usage: {string(route['usage'])},",
             f"        args_definition: {('None' if route['argsDefinition'] is None else 'Some(' + string(route['argsDefinition']) + ')')},",
-            f"        kind: {string(route['kind'])}, parent_action: {string(route['parentAction'])},",
+            f"        kind: {kind}, parent_action: {parent_action},",
             f"        children: {strings(route['children'])},",
             "        examples: &[" + examples + "],",
+            "        arguments: " + arguments(route["arguments"]) + ",",
+            "        local_types: &[" + local_types + "],",
             "        local_options: &[" + local + "],",
             "        inherited_global_options: &[" + inherited + "],",
             "    },",

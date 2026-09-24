@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::process::Command;
 
-use linear_cli::cli::ROUTES;
+use linear_cli::cli::{OptionDefault, OptionScope, ParentAction, ROUTES, RouteKind, TypeHandler};
 use serde_json::{Value, json};
 
 #[test]
@@ -30,21 +30,72 @@ fn generated_inventory_matches_frozen_manifest_in_order() {
         assert_eq!(json!(generated.description), source["description"]);
         assert_eq!(json!(generated.usage), source["usage"]);
         assert_eq!(json!(generated.args_definition), source["argsDefinition"]);
-        assert_eq!(json!(generated.kind), source["kind"]);
+        let kind = match generated.kind {
+            RouteKind::ParentRoute => "parent_route",
+            RouteKind::SourceLeaf => "source_leaf",
+            RouteKind::GeneratedCompletionChild => "generated_completion_child",
+        };
+        assert_eq!(json!(kind), source["kind"]);
         match generated.kind {
-            "parent_route" => parent_count += 1,
-            "source_leaf" => leaf_count += 1,
-            "generated_completion_child" => completion_count += 1,
-            other => panic!("unknown route kind: {other}"),
+            RouteKind::ParentRoute => parent_count += 1,
+            RouteKind::SourceLeaf => leaf_count += 1,
+            RouteKind::GeneratedCompletionChild => completion_count += 1,
         }
-        assert_eq!(json!(generated.parent_action), source["parentAction"]);
+        let parent_action = match generated.parent_action {
+            ParentAction::NotApplicable => "not_applicable",
+            ParentAction::PendingSafeFixture => "pending_safe_fixture",
+        };
+        assert_eq!(json!(parent_action), source["parentAction"]);
         assert_eq!(json!(generated.children), source["children"]);
+        assert_eq!(
+            source["aliasResolution"],
+            json!(
+                generated
+                    .aliases
+                    .iter()
+                    .map(|alias| json!({"alias":alias,"resolves":true}))
+                    .collect::<Vec<_>>()
+            )
+        );
         let source_examples = source["examples"].as_array().expect("examples array");
         assert_eq!(generated.examples.len(), source_examples.len());
         for (example, original) in generated.examples.iter().zip(source_examples) {
             assert_eq!(json!(example.name), original["name"]);
             assert_eq!(json!(example.description), original["description"]);
         }
+        let generated_arguments = generated
+            .arguments
+            .iter()
+            .map(|argument| {
+                json!({
+                    "name": argument.name,
+                    "type": argument.type_name,
+                    "action": argument.action,
+                    "optional": argument.optional,
+                    "variadic": argument.variadic,
+                    "list": argument.list,
+                })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(json!(generated_arguments), source["arguments"]);
+        let generated_types = generated
+            .local_types
+            .iter()
+            .map(|definition| {
+                let (kind, values) = match definition.handler {
+                    TypeHandler::Enum(values) => ("EnumType", json!(values)),
+                    TypeHandler::Variable => ("VariableType", json!("not_available")),
+                };
+                json!({
+                    "name": definition.name,
+                    "global": definition.global,
+                    "override": definition.override_existing,
+                    "handlerKind": kind,
+                    "values": values,
+                })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(json!(generated_types), source["localTypes"]);
         alias_count += generated.aliases.len();
         for (field, options) in [
             ("localOptions", generated.local_options),
@@ -59,17 +110,43 @@ fn generated_inventory_matches_frozen_manifest_in_order() {
             );
             option_count += options.len();
             for (option, original) in options.iter().zip(source_options) {
-                assert_eq!(json!(option.scope), original["scope"]);
+                let scope = match option.scope {
+                    OptionScope::Local => "local",
+                    OptionScope::InheritedGlobal => "inherited_global",
+                };
+                assert_eq!(json!(scope), original["scope"]);
                 assert_eq!(json!(option.name), original["name"]);
                 assert_eq!(json!(option.flags), original["flags"]);
                 assert_eq!(json!(option.description), original["description"]);
                 assert_eq!(json!(option.type_definition), original["typeDefinition"]);
-                let args: Value =
-                    serde_json::from_str(option.args_json).expect("generated args JSON");
-                assert_eq!(args, original["args"]);
-                let default: Value =
-                    serde_json::from_str(option.default_json).expect("generated default JSON");
+                let args = option
+                    .args
+                    .iter()
+                    .map(|argument| {
+                        json!({
+                            "name": argument.name,
+                            "type": argument.type_name,
+                            "action": argument.action,
+                            "optional": argument.optional,
+                            "variadic": argument.variadic,
+                            "list": argument.list,
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                assert_eq!(json!(args), original["args"]);
+                let default = match option.default {
+                    OptionDefault::Absent => {
+                        assert!(original.get("default").is_none());
+                        Value::Null
+                    }
+                    OptionDefault::Null => json!(null),
+                    OptionDefault::Integer(number) => json!(number),
+                    OptionDefault::Strings(values) => json!(values),
+                };
                 assert_eq!(default, original["default"]);
+                assert_eq!(original["conflicts"], json!([]));
+                assert_eq!(original["depends"], json!([]));
+                assert_eq!(original["valueHandler"], "none");
                 assert_eq!(json!(option.required), original["required"]);
                 assert_eq!(json!(option.collect), original["collect"]);
                 assert_eq!(json!(option.hidden), original["hidden"]);

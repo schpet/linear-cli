@@ -93,6 +93,13 @@ fn dispatch(
     args: &[String],
     context: &mut AppContext<'_>,
 ) -> Result<ExitStatus, AppError> {
+    if args == ["-h"] || args == ["--help"] {
+        write_stdout(
+            context,
+            cli::render::help(route, context.help_color(), args == ["--help"])?.as_bytes(),
+        )?;
+        return Ok(ExitStatus::Success);
+    }
     match route.route.action() {
         DispatchAction::Root if args.is_empty() => {
             write_stdout(context, b"Use --help to see available commands\n")?;
@@ -106,6 +113,20 @@ fn dispatch(
             write_stdout(
                 context,
                 format!("{}\n", env!("CARGO_PKG_VERSION")).as_bytes(),
+            )?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::Root if args == ["--version"] => {
+            write_stdout(
+                context,
+                cli::render::long_version(context.help_color()).as_bytes(),
+            )?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::ParentPending if args.is_empty() => {
+            write_stdout(
+                context,
+                cli::render::help(route, context.help_color(), false)?.as_bytes(),
             )?;
             Ok(ExitStatus::Success)
         }

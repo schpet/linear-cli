@@ -1,0 +1,24 @@
+
+[1mUsage:[22m   [95mlinear completions[39m
+[1mVersion:[22m [33m2.6.0[39m             
+
+[1mDescription:[22m
+
+  Generate shell completions.                                                                      
+                                                                                                   
+  To enable shell completions for this program add the following line to your [2m[3m~/.bashrc[23m[22m or similar:
+                                                                                                   
+      [2m[3msource <(linear completions [shell])[23m[22m                                                         
+                                                                                                   
+      For more information run [2m[3mlinear completions [shell] --help[23m[22m                                   
+
+[1mOptions:[22m
+
+  [94m-h[39m, [94m--help[39m  [31m[1m-[22m[39m Show this help.  
+
+[1mCommands:[22m
+
+  [94mbash[39m  [31m[1m-[22m[39m Generate shell completions for bash.
+  [94mfish[39m  [31m[1m-[22m[39m Generate shell completions for fish.
+  [94mzsh[39m   [31m[1m-[22m[39m Generate shell completions for zsh. 
+
