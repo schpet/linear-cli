@@ -129,7 +129,7 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
       `${id} should remain a GraphQL case`,
     )
   }
-  assertEquals(loaded.filter((item) => item.spec.graphql == null).length, 114)
+  assertEquals(loaded.filter((item) => item.spec.graphql == null).length, 124)
   assertEquals(loaded.filter((item) => item.spec.graphql != null).length, 11)
 })
 

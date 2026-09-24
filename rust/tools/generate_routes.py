@@ -259,7 +259,11 @@ def generate():
     lines += ["];"]
     lines += ["", "impl Route {", "    pub fn action(self) -> super::DispatchAction {", "        match self {"]
     for route, v in zip(routes, variants):
-        action = "Root" if route["path"] == "linear" else ("Document" if route["path"] == "linear document" else ("ParentPending" if route["kind"] == "parent_route" else "Unimplemented"))
+        action = {
+            "linear": "Root",
+            "linear document": "Document",
+            "linear markdown": "Markdown",
+        }.get(route["path"], "ParentPending" if route["kind"] == "parent_route" else "Unimplemented")
         lines.append(f"            Self::{v} => super::DispatchAction::{action},")
     lines += ["        }", "    }", "}"]
     return "\n".join(lines) + "\n"

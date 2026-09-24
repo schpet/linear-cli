@@ -9,6 +9,7 @@ pub enum DispatchAction {
     Root,
     Document,
     ParentPending,
+    Markdown,
     Unimplemented,
 }
 

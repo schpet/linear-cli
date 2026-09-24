@@ -3,6 +3,60 @@ use std::collections::BTreeMap;
 use linear_cli::app::{AppContext, run, write_final_error};
 use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
 
+const FROZEN_MARKDOWN_BARE: &str = include_str!("../../../../parity/runner/cases/c085-bare.json");
+
+#[test]
+fn markdown_prints_the_frozen_reference_without_credentials() {
+    let case: serde_json::Value =
+        serde_json::from_str(FROZEN_MARKDOWN_BARE).expect("frozen Markdown case is valid JSON");
+    let expected = case["expected"]["stdout"]["utf8"]
+        .as_str()
+        .expect("frozen Markdown stdout is UTF-8");
+    let (status, stdout, stderr) = invoke(&["markdown"]);
+    assert_eq!(status, ExitStatus::Success);
+    assert_eq!(stdout, expected);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains("+++ [Server log]\n\nMarkdown content"));
+    assert!(stdout.ends_with("both required.\n"));
+
+    let (status, workspace_stdout, stderr) = invoke(&["markdown", "--workspace", "bogus"]);
+    assert_eq!(status, ExitStatus::Success);
+    assert_eq!(workspace_stdout, expected);
+    assert!(stderr.is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn markdown_closed_stdout_is_quiet() {
+    use std::os::fd::OwnedFd;
+    use std::os::unix::net::UnixStream;
+    use std::process::{Command, Stdio};
+    use std::time::SystemTime;
+
+    let (reader, writer) = UnixStream::pair().expect("create output pipe");
+    drop(reader);
+    let unique = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("clock after epoch")
+        .as_nanos();
+    let home = std::env::temp_dir().join(format!("linear-c085-{}-{unique}", std::process::id()));
+    std::fs::create_dir(&home).expect("create isolated home");
+    let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+        .arg("markdown")
+        .env_clear()
+        .env("HOME", &home)
+        .env("XDG_CONFIG_HOME", &home)
+        .env("APPDATA", &home)
+        .env("LINEAR_IGNORE_ENV_FILE", "1")
+        .stdout(Stdio::from(OwnedFd::from(writer)))
+        .stderr(Stdio::piped())
+        .output()
+        .expect("Markdown binary runs");
+    std::fs::remove_dir_all(&home).expect("remove isolated home");
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+}
+
 fn invoke(args: &[&str]) -> (ExitStatus, String, String) {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();

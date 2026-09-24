@@ -15182,9 +15182,9 @@
       "source": "src/commands/markdown.ts",
       "workItem": "C085",
       "sourceKind": "command_implementation",
-      "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "fixtureStatus": "captured",
+      "qaStatus": "passed",
+      "liveStatus": "not_applicable"
     }
   ],
   "probes": [

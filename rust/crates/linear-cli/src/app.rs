@@ -178,6 +178,13 @@ fn dispatch(route: &RouteMeta, context: &mut AppContext<'_>) -> Result<ExitStatu
             )?;
             Ok(ExitStatus::Success)
         }
+        DispatchAction::Markdown => {
+            context.write_stdout_with_policy(
+                format!("{}\n", route.description).as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+            Ok(ExitStatus::Success)
+        }
         DispatchAction::Unimplemented => Err(AppError::new(
             AppErrorKind::Unimplemented,
             format!(

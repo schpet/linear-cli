@@ -10848,7 +10848,7 @@ impl Route {
             Self::ConfigR106 => super::DispatchAction::Unimplemented,
             Self::SchemaR107 => super::DispatchAction::Unimplemented,
             Self::ApiR108 => super::DispatchAction::Unimplemented,
-            Self::MarkdownR109 => super::DispatchAction::Unimplemented,
+            Self::MarkdownR109 => super::DispatchAction::Markdown,
         }
     }
 }
