@@ -39,3 +39,7 @@ path = "tests/contracts/main.rs"
 [[test]]
 name = "graphql"
 path = "tests/graphql/main.rs"
+
+[[test]]
+name = "config"
+path = "tests/config/main.rs"
