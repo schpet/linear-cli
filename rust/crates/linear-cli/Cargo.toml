@@ -10,6 +10,7 @@ unicode-width = "=0.2.2"
 cynic = { version = "=3.14.0", default-features = false, features = ["rkyv"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+toml = { version = "=1.0.3", default-features = false, features = ["parse", "std", "serde", "preserve_order"] }
 reqwest = { version = "=0.12.28", default-features = false, features = ["rustls-tls-webpki-roots"] }
 tokio = { version = "=1.47.4", default-features = false, features = ["rt", "time", "macros"] }
 

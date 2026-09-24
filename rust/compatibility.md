@@ -34,6 +34,24 @@ F01D5 directly probed registered positional arity against the same pinned compil
 
 The following 13 leaf _cases_ have terminal help or usage fixture coverage, not route-level action parity: `alias-configure-help`, `alias-issue-l-help`, `alias-issue-list-help`, `alias-issue-q-help`, `c2-api-short-help`, `c2-label-list-help`, `c2-mine-help-no-color-one`, `c2-mine-hidden-option-typo`, `c2-schema-help`, `help-api`, `help-issue-mine`, `parser-invalid-variable`, and `parser-unknown-option`.
 
+### R02A2 config parser boundary (library only until startup wiring)
+
+The frozen Deno config loader uses locked `@std/toml` 1.0.11 and skips a candidate it cannot parse. R02A2's Rust `parse_config_tier` is not wired into startup yet; these are reviewed parser results, not live CLI behavior. Its strict errors carry only the path and a fixed category. R02B must retain this explicit behavior when wiring candidate precedence, and R02C will adjust raw TOML order for JavaScript's numeric-index key enumeration.
+
+| Example input in one selected config file | Frozen Deno 2.6.0 | Rust v3 parser | Migration guidance |
+| --- | --- | --- | --- |
+| `a = 1` then `a = 2` | Accepts the candidate | `InvalidToml` | Remove duplicate keys. |
+| `unknown = 9223372036854775808` or `unknown = -9223372036854775809` | Accepts, even for an unknown key | `InvalidToml` | Keep integers within signed 64-bit bounds or quote text that is not numeric config data. |
+| A string containing invalid UTF-8 bytes | Decodes lossily and may accept | `InvalidUtf8` | Re-encode the file as valid UTF-8. |
+| A UTF-8 BOM before `api_key = "lin_api_fake"` | Skips that candidate | `ByteOrderMark` | Save without a BOM. |
+| `v = [` nested 64 levels with a scalar | Accepts | `TooDeep` | Flatten values below the 64-level owned-tree cap. |
+| `a = { b = 1,` newline `c = 2 }` | Skips the candidate | Accepts TOML 1.1 | Put the inline table on one line or use `[a]` table syntax for Deno 2.6.0. |
+| `a = { b = 1, }` | Skips the candidate | Accepts TOML 1.1 | Remove the trailing comma for Deno 2.6.0. |
+| `api_key = "lin_api_\x41"` or `a = "\e"` | Skips the candidate | Accepts TOML 1.1 escapes | Use a literal character or TOML 1.0 Unicode escape (`\u0041` or `\u001B`) for Deno 2.6.0. |
+| `a = 12:34` | Skips the candidate | Accepts TOML 1.1 time | Write `12:34:00` for Deno 2.6.0. |
+
+The first, second, third and fifth rows represent Deno accepting a candidate that the Rust parser rejects. R02B owns whether that Rust error skips the candidate or fails startup; either choice can change which tier supplies credentials after wiring. The BOM row represents Deno skipping a candidate that the Rust parser rejects, with the same R02B skip-or-fail decision pending. Above the 64-level owned-tree cap, Rust reports `TooDeep` when TOML parses successfully; the pinned TOML parser itself reports `InvalidToml` for extreme nesting beyond its 80-level guard. The four TOML 1.1 acceptance rows are deliberate v3 parser extensions: Deno skips those candidates, while Rust can select them, including a known `api_key` with a new escape. R02B must test these selection and credential consequences before activation. Per-input SHA-256 values, locked Deno outcomes, private-config compiled-binary probes and Rust parser results are recorded in `reviews/R02A2.md` and its ignored matrix packet.
+
 ## Observed Rust
 
 The generated route inventory contains 110 routes and 36 aliases. Root and parent routes are selected for confined comparison by the D3 descriptor; omitted leaves remain visible unimplemented actions. A valid `api --variable key=a=b` passes lexical parsing and reaches the unimplemented action. Registered enum-valued leaf options reject values outside their exact, case-sensitive lists with usage exit 2 before action dispatch. Registered positional descriptors now enforce missing later required arguments and surplus tails before dispatch, while accepting optional and variadic values. A non-UTF-8 argv value is reported as a typed process-I/O error. Rust `linear --help` with fd 1 closed before exec exits 0 with no output, matching the frozen compiled Deno reference under the same child-only closure; a Rust 1.93.0 probe on this Linux host observed fd 1 reopened as `/dev/null` by the time `main` runs. With HOME unset, Rust root help still exits 0 and matches the normal output. The enum and positional behavior are directly observed against the compiled Deno reference as described above; other claims in this paragraph retain their prior evidence classification.
