@@ -92,7 +92,7 @@ fn partial_write_failure_reports_once_on_stderr() {
     let error = finalize(route_result, &mut context).expect_err("write failure wins");
     assert_io(&error, Stream::Stdout);
     drop(context);
-    assert_eq!(stdout.bytes, b"2");
+    assert_eq!(stdout.bytes, b"3");
     assert_eq!(stderr.writes, 1);
     assert_eq!(stderr.bytes, b"\xe2\x9c\x97 failed to write stdout\n");
 }
@@ -171,7 +171,7 @@ fn ordinary_version_output_and_usage_keep_their_status_and_bytes() {
     let result = run(&["-V".to_owned()], &mut context);
     assert_eq!(finalize(result, &mut context).unwrap(), ExitStatus::Success);
     drop(context);
-    assert_eq!(stdout.bytes, b"2.6.0\n");
+    assert_eq!(stdout.bytes, b"3.0.0-alpha.1\n");
     assert!(stderr.bytes.is_empty());
 
     let mut stdout = Probe::default();

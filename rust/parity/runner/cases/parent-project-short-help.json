@@ -42,5 +42,9 @@
     },
     "fileEffects": []
   },
-  "deviation": null
+  "deviation": {
+    "id": "R01V-CLI-VERSION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "25e532862f14b53d0e35acc11223df1e11e9477ace2e3e30ebf14d2998fcbca2"
+  }
 }

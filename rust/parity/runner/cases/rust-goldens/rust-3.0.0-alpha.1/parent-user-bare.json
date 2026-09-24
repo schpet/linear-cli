@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "parent-user-bare",
+  "deviationId": "R01V-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear user\u001b[39m  \n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m\n\n\u001b[1mDescription:\u001b[22m\n\n  Manage Linear users\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                      \n  \u001b[94m--workspace\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)  \n\n\u001b[1mCommands:\u001b[22m\n\n  \u001b[94mlist\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List members of the workspace\n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

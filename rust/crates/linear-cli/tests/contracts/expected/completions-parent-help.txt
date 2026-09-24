@@ -1,6 +1,6 @@
 
 [1mUsage:[22m   [95mlinear completions[39m
-[1mVersion:[22m [33m2.6.0[39m             
+[1mVersion:[22m [33m3.0.0-alpha.1[39m     
 
 [1mDescription:[22m
 

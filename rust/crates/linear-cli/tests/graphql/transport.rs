@@ -894,7 +894,7 @@ async fn request_carries_exact_headers_and_envelope_bytes() {
         header_lines.contains(&format!("content-type: {CONTENT_TYPE_VALUE}").as_str()),
         "{headers}"
     );
-    assert_eq!(USER_AGENT_VALUE, "schpet-linear-cli/2.6.0");
+    assert_eq!(USER_AGENT_VALUE, "schpet-linear-cli/3.0.0-alpha.1");
     assert_eq!(
         header_lines
             .iter()

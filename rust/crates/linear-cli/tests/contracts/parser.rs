@@ -88,7 +88,7 @@ fn frozen_parser_contracts() {
             Ok(status) => status,
             Err(error) => write_final_error(&mut context, &error).expect("stderr writable"),
         };
-        let expected = &case["expected"];
+        let expected = super::golden::expected_for_case(id, &case);
         assert_eq!(
             u64::from(status.code()),
             expected["exit"]["code"].as_u64().expect("exit code"),
@@ -142,7 +142,7 @@ fn run_args(args: &[&str]) -> (u8, String, String) {
 
 #[test]
 fn source_derived_standalone_action_order() {
-    let version = (0, "2.6.0\n".to_owned(), String::new());
+    let version = (0, "3.0.0-alpha.1\n".to_owned(), String::new());
     assert_eq!(run_args(&["-h", "-V"]), version);
     assert_eq!(run_args(&["--help", "-V"]), version);
     let (status, stdout, stderr) = run_args(&["-h", "--version"]);
@@ -206,7 +206,7 @@ fn direct_binary_parser_contracts() {
             command.env("NO_COLOR", no_color.as_str().expect("NO_COLOR string"));
         }
         let output = command.output().expect("binary runs");
-        let expected = &case["expected"];
+        let expected = super::golden::expected_for_case(id, &case);
         assert_eq!(
             output.status.code(),
             expected["exit"]["code"]
@@ -341,7 +341,7 @@ fn source_derived_standalone_persists_across_parse_passes() {
     assert_eq!(run_args(&["--workspace", "ws", "issue", "--help"]).0, 0);
     assert_eq!(
         run_args(&["-h", "-V"]),
-        (0, "2.6.0\n".to_owned(), String::new())
+        (0, "3.0.0-alpha.1\n".to_owned(), String::new())
     );
 }
 
@@ -568,9 +568,10 @@ fn observed_registered_enum_usage_from_binary() {
         .join("../../parity/runner/cases/c2-mine-help-no-color-one.json");
     let mine_case: Value = serde_json::from_slice(&std::fs::read(mine_fixture).expect("fixture"))
         .expect("fixture JSON");
-    let mine_help = mine_case["expected"]["stdout"]["utf8"]
+    let mine_expected = super::golden::expected_for_case("c2-mine-help-no-color-one", &mine_case);
+    let mine_help = mine_expected["stdout"]["utf8"]
         .as_str()
-        .expect("frozen mine help");
+        .expect("reviewed Rust mine help");
     let cases: &[(&[&str], &str, &str)] = &[
         (
             &["issue", "mine", "--sort", "nonsense"],

@@ -14,7 +14,7 @@ const transportCases = join(runnerDir, "transport-cases")
 const identity = {
   "content-type": "application/json",
   authorization: "lin_api_fake",
-  "user-agent": "schpet-linear-cli/2.6.0",
+  "user-agent": "schpet-linear-cli/3.0.0-alpha.1",
 }
 
 interface Ready {
@@ -151,7 +151,7 @@ Deno.test("serve-case announces the port, serves the case and reports a clean fi
     requests: [{
       kind: "graphql",
       authorizationMatched: true,
-      userAgent: "schpet-linear-cli/2.6.0",
+      userAgent: "schpet-linear-cli/3.0.0-alpha.1",
     }],
     consumed: 1,
     expected: 1,
@@ -159,6 +159,25 @@ Deno.test("serve-case announces the port, serves the case and reports a clean fi
     issues: [],
     mismatches: [],
   })
+})
+
+Deno.test("serve-case rejects the frozen v2 User-Agent under the Rust contract", async () => {
+  const driver = new Driver([join(transportCases, "f02b-raw-viewer.json")])
+  const ready = await driver.ready()
+  const response = await fetch(`http://127.0.0.1:${ready.port}${ready.path}`, {
+    method: "POST",
+    headers: { ...identity, "user-agent": "schpet-linear-cli/2.6.0" },
+    body: JSON.stringify({ query: "{ viewer { id } }" }),
+  })
+  await response.text()
+  const result = await driver.finish()
+  assertEquals(result.code, 1)
+  assert(result.final != null)
+  assertEquals(result.final.mismatches.map((mismatch) => mismatch.surface), [
+    "fixture",
+    "fixture",
+  ])
+  assertStringIncludes(JSON.stringify(result.final), "schpet-linear-cli/2.6.0")
 })
 
 Deno.test("serve-case exits 1 with the mismatch report when steps stay unconsumed", async () => {

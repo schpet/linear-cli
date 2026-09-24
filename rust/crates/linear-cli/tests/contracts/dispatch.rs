@@ -102,7 +102,11 @@ fn known_bare_routes_and_short_version() {
     );
     assert_eq!(
         invoke(&["-V"]),
-        (ExitStatus::Success, "2.6.0\n".to_owned(), String::new())
+        (
+            ExitStatus::Success,
+            "3.0.0-alpha.1\n".to_owned(),
+            String::new()
+        )
     );
 }
 
@@ -210,7 +214,7 @@ fn unrelated_non_utf8_environment_does_not_block_short_version() {
         .output()
         .expect("binary runs");
     assert!(output.status.success());
-    assert_eq!(output.stdout, b"2.6.0\n");
+    assert_eq!(output.stdout, b"3.0.0-alpha.1\n");
     assert!(output.stderr.is_empty());
 }
 

@@ -17,13 +17,15 @@
 // executed here.
 import { basename, dirname, fromFileUrl, join, resolve } from "@std/path"
 import { readManifest } from "../verify.ts"
-import { loadCases, resolveCase } from "./cases.ts"
+import { candidateCaseView, loadCases, resolveCase } from "./cases.ts"
+import type { LoadedCase } from "./cases.ts"
 import { compareGraphQLFixture } from "./compare.ts"
 import {
   loadPinnedGraphQLSchema,
   startGraphQLServer,
 } from "./graphql-server.ts"
-import type { CaseSpec, RuntimeGraphQLFixtureSpec } from "./schema.ts"
+import { RUST_CONTRACT } from "./schema.ts"
+import type { RuntimeGraphQLFixtureSpec } from "./schema.ts"
 
 const TRANSPORT_CASES = fromFileUrl(
   new URL("./transport-cases", import.meta.url),
@@ -98,7 +100,7 @@ async function selectCasePath(args: readonly string[]): Promise<string> {
   return absolute
 }
 
-async function loadTransportCase(absolute: string): Promise<CaseSpec> {
+async function loadTransportCase(absolute: string): Promise<LoadedCase> {
   const manifest = readManifest(
     JSON.parse(await Deno.readTextFile(join(PARITY_DIR, "manifest.json"))),
   )
@@ -110,7 +112,7 @@ async function loadTransportCase(absolute: string): Promise<CaseSpec> {
     routes.add(route.path)
   }
   const id = basename(absolute).slice(0, -".json".length)
-  const loaded = await loadCases(TRANSPORT_CASES, routes, id)
+  const loaded = await loadCases(TRANSPORT_CASES, routes, id, RUST_CONTRACT)
   const found = loaded.find((entry) => entry.file === absolute)
   if (found == null) {
     throw new DriverError(`case ${id} was not loaded from ${TRANSPORT_CASES}`)
@@ -120,21 +122,21 @@ async function loadTransportCase(absolute: string): Promise<CaseSpec> {
       `case ${id} has no GraphQL fixture; only GraphQL fixture cases are transport cases`,
     )
   }
-  return found.spec
+  return candidateCaseView(found)
 }
 
 function resolveWithPort(
-  spec: CaseSpec,
+  loaded: LoadedCase,
   port: number,
 ): RuntimeGraphQLFixtureSpec {
-  const graphql = resolveCase(spec, {
+  const graphql = resolveCase(loaded.spec, {
     home: "/nonexistent/home",
     configHome: "/nonexistent/config",
     cwd: "/nonexistent/cwd",
     bin: "/nonexistent/bin",
     denoDir: "/nonexistent/deno-dir",
     fixturePort: String(port),
-  }).graphql
+  }, loaded.runtimeUserAgent).graphql
   if (graphql == null) {
     throw new DriverError("GraphQL fixture vanished during resolution")
   }
@@ -149,14 +151,14 @@ async function countStdinBytes(): Promise<number> {
 
 async function main(args: readonly string[]): Promise<number> {
   const absolute = await selectCasePath(args)
-  const spec = await loadTransportCase(absolute)
+  const loaded = await loadTransportCase(absolute)
   const schema = await loadPinnedGraphQLSchema()
   const server = startGraphQLServer(
-    (port) => resolveWithPort(spec, port),
+    (port) => resolveWithPort(loaded, port),
     schema,
   )
   try {
-    const resolved = resolveWithPort(spec, server.port)
+    const resolved = resolveWithPort(loaded, server.port)
     // Reject P03C-only shapes (lanes, assets) before announcing readiness.
     const expectedGraphQL = server.expectedGraphQL
     emit({

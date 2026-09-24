@@ -95,7 +95,7 @@ fn fixture(id: &str) {
         Err(error) => write_final_error(&mut context, &error).expect("stderr writable"),
     };
     assert_eq!(status, ExitStatus::Success, "{id} status");
-    let expected = &case["expected"];
+    let expected = super::golden::expected_for_case(id, &case);
     assert_eq!(expected["exit"]["code"], 0, "{id} oracle exit");
     let expected_stdout = expected["stdout"]["utf8"]
         .as_str()

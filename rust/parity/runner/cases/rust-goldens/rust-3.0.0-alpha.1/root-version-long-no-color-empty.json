@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "root-version-long-no-color-empty",
+  "deviationId": "R01V-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\u001b[1mlinear\u001b[22m \u001b[94m3.0.0-alpha.1\u001b[39m\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

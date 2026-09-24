@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c2-label-list-help",
+  "deviationId": "R01V-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear label list\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m    \n\n\u001b[1mDescription:\u001b[22m\n\n  List issue labels\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                                                            \n  \u001b[94m--team\u001b[39m       \u001b[33m<\u001b[39m\u001b[95mteam\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Filter by team key, name, or ID (e.g., TC). Shows that team's labels plus  \n                         workspace labels.                                                          \n  \u001b[94m--workspace\u001b[39m          \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show only workspace-level labels (not team-specific)                       \n  \u001b[94m--all\u001b[39m                \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show all labels (both workspace and team)                                  \n  \u001b[94m-j\u001b[39m, \u001b[94m--json\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Output as JSON                                                             \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

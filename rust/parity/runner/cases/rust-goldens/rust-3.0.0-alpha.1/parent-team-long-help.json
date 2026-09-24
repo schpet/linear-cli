@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "parent-team-long-help",
+  "deviationId": "R01V-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear team\u001b[39m  \n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m\n\n\u001b[1mDescription:\u001b[22m\n\n  Manage Linear teams\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                      \n  \u001b[94m--workspace\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)  \n\n\u001b[1mCommands:\u001b[22m\n\n  \u001b[94mcreate\u001b[39m             \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Create a linear team                                                         \n  \u001b[94mdelete\u001b[39m     \u001b[33m<\u001b[39m\u001b[95mteam\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Delete a Linear team                                                         \n  \u001b[94mlist\u001b[39m               \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List teams                                                                   \n  \u001b[94mid\u001b[39m                 \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Print the configured team id                                                 \n  \u001b[94mautolinks\u001b[39m          \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Configure GitHub repository autolinks for Linear issues with this team prefix\n  \u001b[94mmembers\u001b[39m    \u001b[33m[\u001b[39m\u001b[95mteam\u001b[39m\u001b[33m]\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List team members (team by key, name, or ID)                                 \n  \u001b[94mstates\u001b[39m     \u001b[33m[\u001b[39m\u001b[95mteam\u001b[39m\u001b[33m]\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List workflow states for a team (by key, name, or ID)                        \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

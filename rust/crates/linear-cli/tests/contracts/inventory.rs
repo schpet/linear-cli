@@ -159,10 +159,8 @@ fn generated_inventory_matches_frozen_manifest_in_order() {
     assert_eq!((parent_count, leaf_count, completion_count), (20, 86, 4));
     let deno: Value =
         serde_json::from_str(include_str!("../../../../../deno.json")).expect("valid Deno config");
-    assert_eq!(
-        env!("CARGO_PKG_VERSION"),
-        deno["version"].as_str().expect("Deno version")
-    );
+    assert_eq!(env!("CARGO_PKG_VERSION"), "3.0.0-alpha.1");
+    assert_eq!(deno["version"].as_str().expect("Deno version"), "2.6.0");
 }
 
 #[test]

@@ -1,5 +1,6 @@
 //! HTTP transport for GraphQL operations (F02B Gate 1) and the bounded
-//! fixed-host asset GET qualified in F02B Gate 2.
+//! fixed-host asset GET qualified in F02B Gate 2 at the historical 2.6.0
+//! identity; v3 probe qualification awaits a separate driver profile.
 //!
 //! One `reqwest` client per transport, built by the shared [`build_client`]
 //! from already validated [`EndpointUrl`], [`ApiKey`] and [`TransportConfig`]
@@ -43,8 +44,8 @@ use crate::graphql::envelope::{
     GraphQlRequest, ResponseError, ResponseGraphQlError, graphql_message, parse_response,
 };
 
-/// The `User-Agent` sent on every request; pinned to the frozen oracle's
-/// `schpet-linear-cli/2.6.0` while `Cargo.toml` carries the parity version.
+/// The `User-Agent` sent on every request, derived from the Rust package
+/// version.
 pub const USER_AGENT_VALUE: &str = concat!("schpet-linear-cli/", env!("CARGO_PKG_VERSION"));
 
 /// `Content-Type` sent on every GraphQL POST.

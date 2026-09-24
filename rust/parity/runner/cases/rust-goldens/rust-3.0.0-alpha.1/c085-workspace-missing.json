@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c085-workspace-missing",
+  "deviationId": "R01V-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear markdown\nVersion: 3.0.0-alpha.1  \n\nDescription:\n\n  Linear-flavored Markdown: mentions and collapsible sections                  \n                                                                               \n  These rules apply to comment bodies, issue descriptions, document content,   \n  project overviews, and status update bodies.                                 \n                                                                               \n  MENTIONS                                                                     \n                                                                               \n  A resource's plain Linear URL becomes a linked mention. A literal `@name`, an\n  `@[Name](id)`, or a Markdown link such as `[Name](url)` does not — it stays  \n  plain text and notifies nobody. Put the bare URL in the body:                \n                                                                               \n  https://linear.app/acme/profiles/someuser can you take a look?               \n                                                                               \n  RESOLVING PEOPLE                                                             \n                                                                               \n  Look the person up in the relevant team first. The team can usually be       \n  inferred from the issue identifier or the current directory:                 \n                                                                               \n  linear team members ENG --json                                               \n                                                                               \n  Paste the selected member's `url` field verbatim. If the intended person is  \n  not a member of that team, stop and confirm before searching the whole       \n  workspace with `linear user list --json`; mentioning someone outside the team\n  is likely accidental.                                                        \n                                                                               \n  To mention an issue, use its URL the same way:                               \n                                                                               \n  linear issue url ENG-123                                                     \n                                                                               \n  COLLAPSIBLE SECTIONS                                                         \n                                                                               \n  Open a section with `+++ [title]` and close it with `+++`:                   \n                                                                               \n  +++ [Server log]                                                             \n                                                                               \n  Markdown content that is initially hidden.                                   \n                                                                               \n  +++                                                                          \n                                                                               \n  The square brackets around the title and the closing `+++` are both required.\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Missing value for option \"--workspace\".\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

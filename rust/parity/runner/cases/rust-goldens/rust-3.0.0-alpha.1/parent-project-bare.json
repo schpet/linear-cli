@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "parent-project-bare",
+  "deviationId": "R01V-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear project\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m \n\n\u001b[1mDescription:\u001b[22m\n\n  Manage Linear projects\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                      \n  \u001b[94m--workspace\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)  \n\n\u001b[1mCommands:\u001b[22m\n\n  \u001b[94mlist\u001b[39m                  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List projects                  \n  \u001b[94mview\u001b[39m, \u001b[94mv\u001b[39m  \u001b[33m[\u001b[39m\u001b[95mprojectId\u001b[39m\u001b[33m]\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m View project details           \n  \u001b[94mcreate\u001b[39m                \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Create a new Linear project    \n  \u001b[94mupdate\u001b[39m   \u001b[33m<\u001b[39m\u001b[95mprojectId\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Update a Linear project        \n  \u001b[94mdelete\u001b[39m   \u001b[33m<\u001b[39m\u001b[95mprojectId\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Delete (trash) a Linear project\n  \u001b[94mcomment\u001b[39m               \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Manage project comments        \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}
