@@ -559,3 +559,163 @@ fn direct_binary_source_derived_parser_matrix() {
         );
     }
 }
+
+#[test]
+fn observed_registered_enum_usage_from_binary() {
+    use std::process::Command;
+
+    let mine_fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../parity/runner/cases/c2-mine-help-no-color-one.json");
+    let mine_case: Value = serde_json::from_slice(&std::fs::read(mine_fixture).expect("fixture"))
+        .expect("fixture JSON");
+    let mine_help = mine_case["expected"]["stdout"]["utf8"]
+        .as_str()
+        .expect("frozen mine help");
+    let cases: &[(&[&str], &str, &str)] = &[
+        (
+            &["issue", "mine", "--sort", "nonsense"],
+            "linear issue mine",
+            "Option \"--sort\" must be of type \"sort\", but got \"nonsense\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "mine", "--sort=nonsense"],
+            "linear issue mine",
+            "Option \"--sort\" must be of type \"sort\", but got \"nonsense\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "mine", "--sort", "NONSENSE"],
+            "linear issue mine",
+            "Option \"--sort\" must be of type \"sort\", but got \"NONSENSE\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "mine", "--sort", "MANUAL"],
+            "linear issue mine",
+            "Option \"--sort\" must be of type \"sort\", but got \"MANUAL\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "mine", "--sort=nonsense", "--help"],
+            "linear issue mine",
+            "Option \"--sort\" must be of type \"sort\", but got \"nonsense\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "mine", "-h", "--sort", "nonsense"],
+            "linear issue mine",
+            "Option \"--sort\" must be of type \"sort\", but got \"nonsense\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["--help", "issue", "mine", "--sort", "nonsense"],
+            "linear issue mine",
+            "Option \"--sort\" must be of type \"sort\", but got \"nonsense\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "mine", "--sort", "--help"],
+            "linear issue mine",
+            "Option \"--sort\" must be of type \"sort\", but got \"--help\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "l", "--sort", "nonsense"],
+            "linear issue mine",
+            "Option \"--sort\" must be of type \"sort\", but got \"nonsense\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "q", "--sort", "nonsense"],
+            "linear issue query",
+            "Option \"--sort\" must be of type \"sort\", but got \"nonsense\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "query", "--sort", "nonsense"],
+            "linear issue query",
+            "Option \"--sort\" must be of type \"sort\", but got \"nonsense\". Expected values: \"manual\", \"priority\"",
+        ),
+        (
+            &["issue", "agent-session", "list", "--status", "nonsense"],
+            "linear issue agent-session list",
+            "Option \"--status\" must be of type \"agentSessionStatus\", but got \"nonsense\". Expected values: \"pending\", \"active\", \"complete\", \"awaitingInput\", \"error\", \"stale\"",
+        ),
+        (
+            &["template", "list", "--type", "nonsense"],
+            "linear template list",
+            "Option \"--type\" must be of type \"template-type\", but got \"nonsense\". Expected values: \"issue\", \"project\", \"document\"",
+        ),
+        (
+            &["issue", "mine", "--sort="],
+            "linear issue mine",
+            "Missing value for option \"--sort\".",
+        ),
+    ];
+    for (args, route_path, message) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+            .args(*args)
+            .env_clear()
+            .env("HOME", std::env::temp_dir())
+            .env("XDG_CONFIG_HOME", std::env::temp_dir())
+            .env("APPDATA", std::env::temp_dir())
+            .env("PATH", "/usr/bin:/bin")
+            .env("TZ", "UTC")
+            .env("LANG", "C.UTF-8")
+            .env("LINEAR_IGNORE_ENV_FILE", "1")
+            .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
+            .env("NO_COLOR", "1")
+            .output()
+            .expect("binary runs");
+        let route = linear_cli::cli::ROUTES
+            .iter()
+            .find(|route| route.path == *route_path)
+            .expect("route exists");
+        let help = if *route_path == "linear issue mine" {
+            mine_help.to_owned()
+        } else {
+            // These routes use Rust-rendered help; only mine has a frozen fixture.
+            linear_cli::cli::render::help(route, false, false).expect("route help")
+        };
+        assert_eq!(output.status.code(), Some(2), "{args:?} exit");
+        assert_bytes(
+            &format!("{args:?}"),
+            "binary stdout",
+            &output.stdout,
+            help.as_bytes(),
+        );
+        assert_bytes(
+            &format!("{args:?}"),
+            "binary stderr",
+            &output.stderr,
+            format!("  error: {message}\n\n").as_bytes(),
+        );
+    }
+}
+
+#[test]
+fn registered_enum_values_and_unrelated_strings_reach_actions() {
+    use linear_cli::cli::parser::{ParseOutcome, parse};
+    for (args, expected_name, expected_value) in [
+        (vec!["issue", "mine", "--sort", "manual"], "sort", "manual"),
+        (
+            vec!["issue", "query", "--sort=priority"],
+            "sort",
+            "priority",
+        ),
+        (
+            vec!["issue", "agent-session", "list", "--status", "active"],
+            "status",
+            "active",
+        ),
+        (
+            vec!["template", "list", "--type=project"],
+            "type",
+            "project",
+        ),
+        (
+            vec!["issue", "mine", "--team", "NONSENSE"],
+            "team",
+            "NONSENSE",
+        ),
+    ] {
+        let args = args.into_iter().map(str::to_owned).collect::<Vec<_>>();
+        match parse(&args).expect("registered option parses") {
+            ParseOutcome::Action { options, .. } => assert!(options.iter().any(|option| {
+                option.name == expected_name && option.values == [expected_value]
+            })),
+            ParseOutcome::Help { .. } | ParseOutcome::Version { .. } => panic!("expected action"),
+        }
+    }
+}

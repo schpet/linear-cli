@@ -181,6 +181,7 @@ fn canonical_flag(option: OptionRef) -> String {
 
 fn validate_option_value(
     route: &'static RouteMeta,
+    option: OptionRef,
     argument: &super::ArgumentMeta,
     value: &str,
 ) -> Result<(), AppError> {
@@ -195,6 +196,21 @@ fn validate_option_value(
                     route.route,
                     format!(
                         "Invalid variable format: {value}. Variables must be in key=value format, e.g. --variable teamId=abc"
+                    ),
+                ));
+            }
+            TypeHandler::Enum(values) if !values.contains(&value) => {
+                let expected = values
+                    .iter()
+                    .map(|value| format!("\"{value}\""))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                return Err(AppError::usage(
+                    route.route,
+                    format!(
+                        "Option \"{}\" must be of type \"{}\", but got \"{value}\". Expected values: {expected}",
+                        canonical_flag(option),
+                        argument.type_name
                     ),
                 ));
             }
@@ -311,7 +327,7 @@ fn parse_options(
                 ));
             };
             if let Some(value) = value {
-                validate_option_value(route, argument, &value)?;
+                validate_option_value(route, choice.kind, argument, &value)?;
                 values.push(value);
             }
         }
