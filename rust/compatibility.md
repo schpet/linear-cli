@@ -1,5 +1,9 @@
 # Rust CLI compatibility ledger
 
+## Breaking-major contract (decision 2026-09-24)
+
+The Rust CLI is a new major version. The frozen Deno 2.6.0 binary remains an oracle for actions, inputs, JSON, script-oriented text, error status/channels and effects. Clap usage wording/help layout, selected command/flag spelling and human rendering may change only through a named entry here with old/new examples, reason, migration guidance and reviewed Rust-side expected output. No route, alias, flag capability, credential source or effect disappears by implication. R01 will bump Rust `--version` and User-Agent to `3.0.0-alpha.1`; that version difference needs its own case-specific golden. The harness does not yet support reviewed Rust-side deviations, so no clap cutover or version claim is complete.
+
 This ledger distinguishes captured behavior from source reading and Rust-only observations. F01D3 selects the root and 19 parent routes for confined candidate comparison. Its integrated 121-case lane reported 92 selected passes, 0 failures, 29 omitted leaves and 0 baseline drift; staged DENO_DIR was unchanged and self-check caught 15/15 controls. A leaf may have exact help or usage output without its action being implemented.
 
 ## Observed frozen oracle

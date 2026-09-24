@@ -11,6 +11,10 @@ The user supplied these project instructions on 2026-09-23 in addition to the on
 - Use jj for source control, keep an empty scratch `@` after recording work, and do not modify described/bookmarked/immutable changes directly.
 - This migration must not be pushed to main.
 
+On 2026-09-24 the user explicitly directed a new breaking Rust version and said to use clap-friendly syntax and improved Markdown output where beneficial, while keeping feature parity. This supersedes the original strict Cliffy-byte-parity policy and authorizes the `clap` dependency with an R01-reviewed pinned version/features and their transitive dependencies. It does not authorize `clap_complete` or the future config/keyring dependency bundle. The earlier S1 decision below is historical: P10 is now a final whole-surface gate, and a command may proceed with scoped frozen evidence. The user also asked to avoid unrelated security work.
+
+The first independent Claude review of the revised plan returned REVISE; its gate, scope, version, harness and order findings were applied. A second read-only closeout returned REVISE solely for the old blanket negative-control sentence in `PARITY_HARNESS.md:74` and requested explicit R01H ownership and a feedback artifact. A final read-only Claude review returned **SHIP** with no blockers; its optional wording clarifications were applied. The separate C085 microplan was reviewed twice; its corrected version received **SHIP**. See `untracked/notebook/2026-09-24-riir-state/breaking-v3/claude-feedback.md` for the finding/disposition summary. No C085 implementation is claimed by this plan review.
+
 ## Independent work
 
 - Coordinator wrote an independent active plan before reading the Claude result.
