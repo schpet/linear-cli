@@ -43,11 +43,38 @@ Deno.test("a complete case parses and keeps byte fields as utf8/base64 objects",
   assertEquals(spec.expected.stderr, { base64: "" })
 })
 
-Deno.test("signal exit expectations wait for the P04 status channel", () => {
-  rejects(
-    (spec) => (objectField(spec, "expected").exit = { signal: "SIGTERM" }),
-    "P04 must add out-of-band signal status capture",
-  )
+Deno.test("exit is exactly one of a code or a proved signal name; {code:143} and {signal:SIGTERM} are distinct expectations", () => {
+  const withExit = (exit: unknown) => {
+    const spec = validCase()
+    objectField(spec, "expected").exit = exit
+    return parseCase(spec).expected.exit
+  }
+  assertEquals(withExit({ code: 143 }), { code: 143 })
+  assertEquals(withExit({ signal: "SIGTERM" }), { signal: "SIGTERM" })
+  assertEquals(withExit({ signal: "SIGPIPE" }), { signal: "SIGPIPE" })
+  assertEquals(withExit({ signal: "SIGINT" }), { signal: "SIGINT" })
+  for (
+    const exit of [
+      { signal: "SIGKILL" },
+      { signal: "SIGHUP" },
+      { signal: "sigterm" },
+      { signal: "TERM" },
+      { signal: 15 },
+      { signal: "SIGTERM", code: 143 },
+      { code: 143, signal: "SIGTERM" },
+      { code: 143, extra: 1 },
+      { signal: "SIGTERM", extra: 1 },
+      {},
+      { code: -1 },
+      { code: 1.5 },
+      { code: "0" },
+      null,
+      "SIGTERM",
+      143,
+    ]
+  ) {
+    rejects((spec) => (objectField(spec, "expected").exit = exit), "exit")
+  }
 })
 
 Deno.test("unknown keys, unsupported surfaces and weak fields are rejected", () => {

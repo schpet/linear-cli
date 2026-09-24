@@ -18,6 +18,8 @@ export interface Control {
   caseId: string
   /** Every listed surface must be reported for the control to count as caught. */
   expectSurfaces: Surface[]
+  /** When set, some candidate mismatch detail must contain this text. */
+  expectDetail?: string
   /** Expected candidate status; controls for not-implemented expect that status. */
   expectStatus: "fail" | "not-implemented"
   script?: string
@@ -159,6 +161,26 @@ export function controls(referenceBinary: string): Control[] {
       script: `exec ${ref} "$1" "$3"\n`,
     },
     {
+      name: "signal-death-is-not-exit-143",
+      description:
+        "candidate reproduces output, then dies by SIGTERM; the authenticated status reports the signal, not bwrap's folded 143",
+      caseId: "version",
+      expectSurfaces: ["exit"],
+      expectDetail: "got signal SIGTERM",
+      expectStatus: "fail",
+      script: `${ref} "$@"\nkill -TERM $$\n`,
+    },
+    {
+      name: "sigpipe-death-is-not-exit-141",
+      description:
+        "candidate reproduces output, then dies by SIGPIPE; reported as signal SIGPIPE with outer 141",
+      caseId: "version",
+      expectSurfaces: ["exit"],
+      expectDetail: "got signal SIGPIPE",
+      expectStatus: "fail",
+      script: `${ref} "$@"\nkill -PIPE $$\n`,
+    },
+    {
       name: "not-implemented-from-descriptor",
       description:
         "descriptor omits the route; the candidate program is never invoked",
@@ -250,6 +272,10 @@ export async function runSelfCheck(
       ]
       const caught = result.status === control.expectStatus &&
         control.expectSurfaces.every((surface) => surfaces.includes(surface)) &&
+        (control.expectDetail == null ||
+          (result.candidate?.mismatches ?? []).some((mismatch) =>
+            mismatch.detail.includes(control.expectDetail ?? "")
+          )) &&
         (control.expectStatus !== "not-implemented" || result.candidate == null)
       const detail = result.status === "baseline-drift"
         ? `baseline drift: ${

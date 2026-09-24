@@ -27,6 +27,11 @@ Deno.test("task separator is accepted only before runner flags", () => {
     "true or false",
   )
   assertThrows(
+    () => parseOptions([...required, "--status-helper", "/helper"]),
+    Error,
+    "internal namespace",
+  )
+  assertThrows(
     () => parseOptions([...required, "--staged-reused", "false"]),
     Error,
     "internal namespace",

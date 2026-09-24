@@ -64,9 +64,26 @@ export const ByteValueSchema = v.union([
   }),
 ], "byte fields must be {utf8} or {base64} objects")
 
-const ExitSchema = v.strictObject({
-  code: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(255)),
-})
+/**
+ * Signal names a case may expect. Each entry was proved end to end through
+ * the P04A1 status helper under Bubblewrap with a controlled native child;
+ * SIGKILL stays out until a target-kill control (not the runner's own group
+ * kill) is proved separately.
+ */
+export const EXPECTED_SIGNALS = ["SIGTERM", "SIGPIPE", "SIGINT"] as const
+export type ExpectedSignal = (typeof EXPECTED_SIGNALS)[number]
+
+/**
+ * Exactly one of `{code}` or `{signal}`. `{"exit":{"code":143}}` and
+ * `{"exit":{"signal":"SIGTERM"}}` are distinct expectations: the authenticated
+ * target status separates them even though bwrap folds both to outer 143.
+ */
+const ExitSchema = v.union([
+  v.strictObject({
+    code: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(255)),
+  }),
+  v.strictObject({ signal: v.picklist(EXPECTED_SIGNALS) }),
+], "exit must be exactly {code: 0..255} or {signal: SIGTERM|SIGPIPE|SIGINT}")
 
 const relativePath = v.pipe(
   v.string(),
@@ -624,16 +641,6 @@ function rejectUnsupported(input: unknown, label: string): void {
 
 export function parseCase(input: unknown, label = "case"): CaseSpec {
   rejectUnsupported(input, label)
-  if (
-    typeof input === "object" && input != null && "expected" in input &&
-    typeof input.expected === "object" && input.expected != null &&
-    "exit" in input.expected && typeof input.expected.exit === "object" &&
-    input.expected.exit != null && "signal" in input.expected.exit
-  ) {
-    throw new SchemaError(
-      `${label}: expected.exit.signal is unavailable through the Bubblewrap reaper; P04 must add out-of-band signal status capture`,
-    )
-  }
   const result = v.safeParse(CaseSchema, input)
   if (!result.success) {
     throw new SchemaError(`${label}: ${formatIssues(result.issues)}`)

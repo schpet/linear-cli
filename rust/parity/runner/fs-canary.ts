@@ -1,7 +1,8 @@
 // Filesystem confinement canary. Runs through the Bubblewrap wrapper as a
 // child of the runner and prints one JSON line; the runner decides pass/fail
 // (preflight.ts). It touches no network so it can also run outside the lane.
-const [marker, secondMarker, socketPath, allowedFile, escapeLink] = Deno.args
+const [marker, secondMarker, socketPath, allowedFile, escapeLink, helperPath] =
+  Deno.args
 const out: Record<string, unknown> = {}
 const decoder = new TextDecoder()
 
@@ -61,6 +62,10 @@ await attempt("usrLocalWrite", async () => {
   await Deno.writeTextFile("/usr/local/fs-canary", "leak")
   return "WROTE"
 })
+await attempt("helperChmod", async () => {
+  await Deno.chmod(helperPath, 0o755)
+  return "CHANGED"
+})
 await attempt("usrLocalEntries", async () => {
   const names: string[] = []
   for await (const entry of Deno.readDir("/usr/local")) names.push(entry.name)
@@ -90,6 +95,16 @@ await attempt("procPids", async () => {
 await attempt("procInit", async () => {
   const cmdline = await Deno.readFile("/proc/1/cmdline")
   return decoder.decode(cmdline).split("\0")[0]
+})
+await attempt(
+  "parentComm",
+  async () => (await Deno.readTextFile(`/proc/${Deno.ppid}/comm`)).trim(),
+)
+await attempt("parentCmdline", async () => {
+  const cmdline = decoder.decode(
+    await Deno.readFile(`/proc/${Deno.ppid}/cmdline`),
+  )
+  return JSON.stringify(cmdline.replace(/\0$/, "").split("\0"))
 })
 await attempt("status", async () => {
   const status = await Deno.readTextFile("/proc/self/status")
@@ -125,6 +140,8 @@ await attempt("usernsCreate", async () => {
 })
 out.hostname = Deno.hostname()
 out.pid = Deno.pid
+out.ppid = Deno.ppid
+out.args = Deno.args
 out.uid = Deno.uid()
 out.gid = Deno.gid()
 out.cwd = Deno.cwd()

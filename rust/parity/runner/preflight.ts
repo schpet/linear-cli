@@ -4,6 +4,7 @@
 // through the same Bubblewrap wrapper that every case uses.
 import { fromFileUrl, join } from "@std/path"
 import {
+  type ConfinedObservation,
   type Confinement,
   programInvocation,
   runConfined,
@@ -12,8 +13,9 @@ import {
   SANDBOX_UID,
 } from "./bwrap.ts"
 import { sha256Hex } from "./bytes.ts"
-import type { Observation } from "./engine.ts"
+import type { StatusHelperArtifact } from "./helpers/build-status-helper.ts"
 import { createSandbox } from "./sandbox.ts"
+import type { TargetExit } from "./target-status.ts"
 
 export interface LaneRecord {
   kernel: string
@@ -38,8 +40,22 @@ export interface LaneRecord {
   canary: Record<string, unknown>
   /** Filesystem canary output (through the wrapper). */
   confinement: Record<string, unknown>
+  /**
+   * The target's `/proc/self/fd` listing from a shell glob through the
+   * wrapper: exactly 0, 1, 2 and the glob's own directory fd, proving the
+   * helper's status socket and exec pipe never reach the target.
+   */
+  fdCanary: string
+  /** Built helper provenance: tracked source pin plus this machine's compiler and binary digests. */
+  statusHelper: StatusHelperArtifact
   /** Pinned compiled reference `--version` through the wrapper's executable path. */
-  executableProbe: { exit: Observation["exit"]; stdoutBytes: number } | null
+  executableProbe:
+    | {
+      targetExit: TargetExit | null
+      outerExit: ConfinedObservation["outerExit"]
+      stdoutBytes: number
+    }
+    | null
 }
 
 export class PreflightError extends Error {}
@@ -150,12 +166,16 @@ export function assertNetworkDenials(record: Record<string, unknown>): void {
 
 function parseCanary(
   label: string,
-  observation: Observation,
+  observation: ConfinedObservation,
 ): Record<string, unknown> {
   assertLane(
-    "code" in observation.exit && observation.exit.code === 0 &&
+    observation.targetExit != null && "code" in observation.targetExit &&
+      observation.targetExit.code === 0 &&
+      "code" in observation.outerExit && observation.outerExit.code === 0 &&
       !observation.timedOut && !observation.truncated,
-    `${label} canary failed (${JSON.stringify(observation.exit)}): ${
+    `${label} canary failed (target ${
+      JSON.stringify(observation.targetExit)
+    }, outer ${JSON.stringify(observation.outerExit)}): ${
       decoder.decode(observation.stderr)
     }`,
   )
@@ -202,9 +222,15 @@ function canaryArgs(script: string, args: string[]): string[] {
  * runner's /proc entry, capabilities, nested user namespaces) is denied.
  * Runs outside the lane in tests; touches no network.
  */
+/** What `echo /proc/self/fd/*` prints when only stdio is inherited (fd 3 is the glob's directory). */
+export const EXPECTED_FD_CANARY =
+  "/proc/self/fd/0 /proc/self/fd/1 /proc/self/fd/2 /proc/self/fd/3"
+
 export async function probeConfinement(
   options: ConfinementProbeOptions,
-): Promise<Pick<LaneRecord, "confinement" | "executableProbe">> {
+): Promise<
+  Pick<LaneRecord, "confinement" | "executableProbe" | "fdCanary">
+> {
   const outside = join(options.laneDir, "preflight")
   await Deno.mkdir(outside, { recursive: true })
   const marker = join(outside, "marker-read.txt")
@@ -226,17 +252,20 @@ export async function probeConfinement(
   const sandbox = await createSandbox(options.laneDir, null)
   let confinement: Record<string, unknown>
   let executableProbe: LaneRecord["executableProbe"] = null
+  let fdCanary: string
+  const helperPath = options.confinement.statusHelper.path
   try {
     const allowed = join(sandbox.cwd, "allowed.txt")
     await Deno.writeTextFile(allowed, "allowed")
     const escapeLink = join(sandbox.cwd, "escape-link")
     await Deno.symlink(marker, escapeLink)
+    const canaryArgv = canaryArgs(
+      fromFileUrl(new URL("./fs-canary.ts", import.meta.url)),
+      [marker, secondMarker, socketPath, allowed, escapeLink, helperPath],
+    )
     const observation = await runConfined(options.confinement, {
       executable: options.denoPath,
-      args: canaryArgs(
-        fromFileUrl(new URL("./fs-canary.ts", import.meta.url)),
-        [marker, secondMarker, socketPath, allowed, escapeLink],
-      ),
+      args: canaryArgv,
       readOnly: [fromFileUrl(new URL("./fs-canary.ts", import.meta.url))],
       caseRoot: sandbox.root,
       cwd: sandbox.cwd,
@@ -275,15 +304,50 @@ export async function probeConfinement(
         String(confinement.markerWrite).includes("No such file"),
       `marker write failed for an unexpected reason: ${confinement.markerWrite}`,
     )
+    // Exact process topology: PID 1 bwrap reaper, the status helper as the
+    // canary's parent, the canary itself with the PID the helper reported.
     const pids: unknown = JSON.parse(String(confinement.procPids))
     assertLane(
-      Array.isArray(pids) && pids.length === 2 && pids[0] === 1 &&
-        pids[1] === confinement.pid,
-      `/proc exposes processes other than the reaper and the canary: ${confinement.procPids}`,
+      observation.targetStatus != null &&
+        Array.isArray(pids) && pids.length === 3 && pids[0] === 1 &&
+        pids[1] === confinement.ppid &&
+        pids[1] === observation.targetStatus.helperPid &&
+        pids[2] === confinement.pid &&
+        pids[2] === observation.targetStatus.targetPid,
+      `/proc must show exactly the reaper, the status helper and the canary (helper ${
+        JSON.stringify(observation.targetStatus)
+      }, canary pid ${confinement.pid} ppid ${confinement.ppid}): ${confinement.procPids}`,
     )
     assertLane(
       String(confinement.procInit).endsWith("bwrap"),
       `/proc/1 is not the bwrap reaper: ${confinement.procInit}`,
+    )
+    assertLane(
+      confinement.parentComm === "status-helper",
+      `the canary's parent is not the status helper: ${confinement.parentComm}`,
+    )
+    const parentCmdline: unknown = JSON.parse(String(confinement.parentCmdline))
+    assertLane(
+      Array.isArray(parentCmdline) && parentCmdline.length >= 5 &&
+        parentCmdline[0] === helperPath &&
+        /^[0-9]{1,5}$/.test(String(parentCmdline[1])) &&
+        /^x{32}$/.test(String(parentCmdline[2])) &&
+        /^[0-9a-f]{32}$/.test(String(parentCmdline[3])) &&
+        parentCmdline[4] === options.denoPath &&
+        JSON.stringify(parentCmdline.slice(5)) === JSON.stringify(canaryArgv),
+      `helper cmdline is not [helper, port, scrubbed nonce, identity, target, argv...]: ${confinement.parentCmdline}`,
+    )
+    assertLane(
+      JSON.stringify(confinement.args) ===
+        JSON.stringify(canaryArgv.slice(canaryArgv.indexOf(marker))),
+      `canary argv is not the case argv (helper prefix leaked?): ${
+        JSON.stringify(confinement.args)
+      }`,
+    )
+    assertDeniedField(confinement, "helperChmod")
+    assertLane(
+      String(confinement.helperChmod).includes("Read-only file system"),
+      `status helper bind is not read-only: ${confinement.helperChmod}`,
     )
     const status: unknown = JSON.parse(String(confinement.status))
     assertLane(
@@ -335,6 +399,27 @@ export async function probeConfinement(
       `unexpected entries outside the case root: ${entries.join(", ")}`,
     )
 
+    // Target fd hygiene through the helper: a shell glob sees only stdio plus
+    // its own directory fd; the helper's socket and exec pipe are gone.
+    const fds = await runConfined(options.confinement, {
+      executable: "/bin/sh",
+      args: ["-c", "echo /proc/self/fd/*"],
+      readOnly: [],
+      caseRoot: sandbox.root,
+      cwd: sandbox.cwd,
+      tmp: sandbox.tmp,
+      env: { HOME: sandbox.home, PATH: sandbox.bin },
+      stdin: new Uint8Array(),
+      timeoutMs: CANARY_TIMEOUT_MS,
+      outputCapBytes: CANARY_CAP_BYTES,
+    })
+    fdCanary = decoder.decode(fds.stdout).trim()
+    assertLane(
+      fds.targetExit != null && "code" in fds.targetExit &&
+        fds.targetExit.code === 0 && fdCanary === EXPECTED_FD_CANARY,
+      `target inherited unexpected file descriptors through the status helper: ${fdCanary}`,
+    )
+
     if (options.referenceBinary != null) {
       const probe = await runConfined(options.confinement, {
         ...programInvocation(
@@ -356,15 +441,19 @@ export async function probeConfinement(
         outputCapBytes: CANARY_CAP_BYTES,
       })
       executableProbe = {
-        exit: probe.exit,
+        targetExit: probe.targetExit,
+        outerExit: probe.outerExit,
         stdoutBytes: probe.stdout.length,
       }
       assertLane(
-        "code" in probe.exit && probe.exit.code === 0 &&
+        probe.targetExit != null && "code" in probe.targetExit &&
+          probe.targetExit.code === 0 &&
           probe.stdout.length > 0 && probe.stderr.length === 0,
-        `compiled reference --version failed through the wrapper (${
-          JSON.stringify(probe.exit)
-        }): ${decoder.decode(probe.stderr)}`,
+        `compiled reference --version failed through the wrapper (target ${
+          JSON.stringify(probe.targetExit)
+        }, outer ${JSON.stringify(probe.outerExit)}): ${
+          decoder.decode(probe.stderr)
+        }`,
       )
     }
   } finally {
@@ -377,7 +466,7 @@ export async function probeConfinement(
     await Deno.remove(outside, { recursive: true }).catch(() => {})
   }
   assertLane(!(await accepted), "pathname socket accepted a connection")
-  return { confinement, executableProbe }
+  return { confinement, executableProbe, fdCanary }
 }
 
 export interface PreflightOptions {
@@ -423,7 +512,7 @@ export async function runPreflight(
     conn.close()
   })()
   const sandbox = await createSandbox(options.laneDir, null)
-  let observation: Observation
+  let observation: ConfinedObservation
   try {
     observation = await runConfined(options.confinement, {
       executable: options.denoPath,
@@ -516,6 +605,7 @@ export async function runPreflight(
       hostname: SANDBOX_HOSTNAME,
     },
     canary,
+    statusHelper: options.confinement.statusHelper,
     ...probed,
   }
 }

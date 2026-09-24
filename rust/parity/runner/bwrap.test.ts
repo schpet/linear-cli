@@ -7,6 +7,7 @@ import {
   bwrapArgs,
   bwrapDiagnostic,
   CASE_ROOT_PARENT,
+  type ConfinedObservation,
   type Confinement,
   ConfinementError,
   HARNESS_ENV,
@@ -17,15 +18,19 @@ import {
   SANDBOX_HOSTNAME,
   validateBindSource,
 } from "./bwrap.ts"
-import { AbortedError } from "./engine.ts"
-import { probeConfinement } from "./preflight.ts"
+import { AbortedError, runIsolated } from "./engine.ts"
+import type { StatusHelperArtifact } from "./helpers/build-status-helper.ts"
+import { EXPECTED_FD_CANARY, probeConfinement } from "./preflight.ts"
 import { createSandbox, type Sandbox } from "./sandbox.ts"
+import { TargetStatusError } from "./target-status.ts"
+import { testStatusHelper } from "./test-fixtures.ts"
 
 const decoder = new TextDecoder()
 
 interface Lane {
   dir: string
   denoDir: string
+  helper: StatusHelperArtifact
   confinement: Confinement
 }
 
@@ -37,14 +42,31 @@ async function withLane<T>(fn: (lane: Lane) => Promise<T>): Promise<T> {
   const denoDir = join(dir, "deno-dir")
   await Deno.mkdir(denoDir)
   try {
+    const helper = await testStatusHelper(dir)
     return await fn({
       dir,
       denoDir,
-      confinement: await prepareConfinement({ denoDir }),
+      helper,
+      confinement: await prepareConfinement({ denoDir, statusHelper: helper }),
     })
   } finally {
     await Deno.remove(dir, { recursive: true })
   }
+}
+
+const fakeHelper: StatusHelperArtifact = {
+  path: "/stage/status-helper/status-helper",
+  sourcePath: "/repo/rust/parity/runner/helpers/status-helper.c",
+  sourceSha256: "a".repeat(64),
+  std: "c11",
+  flags: ["-std=c11"],
+  compiler: {
+    path: "/usr/bin/gcc-13",
+    version: "gcc 13",
+    sha256: "b".repeat(64),
+    target: "x86_64-linux-gnu",
+  },
+  binarySha256: "c".repeat(64),
 }
 
 async function withSandbox<T>(
@@ -115,7 +137,7 @@ function escaped(token: string): string {
   return `/usr/bin/setsid /bin/sleep ${token} </dev/null >/dev/null 2>&1 &`
 }
 
-Deno.test("bwrap argv is an allowlisted root in mount order: /usr read-only with /usr/local masked, private proc/dev, case root writable at its own path, case tmp on /tmp, program binds read-only, remount-ro last", () => {
+Deno.test("bwrap argv is an allowlisted root in mount order: /usr read-only with /usr/local masked, private proc/dev, case root writable at its own path, case tmp on /tmp, program binds read-only, remount-ro last, and the status helper is the command with the target after its observer prefix", () => {
   const confinement: Confinement = {
     bwrap: "/usr/bin/bwrap",
     version: "bubblewrap 0.9.0",
@@ -125,7 +147,10 @@ Deno.test("bwrap argv is an allowlisted root in mount order: /usr read-only with
     }],
     systemBinds: ["/lib"],
     sharedReadOnly: [],
+    statusHelper: fakeHelper,
   }
+  const nonce = "0123456789abcdef0123456789abcdef"
+  const identity = "fedcba9876543210fedcba9876543210"
   const args = bwrapArgs(confinement, {
     caseRoot: "/var/tmp/lane/case",
     cwd: "/var/tmp/lane/case/cwd",
@@ -137,6 +162,11 @@ Deno.test("bwrap argv is an allowlisted root in mount order: /usr read-only with
         kind: "executable",
       },
       { source: "/home/u/stage", dest: "/home/u/stage", kind: "directory" },
+      {
+        source: fakeHelper.path,
+        dest: fakeHelper.path,
+        kind: "executable",
+      },
     ],
     env: {
       PATH: "/var/tmp/lane/case/bin",
@@ -145,6 +175,9 @@ Deno.test("bwrap argv is an allowlisted root in mount order: /usr read-only with
     },
     executable: "/home/u/bin/deno",
     args: ["run", "x"],
+  }, {
+    helper: fakeHelper.path,
+    helperArgs: ["40000", nonce, identity],
   })
   assertEquals(args, [
     "--unshare-user",
@@ -203,11 +236,18 @@ Deno.test("bwrap argv is an allowlisted root in mount order: /usr read-only with
     "--ro-bind",
     "/home/u/stage",
     "/home/u/stage",
+    "--ro-bind",
+    fakeHelper.path,
+    fakeHelper.path,
     "--remount-ro",
     "/",
     "--chdir",
     "/var/tmp/lane/case/cwd",
     "--",
+    fakeHelper.path,
+    "40000",
+    nonce,
+    identity,
     "/home/u/bin/deno",
     "run",
     "x",
@@ -290,11 +330,19 @@ Deno.test("plans reject case roots under /tmp, paths outside the case root, prog
       const base = shell(sandbox, "true")
       const plan = await planConfinement(lane.confinement, base)
       assertEquals(plan.env, { ...base.env, ...HARNESS_ENV })
-      assertEquals(plan.readOnly, [{
-        source: lane.denoDir,
-        dest: lane.denoDir,
-        kind: "directory",
-      }], "/bin/sh needs no bind; only the shared stage is bound")
+      assertEquals(
+        plan.readOnly,
+        [{
+          source: lane.denoDir,
+          dest: lane.denoDir,
+          kind: "directory",
+        }, {
+          source: lane.helper.path,
+          dest: lane.helper.path,
+          kind: "executable",
+        }],
+        "/bin/sh needs no bind; only the shared stage and the helper are bound",
+      )
       await assertRejects(
         () =>
           planConfinement(lane.confinement, {
@@ -415,7 +463,7 @@ Deno.test("an interpreted reference binds deno, deno.json, deno.lock and src; an
   )
 })
 
-Deno.test("the filesystem canary passes through the real wrapper and a forbidden bind is a harness error, not case output", async () => {
+Deno.test("the filesystem canary passes through the real wrapper with the exact reaper/helper/target topology, and a forbidden bind is a harness error, not case output", async () => {
   await withLane(async (lane) => {
     const before: string[] = []
     for await (const entry of Deno.readDir(lane.dir)) before.push(entry.name)
@@ -426,6 +474,14 @@ Deno.test("the filesystem canary passes through the real wrapper and a forbidden
       laneDir: lane.dir,
     })
     assertEquals(probed.executableProbe, null)
+    assertEquals(probed.fdCanary, EXPECTED_FD_CANARY)
+    assertEquals(probed.confinement.procPids, "[1,2,3]")
+    assertEquals(probed.confinement.ppid, 2)
+    assertEquals(probed.confinement.pid, 3)
+    assertEquals(probed.confinement.parentComm, "status-helper")
+    assert(
+      String(probed.confinement.helperChmod).includes("Read-only file system"),
+    )
     assertEquals(probed.confinement.allowedRead, "allowed")
     assert(String(probed.confinement.markerRead).startsWith("NotFound"))
     assert(String(probed.confinement.socket).startsWith("NotFound"))
@@ -500,6 +556,8 @@ Deno.test("the child sees exactly the case environment plus harness constants, i
         ),
       )
       assertEquals(result.exit, { code: 0 })
+      assertEquals(result.targetExit, { code: 0 })
+      assertEquals(result.targetStatus, { helperPid: 2, targetPid: 3 })
       assertEquals(decoder.decode(result.stdout).trim().split("\n"), [
         "CASE_MARKER=yes",
         "DENO_NO_UPDATE_CHECK=1",
@@ -516,7 +574,7 @@ Deno.test("the child sees exactly the case environment plus harness constants, i
   })
 })
 
-Deno.test("a program that exits on a signal is reported as code 128+n by bwrap's reaper (P04 limitation)", async () => {
+Deno.test("a program that exits on a signal is still code 128+n at bwrap's reaper, while the authenticated target status reports the signal (P04A1 observer)", async () => {
   await withLane(async (lane) => {
     await withSandbox(lane, async (sandbox) => {
       const result = await runConfined(
@@ -524,7 +582,172 @@ Deno.test("a program that exits on a signal is reported as code 128+n by bwrap's
         shell(sandbox, "kill -TERM $$"),
       )
       assertEquals(result.exit, { code: 143 })
+      assertEquals(result.outerExit, { code: 143 })
+      assertEquals(result.targetExit, { signal: "SIGTERM", number: 15 })
       assertEquals(result.timedOut, false)
+    })
+  })
+})
+
+Deno.test("exit 143/130/141 codes and SIGTERM/SIGINT/SIGPIPE deaths (including a native write to a closed pipe) are told apart with consistent outer codes", async () => {
+  await withLane(async (lane) => {
+    const table: Array<
+      [string, string, string[], ConfinedObservation["targetExit"], number]
+    > = [
+      ["exit 143", "/bin/sh", ["-c", "exit 143"], { code: 143 }, 143],
+      ["SIGTERM", "/bin/sh", ["-c", "kill -TERM $$"], {
+        signal: "SIGTERM",
+        number: 15,
+      }, 143],
+      ["exit 130", "/bin/sh", ["-c", "exit 130"], { code: 130 }, 130],
+      ["SIGINT", "/bin/sh", ["-c", "kill -INT $$"], {
+        signal: "SIGINT",
+        number: 2,
+      }, 130],
+      ["exit 141", "/bin/sh", ["-c", "exit 141"], { code: 141 }, 141],
+      ["SIGPIPE by kill", "/bin/sh", ["-c", "kill -PIPE $$"], {
+        signal: "SIGPIPE",
+        number: 13,
+      }, 141],
+      // Default SIGPIPE disposition survives the helper: a native child that
+      // writes to a pipe whose read end is closed dies by the signal.
+      [
+        "SIGPIPE by closed-pipe write",
+        "/usr/bin/perl",
+        [
+          "-e",
+          'pipe(my $r, my $w) or die; close $r; syswrite($w, "x"); print "survived"',
+        ],
+        { signal: "SIGPIPE", number: 13 },
+        141,
+      ],
+      ["exit 127", "/bin/sh", ["-c", "exit 127"], { code: 127 }, 127],
+      ["exit 0", "/bin/sh", ["-c", "printf out"], { code: 0 }, 0],
+    ]
+    for (const [label, executable, args, targetExit, outer] of table) {
+      await withSandbox(lane, async (sandbox) => {
+        const result = await runConfined(
+          lane.confinement,
+          shell(sandbox, "", { executable, args }),
+        )
+        assertEquals(result.targetExit, targetExit, label)
+        assertEquals(result.outerExit, { code: outer }, label)
+        assertEquals(result.timedOut, false, label)
+        assertEquals(result.truncated, false, label)
+        assertEquals(result.targetStatus, { helperPid: 2, targetPid: 3 }, label)
+        if (label === "SIGPIPE by closed-pipe write") {
+          assertEquals(decoder.decode(result.stdout), "", label)
+        }
+      })
+    }
+  })
+})
+
+Deno.test("a target that kills its helper leaves no authenticated status: a harness error even though the reaper reports 137 or 143, never a target signal", async () => {
+  await withLane(async (lane) => {
+    for (const signal of ["KILL", "TERM"]) {
+      await withSandbox(lane, async (sandbox) => {
+        const error = await assertRejects(
+          () =>
+            runConfined(
+              lane.confinement,
+              shell(sandbox, `kill -${signal} $PPID; sleep 1; echo alive`),
+            ),
+          TargetStatusError,
+          "EOF before RESULT",
+        )
+        assert(
+          error.message.includes(
+            `outer exit {"code":${signal === "KILL" ? 137 : 143}}`,
+          ),
+          error.message,
+        )
+      })
+    }
+  })
+})
+
+Deno.test("target exit 127/124 and helper-style stderr are ordinary results; execve failure is a harness error", async () => {
+  await withLane(async (lane) => {
+    await withSandbox(lane, async (sandbox) => {
+      const result = await runConfined(
+        lane.confinement,
+        shell(sandbox, "exit 127"),
+      )
+      assertEquals(result.targetExit, { code: 127 })
+      assertEquals(result.outerExit, { code: 127 })
+    })
+    await withSandbox(lane, async (sandbox) => {
+      const result = await runConfined(
+        lane.confinement,
+        shell(
+          sandbox,
+          "printf 'status-helper: target execve failed\\n' >&2; exit 124",
+        ),
+      )
+      assertEquals(result.targetExit, { code: 124 })
+      assertEquals(result.outerExit, { code: 124 })
+      assertEquals(
+        decoder.decode(result.stderr),
+        "status-helper: target execve failed\n",
+      )
+    })
+    const broken = join(lane.dir, "bad-interpreter.sh")
+    await Deno.writeTextFile(broken, "#!/nonexistent/interpreter\n", {
+      mode: 0o755,
+    })
+    await withSandbox(lane, async (sandbox) => {
+      await assertRejects(
+        () =>
+          runConfined(
+            lane.confinement,
+            shell(sandbox, "", { executable: broken, args: [] }),
+          ),
+        TargetStatusError,
+        "status helper exited 124 (target execve failed) after HELLO",
+      )
+    })
+  })
+})
+
+Deno.test("signal dispositions, mask, umask, argv and the fd set through the helper equal a direct bwrap launch of the same target", async () => {
+  await withLane(async (lane) => {
+    await withSandbox(lane, async (sandbox) => {
+      const script =
+        "umask; /bin/cat /proc/self/status | grep -E '^(SigBlk|SigIgn|SigCgt|Umask)'; echo /proc/self/fd/*; printf '%s|' \"$0\" \"$@\"; echo"
+      const invocation = shell(sandbox, script, {
+        args: ["-c", script, "argv0", "a b", ""],
+      })
+      const viaHelper = await runConfined(lane.confinement, invocation)
+      assertEquals(viaHelper.targetExit, { code: 0 })
+      const plan = await planConfinement(lane.confinement, invocation)
+      const args = bwrapArgs(lane.confinement, plan, {
+        helper: lane.helper.path,
+        helperArgs: ["1", "x", "y"],
+      })
+      const separator = args.indexOf("--")
+      const direct = await runIsolated({
+        executable: lane.confinement.bwrap,
+        args: [...args.slice(0, separator + 1), plan.executable, ...plan.args],
+        cwd: plan.cwd,
+        env: plan.env,
+        stdin: new Uint8Array(),
+        timeoutMs: 10_000,
+        outputCapBytes: 1024 * 1024,
+      })
+      assertEquals(direct.exit, { code: 0 })
+      const output = decoder.decode(viaHelper.stdout)
+      assertEquals(output, decoder.decode(direct.stdout))
+      assertEquals(output.split("\n"), [
+        "0022",
+        "Umask:\t0022",
+        "SigBlk:\t0000000000000000",
+        "SigIgn:\t0000000000000000",
+        "SigCgt:\t0000000000000000",
+        EXPECTED_FD_CANARY,
+        "argv0|a b||",
+        "",
+      ])
     })
   })
 })
@@ -540,6 +763,9 @@ Deno.test("deadline kills the sandbox including a setsid-escaped grandchild", as
       )
       assertEquals(result.timedOut, true)
       assertEquals(result.exit, { signal: "SIGKILL" })
+      assertEquals(result.outerExit, { signal: "SIGKILL" })
+      assertEquals(result.targetExit, null, "no status is synthesized")
+      assertEquals(result.targetStatus, null)
       assert(await waitGone(token), "escaped grandchild survived the deadline")
       assert(result.durationMs < 5000)
     })
@@ -564,6 +790,7 @@ Deno.test("output cap kills the sandbox including a setsid-escaped grandchild an
       assertEquals(result.truncated, true)
       assertEquals(result.timedOut, false)
       assertEquals(result.stdout.length, cap)
+      assertEquals(result.targetExit, null, "no status is synthesized")
       assert(
         await waitGone(token),
         "escaped grandchild survived the output cap",
@@ -602,6 +829,7 @@ Deno.test("a normal exit tears down the sandbox: a setsid-escaped grandchild wit
         shell(sandbox, `${escaped(token)} printf done`),
       )
       assertEquals(result.exit, { code: 0 })
+      assertEquals(result.targetExit, { code: 0 })
       assertEquals(decoder.decode(result.stdout), "done")
       assert(await waitGone(token), "escaped grandchild outlived the case")
     })
@@ -618,9 +846,15 @@ Deno.test("killing the runner itself kills the sandbox (die-with-parent through 
       `import { prepareConfinement, runConfined } from ${
         JSON.stringify(join(runnerDir, "bwrap.ts"))
       }
+import { verifyStatusHelper } from ${
+        JSON.stringify(join(runnerDir, "helpers/build-status-helper.ts"))
+      }
 import { createSandbox } from ${JSON.stringify(join(runnerDir, "sandbox.ts"))}
-const [lane, denoDir] = Deno.args
-const confinement = await prepareConfinement({ denoDir })
+const [lane, denoDir, helperPath] = Deno.args
+const confinement = await prepareConfinement({
+  denoDir,
+  statusHelper: await verifyStatusHelper(helperPath),
+})
 const sandbox = await createSandbox(lane, null)
 await runConfined(confinement, {
   executable: "/bin/sh",
@@ -648,6 +882,7 @@ await runConfined(confinement, {
         helper,
         lane.dir,
         lane.denoDir,
+        lane.helper.path,
       ],
       stdin: "null",
       stdout: "null",

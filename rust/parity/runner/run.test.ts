@@ -11,7 +11,7 @@ import type { Program } from "./program.ts"
 import { readManifest } from "../verify.ts"
 import { toReportCase } from "./report.ts"
 import { parseCase } from "./schema.ts"
-import { validCase } from "./test-fixtures.ts"
+import { testStatusHelper, validCase } from "./test-fixtures.ts"
 
 async function withDir<T>(
   fn: (dir: string, ctx: RunContext) => Promise<T>,
@@ -23,7 +23,10 @@ async function withDir<T>(
   const denoDir = join(dir, "deno-dir")
   await Deno.mkdir(denoDir)
   try {
-    const confinement = await prepareConfinement({ denoDir })
+    const confinement = await prepareConfinement({
+      denoDir,
+      statusHelper: await testStatusHelper(dir),
+    })
     return await fn(dir, { denoDir, confinement, sandboxParent: dir })
   } finally {
     await Deno.remove(dir, { recursive: true })
@@ -151,6 +154,66 @@ Deno.test("descriptor decides not-implemented without invoking the candidate; cl
     assertEquals(drift.status, "baseline-drift")
     assertEquals(drift.candidate, null)
     assertEquals(drift.baseline.mismatches.map((m) => m.surface), ["exit"])
+  })
+})
+
+Deno.test("executeCase distinguishes exit 143 from SIGTERM in both directions and reports both exits", async () => {
+  await withDir(async (dir, ctx) => {
+    const exits143 = await script(dir, "exits143", `printf out; exit 143`)
+    const sigterm = await script(dir, "sigterm", `printf out; kill -TERM $$`)
+    const expectCode = loadedCase({
+      id: "code",
+      argv: [],
+      expected: {
+        exit: { code: 143 },
+        stdout: { utf8: "out" },
+        stderr: { utf8: "" },
+        fileEffects: [],
+      },
+    })
+    const expectSignal = loadedCase({
+      id: "signal",
+      argv: [],
+      expected: {
+        exit: { signal: "SIGTERM" },
+        stdout: { utf8: "out" },
+        stderr: { utf8: "" },
+        fileEffects: [],
+      },
+    })
+    const codeRun = await executeCase(expectCode, {
+      kind: "executable",
+      path: exits143,
+    }, ctx)
+    assertEquals(codeRun.mismatches, [])
+    assertEquals(codeRun.observation.targetExit, { code: 143 })
+    assertEquals(codeRun.observation.outerExit, { code: 143 })
+    const signalRun = await executeCase(expectSignal, {
+      kind: "executable",
+      path: sigterm,
+    }, ctx)
+    assertEquals(signalRun.mismatches, [])
+    assertEquals(signalRun.observation.targetExit, {
+      signal: "SIGTERM",
+      number: 15,
+    })
+    assertEquals(signalRun.observation.outerExit, { code: 143 })
+    assertEquals(signalRun.observation.targetStatus, {
+      helperPid: 2,
+      targetPid: 3,
+    })
+    const crossed = await executeCase(expectCode, {
+      kind: "executable",
+      path: sigterm,
+    }, ctx)
+    assertEquals(crossed.mismatches.map((m) => m.surface), ["exit"])
+    assert(crossed.mismatches[0].detail.includes("got signal SIGTERM"))
+    const crossedBack = await executeCase(expectSignal, {
+      kind: "executable",
+      path: exits143,
+    }, ctx)
+    assertEquals(crossedBack.mismatches.map((m) => m.surface), ["exit"])
+    assert(crossedBack.mismatches[0].detail.includes("got code 143"))
   })
 })
 

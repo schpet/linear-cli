@@ -1,6 +1,6 @@
 // Exact comparison of an observation against a resolved case expectation.
+import type { ConfinedObservation } from "./bwrap.ts"
 import { bytesEqual, excerpt, firstDifference } from "./bytes.ts"
-import type { ExitStatus, Observation } from "./engine.ts"
 import type { FixtureServer } from "./fixture-server.ts"
 import type { GraphQLServer } from "./graphql-server.ts"
 import type {
@@ -9,6 +9,7 @@ import type {
   FixtureServerSpec,
   GraphQLFixtureSpec,
 } from "./schema.ts"
+import { describeTargetExit, type TargetExit } from "./target-status.ts"
 
 export type Surface =
   | "timeout"
@@ -31,12 +32,24 @@ export interface ResolvedExpectation {
   fileEffects: FileEffect[]
 }
 
-function describeExit(exit: ExitStatus | ExitExpectation): string {
+function describeExpectedExit(exit: ExitExpectation): string {
   return "code" in exit ? `code ${exit.code}` : `signal ${exit.signal}`
 }
 
-function sameExit(expected: ExitExpectation, actual: ExitStatus): boolean {
-  return "code" in actual && actual.code === expected.code
+/**
+ * Exit equality reads only the authenticated target status. A code never
+ * equals a signal in either direction, and a missing status (the runner's own
+ * timeout or output-cap kill) never satisfies any expectation.
+ */
+function sameExit(
+  expected: ExitExpectation,
+  actual: TargetExit | null,
+): boolean {
+  if (actual == null) return false
+  if ("code" in expected) {
+    return "code" in actual && actual.code === expected.code
+  }
+  return "signal" in actual && actual.signal === expected.signal
 }
 
 function compareBytes(
@@ -67,7 +80,7 @@ function effectKey(effect: FileEffect): string {
 
 export function compareObservation(
   expected: ResolvedExpectation,
-  observation: Observation,
+  observation: ConfinedObservation,
   fileEffects: FileEffect[],
 ): Mismatch[] {
   const mismatches: Mismatch[] = []
@@ -85,12 +98,12 @@ export function compareObservation(
         "child exceeded outputCapBytes; output truncated and group killed (truncated: true)",
     })
   }
-  if (!sameExit(expected.exit, observation.exit)) {
+  if (!sameExit(expected.exit, observation.targetExit)) {
     mismatches.push({
       surface: "exit",
-      detail: `expected ${describeExit(expected.exit)}, got ${
-        describeExit(observation.exit)
-      }`,
+      detail: `expected ${describeExpectedExit(expected.exit)}, got ${
+        describeTargetExit(observation.targetExit)
+      } (outer bwrap exit ${JSON.stringify(observation.outerExit)})`,
     })
   }
   const stdout = compareBytes("stdout", expected.stdout, observation.stdout)

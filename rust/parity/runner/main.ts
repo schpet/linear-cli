@@ -14,7 +14,12 @@ import {
   INNER_FLAG,
   prepareNamespace,
 } from "./lane.ts"
+import {
+  buildStatusHelper,
+  verifyStatusHelper,
+} from "./helpers/build-status-helper.ts"
 import { runPreflight } from "./preflight.ts"
+import { proposalExit } from "./proposal.ts"
 import type { Program } from "./program.ts"
 import {
   countStatuses,
@@ -46,6 +51,8 @@ interface Options {
   inside: boolean
   denoDir?: string
   stagedReused: boolean
+  /** Internal: built status helper path, verified again inside the lane. */
+  statusHelper?: string
 }
 
 const USAGE =
@@ -58,7 +65,7 @@ const USAGE =
   --self-check                   run identical-executable sanity and broken-candidate controls
   --require-complete             treat not-implemented as failure
   --stage-dir <dir>              staged reference module cache root (default: <cache home>/linear-parity/stage)
-  --restage                      rebuild the staged module cache`
+  --restage                      rebuild the staged module cache and the status helper`
 
 export function parseOptions(args: string[]): Options {
   const options: Options = {
@@ -115,6 +122,10 @@ export function parseOptions(args: string[]): Options {
       case "--deno-dir":
         internalFlagSeen = true
         options.denoDir = takeValue(i++, arg)
+        break
+      case "--status-helper":
+        internalFlagSeen = true
+        options.statusHelper = takeValue(i++, arg)
         break
       case "--staged-reused":
         {
@@ -270,10 +281,12 @@ async function outer(options: Options, rawArgs: string[]): Promise<number> {
   const cases = await loadCases(options.cases, pinned.routes, options.filter)
   if (cases.length === 0) throw new Error("no cases selected")
   await loadCandidate(options, pinned.routes)
+  const stageRoot = options.stageDir ??
+    join(cacheHome(), "linear-parity", "stage")
   const staged = await stageReference({
     workspace: options.reference,
     denoPath: Deno.execPath(),
-    stageRoot: options.stageDir ?? join(cacheHome(), "linear-parity", "stage"),
+    stageRoot,
     lockSha256: pinned.baseline.lockSha256,
     denoVersion: pinned.baseline.denoVersion,
     restage: options.restage,
@@ -282,6 +295,17 @@ async function outer(options: Options, rawArgs: string[]): Promise<number> {
     `staged reference module cache ${
       staged.reused ? "reused" : "built"
     } at ${staged.denoDir}`,
+  )
+  // Built or re-qualified on every run, independently of the module cache's
+  // early return above; --restage forces a rebuild of both.
+  const helper = await buildStatusHelper({
+    stageDir: join(stageRoot, "status-helper"),
+    rebuild: options.restage,
+  })
+  console.log(
+    `status helper ${helper.path} sha256 ${helper.binarySha256} (source ${
+      helper.sourceSha256.slice(0, 16)
+    }, ${helper.compiler.version})`,
   )
   return await enterNamespace({
     denoPath: Deno.execPath(),
@@ -294,6 +318,8 @@ async function outer(options: Options, rawArgs: string[]): Promise<number> {
       staged.denoDir,
       "--staged-reused",
       String(staged.reused),
+      "--status-helper",
+      helper.path,
     ],
   })
 }
@@ -309,7 +335,8 @@ async function writeProposals(
       join(dir, `${result.id}.json`),
       JSON.stringify(
         {
-          exit: run.observation.exit,
+          exit: proposalExit(run.observation.targetExit),
+          outerExit: run.observation.outerExit,
           stdout: encodeByteValue(run.raw.stdout),
           stderr: encodeByteValue(run.raw.stderr),
           fileEffects: run.fileEffects,
@@ -344,9 +371,15 @@ async function innerInLane(
   sandboxParent: string,
 ): Promise<number> {
   if (options.denoDir == null) throw new Error("inner runner needs --deno-dir")
+  if (options.statusHelper == null) {
+    throw new Error("inner runner needs --status-helper")
+  }
+  // Re-hash the source pin, the compiler and the binary inside the lane.
+  const statusHelper = await verifyStatusHelper(options.statusHelper)
   const confinement = await prepareConfinement({
     denoDir: options.denoDir,
     referenceBinary: options.referenceBinary,
+    statusHelper,
   })
   const stageBefore = await treeDigest(options.denoDir)
   const lane = await runPreflight({
@@ -362,7 +395,7 @@ async function innerInLane(
       lane.runnerInterfaces.join(", ")
     }], outbound ${lane.canary.outbound}, dns ${lane.canary.dns}; bwrap ${lane.bwrap.version} uid ${lane.bwrap.uid} caps ${
       String(lane.confinement.status)
-    }, marker read ${lane.confinement.markerRead}, socket ${lane.confinement.socket}`,
+    }, marker read ${lane.confinement.markerRead}, socket ${lane.confinement.socket}; status helper sha256 ${lane.statusHelper.binarySha256} pids ${lane.confinement.procPids}`,
   )
   const pinned = await loadPinned()
   const cases = await loadCases(options.cases, pinned.routes, options.filter)

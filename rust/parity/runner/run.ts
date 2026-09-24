@@ -12,7 +12,7 @@ import {
   compareObservation,
   type Mismatch,
 } from "./compare.ts"
-import type { Observation } from "./engine.ts"
+import type { ExitStatus } from "./engine.ts"
 import { type FixtureServer, startFixtureServer } from "./fixture-server.ts"
 import {
   type FixedHost,
@@ -32,6 +32,7 @@ import {
   UnsupportedSandboxEntryError,
 } from "./sandbox.ts"
 import type { FileEffect, GraphQLFixtureSpec } from "./schema.ts"
+import type { TargetExit } from "./target-status.ts"
 
 function fixedHosts(
   spec: GraphQLFixtureSpec | null | undefined,
@@ -63,7 +64,12 @@ export interface RunContext {
 }
 
 export interface ObservationSummary {
-  exit: Observation["exit"]
+  /** Authenticated exact target exit; null only after the runner's own kill. */
+  targetExit: TargetExit | null
+  /** bwrap's outer exit as the engine saw it; signals fold to 128+n here. */
+  outerExit: ExitStatus
+  /** Sandbox-namespace PIDs of the helper and the target from the RESULT. */
+  targetStatus: { helperPid: number; targetPid: number } | null
   stdoutBytes: number
   stdoutSha256: string
   stderrBytes: number
@@ -223,7 +229,9 @@ export async function executeCase(
         detail: sanitize(mismatch.detail, sandbox.root, ctx.denoDir),
       })),
       observation: {
-        exit: observation.exit,
+        targetExit: observation.targetExit,
+        outerExit: observation.outerExit,
+        targetStatus: observation.targetStatus,
         stdoutBytes: observation.stdout.length,
         stdoutSha256: await sha256Hex(observation.stdout),
         stderrBytes: observation.stderr.length,

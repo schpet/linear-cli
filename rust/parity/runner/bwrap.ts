@@ -6,8 +6,19 @@
 // a validated program invocation plus one case sandbox to a bwrap argv and
 // classifies bwrap's own diagnostics as harness errors, never as case output.
 import { join } from "@std/path"
-import { type Observation, runIsolated } from "./engine.ts"
+import { sha256Hex } from "./bytes.ts"
+import { type ExitStatus, type Observation, runIsolated } from "./engine.ts"
+import type { StatusHelperArtifact } from "./helpers/build-status-helper.ts"
 import { invocationFor, type Program } from "./program.ts"
+import {
+  HELPER_EXIT_CODES,
+  openTargetStatusChannel,
+  outerAgrees,
+  type TargetExit,
+  type TargetStatusChannel,
+  TargetStatusError,
+  type TargetStatusRecord,
+} from "./target-status.ts"
 
 // Resolved absolutely: the child's PATH is the case's explicit PATH, which is
 // an empty sandbox bin directory, and Rust's spawn resolves programs against it.
@@ -77,6 +88,25 @@ export interface Confinement {
   systemBinds: string[]
   /** Read-only binds every child receives: staged DENO_DIR and the pinned compiled reference. */
   sharedReadOnly: Bind[]
+  /**
+   * Built and verified native status helper (helpers/status-helper.c). It is
+   * the bwrap command for every invocation and reports the target's exact
+   * exit over a per-run loopback channel; there is no direct-launch fallback.
+   */
+  statusHelper: StatusHelperArtifact
+}
+
+/** Confined observation: the engine's outer view plus the authenticated target status. */
+export interface ConfinedObservation extends Observation {
+  /** bwrap's own exit as the engine saw it (signals fold to 128+n). */
+  outerExit: ExitStatus
+  /**
+   * Exact target exit authenticated by the helper, or null only when the
+   * runner itself killed the group (timeout or output cap) before a RESULT.
+   */
+  targetExit: TargetExit | null
+  /** Sandbox-namespace PIDs from the RESULT; null together with targetExit. */
+  targetStatus: { helperPid: number; targetPid: number } | null
 }
 
 export interface ConfinedInvocation {
@@ -214,13 +244,32 @@ export async function validateBindSource(
   return { source, dest: path, kind }
 }
 
-/** Inspect the host once: bwrap, merged-usr layout, and shared read-only binds. */
+/** Inspect the host once: bwrap, merged-usr layout, shared read-only binds and the status helper. */
 export async function prepareConfinement(options: {
   denoDir: string
   /** Pinned compiled reference; bound read-only for every child, including self-check wrappers. */
   referenceBinary?: string
+  /** Built helper; its binary digest is re-checked here and bound read-only per invocation. */
+  statusHelper: StatusHelperArtifact
 }): Promise<Confinement> {
   const { path, version } = await resolveBwrap()
+  const helperBind = await validateBindSource(
+    options.statusHelper.path,
+    "executable",
+  )
+  if (helperBind.source !== options.statusHelper.path) {
+    throw new ConfinementError(
+      `status helper must be a realpath: ${options.statusHelper.path} resolves to ${helperBind.source}`,
+    )
+  }
+  const helperDigest = await sha256Hex(
+    await Deno.readFile(options.statusHelper.path),
+  )
+  if (helperDigest !== options.statusHelper.binarySha256) {
+    throw new ConfinementError(
+      `status helper digest ${helperDigest} does not match its manifest ${options.statusHelper.binarySha256}`,
+    )
+  }
   const systemLinks: Confinement["systemLinks"] = []
   const systemBinds: string[] = []
   for (const dir of SYSTEM_DIRS) {
@@ -240,7 +289,14 @@ export async function prepareConfinement(options: {
       await validateBindSource(options.referenceBinary, "executable"),
     )
   }
-  return { bwrap: path, version, systemLinks, systemBinds, sharedReadOnly }
+  return {
+    bwrap: path,
+    version,
+    systemLinks,
+    systemBinds,
+    sharedReadOnly,
+    statusHelper: options.statusHelper,
+  }
 }
 
 /** The executable, argv and program-owned read-only paths for a program under test. */
@@ -261,14 +317,32 @@ export interface BwrapPlan {
   caseRoot: string
   cwd: string
   tmp: string
+  /** Includes the status helper's own read-only executable bind. */
   readOnly: Bind[]
   env: Record<string, string>
   executable: string
   args: string[]
 }
 
-/** Pure argv construction; mount order matters and `--remount-ro /` is the last mount. */
-export function bwrapArgs(confinement: Confinement, plan: BwrapPlan): string[] {
+/** Per-run status observer parameters handed to the helper in its argv only. */
+export interface StatusObserver {
+  /** Absolute helper path as the sandbox sees it. */
+  helper: string
+  /** `[port, nonce, identity]` from the run's channel. */
+  helperArgs: string[]
+}
+
+/**
+ * Pure argv construction; mount order matters and `--remount-ro /` is the
+ * last mount. The command after `--` is the status helper followed by the
+ * observer parameters, then the original absolute target and its argv; the
+ * helper drops its own prefix at exec so the target sees exactly plan.args.
+ */
+export function bwrapArgs(
+  confinement: Confinement,
+  plan: BwrapPlan,
+  observer: StatusObserver,
+): string[] {
   const args = [
     "--unshare-user",
     "--unshare-pid",
@@ -305,7 +379,13 @@ export function bwrapArgs(confinement: Confinement, plan: BwrapPlan): string[] {
   }
   args.push("--remount-ro", "/")
   args.push("--chdir", plan.cwd)
-  args.push("--", plan.executable, ...plan.args)
+  args.push(
+    "--",
+    observer.helper,
+    ...observer.helperArgs,
+    plan.executable,
+    ...plan.args,
+  )
   return args
 }
 
@@ -399,6 +479,7 @@ export async function planConfinement(
     // Re-validated per invocation so a vanished stage or binary fails closed here.
     add(await validateBindSource(bind.dest, bind.kind))
   }
+  add(await validateBindSource(confinement.statusHelper.path, "executable"))
   return {
     caseRoot,
     cwd: invocation.cwd,
@@ -432,27 +513,131 @@ export function bwrapDiagnostic(observation: Observation): string | null {
   return decoder.decode(observation.stderr).trim()
 }
 
-/** Run one confined invocation through the generic engine. */
+/** Bounded wait for the helper's RESULT once bwrap itself has exited. */
+const RESULT_GRACE_MS = 2000
+/** Channel deadline slack beyond the case deadline and the engine's drain grace. */
+const CHANNEL_SLACK_MS = 5000
+
+function helperFailure(
+  observation: Observation,
+  hadHello: boolean,
+): string | null {
+  if (!("code" in observation.exit)) return null
+  const meaning = HELPER_EXIT_CODES.get(observation.exit.code)
+  if (meaning == null) return null
+  const stderr = decoder.decode(observation.stderr)
+  const line = stderr.split("\n").find((entry) =>
+    entry.startsWith("status-helper: ")
+  )
+  if (line == null) return null
+  return `status helper exited ${observation.exit.code} (${meaning}) ${
+    hadHello ? "after" : "before"
+  } HELLO: ${line}`
+}
+
+/**
+ * Run one confined invocation through the generic engine with the status
+ * helper as the bwrap command. A `bwrap:` diagnostic, a helper setup exit, a
+ * missing or inconsistent RESULT are harness errors; only the runner's own
+ * timeout/output-cap kill may leave targetExit null.
+ */
 export async function runConfined(
   confinement: Confinement,
   invocation: ConfinedInvocation,
-): Promise<Observation> {
+): Promise<ConfinedObservation> {
   const plan = await planConfinement(confinement, invocation)
-  const observation = await runIsolated({
-    executable: confinement.bwrap,
-    args: bwrapArgs(confinement, plan),
-    cwd: plan.cwd,
-    env: plan.env,
-    stdin: invocation.stdin,
-    timeoutMs: invocation.timeoutMs,
-    outputCapBytes: invocation.outputCapBytes,
-    signal: invocation.signal,
+  const channel: TargetStatusChannel = openTargetStatusChannel({
+    deadlineMs: invocation.timeoutMs + CHANNEL_SLACK_MS,
   })
+  let observation: Observation
+  let hadHello = false
+  try {
+    const running = runIsolated({
+      executable: confinement.bwrap,
+      args: bwrapArgs(confinement, plan, {
+        helper: confinement.statusHelper.path,
+        helperArgs: channel.helperArgs,
+      }),
+      cwd: plan.cwd,
+      env: plan.env,
+      stdin: invocation.stdin,
+      timeoutMs: invocation.timeoutMs,
+      outputCapBytes: invocation.outputCapBytes,
+      signal: invocation.signal,
+    })
+    // Race HELLO against the outer exit: a bwrap setup failure or a helper
+    // setup exit is classified as soon as bwrap returns, not at the deadline.
+    const first = await Promise.race([
+      channel.hello.then(() => "hello" as const, () => "hello-failed" as const),
+      running.then(() => "exited" as const, () => "exited" as const),
+    ])
+    hadHello = first === "hello"
+    observation = await running
+  } catch (error) {
+    channel.close()
+    throw error
+  }
   const diagnostic = bwrapDiagnostic(observation)
   if (diagnostic != null) {
+    channel.close()
     throw new ConfinementError(
       `bwrap could not run ${invocation.executable}: ${diagnostic}`,
     )
   }
-  return observation
+  const setupFailure = helperFailure(observation, hadHello)
+  let record: TargetStatusRecord | null = null
+  let channelError: TargetStatusError | null = null
+  try {
+    record = await channel.finish(RESULT_GRACE_MS)
+  } catch (error) {
+    if (!(error instanceof TargetStatusError)) throw error
+    channelError = error
+  } finally {
+    channel.close()
+  }
+  if (record == null) {
+    if (setupFailure != null) {
+      throw new TargetStatusError(
+        `${setupFailure}${
+          channelError == null ? "" : `; ${channelError.message}`
+        }`,
+      )
+    }
+    // The runner's own group kill legitimately pre-empts the RESULT.
+    if (observation.timedOut || observation.truncated) {
+      return {
+        ...observation,
+        outerExit: observation.exit,
+        targetExit: null,
+        targetStatus: null,
+      }
+    }
+    throw new TargetStatusError(
+      `${
+        channelError?.message ?? "target status channel: no result"
+      }; outer exit ${JSON.stringify(observation.exit)}, stderr ${
+        JSON.stringify(decoder.decode(observation.stderr).slice(0, 200))
+      }`,
+    )
+  }
+  // An authenticated RESULT is authoritative: a target that happens to print
+  // a "status-helper: " line and exit 120..125 is still an ordinary result.
+  if (
+    !observation.timedOut && !observation.truncated &&
+    !outerAgrees(observation.exit, record.exit)
+  ) {
+    throw new TargetStatusError(
+      `outer bwrap exit ${
+        JSON.stringify(observation.exit)
+      } disagrees with the authenticated target exit ${
+        JSON.stringify(record.exit)
+      }`,
+    )
+  }
+  return {
+    ...observation,
+    outerExit: observation.exit,
+    targetExit: record.exit,
+    targetStatus: { helperPid: record.helperPid, targetPid: record.targetPid },
+  }
 }

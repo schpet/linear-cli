@@ -1,13 +1,18 @@
 import { assertEquals } from "@std/assert"
+import type { ConfinedObservation } from "./bwrap.ts"
 import { compareObservation, type ResolvedExpectation } from "./compare.ts"
-import type { Observation } from "./engine.ts"
 
 const text = (value: string) => new TextEncoder().encode(value)
 
-function observation(overrides: Partial<Observation> = {}): Observation {
+function observation(
+  overrides: Partial<ConfinedObservation> = {},
+): ConfinedObservation {
   return {
     pid: 1,
     exit: { code: 0 },
+    outerExit: { code: 0 },
+    targetExit: { code: 0 },
+    targetStatus: { helperPid: 2, targetPid: 3 },
     stdout: text("out"),
     stderr: text(""),
     truncated: false,
@@ -24,21 +29,99 @@ const expected: ResolvedExpectation = {
   fileEffects: [],
 }
 
+Deno.test("exit equality reads only the authenticated target status: code 143 and SIGTERM differ in both directions and a missing status never matches", () => {
+  const sigterm = { signal: "SIGTERM", number: 15 }
+  const code143 = { code: 143 }
+  const expectCode: ResolvedExpectation = { ...expected, exit: { code: 143 } }
+  const expectSignal: ResolvedExpectation = {
+    ...expected,
+    exit: { signal: "SIGTERM" },
+  }
+  const folded = { outerExit: { code: 143 } }
+  assertEquals(
+    compareObservation(
+      expectCode,
+      observation({ ...folded, targetExit: code143 }),
+      [],
+    ),
+    [],
+  )
+  assertEquals(
+    compareObservation(
+      expectSignal,
+      observation({ ...folded, targetExit: sigterm }),
+      [],
+    ),
+    [],
+  )
+  const codeVsSignal = compareObservation(
+    expectCode,
+    observation({ ...folded, targetExit: sigterm }),
+    [],
+  )
+  assertEquals(codeVsSignal.map((m) => m.surface), ["exit"])
+  assertEquals(
+    codeVsSignal[0].detail,
+    'expected code 143, got signal SIGTERM (outer bwrap exit {"code":143})',
+  )
+  const signalVsCode = compareObservation(
+    expectSignal,
+    observation({ ...folded, targetExit: code143 }),
+    [],
+  )
+  assertEquals(signalVsCode.map((m) => m.surface), ["exit"])
+  assertEquals(
+    signalVsCode[0].detail,
+    'expected signal SIGTERM, got code 143 (outer bwrap exit {"code":143})',
+  )
+  assertEquals(
+    compareObservation(
+      expectSignal,
+      observation({ ...folded, targetExit: { signal: "SIGPIPE", number: 13 } }),
+      [],
+    ).map((m) => m.surface),
+    ["exit"],
+  )
+  // The outer exit alone never satisfies an expectation.
+  const missing = compareObservation(
+    expectSignal,
+    observation({
+      outerExit: { code: 143 },
+      targetExit: null,
+      targetStatus: null,
+      timedOut: true,
+    }),
+    [],
+  )
+  assertEquals(missing.map((m) => m.surface), ["timeout", "exit"])
+  assertEquals(
+    missing[1].detail,
+    'expected signal SIGTERM, got no authenticated target status (outer bwrap exit {"code":143})',
+  )
+})
+
 Deno.test("every mismatch surface is reported distinctly", () => {
   assertEquals(compareObservation(expected, observation(), []), [])
   assertEquals(
-    compareObservation(expected, observation({ exit: { code: 3 } }), []).map((
-      m,
-    ) => m.surface),
+    compareObservation(
+      expected,
+      observation({ targetExit: { code: 3 }, outerExit: { code: 3 } }),
+      [],
+    ).map((m) => m.surface),
     ["exit"],
   )
   assertEquals(
     compareObservation(
       expected,
-      observation({ exit: { signal: "SIGKILL" } }),
+      observation({
+        targetExit: null,
+        targetStatus: null,
+        outerExit: { signal: "SIGKILL" },
+        timedOut: true,
+      }),
       [],
     ).map((m) => m.surface),
-    ["exit"],
+    ["timeout", "exit"],
   )
   assertEquals(
     compareObservation(
@@ -61,15 +144,12 @@ Deno.test("every mismatch surface is reported distinctly", () => {
   assertEquals(
     compareObservation(
       expected,
-      observation({ timedOut: true, exit: { signal: "SIGKILL" } }),
-      [],
-    ).map((m) => m.surface),
-    ["timeout", "exit"],
-  )
-  assertEquals(
-    compareObservation(
-      expected,
-      observation({ truncated: true, exit: { signal: "SIGKILL" } }),
+      observation({
+        truncated: true,
+        targetExit: null,
+        targetStatus: null,
+        outerExit: { signal: "SIGKILL" },
+      }),
       [],
     ).map((m) => m.surface),
     ["truncated", "exit"],
