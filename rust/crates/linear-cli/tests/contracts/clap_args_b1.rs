@@ -129,6 +129,10 @@ fn positionals_switches_and_workspace_are_covered_by_manifest_metadata() {
         }
         let actual_ids = node
             .get_arguments()
+            .filter(|arg| {
+                !arg.get_id().as_str().starts_with("opt:")
+                    || matches!(arg.get_action(), ArgAction::SetTrue)
+            })
             .map(|arg| arg.get_id().as_str().to_owned())
             .collect::<BTreeSet<_>>();
         assert_eq!(actual_ids, expected_ids, "{} arguments", route.path);

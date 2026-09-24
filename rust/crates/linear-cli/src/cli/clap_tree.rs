@@ -1,8 +1,8 @@
 //! Shadow clap command tree. The live parser remains in `parser` until R01C.
 
-use clap::{Arg, ArgAction, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command, builder::PossibleValuesParser};
 
-use super::{ArgumentMeta, OptionMeta, ROUTES, Route, RouteMeta};
+use super::{ArgumentMeta, OptionMeta, ROUTES, Route, RouteMeta, TypeHandler};
 use crate::error::{AppError, AppErrorKind};
 
 fn invariant(message: impl Into<String>) -> AppError {
@@ -36,6 +36,7 @@ fn workspace_arg(option: &'static OptionMeta) -> Result<Arg, AppError> {
     Ok(Arg::new("global:workspace")
         .long("workspace")
         .value_name(value_name)
+        .value_parser(parse_nonempty_string)
         .action(ArgAction::Set))
 }
 
@@ -153,6 +154,162 @@ fn label_workspace_filter_arg(option: &'static OptionMeta) -> Result<Arg, AppErr
         .action(ArgAction::SetTrue))
 }
 
+fn parse_finite_number(value: &str) -> Result<String, String> {
+    match value.parse::<f64>() {
+        Ok(number) if number.is_finite() => Ok(value.to_owned()),
+        Ok(_) | Err(_) => Err(format!("expected a finite number, got {value:?}")),
+    }
+}
+
+fn parse_nonempty_string(value: &str) -> Result<String, String> {
+    if value.is_empty() {
+        Err("expected a nonempty value".to_owned())
+    } else {
+        Ok(value.to_owned())
+    }
+}
+
+fn free_text_value(route: &str, name: &str) -> bool {
+    matches!(
+        (route, name),
+        ("linear issue query", "search")
+            | ("linear issue pull-request", "title")
+            | ("linear issue create", "description" | "title")
+            | ("linear issue update", "description" | "title")
+            | ("linear issue comment add", "body")
+            | ("linear issue comment update", "body")
+            | ("linear issue attach", "title" | "comment")
+            | ("linear issue link", "title")
+            | ("linear team create", "name" | "description")
+            | ("linear project create", "name" | "description" | "content")
+            | ("linear project update", "name" | "description" | "content")
+            | ("linear project comment add", "body")
+            | ("linear project-update create", "body")
+            | ("linear milestone create", "name" | "description")
+            | ("linear milestone update", "name" | "description")
+            | ("linear initiative create", "name" | "description")
+            | ("linear initiative update", "name" | "description")
+            | ("linear initiative comment add", "body")
+            | ("linear initiative-update create", "body")
+            | ("linear label create", "name" | "description")
+            | ("linear document create", "title" | "content")
+            | ("linear document update", "title" | "content")
+            | ("linear document comment add", "body")
+    )
+}
+
+fn valued_option_arg(
+    route: &'static RouteMeta,
+    option: &'static OptionMeta,
+) -> Result<Arg, AppError> {
+    let argument = match option.args {
+        [argument] if !argument.optional && !argument.variadic && !argument.list => argument,
+        _ => {
+            return Err(invariant(format!(
+                "ordinary option has unsupported value shape: {} {}",
+                route.path, option.name
+            )));
+        }
+    };
+    let mut arg = Arg::new(format!("opt:{}", option.name))
+        .value_name(argument.name)
+        .action(ArgAction::Set)
+        .hide(option.hidden)
+        .required(option.required);
+    let mut primary_long = false;
+    let mut primary_short = false;
+    for flag in option.flags {
+        if let Some(long) = flag.strip_prefix("--") {
+            if long.is_empty() {
+                return Err(invariant(format!(
+                    "empty long valued option on {}",
+                    route.path
+                )));
+            }
+            arg = if primary_long {
+                arg.alias(long)
+            } else {
+                primary_long = true;
+                arg.long(long)
+            };
+        } else if let Some(short) = flag.strip_prefix('-') {
+            let mut chars = short.chars();
+            let letter = match (chars.next(), chars.next()) {
+                (Some(letter), None) => letter,
+                _ => {
+                    return Err(invariant(format!(
+                        "invalid short valued option on {}",
+                        route.path
+                    )));
+                }
+            };
+            arg = if primary_short {
+                arg.short_alias(letter)
+            } else {
+                primary_short = true;
+                arg.short(letter)
+            };
+        } else {
+            return Err(invariant(format!(
+                "invalid valued option flag on {}",
+                route.path
+            )));
+        }
+    }
+    if !primary_long && !primary_short {
+        return Err(invariant(format!(
+            "valued option has no flag on {}",
+            route.path
+        )));
+    }
+    match argument.type_name {
+        "string" => {
+            arg = arg.value_parser(parse_nonempty_string);
+            if free_text_value(route.path, option.name) {
+                arg = arg.allow_hyphen_values(true);
+            }
+        }
+        "number" => {
+            arg = arg
+                .allow_hyphen_values(true)
+                .value_parser(parse_finite_number);
+        }
+        "integer" => {
+            return Err(invariant(format!(
+                "integer valued option is not in the reviewed inventory: {} {}",
+                route.path, option.name
+            )));
+        }
+        type_name => {
+            let mut definitions = route
+                .local_types
+                .iter()
+                .filter(|definition| definition.name == type_name);
+            let definition = match (definitions.next(), definitions.next()) {
+                (Some(definition), None) => definition,
+                _ => {
+                    return Err(invariant(format!(
+                        "missing or duplicate value type {type_name} on {}",
+                        route.path
+                    )));
+                }
+            };
+            match definition.handler {
+                TypeHandler::Enum(values) => {
+                    arg = arg.value_parser(PossibleValuesParser::new(values.iter().copied()));
+                }
+                TypeHandler::Variable => {
+                    return Err(invariant(format!(
+                        "variable value type unexpectedly ordinary on {}",
+                        route.path
+                    )));
+                }
+            }
+        }
+    }
+    Ok(arg)
+}
+
 fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
     let mut command = Command::new(route.name)
         .about(route.description)
@@ -172,17 +329,33 @@ fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
     for (offset, argument) in route.arguments.iter().enumerate() {
         command = command.arg(positional_arg(argument, offset + 1));
     }
-    for option in route
-        .local_options
-        .iter()
-        .filter(|option| option.args.is_empty())
-    {
-        let arg = if route.path == "linear label list" && option.name == "workspace" {
-            label_workspace_filter_arg(option)?
+    for option in route.local_options {
+        if option.args.is_empty() {
+            let arg = if route.path == "linear label list" && option.name == "workspace" {
+                label_workspace_filter_arg(option)?
+            } else {
+                switch_arg(route, option)?
+            };
+            command = command.arg(arg);
+        } else if route.path == "linear" && option.name == "workspace" {
+            // The root credential option was registered above for every route.
+        } else if option.name == "bulk" {
+            match option.args {
+                [argument] if argument.variadic && !argument.optional && !argument.list => {
+                    // R01B3 owns the five variadic bulk values.
+                }
+                _ => {
+                    return Err(invariant(format!(
+                        "bulk option has an unexpected value shape on {}",
+                        route.path
+                    )));
+                }
+            }
+        } else if option.collect {
+            // R01B3 owns collected values.
         } else {
-            switch_arg(route, option)?
-        };
-        command = command.arg(arg);
+            command = command.arg(valued_option_arg(route, option)?);
+        }
     }
     for alias in route.aliases {
         command = command.alias(alias);
@@ -196,7 +369,7 @@ fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
 }
 
 /// Build the shadow clap tree from the frozen generated inventory.
-/// Valued local options remain for R01B2/B3; production still uses `parser`.
+/// Collected and bulk local options remain for R01B3; production still uses `parser`.
 pub fn build() -> Result<Command, AppError> {
     let root = unique_route("linear")?;
     Ok(build_route(root)?.disable_help_subcommand(true))

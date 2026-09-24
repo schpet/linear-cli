@@ -12,6 +12,10 @@ fn select(args: &[&str], route: &RouteMeta) -> Route {
             .filter(|argument| !argument.optional)
             .map(|_| "sample"),
     );
+    for option in route.local_options.iter().filter(|option| option.required) {
+        argv.push(option.flags.first().expect("required option has a flag"));
+        argv.push("sample");
+    }
     let matches = clap_tree::build()
         .expect("valid generated inventory")
         .try_get_matches_from(argv)
