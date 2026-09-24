@@ -93,8 +93,42 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
     routes.add(parseCase(value).route)
   }
   const loaded = await loadCases(caseDir, routes)
-  assertEquals(loaded.filter((item) => item.spec.graphql == null).length, 13)
-  assertEquals(loaded.filter((item) => item.spec.graphql != null).length, 5)
+  const originalCaseIds = [
+    "api-loopback-port-echo-200",
+    "api-loopback-unauthorized-401",
+    "api-loopback-viewer-200",
+    "api-no-key",
+    "api-no-query",
+    "help-api",
+    "help-issue-mine",
+    "help-root",
+    "parser-invalid-variable",
+    "parser-unknown-command",
+    "parser-unknown-option",
+    "version-no-color",
+    "version",
+  ]
+  const graphqlCaseIds = [
+    "api-graphql-paginate",
+    "api-graphql-validation-error",
+    "api-graphql-variable",
+    "api-graphql-viewer",
+    "schema-graphql-introspection",
+  ]
+  for (const id of originalCaseIds) {
+    assertEquals(
+      loaded.some((item) => item.spec.id === id && item.spec.graphql == null),
+      true,
+      `${id} should remain a non-GraphQL case`,
+    )
+  }
+  for (const id of graphqlCaseIds) {
+    assertEquals(
+      loaded.some((item) => item.spec.id === id && item.spec.graphql != null),
+      true,
+      `${id} should remain a GraphQL case`,
+    )
+  }
 })
 
 Deno.test("strict GraphQL shape rejects unknown fields, count drift, and fixture mixing", () => {
