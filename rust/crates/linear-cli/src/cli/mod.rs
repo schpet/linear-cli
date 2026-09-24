@@ -1,7 +1,10 @@
+pub mod clap_input;
 pub mod clap_tree;
 mod generated;
 pub mod parser;
 pub mod render;
+pub mod spelling;
+mod suggest;
 
 pub use generated::{ROUTES, Route};
 

@@ -1,0 +1,50 @@
+{
+  "id": "r01c1-duplicate-title",
+  "route": "linear issue create",
+  "reason": "Frozen duplicate ordinary value precedence.",
+  "argv": [
+    "issue",
+    "create",
+    "--title",
+    "x",
+    "--title",
+    "y"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear issue create\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m2.6.0\u001b[39m              \n\n\u001b[1mDescription:\u001b[22m\n\n  Create a linear issue                                                           \n                                                                                  \n  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  \n  and `[Name](url)` do not. Get a person's URL from the `url` field of            \n  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\n  Run `linear markdown` for collapsible sections and the full reference.          \n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m                                \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                                                               \n  \u001b[94m--workspace\u001b[39m                \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)                                           \n  \u001b[94m--start\u001b[39m                                   \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Start the issue after creation                                                \n  \u001b[94m-a\u001b[39m, \u001b[94m--assignee\u001b[39m             \u001b[33m<\u001b[39m\u001b[95massignee\u001b[39m\u001b[33m>\u001b[39m     \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Assign the issue to 'self' or someone (by username or name)                   \n  \u001b[94m--due-date\u001b[39m                 \u001b[33m<\u001b[39m\u001b[95mdueDate\u001b[39m\u001b[33m>\u001b[39m      \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Due date of the issue                                                         \n  \u001b[94m--parent\u001b[39m                   \u001b[33m<\u001b[39m\u001b[95mparent\u001b[39m\u001b[33m>\u001b[39m       \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Parent issue (if any) as a team_number code                                   \n  \u001b[94m-p\u001b[39m, \u001b[94m--priority\u001b[39m             \u001b[33m<\u001b[39m\u001b[95mpriority\u001b[39m\u001b[33m>\u001b[39m     \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Priority of the issue (1-4, descending priority)                              \n  \u001b[94m--estimate\u001b[39m                 \u001b[33m<\u001b[39m\u001b[95mestimate\u001b[39m\u001b[33m>\u001b[39m     \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Points estimate of the issue                                                  \n  \u001b[94m-d\u001b[39m, \u001b[94m--description\u001b[39m          \u001b[33m<\u001b[39m\u001b[95mdescription\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Description of the issue                                                      \n  \u001b[94m--description-file\u001b[39m         \u001b[33m<\u001b[39m\u001b[95mpath\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Read description from a file (preferred for markdown content)                 \n  \u001b[94m-l\u001b[39m, \u001b[94m--label\u001b[39m                \u001b[33m<\u001b[39m\u001b[95mlabel\u001b[39m\u001b[33m>\u001b[39m        \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Issue label associated with the issue. May be repeated.                       \n  \u001b[94m--team\u001b[39m                     \u001b[33m<\u001b[39m\u001b[95mteam\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Team (key, name, or ID) for the issue, if not your default team               \n  \u001b[94m--project\u001b[39m                  \u001b[33m<\u001b[39m\u001b[95mproject\u001b[39m\u001b[33m>\u001b[39m      \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Project for the issue (UUID, slug ID, or name)                                \n  \u001b[94m-s\u001b[39m, \u001b[94m--state\u001b[39m                \u001b[33m<\u001b[39m\u001b[95mstate\u001b[39m\u001b[33m>\u001b[39m        \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Workflow state for the issue (by name or type)                                \n  \u001b[94m--milestone\u001b[39m                \u001b[33m<\u001b[39m\u001b[95mmilestone\u001b[39m\u001b[33m>\u001b[39m    \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Project milestone (UUID, or name when --project is set)                       \n  \u001b[94m--cycle\u001b[39m                    \u001b[33m<\u001b[39m\u001b[95mcycle\u001b[39m\u001b[33m>\u001b[39m        \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset  \n                                              like +1 (use --cycle=-1 for negatives)                                        \n  \u001b[94m--no-use-default-template\u001b[39m                 \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Do not use default template for the issue                                     \n  \u001b[94m--template\u001b[39m                 \u001b[33m<\u001b[39m\u001b[95mtemplate\u001b[39m\u001b[33m>\u001b[39m     \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Issue template to apply, by name or ID (the team's templates plus workspace   \n                                              ones). Takes the place of the team's default template. The template fills in  \n                                              anything you do not pass: explicit flags override it, --label merges with     \n                                              the template's labels, and --description replaces the template body (omit it  \n                                              to keep the body). Makes --title optional.                                    \n  \u001b[94m--no-interactive\u001b[39m                          \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Disable interactive prompts                                                   \n  \u001b[94m-t\u001b[39m, \u001b[94m--title\u001b[39m                \u001b[33m<\u001b[39m\u001b[95mtitle\u001b[39m\u001b[33m>\u001b[39m        \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Title of the issue                                                            \n\n"
+    },
+    "stderr": {
+      "utf8": "\u001b[31m  \u001b[1merror\u001b[22m: Option \"--title\" can only occur once, but was found several times.\n\u001b[39m\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

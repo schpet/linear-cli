@@ -1,0 +1,47 @@
+{
+  "id": "r01c1-empty-json",
+  "route": "linear issue mine",
+  "reason": "Frozen inline value on switch.",
+  "argv": [
+    "issue",
+    "mine",
+    "--json="
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear issue mine\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m2.6.0\u001b[39m            \n\n\u001b[1mDescription:\u001b[22m\n\n  List your issues\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m                       \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                                                                                                \n  \u001b[94m--workspace\u001b[39m      \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m          \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)                                                                            \n  \u001b[94m-s\u001b[39m, \u001b[94m--state\u001b[39m      \u001b[33m<\u001b[39m\u001b[95mstate\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Filter by workflow state type (triage, backlog, unstarted, started, completed,   (\u001b[1mDefault: \u001b[22m[ \u001b[32m\"unstarted\"\u001b[39m ])    \n                                     canceled), name, or ID (can be repeated for multiple states)                                                   \n  \u001b[94m--all-states\u001b[39m                     \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show issues from all states                                                                                    \n  \u001b[94m--sort\u001b[39m           \u001b[33m<\u001b[39m\u001b[95msort\u001b[39m\u001b[33m>\u001b[39m          \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)            (\u001b[1mValues: \u001b[22m\u001b[32m\"manual\"\u001b[39m, \u001b[32m\"priority\"\u001b[39m)\n  \u001b[94m--team\u001b[39m           \u001b[33m<\u001b[39m\u001b[95mteam\u001b[39m\u001b[33m>\u001b[39m          \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Team key, name, or ID to list issues for (if not your default team)                                            \n  \u001b[94m--project\u001b[39m        \u001b[33m<\u001b[39m\u001b[95mproject\u001b[39m\u001b[33m>\u001b[39m       \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Filter by project (UUID, slug ID, or name)                                                                     \n  \u001b[94m--project-label\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mprojectLabel\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Filter by project label name (shows issues from all projects with this label)                                  \n  \u001b[94m--cycle\u001b[39m          \u001b[33m<\u001b[39m\u001b[95mcycle\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative                                \n                                     offset like +1                                                                                                 \n  \u001b[94m--milestone\u001b[39m      \u001b[33m<\u001b[39m\u001b[95mmilestone\u001b[39m\u001b[33m>\u001b[39m     \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Filter by project milestone (UUID, or name when --project is set)                                              \n  \u001b[94m-l\u001b[39m, \u001b[94m--label\u001b[39m      \u001b[33m<\u001b[39m\u001b[95mlabel\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Filter by label name (can be repeated for multiple labels)                                                     \n  \u001b[94m--limit\u001b[39m          \u001b[33m<\u001b[39m\u001b[95mlimit\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Maximum number of issues to fetch (default: 50, use 0 for unlimited)             (\u001b[1mDefault: \u001b[22m\u001b[33m50\u001b[39m)                 \n  \u001b[94m--created-after\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mdate\u001b[39m\u001b[33m>\u001b[39m          \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                 \n  \u001b[94m--updated-after\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mdate\u001b[39m\u001b[33m>\u001b[39m          \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                 \n  \u001b[94m-w\u001b[39m, \u001b[94m--web\u001b[39m                        \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Open in web browser                                                                                            \n  \u001b[94m-a\u001b[39m, \u001b[94m--app\u001b[39m                        \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Open in Linear.app                                                                                             \n  \u001b[94m--no-pager\u001b[39m                       \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Disable automatic paging for long output                                                                       \n\n"
+    },
+    "stderr": {
+      "utf8": "\u001b[31m  \u001b[1merror\u001b[22m: Unknown option \"--json\". Did you mean option \"--sort\"?\n\u001b[39m\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

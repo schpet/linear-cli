@@ -115,12 +115,7 @@ fn every_node_has_exactly_the_manifest_argument_ids_and_collected_shapes() {
             };
             assert_eq!(spellings(arg), expected_flags, "{} {id}", route.path);
             assert_eq!(arg.is_hide_set(), option.hidden, "{} {id}", route.path);
-            assert_eq!(
-                arg.is_required_set(),
-                option.required,
-                "{} {id}",
-                route.path
-            );
+            assert!(!arg.is_required_set(), "{} {id}", route.path);
             if matches!(arg.get_action(), ArgAction::SetTrue) {
                 assert_eq!(
                     arg.get_default_values(),
@@ -206,7 +201,11 @@ fn every_node_has_exactly_the_manifest_argument_ids_and_collected_shapes() {
         }
         let actual = node
             .get_arguments()
-            .filter(|arg| !matches!(arg.get_id().as_str(), "help" | "version"))
+            .filter(|arg| {
+                !arg.get_id().as_str().starts_with("help:")
+                    && !arg.get_id().as_str().starts_with("version:")
+                    && !arg.get_id().as_str().starts_with("internal:")
+            })
             .map(|arg| arg.get_id().as_str().to_owned())
             .collect::<BTreeSet<_>>();
         assert_eq!(actual, expected, "{} full argument set", route.path);
@@ -475,9 +474,11 @@ fn all_bulk_routes_preserve_values_and_optional_positional_separately() {
         assert_eq!(bulk_values(&delimiter), ["A"], "{path}");
         assert_eq!(
             selected(&delimiter)
-                .get_one::<String>(&positional)
-                .map(String::as_str),
-            Some("B"),
+                .get_many::<String>("internal:literal")
+                .expect("post-delimiter literal")
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["B"],
             "{path}"
         );
 
@@ -532,11 +533,8 @@ fn all_bulk_routes_reject_empty_repeated_and_flag_looking_values() {
                 .expect_err("invalid bulk rejected");
             assert_eq!(error.kind(), kind, "{path} {suffix:?}");
         }
-        let help = clap_tree::build()
-            .expect("tree")
-            .try_get_matches_from(argv(route, &["--bulk", "A", "--help"]))
-            .expect_err("help requested");
-        assert_eq!(help.kind(), ErrorKind::DisplayHelp, "{path}");
+        let help = parse(&argv(route, &["--bulk", "A", "--help"]));
+        assert_eq!(selected(&help).get_count("help:long"), 1, "{path}");
     }
 }
 

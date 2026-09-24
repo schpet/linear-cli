@@ -66,12 +66,7 @@ fn positionals_switches_and_workspace_are_covered_by_manifest_metadata() {
             assert!(expected_ids.insert(id.clone()), "{} {id}", route.path);
             let arg = argument(node, &id);
             assert_eq!(arg.get_index(), Some(offset + 1), "{} {id}", route.path);
-            assert_eq!(
-                arg.is_required_set(),
-                !descriptor.optional,
-                "{} {id}",
-                route.path
-            );
+            assert!(!arg.is_required_set(), "{} {id}", route.path);
             assert!(
                 matches!(arg.get_action(), ArgAction::Set),
                 "{} {id}",
@@ -97,12 +92,7 @@ fn positionals_switches_and_workspace_are_covered_by_manifest_metadata() {
                 "{} {id}",
                 route.path
             );
-            assert_eq!(
-                arg.is_required_set(),
-                option.required,
-                "{} {id}",
-                route.path
-            );
+            assert!(!arg.is_required_set(), "{} {id}", route.path);
             assert_eq!(arg.is_hide_set(), option.hidden, "{} {id}", route.path);
             let expected_flags = if route.path == "linear label list" && option.name == "workspace"
             {
@@ -130,8 +120,11 @@ fn positionals_switches_and_workspace_are_covered_by_manifest_metadata() {
         let actual_ids = node
             .get_arguments()
             .filter(|arg| {
-                !arg.get_id().as_str().starts_with("opt:")
-                    || matches!(arg.get_action(), ArgAction::SetTrue)
+                (!arg.get_id().as_str().starts_with("opt:")
+                    || matches!(arg.get_action(), ArgAction::SetTrue))
+                    && !arg.get_id().as_str().starts_with("help:")
+                    && !arg.get_id().as_str().starts_with("version:")
+                    && !arg.get_id().as_str().starts_with("internal:")
             })
             .map(|arg| arg.get_id().as_str().to_owned())
             .collect::<BTreeSet<_>>();
@@ -370,7 +363,7 @@ fn required_optional_and_variadic_positionals_have_distinct_shapes() {
         clap_tree::build()
             .expect("tree")
             .try_get_matches_from(["linear", "issue", "attach", "ABC-1"])
-            .is_err()
+            .is_ok()
     );
 
     let optional = parse(&["linear", "issue", "view"]);

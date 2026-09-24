@@ -1,0 +1,49 @@
+{
+  "id": "r01c1-bulk-help",
+  "route": "linear issue archive",
+  "reason": "Frozen required bulk consumption and help precedence.",
+  "argv": [
+    "issue",
+    "archive",
+    "--bulk",
+    "A",
+    "--help"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "\u2717 Failed to archive issue: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

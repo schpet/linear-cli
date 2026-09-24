@@ -86,7 +86,7 @@ fn positional_arg(argument: &'static ArgumentMeta, index: usize) -> Arg {
     let mut arg = Arg::new(format!("pos:{}", argument.name))
         .index(index)
         .value_name(argument.name)
-        .required(!argument.optional)
+        .required(false)
         .action(ArgAction::Set);
     if argument.variadic {
         arg = arg.num_args(if argument.optional { 0.. } else { 1.. });
@@ -104,10 +104,10 @@ fn switch_arg(route: &'static RouteMeta, option: &'static OptionMeta) -> Result<
     let mut arg = Arg::new(format!("opt:{}", option.name))
         .action(ArgAction::SetTrue)
         .hide(option.hidden)
-        .required(option.required);
+        .required(false);
     let mut primary_long = false;
     let mut primary_short = false;
-    for flag in option.flags {
+    for flag in super::spelling::effective_flags(route, option) {
         if let Some(long) = flag.strip_prefix("--") {
             if long.is_empty() {
                 return Err(invariant(format!("empty long switch on {}", route.path)));
@@ -140,7 +140,10 @@ fn switch_arg(route: &'static RouteMeta, option: &'static OptionMeta) -> Result<
     Ok(arg)
 }
 
-fn label_workspace_filter_arg(option: &'static OptionMeta) -> Result<Arg, AppError> {
+fn label_workspace_filter_arg(
+    route: &'static RouteMeta,
+    option: &'static OptionMeta,
+) -> Result<Arg, AppError> {
     if option.name != "workspace"
         || option.flags != ["--workspace"]
         || !option.args.is_empty()
@@ -148,6 +151,10 @@ fn label_workspace_filter_arg(option: &'static OptionMeta) -> Result<Arg, AppErr
         || option.required
     {
         return Err(invariant("label list workspace filter descriptor changed"));
+    }
+    let flags = super::spelling::effective_flags(route, option);
+    if flags != ["--workspace-only"] {
+        return Err(invariant("label list effective workspace spelling changed"));
     }
     Ok(Arg::new("opt:workspace")
         .long("workspace-only")
@@ -224,10 +231,10 @@ fn valued_option_base(
         .value_name(argument.name)
         .action(action)
         .hide(option.hidden)
-        .required(option.required);
+        .required(false);
     let mut primary_long = false;
     let mut primary_short = false;
-    for flag in option.flags {
+    for flag in super::spelling::effective_flags(route, option) {
         if let Some(long) = flag.strip_prefix("--") {
             if long.is_empty() {
                 return Err(invariant(format!(
@@ -433,7 +440,22 @@ fn bulk_option_arg(
 fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
     let mut command = Command::new(route.name)
         .about(route.description)
-        .hide(route.hidden);
+        .hide(route.hidden)
+        .arg(Arg::new("help:short").short('h').action(ArgAction::Count))
+        .arg(Arg::new("help:long").long("help").action(ArgAction::Count));
+    if route.path == "linear" {
+        command = command
+            .arg(
+                Arg::new("version:short")
+                    .short('V')
+                    .action(ArgAction::Count),
+            )
+            .arg(
+                Arg::new("version:long")
+                    .long("version")
+                    .action(ArgAction::Count),
+            );
+    }
     command = register_workspace(command, route)?;
     if route.path == "linear label list" {
         let mut filters = route
@@ -444,15 +466,35 @@ fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
             (Some(option), None) => option,
             _ => return Err(invariant("label list workspace filter is not unique")),
         };
-        label_workspace_filter_arg(filter)?;
+        label_workspace_filter_arg(route, filter)?;
     }
     for (offset, argument) in route.arguments.iter().enumerate() {
         command = command.arg(positional_arg(argument, offset + 1));
     }
+    let next_index = route.arguments.len() + 1;
+    if !route.arguments.iter().any(|argument| argument.variadic) {
+        command = command.arg(
+            Arg::new("internal:surplus")
+                .index(next_index)
+                .num_args(0..)
+                .action(ArgAction::Append)
+                .hide(true),
+        );
+    }
+    command = command.arg(
+        Arg::new("internal:literal")
+            .index(
+                next_index + usize::from(!route.arguments.iter().any(|argument| argument.variadic)),
+            )
+            .num_args(0..)
+            .action(ArgAction::Append)
+            .last(true)
+            .hide(true),
+    );
     for option in route.local_options {
         if option.args.is_empty() {
             let arg = if route.path == "linear label list" && option.name == "workspace" {
-                label_workspace_filter_arg(option)?
+                label_workspace_filter_arg(route, option)?
             } else {
                 switch_arg(route, option)?
             };
@@ -482,7 +524,10 @@ fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
 /// Production still uses `parser` until R01C.
 pub fn build() -> Result<Command, AppError> {
     let root = unique_route("linear")?;
-    Ok(build_route(root)?.disable_help_subcommand(true))
+    Ok(build_route(root)?
+        .disable_help_subcommand(true)
+        .disable_help_flag(true)
+        .disable_version_flag(true))
 }
 
 /// Resolve a clap match chain to the canonical generated route identity.

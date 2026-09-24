@@ -91,12 +91,7 @@ fn ordinary_valued_options_match_every_manifest_descriptor() {
                 "{} {id}",
                 route.path
             );
-            assert_eq!(
-                arg.is_required_set(),
-                option.required,
-                "{} {id}",
-                route.path
-            );
+            assert!(!arg.is_required_set(), "{} {id}", route.path);
             assert_eq!(arg.is_hide_set(), option.hidden, "{} {id}", route.path);
             let value_type = option.args.first().expect("one value descriptor").type_name;
             if value_type == "string" {
@@ -309,11 +304,23 @@ fn required_options_and_long_aliases_are_parsed() {
         &["linear", "milestone", "create", "--project", "PRJ"][..],
         &["linear", "milestone", "create", "--name", "M1"][..],
     ] {
-        let error = clap_tree::build()
-            .expect("tree")
-            .try_get_matches_from(argv)
-            .expect_err("required option missing");
-        assert_eq!(error.kind(), ErrorKind::MissingRequiredArgument, "{argv:?}");
+        assert!(
+            clap_tree::build()
+                .expect("tree")
+                .try_get_matches_from(argv)
+                .is_ok()
+        );
+        let typed = argv
+            .iter()
+            .skip(1)
+            .map(std::ffi::OsString::from)
+            .collect::<Vec<_>>();
+        let error =
+            linear_cli::cli::clap_input::parse(&typed).expect_err("required option missing");
+        assert!(
+            matches!(error.kind, linear_cli::error::AppErrorKind::Usage { .. }),
+            "{argv:?}"
+        );
     }
     let matches = parse(&[
         "linear",
@@ -610,8 +617,8 @@ fn help_and_workspace_hyphen_policy_are_explicit() {
     let help_after = clap_tree::build()
         .expect("tree")
         .try_get_matches_from(["linear", "issue", "create", "--title", "-foo", "--help"])
-        .expect_err("help requested after title");
-    assert_eq!(help_after.kind(), ErrorKind::DisplayHelp);
+        .expect("ordinary help flag is parsed for C1 precedence");
+    assert_eq!(selected(&help_after).get_count("help:long"), 1);
     assert!(
         clap_tree::build()
             .expect("tree")

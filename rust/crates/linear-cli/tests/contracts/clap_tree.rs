@@ -1,6 +1,5 @@
 use std::collections::BTreeSet;
 
-use clap::error::ErrorKind;
 use linear_cli::cli::{ROUTES, Route, RouteKind, RouteMeta, clap_tree};
 
 fn select(args: &[&str], route: &RouteMeta) -> Route {
@@ -111,25 +110,23 @@ fn built_in_help_subcommand_is_disabled_but_help_flag_remains() {
         ["linear", "help"].as_slice(),
         ["linear", "issue", "help"].as_slice(),
     ] {
-        let error = clap_tree::build()
+        let matches = clap_tree::build()
             .expect("valid generated inventory")
             .try_get_matches_from(args)
-            .expect_err("unregistered help subcommand must fail");
-        assert!(
-            !matches!(
-                error.kind(),
-                ErrorKind::DisplayHelp | ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
-            ),
-            "implicit help subcommand was enabled: {args:?}"
+            .expect("surplus positional captures unregistered help child");
+        let selected = matches.subcommand().map_or(&matches, |(_, child)| child);
+        assert_eq!(
+            selected
+                .get_many::<String>("internal:surplus")
+                .expect("surplus")
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["help"]
         );
     }
     let help = clap_tree::build()
         .expect("valid generated inventory")
         .try_get_matches_from(["linear", "--help"])
-        .expect_err("automatic help flag requests display help");
-    assert_eq!(
-        help.kind(),
-        ErrorKind::DisplayHelp,
-        "--help must remain an automatic help flag"
-    );
+        .expect("C1 registers ordinary help flag");
+    assert_eq!(help.get_count("help:long"), 1);
 }
