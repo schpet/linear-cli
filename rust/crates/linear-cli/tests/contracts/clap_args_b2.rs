@@ -130,6 +130,7 @@ fn ordinary_valued_options_match_every_manifest_descriptor() {
             .filter(|arg| {
                 arg.get_id().as_str().starts_with("opt:")
                     && matches!(arg.get_action(), ArgAction::Set)
+                    && arg.get_id().as_str() != "opt:bulk"
             })
             .map(|arg| arg.get_id().as_str().to_owned())
             .collect::<BTreeSet<_>>();
