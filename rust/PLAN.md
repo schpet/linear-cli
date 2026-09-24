@@ -1,6 +1,6 @@
 # Rust migration plan
 
-Drafted 2026-09-23 against Deno revision `d4fe6fa7358f018fd1da0c6b96ec2b022247e898` (CLI 2.6.0). This deliverable plans the rewrite; no Rust implementation, dependency installation, live workspace action or publication has happened.
+Drafted 2026-09-23 against Deno revision `d4fe6fa7358f018fd1da0c6b96ec2b022247e898` (CLI 2.6.0). This is the original implementation plan; [RIIR_STATE.md](../RIIR_STATE.md) records current progress and distinguishes reviewed commits from pending work.
 
 Build the Rust implementation under `rust/`, keeping the existing Deno source, tests and schema available as the reference until parity is demonstrated. Start with a subprocess parity harness. Implement small, reviewed command commits using both Claude and Codex Sol. Each command needs offline parity, manual QA, and appropriate live verification before it is complete. Keep the work on a local `rust-port` bookmark; never move or push `main` as part of this work.
 

@@ -1,6 +1,6 @@
 # Commit-sized work items
 
-All items below are planned, not implemented. These are local work-item IDs, not Linear or GitHub tickets. Use imperative commit subjects matching the repository, such as `Port issue view to Rust`, with `Rust-port-item: C062` in the message trailers. Each canonical behavioral command gets its own commit; its aliases and public parent route are part of its contract. A command commit can be integrated with a recorded live blocker, but the item remains **live-blocked**, never done, until its required live gate is resolved. No main update or push is part of any item.
+This is the original work-item plan; some foundation and harness items now have reviewed commits. See [RIIR_STATE.md](../RIIR_STATE.md) and `rust/reviews/` for current status. These are local work-item IDs, not Linear or GitHub tickets. Use imperative commit subjects matching the repository, such as `Port issue view to Rust`, with `Rust-port-item: C062` in the message trailers. Each canonical behavioral command gets its own commit; its aliases and public parent route are part of its contract. A command commit can be integrated with a recorded live blocker, but the item remains **live-blocked**, never done, until its required live gate is resolved. No main update or push is part of any item.
 
 ## Shared acceptance contract
 
