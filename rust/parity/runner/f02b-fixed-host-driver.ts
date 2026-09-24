@@ -12,6 +12,8 @@
 // the fixed-host proxy, tree hashing or matchers, and `runCorpus`/`main.ts`
 // are deliberately not used: a baseline replay would compare an unrelated
 // reference command and a route filter would skip the probe.
+// The hard-wired v3 profile pins the frozen 2.6.0 case files and projects only
+// candidate asset headers; GraphQL and observed probe User-Agents must be v3.
 //
 // This qualifies HTTP/1.1 reqwest transport configuration (CONNECT proxy,
 // extra CA root, per-host authorization, same-origin redirects, caps and
@@ -20,7 +22,7 @@ import { fromFileUrl, join } from "@std/path"
 import { readBaseline, readManifest, verifyBaseline } from "../verify.ts"
 import { CASE_ROOT_PARENT, prepareConfinement, resolveBwrap } from "./bwrap.ts"
 import { sha256Hex } from "./bytes.ts"
-import { loadCases, type LoadedCase } from "./cases.ts"
+import type { LoadedCase } from "./cases.ts"
 import type { Surface } from "./compare.ts"
 import {
   buildStatusHelper,
@@ -36,7 +38,8 @@ import { type LaneRecord, runPreflight } from "./preflight.ts"
 import type { Program } from "./program.ts"
 import { type CaseRun, executeCase, type RunContext } from "./run.ts"
 import { treeDigest } from "./sandbox.ts"
-import { FROZEN_USER_AGENT } from "./schema.ts"
+import { RUST_USER_AGENT } from "./schema.ts"
+import { loadV3ProbeCases, PROFILE_ID } from "./f02b-v3-profile.ts"
 import { stageReference } from "./stage.ts"
 
 const runnerDir = fromFileUrl(new URL("./", import.meta.url))
@@ -269,11 +272,11 @@ export function evaluateCase(entry: ProbeCase, run: CaseRun): Verdict {
         }`,
       )
     }
-    const agents = observed.userAgents.filter((agent) =>
-      agent !== FROZEN_USER_AGENT
-    )
-    if (agents.length > 0) {
-      problems.push(`user agents ${JSON.stringify(agents)}`)
+    if (
+      observed.userAgents.length !== observed.requests ||
+      observed.userAgents.some((agent) => agent !== RUST_USER_AGENT)
+    ) {
+      problems.push(`user agents ${JSON.stringify(observed.userAgents)}`)
     }
   }
   return { ok: problems.length === 0, problems }
@@ -478,7 +481,7 @@ async function outer(options: Options, rawArgs: string[]): Promise<number> {
     options.reference,
     options.referenceBinary,
   )
-  checkCaseTable(await loadCases(CASES_DIR, pinned.routes))
+  checkCaseTable((await loadV3ProbeCases(CASES_DIR, pinned.routes)).cases)
   await checkProbe(options.probe)
   const stageRoot = options.stageDir ??
     join(cacheHome(), "linear-parity", "stage")
@@ -555,6 +558,7 @@ export interface Report {
   baseline: Record<string, string>
   manifestSha256: string
   probe: { path: string; sha256: string }
+  profile: { id: string; projectedSha256: string }
   lane: LaneRecord
   stagedDenoDirReused: boolean
   stagedDenoDir: {
@@ -623,7 +627,8 @@ async function innerInLane(
     }, marker read ${lane.confinement.markerRead}, socket ${lane.confinement.socket}`,
   )
   const pinned = await loadPinned()
-  const cases = await loadCases(CASES_DIR, pinned.routes)
+  const profile = await loadV3ProbeCases(CASES_DIR, pinned.routes)
+  const cases = profile.cases
   checkCaseTable(cases)
   const probeSha256 = await checkProbe(options.probe)
   const byId = new Map(cases.map((item) => [item.spec.id, item]))
@@ -699,6 +704,7 @@ async function innerInLane(
       baseline: pinned.baseline,
       manifestSha256: pinned.manifestSha256,
       probe: { path: options.probe, sha256: probeSha256 },
+      profile: { id: PROFILE_ID, projectedSha256: profile.projectedSha256 },
       lane,
       stagedDenoDirReused: options.stagedReused,
       stagedDenoDir,

@@ -127,3 +127,7 @@ The first integrated lane attempt caught a missing P04A2 status-helper handoff b
 - No stalled-TLS/body control: C2 cannot stall; Gate 1's shared-path deadline tests cover the collector and the outer `executeCase` deadline stays in force.
 - The TLS failure classifies as `NetworkPhase::Connect`; distinct TLS/proxy variants remain future work.
 - `AssetFailure` is not mapped to `AppError`; presentation belongs to the command slice that will own it.
+
+### V3 executable profile addendum (2026-09-24)
+
+The Gate 2 report above is historical evidence for the Rust 2.6.0 binary. R01V changed the Cargo-derived GraphQL and asset User-Agent to `schpet-linear-cli/3.0.0-alpha.1`; the frozen 14 case files still require 2.6.0. The separate [F02B v3 probe review](F02B-v3-probe.md) records a hard-wired, raw-SHA-pinned test-driver profile and a fresh 17/17 confined executable lane. It does not change the original report or qualify a production leaf command.

@@ -12,7 +12,7 @@ import {
   TABLE,
 } from "./f02b-fixed-host-driver.ts"
 import type { CaseRun } from "./run.ts"
-import { FROZEN_USER_AGENT } from "./schema.ts"
+import { FROZEN_USER_AGENT, RUST_USER_AGENT } from "./schema.ts"
 
 const required = [
   "--probe",
@@ -65,7 +65,7 @@ function run(overrides: Partial<CaseRun> = {}): CaseRun {
       requests: 3,
       unexpected: 0,
       authorizationMatched: [true, true, true],
-      userAgents: [FROZEN_USER_AGENT, FROZEN_USER_AGENT, FROZEN_USER_AGENT],
+      userAgents: [RUST_USER_AGENT, RUST_USER_AGENT, RUST_USER_AGENT],
       graphqlRequests: 1,
       assetRequests: 2,
     },
@@ -153,7 +153,7 @@ Deno.test("the table and the case directory must agree exactly", async () => {
   }
 })
 
-Deno.test("a positive passes only with no mismatch, exact fixture counts and the frozen user agent", () => {
+Deno.test("a positive passes only with no mismatch, exact fixture counts and the v3 user agent", () => {
   assertEquals(evaluateCase(both, run()), { ok: true, problems: [] })
   const surfaced = evaluateCase(
     both,
@@ -168,7 +168,7 @@ Deno.test("a positive passes only with no mismatch, exact fixture counts and the
         requests: 2,
         unexpected: 0,
         authorizationMatched: [true, true],
-        userAgents: [FROZEN_USER_AGENT, FROZEN_USER_AGENT],
+        userAgents: [RUST_USER_AGENT, RUST_USER_AGENT],
         graphqlRequests: 1,
         assetRequests: 1,
       },
@@ -180,11 +180,28 @@ Deno.test("a positive passes only with no mismatch, exact fixture counts and the
     run({
       fixture: {
         ...run().fixture!,
-        userAgents: [FROZEN_USER_AGENT, "curl/8", FROZEN_USER_AGENT],
+        userAgents: [RUST_USER_AGENT, "curl/8", RUST_USER_AGENT],
       },
     }),
   )
   assert(agent.problems.some((item) => item.includes("curl/8")))
+  for (
+    const agents of [
+      [FROZEN_USER_AGENT, FROZEN_USER_AGENT, FROZEN_USER_AGENT],
+      [RUST_USER_AGENT, FROZEN_USER_AGENT, RUST_USER_AGENT],
+      [RUST_USER_AGENT, null, RUST_USER_AGENT],
+      [],
+    ]
+  ) {
+    const wrong = evaluateCase(
+      both,
+      run({
+        fixture: { ...run().fixture!, userAgents: agents },
+      }),
+    )
+    assert(!wrong.ok)
+    assert(wrong.problems.some((item) => item.startsWith("user agents")))
+  }
   const effects = evaluateCase(
     both,
     run({
@@ -224,7 +241,7 @@ Deno.test("a control passes only with exactly its surfaces and every fragment", 
       requests: 1,
       unexpected: 0,
       authorizationMatched: [false],
-      userAgents: [FROZEN_USER_AGENT],
+      userAgents: [RUST_USER_AGENT],
       graphqlRequests: 0,
       assetRequests: 1,
     },
