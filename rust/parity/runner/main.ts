@@ -3,7 +3,14 @@
 // then re-executes itself inside an unprivileged user/net/PID namespace where
 // the preflight, fixture server and every child run; each child is further
 // confined to an allowlisted filesystem by Bubblewrap (bwrap.ts).
-import { fromFileUrl, join } from "@std/path"
+import {
+  basename,
+  dirname,
+  fromFileUrl,
+  join,
+  relative,
+  resolve,
+} from "@std/path"
 import { readBaseline, readManifest, verifyBaseline } from "../verify.ts"
 import { CASE_ROOT_PARENT, prepareConfinement, resolveBwrap } from "./bwrap.ts"
 import { encodeByteValue, sha256Hex } from "./bytes.ts"
@@ -22,6 +29,8 @@ import { runPreflight } from "./preflight.ts"
 import { proposalExit, proposalStdout } from "./proposal.ts"
 import type { Program } from "./program.ts"
 import {
+  countReviewedDeviationPasses,
+  countReviewedGraphqlUserAgentPasses,
   countStatuses,
   formatResultLine,
   type Report,
@@ -29,7 +38,11 @@ import {
 } from "./report.ts"
 import { type Candidate, type RunContext, runCorpus } from "./run.ts"
 import { treeDigest } from "./sandbox.ts"
-import { parseCandidateDescriptor } from "./schema.ts"
+import {
+  FROZEN_CONTRACT,
+  parseCandidateDescriptor,
+  RUST_CONTRACT,
+} from "./schema.ts"
 import { runSelfCheck } from "./self-check.ts"
 import { stageReference } from "./stage.ts"
 
@@ -57,7 +70,7 @@ interface Options {
 
 const USAGE =
   `usage: deno task parity -- --reference <workspace> --reference-binary <binary> [options]
-  --candidate <descriptor.json>  candidate program and implemented routes (default: compiled reference, every manifest route)
+  --candidate <descriptor.json>  candidate program, implemented routes and optional contract (default: frozen-deno)
   --cases <dir>                  case corpus (default: rust/parity/runner/cases)
   --filter <substring>           run only case ids containing the substring
   --report <file>                write the JSON report here
@@ -218,12 +231,19 @@ export async function loadCandidate(
       name: "pinned compiled reference",
       program: { kind: "executable", path: options.referenceBinary },
       implementedRoutes: routes,
+      contract: FROZEN_CONTRACT,
     }
   }
   const descriptor = parseCandidateDescriptor(
     JSON.parse(await Deno.readTextFile(options.candidate)),
     options.candidate,
   )
+  const contract = descriptor.contract ?? FROZEN_CONTRACT
+  if (contract === RUST_CONTRACT && descriptor.program.kind !== "executable") {
+    throw new Error(
+      `${options.candidate}: Rust contract requires an executable candidate`,
+    )
+  }
   if (descriptor.program.kind === "executable") {
     const stat = await Deno.stat(descriptor.program.path).catch(() => null)
     if (
@@ -243,7 +263,12 @@ export async function loadCandidate(
       deno: Deno.execPath(),
     }
   if (descriptor.implementedRoutes === "every-manifest-route") {
-    return { name: descriptor.name, program, implementedRoutes: routes }
+    return {
+      name: descriptor.name,
+      program,
+      implementedRoutes: routes,
+      contract,
+    }
   }
   for (const route of descriptor.implementedRoutes) {
     if (!routes.has(route)) {
@@ -256,6 +281,42 @@ export async function loadCandidate(
     name: descriptor.name,
     program,
     implementedRoutes: new Set(descriptor.implementedRoutes),
+    contract,
+  }
+}
+
+async function canonicalDestination(path: string): Promise<string> {
+  let ancestor = resolve(path)
+  const suffix: string[] = []
+  while (true) {
+    try {
+      return join(await Deno.realPath(ancestor), ...suffix)
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error
+      const parent = dirname(ancestor)
+      if (parent === ancestor) throw error
+      suffix.unshift(basename(ancestor))
+      ancestor = parent
+    }
+  }
+}
+
+export async function assertProposalOutsideGoldens(
+  proposal: string | undefined,
+  casesDir: string,
+): Promise<void> {
+  if (proposal == null) return
+  const root = join(await Deno.realPath(casesDir), "rust-goldens")
+  const target = await canonicalDestination(proposal)
+  const within = relative(root, target)
+  if (
+    within === "" ||
+    (within !== ".." && !within.startsWith("../") &&
+      !within.startsWith("/"))
+  ) {
+    throw new Error(
+      "--propose destination must be outside the reviewed golden tree",
+    )
   }
 }
 
@@ -278,9 +339,15 @@ async function outer(options: Options, rawArgs: string[]): Promise<number> {
     options.reference,
     options.referenceBinary,
   )
-  const cases = await loadCases(options.cases, pinned.routes, options.filter)
+  const candidate = await loadCandidate(options, pinned.routes)
+  const cases = await loadCases(
+    options.cases,
+    pinned.routes,
+    options.filter,
+    candidate.contract,
+  )
   if (cases.length === 0) throw new Error("no cases selected")
-  await loadCandidate(options, pinned.routes)
+  await assertProposalOutsideGoldens(options.propose, options.cases)
   const stageRoot = options.stageDir ??
     join(cacheHome(), "linear-parity", "stage")
   const staged = await stageReference({
@@ -387,6 +454,15 @@ async function innerInLane(
     referenceBinary: options.referenceBinary,
     statusHelper,
   })
+  const pinned = await loadPinned()
+  const candidate = await loadCandidate(options, pinned.routes)
+  const cases = await loadCases(
+    options.cases,
+    pinned.routes,
+    options.filter,
+    candidate.contract,
+  )
+  await assertProposalOutsideGoldens(options.propose, options.cases)
   const stageBefore = await treeDigest(options.denoDir)
   const lane = await runPreflight({
     denoPath: Deno.execPath(),
@@ -403,9 +479,6 @@ async function innerInLane(
       String(lane.confinement.status)
     }, marker read ${lane.confinement.markerRead}, socket ${lane.confinement.socket}; status helper sha256 ${lane.statusHelper.binarySha256} pids ${lane.confinement.procPids}`,
   )
-  const pinned = await loadPinned()
-  const cases = await loadCases(options.cases, pinned.routes, options.filter)
-  const candidate = await loadCandidate(options, pinned.routes)
   const baseline: Program = {
     kind: "interpreted-reference",
     workspace: options.reference,
@@ -461,11 +534,16 @@ async function innerInLane(
         name: candidate.name,
         program: candidate.program.kind,
         implementedRoutes: candidate.implementedRoutes.size,
+        contract: candidate.contract ?? FROZEN_CONTRACT,
       },
       lane,
       stagedDenoDirReused: options.stagedReused,
       stagedDenoDir,
       counts,
+      reviewedDeviationPasses: countReviewedDeviationPasses(results),
+      reviewedGraphqlUserAgentPasses: countReviewedGraphqlUserAgentPasses(
+        results,
+      ),
       cases: results.map(toReportCase),
       selfCheck: selfCheck == null ? null : {
         controls: selfCheck.controls,
@@ -487,7 +565,7 @@ async function innerInLane(
       `staged DENO_DIR unchanged: ${stagedDenoDir.entries} entries, sha256 ${stagedDenoDir.sha256After}`,
     )
     console.log(
-      `parity: ${counts.pass} pass, ${counts.fail} fail, ${
+      `parity: ${counts.pass} pass (${report.reviewedDeviationPasses} reviewed deviations), ${counts.fail} fail, ${
         counts["not-implemented"]
       } not-implemented, ${counts["baseline-drift"]} baseline-drift` +
         (selfCheck == null

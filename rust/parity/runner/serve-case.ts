@@ -23,7 +23,7 @@ import {
   loadPinnedGraphQLSchema,
   startGraphQLServer,
 } from "./graphql-server.ts"
-import type { CaseSpec, GraphQLFixtureSpec } from "./schema.ts"
+import type { CaseSpec, RuntimeGraphQLFixtureSpec } from "./schema.ts"
 
 const TRANSPORT_CASES = fromFileUrl(
   new URL("./transport-cases", import.meta.url),
@@ -123,7 +123,10 @@ async function loadTransportCase(absolute: string): Promise<CaseSpec> {
   return found.spec
 }
 
-function resolveWithPort(spec: CaseSpec, port: number): GraphQLFixtureSpec {
+function resolveWithPort(
+  spec: CaseSpec,
+  port: number,
+): RuntimeGraphQLFixtureSpec {
   const graphql = resolveCase(spec, {
     home: "/nonexistent/home",
     configHome: "/nonexistent/config",

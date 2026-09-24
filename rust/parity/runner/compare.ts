@@ -7,7 +7,7 @@ import type {
   ExitExpectation,
   FileEffect,
   FixtureServerSpec,
-  GraphQLFixtureSpec,
+  RuntimeGraphQLFixtureSpec,
 } from "./schema.ts"
 import { describeTargetExit, type TargetExit } from "./target-status.ts"
 import type { StdoutMode } from "./target-status.ts"
@@ -177,7 +177,7 @@ export function compareFixture(
 }
 
 export function compareGraphQLFixture(
-  spec: GraphQLFixtureSpec,
+  spec: RuntimeGraphQLFixtureSpec,
   server: GraphQLServer,
 ): Mismatch[] {
   const mismatches: Mismatch[] = server.issues.map((detail) => ({

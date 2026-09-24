@@ -10,7 +10,7 @@ import {
 } from "./bwrap.ts"
 import { sha256Hex } from "./bytes.ts"
 import type { LoadedCase } from "./cases.ts"
-import { checkLaneDeadline, resolveCase } from "./cases.ts"
+import { candidateCaseView, checkLaneDeadline, resolveCase } from "./cases.ts"
 import {
   compareFixture,
   compareGraphQLFixture,
@@ -36,12 +36,16 @@ import {
   hashTree,
   UnsupportedSandboxEntryError,
 } from "./sandbox.ts"
-import type { FileEffect, GraphQLFixtureSpec } from "./schema.ts"
-import { SchemaError } from "./schema.ts"
+import type {
+  CandidateContract,
+  FileEffect,
+  RuntimeGraphQLFixtureSpec,
+} from "./schema.ts"
+import { RUST_CONTRACT, SchemaError } from "./schema.ts"
 import type { TargetExit } from "./target-status.ts"
 
 function fixedHosts(
-  spec: GraphQLFixtureSpec | null | undefined,
+  spec: RuntimeGraphQLFixtureSpec | null | undefined,
 ): Set<FixedHost> {
   const hosts = new Set<FixedHost>()
   for (const group of spec?.groups ?? []) {
@@ -109,6 +113,7 @@ export interface Candidate {
   name: string
   program: Program
   implementedRoutes: ReadonlySet<string>
+  contract?: CandidateContract
 }
 
 export type CaseStatus = "pass" | "fail" | "not-implemented" | "baseline-drift"
@@ -119,6 +124,12 @@ export interface CaseResult {
   status: CaseStatus
   baseline: CaseRun
   candidate: CaseRun | null
+  reviewedDeviation?: {
+    id: string
+    contract: typeof RUST_CONTRACT
+    sha256: string
+    approvedSurfaces: string[]
+  } | null
 }
 
 function sanitize(text: string, sandboxRoot: string, denoDir: string): string {
@@ -162,7 +173,7 @@ export async function executeCase(
         bin: sandbox.bin,
         denoDir: ctx.denoDir,
         fixturePort: String(fixturePort),
-      })
+      }, loaded.runtimeUserAgent)
     if (loaded.spec.fixtureServer != null) {
       server = startFixtureServer((port) => {
         const spec = resolveWithPort(port).fixtureServer
@@ -321,7 +332,13 @@ export async function runCorpus(
       // Decided solely by the descriptor; the candidate is never executed.
       status = "not-implemented"
     } else {
-      candidateRun = await executeCase(loaded, candidate.program, ctx)
+      candidateRun = await executeCase(
+        candidate.contract === RUST_CONTRACT
+          ? candidateCaseView(loaded)
+          : loaded,
+        candidate.program,
+        ctx,
+      )
       status = candidateRun.mismatches.length === 0 ? "pass" : "fail"
     }
     const result: CaseResult = {
@@ -330,6 +347,15 @@ export async function runCorpus(
       status,
       baseline: baselineRun,
       candidate: candidateRun,
+      reviewedDeviation:
+        candidate.contract === RUST_CONTRACT && loaded.golden != null
+          ? {
+            id: loaded.golden.spec.deviationId,
+            contract: loaded.golden.spec.contract,
+            sha256: loaded.golden.sha256,
+            approvedSurfaces: loaded.golden.spec.approvedSurfaces,
+          }
+          : null,
     }
     results.push(result)
     onResult?.(result)

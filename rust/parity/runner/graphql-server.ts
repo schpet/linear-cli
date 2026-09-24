@@ -25,9 +25,9 @@ import { assetResponse, matchAssetRequest } from "./http-assets.ts"
 import { LaneScheduler } from "./lane-scheduler.ts"
 import type {
   AssetStepSpec,
-  GraphQLFixtureSpec,
-  GraphQLStepSpec,
-  InteractionSpec,
+  RuntimeGraphQLFixtureSpec,
+  RuntimeGraphQLStepSpec,
+  RuntimeInteractionSpec,
 } from "./schema.ts"
 
 const MAX_REQUEST_BYTES = 4 * 1024 * 1024
@@ -286,14 +286,14 @@ export interface GraphQLServer {
 
 /** One listener for GraphQL and declared loopback assets, with ordered lane scheduling. */
 export function startGraphQLServer(
-  specFor: (port: number) => GraphQLFixtureSpec,
+  specFor: (port: number) => RuntimeGraphQLFixtureSpec,
   schema: GraphQLSchema,
 ): GraphQLServer {
   const requests: GraphQLRequestSummary[] = []
   const issues: string[] = []
   let unexpected = 0
   let resolved: {
-    spec: GraphQLFixtureSpec
+    spec: RuntimeGraphQLFixtureSpec
     scheduler: LaneScheduler
     state: GraphQLState
   } | undefined
@@ -311,7 +311,7 @@ export function startGraphQLServer(
     return resolved
   }
   async function project(
-    step: GraphQLStepSpec,
+    step: RuntimeGraphQLStepSpec,
     query: string,
     variables: Record<string, unknown> | undefined,
     operationName: string | undefined,
@@ -470,7 +470,7 @@ export function startGraphQLServer(
       }
     }
     let mismatchReason: string | null = null
-    const matches = (step: InteractionSpec): boolean => {
+    const matches = (step: RuntimeInteractionSpec): boolean => {
       if (authorityMismatch) {
         mismatchReason = "fixed-host authority differs from CONNECT target"
         return false

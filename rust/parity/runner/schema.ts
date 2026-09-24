@@ -7,6 +7,11 @@ import { decodeByteValue } from "./bytes.ts"
 // Frozen reference d4fe6fa7 embeds version 2.6.0. Do not follow the moving
 // checkout's deno.json: a later version bump must not change pinned fixtures.
 export const FROZEN_USER_AGENT = "schpet-linear-cli/2.6.0"
+export const RUST_USER_AGENT = "schpet-linear-cli/3.0.0-alpha.1"
+export const RUST_CONTRACT = "rust-3.0.0-alpha.1"
+export const FROZEN_CONTRACT = "frozen-deno"
+export const CONTRACTS = [FROZEN_CONTRACT, RUST_CONTRACT] as const
+export type CandidateContract = (typeof CONTRACTS)[number]
 
 export const SUBSTITUTION_NAMES = [
   "home",
@@ -429,6 +434,25 @@ export const GraphQLFixtureSchema = v.strictObject({
 })
 export type GraphQLFixtureSpec = v.InferOutput<typeof GraphQLFixtureSchema>
 
+// Baseline cases are parsed by GraphQLFixtureSchema and remain frozen at 2.6.0.
+// Only the resolved candidate fixture may carry the reviewed Rust identity.
+export type RuntimeGraphQLStepSpec = Omit<GraphQLStepSpec, "identity"> & {
+  identity: Omit<GraphQLStepSpec["identity"], "userAgent"> & {
+    userAgent: string
+  }
+}
+export type RuntimeInteractionSpec = RuntimeGraphQLStepSpec | AssetStepSpec
+export type RuntimeGraphQLFixtureSpec = Omit<GraphQLFixtureSpec, "groups"> & {
+  groups: Array<
+    | { mode: "ordered"; steps: RuntimeInteractionSpec[] }
+    | {
+      mode: "lanes"
+      timeoutMs: number
+      lanes: Array<{ id: string; steps: RuntimeInteractionSpec[] }>
+    }
+  >
+}
+
 const EnvSchema = v.pipe(
   v.record(
     v.pipe(
@@ -475,6 +499,46 @@ const EnvSchema = v.pipe(
     "env values must not resemble real Linear credentials",
   ),
 )
+
+const ExpectedSchema = v.strictObject({
+  exit: ExitSchema,
+  stdout: StdoutSchema,
+  stderr: ByteValueSchema,
+  fileEffects: v.array(FileEffectSchema),
+})
+
+const DeviationSchema = v.strictObject({
+  id: nonEmpty,
+  contract: v.literal(RUST_CONTRACT),
+  sha256: hex64,
+})
+
+export const APPROVED_SURFACES = [
+  "argv",
+  "exit",
+  "stdout",
+  "stderr",
+  "files",
+  "graphql-user-agent",
+] as const
+
+export const GoldenSchema = v.strictObject({
+  formatVersion: v.literal(1),
+  caseId: v.pipe(v.string(), v.regex(/^[a-z0-9][a-z0-9-]*$/)),
+  deviationId: nonEmpty,
+  contract: v.literal(RUST_CONTRACT),
+  approvedSurfaces: v.pipe(
+    v.array(v.picklist(APPROVED_SURFACES)),
+    v.minLength(1),
+    v.check((surfaces) => new Set(surfaces).size === surfaces.length),
+  ),
+  candidate: v.strictObject({
+    argv: v.optional(v.array(v.string())),
+    expected: v.optional(ExpectedSchema),
+    graphqlUserAgent: v.optional(v.literal(RUST_USER_AGENT)),
+  }),
+})
+export type ReviewedGolden = v.InferOutput<typeof GoldenSchema>
 
 export const CaseSchema = v.pipe(
   v.strictObject({
@@ -526,15 +590,8 @@ export const CaseSchema = v.pipe(
     ),
     fixtureServer: v.nullable(FixtureServerSchema),
     graphql: v.optional(v.nullable(GraphQLFixtureSchema)),
-    expected: v.strictObject({
-      exit: ExitSchema,
-      stdout: StdoutSchema,
-      stderr: ByteValueSchema,
-      fileEffects: v.array(FileEffectSchema),
-    }),
-    deviation: v.null(
-      "reviewed deviations are not accepted by the P02 runner; keep null",
-    ),
+    expected: ExpectedSchema,
+    deviation: v.nullable(DeviationSchema),
   }),
   v.check(
     (spec) =>
@@ -606,6 +663,7 @@ export type ExitExpectation = v.InferOutput<typeof ExitSchema>
 
 export const CandidateDescriptorSchema = v.strictObject({
   name: nonEmpty,
+  contract: v.optional(v.picklist(CONTRACTS)),
   program: v.variant("kind", [
     v.strictObject({
       kind: v.literal("executable"),
@@ -686,6 +744,17 @@ export function parseCandidateDescriptor(
   label = "candidate descriptor",
 ): CandidateDescriptor {
   const result = v.safeParse(CandidateDescriptorSchema, input)
+  if (!result.success) {
+    throw new SchemaError(`${label}: ${formatIssues(result.issues)}`)
+  }
+  return result.output
+}
+
+export function parseReviewedGolden(
+  input: unknown,
+  label = "reviewed golden",
+): ReviewedGolden {
+  const result = v.safeParse(GoldenSchema, input)
   if (!result.success) {
     throw new SchemaError(`${label}: ${formatIssues(result.issues)}`)
   }

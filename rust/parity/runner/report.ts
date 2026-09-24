@@ -1,5 +1,6 @@
 import type { LaneRecord } from "./preflight.ts"
 import type { CaseResult, CaseRun, CaseStatus } from "./run.ts"
+import type { CandidateContract } from "./schema.ts"
 import type { ControlResult } from "./self-check.ts"
 
 export interface ReportCase {
@@ -8,13 +9,19 @@ export interface ReportCase {
   status: CaseStatus
   baseline: Omit<CaseRun, "raw">
   candidate: Omit<CaseRun, "raw"> | null
+  reviewedDeviation: CaseResult["reviewedDeviation"]
 }
 
 export interface Report {
   generatedAt: string
   baseline: Record<string, string>
   manifestSha256: string
-  candidate: { name: string; program: string; implementedRoutes: number }
+  candidate: {
+    name: string
+    program: string
+    implementedRoutes: number
+    contract: CandidateContract
+  }
   lane: LaneRecord
   stagedDenoDirReused: boolean
   /** Content digest of the staged DENO_DIR before preflight and after the last child. */
@@ -25,6 +32,9 @@ export interface Report {
     unchanged: boolean
   }
   counts: Record<CaseStatus, number>
+  reviewedDeviationPasses: number
+  /** Passing cases whose only reviewed change is the exact GraphQL User-Agent. */
+  reviewedGraphqlUserAgentPasses: number
   cases: ReportCase[]
   selfCheck:
     | { controls: ControlResult[]; identicalExecutable: ReportCase[] }
@@ -43,6 +53,7 @@ export function toReportCase(result: CaseResult): ReportCase {
     status: result.status,
     baseline: stripRaw(result.baseline),
     candidate: result.candidate == null ? null : stripRaw(result.candidate),
+    reviewedDeviation: result.reviewedDeviation ?? null,
   }
 }
 
@@ -57,6 +68,24 @@ export function countStatuses(
   }
   for (const result of results) counts[result.status]++
   return counts
+}
+
+export function countReviewedDeviationPasses(
+  results: readonly CaseResult[],
+): number {
+  return results.filter((result) =>
+    result.status === "pass" && result.reviewedDeviation != null
+  ).length
+}
+
+export function countReviewedGraphqlUserAgentPasses(
+  results: readonly CaseResult[],
+): number {
+  return results.filter((result) =>
+    result.status === "pass" &&
+    result.reviewedDeviation?.approvedSurfaces.length === 1 &&
+    result.reviewedDeviation.approvedSurfaces[0] === "graphql-user-agent"
+  ).length
 }
 
 export function formatResultLine(result: CaseResult): string {

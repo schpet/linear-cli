@@ -1,6 +1,6 @@
 // Case corpus loading: schema validation, manifest route binding, fixture
 // existence, and placeholder resolution into concrete bytes and paths.
-import { join } from "@std/path"
+import { join, relative } from "@std/path"
 import {
   getNamedType,
   getOperationAST,
@@ -13,14 +13,22 @@ import {
   isUnionType,
   parse,
 } from "graphql"
-import { decodeByteValue } from "./bytes.ts"
+import { bytesEqual, decodeByteValue, sha256Hex } from "./bytes.ts"
 import type { StdoutMode } from "./target-status.ts"
 import { buildPinnedSchema, matchGraphQL } from "./graphql-match.ts"
 import {
+  type CandidateContract,
   type CaseSpec,
+  FROZEN_CONTRACT,
+  FROZEN_USER_AGENT,
   GraphQLFixtureSchema,
   type InteractionSpec,
   parseCase,
+  parseReviewedGolden,
+  type ReviewedGolden,
+  type RuntimeGraphQLFixtureSpec,
+  RUST_CONTRACT,
+  RUST_USER_AGENT,
   SchemaError,
   substitute,
   type SubstitutionName,
@@ -33,6 +41,280 @@ export interface LoadedCase {
   /** Absolute fixture directory copied into the sandbox cwd, or null for empty. */
   fixtureDir: string | null
   configFixtureDir: string | null
+  golden?: { spec: ReviewedGolden; sha256: string } | null
+  /** Candidate-only override applied after the frozen case is resolved. */
+  runtimeUserAgent?: typeof RUST_USER_AGENT
+}
+
+function same(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length &&
+      left.every((entry, index) => same(entry, right[index]))
+  }
+  if (record(left) && record(right)) {
+    const keys = Object.keys(left)
+    return keys.length === Object.keys(right).length &&
+      keys.every((key) =>
+        Object.hasOwn(right, key) && same(left[key], right[key])
+      )
+  }
+  return false
+}
+
+function sameStdout(
+  left: CaseSpec["expected"]["stdout"],
+  right: CaseSpec["expected"]["stdout"],
+): boolean {
+  if ("mode" in left || "mode" in right) {
+    if (!("mode" in left && "mode" in right)) return false
+    if (left.mode !== right.mode) return false
+    if (left.mode === "closed-at-start" && right.mode === "closed-at-start") {
+      return true
+    }
+    if (
+      left.mode === "close-after-bytes" && right.mode === "close-after-bytes"
+    ) {
+      return left.count === right.count && bytesEqual(
+        decodeByteValue(left.prefix),
+        decodeByteValue(right.prefix),
+      )
+    }
+    return false
+  }
+  return bytesEqual(decodeByteValue(left), decodeByteValue(right))
+}
+
+function changedSurfaces(spec: CaseSpec, golden: ReviewedGolden): string[] {
+  const changed: string[] = []
+  if (
+    golden.candidate.argv != null && !same(spec.argv, golden.candidate.argv)
+  ) {
+    changed.push("argv")
+  }
+  const expected = golden.candidate.expected
+  if (expected != null) {
+    if (!same(spec.expected.exit, expected.exit)) changed.push("exit")
+    if (!sameStdout(spec.expected.stdout, expected.stdout)) {
+      changed.push("stdout")
+    }
+    if (
+      !bytesEqual(
+        decodeByteValue(spec.expected.stderr),
+        decodeByteValue(expected.stderr),
+      )
+    ) {
+      changed.push("stderr")
+    }
+    if (!same(spec.expected.fileEffects, expected.fileEffects)) {
+      changed.push("files")
+    }
+  }
+  if (golden.candidate.graphqlUserAgent != null) {
+    changed.push("graphql-user-agent")
+  }
+  return changed
+}
+
+async function loadReviewedBinding(
+  dir: string,
+  spec: CaseSpec,
+): Promise<LoadedCase["golden"]> {
+  const binding = spec.deviation
+  if (binding == null) return null
+  const root = join(await Deno.realPath(dir), "rust-goldens")
+  const contractDir = join(root, binding.contract)
+  const path = join(contractDir, `${spec.id}.json`)
+  const relativePath = relative(root, path)
+  if (relativePath.startsWith("..") || relativePath.startsWith("/")) {
+    throw new SchemaError(`case ${spec.id}: reviewed golden escapes case root`)
+  }
+  for (const directory of [root, contractDir]) {
+    const info = await Deno.lstat(directory).catch(() => null)
+    if (info == null || info.isSymlink || !info.isDirectory) {
+      throw new SchemaError(
+        `case ${spec.id}: reviewed golden directory is missing or unsafe: ${directory}`,
+      )
+    }
+  }
+  const info = await Deno.lstat(path).catch(() => null)
+  if (info == null || info.isSymlink || !info.isFile) {
+    throw new SchemaError(
+      `case ${spec.id}: reviewed golden is missing or unsafe: ${path}`,
+    )
+  }
+  const bytes = await Deno.readFile(path)
+  const hash = await sha256Hex(bytes)
+  if (hash !== binding.sha256) {
+    throw new SchemaError(
+      `case ${spec.id}: reviewed golden SHA-256 differs from case pin`,
+    )
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes))
+  } catch {
+    throw new SchemaError(`case ${spec.id}: reviewed golden is not UTF-8 JSON`)
+  }
+  const golden = parseReviewedGolden(parsed, path)
+  if (
+    golden.caseId !== spec.id || golden.deviationId !== binding.id ||
+    golden.contract !== binding.contract
+  ) {
+    throw new SchemaError(
+      `case ${spec.id}: reviewed golden identity differs from case binding`,
+    )
+  }
+  const actual = changedSurfaces(spec, golden)
+  if (
+    golden.candidate.argv != null && !actual.includes("argv") ||
+    golden.candidate.expected != null &&
+      !actual.some((surface) =>
+        ["exit", "stdout", "stderr", "files"].includes(surface)
+      )
+  ) {
+    throw new SchemaError(
+      `case ${spec.id}: redundant unchanged candidate override`,
+    )
+  }
+  if (
+    !same([...actual].sort(), [...golden.approvedSurfaces].sort())
+  ) {
+    throw new SchemaError(
+      `case ${spec.id}: approvedSurfaces do not match actual changed surfaces`,
+    )
+  }
+  if (spec.graphql == null && golden.candidate.graphqlUserAgent != null) {
+    throw new SchemaError(
+      `case ${spec.id}: GraphQL User-Agent override requires a GraphQL fixture`,
+    )
+  }
+  if (golden.candidate.graphqlUserAgent != null) {
+    const steps = spec.graphql?.groups.flatMap((group) =>
+      group.mode === "ordered"
+        ? group.steps
+        : group.lanes.flatMap((lane) =>
+          lane.steps
+        )
+    ) ?? []
+    if (!steps.some((step) => step.kind === "graphql")) {
+      throw new SchemaError(
+        `case ${spec.id}: GraphQL User-Agent override has no GraphQL request`,
+      )
+    }
+  }
+  const candidateSpec: CaseSpec = {
+    ...spec,
+    argv: golden.candidate.argv ?? spec.argv,
+    expected: golden.candidate.expected ?? spec.expected,
+  }
+  const stdout = candidateSpec.expected.stdout
+  if (
+    "mode" in stdout && stdout.mode === "close-after-bytes" &&
+    stdout.count > spec.outputCapBytes
+  ) {
+    throw new SchemaError(
+      `case ${spec.id}: candidate close-after-bytes exceeds outputCapBytes`,
+    )
+  }
+  // Resolve candidate placeholders before any selected baseline can execute.
+  resolveCase(candidateSpec, {
+    home: "h",
+    configHome: "c",
+    cwd: "w",
+    bin: "b",
+    denoDir: "d",
+    fixturePort: "0",
+  }, golden.candidate.graphqlUserAgent)
+  return { spec: golden, sha256: hash }
+}
+
+async function checkGoldenTree(
+  dir: string,
+  boundIds: ReadonlySet<string>,
+): Promise<void> {
+  const root = join(await Deno.realPath(dir), "rust-goldens")
+  const rootInfo = await Deno.lstat(root).catch(() => null)
+  if (rootInfo == null) {
+    if (boundIds.size !== 0) {
+      throw new SchemaError("reviewed golden root is missing")
+    }
+    return
+  }
+  if (rootInfo.isSymlink || !rootInfo.isDirectory) {
+    throw new SchemaError("reviewed golden root is unsafe")
+  }
+  for await (const contract of Deno.readDir(root)) {
+    if (
+      contract.name !== RUST_CONTRACT || contract.isSymlink ||
+      !contract.isDirectory
+    ) {
+      throw new SchemaError(
+        `unknown or unsafe reviewed golden contract ${contract.name}`,
+      )
+    }
+    for await (const entry of Deno.readDir(join(root, contract.name))) {
+      if (entry.isSymlink || !entry.isFile || !entry.name.endsWith(".json")) {
+        throw new SchemaError(`unsafe reviewed golden entry ${entry.name}`)
+      }
+      const id = entry.name.slice(0, -5)
+      if (!boundIds.has(id)) {
+        throw new SchemaError(`orphan reviewed golden ${entry.name}`)
+      }
+    }
+  }
+}
+
+export function candidateCaseView(loaded: LoadedCase): LoadedCase {
+  const golden = loaded.golden?.spec
+  if (golden == null) {
+    if (loaded.spec.deviation != null || loaded.spec.graphql != null) {
+      throw new SchemaError(
+        `case ${loaded.spec.id}: Rust candidate requires a loaded reviewed golden`,
+      )
+    }
+    return { ...loaded, spec: { ...loaded.spec } }
+  }
+  return {
+    ...loaded,
+    spec: {
+      ...loaded.spec,
+      argv: golden.candidate.argv ?? loaded.spec.argv,
+      expected: golden.candidate.expected ?? loaded.spec.expected,
+    },
+    runtimeUserAgent: golden.candidate.graphqlUserAgent,
+  }
+}
+
+function rewriteUserAgent(
+  fixture: RuntimeGraphQLFixtureSpec,
+  userAgent: typeof RUST_USER_AGENT,
+): RuntimeGraphQLFixtureSpec {
+  return {
+    ...fixture,
+    groups: fixture.groups.map((group) =>
+      group.mode === "ordered"
+        ? {
+          ...group,
+          steps: group.steps.map((step) =>
+            step.kind === "graphql"
+              ? { ...step, identity: { ...step.identity, userAgent } }
+              : step
+          ),
+        }
+        : {
+          ...group,
+          lanes: group.lanes.map((lane) => ({
+            ...lane,
+            steps: lane.steps.map((step) =>
+              step.kind === "graphql"
+                ? { ...step, identity: { ...step.identity, userAgent } }
+                : step
+            ),
+          })),
+        }
+    ),
+  }
 }
 
 export const LANE_CLEANUP_MARGIN_MS = 1000
@@ -263,7 +545,7 @@ export interface ResolvedCase {
     fileEffects: CaseSpec["expected"]["fileEffects"]
   }
   fixtureServer: CaseSpec["fixtureServer"]
-  graphql: CaseSpec["graphql"]
+  graphql: RuntimeGraphQLFixtureSpec | null | undefined
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -562,6 +844,7 @@ export async function loadCases(
   dir: string,
   manifestRoutes: ReadonlySet<string>,
   filter?: string,
+  contract: CandidateContract = FROZEN_CONTRACT,
 ): Promise<LoadedCase[]> {
   const files: string[] = []
   for await (const entry of Deno.readDir(dir)) {
@@ -569,6 +852,7 @@ export async function loadCases(
   }
   files.sort()
   const seen = new Set<string>()
+  const boundIds = new Set<string>()
   const loaded: LoadedCase[] = []
   for (const name of files) {
     const file = join(dir, name)
@@ -584,6 +868,23 @@ export async function loadCases(
     }
     const spec = parseCase(parsed, file)
     await checkGraphQLFixture(spec, file)
+    if (spec.graphql != null) {
+      const steps = spec.graphql.groups.flatMap((group) =>
+        group.mode === "ordered"
+          ? group.steps
+          : group.lanes.flatMap((lane) => lane.steps)
+      )
+      if (
+        steps.some((step) =>
+          step.kind === "graphql" &&
+          step.identity.userAgent !== FROZEN_USER_AGENT
+        )
+      ) {
+        throw new SchemaError(
+          `${file}: baseline GraphQL User-Agent differs from frozen 2.6.0`,
+        )
+      }
+    }
     if (`${spec.id}.json` !== name) {
       throw new SchemaError(
         `${file}: id ${spec.id} does not match the file name`,
@@ -596,6 +897,16 @@ export async function loadCases(
     if (!manifestRoutes.has(spec.route)) {
       throw new SchemaError(
         `${file}: route "${spec.route}" is not in rust/parity/manifest.json`,
+      )
+    }
+    const golden = await loadReviewedBinding(dir, spec)
+    if (golden != null) boundIds.add(spec.id)
+    if (
+      contract === RUST_CONTRACT && spec.graphql != null &&
+      golden?.spec.candidate.graphqlUserAgent !== RUST_USER_AGENT
+    ) {
+      throw new SchemaError(
+        `${file}: Rust contract requires exact GraphQL User-Agent binding`,
       )
     }
     let fixtureDir: string | null = null
@@ -629,9 +940,10 @@ export async function loadCases(
       fixturePort: "0",
     })
     if (filter == null || spec.id.includes(filter)) {
-      loaded.push({ file, spec, fixtureDir, configFixtureDir })
+      loaded.push({ file, spec, fixtureDir, configFixtureDir, golden })
     }
   }
+  await checkGoldenTree(dir, boundIds)
   return loaded
 }
 
@@ -677,6 +989,7 @@ function substituteValues(
 export function resolveCase(
   spec: CaseSpec,
   values: Readonly<Record<SubstitutionName, string>>,
+  userAgent?: typeof RUST_USER_AGENT,
 ): ResolvedCase {
   const declared = spec.substitutions
   const label = `case ${spec.id}`
@@ -729,9 +1042,12 @@ export function resolveCase(
           : response.body,
       })),
     },
-    graphql: spec.graphql == null ? spec.graphql : v.parse(
-      GraphQLFixtureSchema,
-      substituteValues(spec.graphql, declared, values, `${label} graphql`),
-    ),
+    graphql: spec.graphql == null ? spec.graphql : (() => {
+      const frozen = v.parse(
+        GraphQLFixtureSchema,
+        substituteValues(spec.graphql, declared, values, `${label} graphql`),
+      )
+      return userAgent == null ? frozen : rewriteUserAgent(frozen, userAgent)
+    })(),
   }
 }

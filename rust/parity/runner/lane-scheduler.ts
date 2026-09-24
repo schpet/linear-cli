@@ -1,7 +1,10 @@
-import type { GraphQLFixtureSpec, InteractionSpec } from "./schema.ts"
+import type {
+  RuntimeGraphQLFixtureSpec,
+  RuntimeInteractionSpec,
+} from "./schema.ts"
 
 export interface LaneClaim {
-  step: InteractionSpec
+  step: RuntimeInteractionSpec
   ready: Promise<boolean>
   groupIndex: number
   laneIndex: number
@@ -9,13 +12,16 @@ export interface LaneClaim {
 }
 
 interface LaneCursor {
-  steps: readonly InteractionSpec[]
+  steps: readonly RuntimeInteractionSpec[]
   index: number
   claimed: boolean
   release: ((allowed: boolean) => void) | null
 }
 
-function sameStepIgnoringId(a: InteractionSpec, b: InteractionSpec): boolean {
+function sameStepIgnoringId(
+  a: RuntimeInteractionSpec,
+  b: RuntimeInteractionSpec,
+): boolean {
   const { id: _a, ...left } = a
   const { id: _b, ...right } = b
   return JSON.stringify(left) === JSON.stringify(right)
@@ -23,7 +29,7 @@ function sameStepIgnoringId(a: InteractionSpec, b: InteractionSpec): boolean {
 
 /** Pure ordered/lane cursor machine. A claimed first step waits outside the match/commit path. */
 export class LaneScheduler {
-  readonly #groups: GraphQLFixtureSpec["groups"]
+  readonly #groups: RuntimeGraphQLFixtureSpec["groups"]
   readonly #onFailure: (reason: string) => void
   #groupIndex = 0
   #lanes: LaneCursor[] = []
@@ -32,7 +38,7 @@ export class LaneScheduler {
   #consumed = 0
 
   constructor(
-    groups: GraphQLFixtureSpec["groups"],
+    groups: RuntimeGraphQLFixtureSpec["groups"],
     onFailure: (reason: string) => void,
   ) {
     this.#groups = groups
@@ -82,7 +88,7 @@ export class LaneScheduler {
     }
   }
 
-  claim(matches: (step: InteractionSpec) => boolean): LaneClaim | null {
+  claim(matches: (step: RuntimeInteractionSpec) => boolean): LaneClaim | null {
     if (this.#failure != null) return null
     if (this.finished) {
       this.fail("unexpected request after final interaction")
@@ -90,7 +96,7 @@ export class LaneScheduler {
     }
     const group = this.#groups[this.#groupIndex]
     const eligible: Array<
-      { lane: LaneCursor; laneIndex: number; step: InteractionSpec }
+      { lane: LaneCursor; laneIndex: number; step: RuntimeInteractionSpec }
     > = []
     this.#lanes.forEach((lane, laneIndex) => {
       if (lane.claimed) return

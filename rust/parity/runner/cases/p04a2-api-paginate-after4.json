@@ -127,5 +127,9 @@
     },
     "fileEffects": []
   },
-  "deviation": null
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "64502de66cd92e7d4099ad5759ca6e56e3b47468767f836969707584f58813dd"
+  }
 }

@@ -94,5 +94,9 @@
     "stderr": { "utf8": "" },
     "fileEffects": []
   },
-  "deviation": null
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "3395f730ad808b0d54c34c2c0f0607b22aa87a6ee79f05e5a2bbb6af49e63bbb"
+  }
 }

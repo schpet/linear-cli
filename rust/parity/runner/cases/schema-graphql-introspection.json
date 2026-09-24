@@ -84,5 +84,9 @@
       }
     ]
   },
-  "deviation": null
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "d91f00af019a04dc5c871e734797ba47100ba92a13bde082ffb55435179948e9"
+  }
 }
