@@ -286,7 +286,9 @@ fn strict_utf8_rejection_and_bom_source_shape() {
         &RealFileSource,
         &Probe::new(GitProbeResult::SpawnFailure),
     );
-    assert!(matches!(result, Err(ConfigFailure::InvalidUtf8 { .. })));
+    assert!(
+        matches!(result, Err(error) if matches!(error.failure, ConfigFailure::InvalidUtf8 { .. }))
+    );
     tree.write(".env", b"\xef\xbb\xbfLINEAR_TEAM_ID=BOM\n");
     let result = load_env(
         &tree.inputs(),
@@ -309,7 +311,7 @@ fn bounded_reads_are_fatal_for_env_and_poison_config() {
             &RealFileSource,
             &Probe::new(GitProbeResult::SpawnFailure)
         ),
-        Err(ConfigFailure::Oversize { .. })
+        Err(error) if matches!(error.failure, ConfigFailure::Oversize { .. })
     ));
     assert!(matches!(
         read_config_candidate(&RealFileSource, &tree.0.join("linear.toml")),
@@ -344,7 +346,7 @@ fn oversized_root_dotenv_fails_without_applying_earlier_assignment() {
     });
     assert!(matches!(
         load_env(&tree.inputs(), &RealFileSource, &probe),
-        Err(ConfigFailure::Oversize { path }) if path == root.join(".env")
+        Err(error) if matches!(&error.failure, ConfigFailure::Oversize { path } if path == &root.join(".env"))
     ));
     assert_eq!(probe.count.get(), 1);
 }
@@ -360,7 +362,7 @@ fn oversized_cwd_file_does_not_probe_or_apply_valid_root_file() {
     });
     assert!(matches!(
         load_env(&tree.inputs(), &RealFileSource, &probe),
-        Err(ConfigFailure::Oversize { path }) if path == tree.0.join(".env")
+        Err(error) if matches!(&error.failure, ConfigFailure::Oversize { path } if path == &tree.0.join(".env"))
     ));
     assert_eq!(probe.count.get(), 0);
 }

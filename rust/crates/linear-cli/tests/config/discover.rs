@@ -41,7 +41,7 @@ fn config_probe_accepts_empty_stdout_after_nonzero_git() {
         success: false,
         stdout: String::new(),
     });
-    let paths = discover_config_paths(&inputs(), &probe);
+    let paths = discover_config_paths(&inputs(), &probe).unwrap();
     assert_eq!(probe.count.get(), 1);
     assert_eq!(paths.project.len(), 5);
     assert_eq!(
@@ -53,7 +53,7 @@ fn config_probe_accepts_empty_stdout_after_nonzero_git() {
 #[test]
 fn config_probe_omits_git_candidates_only_on_spawn_failure() {
     let probe = Probe::new(GitProbeResult::SpawnFailure);
-    let paths = discover_config_paths(&inputs(), &probe);
+    let paths = discover_config_paths(&inputs(), &probe).unwrap();
     assert_eq!(paths.project.len(), 2);
     assert_eq!(probe.count.get(), 1);
 }
@@ -71,7 +71,7 @@ fn root_and_global_candidate_order() {
         success: true,
         stdout: "/tmp/riir-project\n".to_owned(),
     });
-    let paths = discover_config_paths(&inputs, &probe);
+    let paths = discover_config_paths(&inputs, &probe).unwrap();
     assert_eq!(
         paths.global[0].path,
         PathBuf::from("/tmp/xdg/linear/linear.toml")
@@ -104,12 +104,12 @@ fn falsey_xdg_falls_back_to_home_and_windows_uses_appdata() {
         .insert("APPDATA".to_owned(), "/tmp/roaming".to_owned());
     let probe = Probe::new(GitProbeResult::SpawnFailure);
     assert_eq!(
-        discover_config_paths(&inputs, &probe).global[0].path,
+        discover_config_paths(&inputs, &probe).unwrap().global[0].path,
         PathBuf::from("/tmp/home/.config/linear/linear.toml")
     );
     inputs.os = OsFamily::Windows;
     assert_eq!(
-        discover_config_paths(&inputs, &probe).global[0].path,
+        discover_config_paths(&inputs, &probe).unwrap().global[0].path,
         PathBuf::from("/tmp/roaming/linear/linear.toml")
     );
 }
@@ -118,11 +118,26 @@ fn falsey_xdg_falls_back_to_home_and_windows_uses_appdata() {
 fn absent_global_bases_produce_no_global_candidate() {
     let mut inputs = inputs();
     let probe = Probe::new(GitProbeResult::SpawnFailure);
-    assert!(discover_config_paths(&inputs, &probe).global.is_empty());
+    assert!(
+        discover_config_paths(&inputs, &probe)
+            .unwrap()
+            .global
+            .is_empty()
+    );
     inputs.os = OsFamily::Windows;
-    assert!(discover_config_paths(&inputs, &probe).global.is_empty());
+    assert!(
+        discover_config_paths(&inputs, &probe)
+            .unwrap()
+            .global
+            .is_empty()
+    );
     inputs
         .process_env
         .insert("APPDATA".to_owned(), String::new());
-    assert!(discover_config_paths(&inputs, &probe).global.is_empty());
+    assert!(
+        discover_config_paths(&inputs, &probe)
+            .unwrap()
+            .global
+            .is_empty()
+    );
 }

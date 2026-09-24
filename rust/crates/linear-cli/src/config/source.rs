@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
@@ -28,7 +29,51 @@ impl ConfigInputs {
 pub enum GitProbeResult {
     SpawnFailure,
     Completed { success: bool, stdout: String },
+    Failed(GitProbeError),
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GitIoStage {
+    Poll,
+    ReadStdout,
+    Reap,
+}
+
+impl fmt::Display for GitIoStage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Poll => "status check",
+            Self::ReadStdout => "stdout read",
+            Self::Reap => "child cleanup",
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum GitProbeError {
+    Timeout,
+    Oversize,
+    InvalidUtf8,
+    MalformedStdout,
+    Io {
+        stage: GitIoStage,
+        kind: io::ErrorKind,
+    },
+}
+
+impl fmt::Display for GitProbeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Timeout => f.write_str("Git root lookup timed out"),
+            Self::Oversize => f.write_str("Git root lookup output exceeded 65536 bytes"),
+            Self::InvalidUtf8 => f.write_str("Git root lookup output is not UTF-8"),
+            Self::MalformedStdout => f.write_str("Git root lookup returned an invalid path"),
+            Self::Io { stage, kind } => write!(f, "Git root lookup {stage} failed: {kind}"),
+        }
+    }
+}
+
+impl std::error::Error for GitProbeError {}
 
 pub trait GitRootProbe {
     fn probe(&self) -> GitProbeResult;

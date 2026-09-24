@@ -3,8 +3,8 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use super::source::{
-    ConfigInputs, FileKind, FileSource, GitProbeResult, GitRootProbe, MAX_CONFIG_BYTES, absent,
-    lexical,
+    ConfigInputs, FileKind, FileSource, GitProbeError, GitProbeResult, GitRootProbe,
+    MAX_CONFIG_BYTES, absent, lexical,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -25,6 +25,7 @@ pub enum ConfigFailure {
     Oversize { path: PathBuf },
     InvalidUtf8 { path: PathBuf },
     InvalidInput(String),
+    GitProbe(GitProbeError),
 }
 
 impl fmt::Display for ConfigFailure {
@@ -35,11 +36,37 @@ impl fmt::Display for ConfigFailure {
             }
             Self::InvalidUtf8 { path } => write!(f, "{} is not valid UTF-8", path.display()),
             Self::InvalidInput(reason) => f.write_str(reason),
+            Self::GitProbe(error) => error.fmt(f),
         }
     }
 }
 
-impl std::error::Error for ConfigFailure {}
+impl std::error::Error for ConfigFailure {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::GitProbe(error) => Some(error),
+            Self::Oversize { .. } | Self::InvalidUtf8 { .. } | Self::InvalidInput(_) => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LoadEnvError {
+    pub diagnostics: Vec<ConfigDiagnostic>,
+    pub failure: ConfigFailure,
+}
+
+impl fmt::Display for LoadEnvError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.failure.fmt(f)
+    }
+}
+
+impl std::error::Error for LoadEnvError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.failure)
+    }
+}
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct SelectedEnv {
@@ -248,11 +275,12 @@ pub fn load_env(
     inputs: &ConfigInputs,
     files: &impl FileSource,
     git: &impl GitRootProbe,
-) -> Result<SelectedEnv, ConfigFailure> {
+) -> Result<SelectedEnv, LoadEnvError> {
     if !inputs.cwd.is_absolute() {
-        return Err(ConfigFailure::InvalidInput(
-            "cwd must be absolute".to_owned(),
-        ));
+        return Err(LoadEnvError {
+            diagnostics: Vec::new(),
+            failure: ConfigFailure::InvalidInput("cwd must be absolute".to_owned()),
+        });
     }
     let mut result = SelectedEnv {
         applied: BTreeMap::new(),
@@ -264,32 +292,47 @@ pub fn load_env(
     }
     let cwd_path = lexical(&inputs.cwd.join(".env"));
     let mut selected_path = cwd_path.clone();
-    let mut file = read_env(files, &cwd_path)?;
+    let mut file = read_env(files, &cwd_path).map_err(|failure| LoadEnvError {
+        diagnostics: result.diagnostics.clone(),
+        failure,
+    })?;
     if let EnvFile::Unusable(reason) = &file {
         result.diagnostics.push(ConfigDiagnostic {
             path: cwd_path.clone(),
             reason: DiagnosticReason::Unusable(reason.clone()),
         });
     }
-    if !matches!(file, EnvFile::Loaded(_))
-        && let GitProbeResult::Completed {
-            success: true,
-            stdout,
-        } = git.probe()
-    {
-        let root = stdout.trim();
-        if !root.is_empty() {
-            let root_path = lexical(&PathBuf::from(root).join(".env"));
-            if root_path != cwd_path {
-                selected_path = root_path.clone();
-                file = read_env(files, &root_path)?;
-                if let EnvFile::Unusable(reason) = &file {
-                    result.diagnostics.push(ConfigDiagnostic {
-                        path: root_path,
-                        reason: DiagnosticReason::Unusable(reason.clone()),
-                    });
+    if !matches!(file, EnvFile::Loaded(_)) {
+        match git.probe() {
+            GitProbeResult::Completed {
+                success: true,
+                stdout,
+            } => {
+                let root = stdout.trim();
+                if !root.is_empty() {
+                    let root_path = lexical(&PathBuf::from(root).join(".env"));
+                    if root_path != cwd_path {
+                        selected_path = root_path.clone();
+                        file = read_env(files, &root_path).map_err(|failure| LoadEnvError {
+                            diagnostics: result.diagnostics.clone(),
+                            failure,
+                        })?;
+                        if let EnvFile::Unusable(reason) = &file {
+                            result.diagnostics.push(ConfigDiagnostic {
+                                path: root_path,
+                                reason: DiagnosticReason::Unusable(reason.clone()),
+                            });
+                        }
+                    }
                 }
             }
+            GitProbeResult::Failed(error) => {
+                return Err(LoadEnvError {
+                    diagnostics: result.diagnostics,
+                    failure: ConfigFailure::GitProbe(error),
+                });
+            }
+            GitProbeResult::SpawnFailure | GitProbeResult::Completed { success: false, .. } => {}
         }
     }
     if let EnvFile::Loaded(text) = file {

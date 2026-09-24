@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use super::dotenv::ConfigFailure;
 use super::source::{ConfigInputs, GitProbeResult, GitRootProbe, OsFamily, lexical};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -24,7 +25,10 @@ fn truthy(value: Option<&str>) -> Option<&str> {
     value.filter(|value| !value.is_empty())
 }
 
-pub fn discover_config_paths(inputs: &ConfigInputs, git: &impl GitRootProbe) -> ConfigPaths {
+pub fn discover_config_paths(
+    inputs: &ConfigInputs,
+    git: &impl GitRootProbe,
+) -> Result<ConfigPaths, ConfigFailure> {
     let mut global = Vec::new();
     let base = match inputs.os {
         OsFamily::Unix => truthy(inputs.env("XDG_CONFIG_HOME"))
@@ -46,19 +50,23 @@ pub fn discover_config_paths(inputs: &ConfigInputs, git: &impl GitRootProbe) -> 
         })
         .collect::<Vec<_>>();
     // Unlike dotenv's probe, the source config loader ignores process success.
-    if let GitProbeResult::Completed { stdout, .. } = git.probe() {
-        let root = stdout.trim();
-        for suffix in ["linear.toml", ".linear.toml", ".config/linear.toml"] {
-            let path = if root.is_empty() {
-                inputs.cwd.join(suffix)
-            } else {
-                PathBuf::from(root).join(suffix)
-            };
-            project.push(ConfigCandidate {
-                tier: CandidateTier::Project,
-                path: lexical(&path),
-            });
+    match git.probe() {
+        GitProbeResult::Completed { stdout, .. } => {
+            let root = stdout.trim();
+            for suffix in ["linear.toml", ".linear.toml", ".config/linear.toml"] {
+                let path = if root.is_empty() {
+                    inputs.cwd.join(suffix)
+                } else {
+                    PathBuf::from(root).join(suffix)
+                };
+                project.push(ConfigCandidate {
+                    tier: CandidateTier::Project,
+                    path: lexical(&path),
+                });
+            }
         }
+        GitProbeResult::Failed(error) => return Err(ConfigFailure::GitProbe(error)),
+        GitProbeResult::SpawnFailure => {}
     }
-    ConfigPaths { global, project }
+    Ok(ConfigPaths { global, project })
 }
