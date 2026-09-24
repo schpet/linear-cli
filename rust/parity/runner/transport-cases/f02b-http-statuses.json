@@ -1,0 +1,279 @@
+{
+  "id": "f02b-http-statuses",
+  "route": "linear team list",
+  "reason": "Non-2xx bodies without GraphQL errors stay HTTP failures with exact bytes (429 text, 502 html, 500 with valid data, 302 never followed); 2xx bodies that are truncated, empty, data:null or the wrong typed shape classify separately. F02B transport foundation case driven by rust/parity/runner/serve-case.ts: the Rust transport test sends the requests itself. argv and expected surfaces are unexecuted placeholders, not oracle-verified output; this directory is not loaded by the parity runner.",
+  "argv": [
+    "team",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 8,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "rate-limited-429",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 429,
+              "headers": {
+                "content-type": "text/plain",
+                "retry-after": "7"
+              },
+              "body": {
+                "utf8": "Too Many Requests\n"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "bad-gateway-502",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 502,
+              "headers": {
+                "content-type": "text/html"
+              },
+              "body": {
+                "utf8": "<html><body>bad gateway</body></html>"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "data-with-500",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 500,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"teams\":{\"nodes\":[{\"id\":\"team-1\",\"name\":\"Engineering\",\"key\":\"ENG\",\"description\":null,\"icon\":null,\"color\":\"#0000ff\",\"cyclesEnabled\":false,\"createdAt\":\"2026-01-01T00:00:00.000Z\",\"updatedAt\":\"2026-01-02T00:00:00.000Z\",\"archivedAt\":null,\"organization\":{\"id\":\"org-1\",\"name\":\"Acme\"}},{\"id\":\"team-2\",\"name\":\"Design\",\"key\":\"DES\",\"description\":\"Product design\",\"icon\":\"Palette\",\"color\":\"#0000ff\",\"cyclesEnabled\":false,\"createdAt\":\"2026-01-01T00:00:00.000Z\",\"updatedAt\":\"2026-01-02T00:00:00.000Z\",\"archivedAt\":null,\"organization\":{\"id\":\"org-1\",\"name\":\"Acme\"}}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "redirect-302",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 302,
+              "headers": {
+                "location": "http://127.0.0.1:{{fixturePort}}/elsewhere"
+              },
+              "body": {
+                "utf8": ""
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "truncated-200",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "empty-200",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": ""
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "data-null-200",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":null}"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "wrong-shape-200",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"teams\":\"nope\"}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

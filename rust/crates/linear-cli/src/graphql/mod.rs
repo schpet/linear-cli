@@ -2,12 +2,15 @@
 //!
 //! `build.rs` registers `graphql/schema.graphql` under the name `linear`; every
 //! derive in this module tree is checked against that schema at compile time.
-//! This slice owns wire types only: there is no HTTP transport here (F02B).
+//! F02A owns the wire types; F02B adds the HTTP transport, response
+//! classification and cursor pagination on top of them.
 
 pub mod edit;
 pub mod envelope;
 pub mod operations;
+pub mod pagination;
 pub mod scalars;
+pub mod transport;
 
 /// Cynic marker types generated from the registered Linear schema.
 ///

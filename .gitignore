@@ -5,3 +5,4 @@ src/__codegen__/
 npm
 rust/target/
 rust/tools/__pycache__/
+rust/parity/runner/transport-cases/zz-tmp-*

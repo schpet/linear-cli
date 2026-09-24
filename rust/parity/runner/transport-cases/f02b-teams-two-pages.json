@@ -1,0 +1,172 @@
+{
+  "id": "f02b-teams-two-pages",
+  "route": "linear team list",
+  "reason": "Two GetTeams pages: page one omits after, page two carries cursor-a; the last pageInfo has no next page. F02B transport foundation case driven by rust/parity/runner/serve-case.ts: the Rust transport test sends the requests itself. argv and expected surfaces are unexecuted placeholders, not oracle-verified output; this directory is not loaded by the parity runner.",
+  "argv": [
+    "team",
+    "list",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "first-page",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "team-1",
+                      "name": "Engineering",
+                      "key": "ENG",
+                      "description": null,
+                      "icon": null,
+                      "color": "#0000ff",
+                      "cyclesEnabled": false,
+                      "createdAt": "2026-01-01T00:00:00.000Z",
+                      "updatedAt": "2026-01-02T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-1",
+                        "name": "Acme"
+                      }
+                    },
+                    {
+                      "id": "team-2",
+                      "name": "Design",
+                      "key": "DES",
+                      "description": "Product design",
+                      "icon": "Palette",
+                      "color": "#0000ff",
+                      "cyclesEnabled": false,
+                      "createdAt": "2026-01-01T00:00:00.000Z",
+                      "updatedAt": "2026-01-02T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-1",
+                        "name": "Acme"
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "cursor-a"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "second-page",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100,
+                "after": "cursor-a"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "team-3",
+                      "name": "Archived",
+                      "key": "ARC",
+                      "description": null,
+                      "icon": null,
+                      "color": "#0000ff",
+                      "cyclesEnabled": false,
+                      "createdAt": "2026-01-01T00:00:00.000Z",
+                      "updatedAt": "2026-01-02T00:00:00.000Z",
+                      "archivedAt": "2026-02-01T00:00:00.000Z",
+                      "organization": {
+                        "id": "org-1",
+                        "name": "Acme"
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": "cursor-b"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}
