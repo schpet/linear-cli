@@ -1,3 +1,4 @@
+pub mod clap_tree;
 mod generated;
 pub mod parser;
 pub mod render;

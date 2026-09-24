@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+clap = { version = "=4.6.7", default-features = false, features = ["std", "help", "usage"] }
 unicode-width = "=0.2.2"
 cynic = { version = "=3.14.0", default-features = false, features = ["rkyv"] }
 serde = { version = "1", features = ["derive"] }

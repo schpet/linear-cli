@@ -1,3 +1,4 @@
+mod clap_tree;
 mod dispatch;
 mod help;
 mod inventory;
