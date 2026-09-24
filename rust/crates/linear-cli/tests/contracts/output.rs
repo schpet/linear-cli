@@ -48,6 +48,7 @@ fn make_context<'a>(stdout: &'a mut dyn Write, stderr: &'a mut dyn Write) -> App
         stdout_tty: false,
         stderr_tty: false,
         startup_diagnostics: Vec::new(),
+        stdout_finalization: None,
     }
 }
 
@@ -213,7 +214,7 @@ fn failed_stdout_and_stderr_stop_after_one_diagnostic_attempt() {
 }
 
 #[test]
-fn broken_pipe_is_provisionally_an_io_failure() {
+fn version_broken_pipe_remains_a_strict_io_failure() {
     struct Broken;
     impl Write for Broken {
         fn write(&mut self, _bytes: &[u8]) -> io::Result<usize> {
@@ -227,7 +228,7 @@ fn broken_pipe_is_provisionally_an_io_failure() {
     let mut stderr = Probe::default();
     let mut context = make_context(&mut stdout, &mut stderr);
     let result = run(&["-V".to_owned()], &mut context);
-    let error = finalize(result, &mut context).expect_err("EPIPE is not swallowed in A1");
+    let error = finalize(result, &mut context).expect_err("version output remains strict");
     assert_io(&error, Stream::Stdout);
     assert_eq!(error.message, "failed to write stdout");
 }

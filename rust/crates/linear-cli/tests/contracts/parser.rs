@@ -82,6 +82,7 @@ fn frozen_parser_contracts() {
             stdout_tty: false,
             stderr_tty: false,
             startup_diagnostics: Vec::new(),
+            stdout_finalization: None,
         };
         let status = match run(&args, &mut context) {
             Ok(status) => status,
@@ -125,6 +126,7 @@ fn run_args(args: &[&str]) -> (u8, String, String) {
         stdout_tty: false,
         stderr_tty: false,
         startup_diagnostics: Vec::new(),
+        stdout_finalization: None,
     };
     let args = args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
     let status = match run(&args, &mut context) {

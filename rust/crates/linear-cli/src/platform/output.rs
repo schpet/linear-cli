@@ -25,6 +25,18 @@ enum Operation {
     Flush,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OutputPolicy {
+    Strict,
+    ConsoleLike,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OutputOutcome {
+    Written,
+    QuietBrokenPipe,
+}
+
 impl Operation {
     fn label(self) -> &'static str {
         match self {
@@ -42,6 +54,10 @@ pub struct OutputFailure {
 }
 
 impl OutputFailure {
+    pub fn is_broken_pipe(&self) -> bool {
+        self.source.kind() == io::ErrorKind::BrokenPipe
+    }
+
     fn app_error(self) -> AppError {
         AppError::new(
             AppErrorKind::IoProcess,
@@ -90,25 +106,50 @@ impl<'a> Output<'a> {
     }
 
     pub fn write(&mut self, bytes: &[u8]) -> Result<(), AppError> {
-        self.writer.write_all(bytes).map_err(|source| {
-            OutputFailure {
-                stream: self.stream,
-                operation: Operation::Write,
-                source,
-            }
-            .app_error()
-        })?;
-        self.flush()
+        self.write_with_policy(bytes, OutputPolicy::Strict)
+            .map(|_| ())
     }
 
     pub fn flush(&mut self) -> Result<(), AppError> {
-        self.writer.flush().map_err(|source| {
-            OutputFailure {
-                stream: self.stream,
-                operation: Operation::Flush,
-                source,
-            }
-            .app_error()
-        })
+        self.flush_with_policy(OutputPolicy::Strict).map(|_| ())
+    }
+
+    pub fn write_with_policy(
+        &mut self,
+        bytes: &[u8],
+        policy: OutputPolicy,
+    ) -> Result<OutputOutcome, AppError> {
+        match self.writer.write_all(bytes) {
+            Ok(()) => self.flush_with_policy(policy),
+            Err(source) => self.resolve_failure(Operation::Write, source, policy),
+        }
+    }
+
+    pub fn flush_with_policy(&mut self, policy: OutputPolicy) -> Result<OutputOutcome, AppError> {
+        match self.writer.flush() {
+            Ok(()) => Ok(OutputOutcome::Written),
+            Err(source) => self.resolve_failure(Operation::Flush, source, policy),
+        }
+    }
+
+    fn resolve_failure(
+        &self,
+        operation: Operation,
+        source: io::Error,
+        policy: OutputPolicy,
+    ) -> Result<OutputOutcome, AppError> {
+        let failure = OutputFailure {
+            stream: self.stream,
+            operation,
+            source,
+        };
+        if policy == OutputPolicy::ConsoleLike
+            && failure.stream == Stream::Stdout
+            && failure.is_broken_pipe()
+        {
+            Ok(OutputOutcome::QuietBrokenPipe)
+        } else {
+            Err(failure.app_error())
+        }
     }
 }

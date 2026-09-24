@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::cli::{self, DispatchAction, RouteMeta};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
-use crate::platform::output::{Output, Stream, failed_stream};
+use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
 
 pub struct AppContext<'a> {
     pub env: BTreeMap<String, String>,
@@ -14,6 +14,7 @@ pub struct AppContext<'a> {
     pub stdout_tty: bool,
     pub stderr_tty: bool,
     pub startup_diagnostics: Vec<String>,
+    pub stdout_finalization: Option<(OutputPolicy, OutputOutcome)>,
 }
 
 impl AppContext<'_> {
@@ -39,7 +40,19 @@ impl AppContext<'_> {
     }
 
     fn write_stdout(&mut self, bytes: &[u8]) -> Result<(), AppError> {
-        Output::new(&mut *self.stdout, Stream::Stdout).write(bytes)
+        self.write_stdout_with_policy(bytes, OutputPolicy::Strict)
+    }
+
+    fn write_stdout_with_policy(
+        &mut self,
+        bytes: &[u8],
+        policy: OutputPolicy,
+    ) -> Result<(), AppError> {
+        self.stdout_finalization = None;
+        let outcome =
+            Output::new(&mut *self.stdout, Stream::Stdout).write_with_policy(bytes, policy)?;
+        self.stdout_finalization = Some((policy, outcome));
+        Ok(())
     }
 
     fn write_stderr(&mut self, bytes: &[u8]) -> Result<(), AppError> {
@@ -47,7 +60,13 @@ impl AppContext<'_> {
     }
 
     fn flush_all(&mut self) -> Result<(), AppError> {
-        Output::new(&mut *self.stdout, Stream::Stdout).flush()?;
+        let policy = match self.stdout_finalization.take() {
+            Some((OutputPolicy::ConsoleLike, OutputOutcome::QuietBrokenPipe)) => {
+                OutputPolicy::ConsoleLike
+            }
+            Some(_) | None => OutputPolicy::Strict,
+        };
+        Output::new(&mut *self.stdout, Stream::Stdout).flush_with_policy(policy)?;
         Output::new(&mut *self.stderr, Stream::Stderr).flush()
     }
 }
@@ -111,6 +130,7 @@ pub fn finalize(
 }
 
 pub fn run(argv: &[String], context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
+    context.stdout_finalization = None;
     for diagnostic in context.startup_diagnostics.clone() {
         write_stderr(context, diagnostic.as_bytes())?;
     }
@@ -141,7 +161,10 @@ pub fn run(argv: &[String], context: &mut AppContext<'_>) -> Result<ExitStatus, 
 fn dispatch(route: &RouteMeta, context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
     match route.route.action() {
         DispatchAction::Root => {
-            write_stdout(context, b"Use --help to see available commands\n")?;
+            context.write_stdout_with_policy(
+                b"Use --help to see available commands\n",
+                OutputPolicy::ConsoleLike,
+            )?;
             Ok(ExitStatus::Success)
         }
         DispatchAction::Document => {

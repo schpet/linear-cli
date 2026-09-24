@@ -88,6 +88,7 @@ fn fixture(id: &str) {
         stdout_tty: false,
         stderr_tty: false,
         startup_diagnostics: Vec::new(),
+        stdout_finalization: None,
     };
     let status = match run(&args, &mut context) {
         Ok(status) => status,
@@ -161,6 +162,7 @@ fn generated_completion_help_uses_untyped_option_layout() {
             stdout_tty: false,
             stderr_tty: false,
             startup_diagnostics: Vec::new(),
+            stdout_finalization: None,
         };
         let args = argv.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
         let status = run(&args, &mut context).expect("completion help is valid");

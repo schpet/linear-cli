@@ -98,6 +98,7 @@ fn main() -> ExitCode {
         stdout_tty: stdout.is_terminal(),
         stderr_tty: stderr.is_terminal(),
         startup_diagnostics: Vec::new(),
+        stdout_finalization: None,
     };
     let status = match finalize(run(&argv, &mut context), &mut context) {
         Ok(status) => status,

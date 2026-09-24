@@ -14,6 +14,7 @@ fn invoke(args: &[&str]) -> (ExitStatus, String, String) {
         stdout_tty: false,
         stderr_tty: false,
         startup_diagnostics: Vec::new(),
+        stdout_finalization: None,
     };
     let args = args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
     let status = match run(&args, &mut context) {
@@ -96,6 +97,7 @@ fn usage_and_domain_validation_have_distinct_statuses_and_writers() {
         stdout_tty: false,
         stderr_tty: false,
         startup_diagnostics: Vec::new(),
+        stdout_finalization: None,
     };
     let error = AppError::new(
         AppErrorKind::Validation,
@@ -124,6 +126,7 @@ fn handled_error_tty_color_wraps_complete_lines() {
         stdout_tty: true,
         stderr_tty: true,
         startup_diagnostics: Vec::new(),
+        stdout_finalization: None,
     };
     let error = AppError::new(AppErrorKind::Auth, "missing key");
     assert_eq!(
@@ -193,6 +196,7 @@ fn empty_no_color_preserves_color_but_nonempty_disables_it() {
             stdout_tty: false,
             stderr_tty: true,
             startup_diagnostics: Vec::new(),
+            stdout_finalization: None,
         };
         assert_eq!(context.no_color(), !expected_color);
         assert_eq!(context.help_color(), expected_color);
