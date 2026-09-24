@@ -719,3 +719,319 @@ fn registered_enum_values_and_unrelated_strings_reach_actions() {
         }
     }
 }
+
+#[test]
+fn observed_registered_positional_arity_from_binary() {
+    use std::process::Command;
+
+    let cases: &[(&[&str], &str, &str)] = &[
+        (
+            &["issue", "attach"],
+            "linear issue attach",
+            "Missing argument(s): issueId, filepath",
+        ),
+        (
+            &["issue", "attach", "ABC-1"],
+            "linear issue attach",
+            "Missing argument: filepath",
+        ),
+        (
+            &["issue", "attach", "ABC-1", "/tmp/x", "extra"],
+            "linear issue attach",
+            "Too many arguments: extra",
+        ),
+        (
+            &["issue", "attach", "ABC-1", "--", "/tmp/x"],
+            "linear issue attach",
+            "Missing argument: filepath",
+        ),
+        (
+            &["issue", "attach", "ABC-1", "--help"],
+            "linear issue attach",
+            "Missing argument: filepath",
+        ),
+        (
+            &["issue", "attach", "--help", "ABC-1"],
+            "linear issue attach",
+            "Missing argument: filepath",
+        ),
+        (
+            &["issue", "attach", "ABC-1", "/tmp/x", "extra", "--help"],
+            "linear issue attach",
+            "Too many arguments: extra",
+        ),
+        (
+            &["issue", "attach", "ABC-1", "/tmp/x", "--help", "extra"],
+            "linear issue attach",
+            "Too many arguments: extra",
+        ),
+        (
+            &["issue", "relation", "add"],
+            "linear issue relation add",
+            "Missing argument(s): issueId, relationType, relatedIssueId",
+        ),
+        (
+            &["issue", "relation", "add", "ABC-1"],
+            "linear issue relation add",
+            "Missing argument: relationType",
+        ),
+        (
+            &["issue", "relation", "add", "ABC-1", "blocks"],
+            "linear issue relation add",
+            "Missing argument: relatedIssueId",
+        ),
+        (
+            &[
+                "issue", "relation", "add", "ABC-1", "blocks", "ABC-2", "extra",
+            ],
+            "linear issue relation add",
+            "Too many arguments: extra",
+        ),
+        (
+            &["issue", "view", "ABC-1", "extra", "more"],
+            "linear issue view",
+            "Too many arguments: extra more",
+        ),
+        (
+            &["issue", "link", "A", "B", "C"],
+            "linear issue link",
+            "Too many arguments: C",
+        ),
+        (
+            &["completions", "complete"],
+            "linear completions complete",
+            "Missing argument(s): action",
+        ),
+        (
+            &["auth", "list", "extra"],
+            "linear auth list",
+            "No arguments allowed for command \"linear auth list\".",
+        ),
+        (
+            &["issue", "archive", "--bulk", "A", "", "B"],
+            "linear issue archive",
+            "Too many arguments: B",
+        ),
+    ];
+    for (args, route_path, message) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+            .args(*args)
+            .env_clear()
+            .env("HOME", std::env::temp_dir())
+            .env("XDG_CONFIG_HOME", std::env::temp_dir())
+            .env("APPDATA", std::env::temp_dir())
+            .env("PATH", "/usr/bin:/bin")
+            .env("TZ", "UTC")
+            .env("LANG", "C.UTF-8")
+            .env("LINEAR_IGNORE_ENV_FILE", "1")
+            .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
+            .env("NO_COLOR", "1")
+            .output()
+            .expect("binary runs");
+        let route = linear_cli::cli::ROUTES
+            .iter()
+            .find(|route| route.path == *route_path)
+            .expect("route exists");
+        assert_eq!(output.status.code(), Some(2), "{args:?} exit");
+        assert_bytes(
+            &format!("{args:?}"),
+            "binary stdout (Rust-rendered short no-color help)",
+            &output.stdout,
+            linear_cli::cli::render::help(route, false, false)
+                .expect("Rust route help")
+                .as_bytes(),
+        );
+        assert_bytes(
+            &format!("{args:?}"),
+            "binary stderr (direct frozen observation)",
+            &output.stderr,
+            format!("  error: {message}\n\n").as_bytes(),
+        );
+    }
+}
+
+#[test]
+fn registered_positional_help_and_parent_routes() {
+    use linear_cli::cli::parser::{ParseOutcome, parse};
+    for (args, route_path) in [
+        (vec!["issue", "attach", "--help"], "linear issue attach"),
+        (
+            vec!["issue", "relation", "add", "--help"],
+            "linear issue relation add",
+        ),
+        (
+            vec![
+                "completions",
+                "complete",
+                "fish",
+                "one",
+                "two",
+                "three",
+                "--help",
+            ],
+            "linear completions complete",
+        ),
+        (vec!["issue", "--help"], "linear issue"),
+    ] {
+        let args = args.into_iter().map(str::to_owned).collect::<Vec<_>>();
+        match parse(&args).expect("standalone help parses") {
+            ParseOutcome::Help { route, .. } => assert_eq!(route.path, route_path),
+            ParseOutcome::Action { .. } | ParseOutcome::Version { .. } => panic!("expected help"),
+        }
+    }
+    let (status, stdout, stderr) = run_args(&["issue", "--help"]);
+    let issue = linear_cli::cli::ROUTES
+        .iter()
+        .find(|route| route.path == "linear issue")
+        .expect("parent route");
+    assert_eq!(status, 0);
+    assert_eq!(
+        stdout,
+        linear_cli::cli::render::help(issue, true, false).expect("parent help")
+    );
+    assert!(stderr.is_empty());
+}
+
+#[test]
+fn registered_positional_accepted_arity_reaches_action() {
+    use linear_cli::cli::parser::{ParseOutcome, parse};
+    for (args, route_path, values) in [
+        (vec!["issue", "view", "A"], "linear issue view", vec!["A"]),
+        (
+            vec!["issue", "attach", "A", "B"],
+            "linear issue attach",
+            vec!["A", "B"],
+        ),
+        (
+            vec!["issue", "relation", "add", "A", "blocks", "B"],
+            "linear issue relation add",
+            vec!["A", "blocks", "B"],
+        ),
+        (vec!["issue", "link", "A"], "linear issue link", vec!["A"]),
+        (
+            vec!["issue", "link", "A", "B"],
+            "linear issue link",
+            vec!["A", "B"],
+        ),
+        (
+            vec!["completions", "complete", "fish"],
+            "linear completions complete",
+            vec!["fish"],
+        ),
+        (
+            vec!["completions", "complete", "fish", "one", "two"],
+            "linear completions complete",
+            vec!["fish", "one", "two"],
+        ),
+    ] {
+        let args = args.into_iter().map(str::to_owned).collect::<Vec<_>>();
+        match parse(&args).expect("registered arity parses") {
+            ParseOutcome::Action {
+                route, positionals, ..
+            } => {
+                assert_eq!(route.path, route_path);
+                assert_eq!(positionals, values);
+            }
+            ParseOutcome::Help { .. } | ParseOutcome::Version { .. } => panic!("expected action"),
+        }
+    }
+}
+
+#[test]
+fn registered_variadic_option_consumes_remaining_values() {
+    use linear_cli::cli::parser::{ParseOutcome, parse};
+
+    for (args, expected) in [
+        (
+            vec!["issue", "archive", "--bulk", "A", "B", "C"],
+            vec!["A", "B", "C"],
+        ),
+        (
+            vec!["issue", "archive", "--bulk", "A", "B", "--help"],
+            vec!["A", "B", "--help"],
+        ),
+        (
+            vec![
+                "issue",
+                "archive",
+                "--bulk",
+                "A",
+                "B",
+                "--definitely-not-an-option",
+            ],
+            vec!["A", "B", "--definitely-not-an-option"],
+        ),
+    ] {
+        let args = args.into_iter().map(str::to_owned).collect::<Vec<_>>();
+        match parse(&args).expect("variadic option parses") {
+            ParseOutcome::Action {
+                route,
+                positionals,
+                options,
+                ..
+            } => {
+                assert_eq!(route.path, "linear issue archive");
+                assert!(positionals.is_empty());
+                assert_eq!(options.len(), 1);
+                assert_eq!(options[0].name, "bulk");
+                assert_eq!(options[0].values, expected);
+            }
+            ParseOutcome::Help { .. } | ParseOutcome::Version { .. } => panic!("expected action"),
+        }
+    }
+
+    let args = ["issue", "archive", "--bulk", "A", ""].map(str::to_owned);
+    match parse(&args).expect("empty token stops variadic option") {
+        ParseOutcome::Action {
+            positionals,
+            options,
+            ..
+        } => {
+            assert_eq!(positionals, [""]);
+            assert_eq!(options[0].values, ["A"]);
+        }
+        ParseOutcome::Help { .. } | ParseOutcome::Version { .. } => panic!("expected action"),
+    }
+}
+
+#[test]
+fn observed_variadic_option_reaches_action_from_binary() {
+    use std::process::Command;
+
+    let unimplemented = b"\xe2\x9c\x97 linear issue archive is registered, but this action is not implemented yet\n";
+    for args in [
+        vec!["issue", "archive", "--bulk", "A", "B", "C"],
+        vec!["issue", "archive", "--bulk", "A", "B", "--help"],
+        vec![
+            "issue",
+            "archive",
+            "--bulk",
+            "A",
+            "B",
+            "--definitely-not-an-option",
+        ],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+            .args(&args)
+            .env_clear()
+            .env("HOME", std::env::temp_dir())
+            .env("XDG_CONFIG_HOME", std::env::temp_dir())
+            .env("APPDATA", std::env::temp_dir())
+            .env("PATH", "/usr/bin:/bin")
+            .env("TZ", "UTC")
+            .env("LANG", "C.UTF-8")
+            .env("LINEAR_IGNORE_ENV_FILE", "1")
+            .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
+            .env("NO_COLOR", "1")
+            .output()
+            .expect("binary runs");
+        assert_eq!(output.status.code(), Some(1), "{args:?} exit");
+        assert!(output.stdout.is_empty(), "{args:?} stdout");
+        assert_bytes(
+            &format!("{args:?}"),
+            "binary stderr (Rust action boundary)",
+            &output.stderr,
+            unimplemented,
+        );
+    }
+}

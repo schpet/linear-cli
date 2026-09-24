@@ -330,6 +330,17 @@ fn parse_options(
                 validate_option_value(route, choice.kind, argument, &value)?;
                 values.push(value);
             }
+            if argument.variadic {
+                while let Some(value) = source.pop_front() {
+                    if value.is_empty() {
+                        source.push_front(value);
+                        break;
+                    }
+                    validate_option_value(route, choice.kind, argument, &value)?;
+                    values.push(value);
+                }
+                break;
+            }
         }
         if let OptionRef::Meta(name) = choice.kind {
             ctx.options.push(ParsedOption { name, values });
@@ -412,6 +423,34 @@ fn validate_positionals(route: &'static RouteMeta, ctx: &ParseContext) -> Result
                 format!("Missing argument(s): {}", names.join(", ")),
             ));
         }
+    }
+    let mut consumed = 0;
+    for argument in route.arguments {
+        if argument.variadic {
+            if consumed == args.len() && !argument.optional && !args.is_empty() {
+                return Err(AppError::usage(
+                    route.route,
+                    format!("Missing argument: {}", argument.name),
+                ));
+            }
+            consumed = args.len();
+            break;
+        }
+        if consumed < args.len() {
+            consumed += 1;
+        } else if !argument.optional && !args.is_empty() {
+            return Err(AppError::usage(
+                route.route,
+                format!("Missing argument: {}", argument.name),
+            ));
+        }
+    }
+    if consumed < args.len() {
+        let tail = args.iter().skip(consumed).copied().collect::<Vec<_>>();
+        return Err(AppError::usage(
+            route.route,
+            format!("Too many arguments: {}", tail.join(" ")),
+        ));
     }
     Ok(())
 }
