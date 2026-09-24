@@ -6,6 +6,9 @@ publish = false
 
 [dependencies]
 unicode-width = "=0.2.2"
+cynic = { version = "=3.14.0", default-features = false, features = ["rkyv"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
 
 [lib]
 name = "linear_cli"
@@ -15,9 +18,13 @@ path = "src/lib.rs"
 name = "linear"
 path = "src/main.rs"
 
-[dev-dependencies]
-serde_json = "1"
+[build-dependencies]
+cynic-codegen = { version = "=3.14.0", features = ["rkyv"] }
 
 [[test]]
 name = "contracts"
 path = "tests/contracts/main.rs"
+
+[[test]]
+name = "graphql"
+path = "tests/graphql/main.rs"
