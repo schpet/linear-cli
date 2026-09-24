@@ -45,7 +45,7 @@ function loadedCase(overrides: Record<string, unknown>): LoadedCase {
   return { file: `${spec.id}.json`, spec, fixtureDir: null }
 }
 
-Deno.test("GraphQL cases fail closed before P03B starts a fixture server", async () => {
+Deno.test("P03C asset interactions fail closed before the child starts", async () => {
   await withDir(async (_dir, ctx) => {
     const loaded = loadedCase({
       substitutions: ["home", "configHome", "bin", "denoDir", "fixturePort"],
@@ -59,16 +59,14 @@ Deno.test("GraphQL cases fail closed before P03B starts a fixture server", async
         groups: [{
           mode: "ordered",
           steps: [{
-            kind: "graphql",
-            id: "viewer",
-            operation: { document: "{ viewer { id } }" },
-            identity: {
-              authorization: null,
-              userAgent: "schpet-linear-cli/2.6.0",
-              headers: {},
-            },
-            response: { kind: "data", data: { viewer: { id: "u1" } } },
-            effects: [],
+            kind: "asset",
+            id: "file",
+            method: "GET",
+            path: "/file",
+            requiredHeaders: {},
+            forbiddenHeaders: [],
+            body: { utf8: "" },
+            response: { status: 200, headers: {}, body: { utf8: "data" } },
           }],
         }],
       },
@@ -76,7 +74,7 @@ Deno.test("GraphQL cases fail closed before P03B starts a fixture server", async
     await assertRejects(
       () => executeCase(loaded, { kind: "executable", path: "/bin/true" }, ctx),
       Error,
-      "unavailable until P03B",
+      "require P03C",
     )
   })
 })

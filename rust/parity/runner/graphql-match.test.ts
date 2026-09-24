@@ -369,3 +369,15 @@ Deno.test("nested type conditions preserve every concrete type restriction", () 
     false,
   )
 })
+
+Deno.test("redundant interface condition on a concrete object is equivalent", () => {
+  const plain = { document: "{ user { id } }" }
+  const inline = { document: "{ user { ... on Node { id } } }" }
+  const spread = {
+    document: "{ user { ...Identity } } fragment Identity on Node { id }",
+  }
+  assertEquals(matches(plain, inline), true)
+  assertEquals(matches(inline, plain), true)
+  assertEquals(matches(plain, spread), true)
+  assertEquals(matches(spread, plain), true)
+})

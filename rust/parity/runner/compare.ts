@@ -2,10 +2,12 @@
 import { bytesEqual, excerpt, firstDifference } from "./bytes.ts"
 import type { ExitStatus, Observation } from "./engine.ts"
 import type { FixtureServer } from "./fixture-server.ts"
+import type { GraphQLServer } from "./graphql-server.ts"
 import type {
   ExitExpectation,
   FileEffect,
   FixtureServerSpec,
+  GraphQLFixtureSpec,
 } from "./schema.ts"
 
 export type Surface =
@@ -143,4 +145,77 @@ export function compareFixture(
     }
   })
   return mismatches
+}
+
+export function compareGraphQLFixture(
+  spec: GraphQLFixtureSpec,
+  server: GraphQLServer,
+): Mismatch[] {
+  const mismatches: Mismatch[] = server.issues.map((detail) => ({
+    surface: "fixture",
+    detail,
+  }))
+  const graphql =
+    server.requests.filter((request) => request.kind === "graphql").length
+  const assets = server.requests.length - graphql
+  if (
+    server.requests.length !== spec.expectedRequests ||
+    server.consumed !== spec.expectedRequests
+  ) {
+    mismatches.push({
+      surface: "fixture",
+      detail:
+        `expected ${spec.expectedRequests} interactions (GraphQL ${server.expectedGraphQL}, assets ${server.expectedAssets}); observed ${server.requests.length} (GraphQL ${graphql}, assets ${assets}), consumed ${server.consumed}`,
+    })
+  }
+  if (!server.state.matches(spec.expectedRecords)) {
+    mismatches.push({
+      surface: "fixture",
+      detail: `final GraphQL records differ at ${
+        firstRecordDifference(spec.expectedRecords, server.state.snapshot())
+      }`,
+    })
+  }
+  return mismatches
+}
+
+function firstRecordDifference(
+  expected: unknown,
+  actual: unknown,
+  path = "$",
+): string | null {
+  if (Array.isArray(expected) && Array.isArray(actual)) {
+    if (expected.length !== actual.length) return `${path}.length`
+    for (let index = 0; index < expected.length; index++) {
+      const difference = firstRecordDifference(
+        expected[index],
+        actual[index],
+        `${path}[${index}]`,
+      )
+      if (difference != null) return difference
+    }
+    return null
+  }
+  if (
+    expected != null && actual != null && typeof expected === "object" &&
+    typeof actual === "object" && !Array.isArray(expected) &&
+    !Array.isArray(actual)
+  ) {
+    const keys = [
+      ...new Set([...Object.keys(expected), ...Object.keys(actual)]),
+    ].sort()
+    for (const key of keys) {
+      if (!Object.hasOwn(expected, key) || !Object.hasOwn(actual, key)) {
+        return `${path}[${JSON.stringify(key)}]`
+      }
+      const difference = firstRecordDifference(
+        Reflect.get(expected, key),
+        Reflect.get(actual, key),
+        `${path}[${JSON.stringify(key)}]`,
+      )
+      if (difference != null) return difference
+    }
+    return null
+  }
+  return Object.is(expected, actual) ? null : path
 }

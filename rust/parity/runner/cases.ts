@@ -1,6 +1,18 @@
 // Case corpus loading: schema validation, manifest route binding, fixture
 // existence, and placeholder resolution into concrete bytes and paths.
 import { join } from "@std/path"
+import {
+  getNamedType,
+  getOperationAST,
+  type GraphQLSchema,
+  type GraphQLType,
+  isInterfaceType,
+  isListType,
+  isNonNullType,
+  isObjectType,
+  isUnionType,
+  parse,
+} from "graphql"
 import { decodeByteValue } from "./bytes.ts"
 import { buildPinnedSchema, matchGraphQL } from "./graphql-match.ts"
 import {
@@ -34,6 +46,68 @@ export interface ResolvedCase {
   graphql: CaseSpec["graphql"]
 }
 
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value != null && !Array.isArray(value)
+}
+
+function checkResponseReferences(
+  value: unknown,
+  type: GraphQLType,
+  schema: GraphQLSchema,
+  known: ReadonlySet<string>,
+  label: string,
+): void {
+  if (isNonNullType(type)) {
+    return checkResponseReferences(value, type.ofType, schema, known, label)
+  }
+  if (value == null) return
+  if (isListType(type)) {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) =>
+        checkResponseReferences(
+          item,
+          type.ofType,
+          schema,
+          known,
+          `${label}[${index}]`,
+        )
+      )
+    }
+    return
+  }
+  const named = getNamedType(type)
+  if (!isObjectType(named) && !isInterfaceType(named) && !isUnionType(named)) {
+    return
+  }
+  if (!record(value)) return
+  if (Object.hasOwn(value, "$record")) {
+    if (Object.keys(value).length !== 1 || typeof value.$record !== "string") {
+      throw new SchemaError(`${label}: malformed composite $record reference`)
+    }
+    if (!known.has(value.$record)) {
+      throw new SchemaError(`${label}: unknown composite $record reference`)
+    }
+    return
+  }
+  const concrete = (isUnionType(named) || isInterfaceType(named)) &&
+      typeof value.__typename === "string"
+    ? schema.getType(value.__typename)
+    : named
+  if (!isObjectType(concrete) && !isInterfaceType(concrete)) return
+  for (const [key, child] of Object.entries(value)) {
+    const field = concrete.getFields()[key]
+    if (field != null) {
+      checkResponseReferences(
+        child,
+        field.type,
+        schema,
+        known,
+        `${label}.${key}`,
+      )
+    }
+  }
+}
+
 async function checkGraphQLFixture(
   spec: CaseSpec,
   file: string,
@@ -58,6 +132,18 @@ async function checkGraphQLFixture(
     )
   }
   const schema = buildPinnedSchema(sdl)
+  const knownRecords = new Set(Object.keys(fixture.initialRecords))
+  for (const group of fixture.groups) {
+    const steps = group.mode === "ordered"
+      ? group.steps
+      : group.lanes.flatMap((lane) => lane.steps)
+    for (const step of steps) {
+      if (step.kind !== "graphql") continue
+      for (const effect of step.effects) {
+        if (effect.kind === "put") knownRecords.add(effect.record)
+      }
+    }
+  }
   const seen = new Set<string>()
   const assets = new Set<string>()
   for (const group of fixture.groups) {
@@ -100,6 +186,32 @@ async function checkGraphQLFixture(
               }`,
             )
           }
+        }
+        if (
+          step.response.kind === "data" ||
+          step.response.kind === "graphqlErrors"
+        ) {
+          const operation = getOperationAST(
+            parse(step.operation.document),
+            step.operation.operationName,
+          )
+          const root = operation?.operation === "query"
+            ? schema.getQueryType()
+            : operation?.operation === "mutation"
+            ? schema.getMutationType()
+            : schema.getSubscriptionType()
+          if (root == null) {
+            throw new SchemaError(
+              `${file}: ${step.id}: GraphQL operation has no root type`,
+            )
+          }
+          checkResponseReferences(
+            step.response.data,
+            root,
+            schema,
+            knownRecords,
+            `${file}: ${step.id}: response.data`,
+          )
         }
         for (const effect of step.effects) {
           if (

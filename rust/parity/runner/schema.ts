@@ -258,15 +258,36 @@ const EffectSchema = v.variant("kind", [
     before: v.strictObject({ value: JsonSchema }),
   }),
 ])
-const GraphQLStepSchema = v.strictObject({
-  kind: v.literal("graphql"),
-  id: nonEmpty,
-  operation: GraphQLOperationSchema,
-  identity: requestIdentity,
-  response: GraphQLResponseSchema,
-  effects: v.array(EffectSchema),
-  partialEffects: v.optional(v.boolean()),
-})
+export type GraphQLEffectSpec = v.InferOutput<typeof EffectSchema>
+const GraphQLStepSchema = v.pipe(
+  v.strictObject({
+    kind: v.literal("graphql"),
+    id: nonEmpty,
+    operation: GraphQLOperationSchema,
+    identity: requestIdentity,
+    response: GraphQLResponseSchema,
+    effects: v.array(EffectSchema),
+    partialEffects: v.optional(v.boolean()),
+  }),
+  v.check(
+    (step) =>
+      step.effects.length === 0 || step.response.kind === "data" ||
+      step.response.kind === "graphqlErrors",
+    "effects require a data or graphqlErrors response",
+  ),
+  v.check(
+    (step) =>
+      step.partialEffects !== true || step.response.kind === "graphqlErrors",
+    "partialEffects:true requires a graphqlErrors response",
+  ),
+  v.check(
+    (step) =>
+      step.response.kind !== "graphqlErrors" || step.effects.length === 0 ||
+      step.partialEffects === true,
+    "graphqlErrors effects require partialEffects:true",
+  ),
+)
+export type GraphQLStepSpec = v.InferOutput<typeof GraphQLStepSchema>
 const AssetStepSchema = v.pipe(
   v.strictObject({
     kind: v.literal("asset"),

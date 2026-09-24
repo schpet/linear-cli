@@ -93,7 +93,8 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
     routes.add(parseCase(value).route)
   }
   const loaded = await loadCases(caseDir, routes)
-  assertEquals(loaded.length, 13)
+  assertEquals(loaded.filter((item) => item.spec.graphql == null).length, 13)
+  assertEquals(loaded.filter((item) => item.spec.graphql != null).length, 5)
 })
 
 Deno.test("strict GraphQL shape rejects unknown fields, count drift, and fixture mixing", () => {
@@ -142,6 +143,59 @@ Deno.test("strict GraphQL shape rejects unknown fields, count drift, and fixture
   }
   assetGroups[0].steps[1].requiredHeaders = { Authorization: "lin_api_real" }
   assertThrows(() => parseCase(assetAuth), SchemaError, "asset headers")
+
+  for (const kind of ["transport", "validationErrors"]) {
+    const invalid = graphqlCase()
+    const step = firstStep(invalid)
+    step.response = kind === "transport"
+      ? { kind, status: 503, headers: {}, body: { utf8: "offline" } }
+      : { kind, status: 400, errors: [{ message: "bad query" }] }
+    step.effects = [{
+      kind: "put",
+      record: "User:u1",
+      before: { absent: true },
+      after: { id: "u1" },
+    }]
+    assertThrows(() => parseCase(invalid), SchemaError, "effects require")
+  }
+  for (const kind of ["data", "transport", "validationErrors"]) {
+    const invalid = graphqlCase()
+    const step = firstStep(invalid)
+    step.partialEffects = true
+    if (kind === "transport") {
+      step.response = {
+        kind,
+        status: 503,
+        headers: {},
+        body: { utf8: "offline" },
+      }
+    }
+    if (kind === "validationErrors") {
+      step.response = { kind, status: 400, errors: [{ message: "bad query" }] }
+    }
+    assertThrows(() => parseCase(invalid), SchemaError, "partialEffects:true")
+  }
+  const missingPartial = graphqlCase()
+  const errorStep = firstStep(missingPartial)
+  errorStep.response = {
+    kind: "graphqlErrors",
+    status: 200,
+    data: null,
+    errors: [{ message: "partial failure" }],
+  }
+  errorStep.effects = [{
+    kind: "put",
+    record: "User:u2",
+    before: { absent: true },
+    after: { id: "u2" },
+  }]
+  assertThrows(
+    () => parseCase(missingPartial),
+    SchemaError,
+    "graphqlErrors effects require partialEffects:true",
+  )
+  errorStep.partialEffects = true
+  parseCase(missingPartial)
 })
 
 Deno.test("loader rejects invalid fixture operations and duplicate IDs", async () => {
@@ -193,6 +247,33 @@ Deno.test("loader rejects invalid fixture operations and duplicate IDs", async (
       SchemaError,
       "explicit origin differs",
     )
+    for (
+      const { value, message } of [
+        {
+          value: { $record: "User:u1", id: "u1" },
+          message: "malformed composite $record",
+        },
+        {
+          value: { $record: "User:missing" },
+          message: "unknown composite $record",
+        },
+      ]
+    ) {
+      const badReference = graphqlCase()
+      firstStep(badReference).response = {
+        kind: "data",
+        data: { viewer: value },
+      }
+      await Deno.writeTextFile(
+        `${dir}/sample.json`,
+        JSON.stringify(badReference),
+      )
+      await assertRejects(
+        () => loadCases(dir, new Set(["linear"])),
+        SchemaError,
+        message,
+      )
+    }
   } finally {
     await Deno.remove(dir, { recursive: true })
   }

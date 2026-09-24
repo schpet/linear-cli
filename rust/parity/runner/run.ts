@@ -6,9 +6,19 @@ import { type Confinement, programInvocation, runConfined } from "./bwrap.ts"
 import { sha256Hex } from "./bytes.ts"
 import type { LoadedCase } from "./cases.ts"
 import { resolveCase } from "./cases.ts"
-import { compareFixture, compareObservation, type Mismatch } from "./compare.ts"
+import {
+  compareFixture,
+  compareGraphQLFixture,
+  compareObservation,
+  type Mismatch,
+} from "./compare.ts"
 import type { Observation } from "./engine.ts"
 import { type FixtureServer, startFixtureServer } from "./fixture-server.ts"
+import {
+  type GraphQLServer,
+  loadPinnedGraphQLSchema,
+  startGraphQLServer,
+} from "./graphql-server.ts"
 import { describeProgram, type Program } from "./program.ts"
 import {
   createSandbox,
@@ -46,6 +56,8 @@ export interface FixtureSummary {
   unexpected: number
   authorizationMatched: boolean[]
   userAgents: Array<string | null>
+  graphqlRequests?: number
+  assetRequests?: number
 }
 
 export interface CaseRun {
@@ -87,11 +99,9 @@ export async function executeCase(
   ctx: RunContext,
 ): Promise<CaseRun> {
   if (ctx.signal?.aborted) throw new Error("aborted")
-  if (loaded.spec.graphql != null) {
-    throw new Error("GraphQL fixture execution is unavailable until P03B")
-  }
   const sandbox = await createSandbox(ctx.sandboxParent, loaded.fixtureDir)
   let server: FixtureServer | null = null
+  let graphqlServer: GraphQLServer | null = null
   try {
     const resolveWithPort = (fixturePort: number) =>
       resolveCase(loaded.spec, {
@@ -111,7 +121,19 @@ export async function executeCase(
         return spec
       })
     }
-    const resolved = resolveWithPort(server?.port ?? 0)
+    if (loaded.spec.graphql != null) {
+      const schema = await loadPinnedGraphQLSchema()
+      graphqlServer = startGraphQLServer((port) => {
+        const spec = resolveWithPort(port).graphql
+        if (spec == null) {
+          throw new Error("GraphQL fixture spec vanished during resolution")
+        }
+        return spec
+      }, schema)
+      // Reject unsupported P03C interactions before starting the child.
+      void graphqlServer.expectedGraphQL
+    }
+    const resolved = resolveWithPort(server?.port ?? graphqlServer?.port ?? 0)
     const before = await hashTree(sandbox.root)
     const observation = await runConfined(ctx.confinement, {
       ...programInvocation(program, resolved.argv),
@@ -146,6 +168,9 @@ export async function executeCase(
     if (server != null && loaded.spec.fixtureServer != null) {
       mismatches.push(...compareFixture(loaded.spec.fixtureServer, server))
     }
+    if (graphqlServer != null && resolved.graphql != null) {
+      mismatches.push(...compareGraphQLFixture(resolved.graphql, graphqlServer))
+    }
     return {
       program: describeProgram(program),
       mismatches: mismatches.map((mismatch) => ({
@@ -163,19 +188,41 @@ export async function executeCase(
         durationMs: observation.durationMs,
       },
       fileEffects,
-      fixture: server == null ? null : {
-        requests: server.requests.length,
-        unexpected: server.unexpected,
-        authorizationMatched: server.requests.map((request) =>
-          request.authorization ===
-            loaded.spec.fixtureServer?.expectedAuthorization
-        ),
-        userAgents: server.requests.map((request) => request.userAgent),
-      },
+      fixture: graphqlServer != null
+        ? {
+          requests: graphqlServer.requests.length,
+          unexpected: graphqlServer.unexpected,
+          authorizationMatched: graphqlServer.requests.map((request) =>
+            request.authorizationMatched
+          ),
+          userAgents: graphqlServer.requests.map((request) =>
+            request.userAgent
+          ),
+          graphqlRequests: graphqlServer.requests.filter((request) =>
+            request.kind === "graphql"
+          ).length,
+          assetRequests: graphqlServer.requests.filter((request) =>
+            request.kind === "asset"
+          ).length,
+        }
+        : server == null
+        ? null
+        : {
+          requests: server.requests.length,
+          unexpected: server.unexpected,
+          authorizationMatched: server.requests.map((request) =>
+            request.authorization ===
+              loaded.spec.fixtureServer?.expectedAuthorization
+          ),
+          userAgents: server.requests.map((request) =>
+            request.userAgent
+          ),
+        },
       raw: { stdout: observation.stdout, stderr: observation.stderr },
     }
   } finally {
     if (server != null) await server.stop().catch(() => {})
+    if (graphqlServer != null) await graphqlServer.stop().catch(() => {})
     await sandbox.remove().catch(() => {})
   }
 }

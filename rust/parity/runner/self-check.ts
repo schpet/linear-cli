@@ -132,6 +132,33 @@ export function controls(referenceBinary: string): Control[] {
       script: `unset LINEAR_API_KEY\nexec ${ref} "$@"\n`,
     },
     {
+      name: "graphql-wrong-variable",
+      description:
+        "candidate supplies a different issue id through the public api flag",
+      caseId: "api-graphql-variable",
+      expectSurfaces: ["fixture"],
+      expectStatus: "fail",
+      script: `exec ${ref} "$1" --variable id=ABC-2 "$4"\n`,
+    },
+    {
+      name: "graphql-extra-variable",
+      description:
+        "candidate adds an unrequested variable to a viewer operation",
+      caseId: "api-graphql-viewer",
+      expectSurfaces: ["fixture"],
+      expectStatus: "fail",
+      script: `exec ${ref} "$1" --variable unexpected=1 "$2"\n`,
+    },
+    {
+      name: "graphql-omitted-null",
+      description:
+        "candidate omits the explicit after:null required by the first paginated request",
+      caseId: "api-graphql-paginate",
+      expectSurfaces: ["fixture"],
+      expectStatus: "fail",
+      script: `exec ${ref} "$1" "$3"\n`,
+    },
+    {
       name: "not-implemented-from-descriptor",
       description:
         "descriptor omits the route; the candidate program is never invoked",

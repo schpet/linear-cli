@@ -8,6 +8,7 @@ import {
   getOperationAST,
   getVariableValues,
   type GraphQLArgument,
+  type GraphQLCompositeType,
   type GraphQLInputType,
   type GraphQLSchema,
   type GraphQLType,
@@ -419,6 +420,18 @@ function shape(
     if (!isCompositeType(named)) {
       throw new Error(`selection on non-composite type ${String(named)}`)
     }
+    const parentNamed: GraphQLCompositeType = named
+    function sameConcreteTypes(other: GraphQLType): boolean {
+      const concrete = (type: GraphQLCompositeType): string[] =>
+        isObjectType(type)
+          ? [type.name]
+          : schema.getPossibleTypes(type).map((item) => item.name).sort()
+      const otherNamed = getNamedType(other)
+      return isCompositeType(otherNamed) &&
+        concrete(parentNamed).every((name) =>
+          concrete(otherNamed).includes(name)
+        )
+    }
     for (const [selectionIndex, item] of selection.selections.entries()) {
       if (item.kind === Kind.FRAGMENT_SPREAD) {
         const fragment = fragments.get(item.name.value)
@@ -443,7 +456,7 @@ function shape(
             `unknown fragment type ${fragment.typeCondition.name.value}`,
           )
         }
-        const nextConditions = fragment.typeCondition.name.value === named.name
+        const nextConditions = sameConcreteTypes(conditioned)
           ? conditions
           : [...conditions, fragment.typeCondition.name.value]
         result.push(
@@ -471,10 +484,10 @@ function shape(
           ? parent
           : schema.getType(item.typeCondition.name.value)
         if (conditioned == null) throw new Error("unknown inline fragment type")
-        const nextConditions = item.typeCondition == null ||
-            item.typeCondition.name.value === named.name
-          ? conditions
-          : [...conditions, item.typeCondition.name.value]
+        const nextConditions =
+          item.typeCondition == null || sameConcreteTypes(conditioned)
+            ? conditions
+            : [...conditions, item.typeCondition.name.value]
         result.push(
           ...fields(
             item.selectionSet,
