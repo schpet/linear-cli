@@ -86,3 +86,19 @@ The following entries record deliberate, reviewed transport differences from the
 - **No transport-level retry.** The client is built with `reqwest::retry::never()` and every fixture-driven test proves one physical request per operation. graphql-request and `fetch` do not retry either, so this is a matching behavior recorded here only because reqwest's default would have retried protocol-level NACKs. A stale pooled-connection retry path remains unclaimed until a controlled test produces one.
 - **Stricter 2xx envelopes (carried over from F02A).** `{"data":null}` with no `errors` is `MissingData`, and well-formed JSON that contradicts the schema-checked types is `UnexpectedShape`; the Deno CLI would fail later with a TypeError or print wrong output. See `rust/reviews/F02A.md`.
 - **API key and endpoint validation at construction.** `ApiKey` rejects empty values and any byte outside visible ASCII plus space; `EndpointUrl` rejects non-`http(s)` schemes, credentials and fragments. The Deno CLI passes whatever string it resolved straight to the HTTP layer. Errors display only the endpoint's scheme, host and port, never its path, query or fragment.
+
+## R02C1 credential library decisions (pending startup activation)
+
+R02C1 is a pure Rust library boundary: the production CLI still does not read or select credentials through it. The following are **planned v3 differences** inferred from frozen Deno `src/credentials.ts` and `src/utils/graphql.ts`; exact oracle bytes and Rust-side goldens belong to the separate credential evidence slice and C1b/C001 activation. No row is claimed as current binary behavior.
+
+| Input | Frozen Deno 2.6.0 | Planned Rust v3 | Migration |
+| --- | --- | --- | --- |
+| Non-string credential field/default/array element | Ignore the value | `WrongType` with file path and fixed category | Remove the field or write the documented string/array shape. |
+| Inline workspace key plus any `workspaces` field | Format choice depends on entry order | `MixedFormat` | Use either inline workspace keys or a `workspaces` array, never both. |
+| Empty workspace name | Retain it | `EmptyWorkspace` | Give each workspace a nonempty name. |
+| Metadata `workspaces` array with 257 elements before deduplication | No count cap | `TooManyWorkspaces`; 256 is accepted | Keep at most 256 entries in the credentials file. |
+| Several keyring misses/failures | Warnings can appear in lookup completion order | Warnings follow the manifest's workspace order, after an invalid-default warning | Read warnings in the configured workspace order. |
+| Truthy secret containing only HTTP edge whitespace | Fetch can send an empty Authorization header after trimming | Typed `ApiKeyError::Empty` at header conversion | Remove the whitespace or provide a nonempty key. |
+| Interior tab or Latin-1 header character | Fetch may send the header | Existing Rust `ApiKey` rejects non-ASCII/control bytes | Use a printable ASCII API key. |
+
+Credential file path calculation currently reuses R02A's lexical normalizer. For unusual bases such as `/..` and leading relative `../../`, that helper differs from Deno's path normalization. C1 does not change the shared helper because config discovery uses it too; a focused config-path follow-up must reconcile both consumers before startup activation. Ordinary absolute XDG/HOME/APPDATA paths and internal `..` components are covered by C1 tests. The review and source-derived case packet are in [R02C1 review](reviews/R02C1.md); no host keyring was read.

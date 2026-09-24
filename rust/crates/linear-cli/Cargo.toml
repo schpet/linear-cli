@@ -44,3 +44,7 @@ path = "tests/graphql/main.rs"
 [[test]]
 name = "config"
 path = "tests/config/main.rs"
+
+[[test]]
+name = "auth"
+path = "tests/auth/main.rs"

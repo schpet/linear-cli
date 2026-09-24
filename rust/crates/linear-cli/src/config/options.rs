@@ -121,6 +121,11 @@ impl<T> fmt::Debug for Resolved<T> {
 pub struct ConfigSecret(String);
 
 impl ConfigSecret {
+    /// Construct an owned, redacted secret from an injected credential source.
+    pub fn new(value: String) -> Self {
+        Self(value)
+    }
+
     pub fn expose(&self) -> &str {
         &self.0
     }

@@ -25,3 +25,6 @@ pub use source::{
     ConfigInputs, FileKind, FileSource, GitIoStage, GitProbeError, GitProbeResult, GitRootProbe,
     OsFamily, RawConfigFile, ReadCandidate, RealFileSource, read_config_candidate,
 };
+
+/// Crate-internal lexical path normalization shared with credential discovery.
+pub(crate) use source::lexical as lexical_config_path;
