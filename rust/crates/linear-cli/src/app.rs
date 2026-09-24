@@ -54,86 +54,48 @@ pub fn run(argv: &[String], context: &mut AppContext<'_>) -> Result<ExitStatus, 
     for diagnostic in context.startup_diagnostics.clone() {
         write_stderr(context, diagnostic.as_bytes())?;
     }
-    let mut route = cli::root().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "generated route inventory is empty",
-        )
-    })?;
-    let mut position = 0;
-    while let Some(arg) = argv.get(position) {
-        if route.children.is_empty() {
-            break;
-        }
-        if arg.starts_with('-') {
-            break;
-        }
-        match cli::resolve_child(route, arg) {
-            Some(child) => route = child,
-            None => {
-                return Err(AppError::new(
-                    AppErrorKind::Usage,
-                    format!("unknown command: {arg}"),
-                ));
-            }
-        }
-        position += 1;
-    }
-    let remaining = argv.get(position..).ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "argument position exceeded argv length",
-        )
-    })?;
-    dispatch(route, remaining, context)
-}
-
-fn dispatch(
-    route: &RouteMeta,
-    args: &[String],
-    context: &mut AppContext<'_>,
-) -> Result<ExitStatus, AppError> {
-    if args == ["-h"] || args == ["--help"] {
-        write_stdout(
-            context,
-            cli::render::help(route, context.help_color(), args == ["--help"])?.as_bytes(),
-        )?;
-        return Ok(ExitStatus::Success);
-    }
-    match route.route.action() {
-        DispatchAction::Root if args.is_empty() => {
-            write_stdout(context, b"Use --help to see available commands\n")?;
+    match cli::parser::parse(argv)? {
+        cli::parser::ParseOutcome::Help { route, long } => {
+            let help = cli::render::help(route, context.help_color(), long)?;
+            write_stdout(context, help.as_bytes())?;
             Ok(ExitStatus::Success)
         }
-        DispatchAction::Document if args.is_empty() => {
-            write_stdout(context, b"Use --help to see available subcommands\n")?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::Root if args == ["-V"] => {
+        cli::parser::ParseOutcome::Version { long: false } => {
             write_stdout(
                 context,
                 format!("{}\n", env!("CARGO_PKG_VERSION")).as_bytes(),
             )?;
             Ok(ExitStatus::Success)
         }
-        DispatchAction::Root if args == ["--version"] => {
+        cli::parser::ParseOutcome::Version { long: true } => {
             write_stdout(
                 context,
                 cli::render::long_version(context.help_color()).as_bytes(),
             )?;
             Ok(ExitStatus::Success)
         }
-        DispatchAction::ParentPending if args.is_empty() => {
+        cli::parser::ParseOutcome::Action { route, .. } => dispatch(route, context),
+    }
+}
+
+fn dispatch(route: &RouteMeta, context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
+    match route.route.action() {
+        DispatchAction::Root => {
+            write_stdout(context, b"Use --help to see available commands\n")?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::Document => {
+            write_stdout(context, b"Use --help to see available subcommands\n")?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::ParentPending => {
             write_stdout(
                 context,
                 cli::render::help(route, context.help_color(), false)?.as_bytes(),
             )?;
             Ok(ExitStatus::Success)
         }
-        DispatchAction::Root
-        | DispatchAction::Document
-        | DispatchAction::ParentPending
-        | DispatchAction::Unimplemented => Err(AppError::new(
+        DispatchAction::Unimplemented => Err(AppError::new(
             AppErrorKind::Unimplemented,
             format!(
                 "{} is registered, but this action is not implemented yet",
@@ -147,8 +109,8 @@ pub fn write_final_error(
     context: &mut AppContext<'_>,
     error: &AppError,
 ) -> Result<ExitStatus, AppError> {
-    if error.kind == AppErrorKind::Usage {
-        return write_usage_error(context, error);
+    if let AppErrorKind::Usage { route } = error.kind {
+        return write_usage_error(context, error, route);
     }
     let color = context.handled_color();
     let line = format!("✗ {}", error.display_message());
@@ -173,14 +135,33 @@ pub fn write_final_error(
 fn write_usage_error(
     context: &mut AppContext<'_>,
     error: &AppError,
+    route: cli::Route,
 ) -> Result<ExitStatus, AppError> {
-    // The failing route's stdout help belongs to the pending F01 renderer.
-    // Keep this path separate so domain Validation errors cannot acquire status 2.
-    let line = format!("  error: {}", error.display_message());
+    let metadata = cli::ROUTES
+        .iter()
+        .find(|candidate| candidate.route == route)
+        .ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                "usage error route missing from inventory",
+            )
+        })?;
+    let help = cli::render::help(metadata, context.help_color(), false)?;
+    write_stdout(context, help.as_bytes())?;
     if context.help_color() {
-        write_stderr(context, format!("\x1b[31m{line}\x1b[39m\n").as_bytes())?;
+        write_stderr(
+            context,
+            format!(
+                "\x1b[31m  \x1b[1merror\x1b[22m: {}\n\x1b[39m\n",
+                error.display_message()
+            )
+            .as_bytes(),
+        )?;
     } else {
-        write_stderr(context, format!("{line}\n").as_bytes())?;
+        write_stderr(
+            context,
+            format!("  error: {}\n\n", error.display_message()).as_bytes(),
+        )?;
     }
     Ok(ExitStatus::UsageFailure)
 }

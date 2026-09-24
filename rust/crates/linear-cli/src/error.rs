@@ -1,3 +1,4 @@
+use crate::cli::Route;
 use std::error::Error;
 use std::fmt;
 use std::num::NonZeroU8;
@@ -24,7 +25,7 @@ impl ExitStatus {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AppErrorKind {
     Validation,
-    Usage,
+    Usage { route: Route },
     NotFound,
     Auth,
     GraphQl,
@@ -45,6 +46,9 @@ pub struct AppError {
 }
 
 impl AppError {
+    pub fn usage(route: Route, message: impl Into<String>) -> Self {
+        Self::new(AppErrorKind::Usage { route }, message)
+    }
     pub fn new(kind: AppErrorKind, message: impl Into<String>) -> Self {
         let suggestion = match kind {
             AppErrorKind::Auth => Some("Run `linear auth login` to authenticate.".to_owned()),

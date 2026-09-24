@@ -76,10 +76,14 @@ fn leaf_positionals_reach_the_registered_unimplemented_action() {
 fn usage_and_domain_validation_have_distinct_statuses_and_writers() {
     let (status, stdout, stderr) = invoke(&["frobnicate"]);
     assert_eq!(status, ExitStatus::UsageFailure);
-    assert!(stdout.is_empty());
+    let root = linear_cli::cli::root().expect("root route");
+    assert_eq!(
+        stdout,
+        linear_cli::cli::render::help(root, true, false).expect("root help")
+    );
     assert_eq!(
         stderr,
-        "\x1b[31m  error: unknown command: frobnicate\x1b[39m\n"
+        "\x1b[31m  \x1b[1merror\x1b[22m: Unknown command \"frobnicate\". Did you mean command \"project\"?\n\x1b[39m\n"
     );
 
     let mut stdout = Vec::new();
