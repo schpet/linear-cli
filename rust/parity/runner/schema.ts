@@ -293,6 +293,10 @@ const AssetStepSchema = v.pipe(
     kind: v.literal("asset"),
     id: nonEmpty,
     method: v.picklist(["GET", "PUT"]),
+    fixedHost: v.optional(v.picklist([
+      "uploads.linear.app",
+      "public.linear.app",
+    ])),
     path: safePath,
     requiredHeaders: headers,
     forbiddenHeaders: v.array(
@@ -335,6 +339,10 @@ const AssetStepSchema = v.pipe(
         (!redirect || step.method === "GET")
     },
     "asset redirects require GET, 3xx and response.location together",
+  ),
+  v.check(
+    (step) => step.fixedHost == null || step.method === "GET",
+    "fixedHost assets are GET downloads only",
   ),
 )
 export type AssetStepSpec = v.InferOutput<typeof AssetStepSchema>
@@ -517,6 +525,27 @@ export const CaseSchema = v.pipe(
             : group.lanes.flatMap((lane) => lane.steps)
         ).length === spec.graphql.expectedRequests,
     "graphql expectedRequests must equal GraphQL plus asset interactions",
+  ),
+  v.check(
+    (spec) => {
+      const fixedHost =
+        spec.graphql?.groups.some((group) =>
+          (group.mode === "ordered"
+            ? group.steps
+            : group.lanes.flatMap((lane) => lane.steps)).some((step) =>
+              step.kind === "asset" && step.fixedHost != null
+            )
+        ) ?? false
+      return !fixedHost || [
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "NO_PROXY",
+        "DENO_CERT",
+        "DENO_TLS_CA_STORE",
+        "SSL_CERT_FILE",
+      ].every((key) => !(key in spec.env))
+    },
+    "fixedHost transport environment is runner-owned",
   ),
 )
 

@@ -130,7 +130,7 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
     )
   }
   assertEquals(loaded.filter((item) => item.spec.graphql == null).length, 112)
-  assertEquals(loaded.filter((item) => item.spec.graphql != null).length, 7)
+  assertEquals(loaded.filter((item) => item.spec.graphql != null).length, 9)
 })
 
 Deno.test("strict GraphQL shape rejects unknown fields, count drift, and fixture mixing", () => {

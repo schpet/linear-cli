@@ -24,6 +24,7 @@ import { GraphQLState } from "./graphql-state.ts"
 import { assetResponse, matchAssetRequest } from "./http-assets.ts"
 import { LaneScheduler } from "./lane-scheduler.ts"
 import type {
+  AssetStepSpec,
   GraphQLFixtureSpec,
   GraphQLStepSpec,
   InteractionSpec,
@@ -275,6 +276,11 @@ export interface GraphQLServer {
   expectedGraphQL: number
   expectedAssets: number
   state: GraphQLState
+  handleFixedHost(
+    request: Request,
+    host: NonNullable<AssetStepSpec["fixedHost"]>,
+  ): Promise<Response>
+  failFixture(reason: string): void
   stop(): Promise<void>
 }
 
@@ -429,180 +435,196 @@ export function startGraphQLServer(
         sawRootMutationField,
     }
   }
+  async function handleInteraction(
+    request: Request,
+    origin: NonNullable<AssetStepSpec["fixedHost"]> | null,
+  ): Promise<Response> {
+    const current = active()
+    const { scheduler, spec, state } = current
+    const url = new URL(request.url)
+    const path = `${url.pathname}${url.search}`
+    const hostHeader = request.headers.get("host")
+    const authorityMismatch = origin != null &&
+      (url.protocol !== "https:" || url.hostname !== origin ||
+        (url.port !== "" && url.port !== "443") ||
+        (hostHeader != null &&
+          hostHeader !== origin && hostHeader !== `${origin}:443`))
+    let body: Uint8Array
+    try {
+      body = await readBody(request)
+    } catch {
+      scheduler.fail("request body is invalid or exceeds 4 MiB")
+      requests.push({
+        kind: request.method === "POST" ? "graphql" : "asset",
+        authorizationMatched: false,
+        userAgent: request.headers.get("user-agent"),
+      })
+      return failure()
+    }
+    let parsed: v.InferOutput<typeof RequestSchema> | null = null
+    if (request.method === "POST" && path === spec.path) {
+      try {
+        parsed = parseRequest(body)
+      } catch {
+        scheduler.fail("GraphQL request has malformed JSON envelope")
+      }
+    }
+    let mismatchReason: string | null = null
+    const matches = (step: InteractionSpec): boolean => {
+      if (authorityMismatch) {
+        mismatchReason = "fixed-host authority differs from CONNECT target"
+        return false
+      }
+      if (step.kind === "asset") {
+        if (step.fixedHost !== (origin ?? undefined)) return false
+        const reason = matchAssetRequest(step, request, body)
+        if (reason != null) mismatchReason = reason
+        return reason == null
+      }
+      if (origin != null) return false
+      if (parsed == null || request.method !== "POST" || path !== spec.path) {
+        return false
+      }
+      if (
+        !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(
+          request.headers.get("content-type") ?? "",
+        )
+      ) return false
+      if (
+        request.headers.get("authorization") !==
+          step.identity.authorization ||
+        request.headers.get("user-agent") !== step.identity.userAgent
+      ) return false
+      if (
+        !Object.entries(step.identity.headers).every(([name, value]) =>
+          request.headers.get(name) === value
+        )
+      ) return false
+      if (
+        Object.hasOwn(parsed, "variables") !==
+          Object.hasOwn(step.operation, "variables")
+      ) {
+        mismatchReason = "GraphQL variables presence differs"
+        return false
+      }
+      if (step.response.kind === "validationErrors") {
+        return parsed.query.trim() === step.operation.document.trim()
+      }
+      const result = matchGraphQL(step.operation, {
+        document: parsed.query,
+        operationName: parsed.operationName,
+        variables: parsed.variables,
+      }, schema)
+      if (!result.matches) mismatchReason = result.reason
+      return result.matches
+    }
+    const wasFinished = scheduler.finished
+    const priorFailure = scheduler.failure
+    const claim = scheduler.claim(matches)
+    const step = claim?.step
+    if (wasFinished) unexpected++
+    requests.push({
+      kind: step?.kind ?? (request.method === "POST" ? "graphql" : "asset"),
+      authorizationMatched: step?.kind === "graphql"
+        ? request.headers.get("authorization") === step.identity.authorization
+        : step?.kind === "asset"
+        ? !Object.entries(step.requiredHeaders).some(([name, value]) =>
+          name.toLowerCase() === "authorization" &&
+          request.headers.get(name) !== value
+        )
+        : false,
+      userAgent: request.headers.get("user-agent"),
+    })
+    if (claim == null || step == null) {
+      if (priorFailure != null) {
+        note("request arrived after prior fixture failure")
+      }
+      if (mismatchReason != null && !wasFinished) note(mismatchReason)
+      return failure()
+    }
+    const onAbort = () =>
+      scheduler.fail("client disconnected during lane barrier")
+    request.signal.addEventListener("abort", onAbort, { once: true })
+    let ready: boolean
+    try {
+      ready = await claim.ready
+    } finally {
+      request.signal.removeEventListener("abort", onAbort)
+    }
+    if (!ready || scheduler.failure != null) return failure()
+    try {
+      let response: Response
+      if (step.kind === "asset") {
+        response = assetResponse(step)
+      } else {
+        if (parsed == null) {
+          throw new FixtureDataError("GraphQL request envelope is missing")
+        }
+        if (step.response.kind === "validationErrors") {
+          let errors: readonly { message: string }[]
+          try {
+            errors = validate(schema, parse(parsed.query))
+          } catch (error) {
+            errors = [{
+              message: error instanceof Error ? error.message : "parse error",
+            }]
+          }
+          if (
+            errors.length === 0 ||
+            JSON.stringify(errors.map((error) => error.message)) !==
+              JSON.stringify(
+                step.response.errors.map((error) => error.message),
+              )
+          ) {
+            throw new FixtureDataError("GraphQL validation errors differ")
+          }
+          response = jsonResponse(step.response.status, {
+            errors: step.response.errors,
+          })
+        } else if (step.response.kind === "transport") {
+          response = new Response(
+            new Blob([new Uint8Array(decodeByteValue(step.response.body))]),
+            { status: step.response.status, headers: step.response.headers },
+          )
+        } else {
+          const projection = await project(
+            step,
+            parsed.query,
+            parsed.variables,
+            parsed.operationName,
+          )
+          response = step.response.kind === "data"
+            ? jsonResponse(200, { data: projection.data })
+            : jsonResponse(step.response.status, {
+              data: projection.data,
+              errors: step.response.errors,
+            })
+          if (
+            step.effects.length > 0 &&
+            (step.response.kind === "data" && projection.mutationExecuted &&
+                !projection.suppressEffects ||
+              step.response.kind === "graphqlErrors" &&
+                step.partialEffects === true)
+          ) state.apply(step.effects)
+        }
+      }
+      scheduler.complete(claim)
+      return response
+    } catch (error) {
+      scheduler.fail(
+        `fixture response is invalid: ${
+          error instanceof Error ? error.message : "unexpected response failure"
+        }`,
+      )
+      return failure()
+    }
+  }
   const server = Deno.serve({
     hostname: "127.0.0.1",
     port: 0,
     onListen() {},
-    async handler(request) {
-      const current = active()
-      const { scheduler, spec, state } = current
-      const url = new URL(request.url)
-      const path = `${url.pathname}${url.search}`
-      let body: Uint8Array
-      try {
-        body = await readBody(request)
-      } catch {
-        scheduler.fail("request body is invalid or exceeds 4 MiB")
-        requests.push({
-          kind: request.method === "POST" ? "graphql" : "asset",
-          authorizationMatched: false,
-          userAgent: request.headers.get("user-agent"),
-        })
-        return failure()
-      }
-      let parsed: v.InferOutput<typeof RequestSchema> | null = null
-      if (request.method === "POST" && path === spec.path) {
-        try {
-          parsed = parseRequest(body)
-        } catch {
-          scheduler.fail("GraphQL request has malformed JSON envelope")
-        }
-      }
-      let mismatchReason: string | null = null
-      const matches = (step: InteractionSpec): boolean => {
-        if (step.kind === "asset") {
-          const reason = matchAssetRequest(step, request, body)
-          if (reason != null) mismatchReason = reason
-          return reason == null
-        }
-        if (parsed == null || request.method !== "POST" || path !== spec.path) {
-          return false
-        }
-        if (
-          !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(
-            request.headers.get("content-type") ?? "",
-          )
-        ) return false
-        if (
-          request.headers.get("authorization") !==
-            step.identity.authorization ||
-          request.headers.get("user-agent") !== step.identity.userAgent
-        ) return false
-        if (
-          !Object.entries(step.identity.headers).every(([name, value]) =>
-            request.headers.get(name) === value
-          )
-        ) return false
-        if (
-          Object.hasOwn(parsed, "variables") !==
-            Object.hasOwn(step.operation, "variables")
-        ) {
-          mismatchReason = "GraphQL variables presence differs"
-          return false
-        }
-        if (step.response.kind === "validationErrors") {
-          return parsed.query.trim() === step.operation.document.trim()
-        }
-        const result = matchGraphQL(step.operation, {
-          document: parsed.query,
-          operationName: parsed.operationName,
-          variables: parsed.variables,
-        }, schema)
-        if (!result.matches) mismatchReason = result.reason
-        return result.matches
-      }
-      const wasFinished = scheduler.finished
-      const priorFailure = scheduler.failure
-      const claim = scheduler.claim(matches)
-      const step = claim?.step
-      if (wasFinished) unexpected++
-      requests.push({
-        kind: step?.kind ?? (request.method === "POST" ? "graphql" : "asset"),
-        authorizationMatched: step?.kind === "graphql"
-          ? request.headers.get("authorization") === step.identity.authorization
-          : step?.kind === "asset"
-          ? !Object.entries(step.requiredHeaders).some(([name, value]) =>
-            name.toLowerCase() === "authorization" &&
-            request.headers.get(name) !== value
-          )
-          : false,
-        userAgent: request.headers.get("user-agent"),
-      })
-      if (claim == null || step == null) {
-        if (priorFailure != null) {
-          note("request arrived after prior fixture failure")
-        }
-        if (mismatchReason != null && !wasFinished) note(mismatchReason)
-        return failure()
-      }
-      const onAbort = () =>
-        scheduler.fail("client disconnected during lane barrier")
-      request.signal.addEventListener("abort", onAbort, { once: true })
-      let ready: boolean
-      try {
-        ready = await claim.ready
-      } finally {
-        request.signal.removeEventListener("abort", onAbort)
-      }
-      if (!ready || scheduler.failure != null) return failure()
-      try {
-        let response: Response
-        if (step.kind === "asset") {
-          response = assetResponse(step)
-        } else {
-          if (parsed == null) {
-            throw new FixtureDataError("GraphQL request envelope is missing")
-          }
-          if (step.response.kind === "validationErrors") {
-            let errors: readonly { message: string }[]
-            try {
-              errors = validate(schema, parse(parsed.query))
-            } catch (error) {
-              errors = [{
-                message: error instanceof Error ? error.message : "parse error",
-              }]
-            }
-            if (
-              errors.length === 0 ||
-              JSON.stringify(errors.map((error) => error.message)) !==
-                JSON.stringify(
-                  step.response.errors.map((error) => error.message),
-                )
-            ) {
-              throw new FixtureDataError("GraphQL validation errors differ")
-            }
-            response = jsonResponse(step.response.status, {
-              errors: step.response.errors,
-            })
-          } else if (step.response.kind === "transport") {
-            response = new Response(
-              new Blob([new Uint8Array(decodeByteValue(step.response.body))]),
-              { status: step.response.status, headers: step.response.headers },
-            )
-          } else {
-            const projection = await project(
-              step,
-              parsed.query,
-              parsed.variables,
-              parsed.operationName,
-            )
-            response = step.response.kind === "data"
-              ? jsonResponse(200, { data: projection.data })
-              : jsonResponse(step.response.status, {
-                data: projection.data,
-                errors: step.response.errors,
-              })
-            if (
-              step.effects.length > 0 &&
-              (step.response.kind === "data" && projection.mutationExecuted &&
-                  !projection.suppressEffects ||
-                step.response.kind === "graphqlErrors" &&
-                  step.partialEffects === true)
-            ) state.apply(step.effects)
-          }
-        }
-        scheduler.complete(claim)
-        return response
-      } catch (error) {
-        scheduler.fail(
-          `fixture response is invalid: ${
-            error instanceof Error
-              ? error.message
-              : "unexpected response failure"
-          }`,
-        )
-        return failure()
-      }
+    handler(request) {
+      return handleInteraction(request, null)
     },
   })
   return {
@@ -633,6 +655,12 @@ export function startGraphQLServer(
     },
     get state() {
       return active().state
+    },
+    handleFixedHost(request, host) {
+      return handleInteraction(request, host)
+    },
+    failFixture(reason) {
+      active().scheduler.fail(reason)
     },
     async stop() {
       active().scheduler.stop()

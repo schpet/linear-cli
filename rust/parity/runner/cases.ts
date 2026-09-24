@@ -182,11 +182,35 @@ function checkRedirects(steps: readonly InteractionSpec[], file: string): void {
   for (const [index, step] of steps.entries()) {
     if (step.kind !== "asset" || step.response.location == null) continue
     const next = steps[index + 1]
-    if (next?.kind !== "asset" || next.path !== step.response.location) {
+    if (
+      next?.kind !== "asset" || next.path !== step.response.location ||
+      next.fixedHost !== step.fixedHost
+    ) {
       throw new SchemaError(
-        `${file}: asset redirect must target the immediately following step in the same lane or group`,
+        `${file}: asset redirect must target the immediately following same-host step in the same lane or group`,
       )
     }
+  }
+}
+
+function fixedHostUrls(value: unknown, found: Set<string>): void {
+  if (typeof value === "string") {
+    for (
+      const match of value.matchAll(
+        /https:\/\/(?:uploads|public)\.linear\.app\/[^\s)"']+/g,
+      )
+    ) {
+      const url = new URL(match[0])
+      found.add(`${url.hostname}${url.pathname}${url.search}`)
+    }
+    return
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) fixedHostUrls(item, found)
+    return
+  }
+  if (record(value)) {
+    for (const item of Object.values(value)) fixedHostUrls(item, found)
   }
 }
 
@@ -408,6 +432,7 @@ async function checkGraphQLFixture(
   }
   const seen = new Set<string>()
   const assets = new Set<string>()
+  const fixedAssets = new Set<string>()
   for (const group of fixture.groups) {
     const lanes = group.mode === "ordered"
       ? [{ id: "ordered", steps: group.steps }]
@@ -424,6 +449,9 @@ async function checkGraphQLFixture(
         seen.add(step.id)
         if (step.kind === "asset") {
           assets.add(step.path)
+          if (step.fixedHost != null) {
+            fixedAssets.add(`${step.fixedHost}${step.path}`)
+          }
           if (
             step.method === "GET" && decodeByteValue(step.body).length !== 0
           ) throw new SchemaError(`${file}: GET asset body must be empty`)
@@ -486,6 +514,28 @@ async function checkGraphQLFixture(
           }
           concurrentRecords.set(effect.record, lane.id)
         }
+      }
+    }
+  }
+  if (fixedAssets.size > 0) {
+    const urls = new Set<string>()
+    for (const group of fixture.groups) {
+      const steps = group.mode === "ordered"
+        ? group.steps
+        : group.lanes.flatMap((lane) => lane.steps)
+      for (const step of steps) {
+        if (
+          step.kind === "graphql" &&
+          (step.response.kind === "data" ||
+            step.response.kind === "graphqlErrors")
+        ) fixedHostUrls(step.response.data, urls)
+      }
+    }
+    for (const url of urls) {
+      if (!fixedAssets.has(url)) {
+        throw new SchemaError(
+          `${file}: fixed-host GraphQL URL has no declared asset interaction`,
+        )
       }
     }
   }

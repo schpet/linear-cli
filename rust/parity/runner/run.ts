@@ -15,6 +15,11 @@ import {
 import type { Observation } from "./engine.ts"
 import { type FixtureServer, startFixtureServer } from "./fixture-server.ts"
 import {
+  type FixedHost,
+  type FixedHostProxy,
+  startFixedHostProxy,
+} from "./fixed-host-proxy.ts"
+import {
   type GraphQLServer,
   loadPinnedGraphQLSchema,
   startGraphQLServer,
@@ -26,7 +31,24 @@ import {
   hashTree,
   UnsupportedSandboxEntryError,
 } from "./sandbox.ts"
-import type { FileEffect } from "./schema.ts"
+import type { FileEffect, GraphQLFixtureSpec } from "./schema.ts"
+
+function fixedHosts(
+  spec: GraphQLFixtureSpec | null | undefined,
+): Set<FixedHost> {
+  const hosts = new Set<FixedHost>()
+  for (const group of spec?.groups ?? []) {
+    const steps = group.mode === "ordered"
+      ? group.steps
+      : group.lanes.flatMap((lane) => lane.steps)
+    for (const step of steps) {
+      if (step.kind === "asset" && step.fixedHost != null) {
+        hosts.add(step.fixedHost)
+      }
+    }
+  }
+  return hosts
+}
 
 export interface RunContext {
   /** Staged module cache handed to every child as DENO_DIR. */
@@ -107,6 +129,7 @@ export async function executeCase(
   )
   let server: FixtureServer | null = null
   let graphqlServer: GraphQLServer | null = null
+  let fixedHostProxy: FixedHostProxy | null = null
   try {
     const resolveWithPort = (fixturePort: number) =>
       resolveCase(loaded.spec, {
@@ -139,13 +162,30 @@ export async function executeCase(
       void graphqlServer.expectedGraphQL
     }
     const resolved = resolveWithPort(server?.port ?? graphqlServer?.port ?? 0)
+    const hosts = fixedHosts(resolved.graphql)
+    const childEnv = { ...resolved.env }
+    if (hosts.size > 0) {
+      if (graphqlServer == null) {
+        throw new Error("fixed-host fixture server is absent")
+      }
+      const caPath = `${sandbox.root}/linear-parity-test-ca.pem`
+      await Deno.copyFile(
+        new URL("./certs/test-ca.pem", import.meta.url),
+        caPath,
+      )
+      fixedHostProxy = await startFixedHostProxy(graphqlServer, hosts)
+      childEnv.HTTPS_PROXY = `http://127.0.0.1:${fixedHostProxy.port}`
+      childEnv.NO_PROXY = "127.0.0.1,localhost"
+      childEnv.DENO_CERT = caPath
+      childEnv.SSL_CERT_FILE = caPath
+    }
     const before = await hashTree(sandbox.root)
     const observation = await runConfined(ctx.confinement, {
       ...programInvocation(program, resolved.argv),
       caseRoot: sandbox.root,
       cwd: sandbox.cwd,
       tmp: sandbox.tmp,
-      env: resolved.env,
+      env: childEnv,
       stdin: resolved.stdin,
       timeoutMs: ctx.limits?.timeoutMs ?? loaded.spec.timeoutMs,
       outputCapBytes: ctx.limits?.outputCapBytes ?? loaded.spec.outputCapBytes,
@@ -226,9 +266,13 @@ export async function executeCase(
       raw: { stdout: observation.stdout, stderr: observation.stderr },
     }
   } finally {
-    if (server != null) await server.stop().catch(() => {})
-    if (graphqlServer != null) await graphqlServer.stop().catch(() => {})
-    await sandbox.remove().catch(() => {})
+    try {
+      if (fixedHostProxy != null) await fixedHostProxy.stop()
+    } finally {
+      if (server != null) await server.stop().catch(() => {})
+      if (graphqlServer != null) await graphqlServer.stop().catch(() => {})
+      await sandbox.remove().catch(() => {})
+    }
   }
 }
 
