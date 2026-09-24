@@ -123,6 +123,7 @@ pub struct RawConfigFile {
 pub enum ReadCandidate {
     Absent,
     Contents(RawConfigFile),
+    TooLarge { path: PathBuf },
     Poisoned { path: PathBuf, reason: String },
 }
 
@@ -136,9 +137,8 @@ pub fn read_config_candidate(files: &impl FileSource, path: &Path) -> ReadCandid
                     bytes,
                 })
             }
-            Ok(_) => ReadCandidate::Poisoned {
+            Ok(_) => ReadCandidate::TooLarge {
                 path: path.to_owned(),
-                reason: format!("file exceeds {MAX_CONFIG_BYTES} bytes"),
             },
             Err(error) if absent(&error) => ReadCandidate::Absent,
             Err(error) => ReadCandidate::Poisoned {

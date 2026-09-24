@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::error::Error;
 use std::io::{self, Write};
 
@@ -48,13 +47,12 @@ impl Write for Sink {
 
 fn context<'a>(stdout: &'a mut dyn Write, stderr: &'a mut dyn Write) -> AppContext<'a> {
     AppContext {
-        env: BTreeMap::new(),
+        startup: super::startup::empty_startup(std::env::temp_dir(), &[]),
         cwd: std::env::temp_dir(),
         stdout,
         stderr,
         stdout_tty: false,
         stderr_tty: false,
-        startup_diagnostics: Vec::new(),
         stdout_finalization: None,
     }
 }

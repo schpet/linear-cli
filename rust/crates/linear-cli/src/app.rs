@@ -1,34 +1,28 @@
-use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::PathBuf;
 
 use crate::cli::{self, DispatchAction, RouteMeta};
+use crate::config::{StartupConfig, StartupReport, render_diagnostic};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
 
 pub struct AppContext<'a> {
-    pub env: BTreeMap<String, String>,
+    pub startup: StartupReport,
     pub cwd: PathBuf,
     pub stdout: &'a mut dyn Write,
     pub stderr: &'a mut dyn Write,
     pub stdout_tty: bool,
     pub stderr_tty: bool,
-    pub startup_diagnostics: Vec<String>,
     pub stdout_finalization: Option<(OutputPolicy, OutputOutcome)>,
 }
 
 impl AppContext<'_> {
     pub fn debug_enabled(&self) -> bool {
-        matches!(
-            self.env.get("LINEAR_DEBUG").map(String::as_str),
-            Some("1" | "true")
-        )
+        self.startup.settings.debug
     }
 
     pub fn no_color(&self) -> bool {
-        self.env
-            .get("NO_COLOR")
-            .is_some_and(|value| !value.is_empty())
+        self.startup.settings.no_color()
     }
 
     pub fn handled_color(&self) -> bool {
@@ -36,7 +30,16 @@ impl AppContext<'_> {
     }
 
     pub fn help_color(&self) -> bool {
-        !self.no_color()
+        self.startup.settings.help_color()
+    }
+
+    pub fn config(&self) -> Result<&StartupConfig, AppError> {
+        self.startup.result.as_ref().map_err(|_| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                "config was requested after startup failed",
+            )
+        })
     }
 
     fn write_stdout(&mut self, bytes: &[u8]) -> Result<(), AppError> {
@@ -131,8 +134,12 @@ pub fn finalize(
 
 pub fn run(argv: &[String], context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
     context.stdout_finalization = None;
-    for diagnostic in context.startup_diagnostics.clone() {
-        write_stderr(context, diagnostic.as_bytes())?;
+    for diagnostic in context.startup.diagnostics.clone() {
+        let rendered = render_diagnostic(&diagnostic, context.help_color());
+        write_stderr(context, rendered.as_bytes())?;
+    }
+    if let Err(error) = &context.startup.result {
+        return Err(error.app_error());
     }
     match cli::parser::parse(argv)? {
         cli::parser::ParseOutcome::Help { route, long } => {

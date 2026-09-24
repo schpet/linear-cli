@@ -7,6 +7,7 @@ mod golden;
 mod help;
 mod inventory;
 mod parser;
+mod startup;
 
 mod broken_pipe;
 mod output;

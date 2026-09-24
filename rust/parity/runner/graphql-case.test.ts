@@ -129,7 +129,9 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
       `${id} should remain a GraphQL case`,
     )
   }
-  assertEquals(loaded.filter((item) => item.spec.graphql == null).length, 124)
+  // Five startup cases extend the corpus without changing the original
+  // GraphQL fixtures or the eleven GraphQL cases.
+  assertEquals(loaded.filter((item) => item.spec.graphql == null).length, 129)
   assertEquals(loaded.filter((item) => item.spec.graphql != null).length, 11)
 })
 

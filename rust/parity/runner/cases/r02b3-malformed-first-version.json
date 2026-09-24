@@ -1,0 +1,50 @@
+{
+  "id": "r02b3-malformed-first-version",
+  "route": "linear",
+  "reason": "Frozen Deno skips a malformed first project candidate and continues to the next; Rust v3 reports the first selected file as invalid.",
+  "argv": [
+    "-V"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "r02b3-malformed-first",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "cwd"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "2.6.0\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R02B3-STARTUP-VALIDATION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "d780c9bfcf2d2e81c3242001e765154b836b5dc38d0f3728e693a89d150df9ab"
+  }
+}

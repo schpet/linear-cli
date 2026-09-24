@@ -315,7 +315,7 @@ fn bounded_reads_are_fatal_for_env_and_poison_config() {
     ));
     assert!(matches!(
         read_config_candidate(&RealFileSource, &tree.0.join("linear.toml")),
-        ReadCandidate::Poisoned { .. }
+        ReadCandidate::TooLarge { .. }
     ));
     tree.write(".env", &vec![b'x'; 1024 * 1024]);
     assert!(
@@ -397,7 +397,7 @@ fn config_file_reader_distinguishes_missing_empty_and_directory() {
     tree.write("empty.toml", b"");
     match read_config_candidate(&RealFileSource, &tree.0.join("empty.toml")) {
         ReadCandidate::Contents(file) => assert!(file.bytes.is_empty()),
-        ReadCandidate::Absent | ReadCandidate::Poisoned { .. } => {
+        ReadCandidate::Absent | ReadCandidate::TooLarge { .. } | ReadCandidate::Poisoned { .. } => {
             panic!("empty file must be present")
         }
     }

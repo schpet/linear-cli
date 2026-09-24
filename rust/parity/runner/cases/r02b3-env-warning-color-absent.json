@@ -1,0 +1,48 @@
+{
+  "id": "r02b3-env-warning-color-absent",
+  "route": "linear",
+  "reason": "Selected dotenv shell references warn on stderr with ANSI color even when stdout is piped and NO_COLOR is absent.",
+  "argv": [
+    "-V"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "r02b3-env-expansion",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "cwd"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "2.6.0\n"
+    },
+    "stderr": {
+      "utf8": "\u001b[33mWarning: Ignoring LINEAR_TEAM_ID in {{cwd}}/.env: the value references a shell variable, which linear does not expand.\u001b[39m\n\u001b[90m  Write the literal value, or set the variable in your environment instead.\u001b[39m\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R02B3-WARNING-VERSION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "10d9c0427e2bd6a23d84d1f3471fd8642d74581f3d095cc5244afba5ddbad131"
+  }
+}

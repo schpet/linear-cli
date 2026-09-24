@@ -75,13 +75,17 @@ fn frozen_parser_contracts() {
         let mut stdout = Vec::new();
         let mut stderr = Vec::new();
         let mut context = AppContext {
-            env,
+            startup: super::startup::empty_startup(
+                std::env::temp_dir(),
+                &env.iter()
+                    .map(|(key, value)| (key.as_str(), value.as_str()))
+                    .collect::<Vec<_>>(),
+            ),
             cwd: std::env::temp_dir(),
             stdout: &mut stdout,
             stderr: &mut stderr,
             stdout_tty: false,
             stderr_tty: false,
-            startup_diagnostics: Vec::new(),
             stdout_finalization: None,
         };
         let status = match run(&args, &mut context) {
@@ -119,13 +123,12 @@ fn run_args(args: &[&str]) -> (u8, String, String) {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     let mut context = AppContext {
-        env: BTreeMap::new(),
+        startup: super::startup::empty_startup(std::env::temp_dir(), &[]),
         cwd: std::env::temp_dir(),
         stdout: &mut stdout,
         stderr: &mut stderr,
         stdout_tty: false,
         stderr_tty: false,
-        startup_diagnostics: Vec::new(),
         stdout_finalization: None,
     };
     let args = args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
@@ -168,7 +171,6 @@ fn source_derived_required_values_consume_dash_tokens() {
 
 #[test]
 fn direct_binary_parser_contracts() {
-    use std::process::Command;
     for id in [
         "c2-global-before-issue-bare",
         "c2-global-before-issue-help",
@@ -190,17 +192,12 @@ fn direct_binary_parser_contracts() {
             .expect("argv array")
             .iter()
             .map(|value| value.as_str().expect("argv string"));
-        let mut command = Command::new(env!("CARGO_BIN_EXE_linear"));
+        let sandbox = super::startup::BinarySandbox::new();
+        let mut command = sandbox.command();
         command
             .args(args)
-            .env_clear()
-            .env("HOME", std::env::temp_dir())
-            .env("XDG_CONFIG_HOME", std::env::temp_dir())
-            .env("APPDATA", std::env::temp_dir())
-            .env("PATH", "/usr/bin:/bin")
             .env("TZ", "UTC")
             .env("LANG", "C.UTF-8")
-            .env("LINEAR_IGNORE_ENV_FILE", "1")
             .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql");
         if let Some(no_color) = case["env"].get("NO_COLOR") {
             command.env("NO_COLOR", no_color.as_str().expect("NO_COLOR string"));
@@ -233,13 +230,10 @@ fn direct_binary_parser_contracts() {
                 .as_bytes(),
         );
     }
-    let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+    let sandbox = super::startup::BinarySandbox::new();
+    let output = sandbox
+        .command()
         .args(["issue", "view", "ABC-1"])
-        .env_clear()
-        .env("HOME", std::env::temp_dir())
-        .env("XDG_CONFIG_HOME", std::env::temp_dir())
-        .env("APPDATA", std::env::temp_dir())
-        .env("LINEAR_IGNORE_ENV_FILE", "1")
         .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
         .output()
         .expect("binary runs");
@@ -454,7 +448,6 @@ fn source_derived_short_equals_preserves_typed_option_value() {
 
 #[test]
 fn direct_binary_source_derived_parser_matrix() {
-    use std::process::Command;
     let variable = "Invalid variable format: badformat. Variables must be in key=value format, e.g. --variable teamId=abc";
     let combination = "Option \"--help\" cannot be combined with other options.";
     let cases: &[(&[&str], &str, &str)] = &[
@@ -525,16 +518,12 @@ fn direct_binary_source_derived_parser_matrix() {
         ),
     ];
     for (args, route_path, message) in cases {
-        let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+        let sandbox = super::startup::BinarySandbox::new();
+        let output = sandbox
+            .command()
             .args(*args)
-            .env_clear()
-            .env("HOME", std::env::temp_dir())
-            .env("XDG_CONFIG_HOME", std::env::temp_dir())
-            .env("APPDATA", std::env::temp_dir())
-            .env("PATH", "/usr/bin:/bin")
             .env("TZ", "UTC")
             .env("LANG", "C.UTF-8")
-            .env("LINEAR_IGNORE_ENV_FILE", "1")
             .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
             .output()
             .expect("binary runs");
@@ -562,8 +551,6 @@ fn direct_binary_source_derived_parser_matrix() {
 
 #[test]
 fn observed_registered_enum_usage_from_binary() {
-    use std::process::Command;
-
     let mine_fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../parity/runner/cases/c2-mine-help-no-color-one.json");
     let mine_case: Value = serde_json::from_slice(&std::fs::read(mine_fixture).expect("fixture"))
@@ -645,16 +632,12 @@ fn observed_registered_enum_usage_from_binary() {
         ),
     ];
     for (args, route_path, message) in cases {
-        let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+        let sandbox = super::startup::BinarySandbox::new();
+        let output = sandbox
+            .command()
             .args(*args)
-            .env_clear()
-            .env("HOME", std::env::temp_dir())
-            .env("XDG_CONFIG_HOME", std::env::temp_dir())
-            .env("APPDATA", std::env::temp_dir())
-            .env("PATH", "/usr/bin:/bin")
             .env("TZ", "UTC")
             .env("LANG", "C.UTF-8")
-            .env("LINEAR_IGNORE_ENV_FILE", "1")
             .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
             .env("NO_COLOR", "1")
             .output()
@@ -723,8 +706,6 @@ fn registered_enum_values_and_unrelated_strings_reach_actions() {
 
 #[test]
 fn observed_registered_positional_arity_from_binary() {
-    use std::process::Command;
-
     let cases: &[(&[&str], &str, &str)] = &[
         (
             &["issue", "attach"],
@@ -815,16 +796,12 @@ fn observed_registered_positional_arity_from_binary() {
         ),
     ];
     for (args, route_path, message) in cases {
-        let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+        let sandbox = super::startup::BinarySandbox::new();
+        let output = sandbox
+            .command()
             .args(*args)
-            .env_clear()
-            .env("HOME", std::env::temp_dir())
-            .env("XDG_CONFIG_HOME", std::env::temp_dir())
-            .env("APPDATA", std::env::temp_dir())
-            .env("PATH", "/usr/bin:/bin")
             .env("TZ", "UTC")
             .env("LANG", "C.UTF-8")
-            .env("LINEAR_IGNORE_ENV_FILE", "1")
             .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
             .env("NO_COLOR", "1")
             .output()
@@ -997,8 +974,6 @@ fn registered_variadic_option_consumes_remaining_values() {
 
 #[test]
 fn observed_variadic_option_reaches_action_from_binary() {
-    use std::process::Command;
-
     let unimplemented = b"\xe2\x9c\x97 linear issue archive is registered, but this action is not implemented yet\n";
     for args in [
         vec!["issue", "archive", "--bulk", "A", "B", "C"],
@@ -1012,16 +987,12 @@ fn observed_variadic_option_reaches_action_from_binary() {
             "--definitely-not-an-option",
         ],
     ] {
-        let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+        let sandbox = super::startup::BinarySandbox::new();
+        let output = sandbox
+            .command()
             .args(&args)
-            .env_clear()
-            .env("HOME", std::env::temp_dir())
-            .env("XDG_CONFIG_HOME", std::env::temp_dir())
-            .env("APPDATA", std::env::temp_dir())
-            .env("PATH", "/usr/bin:/bin")
             .env("TZ", "UTC")
             .env("LANG", "C.UTF-8")
-            .env("LINEAR_IGNORE_ENV_FILE", "1")
             .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
             .env("NO_COLOR", "1")
             .output()

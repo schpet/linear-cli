@@ -81,13 +81,17 @@ fn fixture(id: &str) {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     let mut context = AppContext {
-        env,
+        startup: super::startup::empty_startup(
+            std::env::temp_dir(),
+            &env.iter()
+                .map(|(key, value)| (key.as_str(), value.as_str()))
+                .collect::<Vec<_>>(),
+        ),
         cwd: std::env::temp_dir(),
         stdout: &mut stdout,
         stderr: &mut stderr,
         stdout_tty: false,
         stderr_tty: false,
-        startup_diagnostics: Vec::new(),
         stdout_finalization: None,
     };
     let status = match run(&args, &mut context) {
@@ -155,13 +159,12 @@ fn generated_completion_help_uses_untyped_option_layout() {
         let mut stdout = Vec::new();
         let mut stderr = Vec::new();
         let mut context = AppContext {
-            env: BTreeMap::new(),
+            startup: super::startup::empty_startup(std::env::temp_dir(), &[]),
             cwd: std::env::temp_dir(),
             stdout: &mut stdout,
             stderr: &mut stderr,
             stdout_tty: false,
             stderr_tty: false,
-            startup_diagnostics: Vec::new(),
             stdout_finalization: None,
         };
         let args = argv.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();

@@ -52,32 +52,44 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  assertEquals(cases.length, 135)
+  assertEquals(cases.length, 140)
   const ids: string[] = []
   let header = 0
   let bare = 0
   let long = 0
   let padded = 0
   let graphql = 0
+  let startup = 0
   for (const loaded of cases) {
+    if (loaded.spec.graphql != null) {
+      graphql++
+      assertEquals(loaded.spec.deviation?.id, "R01H-GRAPHQL-UA")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, [
+        "graphql-user-agent",
+      ])
+      assertEquals(
+        loaded.golden?.spec.candidate.graphqlUserAgent,
+        `schpet-linear-cli/${V3}`,
+      )
+    }
+    if (loaded.spec.id.startsWith("r02b3-")) {
+      startup++
+      assert(
+        loaded.spec.deviation?.id === "R02B3-STARTUP-VALIDATION" ||
+          loaded.spec.deviation?.id === "R02B3-WARNING-VERSION",
+      )
+    } else if (
+      loaded.spec.deviation?.id !== "R01V-CLI-VERSION" &&
+      loaded.spec.deviation?.id !== "R01H-GRAPHQL-UA"
+    ) {
+      assertEquals(loaded.spec.deviation, null)
+    }
+    // R01V's exact pinned set stays closed; later work items bind their own
+    // case-specific v3 deviations without rewriting this evidence.
+    if (loaded.spec.deviation?.id !== "R01V-CLI-VERSION") continue
     const frozen = loaded.spec.expected.stdout
     const stdout = "utf8" in frozen ? frozen.utf8 : ""
-    if (!stdout.includes(V2)) {
-      if (loaded.spec.graphql != null) {
-        graphql++
-        assertEquals(loaded.spec.deviation?.id, "R01H-GRAPHQL-UA")
-        assertEquals(loaded.golden?.spec.approvedSurfaces, [
-          "graphql-user-agent",
-        ])
-        assertEquals(
-          loaded.golden?.spec.candidate.graphqlUserAgent,
-          `schpet-linear-cli/${V3}`,
-        )
-      } else {
-        assertEquals(loaded.spec.deviation, null)
-      }
-      continue
-    }
+    assert(stdout.includes(V2))
     ids.push(loaded.spec.id)
     assertEquals(loaded.spec.deviation?.id, "R01V-CLI-VERSION")
     assertEquals(loaded.spec.deviation?.contract, CONTRACT)
@@ -109,6 +121,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     43,
     11,
   ])
+  assertEquals(startup, 5)
   assertEquals(
     await sha256Hex(new TextEncoder().encode(ids.join("\n") + "\n")),
     "483ccd730cbed6efbee760a1fb25896eeeb7e722dee14776bbfdd41ab8aa5730",

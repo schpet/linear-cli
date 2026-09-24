@@ -30,29 +30,18 @@ fn markdown_prints_the_frozen_reference_without_credentials() {
 fn markdown_closed_stdout_is_quiet() {
     use std::os::fd::OwnedFd;
     use std::os::unix::net::UnixStream;
-    use std::process::{Command, Stdio};
-    use std::time::SystemTime;
+    use std::process::Stdio;
 
     let (reader, writer) = UnixStream::pair().expect("create output pipe");
     drop(reader);
-    let unique = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .expect("clock after epoch")
-        .as_nanos();
-    let home = std::env::temp_dir().join(format!("linear-c085-{}-{unique}", std::process::id()));
-    std::fs::create_dir(&home).expect("create isolated home");
-    let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+    let sandbox = super::startup::BinarySandbox::new();
+    let output = sandbox
+        .command()
         .arg("markdown")
-        .env_clear()
-        .env("HOME", &home)
-        .env("XDG_CONFIG_HOME", &home)
-        .env("APPDATA", &home)
-        .env("LINEAR_IGNORE_ENV_FILE", "1")
         .stdout(Stdio::from(OwnedFd::from(writer)))
         .stderr(Stdio::piped())
         .output()
         .expect("Markdown binary runs");
-    std::fs::remove_dir_all(&home).expect("remove isolated home");
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
 }
@@ -61,13 +50,12 @@ fn invoke(args: &[&str]) -> (ExitStatus, String, String) {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     let mut context = AppContext {
-        env: BTreeMap::new(),
+        startup: super::startup::empty_startup(std::env::temp_dir(), &[]),
         cwd: std::env::temp_dir(),
         stdout: &mut stdout,
         stderr: &mut stderr,
         stdout_tty: false,
         stderr_tty: false,
-        startup_diagnostics: Vec::new(),
         stdout_finalization: None,
     };
     let args = args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
@@ -148,13 +136,12 @@ fn usage_and_domain_validation_have_distinct_statuses_and_writers() {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     let mut context = AppContext {
-        env: BTreeMap::new(),
+        startup: super::startup::empty_startup(std::env::temp_dir(), &[]),
         cwd: std::env::temp_dir(),
         stdout: &mut stdout,
         stderr: &mut stderr,
         stdout_tty: false,
         stderr_tty: false,
-        startup_diagnostics: Vec::new(),
         stdout_finalization: None,
     };
     let error = AppError::new(
@@ -177,13 +164,12 @@ fn handled_error_tty_color_wraps_complete_lines() {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     let mut context = AppContext {
-        env: BTreeMap::new(),
+        startup: super::startup::empty_startup(std::env::temp_dir(), &[]),
         cwd: std::env::temp_dir(),
         stdout: &mut stdout,
         stderr: &mut stderr,
         stdout_tty: true,
         stderr_tty: true,
-        startup_diagnostics: Vec::new(),
         stdout_finalization: None,
     };
     let error = AppError::new(AppErrorKind::Auth, "missing key");
@@ -202,14 +188,11 @@ fn handled_error_tty_color_wraps_complete_lines() {
 fn unrelated_non_utf8_environment_does_not_block_short_version() {
     use std::ffi::OsString;
     use std::os::unix::ffi::OsStringExt;
-    use std::process::Command;
 
-    let output = Command::new(env!("CARGO_BIN_EXE_linear"))
+    let sandbox = super::startup::BinarySandbox::new();
+    let output = sandbox
+        .command()
         .arg("-V")
-        .env_clear()
-        .env("HOME", std::env::temp_dir())
-        .env("XDG_CONFIG_HOME", std::env::temp_dir())
-        .env("APPDATA", std::env::temp_dir())
         .env("JUNK", OsString::from_vec(vec![0xff]))
         .output()
         .expect("binary runs");
@@ -247,13 +230,18 @@ fn empty_no_color_preserves_color_but_nonempty_disables_it() {
             environment.insert("NO_COLOR".to_owned(), value.to_owned());
         }
         let mut context = AppContext {
-            env: environment,
+            startup: super::startup::empty_startup(
+                std::env::temp_dir(),
+                &environment
+                    .iter()
+                    .map(|(key, value)| (key.as_str(), value.as_str()))
+                    .collect::<Vec<_>>(),
+            ),
             cwd: std::env::temp_dir(),
             stdout: &mut stdout,
             stderr: &mut stderr,
             stdout_tty: false,
             stderr_tty: true,
-            startup_diagnostics: Vec::new(),
             stdout_finalization: None,
         };
         assert_eq!(context.no_color(), !expected_color);

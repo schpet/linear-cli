@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "r02b3-invalid-endpoint-version",
+  "deviationId": "R02B3-STARTUP-VALIDATION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ invalid LINEAR_GRAPHQL_ENDPOINT from process environment: expected an http(s) URL without credentials or fragment\n  Set a valid LINEAR_GRAPHQL_ENDPOINT or remove it.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

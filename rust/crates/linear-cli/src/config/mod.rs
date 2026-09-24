@@ -1,12 +1,11 @@
-//! Config-file discovery, selected dotenv loading, and owned TOML parsing.
-//!
-//! This module stops before startup wiring.
+//! Typed config and credential boundaries for startup and command actions.
 mod discover;
 mod dotenv;
 mod options;
 mod parse;
 mod runtime;
 mod source;
+mod startup;
 
 pub use discover::{CandidateTier, ConfigCandidate, ConfigPaths, discover_config_paths};
 pub use dotenv::{
@@ -21,10 +20,13 @@ pub use parse::{
     ConfigParseError, ConfigParseErrorKind, ConfigTier, ConfigValue, parse_config_tier,
 };
 pub use runtime::{ProcessEnvError, ProcessEnvSnapshot, RealGitRootProbe};
+/// Crate-internal lexical path normalization shared with credential discovery.
+pub(crate) use source::lexical as lexical_config_path;
 pub use source::{
     ConfigInputs, FileKind, FileSource, GitIoStage, GitProbeError, GitProbeResult, GitRootProbe,
     OsFamily, RawConfigFile, ReadCandidate, RealFileSource, read_config_candidate,
 };
-
-/// Crate-internal lexical path normalization shared with credential discovery.
-pub(crate) use source::lexical as lexical_config_path;
+pub use startup::{
+    ChildEnvOverlay, DisplaySettings, NoColor, StartupConfig, StartupError, StartupReport,
+    load_startup, render_diagnostic,
+};
