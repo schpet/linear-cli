@@ -10,6 +10,7 @@ import type {
   GraphQLFixtureSpec,
 } from "./schema.ts"
 import { describeTargetExit, type TargetExit } from "./target-status.ts"
+import type { StdoutMode } from "./target-status.ts"
 
 export type Surface =
   | "timeout"
@@ -28,6 +29,7 @@ export interface Mismatch {
 export interface ResolvedExpectation {
   exit: ExitExpectation
   stdout: Uint8Array
+  stdoutMode: StdoutMode
   stderr: Uint8Array
   fileEffects: FileEffect[]
 }
@@ -108,6 +110,20 @@ export function compareObservation(
   }
   const stdout = compareBytes("stdout", expected.stdout, observation.stdout)
   if (stdout != null) mismatches.push(stdout)
+  if (
+    observation.stdoutClosure != null &&
+    (expected.stdoutMode.mode === "closed-at-start" &&
+        observation.stdoutClosure.closure !== "before-start" ||
+      expected.stdoutMode.mode === "close-after-bytes" &&
+        observation.stdoutClosure.closure !== "after-N")
+  ) {
+    mismatches.push({
+      surface: "stdout",
+      detail: `stdout closure ${
+        JSON.stringify(observation.stdoutClosure)
+      } did not reach requested ${expected.stdoutMode.mode}`,
+    })
+  }
   const stderr = compareBytes("stderr", expected.stderr, observation.stderr)
   if (stderr != null) mismatches.push(stderr)
   const expectedKeys = expected.fileEffects.map(effectKey).sort()

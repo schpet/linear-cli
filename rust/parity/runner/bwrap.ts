@@ -12,8 +12,11 @@ import type { StatusHelperArtifact } from "./helpers/build-status-helper.ts"
 import { invocationFor, type Program } from "./program.ts"
 import {
   HELPER_EXIT_CODES,
+  MAX_PIPE_BYTES,
   openTargetStatusChannel,
   outerAgrees,
+  type StdoutClosure,
+  type StdoutMode,
   type TargetExit,
   type TargetStatusChannel,
   TargetStatusError,
@@ -107,6 +110,8 @@ export interface ConfinedObservation extends Observation {
   targetExit: TargetExit | null
   /** Sandbox-namespace PIDs from the RESULT; null together with targetExit. */
   targetStatus: { helperPid: number; targetPid: number } | null
+  /** Authenticated helper pipe observation; null only on runner kill. */
+  stdoutClosure: StdoutClosure | null
 }
 
 export interface ConfinedInvocation {
@@ -124,6 +129,8 @@ export interface ConfinedInvocation {
   stdin: Uint8Array
   timeoutMs: number
   outputCapBytes: number
+  /** Runner-owned stdout consumer. Omitted only for legacy direct drain. */
+  stdoutMode?: StdoutMode
   signal?: AbortSignal
 }
 
@@ -330,6 +337,7 @@ export interface StatusObserver {
   helper: string
   /** `[port, nonce, identity]` from the run's channel. */
   helperArgs: string[]
+  stdoutMode: StdoutMode
 }
 
 /**
@@ -383,6 +391,12 @@ export function bwrapArgs(
     "--",
     observer.helper,
     ...observer.helperArgs,
+    observer.stdoutMode.mode,
+    String(
+      observer.stdoutMode.mode === "close-after-bytes"
+        ? observer.stdoutMode.count
+        : 0,
+    ),
     plan.executable,
     ...plan.args,
   )
@@ -545,6 +559,17 @@ export async function runConfined(
   confinement: Confinement,
   invocation: ConfinedInvocation,
 ): Promise<ConfinedObservation> {
+  const stdoutMode = invocation.stdoutMode ?? { mode: "drain" }
+  if (
+    stdoutMode.mode === "close-after-bytes" &&
+    (!Number.isSafeInteger(stdoutMode.count) || stdoutMode.count < 1 ||
+      stdoutMode.count > MAX_PIPE_BYTES ||
+      stdoutMode.count > invocation.outputCapBytes)
+  ) {
+    throw new ConfinementError(
+      "close-after-bytes count must be positive and within outputCapBytes",
+    )
+  }
   const plan = await planConfinement(confinement, invocation)
   const channel: TargetStatusChannel = openTargetStatusChannel({
     deadlineMs: invocation.timeoutMs + CHANNEL_SLACK_MS,
@@ -557,6 +582,7 @@ export async function runConfined(
       args: bwrapArgs(confinement, plan, {
         helper: confinement.statusHelper.path,
         helperArgs: channel.helperArgs,
+        stdoutMode,
       }),
       cwd: plan.cwd,
       env: plan.env,
@@ -610,6 +636,7 @@ export async function runConfined(
         outerExit: observation.exit,
         targetExit: null,
         targetStatus: null,
+        stdoutClosure: null,
       }
     }
     throw new TargetStatusError(
@@ -634,10 +661,29 @@ export async function runConfined(
       }`,
     )
   }
+  const expectedCount = stdoutMode.mode === "close-after-bytes"
+    ? stdoutMode.count
+    : 0
+  if (
+    record.stdoutClosure.mode !== stdoutMode.mode ||
+    record.stdoutClosure.count !== expectedCount ||
+    record.stdoutClosure.bytesRelayed !== observation.stdout.length &&
+      !observation.timedOut && !observation.truncated &&
+      stdoutMode.mode !== "drain"
+  ) {
+    throw new TargetStatusError(
+      `authenticated stdout closure ${
+        JSON.stringify(record.stdoutClosure)
+      } disagrees with requested mode ${
+        JSON.stringify(stdoutMode)
+      } and captured ${observation.stdout.length} bytes`,
+    )
+  }
   return {
     ...observation,
     outerExit: observation.exit,
     targetExit: record.exit,
     targetStatus: { helperPid: record.helperPid, targetPid: record.targetPid },
+    stdoutClosure: record.stdoutClosure,
   }
 }

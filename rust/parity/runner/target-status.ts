@@ -1,4 +1,4 @@
-// Runner side of the parity-status/1 protocol (see helpers/status-helper.c).
+// Runner side of the parity-status/2 protocol (see helpers/status-helper.c).
 // One channel per confined invocation: a fresh 127.0.0.1 listener, a fresh
 // 128-bit nonce and an opaque run identity. The helper connects before it
 // forks, the runner checks HELLO and ACKs, then the helper's single RESULT
@@ -8,9 +8,30 @@
 // a harness failure, never a target result and never a synthesized code.
 import { encodeHex } from "@std/encoding/hex"
 
-export const STATUS_PROTOCOL = "parity-status/1"
+export const STATUS_PROTOCOL = "parity-status/2"
 export const STATUS_FRAME_MAX = 256
 const TOKEN_BYTES = 16
+export const MAX_PIPE_BYTES = 64 * 1024 * 1024
+
+export type StdoutMode =
+  | { mode: "drain" }
+  | { mode: "closed-at-start" }
+  | { mode: "close-after-bytes"; count: number }
+
+export type StdoutClosure =
+  | { mode: "drain"; count: 0; bytesRelayed: 0; closure: "none" }
+  | {
+    mode: "closed-at-start"
+    count: 0
+    bytesRelayed: 0
+    closure: "before-start"
+  }
+  | {
+    mode: "close-after-bytes"
+    count: number
+    bytesRelayed: number
+    closure: "after-N" | "threshold-not-reached"
+  }
 
 /** Pinned Linux x86_64 signal numbers; the helper carries the same table. */
 export const LINUX_SIGNALS: ReadonlyMap<number, string> = new Map([
@@ -83,6 +104,7 @@ export interface TargetStatusRecord {
   helperPid: number
   /** PID of the target inside the sandbox PID namespace. */
   targetPid: number
+  stdoutClosure: StdoutClosure
 }
 
 export interface StatusHello {
@@ -163,9 +185,44 @@ async function writeFrame(conn: Deno.Conn, payload: string): Promise<void> {
 }
 
 const HELLO_RE =
-  /^parity-status\/1 HELLO ([0-9a-f]{32}) ([0-9a-f]{32}) ([1-9][0-9]{0,6})$/
+  /^parity-status\/2 HELLO ([0-9a-f]{32}) ([0-9a-f]{32}) ([1-9][0-9]{0,6})$/
 const RESULT_RE =
-  /^parity-status\/1 RESULT ([0-9a-f]{32}) ([0-9a-f]{32}) ([1-9][0-9]{0,6}) (exited (0|[1-9][0-9]{0,2})|signaled ([1-9][0-9]?) ([A-Z0-9]{3,10})|exec-failed ([1-9][0-9]{0,3}))$/
+  /^parity-status\/2 RESULT ([0-9a-f]{32}) ([0-9a-f]{32}) ([1-9][0-9]{0,6}) (exited (0|[1-9][0-9]{0,2})|signaled ([1-9][0-9]?) ([A-Z0-9]{3,10})) stdout (drain|closed-at-start|close-after-bytes) (0|[1-9][0-9]{0,7}) (0|[1-9][0-9]{0,7}) (none|before-start|after-N|threshold-not-reached)$/
+const EXEC_FAILED_RE =
+  /^parity-status\/2 RESULT ([0-9a-f]{32}) ([0-9a-f]{32}) ([1-9][0-9]{0,6}) exec-failed ([1-9][0-9]{0,3})$/
+
+function parseClosure(
+  mode: string,
+  rawCount: string,
+  rawRelayed: string,
+  closure: string,
+): StdoutClosure {
+  const count = Number(rawCount)
+  const bytesRelayed = Number(rawRelayed)
+  if (count > MAX_PIPE_BYTES || bytesRelayed > count) {
+    fail("invalid stdout closure count")
+  }
+  if (
+    mode === "drain" && count === 0 && bytesRelayed === 0 &&
+    closure === "none"
+  ) {
+    return { mode, count: 0, bytesRelayed: 0, closure }
+  }
+  if (
+    mode === "closed-at-start" && count === 0 && bytesRelayed === 0 &&
+    closure === "before-start"
+  ) {
+    return { mode, count: 0, bytesRelayed: 0, closure }
+  }
+  if (
+    mode === "close-after-bytes" && count > 0 &&
+    ((closure === "after-N" && bytesRelayed === count) ||
+      (closure === "threshold-not-reached" && bytesRelayed < count))
+  ) {
+    return { mode, count, bytesRelayed, closure }
+  }
+  fail("contradictory stdout closure")
+}
 
 export function parseResultFrame(
   frame: string,
@@ -174,15 +231,31 @@ export function parseResultFrame(
   helperPid: number,
 ): TargetStatusRecord {
   const match = RESULT_RE.exec(frame)
-  if (match == null) fail("malformed RESULT frame")
+  if (match == null) {
+    const failed = EXEC_FAILED_RE.exec(frame)
+    if (failed == null) fail("malformed RESULT frame")
+    if (failed[1] !== nonce) fail("RESULT nonce mismatch")
+    if (failed[2] !== identity) fail("RESULT identity mismatch")
+    if (Number(failed[3]) === helperPid) {
+      fail("RESULT names the helper as the target")
+    }
+    const errno = Number(failed[4])
+    const errnoName = ERRNO_NAMES.get(errno)
+    fail(
+      `target execve failed with errno ${errno}${
+        errnoName == null ? "" : ` (${errnoName})`
+      }; this is a harness or program-path failure, not an exit code`,
+    )
+  }
   if (match[1] !== nonce) fail("RESULT nonce mismatch")
   if (match[2] !== identity) fail("RESULT identity mismatch")
   const targetPid = Number(match[3])
   if (targetPid === helperPid) fail("RESULT names the helper as the target")
+  const stdoutClosure = parseClosure(match[8], match[9], match[10], match[11])
   if (match[5] != null) {
     const code = Number(match[5])
     if (code > 255) fail(`exit code ${code} out of range`)
-    return { exit: { code }, helperPid, targetPid }
+    return { exit: { code }, helperPid, targetPid, stdoutClosure }
   }
   if (match[6] != null) {
     const number = Number(match[6])
@@ -191,15 +264,14 @@ export function parseResultFrame(
     if (match[7] !== name) {
       fail(`signal name ${match[7]} does not match number ${number} (${name})`)
     }
-    return { exit: { signal: name, number }, helperPid, targetPid }
+    return {
+      exit: { signal: name, number },
+      helperPid,
+      targetPid,
+      stdoutClosure,
+    }
   }
-  const errno = Number(match[8])
-  const errnoName = ERRNO_NAMES.get(errno)
-  fail(
-    `target execve failed with errno ${errno}${
-      errnoName == null ? "" : ` (${errnoName})`
-    }; this is a harness or program-path failure, not an exit code`,
-  )
+  fail("malformed RESULT exit")
 }
 
 export interface OpenChannelOptions {

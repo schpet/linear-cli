@@ -1,8 +1,8 @@
-// Protocol tests for the runner side of parity-status/1. A test-only fake
+// Protocol tests for the runner side of parity-status/2. A test-only fake
 // helper (plain TCP client below) emits valid, missing, malformed, duplicate,
 // late and mismatched frames; the production helper has no such switches
 // and no case JSON can select these behaviours.
-import { assert, assertEquals, assertRejects } from "@std/assert"
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert"
 import {
   describeTargetExit,
   HELPER_EXIT_CODES,
@@ -79,9 +79,13 @@ function resultFrame(
   tail: string,
   overrides: { nonce?: string; identity?: string; pid?: number } = {},
 ): string {
+  const closure =
+    /^(exited (0|[1-9][0-9]*)|signaled [1-9][0-9]* [A-Z0-9]+)$/.test(tail)
+      ? " stdout drain 0 0 none"
+      : ""
   return `${STATUS_PROTOCOL} RESULT ${overrides.nonce ?? channel.nonce} ${
     overrides.identity ?? channel.identity
-  } ${overrides.pid ?? 3} ${tail}`
+  } ${overrides.pid ?? 3} ${tail}${closure}`
 }
 
 function open(deadlineMs = 5000): TargetStatusChannel {
@@ -107,6 +111,12 @@ Deno.test("a valid HELLO is ACKed before any RESULT and one RESULT followed by E
     exit: { code: 143 },
     helperPid: 2,
     targetPid: 3,
+    stdoutClosure: {
+      mode: "drain",
+      count: 0,
+      bytesRelayed: 0,
+      closure: "none",
+    },
   })
   assertEquals(channel.helperArgs, [
     String(channel.port),
@@ -178,7 +188,7 @@ Deno.test("wrong nonce, wrong identity, wrong version, malformed HELLO and a RES
     ],
     [
       "malformed HELLO",
-      (c) => `parity-status/2 HELLO ${c.nonce} ${c.identity} 2`,
+      (c) => `parity-status/1 HELLO ${c.nonce} ${c.identity} 2`,
     ],
     ["malformed HELLO", (c) => `${STATUS_PROTOCOL} HELLO ${c.nonce} 2`],
     [
@@ -215,7 +225,7 @@ Deno.test("empty, oversize, truncated and non-ASCII frames are rejected", async 
     ["exceeds cap", new Uint8Array([1, 1])],
     [
       "truncated frame",
-      new Uint8Array([0, 40, ...encoder.encode("parity-status/1 HELLO")]),
+      new Uint8Array([0, 40, ...encoder.encode("parity-status/2 HELLO")]),
     ],
     [
       "non-ASCII byte",
@@ -399,12 +409,22 @@ Deno.test("parseResultFrame is strict on its own", () => {
   const identity = "b".repeat(32)
   assertEquals(
     parseResultFrame(
-      `${STATUS_PROTOCOL} RESULT ${nonce} ${identity} 3 exited 143`,
+      `${STATUS_PROTOCOL} RESULT ${nonce} ${identity} 3 exited 143 stdout drain 0 0 none`,
       nonce,
       identity,
       2,
     ),
-    { exit: { code: 143 }, helperPid: 2, targetPid: 3 },
+    {
+      exit: { code: 143 },
+      helperPid: 2,
+      targetPid: 3,
+      stdoutClosure: {
+        mode: "drain",
+        count: 0,
+        bytesRelayed: 0,
+        closure: "none",
+      },
+    },
   )
   for (
     const bad of [
@@ -425,4 +445,80 @@ Deno.test("parseResultFrame is strict on its own", () => {
     }
     assert(threw, JSON.stringify(bad))
   }
+})
+
+Deno.test("closure RESULT grammar rejects contradictions, old version, and closure on exec failure", () => {
+  const nonce = "a".repeat(32)
+  const identity = "b".repeat(32)
+  const prefix =
+    `${STATUS_PROTOCOL} RESULT ${nonce} ${identity} 3 exited 0 stdout `
+  assertEquals(
+    parseResultFrame(
+      `${prefix}close-after-bytes 4 4 after-N`,
+      nonce,
+      identity,
+      2,
+    ).stdoutClosure,
+    {
+      mode: "close-after-bytes",
+      count: 4,
+      bytesRelayed: 4,
+      closure: "after-N",
+    },
+  )
+  assertEquals(
+    parseResultFrame(
+      `${prefix}close-after-bytes 4 2 threshold-not-reached`,
+      nonce,
+      identity,
+      2,
+    ).stdoutClosure.closure,
+    "threshold-not-reached",
+  )
+  for (
+    const tail of [
+      "drain 1 0 none",
+      "drain 0 1 none",
+      "closed-at-start 0 0 none",
+      "closed-at-start 0 1 before-start",
+      "close-after-bytes 0 0 after-N",
+      "close-after-bytes 4 3 after-N",
+      "close-after-bytes 4 4 threshold-not-reached",
+      "close-after-bytes 4 5 after-N",
+      "close-after-bytes 67108865 4 after-N",
+    ]
+  ) {
+    assertThrows(
+      () => parseResultFrame(`${prefix}${tail}`, nonce, identity, 2),
+      TargetStatusError,
+    )
+  }
+  assertThrows(
+    () =>
+      parseResultFrame(
+        `${STATUS_PROTOCOL} RESULT ${nonce} ${identity} 3 exec-failed 2 stdout drain 0 0 none`,
+        nonce,
+        identity,
+        2,
+      ),
+    TargetStatusError,
+    "malformed RESULT",
+  )
+  assertThrows(
+    () =>
+      parseResultFrame(
+        `parity-status/1 RESULT ${nonce} ${identity} 3 exited 0 stdout drain 0 0 none`,
+        nonce,
+        identity,
+        2,
+      ),
+    TargetStatusError,
+    "malformed RESULT",
+  )
+  const maxFrame =
+    `${STATUS_PROTOCOL} RESULT ${nonce} ${identity} 9999999 signaled 16 SIGSTKFLT stdout close-after-bytes 67108864 67108863 threshold-not-reached`
+  assert(
+    encoder.encode(maxFrame).length <= STATUS_FRAME_MAX,
+    "maximum grammar frame exceeds the pinned cap",
+  )
 })

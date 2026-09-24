@@ -1,7 +1,7 @@
 // Integration of sandbox, confinement wrapper, engine, fixture server,
 // comparison and descriptor logic with small shell programs; the namespace
 // lane is exercised by `deno task parity` itself.
-import { assert, assertEquals } from "@std/assert"
+import { assert, assertEquals, assertRejects } from "@std/assert"
 import { join } from "@std/path"
 import { CASE_ROOT_PARENT, prepareConfinement } from "./bwrap.ts"
 import type { LoadedCase } from "./cases.ts"
@@ -10,7 +10,7 @@ import { executeCase, type RunContext, runCorpus } from "./run.ts"
 import type { Program } from "./program.ts"
 import { readManifest } from "../verify.ts"
 import { toReportCase } from "./report.ts"
-import { parseCase } from "./schema.ts"
+import { parseCase, SchemaError } from "./schema.ts"
 import { testStatusHelper, validCase } from "./test-fixtures.ts"
 
 async function withDir<T>(
@@ -52,6 +52,71 @@ function loadedCase(overrides: Record<string, unknown>): LoadedCase {
     configFixtureDir: null,
   }
 }
+
+Deno.test("public case runner compares pipe prefix, authenticated closure and effective cap", async () => {
+  await withDir(async (_dir, ctx) => {
+    const loop = 'for(;;) { syswrite(STDOUT, "abcd") or die "EPIPE" }'
+    const make = (stdout: unknown, argv: string[], exit: unknown) =>
+      loadedCase({
+        id: "pipe-public",
+        argv,
+        outputCapBytes: 1024,
+        expected: {
+          exit,
+          stdout,
+          stderr: { utf8: "" },
+          fileEffects: [],
+        },
+      })
+    const program: Program = { kind: "executable", path: "/usr/bin/perl" }
+    const closed = await executeCase(
+      make({ mode: "closed-at-start" }, ["-e", loop], {
+        signal: "SIGPIPE",
+      }),
+      program,
+      ctx,
+    )
+    assertEquals(closed.mismatches, [])
+    assertEquals(closed.observation.stdoutClosure?.closure, "before-start")
+
+    const after = await executeCase(
+      make(
+        { mode: "close-after-bytes", count: 4, prefix: { utf8: "abcd" } },
+        ["-e", loop],
+        { signal: "SIGPIPE" },
+      ),
+      program,
+      ctx,
+    )
+    assertEquals(after.mismatches, [])
+    assertEquals(after.observation.stdoutClosure?.closure, "after-N")
+
+    const short = make(
+      { mode: "close-after-bytes", count: 4, prefix: { utf8: "abcd" } },
+      ["-e", 'syswrite(STDOUT, "ab")'],
+      { code: 0 },
+    )
+    const shortRun = await executeCase(short, program, ctx)
+    assertEquals(shortRun.mismatches.map((m) => m.surface), [
+      "stdout",
+      "stdout",
+    ])
+    assert(
+      shortRun.mismatches.some((m) =>
+        m.detail.includes("threshold-not-reached")
+      ),
+    )
+    await assertRejects(
+      () =>
+        executeCase(short, program, {
+          ...ctx,
+          limits: { outputCapBytes: 3 },
+        }),
+      SchemaError,
+      "effective outputCapBytes",
+    )
+  })
+})
 
 Deno.test("a missing declared asset remains an unconsumed fixture interaction", async () => {
   await withDir(async (_dir, ctx) => {

@@ -2,7 +2,12 @@
 // (bwrap.ts over engine.ts), tree hashing before and after, exact comparison,
 // and cleanup in finally. Confinement setup failures propagate as harness
 // errors; they are never recorded as candidate mismatches.
-import { type Confinement, programInvocation, runConfined } from "./bwrap.ts"
+import {
+  type ConfinedObservation,
+  type Confinement,
+  programInvocation,
+  runConfined,
+} from "./bwrap.ts"
 import { sha256Hex } from "./bytes.ts"
 import type { LoadedCase } from "./cases.ts"
 import { checkLaneDeadline, resolveCase } from "./cases.ts"
@@ -32,6 +37,7 @@ import {
   UnsupportedSandboxEntryError,
 } from "./sandbox.ts"
 import type { FileEffect, GraphQLFixtureSpec } from "./schema.ts"
+import { SchemaError } from "./schema.ts"
 import type { TargetExit } from "./target-status.ts"
 
 function fixedHosts(
@@ -70,6 +76,7 @@ export interface ObservationSummary {
   outerExit: ExitStatus
   /** Sandbox-namespace PIDs of the helper and the target from the RESULT. */
   targetStatus: { helperPid: number; targetPid: number } | null
+  stdoutClosure: ConfinedObservation["stdoutClosure"]
   stdoutBytes: number
   stdoutSha256: string
   stderrBytes: number
@@ -128,6 +135,16 @@ export async function executeCase(
 ): Promise<CaseRun> {
   if (ctx.signal?.aborted) throw new Error("aborted")
   checkLaneDeadline(loaded.spec, ctx.limits?.timeoutMs ?? loaded.spec.timeoutMs)
+  const stdoutSpec = loaded.spec.expected.stdout
+  const effectiveCap = ctx.limits?.outputCapBytes ?? loaded.spec.outputCapBytes
+  if (
+    "mode" in stdoutSpec && stdoutSpec.mode === "close-after-bytes" &&
+    stdoutSpec.count > effectiveCap
+  ) {
+    throw new SchemaError(
+      `case ${loaded.spec.id}: close-after-bytes count ${stdoutSpec.count} exceeds effective outputCapBytes ${effectiveCap}`,
+    )
+  }
   const sandbox = await createSandbox(
     ctx.sandboxParent,
     loaded.fixtureDir,
@@ -195,6 +212,7 @@ export async function executeCase(
       stdin: resolved.stdin,
       timeoutMs: ctx.limits?.timeoutMs ?? loaded.spec.timeoutMs,
       outputCapBytes: ctx.limits?.outputCapBytes ?? loaded.spec.outputCapBytes,
+      stdoutMode: resolved.expected.stdoutMode,
       signal: ctx.signal,
     })
     let fileEffects: FileEffect[] = []
@@ -232,6 +250,7 @@ export async function executeCase(
         targetExit: observation.targetExit,
         outerExit: observation.outerExit,
         targetStatus: observation.targetStatus,
+        stdoutClosure: observation.stdoutClosure,
         stdoutBytes: observation.stdout.length,
         stdoutSha256: await sha256Hex(observation.stdout),
         stderrBytes: observation.stderr.length,

@@ -43,6 +43,60 @@ Deno.test("a complete case parses and keeps byte fields as utf8/base64 objects",
   assertEquals(spec.expected.stderr, { base64: "" })
 })
 
+Deno.test("pipe stdout variants require literal byte-exact prefixes within the declared cap", () => {
+  const withStdout = (stdout: unknown, cap = 1024) => {
+    const spec = validCase()
+    spec.outputCapBytes = cap
+    objectField(spec, "expected").stdout = stdout
+    return parseCase(spec).expected.stdout
+  }
+  assertEquals(withStdout({ mode: "closed-at-start" }), {
+    mode: "closed-at-start",
+  })
+  assertEquals(
+    withStdout({ mode: "close-after-bytes", count: 2, prefix: { utf8: "é" } }),
+    { mode: "close-after-bytes", count: 2, prefix: { utf8: "é" } },
+  )
+  assertEquals(
+    withStdout({
+      mode: "close-after-bytes",
+      count: 1,
+      prefix: { base64: "ww==" },
+    }),
+    { mode: "close-after-bytes", count: 1, prefix: { base64: "ww==" } },
+  )
+  for (
+    const stdout of [
+      { mode: "closed-at-start", count: 0 },
+      { mode: "close-after-bytes", count: 0, prefix: { utf8: "" } },
+      { mode: "close-after-bytes", count: 1, prefix: { utf8: "é" } },
+      { mode: "close-after-bytes", count: 4, prefix: { utf8: "abc" } },
+      { mode: "close-after-bytes", count: 4, prefix: { utf8: "abcde" } },
+      { mode: "close-after-bytes", count: 8, prefix: { utf8: "{{home}}" } },
+      {
+        mode: "close-after-bytes",
+        count: 8,
+        prefix: { base64: "e3tob21lfX0=" },
+      },
+      { mode: "close-after-bytes", count: 1, prefix: { utf8: "x" }, utf8: "x" },
+      { mode: "close-after-bytes", count: 1025, prefix: { utf8: "x" } },
+      { mode: "bad", count: 1, prefix: { utf8: "x" } },
+    ]
+  ) {
+    assertThrows(() => withStdout(stdout), SchemaError)
+  }
+  assertThrows(
+    () =>
+      withStdout({
+        mode: "close-after-bytes",
+        count: 2,
+        prefix: { utf8: "ab" },
+      }, 1),
+    SchemaError,
+    "outputCapBytes",
+  )
+})
+
 Deno.test("exit is exactly one of a code or a proved signal name; {code:143} and {signal:SIGTERM} are distinct expectations", () => {
   const withExit = (exit: unknown) => {
     const spec = validCase()

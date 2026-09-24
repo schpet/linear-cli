@@ -19,7 +19,7 @@ import {
   verifyStatusHelper,
 } from "./helpers/build-status-helper.ts"
 import { runPreflight } from "./preflight.ts"
-import { proposalExit } from "./proposal.ts"
+import { proposalExit, proposalStdout } from "./proposal.ts"
 import type { Program } from "./program.ts"
 import {
   countStatuses,
@@ -327,6 +327,7 @@ async function outer(options: Options, rawArgs: string[]): Promise<number> {
 async function writeProposals(
   dir: string,
   results: Awaited<ReturnType<typeof runCorpus>>,
+  helper: Awaited<ReturnType<typeof verifyStatusHelper>>,
 ): Promise<void> {
   await Deno.mkdir(dir, { recursive: true })
   for (const result of results) {
@@ -337,7 +338,12 @@ async function writeProposals(
         {
           exit: proposalExit(run.observation.targetExit),
           outerExit: run.observation.outerExit,
-          stdout: encodeByteValue(run.raw.stdout),
+          stdout: proposalStdout(
+            run.raw.stdout,
+            run.observation.stdoutClosure,
+          ),
+          stdoutClosure: run.observation.stdoutClosure,
+          statusHelper: helper,
           stderr: encodeByteValue(run.raw.stderr),
           fileEffects: run.fileEffects,
           fixture: run.fixture,
@@ -426,7 +432,9 @@ async function innerInLane(
       ctx,
       (result) => console.log(formatResultLine(result)),
     )
-    if (options.propose != null) await writeProposals(options.propose, results)
+    if (options.propose != null) {
+      await writeProposals(options.propose, results, lane.statusHelper)
+    }
     const selfCheck = options.selfCheck
       ? await runSelfCheck(
         cases,

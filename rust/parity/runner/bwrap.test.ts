@@ -178,6 +178,7 @@ Deno.test("bwrap argv is an allowlisted root in mount order: /usr read-only with
   }, {
     helper: fakeHelper.path,
     helperArgs: ["40000", nonce, identity],
+    stdoutMode: { mode: "drain" },
   })
   assertEquals(args, [
     "--unshare-user",
@@ -248,6 +249,8 @@ Deno.test("bwrap argv is an allowlisted root in mount order: /usr read-only with
     "40000",
     nonce,
     identity,
+    "drain",
+    "0",
     "/home/u/bin/deno",
     "run",
     "x",
@@ -724,6 +727,7 @@ Deno.test("signal dispositions, mask, umask, argv and the fd set through the hel
       const args = bwrapArgs(lane.confinement, plan, {
         helper: lane.helper.path,
         helperArgs: ["1", "x", "y"],
+        stdoutMode: { mode: "drain" },
       })
       const separator = args.indexOf("--")
       const direct = await runIsolated({

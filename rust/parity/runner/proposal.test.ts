@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert"
-import { proposalExit } from "./proposal.ts"
+import { proposalExit, proposalStdout } from "./proposal.ts"
 import { EXPECTED_SIGNALS, parseCase } from "./schema.ts"
 import { validCase } from "./test-fixtures.ts"
 
@@ -31,5 +31,42 @@ Deno.test("authenticated signal proposal serializes to a strict loadable case ex
     () => proposalExit({ signal: "SIGKILL", number: 9 }),
     Error,
     "unsupported target signal",
+  )
+})
+
+Deno.test("pipe stdout proposals preserve mode and literal prefix for a loadable case", () => {
+  const bytes = new TextEncoder().encode("abcd")
+  const after = proposalStdout(bytes, {
+    mode: "close-after-bytes",
+    count: 4,
+    bytesRelayed: 4,
+    closure: "after-N",
+  })
+  const closed = proposalStdout(new Uint8Array(), {
+    mode: "closed-at-start",
+    count: 0,
+    bytesRelayed: 0,
+    closure: "before-start",
+  })
+  for (const proposed of [after, closed]) {
+    const spec = validCase()
+    const expected = spec.expected
+    if (!isRecord(expected)) {
+      throw new Error("test expected section is malformed")
+    }
+    expected.stdout = JSON.parse(JSON.stringify(proposed))
+    assertEquals(parseCase(spec).expected.stdout, proposed)
+  }
+  assertEquals(proposalStdout(bytes, null), { utf8: "abcd" })
+  assertThrows(
+    () =>
+      proposalStdout(bytes.subarray(0, 2), {
+        mode: "close-after-bytes",
+        count: 4,
+        bytesRelayed: 2,
+        closure: "threshold-not-reached",
+      }),
+    Error,
+    "threshold was reached",
   )
 })

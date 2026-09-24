@@ -14,6 +14,7 @@ import {
   parse,
 } from "graphql"
 import { decodeByteValue } from "./bytes.ts"
+import type { StdoutMode } from "./target-status.ts"
 import { buildPinnedSchema, matchGraphQL } from "./graphql-match.ts"
 import {
   type CaseSpec,
@@ -257,6 +258,7 @@ export interface ResolvedCase {
   expected: {
     exit: CaseSpec["expected"]["exit"]
     stdout: Uint8Array
+    stdoutMode: StdoutMode
     stderr: Uint8Array
     fileEffects: CaseSpec["expected"]["fileEffects"]
   }
@@ -682,6 +684,17 @@ export function resolveCase(
   for (const [key, value] of Object.entries(spec.env)) {
     env[key] = substitute(value, declared, values, `${label} env ${key}`)
   }
+  const stdout = spec.expected.stdout
+  const stdoutMode: StdoutMode = "mode" in stdout
+    ? stdout.mode === "closed-at-start"
+      ? { mode: "closed-at-start" }
+      : { mode: "close-after-bytes", count: stdout.count }
+    : { mode: "drain" }
+  const expectedStdout = "mode" in stdout
+    ? stdout.mode === "closed-at-start"
+      ? new Uint8Array()
+      : decodeByteValue(stdout.prefix)
+    : resolveBytes(stdout, declared, values, `${label} expected stdout`)
   return {
     argv: spec.argv.map((arg, index) =>
       substitute(arg, declared, values, `${label} argv[${index}]`)
@@ -690,12 +703,8 @@ export function resolveCase(
     env,
     expected: {
       exit: spec.expected.exit,
-      stdout: resolveBytes(
-        spec.expected.stdout,
-        declared,
-        values,
-        `${label} expected stdout`,
-      ),
+      stdout: expectedStdout,
+      stdoutMode,
       stderr: resolveBytes(
         spec.expected.stderr,
         declared,

@@ -2,6 +2,7 @@
 // Unknown keys are rejected so that later surfaces (GraphQL semantics, PTY,
 // clock, keyring) cannot be smuggled in with weak defaults.
 import * as v from "valibot"
+import { decodeByteValue } from "./bytes.ts"
 
 // Frozen reference d4fe6fa7 embeds version 2.6.0. Do not follow the moving
 // checkout's deno.json: a later version bump must not change pinned fixtures.
@@ -63,6 +64,31 @@ export const ByteValueSchema = v.union([
     ),
   }),
 ], "byte fields must be {utf8} or {base64} objects")
+
+const StdoutSchema = v.union([
+  ByteValueSchema,
+  v.strictObject({ mode: v.literal("closed-at-start") }),
+  v.pipe(
+    v.strictObject({
+      mode: v.literal("close-after-bytes"),
+      count: v.pipe(
+        v.number(),
+        v.integer(),
+        v.minValue(1),
+        v.maxValue(64 * 1024 * 1024),
+      ),
+      prefix: ByteValueSchema,
+    }),
+    v.check(
+      ({ count, prefix }) =>
+        decodeByteValue(prefix).length === count &&
+        !/\{\{[^{}]*\}\}/.test(
+          new TextDecoder().decode(decodeByteValue(prefix)),
+        ),
+      "after-N prefix must be literal and exactly count bytes",
+    ),
+  ),
+], "stdout must be bytes or a supported pipe mode")
 
 /**
  * Signal names a case may expect. Each entry was proved end to end through
@@ -502,7 +528,7 @@ export const CaseSchema = v.pipe(
     graphql: v.optional(v.nullable(GraphQLFixtureSchema)),
     expected: v.strictObject({
       exit: ExitSchema,
-      stdout: ByteValueSchema,
+      stdout: StdoutSchema,
       stderr: ByteValueSchema,
       fileEffects: v.array(FileEffectSchema),
     }),
@@ -515,6 +541,13 @@ export const CaseSchema = v.pipe(
       spec.fixtureServer != null || spec.graphql != null ||
       !spec.substitutions.includes("fixturePort"),
     "fixturePort substitution requires a fixtureServer or graphql fixture",
+  ),
+  v.check(
+    (spec) =>
+      !("mode" in spec.expected.stdout) ||
+      spec.expected.stdout.mode !== "close-after-bytes" ||
+      spec.expected.stdout.count <= spec.outputCapBytes,
+    "close-after-bytes count must not exceed outputCapBytes",
   ),
   v.check(
     (spec) =>

@@ -181,6 +181,34 @@ export function controls(referenceBinary: string): Control[] {
       script: `${ref} "$@"\nkill -PIPE $$\n`,
     },
     {
+      name: "pipe-prefix-first-byte",
+      description:
+        "after-N helper closure succeeds but the candidate changes the first prefix byte",
+      caseId: "p04a2-version-after4",
+      expectSurfaces: ["stdout"],
+      expectStatus: "fail",
+      script: "printf xxxx\n",
+    },
+    {
+      name: "pipe-threshold-not-reached",
+      description:
+        "candidate exits after three bytes when four are required; prefix and closure both fail",
+      caseId: "p04a2-version-after4",
+      expectSurfaces: ["stdout"],
+      expectDetail: "threshold-not-reached",
+      expectStatus: "fail",
+      script: "printf abc\n",
+    },
+    {
+      name: "pipe-stderr-lost-after-close",
+      description:
+        "candidate discards the compiled API Broken pipe diagnostic while stdout is closed",
+      caseId: "p04a2-api-paginate-closed",
+      expectSurfaces: ["stderr"],
+      expectStatus: "fail",
+      script: `exec ${ref} "$@" 2>/dev/null\n`,
+    },
+    {
       name: "not-implemented-from-descriptor",
       description:
         "descriptor omits the route; the candidate program is never invoked",

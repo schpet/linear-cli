@@ -10,24 +10,24 @@
  * raw wait status over the socket. It exits with the target's code, or
  * 128+n for a signal, so bwrap's outer status stays consistent.
  *
- * Protocol (parity-status/1): every frame is a 2-byte big-endian length
+ * Protocol (parity-status/2): every frame is a 2-byte big-endian length
  * followed by at most FRAME_MAX ASCII bytes.
- *   helper -> runner  "parity-status/1 HELLO <nonce> <identity> <helperPid>"
- *   runner -> helper  "parity-status/1 ACK <nonce>"
- *   helper -> runner  "parity-status/1 RESULT <nonce> <identity> <childPid> exited <code>"
- *                  |  "parity-status/1 RESULT <nonce> <identity> <childPid> signaled <num> <NAME>"
- *                  |  "parity-status/1 RESULT <nonce> <identity> <childPid> exec-failed <errno>"
- * then EOF. The helper never writes to stdout, and writes to stderr only for
- * its own setup failures (prefix "status-helper: ").
+ *   helper -> runner  "parity-status/2 HELLO <nonce> <identity> <helperPid>"
+ *   runner -> helper  "parity-status/2 ACK <nonce>"
+ *   helper -> runner  "parity-status/2 RESULT <nonce> <identity> <childPid> exited <code> stdout <mode> <count> <relayed> <closure>"
+ *                  |  "parity-status/2 RESULT <nonce> <identity> <childPid> signaled <num> <NAME> stdout <mode> <count> <relayed> <closure>"
+ *                  |  "parity-status/2 RESULT <nonce> <identity> <childPid> exec-failed <errno>"
+ * then EOF. In pipe modes the helper relays target bytes to its stdout.
+ * Its setup/relay failures write prefixed diagnostics to shared stderr.
  *
  * Pre-fork / harness exit codes (never a target result; the runner sees no
  * HELLO or no RESULT alongside them):
  *   120 usage        121 socket/connect      122 protocol (HELLO/ACK)
  *   123 fork         124 target exec failed  125 unrecognized wait status
  *
- * Invariants: no signal handlers, mask or umask changes; the only FDs the
- * helper opens are the CLOEXEC status socket and a CLOEXEC exec-error pipe,
- * and the child closes the socket explicitly before execve. The nonce is only
+ * Invariants: child signal disposition, mask and umask match A1; the child
+ * closes the helper socket, exec-error pipe and private read end before execve.
+ * The nonce is only
  * a correlation token, not a secret: bwrap PID 1's /proc/1/cmdline still
  * exposes it even after this helper scrubs its own argv storage.
  */
@@ -47,10 +47,13 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define PROTOCOL "parity-status/1"
+#define PROTOCOL "parity-status/2"
 #define FRAME_MAX 256
 #define TOKEN_HEX 32
 #define ACK_TIMEOUT_SEC 10
+#define MAX_PIPE_BYTES (64u * 1024u * 1024u)
+
+enum stdout_mode { MODE_DRAIN, MODE_CLOSED, MODE_AFTER };
 
 enum {
   EXIT_USAGE = 120,
@@ -95,7 +98,8 @@ _Static_assert(SIGIO == 29 && SIGPWR == 30 && SIGSYS == 31,
 static void fail(int code, const char *what) {
   int saved = errno;
   const char *reason = saved == 0 ? "" : strerror(saved);
-  /* Setup diagnostics only; a running target never shares this path. */
+  /* Setup and relay failures share FD 2 with the target; the runner treats
+   * this prefix without a valid RESULT as a harness error. */
   fprintf(stderr, "status-helper: %s%s%s\n", what, saved == 0 ? "" : ": ",
           reason);
   _exit(code);
@@ -121,6 +125,48 @@ static int parse_port(const char *s, uint16_t *out) {
   }
   if (value == 0 || value > 65535) return 0;
   *out = (uint16_t)value;
+  return 1;
+}
+
+static int parse_count(const char *s, unsigned int *out) {
+  size_t n = strlen(s);
+  if (n == 0 || n > 8 || (n > 1 && s[0] == '0')) return 0;
+  unsigned int value = 0;
+  for (size_t i = 0; i < n; i++) {
+    if (s[i] < '0' || s[i] > '9') return 0;
+    value = value * 10u + (unsigned int)(s[i] - '0');
+  }
+  if (value > MAX_PIPE_BYTES) return 0;
+  *out = value;
+  return 1;
+}
+
+static int relay_prefix(int fd, unsigned int count, unsigned int *relayed) {
+  unsigned char buf[4096];
+  while (*relayed < count) {
+    size_t wanted = count - *relayed;
+    if (wanted > sizeof buf) wanted = sizeof buf;
+    ssize_t got = read(fd, buf, wanted);
+    if (got < 0) {
+      if (errno == EINTR) continue;
+      return -1;
+    }
+    if (got == 0) return 0; /* threshold not reached */
+    size_t sent = 0;
+    while (sent < (size_t)got) {
+      ssize_t wrote = write(STDOUT_FILENO, buf + sent, (size_t)got - sent);
+      if (wrote < 0) {
+        if (errno == EINTR) continue;
+        return -1;
+      }
+      if (wrote == 0) {
+        errno = EIO;
+        return -1;
+      }
+      sent += (size_t)wrote;
+    }
+    *relayed += (unsigned int)got;
+  }
   return 1;
 }
 
@@ -183,12 +229,22 @@ static int recv_frame(int fd, char *buf, size_t cap) {
 }
 
 int main(int argc, char **argv) {
-  if (argc < 5) fail(EXIT_USAGE, "usage: port nonce identity target [argv...]");
+  if (argc < 7) fail(EXIT_USAGE, "usage: port nonce identity mode count target [argv...]");
   uint16_t port;
   if (!parse_port(argv[1], &port)) fail(EXIT_USAGE, "invalid port");
   if (!is_hex_token(argv[2])) fail(EXIT_USAGE, "invalid nonce");
   if (!is_hex_token(argv[3])) fail(EXIT_USAGE, "invalid identity");
-  if (argv[4][0] != '/') fail(EXIT_USAGE, "target must be an absolute path");
+  enum stdout_mode mode;
+  if (strcmp(argv[4], "drain") == 0) mode = MODE_DRAIN;
+  else if (strcmp(argv[4], "closed-at-start") == 0) mode = MODE_CLOSED;
+  else if (strcmp(argv[4], "close-after-bytes") == 0) mode = MODE_AFTER;
+  else fail(EXIT_USAGE, "invalid stdout mode");
+  unsigned int count;
+  if (!parse_count(argv[5], &count) ||
+      (mode == MODE_AFTER ? count == 0 : count != 0)) {
+    fail(EXIT_USAGE, "invalid stdout count");
+  }
+  if (argv[6][0] != '/') fail(EXIT_USAGE, "target must be an absolute path");
 
   char nonce[TOKEN_HEX + 1];
   char identity[TOKEN_HEX + 1];
@@ -197,8 +253,8 @@ int main(int argc, char **argv) {
   /* Correlation nonce only, but keep it out of /proc/<helper>/cmdline. */
   memset(argv[2], 'x', TOKEN_HEX);
 
-  const char *target = argv[4];
-  char **target_argv = argv + 4; /* target_argv[0] is the target path */
+  const char *target = argv[6];
+  char **target_argv = argv + 6; /* target_argv[0] is the target path */
 
   int sock = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
   if (sock < 0) fail(EXIT_SOCKET, "socket");
@@ -247,11 +303,30 @@ int main(int argc, char **argv) {
   int exec_pipe[2];
   if (pipe2(exec_pipe, O_CLOEXEC) != 0) fail(EXIT_FORK, "pipe2");
 
+  int stdout_pipe[2] = {-1, -1};
+  if (mode != MODE_DRAIN) {
+    if (pipe2(stdout_pipe, O_CLOEXEC) != 0) fail(EXIT_FORK, "stdout pipe2");
+    if (mode == MODE_CLOSED) {
+      if (close(stdout_pipe[0]) != 0) fail(EXIT_FORK, "close private read");
+      stdout_pipe[0] = -1;
+    }
+  }
+
   pid_t child = fork();
   if (child < 0) fail(EXIT_FORK, "fork");
   if (child == 0) {
     close(exec_pipe[0]);
     close(sock); /* CLOEXEC would do it; closing explicitly is the contract. */
+    if (mode != MODE_DRAIN) {
+      if (stdout_pipe[0] >= 0) close(stdout_pipe[0]);
+      if (dup2(stdout_pipe[1], STDOUT_FILENO) < 0) {
+        int err = errno;
+        ssize_t ignored = write(exec_pipe[1], &err, sizeof err);
+        (void)ignored;
+        _exit(127);
+      }
+      close(stdout_pipe[1]);
+    }
     execve(target, target_argv, environ);
     int err = errno;
     ssize_t ignored = write(exec_pipe[1], &err, sizeof err);
@@ -259,6 +334,9 @@ int main(int argc, char **argv) {
     _exit(127);
   }
   close(exec_pipe[1]);
+  if (mode != MODE_DRAIN && close(stdout_pipe[1]) != 0) {
+    fail(EXIT_FORK, "close private write");
+  }
 
   int exec_errno = 0;
   size_t got = 0;
@@ -276,6 +354,26 @@ int main(int argc, char **argv) {
   if (got != 0 && got != sizeof exec_errno) {
     errno = 0;
     fail(EXIT_FORK, "short exec pipe read");
+  }
+
+  if (got == sizeof exec_errno && stdout_pipe[0] >= 0) {
+    close(stdout_pipe[0]);
+    stdout_pipe[0] = -1;
+  }
+
+  unsigned int relayed = 0;
+  const char *closure = "none";
+  if (got == 0 && mode == MODE_CLOSED) closure = "before-start";
+  if (got == 0 && mode == MODE_AFTER) {
+    /* Change only the helper parent's disposition, after the target fork. */
+    struct sigaction ignore = {0};
+    ignore.sa_handler = SIG_IGN;
+    if (sigaction(SIGPIPE, &ignore, NULL) != 0) fail(EXIT_PROTOCOL, "sigaction");
+    int reached = relay_prefix(stdout_pipe[0], count, &relayed);
+    if (close(stdout_pipe[0]) != 0) fail(EXIT_PROTOCOL, "close private read");
+    stdout_pipe[0] = -1;
+    if (reached < 0) fail(EXIT_PROTOCOL, "relay");
+    closure = reached == 1 ? "after-N" : "threshold-not-reached";
   }
 
   int status;
@@ -299,8 +397,10 @@ int main(int argc, char **argv) {
   int exit_code;
   if (WIFEXITED(status)) {
     exit_code = WEXITSTATUS(status);
-    n = snprintf(frame, sizeof frame, PROTOCOL " RESULT %s %s %ld exited %d",
-                 nonce, identity, (long)child, exit_code);
+    n = snprintf(frame, sizeof frame,
+                 PROTOCOL " RESULT %s %s %ld exited %d stdout %s %u %u %s",
+                 nonce, identity, (long)child, exit_code, argv[4], count,
+                 relayed, closure);
   } else if (WIFSIGNALED(status)) {
     int sig = WTERMSIG(status);
     if (sig < 1 || sig > SIGNAL_TABLE_MAX) {
@@ -308,8 +408,10 @@ int main(int argc, char **argv) {
       fail(EXIT_WAIT_STATUS, "signal outside the pinned table");
     }
     exit_code = 128 + sig;
-    n = snprintf(frame, sizeof frame, PROTOCOL " RESULT %s %s %ld signaled %d %s",
-                 nonce, identity, (long)child, sig, SIGNAL_NAMES[sig]);
+    n = snprintf(frame, sizeof frame,
+                 PROTOCOL " RESULT %s %s %ld signaled %d %s stdout %s %u %u %s",
+                 nonce, identity, (long)child, sig, SIGNAL_NAMES[sig], argv[4],
+                 count, relayed, closure);
   } else {
     errno = 0;
     fail(EXIT_WAIT_STATUS, "unrecognized wait status");

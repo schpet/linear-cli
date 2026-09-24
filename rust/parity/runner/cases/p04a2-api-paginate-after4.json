@@ -1,0 +1,131 @@
+{
+  "id": "p04a2-api-paginate-after4",
+  "route": "linear api",
+  "reason": "Two-page frozen compiled API paginate emits a stable four-byte JSON prefix; helper closure is authenticated without asserting target EPIPE.",
+  "argv": [
+    "api",
+    "--paginate",
+    "query($after: String) { issues(first: 2, after: $after) { nodes { identifier } pageInfo { hasNextPage endCursor } } }"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "first-page",
+            "operation": {
+              "document": "query($after: String) { issues(first: 2, after: $after) { nodes { identifier } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issues": {
+                  "nodes": [
+                    {
+                      "identifier": "ABC-1"
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "cursor-a"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "second-page",
+            "operation": {
+              "document": "query($after: String) { issues(first: 2, after: $after) { nodes { identifier } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "after": "cursor-a"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issues": {
+                  "nodes": [
+                    {
+                      "identifier": "ABC-2"
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "mode": "close-after-bytes",
+      "count": 4,
+      "prefix": {
+        "utf8": "[{\"i"
+      }
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

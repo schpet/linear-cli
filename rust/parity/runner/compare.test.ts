@@ -13,6 +13,12 @@ function observation(
     outerExit: { code: 0 },
     targetExit: { code: 0 },
     targetStatus: { helperPid: 2, targetPid: 3 },
+    stdoutClosure: {
+      mode: "drain",
+      count: 0,
+      bytesRelayed: 0,
+      closure: "none",
+    },
     stdout: text("out"),
     stderr: text(""),
     truncated: false,
@@ -25,6 +31,7 @@ function observation(
 const expected: ResolvedExpectation = {
   exit: { code: 0 },
   stdout: text("out"),
+  stdoutMode: { mode: "drain" },
   stderr: text(""),
   fileEffects: [],
 }

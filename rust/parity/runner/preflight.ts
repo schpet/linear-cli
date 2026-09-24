@@ -46,6 +46,11 @@ export interface LaneRecord {
    * helper's status socket and exec pipe never reach the target.
    */
   fdCanary: string
+  /** Pipe-mode FD 1 topology reported on target stderr while stdout is closed. */
+  pipeFdCanary: {
+    closedAtStart: { targetFd1: string; helperFd1: string }
+    closeAfterBytes: { targetFd1: string; helperFd1: string }
+  }
   /** Built helper provenance: tracked source pin plus this machine's compiler and binary digests. */
   statusHelper: StatusHelperArtifact
   /** Pinned compiled reference `--version` through the wrapper's executable path. */
@@ -229,7 +234,10 @@ export const EXPECTED_FD_CANARY =
 export async function probeConfinement(
   options: ConfinementProbeOptions,
 ): Promise<
-  Pick<LaneRecord, "confinement" | "executableProbe" | "fdCanary">
+  Pick<
+    LaneRecord,
+    "confinement" | "executableProbe" | "fdCanary" | "pipeFdCanary"
+  >
 > {
   const outside = join(options.laneDir, "preflight")
   await Deno.mkdir(outside, { recursive: true })
@@ -253,6 +261,7 @@ export async function probeConfinement(
   let confinement: Record<string, unknown>
   let executableProbe: LaneRecord["executableProbe"] = null
   let fdCanary: string
+  let pipeFdCanary: LaneRecord["pipeFdCanary"]
   const helperPath = options.confinement.statusHelper.path
   try {
     const allowed = join(sandbox.cwd, "allowed.txt")
@@ -328,14 +337,15 @@ export async function probeConfinement(
     )
     const parentCmdline: unknown = JSON.parse(String(confinement.parentCmdline))
     assertLane(
-      Array.isArray(parentCmdline) && parentCmdline.length >= 5 &&
+      Array.isArray(parentCmdline) && parentCmdline.length >= 7 &&
         parentCmdline[0] === helperPath &&
         /^[0-9]{1,5}$/.test(String(parentCmdline[1])) &&
         /^x{32}$/.test(String(parentCmdline[2])) &&
         /^[0-9a-f]{32}$/.test(String(parentCmdline[3])) &&
-        parentCmdline[4] === options.denoPath &&
-        JSON.stringify(parentCmdline.slice(5)) === JSON.stringify(canaryArgv),
-      `helper cmdline is not [helper, port, scrubbed nonce, identity, target, argv...]: ${confinement.parentCmdline}`,
+        parentCmdline[4] === "drain" && parentCmdline[5] === "0" &&
+        parentCmdline[6] === options.denoPath &&
+        JSON.stringify(parentCmdline.slice(7)) === JSON.stringify(canaryArgv),
+      `helper cmdline is not [helper, port, scrubbed nonce, identity, drain, 0, target, argv...]: ${confinement.parentCmdline}`,
     )
     assertLane(
       JSON.stringify(confinement.args) ===
@@ -420,6 +430,60 @@ export async function probeConfinement(
       `target inherited unexpected file descriptors through the status helper: ${fdCanary}`,
     )
 
+    const pipeFacts = async (mode: "closed-at-start" | "close-after-bytes") => {
+      const script =
+        'self=$(/usr/bin/readlink /proc/$$/fd/1); parent=$(/usr/bin/readlink /proc/$PPID/fd/1); fds=$(/usr/bin/ls -m /proc/$$/fd); printf \'target=%s helper=%s fds=%s\\n\' "$self" "$parent" "$fds" >&2; if [ "$1" = after ]; then printf ABCD; fi'
+      const pipe = await runConfined(options.confinement, {
+        executable: "/bin/sh",
+        args: [
+          "-c",
+          script,
+          "pipe-fd-canary",
+          mode === "close-after-bytes" ? "after" : "closed",
+        ],
+        readOnly: [],
+        caseRoot: sandbox.root,
+        cwd: sandbox.cwd,
+        tmp: sandbox.tmp,
+        env: { HOME: sandbox.home, PATH: "/usr/bin:/bin" },
+        stdin: new Uint8Array(),
+        timeoutMs: CANARY_TIMEOUT_MS,
+        outputCapBytes: CANARY_CAP_BYTES,
+        stdoutMode: mode === "close-after-bytes"
+          ? { mode, count: 4 }
+          : { mode },
+      })
+      const message = decoder.decode(pipe.stderr).trim()
+      // fd 3 is dash's command-substitution read end inherited by ls; this
+      // bounds the fd set but does not readlink fd 3 to identify its target.
+      const match =
+        /^target=(pipe:\[[0-9]+\]) helper=(pipe:\[[0-9]+\]) fds=0, 1, 2, 3$/
+          .exec(message)
+      assertLane(
+        match != null && match[1] !== match[2] &&
+          pipe.targetStatus?.helperPid === 2 &&
+          pipe.targetStatus?.targetPid === 3 &&
+          pipe.targetExit != null && "code" in pipe.targetExit &&
+          pipe.targetExit.code === 0 &&
+          pipe.stdoutClosure?.closure ===
+            (mode === "close-after-bytes" ? "after-N" : "before-start") &&
+          decoder.decode(pipe.stdout) ===
+            (mode === "close-after-bytes" ? "ABCD" : ""),
+        `${mode} FD topology or closure failed: ${
+          JSON.stringify({
+            message,
+            targetExit: pipe.targetExit,
+            closure: pipe.stdoutClosure,
+          })
+        }`,
+      )
+      return { targetFd1: match[1], helperFd1: match[2] }
+    }
+    pipeFdCanary = {
+      closedAtStart: await pipeFacts("closed-at-start"),
+      closeAfterBytes: await pipeFacts("close-after-bytes"),
+    }
+
     if (options.referenceBinary != null) {
       const probe = await runConfined(options.confinement, {
         ...programInvocation(
@@ -466,7 +530,7 @@ export async function probeConfinement(
     await Deno.remove(outside, { recursive: true }).catch(() => {})
   }
   assertLane(!(await accepted), "pathname socket accepted a connection")
-  return { confinement, executableProbe, fdCanary }
+  return { confinement, executableProbe, fdCanary, pipeFdCanary }
 }
 
 export interface PreflightOptions {
