@@ -1,0 +1,131 @@
+{
+  "id": "f02b-control-graphql-wrong-variables",
+  "route": "linear document view",
+  "reason": "Control: the Cynic POST carries first:50 against a fixture expecting first:100; the GraphQL matcher fails and the declared private GET is never reached. F02B Gate 2 fixed-host transport qualification case driven by rust/parity/runner/f02b-fixed-host-driver.ts through the runner's executeCase inside the P03C2 denied lane; the program is the test-only crates/linear-cli/examples/f02b_fixed_host_probe.rs whose single argument is a strict scenario name. The route is a schema binding only; this is HTTP/1.1 reqwest transport qualification, not `linear document view` parity, and this directory is not loaded by the parity runner.",
+  "argv": [
+    "graphql-wrong-variables"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_API_KEY": "lin_api_fake_probe",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "teams",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) {\n  teams(filter: $filter, first: $first, after: $after) {\n    nodes {\n      id\n      name\n      key\n      description\n      icon\n      color\n      cyclesEnabled\n      createdAt\n      updatedAt\n      archivedAt\n      organization {\n        id\n        name\n      }\n    }\n    pageInfo {\n      hasNextPage\n      endCursor\n    }\n  }\n}\n",
+              "operationName": "GetTeams",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_probe",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "team-1",
+                      "name": "Engineering",
+                      "key": "ENG",
+                      "description": null,
+                      "icon": null,
+                      "color": "#0000ff",
+                      "cyclesEnabled": false,
+                      "createdAt": "2026-01-01T00:00:00.000Z",
+                      "updatedAt": "2026-01-02T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-1",
+                        "name": "Acme"
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "asset",
+            "id": "private-get",
+            "method": "GET",
+            "fixedHost": "uploads.linear.app",
+            "path": "/private.png?token=fake",
+            "requiredHeaders": {
+              "Authorization": "lin_api_fake_probe",
+              "User-Agent": "schpet-linear-cli/2.6.0"
+            },
+            "forbiddenHeaders": [],
+            "body": {
+              "utf8": ""
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "image/png"
+              },
+              "body": {
+                "utf8": "PRIVATE-PROBE-BYTES"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "graphql failed: fixture mismatch\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

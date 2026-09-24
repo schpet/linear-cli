@@ -23,6 +23,11 @@ path = "src/lib.rs"
 name = "linear"
 path = "src/main.rs"
 
+[[example]]
+name = "f02b_fixed_host_probe"
+path = "examples/f02b_fixed_host_probe.rs"
+test = true
+
 [build-dependencies]
 cynic-codegen = { version = "=3.14.0", features = ["rkyv"] }
 

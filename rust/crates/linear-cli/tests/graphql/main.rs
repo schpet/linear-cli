@@ -6,6 +6,7 @@
 //! what crosses the wire.
 
 mod envelope;
+mod fixed_host;
 mod output;
 mod pagination;
 mod scalars;

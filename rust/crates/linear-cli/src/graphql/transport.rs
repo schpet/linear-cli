@@ -1,9 +1,13 @@
-//! HTTP transport for GraphQL operations (F02B Gate 1).
+//! HTTP transport for GraphQL operations (F02B Gate 1) and the bounded
+//! fixed-host asset GET qualified in F02B Gate 2.
 //!
-//! One `reqwest` client per [`GraphQlTransport`], built once from already
-//! validated [`EndpointUrl`], [`ApiKey`] and [`TransportConfig`] values.
-//! Credential, workspace and endpoint-override resolution belong to F03/F04;
-//! this module never reads the environment.
+//! One `reqwest` client per transport, built by the shared [`build_client`]
+//! from already validated [`EndpointUrl`], [`ApiKey`] and [`TransportConfig`]
+//! values, so a [`GraphQlTransport`] and an [`AssetHttpTransport`] made from
+//! one configuration carry identical proxy and CA settings. Credential,
+//! workspace and endpoint-override resolution belong to F03/F04; this module
+//! never reads the environment. [`ConfinedTransportEnv`] only parses values a
+//! test-only caller has already read from the confined parity lane.
 //!
 //! Every response is captured first (status, headers, exact body bytes up to a
 //! finite cap) and classified afterwards, so the raw `api` command can
@@ -14,7 +18,8 @@
 //! Secrets: every stored `reqwest::Error` goes through
 //! [`SanitizedReqwestError::new`] (which strips the URL) and failures only ever
 //! print the endpoint's scheme/host/port, never its path, query or fragment.
-//! `ApiKey` redacts itself in `Debug` and `Display`.
+//! Redirect rejections never carry the `Location` value. `ApiKey` redacts
+//! itself in `Debug` and `Display`.
 
 use std::error::Error;
 use std::fmt;
@@ -25,7 +30,7 @@ use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, LOCATION, USER_AGENT};
 use reqwest::redirect::Policy;
 use reqwest::tls::Certificate;
 use reqwest::{Client, NoProxy, Proxy, StatusCode, Url};
@@ -421,6 +426,195 @@ impl TransportConfig {
             max_response_bytes: ResponseCap::DEFAULT,
         }
     }
+}
+
+/// The exact `NO_PROXY` policy of the confined parity lane, and the only
+/// loopback bypass [`build_client`] ever installs.
+pub const LOOPBACK_NO_PROXY: &str = "127.0.0.1,localhost";
+
+// ---------------------------------------------------------------------------
+// Confined-lane environment adapter (F02B Gate 2)
+
+/// Raw values of the runner-owned confined-lane variables, exactly as a
+/// test-only caller read them. `None` means the variable is absent; this
+/// module never reads the environment itself.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ConfinedEnvValues {
+    pub https_proxy: Option<String>,
+    pub http_proxy: Option<String>,
+    pub all_proxy: Option<String>,
+    pub no_proxy: Option<String>,
+    pub ssl_cert_file: Option<String>,
+}
+
+/// Why a `NO_PROXY` value is not the confined lane's policy. Entries are
+/// referred to by index, never quoted, so no value text reaches an error.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NoProxyError {
+    /// The comma-separated entry at `index` is empty or padded with whitespace.
+    Blank { index: usize },
+    /// The entry at `index` is not a loopback host.
+    NotLoopback { index: usize },
+    /// The entry at `index` repeats an earlier entry.
+    Duplicate { index: usize },
+    /// The entries are loopback but not exactly [`LOOPBACK_NO_PROXY`].
+    NotConfinedPolicy,
+}
+
+impl fmt::Display for NoProxyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Blank { index } => write!(f, "NO_PROXY entry {index} is blank"),
+            Self::NotLoopback { index } => {
+                write!(f, "NO_PROXY entry {index} is not a loopback host")
+            }
+            Self::Duplicate { index } => write!(f, "NO_PROXY entry {index} is a duplicate"),
+            Self::NotConfinedPolicy => write!(
+                f,
+                "NO_PROXY entries are not exactly the confined policy {LOOPBACK_NO_PROXY}"
+            ),
+        }
+    }
+}
+
+impl Error for NoProxyError {}
+
+/// Why the confined-lane variables do not form a [`ConfinedTransportEnv`].
+///
+/// Every variant names the variable, never its value: a present-but-empty
+/// or malformed value fails here instead of falling back to any default.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ConfinedEnvError {
+    Missing(&'static str),
+    Empty(&'static str),
+    /// A proxy variable this mode never honours is set. Plain-`http` requests
+    /// are never proxied by [`ProxyMode::HttpsConnect`], so an `HTTP_PROXY` or
+    /// `ALL_PROXY` value would be silently ignored; it is refused instead.
+    Unexpected(&'static str),
+    Proxy(ProxyUrlError),
+    NoProxy(NoProxyError),
+    /// `SSL_CERT_FILE` is not an absolute path.
+    CaPathNotAbsolute,
+}
+
+impl fmt::Display for ConfinedEnvError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Missing(name) => write!(f, "{name} is not set"),
+            Self::Empty(name) => write!(f, "{name} is set but empty"),
+            Self::Unexpected(name) => {
+                write!(f, "{name} is set but the confined mode never honours it")
+            }
+            Self::Proxy(source) => write!(f, "HTTPS_PROXY is not usable: {source}"),
+            Self::NoProxy(source) => fmt::Display::fmt(source, f),
+            Self::CaPathNotAbsolute => write!(f, "SSL_CERT_FILE must be an absolute path"),
+        }
+    }
+}
+
+impl Error for ConfinedEnvError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Proxy(source) => Some(source),
+            Self::NoProxy(source) => Some(source),
+            Self::Missing(_) | Self::Empty(_) | Self::Unexpected(_) | Self::CaPathNotAbsolute => {
+                None
+            }
+        }
+    }
+}
+
+/// The confined parity lane's transport settings, parsed from the values the
+/// runner injects (`HTTPS_PROXY`, `NO_PROXY`, `SSL_CERT_FILE`).
+///
+/// This is transport-configuration qualification for the P03C lane, not F03
+/// production environment discovery: the accepted shape is exactly one
+/// loopback `http` CONNECT proxy, the loopback bypass policy
+/// [`LOOPBACK_NO_PROXY`], and an absolute PEM path whose contents
+/// [`build_client`] validates before any request.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfinedTransportEnv {
+    proxy: ProxyUrl,
+    ca_bundle: PathBuf,
+}
+
+impl ConfinedTransportEnv {
+    pub fn parse(values: &ConfinedEnvValues) -> Result<Self, ConfinedEnvError> {
+        if values.http_proxy.is_some() {
+            return Err(ConfinedEnvError::Unexpected("HTTP_PROXY"));
+        }
+        if values.all_proxy.is_some() {
+            return Err(ConfinedEnvError::Unexpected("ALL_PROXY"));
+        }
+        let https_proxy = required(values.https_proxy.as_deref(), "HTTPS_PROXY")?;
+        let proxy = ProxyUrl::parse(https_proxy).map_err(ConfinedEnvError::Proxy)?;
+        let no_proxy = required(values.no_proxy.as_deref(), "NO_PROXY")?;
+        parse_no_proxy(no_proxy).map_err(ConfinedEnvError::NoProxy)?;
+        let ca_bundle = required(values.ssl_cert_file.as_deref(), "SSL_CERT_FILE")?;
+        let ca_bundle = PathBuf::from(ca_bundle);
+        if !ca_bundle.is_absolute() {
+            return Err(ConfinedEnvError::CaPathNotAbsolute);
+        }
+        Ok(Self { proxy, ca_bundle })
+    }
+
+    pub fn proxy(&self) -> &ProxyUrl {
+        &self.proxy
+    }
+
+    pub fn ca_bundle(&self) -> &Path {
+        &self.ca_bundle
+    }
+
+    /// `HttpsConnect` with loopback bypass plus public roots and the lane's
+    /// PEM, under a caller-chosen finite deadline and cap.
+    pub fn into_config(
+        self,
+        deadline: Deadline,
+        max_response_bytes: ResponseCap,
+    ) -> TransportConfig {
+        TransportConfig {
+            proxy: ProxyMode::HttpsConnect {
+                url: self.proxy,
+                bypass_loopback: true,
+            },
+            ca: CaMode::PublicRootsPlusPem(self.ca_bundle),
+            deadline,
+            max_response_bytes,
+        }
+    }
+}
+
+fn required<'a>(value: Option<&'a str>, name: &'static str) -> Result<&'a str, ConfinedEnvError> {
+    match value {
+        None => Err(ConfinedEnvError::Missing(name)),
+        Some("") => Err(ConfinedEnvError::Empty(name)),
+        Some(text) => Ok(text),
+    }
+}
+
+/// Accepts exactly the entries of [`LOOPBACK_NO_PROXY`] in any order.
+fn parse_no_proxy(text: &str) -> Result<(), NoProxyError> {
+    let mut seen: Vec<&str> = Vec::new();
+    for (index, entry) in text.split(',').enumerate() {
+        if entry.is_empty() || entry.trim() != entry {
+            return Err(NoProxyError::Blank { index });
+        }
+        if !is_loopback_host(entry) {
+            return Err(NoProxyError::NotLoopback { index });
+        }
+        if seen.contains(&entry) {
+            return Err(NoProxyError::Duplicate { index });
+        }
+        seen.push(entry);
+    }
+    let mut policy: Vec<&str> = LOOPBACK_NO_PROXY.split(',').collect();
+    policy.sort_unstable();
+    seen.sort_unstable();
+    if seen != policy {
+        return Err(NoProxyError::NotConfinedPolicy);
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -823,6 +1017,120 @@ pub fn classify_typed<T: DeserializeOwned>(
 }
 
 // ---------------------------------------------------------------------------
+// Shared client construction and exchange failures
+
+/// Builds the one `reqwest::Client` shape every transport in this module
+/// uses: HTTP/1.1, no redirects, no retries, a total deadline, explicit proxy
+/// routing and explicit roots.
+///
+/// [`GraphQlTransport::new`] and [`AssetHttpTransport::new`] both call this,
+/// so a loopback GraphQL POST and a fixed-host asset GET built from one
+/// [`TransportConfig`] share identical proxy and CA settings. `proxy()` and
+/// `no_proxy()` each clear reqwest's ambient-variable lookup, so the client
+/// routes only as configured.
+fn build_client(config: &TransportConfig) -> Result<Client, TransportBuildError> {
+    let mut builder = Client::builder()
+        .http1_only()
+        .redirect(Policy::none())
+        .referer(false)
+        .timeout(config.deadline.duration())
+        .retry(reqwest::retry::never());
+    builder = match &config.proxy {
+        ProxyMode::Direct => builder.no_proxy(),
+        ProxyMode::HttpsConnect {
+            url,
+            bypass_loopback,
+        } => {
+            let mut proxy = Proxy::https(url.url.clone())
+                .map_err(|error| TransportBuildError::Proxy(SanitizedReqwestError::new(error)))?;
+            if *bypass_loopback {
+                proxy = proxy.no_proxy(NoProxy::from_string(LOOPBACK_NO_PROXY));
+            }
+            builder.proxy(proxy)
+        }
+    };
+    match &config.ca {
+        CaMode::PublicRoots => {}
+        CaMode::PublicRootsPlusPem(path) => {
+            for certificate in load_pem_bundle(path)? {
+                builder = builder.add_root_certificate(certificate);
+            }
+        }
+    }
+    builder
+        .build()
+        .map_err(|error| TransportBuildError::Client(SanitizedReqwestError::new(error)))
+}
+
+/// A failure below HTTP classification, before the owning transport attaches
+/// its origin. Shared by the GraphQL POST and the asset GET paths.
+#[derive(Debug)]
+enum ExchangeFailure {
+    ResponseTooLarge {
+        status: StatusCode,
+        limit: ResponseCap,
+    },
+    Timeout,
+    Network {
+        phase: NetworkPhase,
+        source: SanitizedReqwestError,
+    },
+}
+
+fn classify_network(error: reqwest::Error) -> ExchangeFailure {
+    if error.is_timeout() {
+        return ExchangeFailure::Timeout;
+    }
+    let phase = if error.is_connect() {
+        NetworkPhase::Connect
+    } else if error.is_request() {
+        NetworkPhase::Request
+    } else if error.is_body() || error.is_decode() {
+        NetworkPhase::Body
+    } else {
+        NetworkPhase::Other
+    };
+    ExchangeFailure::Network {
+        phase,
+        source: SanitizedReqwestError::new(error),
+    }
+}
+
+/// Reads the body chunk by chunk, stopping before the cap is exceeded.
+async fn collect(
+    mut response: reqwest::Response,
+    limit: ResponseCap,
+) -> Result<RawHttpResponse, ExchangeFailure> {
+    let status = response.status();
+    let headers = std::mem::take(response.headers_mut());
+    let too_large = || ExchangeFailure::ResponseTooLarge { status, limit };
+    if let Some(declared) = response.content_length() {
+        let over = match u64::try_from(limit.bytes()) {
+            Ok(cap) => declared > cap,
+            Err(_) => false,
+        };
+        if over {
+            return Err(too_large());
+        }
+    }
+    let mut body = Vec::new();
+    loop {
+        let chunk = response.chunk().await.map_err(classify_network)?;
+        let Some(chunk) = chunk else { break };
+        let total = body.len().checked_add(chunk.len()).ok_or_else(too_large)?;
+        if total > limit.bytes() {
+            return Err(too_large());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(RawHttpResponse {
+        status,
+        headers,
+        body,
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Transport
 
 /// One configured HTTP client bound to an endpoint and key.
@@ -836,45 +1144,13 @@ pub struct GraphQlTransport {
 }
 
 impl GraphQlTransport {
-    /// Builds the client once: HTTP/1.1, no redirects, no retries, a total
-    /// deadline, explicit proxy routing and explicit roots.
+    /// Builds the client once through [`build_client`].
     pub fn new(
         endpoint: EndpointUrl,
         api_key: ApiKey,
         config: TransportConfig,
     ) -> Result<Self, TransportBuildError> {
-        let mut builder = Client::builder()
-            .http1_only()
-            .redirect(Policy::none())
-            .referer(false)
-            .timeout(config.deadline.duration())
-            .retry(reqwest::retry::never());
-        builder = match &config.proxy {
-            ProxyMode::Direct => builder.no_proxy(),
-            ProxyMode::HttpsConnect {
-                url,
-                bypass_loopback,
-            } => {
-                let mut proxy = Proxy::https(url.url.clone()).map_err(|error| {
-                    TransportBuildError::Proxy(SanitizedReqwestError::new(error))
-                })?;
-                if *bypass_loopback {
-                    proxy = proxy.no_proxy(NoProxy::from_string("127.0.0.1,localhost"));
-                }
-                builder.proxy(proxy)
-            }
-        };
-        match &config.ca {
-            CaMode::PublicRoots => {}
-            CaMode::PublicRootsPlusPem(path) => {
-                for certificate in load_pem_bundle(path)? {
-                    builder = builder.add_root_certificate(certificate);
-                }
-            }
-        }
-        let client = builder
-            .build()
-            .map_err(|error| TransportBuildError::Client(SanitizedReqwestError::new(error)))?;
+        let client = build_client(&config)?;
         Ok(Self {
             client,
             endpoint,
@@ -931,79 +1207,445 @@ impl GraphQlTransport {
             .header(CONTENT_TYPE, HeaderValue::from_static(CONTENT_TYPE_VALUE))
             .body(body);
         let exchange = async {
-            let response = request
-                .send()
-                .await
-                .map_err(|error| self.classify_network(error))?;
-            self.collect(response).await
+            let response = request.send().await.map_err(classify_network)?;
+            collect(response, self.max_response_bytes).await
         };
         match tokio::time::timeout(self.deadline.duration(), exchange).await {
-            Ok(result) => result,
-            Err(_elapsed) => Err(TransportFailure::Timeout {
-                origin: self.endpoint.origin.clone(),
-                deadline: self.deadline,
-            }),
+            Ok(Ok(response)) => Ok(response),
+            Ok(Err(failure)) => Err(self.failure(failure)),
+            Err(_elapsed) => Err(self.failure(ExchangeFailure::Timeout)),
         }
     }
 
-    /// Reads the body chunk by chunk, stopping before the cap is exceeded.
-    async fn collect(
-        &self,
-        mut response: reqwest::Response,
-    ) -> Result<RawHttpResponse, TransportFailure> {
-        let status = response.status();
-        let headers = std::mem::take(response.headers_mut());
-        let limit = self.max_response_bytes;
-        let too_large = || TransportFailure::ResponseTooLarge { status, limit };
-        if let Some(declared) = response.content_length() {
-            let over = match u64::try_from(limit.bytes()) {
-                Ok(cap) => declared > cap,
-                Err(_) => false,
-            };
-            if over {
-                return Err(too_large());
+    fn failure(&self, failure: ExchangeFailure) -> TransportFailure {
+        match failure {
+            ExchangeFailure::ResponseTooLarge { status, limit } => {
+                TransportFailure::ResponseTooLarge { status, limit }
             }
+            ExchangeFailure::Timeout => TransportFailure::Timeout {
+                origin: self.endpoint.origin.clone(),
+                deadline: self.deadline,
+            },
+            ExchangeFailure::Network { phase, source } => TransportFailure::Network {
+                origin: self.endpoint.origin.clone(),
+                phase,
+                source,
+            },
         }
-        let mut body = Vec::new();
-        loop {
-            let chunk = response
-                .chunk()
-                .await
-                .map_err(|error| self.classify_network(error))?;
-            let Some(chunk) = chunk else { break };
-            let total = body.len().checked_add(chunk.len()).ok_or_else(too_large)?;
-            if total > limit.bytes() {
-                return Err(too_large());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Fixed-host asset GET (F02B Gate 2)
+
+/// The two fixed hosts Gate 2 qualifies. Nothing else is ever requested.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AssetHost {
+    /// `uploads.linear.app`: private files; `Authorization` is sent on every
+    /// request to it, including each redirect hop.
+    Uploads,
+    /// `public.linear.app`: public files; never authenticated.
+    Public,
+}
+
+impl AssetHost {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Uploads => "uploads.linear.app",
+            Self::Public => "public.linear.app",
+        }
+    }
+
+    /// Whether requests to this host carry the API key.
+    pub const fn authenticated(self) -> bool {
+        matches!(self, Self::Uploads)
+    }
+
+    fn from_name(host: &str) -> Option<Self> {
+        match host {
+            "uploads.linear.app" => Some(Self::Uploads),
+            "public.linear.app" => Some(Self::Public),
+            _ => None,
+        }
+    }
+
+    /// `https://<host>`, the only part of an asset URL ever displayed.
+    pub fn origin(self) -> String {
+        format!("https://{}", self.name())
+    }
+}
+
+/// A validated `https://uploads.linear.app/...` or
+/// `https://public.linear.app/...` URL. Path and query (which carry signed
+/// tokens) are used for the request and never displayed.
+#[derive(Clone, PartialEq, Eq)]
+pub struct AssetUrl {
+    url: Url,
+    host: AssetHost,
+}
+
+/// Why a string is not an acceptable [`AssetUrl`]. No variant carries the
+/// input or its host.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AssetUrlError {
+    /// The text is not a URL; carries the parser's description (never the input).
+    Invalid(String),
+    /// The scheme is not `https`.
+    Scheme(String),
+    MissingHost,
+    /// The host is neither fixed host.
+    HostNotAllowed,
+    /// A port other than the default is given.
+    Port,
+    Credentials,
+    Fragment,
+}
+
+impl fmt::Display for AssetUrlError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Invalid(detail) => write!(f, "asset URL is not valid: {detail}"),
+            Self::Scheme(scheme) => write!(f, "asset URL scheme must be https, not {scheme}"),
+            Self::MissingHost => write!(f, "asset URL has no host"),
+            Self::HostNotAllowed => write!(f, "asset URL host is not a permitted fixed host"),
+            Self::Port => write!(f, "asset URL must not carry an explicit port"),
+            Self::Credentials => write!(f, "asset URL must not carry credentials"),
+            Self::Fragment => write!(f, "asset URL must not carry a fragment"),
+        }
+    }
+}
+
+impl Error for AssetUrlError {}
+
+impl AssetUrl {
+    pub fn parse(text: &str) -> Result<Self, AssetUrlError> {
+        let url = Url::parse(text).map_err(|error| AssetUrlError::Invalid(error.to_string()))?;
+        Self::from_url(url)
+    }
+
+    fn from_url(url: Url) -> Result<Self, AssetUrlError> {
+        if url.scheme() != "https" {
+            return Err(AssetUrlError::Scheme(url.scheme().to_owned()));
+        }
+        let Some(host) = url.host_str() else {
+            return Err(AssetUrlError::MissingHost);
+        };
+        let Some(host) = AssetHost::from_name(host) else {
+            return Err(AssetUrlError::HostNotAllowed);
+        };
+        // The parser drops the default port, so any remaining port is explicit.
+        if url.port().is_some() {
+            return Err(AssetUrlError::Port);
+        }
+        if !url.username().is_empty() || url.password().is_some() {
+            return Err(AssetUrlError::Credentials);
+        }
+        if url.fragment().is_some() {
+            return Err(AssetUrlError::Fragment);
+        }
+        Ok(Self { url, host })
+    }
+
+    pub fn host(&self) -> AssetHost {
+        self.host
+    }
+
+    /// The full request URL, including path and query.
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+
+    pub fn origin(&self) -> String {
+        self.host.origin()
+    }
+}
+
+impl fmt::Display for AssetUrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.origin())
+    }
+}
+
+impl fmt::Debug for AssetUrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("AssetUrl").field(&self.origin()).finish()
+    }
+}
+
+/// The most redirects one asset GET follows; the final response is therefore
+/// at most the `MAX_REDIRECTS + 1`th request, all under one deadline.
+pub const MAX_REDIRECTS: usize = 2;
+
+/// Why a redirect was not followed. No variant carries the `Location` value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RedirectRejection {
+    /// A redirect status without a `Location` header.
+    MissingLocation,
+    /// `Location` is not visible ASCII, contains a backslash, carries a
+    /// fragment, or does not parse against the current URL.
+    MalformedLocation,
+    /// `Location` is absolute, scheme-relative (`//`), or not rooted at `/`.
+    NotOriginRelative,
+    /// The resolved target is not the same fixed host over `https`.
+    CrossOrigin,
+    /// More than [`MAX_REDIRECTS`] redirects in one GET.
+    TooManyRedirects { limit: usize },
+}
+
+impl fmt::Display for RedirectRejection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MissingLocation => write!(f, "redirect has no Location header"),
+            Self::MalformedLocation => {
+                write!(f, "Location is not a well-formed origin-relative path")
             }
-            body.extend_from_slice(&chunk);
+            Self::NotOriginRelative => write!(f, "Location is not origin-relative"),
+            Self::CrossOrigin => write!(f, "Location resolves to another origin"),
+            Self::TooManyRedirects { limit } => write!(f, "more than {limit} redirects"),
         }
-        Ok(RawHttpResponse {
-            status,
-            headers,
-            body,
+    }
+}
+
+impl Error for RedirectRejection {}
+
+fn is_redirect_status(status: StatusCode) -> bool {
+    matches!(status.as_u16(), 301 | 302 | 303 | 307 | 308)
+}
+
+/// Resolves a `Location` against the current asset URL, accepting only an
+/// origin-relative path that lands on the same fixed host over `https`.
+pub fn resolve_redirect(
+    current: &AssetUrl,
+    location: Option<&HeaderValue>,
+) -> Result<AssetUrl, RedirectRejection> {
+    let Some(location) = location else {
+        return Err(RedirectRejection::MissingLocation);
+    };
+    let Ok(text) = location.to_str() else {
+        return Err(RedirectRejection::MalformedLocation);
+    };
+    if !text.starts_with('/') || text.starts_with("//") {
+        return Err(RedirectRejection::NotOriginRelative);
+    }
+    // The URL parser treats `\` as `/` for https, which would turn `/\host`
+    // into a scheme-relative reference; refuse it before resolving.
+    if text.contains('\\') {
+        return Err(RedirectRejection::MalformedLocation);
+    }
+    let Ok(resolved) = current.url.join(text) else {
+        return Err(RedirectRejection::MalformedLocation);
+    };
+    let next = AssetUrl::from_url(resolved).map_err(|error| match error {
+        AssetUrlError::Fragment | AssetUrlError::Invalid(_) => RedirectRejection::MalformedLocation,
+        AssetUrlError::Scheme(_)
+        | AssetUrlError::MissingHost
+        | AssetUrlError::HostNotAllowed
+        | AssetUrlError::Port
+        | AssetUrlError::Credentials => RedirectRejection::CrossOrigin,
+    })?;
+    if next.host != current.host {
+        return Err(RedirectRejection::CrossOrigin);
+    }
+    Ok(next)
+}
+
+/// Decides what follows one response of an asset GET: `Ok(None)` means the
+/// response is final and is returned as received (whatever its status);
+/// `Ok(Some(next))` is the next same-origin hop; `Err` stops the GET.
+pub fn follow_redirect(
+    current: &AssetUrl,
+    redirects_so_far: usize,
+    status: StatusCode,
+    location: Option<&HeaderValue>,
+) -> Result<Option<AssetUrl>, RedirectRejection> {
+    if !is_redirect_status(status) {
+        return Ok(None);
+    }
+    if redirects_so_far >= MAX_REDIRECTS {
+        return Err(RedirectRejection::TooManyRedirects {
+            limit: MAX_REDIRECTS,
+        });
+    }
+    resolve_redirect(current, location).map(Some)
+}
+
+/// The final response of an asset GET, with the number of requests it took.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AssetResponse {
+    /// `1` without redirects, one more per followed redirect.
+    pub requests: usize,
+    /// Exactly as received: status, headers and body bytes under the cap.
+    pub response: RawHttpResponse,
+}
+
+/// Every way an asset GET can fail after construction. Only the origin of the
+/// URL in flight is recorded, never its path or query.
+#[derive(Debug)]
+pub enum AssetFailure {
+    Redirect {
+        origin: String,
+        /// The 1-based request whose response carried the rejected redirect.
+        request: usize,
+        rejection: RedirectRejection,
+    },
+    ResponseTooLarge {
+        origin: String,
+        status: StatusCode,
+        limit: ResponseCap,
+    },
+    Timeout {
+        origin: String,
+        deadline: Deadline,
+    },
+    Network {
+        origin: String,
+        phase: NetworkPhase,
+        source: SanitizedReqwestError,
+    },
+}
+
+impl fmt::Display for AssetFailure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Redirect {
+                origin,
+                request,
+                rejection,
+            } => write!(
+                f,
+                "redirect from {origin} (request {request}) was rejected: {rejection}"
+            ),
+            Self::ResponseTooLarge {
+                origin,
+                status,
+                limit,
+            } => write!(
+                f,
+                "response from {origin} exceeds the {} byte limit (HTTP {status})",
+                limit.bytes()
+            ),
+            Self::Timeout { origin, deadline } => write!(
+                f,
+                "request to {origin} did not complete within {:?}",
+                deadline.duration()
+            ),
+            Self::Network {
+                origin,
+                phase,
+                source,
+            } => write!(
+                f,
+                "{} {origin} failed: {}",
+                phase.describe(),
+                source.root_message()
+            ),
+        }
+    }
+}
+
+impl Error for AssetFailure {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Redirect { rejection, .. } => Some(rejection),
+            Self::Network { source, .. } => Some(source),
+            Self::ResponseTooLarge { .. } | Self::Timeout { .. } => None,
+        }
+    }
+}
+
+/// A bounded GET for the two fixed hosts, built by the same [`build_client`]
+/// as [`GraphQlTransport`].
+///
+/// Per request: `User-Agent` always, `Authorization` only when the host in
+/// flight is [`AssetHost::Uploads`]; no default headers on the client. Same-
+/// origin relative redirects are followed up to [`MAX_REDIRECTS`] with the
+/// host and authorization policy re-checked on every hop, under one total
+/// deadline; anything else is rejected without recording the `Location`.
+/// This is Gate 2 transport qualification, not a general asset API.
+#[derive(Clone, Debug)]
+pub struct AssetHttpTransport {
+    client: Client,
+    api_key: ApiKey,
+    deadline: Deadline,
+    max_response_bytes: ResponseCap,
+}
+
+impl AssetHttpTransport {
+    pub fn new(api_key: ApiKey, config: TransportConfig) -> Result<Self, TransportBuildError> {
+        let client = build_client(&config)?;
+        Ok(Self {
+            client,
+            api_key,
+            deadline: config.deadline,
+            max_response_bytes: config.max_response_bytes,
         })
     }
 
-    fn classify_network(&self, error: reqwest::Error) -> TransportFailure {
-        if error.is_timeout() {
-            return TransportFailure::Timeout {
-                origin: self.endpoint.origin.clone(),
-                deadline: self.deadline,
-            };
-        }
-        let phase = if error.is_connect() {
-            NetworkPhase::Connect
-        } else if error.is_request() {
-            NetworkPhase::Request
-        } else if error.is_body() || error.is_decode() {
-            NetworkPhase::Body
-        } else {
-            NetworkPhase::Other
+    /// GETs `url`, following only same-origin relative redirects, and returns
+    /// the final response exactly as received.
+    pub async fn get(&self, url: &AssetUrl) -> Result<AssetResponse, AssetFailure> {
+        let exchange = async {
+            let mut current = url.clone();
+            let mut redirects = 0;
+            loop {
+                let mut request = self
+                    .client
+                    .get(current.url.clone())
+                    .header(USER_AGENT, HeaderValue::from_static(USER_AGENT_VALUE));
+                if current.host.authenticated() {
+                    request = request.header(AUTHORIZATION, self.api_key.header_value());
+                }
+                let response = request
+                    .send()
+                    .await
+                    .map_err(|error| self.failure(&current, classify_network(error)))?;
+                let response = collect(response, self.max_response_bytes)
+                    .await
+                    .map_err(|failure| self.failure(&current, failure))?;
+                let location = response.headers.get(LOCATION);
+                match follow_redirect(&current, redirects, response.status, location) {
+                    Ok(None) => {
+                        return Ok(AssetResponse {
+                            requests: redirects.saturating_add(1),
+                            response,
+                        });
+                    }
+                    Ok(Some(next)) => {
+                        redirects = redirects.saturating_add(1);
+                        current = next;
+                    }
+                    Err(rejection) => {
+                        return Err(AssetFailure::Redirect {
+                            origin: current.origin(),
+                            request: redirects.saturating_add(1),
+                            rejection,
+                        });
+                    }
+                }
+            }
         };
-        TransportFailure::Network {
-            origin: self.endpoint.origin.clone(),
-            phase,
-            source: SanitizedReqwestError::new(error),
+        match tokio::time::timeout(self.deadline.duration(), exchange).await {
+            Ok(result) => result,
+            Err(_elapsed) => Err(self.failure(url, ExchangeFailure::Timeout)),
+        }
+    }
+
+    fn failure(&self, url: &AssetUrl, failure: ExchangeFailure) -> AssetFailure {
+        match failure {
+            ExchangeFailure::ResponseTooLarge { status, limit } => AssetFailure::ResponseTooLarge {
+                origin: url.origin(),
+                status,
+                limit,
+            },
+            ExchangeFailure::Timeout => AssetFailure::Timeout {
+                origin: url.origin(),
+                deadline: self.deadline,
+            },
+            ExchangeFailure::Network { phase, source } => AssetFailure::Network {
+                origin: url.origin(),
+                phase,
+                source,
+            },
         }
     }
 }
