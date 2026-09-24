@@ -14,7 +14,7 @@ export const STATUS_HELPER_SOURCE = fromFileUrl(
 )
 /** SHA-256 of the reviewed status-helper.c; a drifted source fails closed. */
 export const STATUS_HELPER_SOURCE_SHA256 =
-  "84062dff89bca0d51e93ccd8813ef9ccccdbb7f6dc99fdc87144cae925943a08"
+  "c6a8ae528fd668088188ed88902d8bb60c28c7e9e6a04a1985617b133ea6596f"
 export const STATUS_HELPER_STD = "c11"
 /** Fixed flags; -Werror keeps the pinned source warning-free on the pinned compiler. */
 export const STATUS_HELPER_FLAGS = [
