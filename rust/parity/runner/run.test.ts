@@ -1,7 +1,7 @@
 // Integration of sandbox, confinement wrapper, engine, fixture server,
 // comparison and descriptor logic with small shell programs; the namespace
 // lane is exercised by `deno task parity` itself.
-import { assert, assertEquals, assertRejects } from "@std/assert"
+import { assert, assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { CASE_ROOT_PARENT, prepareConfinement } from "./bwrap.ts"
 import type { LoadedCase } from "./cases.ts"
@@ -42,10 +42,15 @@ async function script(
 
 function loadedCase(overrides: Record<string, unknown>): LoadedCase {
   const spec = parseCase({ ...validCase(), ...overrides })
-  return { file: `${spec.id}.json`, spec, fixtureDir: null }
+  return {
+    file: `${spec.id}.json`,
+    spec,
+    fixtureDir: null,
+    configFixtureDir: null,
+  }
 }
 
-Deno.test("P03C asset interactions fail closed before the child starts", async () => {
+Deno.test("a missing declared asset remains an unconsumed fixture interaction", async () => {
   await withDir(async (_dir, ctx) => {
     const loaded = loadedCase({
       substitutions: ["home", "configHome", "bin", "denoDir", "fixturePort"],
@@ -71,11 +76,17 @@ Deno.test("P03C asset interactions fail closed before the child starts", async (
         }],
       },
     })
-    await assertRejects(
-      () => executeCase(loaded, { kind: "executable", path: "/bin/true" }, ctx),
-      Error,
-      "require P03C",
+    const result = await executeCase(loaded, {
+      kind: "executable",
+      path: "/bin/true",
+    }, ctx)
+    assertEquals(
+      result.mismatches.some((item) =>
+        item.surface === "fixture" && item.detail.includes("consumed 0")
+      ),
+      true,
     )
+    assertEquals(result.fixture?.assetRequests, 0)
   })
 })
 

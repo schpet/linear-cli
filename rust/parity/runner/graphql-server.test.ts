@@ -144,10 +144,16 @@ Deno.test("request envelope, identity, exact count and unconsumed steps are obse
       ),
       500,
     )
-    assertEquals(await status(await post(server.port, { query })), 200)
-    assertEquals(server.consumed, 1)
+    assertEquals(await status(await post(server.port, { query })), 500)
+    assertEquals(server.consumed, 0)
     assertEquals(server.requests.length, 3)
-    assertEquals(server.issues.length, 2)
+    assertEquals(server.issues.length, 4)
+    assertEquals(
+      server.issues.filter((issue) =>
+        issue === "request arrived after prior fixture failure"
+      ).length,
+      2,
+    )
     assertEquals(server.unexpected, 0)
   } finally {
     await server.stop()

@@ -5,7 +5,7 @@
 import { type Confinement, programInvocation, runConfined } from "./bwrap.ts"
 import { sha256Hex } from "./bytes.ts"
 import type { LoadedCase } from "./cases.ts"
-import { resolveCase } from "./cases.ts"
+import { checkLaneDeadline, resolveCase } from "./cases.ts"
 import {
   compareFixture,
   compareGraphQLFixture,
@@ -99,7 +99,12 @@ export async function executeCase(
   ctx: RunContext,
 ): Promise<CaseRun> {
   if (ctx.signal?.aborted) throw new Error("aborted")
-  const sandbox = await createSandbox(ctx.sandboxParent, loaded.fixtureDir)
+  checkLaneDeadline(loaded.spec, ctx.limits?.timeoutMs ?? loaded.spec.timeoutMs)
+  const sandbox = await createSandbox(
+    ctx.sandboxParent,
+    loaded.fixtureDir,
+    loaded.configFixtureDir,
+  )
   let server: FixtureServer | null = null
   let graphqlServer: GraphQLServer | null = null
   try {
@@ -130,7 +135,7 @@ export async function executeCase(
         }
         return spec
       }, schema)
-      // Reject unsupported P03C interactions before starting the child.
+      // Resolve the port-dependent fixture before starting the child.
       void graphqlServer.expectedGraphQL
     }
     const resolved = resolveWithPort(server?.port ?? graphqlServer?.port ?? 0)

@@ -129,6 +129,8 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
       `${id} should remain a GraphQL case`,
     )
   }
+  assertEquals(loaded.filter((item) => item.spec.graphql == null).length, 112)
+  assertEquals(loaded.filter((item) => item.spec.graphql != null).length, 7)
 })
 
 Deno.test("strict GraphQL shape rejects unknown fields, count drift, and fixture mixing", () => {
@@ -263,11 +265,12 @@ Deno.test("loader rejects invalid fixture operations and duplicate IDs", async (
       !Array.isArray(redirectGroups) || !Array.isArray(redirectGroups[0].steps)
     ) throw new Error("invalid test fixture")
     redirectGroups[0].steps[1].response.location = "/undeclared"
+    redirectGroups[0].steps[1].response.status = 302
     await Deno.writeTextFile(`${dir}/sample.json`, JSON.stringify(redirect))
     await assertRejects(
       () => loadCases(dir, new Set(["linear"])),
       SchemaError,
-      "undeclared",
+      "immediately following",
     )
     const badOrigin = graphqlCase()
     const operation = firstStep(badOrigin).operation

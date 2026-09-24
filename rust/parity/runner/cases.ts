@@ -18,6 +18,7 @@ import { buildPinnedSchema, matchGraphQL } from "./graphql-match.ts"
 import {
   type CaseSpec,
   GraphQLFixtureSchema,
+  type InteractionSpec,
   parseCase,
   SchemaError,
   substitute,
@@ -30,6 +31,199 @@ export interface LoadedCase {
   spec: CaseSpec
   /** Absolute fixture directory copied into the sandbox cwd, or null for empty. */
   fixtureDir: string | null
+  configFixtureDir: string | null
+}
+
+export const LANE_CLEANUP_MARGIN_MS = 1000
+
+export function checkLaneDeadline(
+  spec: CaseSpec,
+  effectiveTimeoutMs: number,
+): void {
+  const total = spec.graphql?.groups.reduce(
+    (sum, group) => sum + (group.mode === "lanes" ? group.timeoutMs : 0),
+    0,
+  ) ?? 0
+  if (total > 0 && total + LANE_CLEANUP_MARGIN_MS >= effectiveTimeoutMs) {
+    throw new SchemaError(
+      `case ${spec.id}: lane deadlines plus cleanup margin must be strictly below timeoutMs`,
+    )
+  }
+}
+
+function headersConflict(
+  a: Readonly<Record<string, string>>,
+  b: Readonly<Record<string, string>>,
+): boolean {
+  for (const [name, value] of Object.entries(a)) {
+    const other = Object.entries(b).find(([key]) =>
+      key.toLowerCase() === name.toLowerCase()
+    )
+    if (other != null && other[1] !== value) return true
+  }
+  return false
+}
+
+function firstStepsOverlap(
+  a: InteractionSpec,
+  b: InteractionSpec,
+  schema: GraphQLSchema,
+): boolean {
+  if (a.kind !== b.kind) return false
+  if (a.kind === "asset" && b.kind === "asset") {
+    return a.method === b.method && a.path === b.path &&
+      !headersConflict(a.requiredHeaders, b.requiredHeaders) &&
+      !a.forbiddenHeaders.some((name) =>
+        Object.keys(b.requiredHeaders).some((key) =>
+          key.toLowerCase() === name.toLowerCase()
+        )
+      ) &&
+      !b.forbiddenHeaders.some((name) =>
+        Object.keys(a.requiredHeaders).some((key) =>
+          key.toLowerCase() === name.toLowerCase()
+        )
+      )
+  }
+  if (a.kind !== "graphql" || b.kind !== "graphql") {
+    throw new Error("unexpected interaction kind")
+  }
+  if (
+    a.identity.authorization !== b.identity.authorization ||
+    headersConflict(a.identity.headers, b.identity.headers)
+  ) return false
+  if (
+    a.response.kind === "validationErrors" ||
+    b.response.kind === "validationErrors"
+  ) {
+    return a.operation.document.trim() === b.operation.document.trim()
+  }
+  return matchGraphQL(a.operation, b.operation, schema).matches ||
+    matchGraphQL(b.operation, a.operation, schema).matches
+}
+
+function sameEffectFreeLane(
+  a: readonly InteractionSpec[],
+  b: readonly InteractionSpec[],
+): boolean {
+  const shape = (steps: readonly InteractionSpec[]) =>
+    steps.map(({ id: _id, ...step }) => step)
+  return JSON.stringify(shape(a)) === JSON.stringify(shape(b)) &&
+    a.every((step) => step.kind !== "graphql" || step.effects.length === 0)
+}
+
+interface TypedRecordRead {
+  key: string
+  type: GraphQLType
+}
+
+function laneDependencies(
+  steps: readonly InteractionSpec[],
+  schema: GraphQLSchema,
+  recordValues: ReadonlyMap<string, readonly unknown[]>,
+): { writes: Set<string>; reads: Set<string> } {
+  const writes = new Set<string>()
+  const reads = new Set<string>()
+  const typedReads: TypedRecordRead[] = []
+  for (const step of steps) {
+    if (step.kind !== "graphql") continue
+    for (const effect of step.effects) {
+      writes.add(effect.record)
+    }
+    if (
+      step.response.kind === "data" || step.response.kind === "graphqlErrors"
+    ) {
+      const operation = getOperationAST(
+        parse(step.operation.document),
+        step.operation.operationName,
+      )
+      const root = operation?.operation === "query"
+        ? schema.getQueryType()
+        : operation?.operation === "mutation"
+        ? schema.getMutationType()
+        : schema.getSubscriptionType()
+      if (root != null) {
+        checkResponseReferences(
+          step.response.data,
+          root,
+          schema,
+          null,
+          step.id,
+          reads,
+          typedReads,
+        )
+      }
+    }
+  }
+  // A returned record can itself point at another record. Every stored version
+  // is possible while lanes interleave, so close reads over initial and after
+  // values before comparing them with writes in another lane.
+  const visited = new Set<string>()
+  for (let index = 0; index < typedReads.length; index++) {
+    const { key, type } = typedReads[index]
+    const visit = `${key}\u0000${getNamedType(type).name}`
+    if (visited.has(visit)) continue
+    visited.add(visit)
+    for (const value of recordValues.get(key) ?? []) {
+      checkResponseReferences(
+        value,
+        type,
+        schema,
+        null,
+        `record ${key}`,
+        reads,
+        typedReads,
+      )
+    }
+  }
+  return { writes, reads }
+}
+
+function checkRedirects(steps: readonly InteractionSpec[], file: string): void {
+  for (const [index, step] of steps.entries()) {
+    if (step.kind !== "asset" || step.response.location == null) continue
+    const next = steps[index + 1]
+    if (next?.kind !== "asset" || next.path !== step.response.location) {
+      throw new SchemaError(
+        `${file}: asset redirect must target the immediately following step in the same lane or group`,
+      )
+    }
+  }
+}
+
+async function inspectConfigFixture(
+  directory: string,
+  file: string,
+): Promise<void> {
+  async function walk(path: string): Promise<void> {
+    for await (const entry of Deno.readDir(path)) {
+      const child = join(path, entry.name)
+      const info = await Deno.lstat(child)
+      if (info.isSymlink || (!info.isDirectory && !info.isFile)) {
+        throw new SchemaError(
+          `${file}: configFixture contains a symlink or unsupported entry`,
+        )
+      }
+      if (info.isDirectory) await walk(child)
+      else {
+        let contents: string
+        try {
+          contents = new TextDecoder("utf-8", { fatal: true }).decode(
+            await Deno.readFile(child),
+          )
+        } catch {
+          throw new SchemaError(
+            `${file}: configFixture must contain UTF-8 text files`,
+          )
+        }
+        if (/lin_(?:api|oauth)_(?!fake)/i.test(contents)) {
+          throw new SchemaError(
+            `${file}: configFixture contains a non-fake Linear credential`,
+          )
+        }
+      }
+    }
+  }
+  await walk(directory)
 }
 
 export interface ResolvedCase {
@@ -54,11 +248,21 @@ function checkResponseReferences(
   value: unknown,
   type: GraphQLType,
   schema: GraphQLSchema,
-  known: ReadonlySet<string>,
+  known: ReadonlySet<string> | null,
   label: string,
+  found: Set<string> | null = null,
+  typedReads: TypedRecordRead[] | null = null,
 ): void {
   if (isNonNullType(type)) {
-    return checkResponseReferences(value, type.ofType, schema, known, label)
+    return checkResponseReferences(
+      value,
+      type.ofType,
+      schema,
+      known,
+      label,
+      found,
+      typedReads,
+    )
   }
   if (value == null) return
   if (isListType(type)) {
@@ -70,6 +274,8 @@ function checkResponseReferences(
           schema,
           known,
           `${label}[${index}]`,
+          found,
+          typedReads,
         )
       )
     }
@@ -84,9 +290,11 @@ function checkResponseReferences(
     if (Object.keys(value).length !== 1 || typeof value.$record !== "string") {
       throw new SchemaError(`${label}: malformed composite $record reference`)
     }
-    if (!known.has(value.$record)) {
+    if (known != null && !known.has(value.$record)) {
       throw new SchemaError(`${label}: unknown composite $record reference`)
     }
+    found?.add(value.$record)
+    typedReads?.push({ key: value.$record, type })
     return
   }
   const concrete = (isUnionType(named) || isInterfaceType(named)) &&
@@ -103,6 +311,8 @@ function checkResponseReferences(
         schema,
         known,
         `${label}.${key}`,
+        found,
+        typedReads,
       )
     }
   }
@@ -132,6 +342,58 @@ async function checkGraphQLFixture(
     )
   }
   const schema = buildPinnedSchema(sdl)
+  checkLaneDeadline(spec, spec.timeoutMs)
+  const recordValues = new Map<string, unknown[]>()
+  for (const [key, value] of Object.entries(fixture.initialRecords)) {
+    recordValues.set(key, [value])
+  }
+  for (const group of fixture.groups) {
+    const steps = group.mode === "ordered"
+      ? group.steps
+      : group.lanes.flatMap((lane) => lane.steps)
+    for (const step of steps) {
+      if (step.kind !== "graphql") continue
+      for (const effect of step.effects) {
+        if (effect.kind !== "put") continue
+        const values = recordValues.get(effect.record) ?? []
+        values.push(effect.after)
+        recordValues.set(effect.record, values)
+      }
+    }
+  }
+  for (const group of fixture.groups) {
+    if (group.mode === "ordered") {
+      checkRedirects(group.steps, file)
+      continue
+    }
+    for (const lane of group.lanes) checkRedirects(lane.steps, file)
+    for (let left = 0; left < group.lanes.length; left++) {
+      for (let right = left + 1; right < group.lanes.length; right++) {
+        const a = group.lanes[left]
+        const b = group.lanes[right]
+        if (
+          firstStepsOverlap(a.steps[0], b.steps[0], schema) &&
+          !sameEffectFreeLane(a.steps, b.steps)
+        ) {
+          throw new SchemaError(
+            `${file}: ambiguous non-identical lane first steps`,
+          )
+        }
+        const aa = laneDependencies(a.steps, schema, recordValues)
+        const bb = laneDependencies(b.steps, schema, recordValues)
+        if (
+          [...aa.writes].some((key) =>
+            bb.writes.has(key) || bb.reads.has(key)
+          ) ||
+          [...bb.writes].some((key) => aa.reads.has(key))
+        ) {
+          throw new SchemaError(
+            `${file}: cross-lane record read/write dependency is unsupported`,
+          )
+        }
+      }
+    }
+  }
   const knownRecords = new Set(Object.keys(fixture.initialRecords))
   for (const group of fixture.groups) {
     const steps = group.mode === "ordered"
@@ -294,6 +556,17 @@ export async function loadCases(
         )
       }
     }
+    let configFixtureDir: string | null = null
+    if (spec.configFixture != null) {
+      configFixtureDir = join(dir, "fixtures", spec.configFixture)
+      const info = await Deno.lstat(configFixtureDir).catch(() => null)
+      if (info == null || !info.isDirectory || info.isSymlink) {
+        throw new SchemaError(
+          `${file}: config fixture directory is missing or unsafe`,
+        )
+      }
+      await inspectConfigFixture(configFixtureDir, file)
+    }
     // Resolve with dummy values now so undeclared placeholders fail at load time.
     resolveCase(spec, {
       home: "h",
@@ -304,7 +577,7 @@ export async function loadCases(
       fixturePort: "0",
     })
     if (filter == null || spec.id.includes(filter)) {
-      loaded.push({ file, spec, fixtureDir })
+      loaded.push({ file, spec, fixtureDir, configFixtureDir })
     }
   }
   return loaded

@@ -321,7 +321,24 @@ const AssetStepSchema = v.pipe(
     },
     "asset headers must be unique, nonconflicting, and use only fake Authorization",
   ),
+  v.check(
+    (step) =>
+      !Object.keys(step.response.headers).some((name) =>
+        name.toLowerCase() === "location"
+      ),
+    "asset Location must use response.location only",
+  ),
+  v.check(
+    (step) => {
+      const redirect = step.response.status >= 300 && step.response.status < 400
+      return redirect === (step.response.location != null) &&
+        (!redirect || step.method === "GET")
+    },
+    "asset redirects require GET, 3xx and response.location together",
+  ),
 )
+export type AssetStepSpec = v.InferOutput<typeof AssetStepSchema>
+export type InteractionSpec = GraphQLStepSpec | AssetStepSpec
 const InteractionSchema = v.variant("kind", [
   GraphQLStepSchema,
   AssetStepSchema,
@@ -422,6 +439,13 @@ export const CaseSchema = v.pipe(
         "cwdFixture is a kebab-case fixture name or empty",
       ),
     ),
+    configFixture: v.optional(v.pipe(
+      v.string(),
+      v.regex(
+        /^[a-z0-9][a-z0-9-]*$/,
+        "configFixture is a kebab-case fixture name",
+      ),
+    )),
     env: EnvSchema,
     substitutions: v.pipe(
       v.array(v.picklist([

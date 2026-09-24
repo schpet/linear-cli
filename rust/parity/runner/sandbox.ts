@@ -20,6 +20,7 @@ export interface Sandbox {
 export async function createSandbox(
   parent: string | undefined,
   fixtureDir: string | null,
+  configFixtureDir: string | null = null,
 ): Promise<Sandbox> {
   const root = await Deno.makeTempDir({
     dir: parent,
@@ -31,7 +32,9 @@ export async function createSandbox(
   const bin = join(root, "bin")
   const tmp = join(root, "tmp")
   try {
-    for (const dir of [home, configHome, bin, tmp]) await Deno.mkdir(dir)
+    for (const dir of [home, bin, tmp]) await Deno.mkdir(dir)
+    if (configFixtureDir == null) await Deno.mkdir(configHome)
+    else await copy(configFixtureDir, configHome)
     if (fixtureDir == null) await Deno.mkdir(cwd)
     else await copy(fixtureDir, cwd)
   } catch (error) {
