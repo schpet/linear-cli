@@ -10743,7 +10743,7 @@ impl Route {
             Self::AuthR1 => super::DispatchAction::ParentPending,
             Self::AuthLoginR2 => super::DispatchAction::Unimplemented,
             Self::AuthLogoutR3 => super::DispatchAction::Unimplemented,
-            Self::AuthListR4 => super::DispatchAction::Unimplemented,
+            Self::AuthListR4 => super::DispatchAction::AuthList,
             Self::AuthDefaultR5 => super::DispatchAction::Unimplemented,
             Self::AuthTokenR6 => super::DispatchAction::Unimplemented,
             Self::AuthWhoamiR7 => super::DispatchAction::AuthWhoami,

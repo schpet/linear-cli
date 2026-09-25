@@ -11,6 +11,7 @@ pub use generated::{ROUTES, Route};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DispatchAction {
     Root,
+    AuthList,
     AuthWhoami,
     Document,
     ParentPending,

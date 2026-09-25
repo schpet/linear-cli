@@ -261,6 +261,7 @@ def generate():
     for route, v in zip(routes, variants):
         action = {
             "linear": "Root",
+            "linear auth list": "AuthList",
             "linear auth whoami": "AuthWhoami",
             "linear document": "Document",
             "linear markdown": "Markdown",

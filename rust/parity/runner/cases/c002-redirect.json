@@ -1,0 +1,127 @@
+{
+  "id": "c002-redirect",
+  "route": "linear auth list",
+  "reason": "A 307 response names a refused loopback Location; Deno follows it while Rust never follows redirects.",
+  "argv": [
+    "auth",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "configFixture": "c002-errors",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "lanes",
+        "timeoutMs": 5000,
+        "lanes": [
+          {
+            "id": "viewer-ok",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "viewer-ok",
+                "operation": {
+                  "document": "query AuthListViewer { viewer { name email organization { name urlKey } } }"
+                },
+                "identity": {
+                  "authorization": "lin_api_fake_ok",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "viewer": {
+                      "name": "Olive",
+                      "email": "ok@example.invalid",
+                      "organization": {
+                        "name": "Okay Org",
+                        "urlKey": "ok"
+                      }
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "viewer-err",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "viewer-err",
+                "operation": {
+                  "document": "query AuthListViewer { viewer { name email organization { name urlKey } } }"
+                },
+                "identity": {
+                  "authorization": "lin_api_fake_err",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "transport",
+                  "status": 307,
+                  "headers": {
+                    "location": "http://127.0.0.1:1/graphql",
+                    "content-type": "text/plain"
+                  },
+                  "body": {
+                    "utf8": ""
+                  }
+                },
+                "effects": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "  WORKSPACE ORG NAME                                                                                                                                 USER\n  ok        Okay Org                                                                                                                                 Olive <ok@example.invalid>\n  err       error sending request for url (http://127.0.0.1:1/graphql): client error (Connect): tcp connect error: Connection refused (os error 111)\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C002-ROW-ERROR-TEXT",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "2be2fb5a00f7fd019851e309f30a55eb7572c4963ce312b364a64a02023dc3f4"
+  }
+}

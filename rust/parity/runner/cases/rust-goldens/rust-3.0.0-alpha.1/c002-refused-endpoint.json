@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c002-refused-endpoint",
+  "deviationId": "C002-ROW-ERROR-TEXT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "  WORKSPACE ORG NAME                                                                   USER\n  alpha     connection to http://127.0.0.1:1 failed: Connection refused (os error 111)\n* beta      connection to http://127.0.0.1:1 failed: Connection refused (os error 111)\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

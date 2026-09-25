@@ -1,0 +1,50 @@
+{
+  "id": "c002-invalid-endpoint-empty",
+  "route": "linear auth list",
+  "reason": "An invalid endpoint with an empty store: Deno prints the hint, Rust strict startup rejects the endpoint.",
+  "argv": [
+    "auth",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "not a url"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "No workspaces configured\nRun `linear auth login` to add a workspace\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C002-STRICT-ENDPOINT",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "cb9ad5aa80e5cedcd655bbbdecd6760bac446dc5c66a6e1eb198e48bfd155757"
+  }
+}

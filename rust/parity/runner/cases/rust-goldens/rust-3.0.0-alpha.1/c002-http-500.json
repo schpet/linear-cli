@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c002-http-500",
+  "deviationId": "C002-ROW-ERROR-TEXT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "  WORKSPACE ORG NAME                                         USER\n  ok        Okay Org                                         Olive <ok@example.invalid>\n  err       unexpected HTTP status 500 Internal Server Error\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

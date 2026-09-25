@@ -1,0 +1,51 @@
+{
+  "id": "c002-invalid-endpoint-row",
+  "route": "linear auth list",
+  "reason": "An invalid endpoint with one stored key: Deno prints an Invalid URL row, Rust strict startup rejects the endpoint.",
+  "argv": [
+    "auth",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "configFixture": "c002-solo",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "not a url"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "  WORKSPACE ORG NAME                 USER\n  solo      Invalid URL: 'not a url'\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C002-STRICT-ENDPOINT",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "c236da5758e71531a21ecba80b95b70d5e3addce7f96b7b246720b38b0008700"
+  }
+}

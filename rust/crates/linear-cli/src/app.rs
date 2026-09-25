@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::cli::{self, DispatchAction};
-use crate::commands::{auth_whoami, team_id};
+use crate::commands::{auth_list, auth_whoami, team_id};
 use crate::config::StartupConfig;
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
@@ -229,6 +229,25 @@ fn dispatch(
                 b"Use --help to see available commands\n",
                 OutputPolicy::ConsoleLike,
             )?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::AuthList => {
+            let config = context.config()?;
+            let rows = auth_list::classify(context.credentials()?);
+            let output = if rows.is_empty() {
+                auth_list::EMPTY_OUTPUT.as_bytes().to_vec()
+            } else {
+                let prepared = auth_list::prepare_transports(
+                    rows,
+                    config.options.endpoint().value(),
+                    &config.transport_env,
+                )
+                .map_err(|error| error.with_context(auth_list::CONTEXT))?;
+                let listed = block_on_network(auth_list::fetch(prepared))
+                    .map_err(|error| error.with_context(auth_list::CONTEXT))?;
+                auth_list::render(&listed, context.stdout_tty && !context.no_color())
+            };
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }
         DispatchAction::AuthWhoami => {

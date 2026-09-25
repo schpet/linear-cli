@@ -371,7 +371,11 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     undefined,
     CONTRACT,
   )
-  const graphql = cases.filter((loaded) => loaded.spec.graphql != null)
+  // C002 binds case-specific row-text goldens; c002-main-cases.test.ts pins
+  // their User-Agent and surfaces.
+  const graphql = cases.filter((loaded) =>
+    loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
+  )
   assertEquals(graphql.length, 11)
   const substitutions = {
     home: "h",

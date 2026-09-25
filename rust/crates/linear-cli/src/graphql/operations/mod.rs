@@ -5,6 +5,7 @@
 //! oracle. Rust operation structs carry the Deno operation names.
 
 pub mod agent_session;
+pub mod auth_list;
 pub mod auth_whoami;
 pub mod issue_update;
 pub mod teams;

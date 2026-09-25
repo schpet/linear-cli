@@ -1,0 +1,51 @@
+{
+  "id": "c002-metadata-lookup-failed",
+  "route": "linear auth list",
+  "reason": "A deduplicated metadata workspace whose keyring tool is unavailable warns at startup and lists missing credentials without a request.",
+  "argv": [
+    "auth",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "configFixture": "c002-metadata",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "  WORKSPACE ORG NAME            USER\n* solo      missing credentials\n"
+    },
+    "stderr": {
+      "utf8": "\u001b[33mWarning: Failed to read keyring for workspace \"solo\": Could not run secret-tool. Install libsecret (e.g. apt install libsecret-tools, pacman -S libsecret).\nAlternatively, set the LINEAR_API_KEY environment variable.\n  (Failed to spawn 'secret-tool': entity not found)\u001b[39m\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C002-KEYRING-WARNING",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "a2e1a36a93c8632235127e02021567e2470397597d008931297e7a630d23d55f"
+  }
+}

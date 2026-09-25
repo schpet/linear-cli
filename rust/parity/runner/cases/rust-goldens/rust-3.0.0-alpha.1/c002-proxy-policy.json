@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c002-proxy-policy",
+  "deviationId": "C002-TRANSPORT-POLICY",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to list workspaces: HTTP_PROXY is not supported by this transport mode\n  Use direct public roots, an absolute SSL_CERT_FILE, or the documented loopback HTTPS proxy mode.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

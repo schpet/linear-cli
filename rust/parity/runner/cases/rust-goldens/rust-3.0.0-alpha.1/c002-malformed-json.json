@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c002-malformed-json",
+  "deviationId": "C002-ROW-ERROR-TEXT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "  WORKSPACE ORG NAME                        USER\n  ok        Okay Org                        Olive <ok@example.invalid>\n  err       response body is not valid JSON\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

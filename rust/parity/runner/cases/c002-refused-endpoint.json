@@ -1,0 +1,52 @@
+{
+  "id": "c002-refused-endpoint",
+  "route": "linear auth list",
+  "reason": "Every request to a refused loopback endpoint becomes a row error; LINEAR_DEBUG adds nothing and the command exits 0.",
+  "argv": [
+    "auth",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "configFixture": "c002-two",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_DEBUG": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "  WORKSPACE ORG NAME                                                                                                                                 USER\n  alpha     error sending request for url (http://127.0.0.1:1/graphql): client error (Connect): tcp connect error: Connection refused (os error 111)\n* beta      error sending request for url (http://127.0.0.1:1/graphql): client error (Connect): tcp connect error: Connection refused (os error 111)\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C002-ROW-ERROR-TEXT",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "fea2076e94b9548ba9af26581c6dd0cd0c8e746c96431d6caa7aa91a9438d7e8"
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "id": "c002-unicode-width-a",
+  "route": "linear auth list",
+  "reason": "CJK, combining, emoji-presentation, ZWJ-family and Arabic lam-alef workspace names align by summed per-code-point width.",
+  "argv": [
+    "auth",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "configFixture": "c002-unicode-a",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 5,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "lanes",
+        "timeoutMs": 5000,
+        "lanes": [
+          {
+            "id": "viewer-tokyo",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "viewer-tokyo",
+                "operation": {
+                  "document": "query AuthListViewer { viewer { name email organization { name urlKey } } }"
+                },
+                "identity": {
+                  "authorization": "lin_api_fake_tokyo",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "viewer": {
+                      "name": "T",
+                      "email": "tokyo@example.invalid",
+                      "organization": {
+                        "name": "Tokyo",
+                        "urlKey": "tokyo"
+                      }
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "viewer-eclair",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "viewer-eclair",
+                "operation": {
+                  "document": "query AuthListViewer { viewer { name email organization { name urlKey } } }"
+                },
+                "identity": {
+                  "authorization": "lin_api_fake_eclair",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "viewer": {
+                      "name": "E",
+                      "email": "eclair@example.invalid",
+                      "organization": {
+                        "name": "É",
+                        "urlKey": "eclair"
+                      }
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "viewer-heart",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "viewer-heart",
+                "operation": {
+                  "document": "query AuthListViewer { viewer { name email organization { name urlKey } } }"
+                },
+                "identity": {
+                  "authorization": "lin_api_fake_heart",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "viewer": {
+                      "name": "H",
+                      "email": "heart@example.invalid",
+                      "organization": {
+                        "name": "❤️",
+                        "urlKey": "heart"
+                      }
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "viewer-family",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "viewer-family",
+                "operation": {
+                  "document": "query AuthListViewer { viewer { name email organization { name urlKey } } }"
+                },
+                "identity": {
+                  "authorization": "lin_api_fake_family",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "viewer": {
+                      "name": "F",
+                      "email": "family@example.invalid",
+                      "organization": {
+                        "name": "👨‍👩‍👧",
+                        "urlKey": "family"
+                      }
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "viewer-lamalef",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "viewer-lamalef",
+                "operation": {
+                  "document": "query AuthListViewer { viewer { name email organization { name urlKey } } }"
+                },
+                "identity": {
+                  "authorization": "lin_api_fake_lamalef",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "viewer": {
+                      "name": "L",
+                      "email": "lamalef@example.invalid",
+                      "organization": {
+                        "name": "لا",
+                        "urlKey": "lamalef"
+                      }
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "  WORKSPACE  ORG NAME USER\n  東京チーム Tokyo    T <tokyo@example.invalid>\n  éclair     É        E <eclair@example.invalid>\n* ❤️          ❤️        H <heart@example.invalid>\n  👨‍👩‍👧     👨‍👩‍👧   F <family@example.invalid>\n  لا         لا       L <lamalef@example.invalid>\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "979f04dbd2b24f5de6dd6e8ebde6a0a9f0106aa6f443f4362da3a362f63f88cd"
+  }
+}

@@ -132,9 +132,13 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
     )
   }
   // Startup, parser, and C009 local cases extend the corpus without changing
-  // the original fixtures or the eleven GraphQL cases.
-  assertEquals(loaded.filter((item) => item.spec.graphql == null).length, 189)
-  assertEquals(loaded.filter((item) => item.spec.graphql != null).length, 11)
+  // the original fixtures or the eleven GraphQL cases; C002 pins its own cases.
+  const c002 = (item: { spec: { id: string } }) =>
+    item.spec.id.startsWith("c002-")
+  const others = loaded.filter((item) => !c002(item))
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 189)
+  assertEquals(others.filter((item) => item.spec.graphql != null).length, 11)
+  assertEquals(loaded.filter(c002).length, 26)
 })
 
 Deno.test("strict GraphQL shape rejects unknown fields, count drift, and fixture mixing", () => {
