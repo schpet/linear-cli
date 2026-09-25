@@ -99,6 +99,18 @@ pub fn expect_url_kind(
     Ok(Some(parsed))
 }
 
+/// Reject any recognized Linear URL for commands that accept only plain references.
+pub fn reject_linear_url(input: &str, entity_label: &str) -> Result<(), AppError> {
+    if matches!(parse_linear_url(input), LinearUrlParse::NotLinear) {
+        return Ok(());
+    }
+    Err(AppError::new(
+        AppErrorKind::Validation,
+        format!("\"{input}\" is a Linear URL, and this command does not take one."),
+    )
+    .with_suggestion(format!("Pass {entity_label}.")))
+}
+
 /// Prepare a team URL for the later GraphQL resolver without selecting credentials.
 pub fn expect_team_url(
     input: &str,

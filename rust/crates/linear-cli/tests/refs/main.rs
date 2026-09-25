@@ -43,6 +43,7 @@ macro_rules! e0_case {
     };
 }
 
+mod shared;
 mod team;
 
 fn case(raw: &str) -> Value {

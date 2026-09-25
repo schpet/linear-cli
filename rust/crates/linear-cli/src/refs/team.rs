@@ -16,6 +16,7 @@ use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
 use crate::text::js_space;
 
+use super::uuid::is_linear_uuid;
 use super::workspace::{WorkspaceScope, expect_team_url};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -67,18 +68,6 @@ pub fn prepare_team_lookup(
         original: original.to_owned(),
         lookup,
     })
-}
-
-fn is_linear_uuid(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    bytes.len() == 36
-        && bytes.iter().enumerate().all(|(index, byte)| {
-            if matches!(index, 8 | 13 | 18 | 23) {
-                *byte == b'-'
-            } else {
-                byte.is_ascii_hexdigit()
-            }
-        })
 }
 
 /// One first-page `ResolveTeam` request. An absent result is not an error here.

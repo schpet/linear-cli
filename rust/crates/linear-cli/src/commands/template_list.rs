@@ -9,24 +9,19 @@
 use std::future::Future;
 
 use cynic::QueryBuilder;
-use serde::Serialize;
-use serde_json::value::RawValue;
 
 use crate::auth::CredentialStore;
 use crate::commands::client;
 use crate::commands::display::{display_width, pad, truncate_text};
+use crate::commands::template_json;
 use crate::config::{ConfigOptions, TransportEnvInputs};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_resolver::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables,
 };
-use crate::graphql::operations::templates::{
-    GetTemplates, InheritedTemplate, Template, TemplateCreator, TemplateTeam,
-};
-use crate::graphql::scalars::{DateTime, Json};
+use crate::graphql::operations::templates::{GetTemplates, Template};
 use crate::graphql::transport::GraphQlTransport;
-use crate::json_number::finite_js_number;
 use crate::platform::collation;
 use crate::refs::{PreparedTeamLookup, WorkspaceScope, prepare_team_lookup, resolve_team};
 
@@ -186,7 +181,7 @@ where
         team_id.as_deref(),
     )?;
     if options.json {
-        render_json(&templates)
+        template_json::render_list(&templates)
     } else {
         Ok(render_text(&templates, columns, color).into_bytes())
     }
@@ -260,59 +255,6 @@ fn type_cell(template: &Template) -> String {
     } else {
         template.template_type.clone()
     }
-}
-
-/// The source's GraphQL field names, nesting and nulls; `sortOrder` uses the
-/// JavaScript number spelling.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonTemplate<'a> {
-    id: &'a str,
-    name: &'a str,
-    description: Option<&'a str>,
-    #[serde(rename = "type")]
-    template_type: &'a str,
-    icon: Option<&'a str>,
-    color: Option<&'a str>,
-    has_form_fields: bool,
-    last_applied_at: Option<&'a DateTime>,
-    sort_order: Box<RawValue>,
-    created_at: &'a DateTime,
-    updated_at: &'a DateTime,
-    team: Option<&'a TemplateTeam>,
-    inherited_from: Option<&'a InheritedTemplate>,
-    creator: Option<&'a TemplateCreator>,
-    template_data: &'a Json,
-}
-
-fn render_json(templates: &[Template]) -> Result<Vec<u8>, AppError> {
-    let projected = templates
-        .iter()
-        .map(|template| {
-            Ok(JsonTemplate {
-                id: template.id.inner(),
-                name: &template.name,
-                description: template.description.as_deref(),
-                template_type: &template.template_type,
-                icon: template.icon.as_deref(),
-                color: template.color.as_deref(),
-                has_form_fields: template.has_form_fields,
-                last_applied_at: template.last_applied_at.as_ref(),
-                sort_order: finite_js_number(template.sort_order)?,
-                created_at: &template.created_at,
-                updated_at: &template.updated_at,
-                team: template.team.as_ref(),
-                inherited_from: template.inherited_from.as_ref(),
-                creator: template.creator.as_ref(),
-                template_data: &template.template_data,
-            })
-        })
-        .collect::<Result<Vec<_>, AppError>>()?;
-    let mut output = serde_json::to_vec_pretty(&projected).map_err(|error| {
-        AppError::new(AppErrorKind::Invariant, "could not serialize templates").with_source(error)
-    })?;
-    output.push(b'\n');
-    Ok(output)
 }
 
 /// The `ID NAME TYPE TEAM` table. NAME is truncated only when the widest name

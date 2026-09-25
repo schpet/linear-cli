@@ -1,0 +1,77 @@
+//! Shared GraphQL template JSON projection, preserving C021 field and number bytes.
+
+use serde::Serialize;
+use serde_json::value::RawValue;
+
+use crate::error::{AppError, AppErrorKind};
+use crate::graphql::operations::templates::{
+    InheritedTemplate, Template, TemplateCreator, TemplateTeam,
+};
+use crate::graphql::scalars::{DateTime, Json};
+use crate::json_number::finite_js_number;
+
+/// The source's GraphQL field names, nesting and nulls; `sortOrder` uses the
+/// JavaScript number spelling.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonTemplate<'a> {
+    id: &'a str,
+    name: &'a str,
+    description: Option<&'a str>,
+    #[serde(rename = "type")]
+    template_type: &'a str,
+    icon: Option<&'a str>,
+    color: Option<&'a str>,
+    has_form_fields: bool,
+    last_applied_at: Option<&'a DateTime>,
+    sort_order: Box<RawValue>,
+    created_at: &'a DateTime,
+    updated_at: &'a DateTime,
+    team: Option<&'a TemplateTeam>,
+    inherited_from: Option<&'a InheritedTemplate>,
+    creator: Option<&'a TemplateCreator>,
+    template_data: &'a Json,
+}
+
+/// Serialize a template list with C021's exact field order and JSON number spelling.
+pub fn render_list(templates: &[Template]) -> Result<Vec<u8>, AppError> {
+    let projected = templates
+        .iter()
+        .map(project)
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut output = serde_json::to_vec_pretty(&projected).map_err(|error| {
+        AppError::new(AppErrorKind::Invariant, "could not serialize templates").with_source(error)
+    })?;
+    output.push(b'\n');
+    Ok(output)
+}
+
+/// Serialize one template with the same field order and number spelling as the list.
+pub fn render_one(template: &Template) -> Result<Vec<u8>, AppError> {
+    let projected = project(template)?;
+    let mut output = serde_json::to_vec_pretty(&projected).map_err(|error| {
+        AppError::new(AppErrorKind::Invariant, "could not serialize template").with_source(error)
+    })?;
+    output.push(b'\n');
+    Ok(output)
+}
+
+fn project(template: &Template) -> Result<JsonTemplate<'_>, AppError> {
+    Ok(JsonTemplate {
+        id: template.id.inner(),
+        name: &template.name,
+        description: template.description.as_deref(),
+        template_type: &template.template_type,
+        icon: template.icon.as_deref(),
+        color: template.color.as_deref(),
+        has_form_fields: template.has_form_fields,
+        last_applied_at: template.last_applied_at.as_ref(),
+        sort_order: finite_js_number(template.sort_order)?,
+        created_at: &template.created_at,
+        updated_at: &template.updated_at,
+        team: template.team.as_ref(),
+        inherited_from: template.inherited_from.as_ref(),
+        creator: template.creator.as_ref(),
+        template_data: &template.template_data,
+    })
+}

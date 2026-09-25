@@ -1,10 +1,10 @@
 //! `GetTemplates`: the unpaginated workspace template list used by
-//! `template list`.
+//! `template list`. Its `Template` fragment is shared by template commands.
 //!
 //! Mirrors the `GetTemplates` document in `src/utils/templates.ts`
 //! field-for-field and in selection order. The oracle sends no variables.
 //! `sortOrder` is a `Float!`, so [`Template`] deliberately does not implement
-//! `Serialize`: the command projects it through the JS number formatter
+//! `Serialize`: the shared JSON module projects it through the JS number formatter
 //! instead of Serde's `f64` spelling.
 
 use serde::Serialize;
