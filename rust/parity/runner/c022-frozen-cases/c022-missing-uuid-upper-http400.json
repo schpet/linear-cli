@@ -1,0 +1,90 @@
+{
+  "route": "linear template view",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to view template: Template not found: AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA\n  Run `linear template list` to see every template.\n"
+    },
+    "fileEffects": []
+  },
+  "id": "c022-missing-uuid-upper-http400",
+  "reason": "Uppercase raw no-template text on HTTP 400 translates.",
+  "argv": [
+    "template",
+    "view",
+    "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"
+  ],
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "get-template",
+            "operation": {
+              "document": "query GetTemplate($id: String!) { template(id: $id) { id name description type icon color hasFormFields lastAppliedAt sortOrder createdAt updatedAt team { id key name } inheritedFrom { id name } creator { id name } templateData } }",
+              "variables": {
+                "id": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 400,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"errors\":[{\"message\":\"NO TEMPLATE FOUND WITH ID AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA\"}],\"data\":null}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
