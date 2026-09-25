@@ -1,0 +1,25 @@
+# F05-TEXT-TRUNCATE — reusable display-width truncation
+
+`commands::display::truncate_text(&str, usize) -> String` mirrors Deno's `src/utils/display.ts::truncateText` at terminal-byte level for the seven command modules that use that source helper. It returns unpadded text and lives beside the previously reviewed `display_width` and `pad`. At widths below three, it takes UTF-16 code units without dots; a split surrogate becomes U+FFFD when rendered as UTF-8. Wider truncation reserves three columns for literal `...` and walks individual Unicode code points by display width. The separate C008 `truncate_js` name-cell algorithm moves with identical behavior from `team_list` into `commands::display` so C016 can reuse it; `team_list` imports the shared function. It compares UTF-16 length against a display-column width and returns a padded-or-truncated cell. This commit changes no command output, route, dependency, GraphQL query or manifest status.
+
+The source probe ran from the frozen Deno reference checkout with the locked `@std/cli` 1.0.28 import:
+
+```sh
+deno eval --cached-only 'import { truncateText } from "./src/utils/display.ts"; const cases = [["😀abc",1],["a😀bc",2],["日本語",2],["日本語xy",5],["abcd",3],["e\u0301abcd",4],["👨‍👩‍👧x",5],["䷀䷀䷀",3],["abcd",4],["abcde",4],["a\u0009b",2],["ab\u0301cd",3]]; for (const [value,width] of cases) console.log(JSON.stringify({input:value,width,output:truncateText(value,width)}));'
+```
+
+Observed outputs include `"日本語"` at width 2 becoming `"日本"` (four display columns), `"日本語xy"` at width 5 becoming `"日..."`, `"e\u0301abcd"` at width 4 becoming `"e\u0301..."`, and a family ZWJ sequence at width 5 becoming `"👨\u200D..."`. The JSON diagnostic escaped a split high surrogate as `\ud83d`; terminal UTF-8 encodes it as `EF BF BD`. Public Rust tests pin these byte-level outcomes. The deliberate v3 Unicode table difference is `"䷀䷀䷀"` at width 3: frozen Deno returns it unchanged, while Rust `unicode-width 0.2.2` returns `"..."`. This follows the existing C002-WIDTH-TABLE compatibility decision; C021 must bind the visible command-level case when it consumes the helper.
+
+The extracted name-cell rule was separately probed against the frozen reference:
+
+```sh
+deno eval --cached-only 'import { padDisplay } from "./src/utils/display.ts"; const cases = [["A",4],["日本語",3],["e\u0301",3],["䷀",3],["日本語",2],["😀abc",4],["🇺🇸",2],["e\u0301",1],["\u0301",0],["",0],["abcdef",4],["abcdef",1]]; for (const [value,width] of cases) { const output = value.length > width ? value.slice(0,width-3)+"..." : padDisplay(value,width); console.log(JSON.stringify({input:value,width,output})); }'
+```
+
+The probe returned `"日本語"` unchanged at width 3 despite six display columns; `"e\u0301  "` at width 3; `"䷀  "` at width 3 in Deno; `"🇺\ud83c..."` at width 2; `"..."` for a combining mark at width 0 and for `"e\u0301"` at width 1; and an empty string for empty input at width 0. The Rust tests encode the split surrogate as U+FFFD and expect `"䷀ "` under the reviewed Rust width table. C016 must bind that visible width difference to C002-WIDTH-TABLE.
+
+Claude's initial plan review returned REVISE for the work-item ID, public API and exact cases; the revised F05 plan received SHIP. The plan was expanded to include the behavior-preserving C008 helper extraction for C016. Claude's expanded-plan review returned REVISE for the missing Unicode/short-width cases and name-cell source probe; these are now included. Fresh read-only whole-diff review returned SHIP on the source and requested only this gate closeout. No live Linear request applies to this foundation.
+
+On the F06-D base `ea81d6d9`, the focused public tests pass 5/5. The full locked offline Rust suite passes serially, 433/433, and all-target offline Clippy exits 0 with warnings denied in 11m51s. The first parallel Rust suite hit a transient broken pipe in the pre-existing `fixed_host::private_get_sends_exact_connect_bytes_to_the_loopback_proxy_and_leaks_nothing` test; that test passed alone and in the complete serial suite. Rust format and route generation checks pass. The Deno parity suite passed 199 cases and had two inventory-verifier setup failures because this sibling workspace lacked ignored `src/__codegen__`; after `deno task codegen`, the focused verifier passed 4/4, accounting for all 201 cases without source changes.
+
+Immutable candidate binary SHA-256 `90c140db801546c428bd191daf9cb733268c4d2331ca5266af2660f0d934c2ca` passes C002 **26/26** and C008 **25/25** confined cases, with zero failure, not-implemented case or baseline drift. Their case-scoped reviewed deviations remain 24 and 18 respectively. The JSON reports are SHA-256 `ff8a01814a3fa87c3e3f576aa50a278f49fc20f60475d033426e4e86c4702074` and `5ade51c8d54e8f12b384f3b7cb865ea331d2e5011bbe2ad1784de84d63db4b98`; staged Deno cache was unchanged at 11,009 entries. This verifies that moving `truncate_js` preserves the existing public `team list` behavior. F05 has no separate route or live QA gate. It is ready as one local commit; no push or main move is part of this item.

@@ -6,7 +6,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::commands::display::{display_width, pad};
+use crate::commands::display::{display_width, pad, truncate_js};
 use crate::config::ConfigOptions;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
@@ -162,20 +162,6 @@ pub async fn run(
 
 fn utf16_len(text: &str) -> usize {
     text.encode_utf16().count()
-}
-
-fn truncate_js(text: &str, name_width: usize) -> String {
-    if utf16_len(text) <= name_width {
-        return pad(text, name_width);
-    }
-    let code_units: Vec<_> = text.encode_utf16().collect();
-    let end = if name_width >= 3 {
-        name_width - 3
-    } else {
-        code_units.len().saturating_sub(3 - name_width)
-    };
-    let prefix: Vec<_> = code_units.into_iter().take(end).collect();
-    format!("{}...", String::from_utf16_lossy(&prefix))
 }
 
 fn time_ago(value: &str, now: SystemTime) -> String {
