@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c010-bad-option",
+  "deviationId": "C010-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear team members [team]\nVersion: 3.0.0-alpha.1             \n\nDescription:\n\n  List team members (team by key, name, or ID)\n\nOptions:\n\n  -h, --help           - Show this help.                                                         \n  --workspace  <slug>  - Target workspace (uses credentials)                                     \n  -a, --all            - Include inactive members                                                \n  -j, --json           - Output as JSON; a member's url mentions them when pasted into Markdown  \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Unknown option \"--bogus\". Did you mean option \"--help\"?\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

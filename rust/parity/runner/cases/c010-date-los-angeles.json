@@ -1,0 +1,153 @@
+{
+  "id": "c010-date-los-angeles",
+  "route": "linear team members",
+  "reason": "Absolute lastSeen renders in a second pinned timezone.",
+  "argv": [
+    "team",
+    "members",
+    "ENG",
+    "--all"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "America/Los_Angeles",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Team Members (1):\n\nMarker Display (Marker Name) [MN] (inactive) (guest) (not assignable) (admin) (owner) (you)\n  Email: ada@example.invalid\n  Role: Owner\n  Timezone: Europe/Paris\n  Status: 🔥 Focus\n  Last seen: 1/1/2026, 7:04:05 PM\n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "84d8b1d8cfef1cb171517d4284d4fcbbe742b0d18cfb708976ee29fac5168234"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "resolve-team",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) { teams(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] }) { nodes { id key name } } teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) { nodes { id key name } } }",
+              "variables": {
+                "reference": "ENG",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "team-eng-id",
+                      "key": "ENG",
+                      "name": "Engineering"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "members",
+            "operation": {
+              "document": "query GetTeamMembers($teamKey: String!, $includeDisabled: Boolean!, $first: Int, $after: String) { team(id: $teamKey) { members(includeDisabled: $includeDisabled, first: $first, after: $after) { nodes { id name displayName email active initials description timezone lastSeen statusEmoji statusLabel guest isAssignable admin owner isMe url } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "teamKey": "ENG",
+                "includeDisabled": true,
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "team": {
+                  "members": {
+                    "nodes": [
+                      {
+                        "id": "marks",
+                        "name": "Marker Name",
+                        "displayName": "Marker Display",
+                        "email": "ada@example.invalid",
+                        "active": false,
+                        "initials": "MN",
+                        "description": "Owner",
+                        "timezone": "Europe/Paris",
+                        "lastSeen": "2026-01-02T03:04:05Z",
+                        "statusEmoji": "🔥",
+                        "statusLabel": "Focus",
+                        "guest": true,
+                        "isAssignable": false,
+                        "admin": true,
+                        "owner": true,
+                        "isMe": true,
+                        "url": "https://linear.app/acme/profiles/marks"
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -12,6 +12,7 @@ pub mod issue_labels;
 pub mod issue_update;
 pub mod organization_members;
 pub mod projects;
+pub mod team_members;
 pub mod team_resolver;
 pub mod teams;
 pub mod templates;

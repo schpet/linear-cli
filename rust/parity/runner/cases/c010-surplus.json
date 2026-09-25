@@ -1,0 +1,49 @@
+{
+  "id": "c010-surplus",
+  "route": "linear team members",
+  "reason": "Surplus positional parser failure.",
+  "argv": [
+    "team",
+    "members",
+    "ENG",
+    "EXTRA"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear team members [team]\nVersion: 2.6.0                     \n\nDescription:\n\n  List team members (team by key, name, or ID)\n\nOptions:\n\n  -h, --help           - Show this help.                                                         \n  --workspace  <slug>  - Target workspace (uses credentials)                                     \n  -a, --all            - Include inactive members                                                \n  -j, --json           - Output as JSON; a member's url mentions them when pasted into Markdown  \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Too many arguments: EXTRA\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C010-CLI-VERSION", "contract": "rust-3.0.0-alpha.1", "sha256": "0dea8892d75e67a63627da2fb8042eddac44f3dade0b7ecc50608943baead4b9"}
+}

@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c010-extra-field",
+  "deviationId": "C010-TYPED-JSON-FIELDS",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"extra\",\n      \"name\": \"Ada Lovelace\",\n      \"displayName\": \"Ada\",\n      \"email\": \"ada@example.invalid\",\n      \"active\": true,\n      \"initials\": \"AL\",\n      \"description\": null,\n      \"timezone\": null,\n      \"lastSeen\": null,\n      \"statusEmoji\": null,\n      \"statusLabel\": null,\n      \"guest\": false,\n      \"isAssignable\": true,\n      \"admin\": false,\n      \"owner\": false,\n      \"isMe\": false,\n      \"url\": \"https://linear.app/acme/profiles/extra\"\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

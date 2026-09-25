@@ -1,0 +1,52 @@
+{
+  "id": "f06e0-dot-percent",
+  "route": "linear team members",
+  "reason": "Freeze dot percent reference or workspace branch through public team members.",
+  "argv": [
+    "--workspace",
+    "acme",
+    "team",
+    "members",
+    "https://linear.app/acme/team/ENG/%2E%2e",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch team members: \"https://linear.app/acme/team/ENG/%2E%2e\" is a Linear URL, but it does not name a team.\n  Pass a team URL, key, name, or ID.\n"
+    },
+    "fileEffects": []
+  }
+}

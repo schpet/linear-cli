@@ -8,6 +8,7 @@ mod project_list;
 mod prosemirror;
 mod relative_time;
 mod team_list;
+mod team_members;
 mod team_states;
 mod template_data;
 mod template_json;

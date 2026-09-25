@@ -52,8 +52,8 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  // C023 adds 53 project-list cases; its own guard pins their frozen bytes.
-  assertEquals(cases.length, 676)
+  // C023 adds 53 cases to 623; C010/F06 add another 94.
+  assertEquals(cases.length, 770)
   const c011Graphql = new Map<string, { id: string; surfaces: string[] }>([
     ["c011-infinite-position", {
       id: "C011-STRICT-STATE-DECODE",
@@ -199,6 +199,36 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     ["c022-workspace-missing-value", ["C022-CLI-VERSION", ["stdout"]]],
   ])
   assertEquals(c022Specific.size, 23)
+  const c010Specific = new Map<string, [string, string[]]>([
+    ["c010-alias-help", ["C010-CLI-VERSION", ["stdout"]]],
+    ["c010-bad-option", ["C010-CLI-VERSION", ["stdout"]]],
+    ["c010-cycle-constructor-foreign", ["C010-URL-ORDER", ["stderr"]]],
+    ["c010-extra-field", ["C010-TYPED-JSON-FIELDS", [
+      "stdout",
+      "graphql-user-agent",
+    ]]],
+    ["c010-help", ["C010-CLI-VERSION", ["stdout"]]],
+    ["c010-http-error", ["C010-TRANSPORT-DIAGNOSTIC", [
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c010-null-display", ["C010-STRICT-MEMBER-DECODE", [
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c010-null-team", ["C010-STRICT-MEMBER-DECODE", [
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c010-surplus", ["C010-CLI-VERSION", ["stdout"]]],
+    ["c010-wrong-type", ["C010-STRICT-MEMBER-DECODE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+  ])
+  assertEquals(c010Specific.size, 10)
   const c019Graphql = new Map<string, { id: string; surfaces: string[] }>([
     ["c019-transport-error", {
       id: "C019-TRANSPORT-DIAGNOSTIC",
@@ -251,6 +281,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       assertEquals(
         loaded.spec.deviation?.id,
         c011Graphql.get(loaded.spec.id)?.id ??
+          c010Specific.get(loaded.spec.id)?.[0] ??
           c019Graphql.get(loaded.spec.id)?.id ??
           c021Graphql.get(loaded.spec.id)?.id ??
           c022Specific.get(loaded.spec.id)?.[0] ??
@@ -267,6 +298,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
         c011Graphql.get(loaded.spec.id)?.surfaces ??
+          c010Specific.get(loaded.spec.id)?.[1] ??
           c019Graphql.get(loaded.spec.id)?.surfaces ??
           c021Graphql.get(loaded.spec.id)?.surfaces ??
           c022Specific.get(loaded.spec.id)?.[1] ??
@@ -358,6 +390,23 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
         loaded.spec.deviation == null ||
           loaded.spec.deviation.id === "R02B3-STARTUP-VALIDATION",
       )
+    } else if (
+      loaded.spec.id.startsWith("c010-") ||
+      loaded.spec.id.startsWith("f06e0-")
+    ) {
+      const expected = c010Specific.get(loaded.spec.id)
+      assertEquals(
+        loaded.spec.deviation?.id ?? null,
+        expected?.[0] ??
+          (loaded.spec.graphql == null ? null : "R01H-GRAPHQL-UA"),
+        loaded.spec.id,
+      )
+      assertEquals(
+        loaded.golden?.spec.approvedSurfaces ?? null,
+        expected?.[1] ??
+          (loaded.spec.graphql == null ? null : ["graphql-user-agent"]),
+        loaded.spec.id,
+      )
     } else if (loaded.spec.id.startsWith("c008-")) {
       assert(
         loaded.spec.deviation == null ||
@@ -443,6 +492,17 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     ) {
       assertEquals(loaded.spec.deviation, null)
     }
+    if (loaded.spec.deviation?.id === "C010-CLI-VERSION") {
+      const frozen = loaded.spec.expected.stdout
+      assert("utf8" in frozen)
+      const expected = loaded.golden?.spec.candidate.expected
+      assert(expected != null)
+      assertEquals(
+        expected.stdout,
+        { utf8: expectedVersionStdout(frozen.utf8).text },
+        loaded.spec.id,
+      )
+    }
     // R01V's exact pinned set stays closed; later work items bind their own
     // case-specific v3 deviations without rewriting this evidence.
     if (loaded.spec.deviation?.id !== "R01V-CLI-VERSION") continue
@@ -478,7 +538,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     3,
     3,
     43,
-    315,
+    385,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)

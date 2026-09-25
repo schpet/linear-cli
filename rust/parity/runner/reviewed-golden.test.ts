@@ -823,8 +823,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  // C023 adds 39 GraphQL cases, with its own exact case and golden guard.
-  assertEquals(graphql.length, 315)
+  // C023 adds 39 GraphQL cases; C010/F06 add another 70.
+  assertEquals(graphql.length, 385)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -940,6 +940,31 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     ]]],
   ])
   assertEquals(c022Graphql.size, 13)
+  const c010Graphql = new Map<string, [string, string[]]>([
+    ["c010-extra-field", ["C010-TYPED-JSON-FIELDS", [
+      "stdout",
+      "graphql-user-agent",
+    ]]],
+    ["c010-http-error", ["C010-TRANSPORT-DIAGNOSTIC", [
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c010-null-display", ["C010-STRICT-MEMBER-DECODE", [
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c010-null-team", ["C010-STRICT-MEMBER-DECODE", [
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c010-wrong-type", ["C010-STRICT-MEMBER-DECODE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+  ])
+  assertEquals(c010Graphql.size, 5)
   const c016Surfaces = new Map<string, string[]>([
     ["c016-combined-workspace-only", [
       "argv",
@@ -1013,10 +1038,21 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
         loaded.spec.id,
       )
     }
+    if (loaded.spec.id.startsWith("c010-")) {
+      assertEquals(
+        loaded.spec.deviation?.id,
+        c010Graphql.get(loaded.spec.id)?.[0] ?? "R01H-GRAPHQL-UA",
+        loaded.spec.id,
+      )
+    }
+    if (loaded.spec.id.startsWith("f06e0-")) {
+      assertEquals(loaded.spec.deviation?.id, "R01H-GRAPHQL-UA", loaded.spec.id)
+    }
     if (!loaded.spec.id.startsWith("c023")) {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
         c011Surfaces.get(loaded.spec.id) ??
+          c010Graphql.get(loaded.spec.id)?.[1] ??
           c021Surfaces.get(loaded.spec.id) ??
           c022Graphql.get(loaded.spec.id)?.[1] ??
           c016Surfaces.get(loaded.spec.id) ??

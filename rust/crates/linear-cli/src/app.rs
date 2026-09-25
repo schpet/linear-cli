@@ -13,7 +13,7 @@ use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, label_list, project_list, table, team_id,
-    team_list, team_states, template_list, template_view, user_list,
+    team_list, team_members, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -1144,6 +1144,124 @@ fn dispatch(
             context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }
+        DispatchAction::TeamMembers => {
+            let flags = team_members::Options {
+                all: action_switch(&action, "all")?,
+                json: action_switch(&action, "json")?,
+            };
+            let explicit = action.positionals.first().filter(|value| !value.is_empty());
+            let workspace = action
+                .global_workspace
+                .as_ref()
+                .map(|value| value.value.as_str());
+            let show_spinner = spinner::enabled(
+                flags.json,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
+            let mut spinner_started = false;
+            let fallback_key = if explicit.is_none() {
+                Some(
+                    crate::commands::team_key::configured_team_key(&context.config()?.options)
+                        .ok_or_else(|| missing_team_key().with_context(team_members::CONTEXT))?,
+                )
+            } else {
+                None
+            };
+            if show_spinner && fallback_key.is_some() {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+                spinner_started = true;
+            }
+
+            // A missing local key fails before credential selection. Explicit
+            // references are locally prepared before transport, and resolved
+            // before the member-query spinner begins.
+            let selected = (|| {
+                let config = context.config()?;
+                if let Some(reference) = explicit {
+                    let credentials = context.credentials()?;
+                    let inputs = client::selection_inputs(&config.options, workspace)?;
+                    let scope = WorkspaceScope::from_selection(&inputs, credentials);
+                    let prepared = prepare_team_lookup(reference, &scope)?;
+                    let transport = client::prepare_transport_with_inputs(
+                        &config.options,
+                        credentials,
+                        &inputs,
+                        &config.transport_env,
+                    )?;
+                    let team = block_on_network(async {
+                        resolve_team_with_transport(&prepared, &transport).await
+                    })?;
+                    if team.key.is_empty() {
+                        return Err(missing_team_key());
+                    }
+                    Ok((team.key, transport))
+                } else {
+                    let key = fallback_key.ok_or_else(|| {
+                        AppError::new(AppErrorKind::Invariant, "configured team key was lost")
+                    })?;
+                    Ok((
+                        key,
+                        client::prepare_transport(
+                            &config.options,
+                            context.credentials()?,
+                            workspace,
+                            &config.transport_env,
+                        )?,
+                    ))
+                }
+            })();
+            let selected = selected.map_err(|error: AppError| {
+                if error.context.is_none() {
+                    error.with_context(team_members::CONTEXT)
+                } else {
+                    error
+                }
+            });
+            if selected.is_err() && spinner_started {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            let (team_key, transport) = selected?;
+            if show_spinner && !spinner_started {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+                spinner_started = true;
+            }
+            let output_result = if spinner_started {
+                block_on_network(async {
+                    let pending = team_members::run(&transport, &team_key, flags);
+                    tokio::pin!(pending);
+                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+                    ticks.tick().await;
+                    let mut frame = 1;
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut pending => break result,
+                            _ = ticks.tick() => {
+                                context.write_stdout_with_policy(
+                                    spinner::frame(frame).as_bytes(),
+                                    OutputPolicy::ConsoleLike,
+                                )?;
+                                frame = frame.wrapping_add(1);
+                            }
+                        }
+                    }
+                })
+            } else {
+                block_on_network(team_members::run(&transport, &team_key, flags))
+            };
+            if spinner_started {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            context.write_stdout_with_policy(&output_result?, OutputPolicy::ConsoleLike)?;
+            Ok(ExitStatus::Success)
+        }
         DispatchAction::Document => {
             write_stdout(context, b"Use --help to see available subcommands\n")?;
             Ok(ExitStatus::Success)
@@ -1199,6 +1317,14 @@ fn dispatch(
             ),
         )),
     }
+}
+
+fn missing_team_key() -> AppError {
+    AppError::new(
+        AppErrorKind::Validation,
+        "Could not determine team key from directory name",
+    )
+    .with_suggestion("Please specify a team key, name, or ID as an argument.")
 }
 
 fn action_switch(action: &ParsedAction, name: &str) -> Result<bool, AppError> {

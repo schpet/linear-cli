@@ -1,0 +1,206 @@
+{
+  "id": "c010-two-pages-json",
+  "route": "linear team members",
+  "reason": "Page cursor, final pageInfo and global sort.",
+  "argv": [
+    "team",
+    "members",
+    "ENG",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"a\",\n      \"name\": \"Ada Lovelace\",\n      \"displayName\": \"Ada\",\n      \"email\": \"ada@example.invalid\",\n      \"active\": true,\n      \"initials\": \"AL\",\n      \"description\": null,\n      \"timezone\": null,\n      \"lastSeen\": null,\n      \"statusEmoji\": null,\n      \"statusLabel\": null,\n      \"guest\": false,\n      \"isAssignable\": true,\n      \"admin\": false,\n      \"owner\": false,\n      \"isMe\": false,\n      \"url\": \"https://linear.app/acme/profiles/a\"\n    },\n    {\n      \"id\": \"z\",\n      \"name\": \"Ada Lovelace\",\n      \"displayName\": \"Zulu\",\n      \"email\": \"ada@example.invalid\",\n      \"active\": true,\n      \"initials\": \"AL\",\n      \"description\": null,\n      \"timezone\": null,\n      \"lastSeen\": null,\n      \"statusEmoji\": null,\n      \"statusLabel\": null,\n      \"guest\": false,\n      \"isAssignable\": true,\n      \"admin\": false,\n      \"owner\": false,\n      \"isMe\": false,\n      \"url\": \"https://linear.app/acme/profiles/z\"\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": \"done\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "2b334795e1b15cdab0553a1a7108489b57e34485fc48e771185e950d4841952b"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "resolve-team",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) { teams(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] }) { nodes { id key name } } teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) { nodes { id key name } } }",
+              "variables": {
+                "reference": "ENG",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "team-eng-id",
+                      "key": "ENG",
+                      "name": "Engineering"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "first",
+            "operation": {
+              "document": "query GetTeamMembers($teamKey: String!, $includeDisabled: Boolean!, $first: Int, $after: String) { team(id: $teamKey) { members(includeDisabled: $includeDisabled, first: $first, after: $after) { nodes { id name displayName email active initials description timezone lastSeen statusEmoji statusLabel guest isAssignable admin owner isMe url } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "teamKey": "ENG",
+                "includeDisabled": false,
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "team": {
+                  "members": {
+                    "nodes": [
+                      {
+                        "id": "z",
+                        "name": "Ada Lovelace",
+                        "displayName": "Zulu",
+                        "email": "ada@example.invalid",
+                        "active": true,
+                        "initials": "AL",
+                        "description": null,
+                        "timezone": null,
+                        "lastSeen": null,
+                        "statusEmoji": null,
+                        "statusLabel": null,
+                        "guest": false,
+                        "isAssignable": true,
+                        "admin": false,
+                        "owner": false,
+                        "isMe": false,
+                        "url": "https://linear.app/acme/profiles/z"
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "cursor-1"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "second",
+            "operation": {
+              "document": "query GetTeamMembers($teamKey: String!, $includeDisabled: Boolean!, $first: Int, $after: String) { team(id: $teamKey) { members(includeDisabled: $includeDisabled, first: $first, after: $after) { nodes { id name displayName email active initials description timezone lastSeen statusEmoji statusLabel guest isAssignable admin owner isMe url } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "teamKey": "ENG",
+                "includeDisabled": false,
+                "first": 100,
+                "after": "cursor-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "team": {
+                  "members": {
+                    "nodes": [
+                      {
+                        "id": "a",
+                        "name": "Ada Lovelace",
+                        "displayName": "Ada",
+                        "email": "ada@example.invalid",
+                        "active": true,
+                        "initials": "AL",
+                        "description": null,
+                        "timezone": null,
+                        "lastSeen": null,
+                        "statusEmoji": null,
+                        "statusLabel": null,
+                        "guest": false,
+                        "isAssignable": true,
+                        "admin": false,
+                        "owner": false,
+                        "isMe": false,
+                        "url": "https://linear.app/acme/profiles/a"
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": "done"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -12,6 +12,7 @@ pub mod table;
 pub mod team_id;
 pub(crate) mod team_key;
 pub mod team_list;
+pub mod team_members;
 pub mod team_states;
 pub mod template_data;
 pub mod template_json;

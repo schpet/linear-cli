@@ -1,0 +1,52 @@
+{
+  "id": "c010-cycle-constructor-foreign",
+  "route": "linear team members",
+  "reason": "Bind the inherited JavaScript constructor cycle alias and workspace-check ordering.",
+  "argv": [
+    "--workspace",
+    "acme",
+    "team",
+    "members",
+    "https://linear.app/foreign/team/ENG/cycle/constructor",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": {"id": "C010-URL-ORDER", "contract": "rust-3.0.0-alpha.1", "sha256": "6e58bf4f1ddee1226fd5432d3499c2d6ca89aec94b660803a5fe7aab1e5f8563"},
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch team members: That URL is for the \"foreign\" workspace, but this is the \"acme\" workspace.\n  LINEAR_API_KEY is set, and the CLI won't combine it with --workspace. Unset it and pass --workspace foreign, or use a URL from \"acme\".\n"
+    },
+    "fileEffects": []
+  }
+}

@@ -421,3 +421,43 @@ PTYs with absent, empty and present `NO_COLOR`. The 40-column table matched
 exactly; wider tables differed only by the same U+4DC0 name-width cell bound
 above. The Linux `xdg-open` probe matched the frozen binary's exact URL argv,
 stdout, stderr and status for web, app, combined flags and opener exit 7.
+
+## C010 `team members` typed member data
+
+`team members [team]` and `t members [team]` use the shared typed team
+resolver for a nonempty explicit reference and the configured key for an
+omitted or literal empty positional. The Cynic member query sends
+`includeDisabled` explicitly, requests 100 at a time, and concatenates pages
+while preserving the final `pageInfo`. Rust keeps the source's active filter,
+stable root-collation sort and independent text markers. It sends one request
+with an empty `after` cursor before detecting no progress, matching the frozen
+C010 case. A later A→B→A cursor cycle is stopped as a Rust invariant.
+
+The 46 pinned C010 cases comprise 37 GraphQL and nine local/parser cases; all
+48 separately frozen F06 resolver cases pass on the same public command route.
+Thirty-two C010 and 33 F06 GraphQL cases bind only the breaking-major
+User-Agent. Ten C010 cases have additional reviewed output differences:
+
+- `C010-CLI-VERSION` binds four help/parser cases whose padded `Version:` line
+  changes from `2.6.0` to `3.0.0-alpha.1`; exits and errors remain the same.
+- `C010-TYPED-JSON-FIELDS` binds one valid JSON response where Cynic omits an
+  unselected extra field that Deno forwards.
+- `C010-STRICT-MEMBER-DECODE` binds three malformed responses. Rust rejects a
+  null team, null required `displayName`, or string-valued `active` at the
+  typed boundary. Deno reports later property-access errors for the nulls and
+  forwards the wrong Boolean type as successful JSON. Rust emits no partial
+  JSON for the wrong type.
+- `C010-TRANSPORT-DIAGNOSTIC` binds one HTTP 503 response. Rust emits a concise
+  contextual status line where Deno serializes the GraphQL request/response.
+- `C010-URL-ORDER` binds the additional constructor URL case. Deno's inherited
+  JavaScript `constructor` alias reaches the foreign-workspace check first;
+  Rust's typed URL classifier rejects the unsupported cycle segment first.
+
+These approvals do not change frozen requests, fixtures, file effects or exit
+codes except for the single strict wrong-type case. Text `lastSeen` uses
+Chrono's RFC3339 parser with the process time zone and a fixed US-English
+format; JSON preserves the raw scalar. A public Rust test binds date-only
+input as `Invalid Date` in text and unchanged raw JSON, whereas JavaScript
+also accepts date-only values and some timestamps without an offset. The
+same date-parser boundary is described above for C015. No frozen C010 case
+covers these inputs, so wider date-parser parity is not claimed.
