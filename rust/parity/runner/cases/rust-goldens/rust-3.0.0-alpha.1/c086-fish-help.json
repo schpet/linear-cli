@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c086-fish-help",
+  "deviationId": "C086-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear completions fish\nVersion: 3.0.0-alpha.1          \n\nDescription:\n\n  Generate shell completions for fish.                                                              \n                                                                                                    \n  To enable fish completions for this program add following line to your ~/.config/fish/config.fish:\n                                                                                                    \n      source (linear completions fish | psub)                                                       \n\nOptions:\n\n  -h, --help                  - Show this help.                \n  -n, --name  <command-name>  - The name of the main command.  \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

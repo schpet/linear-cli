@@ -1,12 +1,18 @@
 pub mod clap_input;
 pub mod clap_tree;
+pub mod fish_completion;
 mod generated;
 pub mod parser;
 pub mod render;
 pub mod spelling;
-mod suggest;
+pub(crate) mod suggest;
 
 pub use generated::{ROUTES, Route};
+
+/// Cliffy's built-in `-h, --help` description, shared by help and completions.
+pub const HELP_FLAG_DESCRIPTION: &str = "Show this help.";
+/// Cliffy's built-in root `-V, --version` description.
+pub const VERSION_FLAG_DESCRIPTION: &str = "Show the version number for this program.";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DispatchAction {
@@ -18,6 +24,11 @@ pub enum DispatchAction {
     ParentPending,
     Markdown,
     TeamId,
+    Completions,
+    CompletionsBash,
+    CompletionsFish,
+    CompletionsZsh,
+    CompletionsComplete,
     Unimplemented,
 }
 

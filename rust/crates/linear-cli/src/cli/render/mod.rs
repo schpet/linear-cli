@@ -189,7 +189,7 @@ pub fn help(route: &RouteMeta, colors: bool, long: bool) -> Result<String, AppEr
         ),
         String::new(),
         style::red(&style::bold("-", colors), colors),
-        "Show this help.".to_owned(),
+        super::HELP_FLAG_DESCRIPTION.to_owned(),
         String::new(),
     ]);
     if route.path == "linear" {
@@ -201,7 +201,7 @@ pub fn help(route: &RouteMeta, colors: bool, long: bool) -> Result<String, AppEr
             ),
             String::new(),
             style::red(&style::bold("-", colors), colors),
-            "Show the version number for this program.".to_owned(),
+            super::VERSION_FLAG_DESCRIPTION.to_owned(),
             String::new(),
         ]);
     }

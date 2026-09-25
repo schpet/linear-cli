@@ -135,7 +135,7 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   const c002 = (item: { spec: { id: string } }) =>
     item.spec.id.startsWith("c002-")
   const others = loaded.filter((item) => !c002(item))
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 196)
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 246)
   assertEquals(others.filter((item) => item.spec.graphql != null).length, 29)
   assertEquals(loaded.filter(c002).length, 26)
 })

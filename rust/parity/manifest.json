@@ -14560,9 +14560,9 @@
       "source": "src/cli.ts",
       "workItem": "C086",
       "sourceKind": "cliffy_registration",
-      "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "fixtureStatus": "captured",
+      "qaStatus": "passed",
+      "liveStatus": "not_applicable"
     },
     {
       "path": "linear completions bash",
@@ -14616,9 +14616,9 @@
       "source": "src/cli.ts",
       "workItem": "C086",
       "sourceKind": "cliffy_generated",
-      "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "fixtureStatus": "captured",
+      "qaStatus": "passed",
+      "liveStatus": "not_applicable"
     },
     {
       "path": "linear completions fish",
@@ -14672,9 +14672,9 @@
       "source": "src/cli.ts",
       "workItem": "C086",
       "sourceKind": "cliffy_generated",
-      "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "fixtureStatus": "captured",
+      "qaStatus": "passed",
+      "liveStatus": "not_applicable"
     },
     {
       "path": "linear completions zsh",
@@ -14727,9 +14727,9 @@
       "source": "src/cli.ts",
       "workItem": "C086",
       "sourceKind": "cliffy_generated",
-      "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "fixtureStatus": "captured",
+      "qaStatus": "passed",
+      "liveStatus": "not_applicable"
     },
     {
       "path": "linear completions complete",
@@ -14771,9 +14771,9 @@
       "source": "src/cli.ts",
       "workItem": "C086",
       "sourceKind": "cliffy_generated",
-      "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "fixtureStatus": "captured",
+      "qaStatus": "passed",
+      "liveStatus": "not_applicable"
     },
     {
       "path": "linear config",

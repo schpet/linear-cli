@@ -1,0 +1,48 @@
+{
+  "id": "c086-fish-help",
+  "route": "linear completions fish",
+  "reason": "Fish child short help documents -n/--name and psub installation.",
+  "argv": [
+    "completions",
+    "fish",
+    "-h"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear completions fish\nVersion: 2.6.0                  \n\nDescription:\n\n  Generate shell completions for fish.                                                              \n                                                                                                    \n  To enable fish completions for this program add following line to your ~/.config/fish/config.fish:\n                                                                                                    \n      source (linear completions fish | psub)                                                       \n\nOptions:\n\n  -h, --help                  - Show this help.                \n  -n, --name  <command-name>  - The name of the main command.  \n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

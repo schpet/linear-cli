@@ -1,9 +1,26 @@
-//! Shadow clap command tree. The live parser remains in `parser` until R01C.
+//! Clap command tree built from the frozen generated inventory.
 
 use clap::{Arg, ArgAction, ArgMatches, Command, builder::PossibleValuesParser};
 
-use super::{ArgumentMeta, OptionMeta, ROUTES, Route, RouteMeta, TypeHandler};
+use super::{
+    ArgumentMeta, HELP_FLAG_DESCRIPTION, OptionMeta, ROUTES, Route, RouteMeta, TypeHandler,
+    VERSION_FLAG_DESCRIPTION,
+};
 use crate::error::{AppError, AppErrorKind};
+
+/// Which consumer a tree is built for. Both surfaces come from one builder and
+/// the same generated inventory.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Surface {
+    /// The production parser: hidden routes, hidden options and internal
+    /// positionals are registered so every accepted spelling parses.
+    Parse,
+    /// Static completion scripts: `clap_complete` offers every registered
+    /// argument and subcommand regardless of `hide`, and zsh embeds positional
+    /// ids in `_arguments` specs, so hidden and internal entries are omitted
+    /// and positional ids are the plain argument names.
+    Completion,
+}
 
 fn invariant(message: impl Into<String>) -> AppError {
     AppError::new(AppErrorKind::Invariant, message)
@@ -35,6 +52,7 @@ fn workspace_arg(option: &'static OptionMeta) -> Result<Arg, AppError> {
         .name;
     Ok(Arg::new("global:workspace")
         .long("workspace")
+        .help(option.description)
         .value_name(value_name)
         .value_parser(parse_nonempty_string)
         .action(ArgAction::Set))
@@ -82,8 +100,12 @@ fn register_workspace(command: Command, route: &'static RouteMeta) -> Result<Com
     }
 }
 
-fn positional_arg(argument: &'static ArgumentMeta, index: usize) -> Arg {
-    let mut arg = Arg::new(format!("pos:{}", argument.name))
+fn positional_arg(argument: &'static ArgumentMeta, index: usize, surface: Surface) -> Arg {
+    let id = match surface {
+        Surface::Parse => format!("pos:{}", argument.name),
+        Surface::Completion => argument.name.to_owned(),
+    };
+    let mut arg = Arg::new(id)
         .index(index)
         .value_name(argument.name)
         .required(false)
@@ -103,17 +125,20 @@ fn switch_arg(route: &'static RouteMeta, option: &'static OptionMeta) -> Result<
     }
     let mut arg = Arg::new(format!("opt:{}", option.name))
         .action(ArgAction::SetTrue)
+        .help(option.description)
         .hide(option.hidden)
         .required(false);
     let mut primary_long = false;
     let mut primary_short = false;
+    // Secondary spellings such as `--ref` are listed Cliffy flags, so they are
+    // visible aliases that completion scripts offer too.
     for flag in super::spelling::effective_flags(route, option) {
         if let Some(long) = flag.strip_prefix("--") {
             if long.is_empty() {
                 return Err(invariant(format!("empty long switch on {}", route.path)));
             }
             arg = if primary_long {
-                arg.alias(long)
+                arg.visible_alias(long)
             } else {
                 primary_long = true;
                 arg.long(long)
@@ -125,7 +150,7 @@ fn switch_arg(route: &'static RouteMeta, option: &'static OptionMeta) -> Result<
                 _ => return Err(invariant(format!("invalid short switch on {}", route.path))),
             };
             arg = if primary_short {
-                arg.short_alias(letter)
+                arg.visible_short_alias(letter)
             } else {
                 primary_short = true;
                 arg.short(letter)
@@ -158,6 +183,7 @@ fn label_workspace_filter_arg(
     }
     Ok(Arg::new("opt:workspace")
         .long("workspace-only")
+        .help(option.description)
         .action(ArgAction::SetTrue))
 }
 
@@ -230,6 +256,7 @@ fn valued_option_base(
     let mut arg = Arg::new(format!("opt:{}", option.name))
         .value_name(argument.name)
         .action(action)
+        .help(option.description)
         .hide(option.hidden)
         .required(false);
     let mut primary_long = false;
@@ -243,7 +270,7 @@ fn valued_option_base(
                 )));
             }
             arg = if primary_long {
-                arg.alias(long)
+                arg.visible_alias(long)
             } else {
                 primary_long = true;
                 arg.long(long)
@@ -260,7 +287,7 @@ fn valued_option_base(
                 }
             };
             arg = if primary_short {
-                arg.short_alias(letter)
+                arg.visible_short_alias(letter)
             } else {
                 primary_short = true;
                 arg.short(letter)
@@ -437,22 +464,43 @@ fn bulk_option_arg(
         .value_parser(parse_nonempty_string))
 }
 
-fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
+/// The first description line, which Cliffy lists beside a command name.
+fn summary(description: &'static str) -> &'static str {
+    description.split('\n').next().unwrap_or(description)
+}
+
+fn build_route(route: &'static RouteMeta, surface: Surface) -> Result<Command, AppError> {
+    let about = match surface {
+        Surface::Parse => route.description,
+        Surface::Completion => summary(route.description),
+    };
     let mut command = Command::new(route.name)
-        .about(route.description)
+        .about(about)
         .hide(route.hidden)
-        .arg(Arg::new("help:short").short('h').action(ArgAction::Count))
-        .arg(Arg::new("help:long").long("help").action(ArgAction::Count));
+        .arg(
+            Arg::new("help:short")
+                .short('h')
+                .help(HELP_FLAG_DESCRIPTION)
+                .action(ArgAction::Count),
+        )
+        .arg(
+            Arg::new("help:long")
+                .long("help")
+                .help(HELP_FLAG_DESCRIPTION)
+                .action(ArgAction::Count),
+        );
     if route.path == "linear" {
         command = command
             .arg(
                 Arg::new("version:short")
                     .short('V')
+                    .help(VERSION_FLAG_DESCRIPTION)
                     .action(ArgAction::Count),
             )
             .arg(
                 Arg::new("version:long")
                     .long("version")
+                    .help(VERSION_FLAG_DESCRIPTION)
                     .action(ArgAction::Count),
             );
     }
@@ -469,10 +517,10 @@ fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
         label_workspace_filter_arg(route, filter)?;
     }
     for (offset, argument) in route.arguments.iter().enumerate() {
-        command = command.arg(positional_arg(argument, offset + 1));
+        command = command.arg(positional_arg(argument, offset + 1, surface));
     }
     let next_index = route.arguments.len() + 1;
-    if !route.arguments.iter().any(|argument| argument.variadic) {
+    if surface == Surface::Parse && !route.arguments.iter().any(|argument| argument.variadic) {
         command = command.arg(
             Arg::new("internal:surplus")
                 .index(next_index)
@@ -481,17 +529,23 @@ fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
                 .hide(true),
         );
     }
-    command = command.arg(
-        Arg::new("internal:literal")
-            .index(
-                next_index + usize::from(!route.arguments.iter().any(|argument| argument.variadic)),
-            )
-            .num_args(0..)
-            .action(ArgAction::Append)
-            .last(true)
-            .hide(true),
-    );
+    if surface == Surface::Parse {
+        command = command.arg(
+            Arg::new("internal:literal")
+                .index(
+                    next_index
+                        + usize::from(!route.arguments.iter().any(|argument| argument.variadic)),
+                )
+                .num_args(0..)
+                .action(ArgAction::Append)
+                .last(true)
+                .hide(true),
+        );
+    }
     for option in route.local_options {
+        if surface == Surface::Completion && option.hidden {
+            continue;
+        }
         if option.args.is_empty() {
             let arg = if route.path == "linear label list" && option.name == "workspace" {
                 label_workspace_filter_arg(route, option)?
@@ -509,25 +563,39 @@ fn build_route(route: &'static RouteMeta) -> Result<Command, AppError> {
             command = command.arg(valued_option_arg(route, option)?);
         }
     }
+    // Visible aliases let static completion scripts navigate and offer them;
+    // the custom help renderer and diagnostics read the inventory instead.
     for alias in route.aliases {
-        command = command.alias(alias);
+        command = command.visible_alias(alias);
     }
     for child_name in route.children {
         let child_path = format!("{} {child_name}", route.path);
         let child = unique_route(&child_path)?;
-        command = command.subcommand(build_route(child)?);
+        if surface == Surface::Completion && child.hidden {
+            continue;
+        }
+        command = command.subcommand(build_route(child, surface)?);
     }
     Ok(command)
 }
 
-/// Build the shadow clap tree from the frozen generated inventory.
-/// Production still uses `parser` until R01C.
-pub fn build() -> Result<Command, AppError> {
+fn build_surface(surface: Surface) -> Result<Command, AppError> {
     let root = unique_route("linear")?;
-    Ok(build_route(root)?
+    Ok(build_route(root, surface)?
         .disable_help_subcommand(true)
         .disable_help_flag(true)
         .disable_version_flag(true))
+}
+
+/// Build the production parser tree from the frozen generated inventory.
+pub fn build() -> Result<Command, AppError> {
+    build_surface(Surface::Parse)
+}
+
+/// Build the static completion view of the same inventory: hidden routes,
+/// hidden options and internal positionals are omitted.
+pub fn build_completion() -> Result<Command, AppError> {
+    build_surface(Surface::Completion)
 }
 
 /// Resolve a clap match chain to the canonical generated route identity.

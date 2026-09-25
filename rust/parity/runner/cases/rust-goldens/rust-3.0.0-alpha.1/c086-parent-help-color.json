@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c086-parent-help-color",
+  "deviationId": "C086-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear completions\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m     \n\n\u001b[1mDescription:\u001b[22m\n\n  Generate shell completions.                                                                      \n                                                                                                   \n  To enable shell completions for this program add the following line to your \u001b[2m\u001b[3m~/.bashrc\u001b[23m\u001b[22m or similar:\n                                                                                                   \n      \u001b[2m\u001b[3msource <(linear completions [shell])\u001b[23m\u001b[22m                                                         \n                                                                                                   \n      For more information run \u001b[2m\u001b[3mlinear completions [shell] --help\u001b[23m\u001b[22m                                   \n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.  \n\n\u001b[1mCommands:\u001b[22m\n\n  \u001b[94mbash\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Generate shell completions for bash.\n  \u001b[94mfish\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Generate shell completions for fish.\n  \u001b[94mzsh\u001b[39m   \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Generate shell completions for zsh. \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

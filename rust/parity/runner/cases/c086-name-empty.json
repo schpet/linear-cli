@@ -1,0 +1,53 @@
+{
+  "id": "c086-name-empty",
+  "route": "linear completions bash",
+  "reason": "An empty --name value is a usage error.",
+  "argv": [
+    "completions",
+    "bash",
+    "--name",
+    ""
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear completions bash\nVersion: 2.6.0                  \n\nDescription:\n\n  Generate shell completions for bash.                                             \n                                                                                   \n  To enable bash completions for this program add following line to your ~/.bashrc:\n                                                                                   \n      source <(linear completions bash)                                            \n\nOptions:\n\n  -h, --help                  - Show this help.                \n  -n, --name  <command-name>  - The name of the main command.  \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Missing value for option \"--name\".\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C086-CLI-VERSION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "79c4d4030b6719f6b963f3a4c6b1fa10a458ff7cf131ebaa59d4363c7aaf57a8"
+  }
+}

@@ -267,6 +267,11 @@ def generate():
             "linear document": "Document",
             "linear markdown": "Markdown",
             "linear team id": "TeamId",
+            "linear completions": "Completions",
+            "linear completions bash": "CompletionsBash",
+            "linear completions fish": "CompletionsFish",
+            "linear completions zsh": "CompletionsZsh",
+            "linear completions complete": "CompletionsComplete",
         }.get(route["path"], "ParentPending" if route["kind"] == "parent_route" else "Unimplemented")
         lines.append(f"            Self::{v} => super::DispatchAction::{action},")
     lines += ["        }", "    }", "}"]

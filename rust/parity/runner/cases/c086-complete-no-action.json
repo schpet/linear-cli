@@ -1,0 +1,51 @@
+{
+  "id": "c086-complete-no-action",
+  "route": "linear completions complete",
+  "reason": "The action argument is required.",
+  "argv": [
+    "completions",
+    "complete"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear completions complete <action> [command...]\nVersion: 2.6.0                                            \n\nDescription:\n\n  Get completions for given action from given command.\n\nOptions:\n\n  -h, --help  - Show this help.  \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Missing argument(s): action\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C086-CLI-VERSION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "70404c493ccccb4f133fa63742d2d178fbaa9674e65631d61fb6d15f21efbf93"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "c086-zsh-help",
+  "route": "linear completions zsh",
+  "reason": "Zsh child help documents -n/--name and its installation line.",
+  "argv": [
+    "completions",
+    "zsh",
+    "--help"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear completions zsh\nVersion: 2.6.0                 \n\nDescription:\n\n  Generate shell completions for zsh.                                            \n                                                                                 \n  To enable zsh completions for this program add following line to your ~/.zshrc:\n                                                                                 \n      source <(linear completions zsh)                                           \n\nOptions:\n\n  -h, --help                  - Show this help.                                   \n  -n, --name  <command-name>  - The name of the main command.  (Default: \u001b[32m\"linear\"\u001b[39m)\n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C086-CLAP-HELP",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "66a01acf7d10efa94dc41d7af0a70c5659edd2f4879ad26ca418e1cfc8838fa6"
+  }
+}

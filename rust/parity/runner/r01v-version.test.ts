@@ -52,7 +52,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  assertEquals(cases.length, 251)
+  assertEquals(cases.length, 301)
   const ids: string[] = []
   let header = 0
   let bare = 0
@@ -176,6 +176,20 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
           loaded.spec.deviation.id === "C008-SAFE-CONSOLE-PERCENT" ||
           loaded.spec.deviation.id === "C008-STRICT-TEAM-NAME" ||
           loaded.spec.deviation.id === "C008-TYPED-JSON-FIELDS",
+      )
+    } else if (loaded.spec.id.startsWith("c086-")) {
+      const c086Deviations = new Set<string>([
+        "C086-CLI-VERSION",
+        "C086-STRICT-COMMAND-NAME",
+        "C086-CREDENTIAL-DIAGNOSTIC",
+        "C086-SCRIPT-AND-STARTUP-WARNING",
+        "C086-COMPLETE-ERROR",
+        "C086-STATIC-SHELL-SCRIPT",
+        "C086-CLAP-HELP",
+      ])
+      assert(
+        loaded.spec.deviation == null ||
+          c086Deviations.has(loaded.spec.deviation.id),
       )
     } else if (
       loaded.spec.deviation?.id !== "R01V-CLI-VERSION" &&

@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c086-complete-stdout-closed",
+  "deviationId": "C086-COMPLETE-ERROR",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "mode": "closed-at-start"
+      },
+      "stderr": {
+        "utf8": "✗ failed to write stdout\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "c086-shell-workspace-rejected",
+  "route": "linear completions bash",
+  "reason": "noGlobals rejects the inherited workspace option on a shell child.",
+  "argv": [
+    "completions",
+    "bash",
+    "--workspace",
+    "x"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear completions bash\nVersion: 2.6.0                  \n\nDescription:\n\n  Generate shell completions for bash.                                             \n                                                                                   \n  To enable bash completions for this program add following line to your ~/.bashrc:\n                                                                                   \n      source <(linear completions bash)                                            \n\nOptions:\n\n  -h, --help                  - Show this help.                \n  -n, --name  <command-name>  - The name of the main command.  \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Unknown option \"--workspace\". Did you mean option \"--name\"?\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C086-CLI-VERSION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "6800bf03f2c5ad622fdb4eb4b0169400220784295c54d4639b8b955b164dafaa"
+  }
+}

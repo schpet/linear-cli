@@ -1,0 +1,52 @@
+{
+  "id": "c086-complete-help",
+  "route": "linear completions complete",
+  "reason": "Hidden complete help shows its action and command arguments.",
+  "argv": [
+    "completions",
+    "complete",
+    "--help"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear completions complete <action> [command...]\nVersion: 2.6.0                                            \n\nDescription:\n\n  Get completions for given action from given command.\n\nOptions:\n\n  -h, --help  - Show this help.  \n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C086-CLI-VERSION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "c9a4bf6e21390e7ef81d531342a3a57a208bc004cb264c458194d63b44d844a3"
+  }
+}

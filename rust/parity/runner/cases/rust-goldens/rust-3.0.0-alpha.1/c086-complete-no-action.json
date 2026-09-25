@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c086-complete-no-action",
+  "deviationId": "C086-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear completions complete <action> [command...]\nVersion: 3.0.0-alpha.1                                    \n\nDescription:\n\n  Get completions for given action from given command.\n\nOptions:\n\n  -h, --help  - Show this help.  \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Missing argument(s): action\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

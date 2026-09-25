@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use crate::cli::clap_input::{OptionValue, ParsedAction};
 use crate::cli::{self, DispatchAction};
+use crate::commands::completions::{self, CompletionShell};
 use crate::commands::{auth_list, auth_whoami, client, team_id, team_list};
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -383,6 +384,30 @@ fn dispatch(
             context.write_stdout_with_policy(text.as_bytes(), OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }
+        DispatchAction::Completions => {
+            context.write_stdout_with_policy(
+                cli::render::help(route, context.help_color(), false)?.as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::CompletionsBash => {
+            write_completion_script(context, CompletionShell::Bash, &action)
+        }
+        DispatchAction::CompletionsFish => {
+            write_completion_script(context, CompletionShell::Fish, &action)
+        }
+        DispatchAction::CompletionsZsh => {
+            write_completion_script(context, CompletionShell::Zsh, &action)
+        }
+        DispatchAction::CompletionsComplete => {
+            let output = completions::complete(&action)?;
+            // Cliffy's writeSync skips an empty result and fails on a closed pipe.
+            if !output.is_empty() {
+                context.write_stdout_with_policy(&output, OutputPolicy::Strict)?;
+            }
+            Ok(ExitStatus::Success)
+        }
         DispatchAction::Unimplemented => Err(AppError::new(
             AppErrorKind::Unimplemented,
             format!(
@@ -404,6 +429,16 @@ fn action_switch(action: &ParsedAction, name: &str) -> Result<bool, AppError> {
             )),
         },
     }
+}
+
+fn write_completion_script(
+    context: &mut AppContext<'_>,
+    shell: CompletionShell,
+    action: &cli::clap_input::ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let script = completions::script(shell, action)?;
+    context.write_stdout_with_policy(&script, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
 }
 
 pub fn write_final_error(

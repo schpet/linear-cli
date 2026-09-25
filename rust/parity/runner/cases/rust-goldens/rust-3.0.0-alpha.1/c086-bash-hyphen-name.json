@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c086-bash-hyphen-name",
+  "deviationId": "C086-STRICT-COMMAND-NAME",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Invalid command name \"-foo\"\n  Use ASCII letters, digits, '_', '-' or '.', starting with a letter, digit or '_'.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

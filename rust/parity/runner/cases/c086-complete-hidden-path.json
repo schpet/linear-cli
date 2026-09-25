@@ -1,0 +1,55 @@
+{
+  "id": "c086-complete-hidden-path",
+  "route": "linear completions complete",
+  "reason": "Hidden commands do not resolve; the suggestion uses visible commands.",
+  "argv": [
+    "completions",
+    "complete",
+    "sort",
+    "completions",
+    "complete"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "referenceModuleUrl"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) Error: Auto-completion failed. Unknown command \"complete\". Did you mean command \"bash\"?\n              throw new UnknownCompletionCommandError(name, cmd.getCommands());\n                    ^\n    at https://jsr.io/@cliffy/command/1.0.0/completions/complete.ts:28:21\n    at Array.reduce (<anonymous>)\n    at CompleteCommand.<anonymous> (https://jsr.io/@cliffy/command/1.0.0/completions/complete.ts:24:13)\n    at CompleteCommand.execute (https://jsr.io/@cliffy/command/1.0.0/command.ts:2310:41)\n    at async CompleteCommand.parseCommand (https://jsr.io/@cliffy/command/1.0.0/command.ts:2126:14)\n    at async {{referenceModuleUrl}}/src/main.ts:4:3\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C086-COMPLETE-ERROR",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "625dd6f572822aa85ea785ca50e8e5f07404cb293d9b51886a47821bb31423b1"
+  }
+}

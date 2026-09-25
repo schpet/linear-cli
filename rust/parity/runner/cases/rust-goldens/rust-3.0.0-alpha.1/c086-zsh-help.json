@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c086-zsh-help",
+  "deviationId": "C086-CLAP-HELP",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear completions zsh\nVersion: 3.0.0-alpha.1         \n\nDescription:\n\n  Generate shell completions for zsh.                                            \n                                                                                 \n  To enable zsh completions for this program add following line to your ~/.zshrc:\n                                                                                 \n      source <(linear completions zsh)                                           \n\nOptions:\n\n  -h, --help                  - Show this help.                \n  -n, --name  <command-name>  - The name of the main command.  \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}
