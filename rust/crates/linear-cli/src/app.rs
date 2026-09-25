@@ -13,6 +13,7 @@ use crate::commands::{auth_list, auth_whoami, client, team_id, team_list};
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
+use crate::platform::spinner;
 use crate::startup::{AppStartupReport, render_startup_diagnostic};
 
 /// Lazily run one network action on a current-thread IO runtime. The action
@@ -281,12 +282,14 @@ fn dispatch(
                 team_list::open(&url, flags.app)?;
                 return Ok(ExitStatus::Success);
             }
-            let spinner = !flags.json
-                && context.stdout_tty
-                && context.startup.settings.no_color == NoColor::Absent;
+            let spinner = spinner::enabled(
+                flags.json,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
             if spinner {
                 context.write_stdout_with_policy(
-                    team_list::spinner_frame(0).as_bytes(),
+                    spinner::frame(0).as_bytes(),
                     OutputPolicy::ConsoleLike,
                 )?;
             }
@@ -309,10 +312,8 @@ fn dispatch(
                 Ok(transport) => transport,
                 Err(error) => {
                     if spinner {
-                        context.write_stdout_with_policy(
-                            team_list::SPINNER_CLEAR,
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context
+                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
                     }
                     return Err(error);
                 }
@@ -323,7 +324,7 @@ fn dispatch(
                 block_on_network(async {
                     let pending = team_list::run(&transport, flags.json, columns, color);
                     tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(Duration::from_millis(75));
+                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
                     ticks.tick().await;
                     let mut frame = 1;
                     loop {
@@ -332,7 +333,7 @@ fn dispatch(
                             result = &mut pending => break result,
                             _ = ticks.tick() => {
                                 context.write_stdout_with_policy(
-                                    team_list::spinner_frame(frame).as_bytes(),
+                                    spinner::frame(frame).as_bytes(),
                                     OutputPolicy::ConsoleLike,
                                 )?;
                                 frame = frame.wrapping_add(1);
@@ -346,10 +347,7 @@ fn dispatch(
                 })
             };
             if spinner {
-                context.write_stdout_with_policy(
-                    team_list::SPINNER_CLEAR,
-                    OutputPolicy::ConsoleLike,
-                )?;
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
             }
             let output = output_result.map_err(|error| {
                 if error.context.is_none() {

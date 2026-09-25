@@ -333,20 +333,6 @@ pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color
     output
 }
 
-const SPINNER_FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-
-pub fn spinner_frame(index: usize) -> String {
-    format!(
-        "\r\x1b[K{}\x1b[0m ",
-        SPINNER_FRAMES
-            .get(index % SPINNER_FRAMES.len())
-            .copied()
-            .unwrap_or("⠋")
-    )
-}
-
-pub const SPINNER_CLEAR: &[u8] = b"\r\x1b[K";
-
 pub fn stdout_columns(is_terminal: bool) -> usize {
     if !is_terminal {
         return 120;

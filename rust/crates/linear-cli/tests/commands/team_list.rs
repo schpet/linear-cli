@@ -4,9 +4,10 @@ use std::future::ready;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use linear_cli::commands::team_list::{SPINNER_CLEAR, render_text, run_with, spinner_frame};
+use linear_cli::commands::team_list::{render_text, run_with};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::teams::GetTeams;
+use linear_cli::platform::spinner;
 use serde_json::{Value, json};
 
 fn team(id: &str, name: &str, archived_at: Value, updated_at: &str) -> Value {
@@ -190,7 +191,7 @@ fn terminal_table_and_spinner_use_the_observed_control_sequences() {
     assert!(styled.contains("\x1b[38;2;68;102;170mid1\x1b[39m"));
     assert!(styled.contains("\x1b[38;2;128;128;128mjust now\x1b[39m"));
     assert!(styled.ends_with("\x1b[39m\x1b[0m\n"));
-    assert_eq!(spinner_frame(0), "\r\x1b[K⠋\x1b[0m ");
-    assert_eq!(spinner_frame(1), "\r\x1b[K⠙\x1b[0m ");
-    assert_eq!(SPINNER_CLEAR, b"\r\x1b[K");
+    assert_eq!(spinner::frame(0), "\r\x1b[K⠋\x1b[0m ");
+    assert_eq!(spinner::frame(1), "\r\x1b[K⠙\x1b[0m ");
+    assert_eq!(spinner::CLEAR, b"\r\x1b[K");
 }
