@@ -20,17 +20,36 @@ pub fn prepare_transport(
     cli_workspace: Option<&str>,
     transport_env: &TransportEnvInputs,
 ) -> Result<GraphQlTransport, AppError> {
+    let inputs = selection_inputs(options, cli_workspace)?;
+    prepare_transport_with_inputs(options, credentials, &inputs, transport_env)
+}
+
+/// Build selection inputs once when a command also needs URL workspace
+/// provenance. The ordinary transport path uses this same construction.
+pub(crate) fn selection_inputs<'a>(
+    options: &'a ConfigOptions,
+    cli_workspace: Option<&'a str>,
+) -> Result<CredentialSelectionInputs<'a>, AppError> {
     let api_key = ApiKeyInput::from_options(options)
         .map_err(|error| AppError::new(AppErrorKind::Invariant, error.to_string()))?;
     let sourced_workspace = options
         .workspace()
         .map(|resolved| (resolved.value().as_str(), resolved.source().clone()));
-    let inputs = CredentialSelectionInputs {
+    Ok(CredentialSelectionInputs {
         api_key,
         cli_workspace,
         sourced_workspace,
-    };
-    let selected = auth::resolve(&inputs, credentials);
+    })
+}
+
+/// `inputs` must come from `selection_inputs` for these same `options`.
+pub(crate) fn prepare_transport_with_inputs(
+    options: &ConfigOptions,
+    credentials: &CredentialStore,
+    inputs: &CredentialSelectionInputs<'_>,
+    transport_env: &TransportEnvInputs,
+) -> Result<GraphQlTransport, AppError> {
+    let selected = auth::resolve(inputs, credentials);
     let secret = match selected {
         CredentialSelection::Selected { secret, .. } => secret,
         CredentialSelection::NoKey => return Err(credential_error(NO_KEY)),
