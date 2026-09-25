@@ -3,9 +3,10 @@ use linear_cli::auth::{
     CredentialStore, LookupFailureCategory, LookupReply, LookupResult, hydrate, parse_credentials,
 };
 use linear_cli::commands::auth_list::{
-    EMPTY_OUTPUT, Outcome, Prepared, Row, RowError, StoredKey, classify, display_width, fetch,
-    fetch_with, prepare_transports, prepare_with, render,
+    EMPTY_OUTPUT, Outcome, Prepared, Row, RowError, StoredKey, classify, fetch, fetch_with,
+    prepare_transports, prepare_with, render,
 };
+use linear_cli::commands::display::display_width;
 use linear_cli::config::{
     ConfigSecret, OsFamily, ProcessEnvSnapshot, RawConfigFile, TransportEnvInputs,
     parse_config_tier,

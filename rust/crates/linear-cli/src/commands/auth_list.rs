@@ -5,9 +5,9 @@ use std::future::Future;
 use cynic::QueryBuilder;
 use reqwest::StatusCode;
 use tokio::task::JoinSet;
-use unicode_width::UnicodeWidthChar;
 
 use crate::auth::{self, CredentialStore};
+use crate::commands::display::{display_width, pad};
 use crate::config::TransportEnvInputs;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
@@ -254,20 +254,6 @@ pub fn row_error(failure: &TransportFailure) -> RowError {
         | TransportFailure::Network { .. }
         | TransportFailure::RequestBody(_) => RowError::Failure(failure.to_string()),
     }
-}
-
-/// Deno's `@std/cli` width: the sum of per-code-point widths, controls zero.
-pub fn display_width(text: &str) -> usize {
-    text.chars().map(|ch| ch.width().unwrap_or(0)).sum()
-}
-
-fn pad(text: &str, width: usize) -> String {
-    let mut padded = text.to_owned();
-    padded.extend(std::iter::repeat_n(
-        ' ',
-        width.saturating_sub(display_width(text)),
-    ));
-    padded
 }
 
 fn org_cell(row: &Row<Outcome>) -> &str {

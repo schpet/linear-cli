@@ -5,8 +5,8 @@ use std::time::SystemTime;
 use chrono::{DateTime, NaiveDate, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
-use unicode_width::UnicodeWidthChar;
 
+use crate::commands::display::{display_width, pad};
 use crate::config::ConfigOptions;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
@@ -162,19 +162,6 @@ pub async fn run(
 
 fn utf16_len(text: &str) -> usize {
     text.encode_utf16().count()
-}
-
-fn display_width(text: &str) -> usize {
-    text.chars()
-        .map(|character| character.width().unwrap_or(0))
-        .sum()
-}
-
-fn pad(text: &str, width: usize) -> String {
-    format!(
-        "{text}{}",
-        " ".repeat(width.saturating_sub(display_width(text)))
-    )
 }
 
 fn truncate_js(text: &str, name_width: usize) -> String {
