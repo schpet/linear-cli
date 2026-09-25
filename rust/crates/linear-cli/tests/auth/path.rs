@@ -34,3 +34,18 @@ fn credential_path_obeys_os_bases_and_normalizes_join() {
     );
     assert_eq!(credentials_path(OsFamily::Unix, None, None, None), None);
 }
+
+#[test]
+fn credential_path_clamps_root_and_keeps_unresolved_relative_parents() {
+    for (base, expected) in [
+        ("/..", "/linear/credentials.toml"),
+        ("../../", "../../linear/credentials.toml"),
+        ("a/../../b", "../b/linear/credentials.toml"),
+    ] {
+        assert_eq!(
+            credentials_path(OsFamily::Unix, Some(base), None, None),
+            Some(PathBuf::from(expected)),
+            "base {base}"
+        );
+    }
+}

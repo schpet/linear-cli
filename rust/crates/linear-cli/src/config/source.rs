@@ -170,11 +170,15 @@ pub(crate) fn lexical(path: &Path) -> PathBuf {
     for component in path.components() {
         match component {
             Component::CurDir => {}
-            Component::ParentDir => {
-                if !out.pop() {
-                    out.push(component.as_os_str());
+            Component::ParentDir => match out.components().next_back() {
+                Some(Component::Normal(_)) => {
+                    out.pop();
                 }
-            }
+                Some(Component::RootDir) => {}
+                Some(Component::Prefix(_))
+                | Some(Component::ParentDir | Component::CurDir)
+                | None => out.push(component.as_os_str()),
+            },
             Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
                 out.push(component.as_os_str());
             }

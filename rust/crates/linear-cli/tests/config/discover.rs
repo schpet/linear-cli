@@ -141,3 +141,20 @@ fn absent_global_bases_produce_no_global_candidate() {
             .is_empty()
     );
 }
+
+#[test]
+fn global_config_paths_clamp_at_root_and_preserve_leading_parents() {
+    let mut inputs = inputs();
+    let probe = Probe::new(GitProbeResult::SpawnFailure);
+    for (base, expected) in [
+        ("/..", "/linear/linear.toml"),
+        ("../../", "../../linear/linear.toml"),
+    ] {
+        inputs
+            .process_env
+            .insert("XDG_CONFIG_HOME".to_owned(), base.to_owned());
+        let paths = discover_config_paths(&inputs, &probe).unwrap();
+        assert_eq!(paths.global.len(), 1);
+        assert_eq!(paths.global[0].path, PathBuf::from(expected));
+    }
+}
