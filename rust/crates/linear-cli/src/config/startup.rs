@@ -17,6 +17,7 @@ use super::source::{
     FileSource, GitProbeError, GitProbeResult, GitRootProbe, OsFamily, ReadCandidate,
     read_config_candidate,
 };
+use super::transport::TransportEnvInputs;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NoColor {
@@ -76,6 +77,7 @@ impl fmt::Debug for ChildEnvOverlay {
 pub struct StartupConfig {
     pub options: ConfigOptions,
     pub child_env: ChildEnvOverlay,
+    pub transport_env: TransportEnvInputs,
 }
 
 impl fmt::Debug for StartupConfig {
@@ -410,6 +412,7 @@ pub fn load_startup(
                 os: process.inputs.os,
                 values: overlay,
             },
+            transport_env: TransportEnvInputs::from_process(process),
         }),
     }
 }

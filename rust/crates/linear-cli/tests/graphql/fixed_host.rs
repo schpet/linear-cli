@@ -183,7 +183,7 @@ fn confined_env_rejects_absent_empty_unexpected_and_malformed_values() {
                 https_proxy: Some("https://127.0.0.1:43111".to_owned()),
                 ..values()
             },
-            ConfinedEnvError::Proxy(ProxyUrlError::Scheme("https".to_owned())),
+            ConfinedEnvError::Proxy(ProxyUrlError::Scheme),
         ),
         (
             "non-loopback proxy",

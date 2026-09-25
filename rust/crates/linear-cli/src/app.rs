@@ -1,10 +1,42 @@
+use std::error::Error;
+use std::future::Future;
+use std::io;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use crate::cli::{self, DispatchAction, RouteMeta};
 use crate::config::{StartupConfig, StartupReport, render_diagnostic};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
+
+/// Lazily run one network action on a current-thread IO runtime. The action
+/// owns its inputs and returns before its caller writes to the CLI streams.
+pub fn block_on_network<T, F>(future: F) -> Result<T, AppError>
+where
+    F: Future<Output = Result<T, AppError>>,
+{
+    block_on_network_with(future, || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+    })
+}
+
+fn block_on_network_with<T, F>(
+    future: F,
+    build: impl FnOnce() -> io::Result<tokio::runtime::Runtime>,
+) -> Result<T, AppError>
+where
+    F: Future<Output = Result<T, AppError>>,
+{
+    let runtime = build().map_err(|error| {
+        AppError::new(AppErrorKind::IoProcess, "could not start network runtime").with_source(error)
+    })?;
+    let result = runtime.block_on(future);
+    runtime.shutdown_timeout(Duration::from_millis(500));
+    result
+}
 
 pub struct AppContext<'a> {
     pub startup: StartupReport,
@@ -226,6 +258,18 @@ pub fn write_final_error(
             write_stderr(context, format!("  {suggestion}\n").as_bytes())?;
         }
     }
+    if context.debug_enabled()
+        && matches!(error.kind, AppErrorKind::GraphQl | AppErrorKind::Transport)
+    {
+        if let Some(detail) = error.debug_detail() {
+            write_stderr(context, format!("  debug: {detail}\n").as_bytes())?;
+        }
+        let mut source = error.source();
+        while let Some(cause) = source {
+            write_stderr(context, format!("  caused by: {cause}\n").as_bytes())?;
+            source = cause.source();
+        }
+    }
     Ok(ExitStatus::HandledFailure)
 }
 
@@ -261,4 +305,41 @@ fn write_usage_error(
         )?;
     }
     Ok(ExitStatus::UsageFailure)
+}
+
+#[cfg(test)]
+mod network_runtime_tests {
+    use super::{block_on_network, block_on_network_with};
+    use crate::error::AppErrorKind;
+    use std::io;
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn runtime_build_failure_is_a_handled_io_error() {
+        let result = block_on_network_with(async { Ok::<(), _>(()) }, || {
+            Err(io::Error::other("synthetic runtime failure"))
+        });
+        assert!(
+            matches!(result, Err(ref error) if error.kind == AppErrorKind::IoProcess && error.display_message() == "could not start network runtime")
+        );
+    }
+
+    #[test]
+    fn runtime_shutdown_does_not_wait_forever_for_blocking_work() {
+        let (release, blocked) = mpsc::channel::<()>();
+        let started = Instant::now();
+        let result = block_on_network(async move {
+            let (ready, entered) = mpsc::channel();
+            tokio::task::spawn_blocking(move || {
+                let _ = ready.send(());
+                let _ = blocked.recv_timeout(Duration::from_secs(3));
+            });
+            assert!(entered.recv_timeout(Duration::from_secs(1)).is_ok());
+            Ok::<(), crate::error::AppError>(())
+        });
+        assert!(result.is_ok());
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert!(release.send(()).is_ok());
+    }
 }

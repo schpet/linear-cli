@@ -662,10 +662,7 @@ fn proxy_url_is_loopback_http_without_credentials_path_or_query() {
         "http://127.0.0.1:8080"
     );
     let cases = [
-        (
-            "https://127.0.0.1:8080",
-            ProxyUrlError::Scheme("https".to_owned()),
-        ),
+        ("https://127.0.0.1:8080", ProxyUrlError::Scheme),
         ("http://proxy.example:8080", ProxyUrlError::NotLoopback),
         ("http://10.0.0.1:8080", ProxyUrlError::NotLoopback),
         ("http://user:pw@127.0.0.1:8080", ProxyUrlError::Credentials),

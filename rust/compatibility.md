@@ -102,6 +102,20 @@ The following entries record deliberate, reviewed transport differences from the
 - **Stricter 2xx envelopes (carried over from F02A).** `{"data":null}` with no `errors` is `MissingData`, and well-formed JSON that contradicts the schema-checked types is `UnexpectedShape`; the Deno CLI would fail later with a TypeError or print wrong output. See `rust/reviews/F02A.md`.
 - **API key and endpoint validation at construction.** `ApiKey` rejects empty values and any byte outside visible ASCII plus space; `EndpointUrl` rejects non-`http(s)` schemes, credentials and fragments. The Deno CLI passes whatever string it resolved straight to the HTTP layer. Errors display only the endpoint's scheme, host and port, never its path, query or fragment.
 
+## R02B4 production transport policy (network activation pending)
+
+R02B4 stores proxy/CA variables from the original process environment and resolves them only for a network action. It does not yet wire a network command. Compiled Deno 2.7.9 offline `--help`/`markdown` under synthetic `DENO_CERT`, `DENO_TLS_CA_STORE`, `SSL_CERT_DIR`, `HTTPS_PROXY` and `NO_PROXY` kept their normal output and made no request; Rust retains that delayed decision for valid-UTF-8 values. Root help still has its separately reviewed v3 version/grammar output binding. The exact five-case confined evidence is in [R02B4 review](reviews/R02B4.md).
+
+| Input when a network action starts | Deno 2.6.0 | Rust v3 policy | Migration |
+| --- | --- | --- | --- |
+| No proxy/CA variables | Uses ambient runtime defaults | Direct WebPKI public roots | No change. |
+| Absolute `SSL_CERT_FILE` alone | Deno's treatment depends on its TLS/runtime environment | Adds the PEM to public roots; validates regular file, PEM/DER and 4 MiB limit before a request | Use an absolute PEM bundle no larger than 4 MiB. A symlink to a regular file is accepted. |
+| `DENO_CERT` alone or different from `SSL_CERT_FILE` | Deno can add the named CA | Typed network-construction error | Set `SSL_CERT_FILE` to the same path as `DENO_CERT`; the Rust adapter adds it to public roots. |
+| `HTTPS_PROXY`, exact loopback `NO_PROXY`, absolute `SSL_CERT_FILE`, optional matching `DENO_CERT` | Deno can use the proxy and CA | Explicit loopback HTTPS CONNECT mode; wrong port fails at connect, wrong CA at TLS handshake | Use `http://127.0.0.1:<port>` or equivalent loopback proxy and `NO_PROXY=127.0.0.1,localhost` in either order. |
+| Nonempty `HTTP_PROXY`/`ALL_PROXY`, lower-case proxy alternatives on Unix, `SSL_CERT_DIR`, `DENO_TLS_CA_STORE`, a partial proxy shape, or simultaneous upper/lower values | Ambient behavior depends on Deno/runtime and the host environment | Typed variable-name error at network construction; the value is not silently ignored | Unset the unsupported variable or use a separately reviewed broader proxy mode. In a CGI process, Rust still rejects nonempty `HTTP_PROXY`. |
+
+The restriction is a v3 policy decision, not evidence that all Deno network paths were recaptured. C001 will bind public-binary network cases and add any case-specific Rust goldens. No hidden flag or environment knob changes the 30 s total deadline or 8 MiB response cap. The production Tokio runtime is created only for a network action and shutdown waits at most 500 ms for blocking work. `LINEAR_DEBUG=1` or `true` adds a fixed GraphQL status/error-count summary and transport source chain; C001 owns its binary debug goldens. This differs from Deno's JavaScript stack formatting and is a deliberate readable Rust diagnostic.
+
 ## R02C1 credential library decisions (pending startup activation)
 
 R02C1 is a pure Rust library boundary: the production CLI still does not read or select credentials through it. The following are **planned v3 differences** inferred from frozen Deno `src/credentials.ts` and `src/utils/graphql.ts`; exact oracle bytes and Rust-side goldens belong to the separate credential evidence slice and C1b/C001 activation. No row is claimed as current binary behavior.

@@ -12,10 +12,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 toml = { version = "=1.0.3", default-features = false, features = ["parse", "std", "serde", "preserve_order"] }
 reqwest = { version = "=0.12.28", default-features = false, features = ["rustls-tls-webpki-roots"] }
-tokio = { version = "=1.47.4", default-features = false, features = ["rt", "time", "macros"] }
+tokio = { version = "=1.47.4", default-features = false, features = ["rt", "time", "macros", "net"] }
 
 [dev-dependencies]
 tokio = { version = "=1.47.4", default-features = false, features = ["process", "io-util"] }
+tokio-rustls = { version = "=0.26.5", default-features = false, features = ["ring", "tls12"] }
 
 [lib]
 name = "linear_cli"

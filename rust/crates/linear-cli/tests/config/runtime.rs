@@ -376,6 +376,14 @@ fn relevant_non_utf8_env_value_fails_and_unrelated_one_is_ignored() {
     assert!(
         matches!(result, Err(ProcessEnvError::InvalidValue { name }) if name == "LINEAR_API_KEY")
     );
+    let transport_result = ProcessEnvSnapshot::from_vars_os(
+        cwd.clone(),
+        OsFamily::Unix,
+        [(OsString::from("HTTPS_PROXY"), bad.clone())],
+    );
+    assert!(
+        matches!(transport_result, Err(ProcessEnvError::InvalidValue { name }) if name == "HTTPS_PROXY")
+    );
     let result =
         ProcessEnvSnapshot::from_vars_os(cwd, OsFamily::Unix, [(OsString::from("UNRELATED"), bad)]);
     assert!(result.is_ok());

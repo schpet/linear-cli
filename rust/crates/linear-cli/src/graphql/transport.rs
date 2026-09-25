@@ -25,7 +25,7 @@
 use std::error::Error;
 use std::fmt;
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::net::IpAddr;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
@@ -309,7 +309,7 @@ pub struct ProxyUrl {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProxyUrlError {
     Invalid(String),
-    Scheme(String),
+    Scheme,
     NotLoopback,
     Credentials,
     Path,
@@ -321,7 +321,7 @@ impl fmt::Display for ProxyUrlError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Invalid(detail) => write!(f, "proxy URL is not valid: {detail}"),
-            Self::Scheme(scheme) => write!(f, "proxy URL scheme must be http, not {scheme}"),
+            Self::Scheme => write!(f, "proxy URL scheme must be http"),
             Self::NotLoopback => write!(f, "proxy URL host must be a loopback address"),
             Self::Credentials => write!(f, "proxy URL must not carry credentials"),
             Self::Path => write!(f, "proxy URL must not carry a path"),
@@ -337,7 +337,7 @@ impl ProxyUrl {
     pub fn parse(text: &str) -> Result<Self, ProxyUrlError> {
         let url = Url::parse(text).map_err(|error| ProxyUrlError::Invalid(error.to_string()))?;
         if url.scheme() != "http" {
-            return Err(ProxyUrlError::Scheme(url.scheme().to_owned()));
+            return Err(ProxyUrlError::Scheme);
         }
         if !url.host_str().is_some_and(is_loopback_host) {
             return Err(ProxyUrlError::NotLoopback);
@@ -380,7 +380,7 @@ fn is_loopback_host(host: &str) -> bool {
 
 impl fmt::Debug for ProxyUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("ProxyUrl").field(&self.origin).finish()
+        f.write_str("ProxyUrl(<redacted>)")
     }
 }
 
@@ -595,7 +595,7 @@ fn required<'a>(value: Option<&'a str>, name: &'static str) -> Result<&'a str, C
 }
 
 /// Accepts exactly the entries of [`LOOPBACK_NO_PROXY`] in any order.
-fn parse_no_proxy(text: &str) -> Result<(), NoProxyError> {
+pub(crate) fn parse_no_proxy(text: &str) -> Result<(), NoProxyError> {
     let mut seen: Vec<&str> = Vec::new();
     for (index, entry) in text.split(',').enumerate() {
         if entry.is_empty() || entry.trim() != entry {
@@ -668,6 +668,10 @@ pub enum TransportBuildError {
     CaNotRegularFile {
         path: PathBuf,
     },
+    CaTooLarge {
+        path: PathBuf,
+        ceiling: u64,
+    },
     CaEmpty {
         path: PathBuf,
     },
@@ -691,6 +695,9 @@ impl fmt::Display for TransportBuildError {
             Self::CaNotRegularFile { path } => {
                 write!(f, "CA bundle {} is not a regular file", path.display())
             }
+            Self::CaTooLarge { path, ceiling } => {
+                write!(f, "CA bundle {} exceeds {ceiling} bytes", path.display())
+            }
             Self::CaEmpty { path } => write!(f, "CA bundle {} is empty", path.display()),
             Self::CaPem { path, .. } => {
                 write!(f, "CA bundle {} is not a valid PEM bundle", path.display())
@@ -710,14 +717,35 @@ impl Error for TransportBuildError {
             Self::CaRead { source, .. } => Some(source),
             Self::CaPem { source, .. } | Self::Proxy(source) | Self::Client(source) => Some(source),
             Self::CaNotRegularFile { .. }
+            | Self::CaTooLarge { .. }
             | Self::CaEmpty { .. }
             | Self::CaNoCertificates { .. } => None,
         }
     }
 }
 
+impl From<TransportBuildError> for AppError {
+    fn from(error: TransportBuildError) -> Self {
+        let message = match &error {
+            TransportBuildError::CaRead { .. }
+            | TransportBuildError::CaNotRegularFile { .. }
+            | TransportBuildError::CaTooLarge { .. }
+            | TransportBuildError::CaEmpty { .. }
+            | TransportBuildError::CaPem { .. }
+            | TransportBuildError::CaNoCertificates { .. } => {
+                format!("SSL_CERT_FILE: {error}")
+            }
+            TransportBuildError::Proxy(_) | TransportBuildError::Client(_) => error.to_string(),
+        };
+        AppError::new(AppErrorKind::Validation, message).with_source(error)
+    }
+}
+
 fn load_pem_bundle(path: &Path) -> Result<Vec<Certificate>, TransportBuildError> {
-    let metadata = fs::symlink_metadata(path).map_err(|source| TransportBuildError::CaRead {
+    const MAX_CA_BYTES: u64 = 4 * 1024 * 1024;
+    // `metadata` follows a symlink to a real bundle. Check the target type
+    // before opening so ordinary directories and named pipes are refused.
+    let metadata = fs::metadata(path).map_err(|source| TransportBuildError::CaRead {
         path: path.to_path_buf(),
         source,
     })?;
@@ -726,10 +754,46 @@ fn load_pem_bundle(path: &Path) -> Result<Vec<Certificate>, TransportBuildError>
             path: path.to_path_buf(),
         });
     }
-    let bytes = fs::read(path).map_err(|source| TransportBuildError::CaRead {
+    if metadata.len() > MAX_CA_BYTES {
+        return Err(TransportBuildError::CaTooLarge {
+            path: path.to_path_buf(),
+            ceiling: MAX_CA_BYTES,
+        });
+    }
+    let file = fs::File::open(path).map_err(|source| TransportBuildError::CaRead {
         path: path.to_path_buf(),
         source,
     })?;
+    let opened = file
+        .metadata()
+        .map_err(|source| TransportBuildError::CaRead {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    if !opened.is_file() {
+        return Err(TransportBuildError::CaNotRegularFile {
+            path: path.to_path_buf(),
+        });
+    }
+    if opened.len() > MAX_CA_BYTES {
+        return Err(TransportBuildError::CaTooLarge {
+            path: path.to_path_buf(),
+            ceiling: MAX_CA_BYTES,
+        });
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_CA_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|source| TransportBuildError::CaRead {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    if u64::try_from(bytes.len()).is_ok_and(|len| len > MAX_CA_BYTES) {
+        return Err(TransportBuildError::CaTooLarge {
+            path: path.to_path_buf(),
+            ceiling: MAX_CA_BYTES,
+        });
+    }
     if bytes.iter().all(u8::is_ascii_whitespace) {
         return Err(TransportBuildError::CaEmpty {
             path: path.to_path_buf(),
@@ -959,11 +1023,28 @@ impl Error for TransportFailure {
 impl From<TransportFailure> for AppError {
     fn from(failure: TransportFailure) -> Self {
         let message = failure.to_string();
+        let graphql_detail = match &failure {
+            TransportFailure::GraphQl {
+                status,
+                errors,
+                partial_data,
+                ..
+            } => Some(format!(
+                "GraphQL HTTP {status}; errors={}; partial_data={partial_data}",
+                errors.len()
+            )),
+            _ => None,
+        };
         match failure {
             TransportFailure::RequestBody(source) => {
                 AppError::new(AppErrorKind::Invariant, message).with_source(source)
             }
-            TransportFailure::GraphQl { .. } => AppError::new(AppErrorKind::GraphQl, message),
+            TransportFailure::GraphQl { .. } => {
+                // The structured summary is stable and omits arbitrary
+                // response extensions, headers and the request URL.
+                AppError::new(AppErrorKind::GraphQl, message)
+                    .with_debug_detail(graphql_detail.unwrap_or_default())
+            }
             TransportFailure::Response(source) => AppError::from(source),
             TransportFailure::Http {
                 body: HttpBodyShape::Unusable(source),

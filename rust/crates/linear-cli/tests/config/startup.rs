@@ -151,6 +151,14 @@ fn source_precedence_and_redacted_overlay_are_typed() {
         ready.child_env.get("LINEAR_API_KEY"),
         Some("lin_api_fake_b3")
     );
+    assert!(matches!(
+        ready
+            .transport_env
+            .production()
+            .expect("no process transport settings")
+            .proxy,
+        linear_cli::graphql::transport::ProxyMode::Direct
+    ));
     assert!(!format!("{report:?}").contains("lin_api_fake_b3"));
 }
 
@@ -560,4 +568,31 @@ fn binary_offline_markdown_needs_no_credential() {
             .unwrap()
             .contains("+++ [Server log]")
     );
+}
+
+#[test]
+fn binary_offline_markdown_ignores_unselected_transport_inputs() {
+    let frozen = include_str!("../../../../parity/runner/cases/c085-bare.json");
+    let case: serde_json::Value = serde_json::from_str(frozen).expect("frozen Markdown case");
+    let expected = case["expected"]["stdout"]["utf8"]
+        .as_str()
+        .expect("frozen Markdown bytes");
+    for (name, value) in [
+        ("HTTPS_PROXY", "http://proxy.example.invalid:3128"),
+        ("NO_PROXY", "api.linear.app"),
+        ("SSL_CERT_DIR", "/missing/sentinel-ca-dir"),
+        ("DENO_TLS_CA_STORE", "sentinel-ca-store"),
+        ("DENO_CERT", "/missing/sentinel-ca.pem"),
+    ] {
+        let tree = BinaryTree::new();
+        let output = tree
+            .command()
+            .arg("markdown")
+            .env(name, value)
+            .output()
+            .expect("binary");
+        assert_eq!(output.status.code(), Some(0), "{name}");
+        assert_eq!(output.stdout, expected.as_bytes(), "{name}");
+        assert!(output.stderr.is_empty(), "{name}");
+    }
 }

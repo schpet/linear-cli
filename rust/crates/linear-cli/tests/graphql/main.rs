@@ -9,6 +9,7 @@ mod envelope;
 mod fixed_host;
 mod output;
 mod pagination;
+mod production_adapter;
 mod scalars;
 mod transport;
 mod union;

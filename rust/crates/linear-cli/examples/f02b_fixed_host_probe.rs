@@ -95,6 +95,7 @@ fn teams_match_fixture(data: &GetTeams) -> bool {
 enum ProbeBuildError {
     CaRead,
     CaNotRegularFile,
+    CaTooLarge,
     CaEmpty,
     CaPem,
     CaNoCertificates,
@@ -107,6 +108,7 @@ impl From<TransportBuildError> for ProbeBuildError {
         match error {
             TransportBuildError::CaRead { .. } => Self::CaRead,
             TransportBuildError::CaNotRegularFile { .. } => Self::CaNotRegularFile,
+            TransportBuildError::CaTooLarge { .. } => Self::CaTooLarge,
             TransportBuildError::CaEmpty { .. } => Self::CaEmpty,
             TransportBuildError::CaPem { .. } => Self::CaPem,
             TransportBuildError::CaNoCertificates { .. } => Self::CaNoCertificates,
@@ -121,6 +123,7 @@ impl fmt::Display for ProbeBuildError {
         let detail = match self {
             Self::CaRead => "CA bundle could not be read",
             Self::CaNotRegularFile => "CA bundle is not a regular file",
+            Self::CaTooLarge => "CA bundle exceeds the size limit",
             Self::CaEmpty => "CA bundle is empty",
             Self::CaPem => "CA bundle is not a valid PEM bundle",
             Self::CaNoCertificates => "CA bundle contains no certificates",

@@ -42,6 +42,7 @@ pub struct AppError {
     pub message: String,
     pub context: Option<String>,
     pub suggestion: Option<String>,
+    debug_detail: Option<String>,
     source: Option<Box<dyn Error + Send + Sync>>,
 }
 
@@ -59,6 +60,7 @@ impl AppError {
             message: message.into(),
             context: None,
             suggestion,
+            debug_detail: None,
             source: None,
         }
     }
@@ -87,6 +89,15 @@ impl AppError {
     pub fn with_source(mut self, source: impl Error + Send + Sync + 'static) -> Self {
         self.source = Some(Box::new(source));
         self
+    }
+
+    pub fn with_debug_detail(mut self, detail: impl Into<String>) -> Self {
+        self.debug_detail = Some(detail.into());
+        self
+    }
+
+    pub fn debug_detail(&self) -> Option<&str> {
+        self.debug_detail.as_deref()
     }
 
     pub fn display_message(&self) -> String {

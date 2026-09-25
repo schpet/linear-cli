@@ -6,6 +6,7 @@ mod parse;
 mod runtime;
 mod source;
 mod startup;
+mod transport;
 
 pub use discover::{CandidateTier, ConfigCandidate, ConfigPaths, discover_config_paths};
 pub use dotenv::{
@@ -30,3 +31,4 @@ pub use startup::{
     ChildEnvOverlay, DisplaySettings, NoColor, StartupConfig, StartupError, StartupReport,
     load_startup, render_diagnostic,
 };
+pub use transport::{TransportEnvError, TransportEnvInputs};
