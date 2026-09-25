@@ -12,7 +12,7 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, label_list, team_id, team_list, team_states,
+    auth_list, auth_whoami, client, cycle_list, label_list, table, team_id, team_list, team_states,
     template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
@@ -324,7 +324,7 @@ fn dispatch(
                     return Err(error);
                 }
             };
-            let columns = team_list::stdout_columns(context.stdout_tty);
+            let columns = table::stdout_columns(context.stdout_tty);
             let color = context.stdout_tty && !context.no_color();
             let output_result = if spinner {
                 block_on_network(async {
@@ -416,7 +416,7 @@ fn dispatch(
                     });
                 }
             };
-            let columns = team_list::stdout_columns(context.stdout_tty);
+            let columns = table::stdout_columns(context.stdout_tty);
             let color = context.stdout_tty && !context.no_color();
             let output_result = if show_spinner {
                 block_on_network(async {
@@ -722,7 +722,7 @@ fn dispatch(
                     return Err(error);
                 }
             };
-            let columns = team_list::stdout_columns(context.stdout_tty);
+            let columns = table::stdout_columns(context.stdout_tty);
             let color = context.stdout_tty && !context.no_color();
             let options = template_list::Options {
                 template_type,
@@ -921,7 +921,7 @@ fn dispatch(
                     OutputPolicy::ConsoleLike,
                 )?;
             }
-            let columns = team_list::stdout_columns(context.stdout_tty);
+            let columns = table::stdout_columns(context.stdout_tty);
             let color = !context.no_color();
             let output = if show_spinner {
                 block_on_network(async {

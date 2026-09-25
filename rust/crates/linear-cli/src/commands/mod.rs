@@ -7,6 +7,7 @@ pub mod display;
 pub mod label_list;
 pub mod prosemirror;
 pub mod relative_time;
+pub mod table;
 pub mod team_id;
 pub(crate) mod team_key;
 pub mod team_list;

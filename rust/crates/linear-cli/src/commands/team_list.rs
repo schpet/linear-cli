@@ -2,11 +2,11 @@
 use std::future::Future;
 use std::time::SystemTime;
 
-use chrono::{DateTime, NaiveDate, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::display::{display_width, pad, truncate_js};
+use crate::commands::table::{terminal_color, time_ago, underlined_header, utf16_len};
 use crate::config::ConfigOptions;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
@@ -160,60 +160,6 @@ pub async fn run(
     .await
 }
 
-fn utf16_len(text: &str) -> usize {
-    text.encode_utf16().count()
-}
-
-fn time_ago(value: &str, now: SystemTime) -> String {
-    let updated = DateTime::parse_from_rfc3339(value)
-        .ok()
-        .map(|date| date.to_utc())
-        .or_else(|| {
-            NaiveDate::parse_from_str(value, "%Y-%m-%d")
-                .ok()
-                .and_then(|date| date.and_hms_opt(0, 0, 0))
-                .map(|date| DateTime::<Utc>::from_naive_utc_and_offset(date, Utc))
-        });
-    let Some(updated) = updated else {
-        return "NaN days ago".to_owned();
-    };
-    let now: DateTime<Utc> = now.into();
-    let diff = now.signed_duration_since(updated);
-    let minutes = diff.num_milliseconds().div_euclid(60_000);
-    if minutes < 1 {
-        return "just now".to_owned();
-    }
-    if minutes < 60 {
-        return format!("{minutes} minutes ago");
-    }
-    let hours = minutes.div_euclid(60);
-    if hours < 24 {
-        return format!("{hours} hour{} ago", if hours == 1 { "" } else { "s" });
-    }
-    let days = hours.div_euclid(24);
-    format!("{days} day{} ago", if days == 1 { "" } else { "s" })
-}
-
-fn terminal_color(color: &str) -> Option<String> {
-    let hex = color.strip_prefix('#')?;
-    let rgb = match hex.len() {
-        6 => {
-            let red = u8::from_str_radix(hex.get(0..2)?, 16).ok()?;
-            let green = u8::from_str_radix(hex.get(2..4)?, 16).ok()?;
-            let blue = u8::from_str_radix(hex.get(4..6)?, 16).ok()?;
-            (red, green, blue)
-        }
-        3 => {
-            let red = u8::from_str_radix(hex.get(0..1)?, 16).ok()? * 17;
-            let green = u8::from_str_radix(hex.get(1..2)?, 16).ok()? * 17;
-            let blue = u8::from_str_radix(hex.get(2..3)?, 16).ok()? * 17;
-            (red, green, blue)
-        }
-        _ => return None,
-    };
-    Some(format!("\x1b[38;2;{};{};{}m", rgb.0, rgb.1, rgb.2))
-}
-
 pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color: bool) -> String {
     if teams.is_empty() {
         return "No teams found.\n".to_owned();
@@ -256,25 +202,7 @@ pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color
         pad("UPDATED", updated_width),
         pad("ID", id_width),
     ];
-    let mut output = if color {
-        let mut line = String::new();
-        for (index, cell) in header.iter().enumerate() {
-            if index > 0 {
-                line.push(' ');
-            }
-            line.push_str("\x1b[4m");
-            line.push_str(cell);
-            line.push_str(if index + 1 == header.len() {
-                "\x1b[0m"
-            } else {
-                "\x1b[24m"
-            });
-        }
-        line.push('\n');
-        line
-    } else {
-        format!("{}\n", header.join(" "))
-    };
+    let mut output = underlined_header(&header, color);
     for (team, updated) in teams.iter().zip(updated) {
         let cycles = if team.cycles_enabled { "Yes" } else { "No" };
         let key = pad(&team.key, key_width);
@@ -304,18 +232,6 @@ pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color
         }
     }
     output
-}
-
-pub fn stdout_columns(is_terminal: bool) -> usize {
-    if !is_terminal {
-        return 120;
-    }
-    if let Some((terminal_size::Width(width), _)) =
-        terminal_size::terminal_size_of(std::io::stdout())
-    {
-        return usize::from(width);
-    }
-    0
 }
 
 #[cfg(test)]
