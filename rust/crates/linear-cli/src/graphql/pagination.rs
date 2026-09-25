@@ -1,8 +1,9 @@
-//! Strict forward cursor pagination for built-in connections.
+//! Forward cursor pagination for built-in connections.
 //!
 //! The oracle loops `after = pageInfo.endCursor` while `hasNextPage` and
-//! fails when `hasNextPage` is true without a cursor. This helper keeps that
-//! rule and adds one reviewed strictness delta recorded in
+//! fails when `hasNextPage` is true without a cursor. The default rejects an
+//! empty cursor too; opt-in `Allow` sends it like any concrete cursor. Both
+//! policies add one reviewed strictness delta recorded in
 //! `rust/compatibility.md`: a cursor equal to the one just sent, or to any
 //! cursor seen earlier in the walk, aborts instead of looping. No page count
 //! limit is imposed. A failure on any page discards every page: partial
@@ -44,12 +45,21 @@ pub struct Paginated<N> {
     pub page_info: PageInfo,
 }
 
+/// Whether a connection may send an empty string as its next-page cursor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EmptyCursorPolicy {
+    /// Match strict built-in connections such as `team list`.
+    Reject,
+    /// Treat `""` as a concrete cursor, while still rejecting repeats/cycles.
+    Allow,
+}
+
 /// Why a walk stopped without a complete result. `page` counts from 1.
 #[derive(Debug)]
 pub enum PaginationError<E> {
     /// Fetching this page failed; earlier pages are discarded.
     Fetch { page: usize, source: E },
-    /// `hasNextPage` was true but `endCursor` was null or empty.
+    /// `hasNextPage` was true but `endCursor` was null, or empty under Reject.
     MissingCursor { page: usize },
     /// `endCursor` repeated the cursor just requested or one seen earlier.
     RepeatedCursor { page: usize, cursor: String },
@@ -80,9 +90,23 @@ impl<E: Error + 'static> Error for PaginationError<E> {
     }
 }
 
-/// Walks every page. `fetch` receives `None` for the first page (built-ins
-/// omit the `after` key) and `Some(cursor)` afterwards.
-pub async fn paginate<N, E, F, Fut>(mut fetch: F) -> Result<Paginated<N>, PaginationError<E>>
+/// Walks every page with the strict policy. `fetch` receives `None` for the
+/// first page (built-ins omit `after`) and `Some(cursor)` afterwards.
+pub async fn paginate<N, E, F, Fut>(fetch: F) -> Result<Paginated<N>, PaginationError<E>>
+where
+    F: FnMut(Option<String>) -> Fut,
+    Fut: Future<Output = Result<Page<N>, E>>,
+{
+    paginate_with_policy(EmptyCursorPolicy::Reject, fetch).await
+}
+
+/// Walks every page under an explicit empty-cursor policy. Under Allow, an
+/// empty string is sent as `Some("")`; null still fails, and all seen cursors
+/// (including `""`) are rejected if they recur.
+pub async fn paginate_with_policy<N, E, F, Fut>(
+    policy: EmptyCursorPolicy,
+    mut fetch: F,
+) -> Result<Paginated<N>, PaginationError<E>>
 where
     F: FnMut(Option<String>) -> Fut,
     Fut: Future<Output = Result<Page<N>, E>>,
@@ -104,7 +128,7 @@ where
             });
         }
         let next = match info.end_cursor.as_deref() {
-            Some(next) if !next.is_empty() => next.to_owned(),
+            Some(next) if policy == EmptyCursorPolicy::Allow || !next.is_empty() => next.to_owned(),
             Some(_) | None => return Err(PaginationError::MissingCursor { page }),
         };
         if cursor.as_deref() == Some(next.as_str()) || !seen.insert(next.clone()) {

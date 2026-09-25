@@ -3,7 +3,9 @@
 use std::collections::VecDeque;
 use std::fmt;
 
-use linear_cli::graphql::pagination::{Page, PageInfo, Paginated, PaginationError, paginate};
+use linear_cli::graphql::pagination::{
+    EmptyCursorPolicy, Page, PageInfo, Paginated, PaginationError, paginate, paginate_with_policy,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 struct FetchFailed(&'static str);
@@ -27,7 +29,8 @@ fn page(nodes: &[&str], has_next_page: bool, end_cursor: Option<&str>) -> Page<S
 }
 
 /// Serves scripted pages and records every cursor it was asked for.
-async fn walk(
+async fn walk_with_policy(
+    policy: EmptyCursorPolicy,
     script: Vec<Result<Page<String>, FetchFailed>>,
 ) -> (
     Result<Paginated<String>, PaginationError<FetchFailed>>,
@@ -35,7 +38,7 @@ async fn walk(
 ) {
     let mut queue: VecDeque<_> = script.into();
     let mut asked = Vec::new();
-    let result = paginate(|after| {
+    let result = paginate_with_policy(policy, |after| {
         asked.push(after);
         let next = queue
             .pop_front()
@@ -44,6 +47,15 @@ async fn walk(
     })
     .await;
     (result, asked)
+}
+
+async fn walk(
+    script: Vec<Result<Page<String>, FetchFailed>>,
+) -> (
+    Result<Paginated<String>, PaginationError<FetchFailed>>,
+    Vec<Option<String>>,
+) {
+    walk_with_policy(EmptyCursorPolicy::Reject, script).await
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -92,6 +104,111 @@ async fn has_next_page_without_cursor_is_an_error() {
         }
         assert_eq!(asked.len(), 1, "no second fetch is attempted");
     }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn default_paginate_wrapper_rejects_empty_before_another_fetch() {
+    let mut asked = Vec::new();
+    let result: Result<Paginated<String>, PaginationError<FetchFailed>> = paginate(|after| {
+        asked.push(after);
+        async { Ok(page(&["a"], true, Some(""))) }
+    })
+    .await;
+    assert!(matches!(
+        result,
+        Err(PaginationError::MissingCursor { page: 1 })
+    ));
+    assert_eq!(asked, [None]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn allow_empty_sends_the_empty_cursor_and_retains_final_page_info() {
+    let (result, asked) = walk_with_policy(
+        EmptyCursorPolicy::Allow,
+        vec![
+            Ok(page(&["a"], true, Some(""))),
+            Ok(page(&["b"], false, Some("final"))),
+        ],
+    )
+    .await;
+    let completed = result.expect("empty cursor advances once");
+    assert_eq!(completed.nodes, ["a", "b"]);
+    assert_eq!(completed.page_info.end_cursor.as_deref(), Some("final"));
+    assert_eq!(asked, [None, Some(String::new())]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn allow_empty_accepts_the_first_empty_cursor_on_a_later_page() {
+    let (result, asked) = walk_with_policy(
+        EmptyCursorPolicy::Allow,
+        vec![
+            Ok(page(&["a"], true, Some("A"))),
+            Ok(page(&["b"], true, Some(""))),
+            Ok(page(&["c"], false, None)),
+        ],
+    )
+    .await;
+    assert_eq!(result.expect("later empty cursor").nodes, ["a", "b", "c"]);
+    assert_eq!(asked, [None, Some("A".to_owned()), Some(String::new())]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn allow_empty_rejects_immediate_repeat_and_seen_cycles() {
+    for (script, page_number, asked) in [
+        (
+            vec![
+                Ok(page(&["a"], true, Some(""))),
+                Ok(page(&["b"], true, Some(""))),
+            ],
+            2,
+            vec![None, Some(String::new())],
+        ),
+        (
+            vec![
+                Ok(page(&["a"], true, Some(""))),
+                Ok(page(&["b"], true, Some("A"))),
+                Ok(page(&["c"], true, Some(""))),
+            ],
+            3,
+            vec![None, Some(String::new()), Some("A".to_owned())],
+        ),
+    ] {
+        let (result, actual_asked) = walk_with_policy(EmptyCursorPolicy::Allow, script).await;
+        match result {
+            Err(PaginationError::RepeatedCursor { page, cursor }) => {
+                assert_eq!(page, page_number);
+                assert!(cursor.is_empty());
+            }
+            other => panic!("expected repeated empty cursor, got {other:?}"),
+        }
+        assert_eq!(actual_asked, asked);
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn allow_empty_still_rejects_null_and_nonempty_cycles() {
+    let (missing, asked) =
+        walk_with_policy(EmptyCursorPolicy::Allow, vec![Ok(page(&["a"], true, None))]).await;
+    assert!(matches!(
+        missing,
+        Err(PaginationError::MissingCursor { page: 1 })
+    ));
+    assert_eq!(asked, [None]);
+
+    let (cycle, asked) = walk_with_policy(
+        EmptyCursorPolicy::Allow,
+        vec![
+            Ok(page(&["a"], true, Some("A"))),
+            Ok(page(&["b"], true, Some("B"))),
+            Ok(page(&["c"], true, Some("A"))),
+        ],
+    )
+    .await;
+    assert!(matches!(
+        cycle,
+        Err(PaginationError::RepeatedCursor { page: 3, cursor }) if cursor == "A"
+    ));
+    assert_eq!(asked, [None, Some("A".to_owned()), Some("B".to_owned())]);
 }
 
 #[tokio::test(flavor = "current_thread")]
