@@ -42,5 +42,9 @@
     },
     "fileEffects": []
   },
-  "deviation": null
+  "deviation": {
+    "id": "R02C2G-CREDENTIAL-STARTUP",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "565c1377d9911a0066559216d73726ffe978b4743fb313953230fadfcd49cf71"
+  }
 }

@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "r02c2-inline-version",
+  "deviationId": "R02C2G-CREDENTIAL-STARTUP",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "3.0.0-alpha.1\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

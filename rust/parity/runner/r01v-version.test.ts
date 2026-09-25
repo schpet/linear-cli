@@ -52,7 +52,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  assertEquals(cases.length, 140)
+  assertEquals(cases.length, 150)
   const ids: string[] = []
   let header = 0
   let bare = 0
@@ -60,6 +60,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
   let padded = 0
   let graphql = 0
   let startup = 0
+  let credentialStartup = 0
   for (const loaded of cases) {
     if (loaded.spec.graphql != null) {
       graphql++
@@ -77,6 +78,12 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       assert(
         loaded.spec.deviation?.id === "R02B3-STARTUP-VALIDATION" ||
           loaded.spec.deviation?.id === "R02B3-WARNING-VERSION",
+      )
+    } else if (loaded.spec.id.startsWith("r02c2-")) {
+      credentialStartup++
+      assertEquals(
+        loaded.spec.deviation?.id,
+        "R02C2G-CREDENTIAL-STARTUP",
       )
     } else if (
       loaded.spec.deviation?.id !== "R01V-CLI-VERSION" &&
@@ -122,6 +129,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     11,
   ])
   assertEquals(startup, 5)
+  assertEquals(credentialStartup, 10)
   assertEquals(
     await sha256Hex(new TextEncoder().encode(ids.join("\n") + "\n")),
     "483ccd730cbed6efbee760a1fb25896eeeb7e722dee14776bbfdd41ab8aa5730",

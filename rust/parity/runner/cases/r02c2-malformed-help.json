@@ -1,9 +1,9 @@
 {
-  "id": "r02c2-malformed-credential-and-bad-argv",
+  "id": "r02c2-malformed-help",
   "route": "linear",
-  "reason": "Credential parse failure precedes argument validation.",
+  "reason": "Malformed credential TOML fails before root help.",
   "argv": [
-    "--not-a-real-flag"
+    "--help"
   ],
   "stdin": {
     "utf8": ""
@@ -43,5 +43,9 @@
     },
     "fileEffects": []
   },
-  "deviation": null
+  "deviation": {
+    "id": "R02C2G-CREDENTIAL-STARTUP",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "c6f1a0146518193aa178e1e971eb646cca739fe8943b85dbe8c7529c6c4dd560"
+  }
 }
