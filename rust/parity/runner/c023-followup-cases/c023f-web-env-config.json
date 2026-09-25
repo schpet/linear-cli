@@ -1,0 +1,50 @@
+{
+  "id": "c023f-web-env-config",
+  "route": "linear project list",
+  "reason": "Config workspace versus environment workspace in browser URL",
+  "argv": [
+    "project",
+    "list",
+    "--web"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "workspace-config",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_WORKSPACE": "gamma",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Opening https://linear.app/gamma/projects/all in web browser\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to open projects: Failed to spawn 'xdg-open': entity not found\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}
