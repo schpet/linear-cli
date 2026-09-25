@@ -375,8 +375,28 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  // C015 adds 25 User-Agent-bound GraphQL cases to the committed corpus.
-  assertEquals(graphql.length, 54)
+  // C011 adds 32 User-Agent-bound GraphQL cases to the committed corpus.
+  assertEquals(graphql.length, 86)
+  const c011Surfaces = new Map<string, string[]>([
+    ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
+    ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
+    ["c011-null-position-single", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]],
+    ["c011-null-states", ["stderr", "graphql-user-agent"]],
+    ["c011-null-team", ["stderr", "graphql-user-agent"]],
+    ["c011-string-position", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]],
+    ["c011-raw-extra-field", ["stdout", "graphql-user-agent"]],
+    ["c011-width-u4dc0", ["stdout", "graphql-user-agent"]],
+  ])
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -391,13 +411,14 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     assertEquals(loaded.golden?.spec.candidate.graphqlUserAgent, USER_AGENT)
     assertEquals(
       loaded.golden?.spec.approvedSurfaces,
-      loaded.spec.id === "c008-text-percent" ||
-        loaded.spec.id === "c008-raw-extra-field" ||
-        loaded.spec.id === "c015-raw-extra-json"
-        ? ["stdout", "graphql-user-agent"]
-        : loaded.spec.id === "c008-raw-null-name"
-        ? ["exit", "stdout", "stderr", "graphql-user-agent"]
-        : ["graphql-user-agent"],
+      c011Surfaces.get(loaded.spec.id) ??
+        (loaded.spec.id === "c008-text-percent" ||
+            loaded.spec.id === "c008-raw-extra-field" ||
+            loaded.spec.id === "c015-raw-extra-json"
+          ? ["stdout", "graphql-user-agent"]
+          : loaded.spec.id === "c008-raw-null-name"
+          ? ["exit", "stdout", "stderr", "graphql-user-agent"]
+          : ["graphql-user-agent"]),
     )
     const frozen = resolveCase(loaded.spec, substitutions).graphql
     const candidate = resolveCase(

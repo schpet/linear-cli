@@ -21,6 +21,7 @@ pub enum DispatchAction {
     AuthWhoami,
     TeamList,
     UserList,
+    TeamStates,
     Document,
     ParentPending,
     Markdown,

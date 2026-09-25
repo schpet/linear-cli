@@ -10784,7 +10784,7 @@ impl Route {
             Self::TeamIdR42 => super::DispatchAction::TeamId,
             Self::TeamAutolinksR43 => super::DispatchAction::Unimplemented,
             Self::TeamMembersR44 => super::DispatchAction::Unimplemented,
-            Self::TeamStatesR45 => super::DispatchAction::Unimplemented,
+            Self::TeamStatesR45 => super::DispatchAction::TeamStates,
             Self::UserR46 => super::DispatchAction::ParentPending,
             Self::UserListR47 => super::DispatchAction::UserList,
             Self::ProjectR48 => super::DispatchAction::ParentPending,

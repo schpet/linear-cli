@@ -52,8 +52,42 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  // C015 contributes 32 cases with its own version and typed-JSON bindings.
-  assertEquals(cases.length, 333)
+  // C011 contributes 41 team-state cases with their own scoped bindings.
+  assertEquals(cases.length, 374)
+  const c011Graphql = new Map<string, { id: string; surfaces: string[] }>([
+    ["c011-infinite-position", {
+      id: "C011-STRICT-STATE-DECODE",
+      surfaces: ["stderr", "graphql-user-agent"],
+    }],
+    ["c011-null-position-pair", {
+      id: "C011-STRICT-STATE-DECODE",
+      surfaces: ["stderr", "graphql-user-agent"],
+    }],
+    ["c011-null-position-single", {
+      id: "C011-STRICT-STATE-DECODE",
+      surfaces: ["exit", "stdout", "stderr", "graphql-user-agent"],
+    }],
+    ["c011-null-states", {
+      id: "C011-STRICT-STATE-DECODE",
+      surfaces: ["stderr", "graphql-user-agent"],
+    }],
+    ["c011-null-team", {
+      id: "C011-STRICT-STATE-DECODE",
+      surfaces: ["stderr", "graphql-user-agent"],
+    }],
+    ["c011-string-position", {
+      id: "C011-STRICT-STATE-DECODE",
+      surfaces: ["exit", "stdout", "stderr", "graphql-user-agent"],
+    }],
+    ["c011-raw-extra-field", {
+      id: "C011-TYPED-JSON-FIELDS",
+      surfaces: ["stdout", "graphql-user-agent"],
+    }],
+    ["c011-width-u4dc0", {
+      id: "C011-WIDTH-TABLE",
+      surfaces: ["stdout", "graphql-user-agent"],
+    }],
+  ])
   const ids: string[] = []
   let header = 0
   let bare = 0
@@ -73,26 +107,28 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       graphql++
       assertEquals(
         loaded.spec.deviation?.id,
-        loaded.spec.id === "c008-text-percent"
-          ? "C008-SAFE-CONSOLE-PERCENT"
-          : loaded.spec.id === "c008-raw-null-name"
-          ? "C008-STRICT-TEAM-NAME"
-          : loaded.spec.id === "c008-raw-extra-field"
-          ? "C008-TYPED-JSON-FIELDS"
-          : loaded.spec.id === "c015-raw-extra-json"
-          ? "C015-TYPED-JSON-FIELDS"
-          : "R01H-GRAPHQL-UA",
+        c011Graphql.get(loaded.spec.id)?.id ??
+          (loaded.spec.id === "c008-text-percent"
+            ? "C008-SAFE-CONSOLE-PERCENT"
+            : loaded.spec.id === "c008-raw-null-name"
+            ? "C008-STRICT-TEAM-NAME"
+            : loaded.spec.id === "c008-raw-extra-field"
+            ? "C008-TYPED-JSON-FIELDS"
+            : loaded.spec.id === "c015-raw-extra-json"
+            ? "C015-TYPED-JSON-FIELDS"
+            : "R01H-GRAPHQL-UA"),
       )
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
-        loaded.spec.id === "c008-text-percent"
-          ? ["stdout", "graphql-user-agent"]
-          : loaded.spec.id === "c008-raw-null-name"
-          ? ["exit", "stdout", "stderr", "graphql-user-agent"]
-          : loaded.spec.id === "c008-raw-extra-field" ||
-              loaded.spec.id === "c015-raw-extra-json"
-          ? ["stdout", "graphql-user-agent"]
-          : ["graphql-user-agent"],
+        c011Graphql.get(loaded.spec.id)?.surfaces ??
+          (loaded.spec.id === "c008-text-percent"
+            ? ["stdout", "graphql-user-agent"]
+            : loaded.spec.id === "c008-raw-null-name"
+            ? ["exit", "stdout", "stderr", "graphql-user-agent"]
+            : loaded.spec.id === "c008-raw-extra-field" ||
+                loaded.spec.id === "c015-raw-extra-json"
+            ? ["stdout", "graphql-user-agent"]
+            : ["graphql-user-agent"]),
       )
       assertEquals(
         loaded.golden?.spec.candidate.graphqlUserAgent,
@@ -181,6 +217,18 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
           loaded.spec.deviation.id === "C008-STRICT-TEAM-NAME" ||
           loaded.spec.deviation.id === "C008-TYPED-JSON-FIELDS",
       )
+    } else if (loaded.spec.id.startsWith("c011-")) {
+      assert(
+        loaded.spec.deviation == null ||
+          [
+            "R01H-GRAPHQL-UA",
+            "C011-CLI-VERSION",
+            "C011-TRANSPORT-DIAGNOSTIC",
+            "C011-STRICT-STATE-DECODE",
+            "C011-TYPED-JSON-FIELDS",
+            "C011-WIDTH-TABLE",
+          ].includes(loaded.spec.deviation.id),
+      )
     } else if (loaded.spec.id.startsWith("c015-")) {
       assert(
         loaded.spec.deviation == null ||
@@ -245,7 +293,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     3,
     3,
     43,
-    54,
+    86,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)

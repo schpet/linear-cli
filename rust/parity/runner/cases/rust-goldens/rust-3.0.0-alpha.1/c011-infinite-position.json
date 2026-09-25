@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c011-infinite-position",
+  "deviationId": "C011-STRICT-STATE-DECODE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to fetch workflow states: response body is not valid JSON: number out of range at line 1 column 104\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

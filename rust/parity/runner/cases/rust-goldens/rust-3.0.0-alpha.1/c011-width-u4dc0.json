@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c011-width-u4dc0",
+  "deviationId": "C011-WIDTH-TABLE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "NAME   TYPE   \n䷀䷀䷀ started\n漢字   started\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

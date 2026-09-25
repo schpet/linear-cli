@@ -6,14 +6,17 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::auth::{ApiKeyInput, CredentialSelectionInputs};
 use crate::cli::clap_input::{OptionValue, ParsedAction};
 use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
-use crate::commands::{auth_list, auth_whoami, client, team_id, team_list, user_list};
+use crate::commands::team_key::configured_team_key;
+use crate::commands::{auth_list, auth_whoami, client, team_id, team_list, team_states, user_list};
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
 use crate::platform::spinner;
+use crate::refs::{WorkspaceScope, prepare_team_lookup, resolve_team_with_transport};
 use crate::startup::{AppStartupReport, render_startup_diagnostic};
 
 /// Lazily run one network action on a current-thread IO runtime. The action
@@ -432,6 +435,130 @@ fn dispatch(
                     error
                 }
             })?;
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::TeamStates => {
+            let json = action_switch(&action, "json")?;
+            let cli_workspace = action
+                .global_workspace
+                .as_ref()
+                .map(|value| value.value.as_str());
+            let explicit = action.positionals.first().filter(|value| !value.is_empty());
+            let prepared = if let Some(reference) = explicit {
+                let config = context.config()?;
+                let api_key = ApiKeyInput::from_options(&config.options).map_err(|error| {
+                    AppError::new(AppErrorKind::Invariant, error.to_string())
+                        .with_context(team_states::CONTEXT)
+                })?;
+                let inputs = CredentialSelectionInputs {
+                    api_key,
+                    cli_workspace,
+                    sourced_workspace: config
+                        .options
+                        .workspace()
+                        .map(|resolved| (resolved.value().as_str(), resolved.source().clone())),
+                };
+                let scope = WorkspaceScope::from_selection(&inputs, context.credentials()?);
+                Some(
+                    prepare_team_lookup(reference, &scope)
+                        .map_err(|error| error.with_context(team_states::CONTEXT))?,
+                )
+            } else {
+                None
+            };
+            let configured_key = if prepared.is_none() {
+                Some(
+                    configured_team_key(&context.config()?.options).ok_or_else(|| {
+                        AppError::new(
+                            AppErrorKind::Validation,
+                            "Could not determine team key from directory name",
+                        )
+                        .with_suggestion("Please specify a team key, name, or ID as an argument.")
+                        .with_context(team_states::CONTEXT)
+                    })?,
+                )
+            } else {
+                None
+            };
+            let spinner = spinner::enabled(
+                json,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
+            if spinner && prepared.is_none() {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let transport = match (|| {
+                let config = context.config()?;
+                client::prepare_transport(
+                    &config.options,
+                    context.credentials()?,
+                    cli_workspace,
+                    &config.transport_env,
+                )
+            })() {
+                Ok(transport) => transport,
+                Err(error) => {
+                    if spinner && prepared.is_none() {
+                        context
+                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                    }
+                    return Err(error.with_context(team_states::CONTEXT));
+                }
+            };
+            let team_key = match prepared {
+                Some(prepared) => {
+                    block_on_network(async {
+                        resolve_team_with_transport(&prepared, &transport).await
+                    })
+                    .map_err(|error| error.with_context(team_states::CONTEXT))?
+                    .key
+                }
+                None => configured_key.ok_or_else(|| {
+                    AppError::new(AppErrorKind::Invariant, "configured team key disappeared")
+                })?,
+            };
+            if spinner && explicit.is_some() {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let color = context.stdout_tty && !context.no_color();
+            let output_result = if spinner {
+                block_on_network(async {
+                    let pending = team_states::run(&transport, team_key, json, color);
+                    tokio::pin!(pending);
+                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+                    ticks.tick().await;
+                    let mut frame = 1;
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut pending => break result,
+                            _ = ticks.tick() => {
+                                context.write_stdout_with_policy(
+                                    spinner::frame(frame).as_bytes(),
+                                    OutputPolicy::ConsoleLike,
+                                )?;
+                                frame = frame.wrapping_add(1);
+                            }
+                        }
+                    }
+                })
+            } else {
+                block_on_network(async {
+                    team_states::run(&transport, team_key, json, color).await
+                })
+            };
+            if spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            let output = output_result.map_err(|error| error.with_context(team_states::CONTEXT))?;
             context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }
