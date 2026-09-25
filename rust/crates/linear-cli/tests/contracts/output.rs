@@ -121,12 +121,14 @@ fn stderr_write_failure_is_not_reported_recursively() {
         ..Probe::default()
     };
     let mut context = make_context(&mut stdout, &mut stderr);
-    context.startup.diagnostics = vec![linear_cli::config::ConfigDiagnostic {
-        path: std::env::temp_dir().join(".env"),
-        reason: linear_cli::config::DiagnosticReason::SkippedExpansion(vec![
-            "LINEAR_TEAM_ID".to_owned(),
-        ]),
-    }];
+    context.startup.diagnostics = vec![linear_cli::startup::AppStartupDiagnostic::Config(
+        linear_cli::config::ConfigDiagnostic {
+            path: std::env::temp_dir().join(".env"),
+            reason: linear_cli::config::DiagnosticReason::SkippedExpansion(vec![
+                "LINEAR_TEAM_ID".to_owned(),
+            ]),
+        },
+    )];
     let route_result = run(&["-V".to_owned()], &mut context);
     let error = finalize(route_result, &mut context).expect_err("stderr failure wins");
     assert_io(&error, Stream::Stderr);

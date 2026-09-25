@@ -665,6 +665,7 @@ dependencies = [
  "clap",
  "cynic",
  "cynic-codegen",
+ "libc",
  "reqwest",
  "serde",
  "serde_json",

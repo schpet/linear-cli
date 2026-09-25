@@ -12,7 +12,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 toml = { version = "=1.0.3", default-features = false, features = ["parse", "std", "serde", "preserve_order"] }
 reqwest = { version = "=0.12.28", default-features = false, features = ["rustls-tls-webpki-roots"] }
-tokio = { version = "=1.47.4", default-features = false, features = ["rt", "time", "macros", "net"] }
+tokio = { version = "=1.47.4", default-features = false, features = ["rt", "time", "macros", "net", "process", "io-util"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.189"
 
 [dev-dependencies]
 tokio = { version = "=1.47.4", default-features = false, features = ["process", "io-util"] }
@@ -49,3 +52,7 @@ path = "tests/config/main.rs"
 [[test]]
 name = "auth"
 path = "tests/auth/main.rs"
+
+[[test]]
+name = "startup"
+path = "tests/startup/main.rs"

@@ -16,10 +16,16 @@ use std::io::{self, IsTerminal};
 use std::process::ExitCode;
 
 use linear_cli::app::{AppContext, finalize, report_bootstrap_error, run};
+use linear_cli::auth::file::RealCredentialFileSource;
+#[cfg(target_os = "linux")]
+use linear_cli::auth::keyring::LinuxKeyringReader;
+#[cfg(not(target_os = "linux"))]
+use linear_cli::auth::keyring::UnsupportedKeyringReader;
 use linear_cli::config::{
-    OsFamily, ProcessEnvError, ProcessEnvSnapshot, RealFileSource, RealGitRootProbe, load_startup,
+    OsFamily, ProcessEnvError, ProcessEnvSnapshot, RealFileSource, RealGitRootProbe,
 };
 use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
+use linear_cli::startup::load;
 
 type ProcessInputs = (ProcessEnvSnapshot, Vec<String>);
 
@@ -83,7 +89,17 @@ fn main() -> ExitCode {
     };
     let cwd = environment.inputs.cwd.clone();
     let git = RealGitRootProbe::new(cwd.clone());
-    let startup = load_startup(&environment, &RealFileSource, &git);
+    #[cfg(target_os = "linux")]
+    let keyring = LinuxKeyringReader::new();
+    #[cfg(not(target_os = "linux"))]
+    let keyring = UnsupportedKeyringReader;
+    let startup = load(
+        &environment,
+        &RealFileSource,
+        &git,
+        &RealCredentialFileSource,
+        &keyring,
+    );
     let mut context = AppContext {
         startup,
         cwd,

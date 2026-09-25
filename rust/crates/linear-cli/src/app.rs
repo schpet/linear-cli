@@ -6,9 +6,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::cli::{self, DispatchAction, RouteMeta};
-use crate::config::{StartupConfig, StartupReport, render_diagnostic};
+use crate::config::StartupConfig;
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
+use crate::startup::{AppStartupReport, render_startup_diagnostic};
 
 /// Lazily run one network action on a current-thread IO runtime. The action
 /// owns its inputs and returns before its caller writes to the CLI streams.
@@ -39,7 +40,7 @@ where
 }
 
 pub struct AppContext<'a> {
-    pub startup: StartupReport,
+    pub startup: AppStartupReport,
     pub cwd: PathBuf,
     pub stdout: &'a mut dyn Write,
     pub stderr: &'a mut dyn Write,
@@ -66,12 +67,29 @@ impl AppContext<'_> {
     }
 
     pub fn config(&self) -> Result<&StartupConfig, AppError> {
-        self.startup.result.as_ref().map_err(|_| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "config was requested after startup failed",
-            )
-        })
+        self.startup
+            .result
+            .as_ref()
+            .map(|loaded| &loaded.config)
+            .map_err(|_| {
+                AppError::new(
+                    AppErrorKind::Invariant,
+                    "config was requested after startup failed",
+                )
+            })
+    }
+
+    pub fn credentials(&self) -> Result<&crate::auth::CredentialStore, AppError> {
+        self.startup
+            .result
+            .as_ref()
+            .map(|loaded| &loaded.credentials)
+            .map_err(|_| {
+                AppError::new(
+                    AppErrorKind::Invariant,
+                    "credentials requested after startup failed",
+                )
+            })
     }
 
     fn write_stdout(&mut self, bytes: &[u8]) -> Result<(), AppError> {
@@ -167,7 +185,7 @@ pub fn finalize(
 pub fn run(argv: &[String], context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
     context.stdout_finalization = None;
     for diagnostic in context.startup.diagnostics.clone() {
-        let rendered = render_diagnostic(&diagnostic, context.help_color());
+        let rendered = render_startup_diagnostic(&diagnostic, context.help_color());
         write_stderr(context, rendered.as_bytes())?;
     }
     if let Err(error) = &context.startup.result {

@@ -5,10 +5,12 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
+use linear_cli::auth::keyring::UnsupportedKeyringReader;
 use linear_cli::config::{
     FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot,
-    StartupReport, load_startup,
 };
+use linear_cli::startup::{AppStartupReport, load};
 
 struct EmptyFiles;
 
@@ -30,7 +32,15 @@ impl GitRootProbe for NoGit {
     }
 }
 
-pub fn empty_startup(cwd: PathBuf, env: &[(&str, &str)]) -> StartupReport {
+struct EmptyCredentials;
+
+impl CredentialFileSource for EmptyCredentials {
+    fn read_credentials(&self, _path: &Path) -> Result<Option<Vec<u8>>, CredentialReadFailure> {
+        Ok(None)
+    }
+}
+
+pub fn empty_startup(cwd: PathBuf, env: &[(&str, &str)]) -> AppStartupReport {
     let os = if cfg!(windows) {
         OsFamily::Windows
     } else {
@@ -41,7 +51,13 @@ pub fn empty_startup(cwd: PathBuf, env: &[(&str, &str)]) -> StartupReport {
         .map(|(name, value)| (OsString::from(name), OsString::from(value)));
     let process = ProcessEnvSnapshot::from_vars_os(cwd, os, variables)
         .expect("synthetic process environment is valid");
-    let startup = load_startup(&process, &EmptyFiles, &NoGit);
+    let startup = load(
+        &process,
+        &EmptyFiles,
+        &NoGit,
+        &EmptyCredentials,
+        &UnsupportedKeyringReader,
+    );
     assert!(startup.result.is_ok(), "synthetic config must load");
     startup
 }

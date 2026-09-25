@@ -25,7 +25,8 @@ pub use runtime::{ProcessEnvError, ProcessEnvSnapshot, RealGitRootProbe};
 pub(crate) use source::lexical as lexical_config_path;
 pub use source::{
     ConfigInputs, FileKind, FileSource, GitIoStage, GitProbeError, GitProbeResult, GitRootProbe,
-    OsFamily, RawConfigFile, ReadCandidate, RealFileSource, read_config_candidate,
+    MAX_CONFIG_BYTES, OsFamily, RawConfigFile, ReadCandidate, RealFileSource,
+    read_config_candidate,
 };
 pub use startup::{
     ChildEnvOverlay, DisplaySettings, NoColor, StartupConfig, StartupError, StartupReport,

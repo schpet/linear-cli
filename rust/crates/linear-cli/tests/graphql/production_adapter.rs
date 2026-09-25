@@ -8,15 +8,18 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use linear_cli::app::{AppContext, block_on_network, write_final_error};
+use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
+use linear_cli::auth::keyring::UnsupportedKeyringReader;
 use linear_cli::config::{
     FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot,
-    TransportEnvInputs, load_startup,
+    TransportEnvInputs,
 };
 use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
 use linear_cli::graphql::transport::{
     ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, RawHttpResponse,
     ResponseCap, TransportBuildError, TransportConfig, classify_typed,
 };
+use linear_cli::startup::{AppStartupReport, load};
 use reqwest::StatusCode;
 use reqwest::header::HeaderMap;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -393,6 +396,23 @@ impl GitRootProbe for NoGit {
     }
 }
 
+struct EmptyCredentials;
+impl CredentialFileSource for EmptyCredentials {
+    fn read_credentials(&self, _path: &Path) -> Result<Option<Vec<u8>>, CredentialReadFailure> {
+        Ok(None)
+    }
+}
+
+fn empty_startup(snapshot: &ProcessEnvSnapshot) -> AppStartupReport {
+    load(
+        snapshot,
+        &EmptyFiles,
+        &NoGit,
+        &EmptyCredentials,
+        &UnsupportedKeyringReader,
+    )
+}
+
 fn render_graphql_failure(debug: Option<&str>) -> String {
     let variables = debug
         .into_iter()
@@ -401,7 +421,7 @@ fn render_graphql_failure(debug: Option<&str>) -> String {
     let snapshot =
         ProcessEnvSnapshot::from_vars_os(PathBuf::from("/work"), OsFamily::Unix, variables)
             .expect("test env");
-    let startup = load_startup(&snapshot, &EmptyFiles, &NoGit);
+    let startup = empty_startup(&snapshot);
     let response = RawHttpResponse {
         status: StatusCode::BAD_REQUEST,
         headers: HeaderMap::new(),
@@ -451,7 +471,7 @@ fn transport_debug_includes_a_source_chain() {
         [(OsString::from("LINEAR_DEBUG"), OsString::from("1"))],
     )
     .expect("test env");
-    let startup = load_startup(&snapshot, &EmptyFiles, &NoGit);
+    let startup = empty_startup(&snapshot);
     let error = AppError::new(AppErrorKind::Transport, "request failed")
         .with_source(std::io::Error::other("synthetic connection failure"));
     let mut stdout = Vec::new();
@@ -503,7 +523,7 @@ fn real_network_failure_debug_omits_endpoint_query_and_api_key() {
         [(OsString::from("LINEAR_DEBUG"), OsString::from("1"))],
     )
     .expect("debug env");
-    let startup = load_startup(&snapshot, &EmptyFiles, &NoGit);
+    let startup = empty_startup(&snapshot);
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     let mut context = AppContext {

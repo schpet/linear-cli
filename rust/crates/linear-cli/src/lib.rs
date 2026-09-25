@@ -14,3 +14,4 @@ pub mod config;
 pub mod error;
 pub mod graphql;
 pub mod platform;
+pub mod startup;

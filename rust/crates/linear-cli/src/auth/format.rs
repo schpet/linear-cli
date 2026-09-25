@@ -41,6 +41,7 @@ pub enum LookupFailureCategory {
     Unavailable,
     Permission,
     Other,
+    UnsupportedPlatform,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -1,6 +1,8 @@
 //! Pure credential formats and selection. Backends and process inputs live elsewhere.
+pub mod file;
 mod format;
 pub mod header;
+pub mod keyring;
 mod path;
 mod resolve;
 
