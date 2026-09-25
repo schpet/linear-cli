@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c008-text-percent",
+  "deviationId": "C008-SAFE-CONSOLE-PERCENT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "KEY NAME         CYCLES UPDATED  ID       \nA%s Percent Team Yes    just now id-format\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

@@ -52,7 +52,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  assertEquals(cases.length, 226)
+  assertEquals(cases.length, 251)
   const ids: string[] = []
   let header = 0
   let bare = 0
@@ -70,10 +70,26 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     }
     if (loaded.spec.graphql != null) {
       graphql++
-      assertEquals(loaded.spec.deviation?.id, "R01H-GRAPHQL-UA")
-      assertEquals(loaded.golden?.spec.approvedSurfaces, [
-        "graphql-user-agent",
-      ])
+      assertEquals(
+        loaded.spec.deviation?.id,
+        loaded.spec.id === "c008-text-percent"
+          ? "C008-SAFE-CONSOLE-PERCENT"
+          : loaded.spec.id === "c008-raw-null-name"
+          ? "C008-STRICT-TEAM-NAME"
+          : loaded.spec.id === "c008-raw-extra-field"
+          ? "C008-TYPED-JSON-FIELDS"
+          : "R01H-GRAPHQL-UA",
+      )
+      assertEquals(
+        loaded.golden?.spec.approvedSurfaces,
+        loaded.spec.id === "c008-text-percent"
+          ? ["stdout", "graphql-user-agent"]
+          : loaded.spec.id === "c008-raw-null-name"
+          ? ["exit", "stdout", "stderr", "graphql-user-agent"]
+          : loaded.spec.id === "c008-raw-extra-field"
+          ? ["stdout", "graphql-user-agent"]
+          : ["graphql-user-agent"],
+      )
       assertEquals(
         loaded.golden?.spec.candidate.graphqlUserAgent,
         `schpet-linear-cli/${V3}`,
@@ -153,6 +169,14 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
         loaded.spec.deviation == null ||
           loaded.spec.deviation.id === "R02B3-STARTUP-VALIDATION",
       )
+    } else if (loaded.spec.id.startsWith("c008-")) {
+      assert(
+        loaded.spec.deviation == null ||
+          loaded.spec.deviation.id === "R01H-GRAPHQL-UA" ||
+          loaded.spec.deviation.id === "C008-SAFE-CONSOLE-PERCENT" ||
+          loaded.spec.deviation.id === "C008-STRICT-TEAM-NAME" ||
+          loaded.spec.deviation.id === "C008-TYPED-JSON-FIELDS",
+      )
     } else if (
       loaded.spec.deviation?.id !== "R01V-CLI-VERSION" &&
       loaded.spec.deviation?.id !== "R01H-GRAPHQL-UA"
@@ -194,7 +218,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     3,
     3,
     43,
-    11,
+    29,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)

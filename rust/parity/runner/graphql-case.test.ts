@@ -131,13 +131,12 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
       `${id} should remain a GraphQL case`,
     )
   }
-  // Startup, parser, and C009 local cases extend the corpus without changing
-  // the original fixtures or the eleven GraphQL cases; C002 pins its own cases.
+  // Keep C002's closed 26-case set separate from the other GraphQL cases.
   const c002 = (item: { spec: { id: string } }) =>
     item.spec.id.startsWith("c002-")
   const others = loaded.filter((item) => !c002(item))
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 189)
-  assertEquals(others.filter((item) => item.spec.graphql != null).length, 11)
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 196)
+  assertEquals(others.filter((item) => item.spec.graphql != null).length, 29)
   assertEquals(loaded.filter(c002).length, 26)
 })
 

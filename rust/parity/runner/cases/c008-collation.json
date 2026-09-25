@@ -1,0 +1,289 @@
+{
+  "route": "linear team list",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "e7678325fdd97c191d24272d0a618e1ee6cada7c96859746fbd08fd1dcfa069d"
+  },
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"hash\",\n      \"name\": \"#hash\",\n      \"key\": \"HASH\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"lower-a\",\n      \"name\": \"alpha\",\n      \"key\": \"LOWER-A\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"upper-a\",\n      \"name\": \"Alpha\",\n      \"key\": \"UPPER-A\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"accent-a\",\n      \"name\": \"Álpha\",\n      \"key\": \"ACCENT-A\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"plain-e\",\n      \"name\": \"eclair\",\n      \"key\": \"PLAIN-E\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"accent-e\",\n      \"name\": \"éclair\",\n      \"key\": \"ACCENT-E\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"item-10\",\n      \"name\": \"item 10\",\n      \"key\": \"ITEM-10\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"item-9\",\n      \"name\": \"item 9\",\n      \"key\": \"ITEM-9\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"tie-1\",\n      \"name\": \"Twin\",\n      \"key\": \"TIE-1\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"tie-2\",\n      \"name\": \"Twin\",\n      \"key\": \"TIE-2\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"lower-z\",\n      \"name\": \"zebra\",\n      \"key\": \"LOWER-Z\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    },\n    {\n      \"id\": \"upper-z\",\n      \"name\": \"Zebra\",\n      \"key\": \"UPPER-Z\",\n      \"description\": null,\n      \"icon\": null,\n      \"color\": \"#4466aa\",\n      \"cyclesEnabled\": true,\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"9999-01-01T00:00:00.000Z\",\n      \"archivedAt\": null,\n      \"organization\": {\n        \"id\": \"org-fake-1\",\n        \"name\": \"Example Org\"\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "id": "c008-collation",
+  "reason": "Distinguish Deno localeCompare from codepoint order across case, accent, punctuation, digit and stable ties.",
+  "argv": [
+    "team",
+    "list",
+    "--json"
+  ],
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "page-1",
+            "operation": {
+              "document": "query GetTeams($filter: TeamFilter, $first: Int, $after: String) { teams(filter: $filter, first: $first, after: $after) { nodes { id name key description icon color cyclesEnabled createdAt updatedAt archivedAt organization { id name } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "hash",
+                      "name": "#hash",
+                      "key": "HASH",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "lower-a",
+                      "name": "alpha",
+                      "key": "LOWER-A",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "upper-a",
+                      "name": "Alpha",
+                      "key": "UPPER-A",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "accent-a",
+                      "name": "Álpha",
+                      "key": "ACCENT-A",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "item-9",
+                      "name": "item 9",
+                      "key": "ITEM-9",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "item-10",
+                      "name": "item 10",
+                      "key": "ITEM-10",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "lower-z",
+                      "name": "zebra",
+                      "key": "LOWER-Z",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "upper-z",
+                      "name": "Zebra",
+                      "key": "UPPER-Z",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "accent-e",
+                      "name": "éclair",
+                      "key": "ACCENT-E",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "plain-e",
+                      "name": "eclair",
+                      "key": "PLAIN-E",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "tie-1",
+                      "name": "Twin",
+                      "key": "TIE-1",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    },
+                    {
+                      "id": "tie-2",
+                      "name": "Twin",
+                      "key": "TIE-2",
+                      "description": null,
+                      "icon": null,
+                      "color": "#4466aa",
+                      "cyclesEnabled": true,
+                      "createdAt": "2025-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "archivedAt": null,
+                      "organization": {
+                        "id": "org-fake-1",
+                        "name": "Example Org"
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

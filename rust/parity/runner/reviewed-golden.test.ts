@@ -371,12 +371,11 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     undefined,
     CONTRACT,
   )
-  // C002 binds case-specific row-text goldens; c002-main-cases.test.ts pins
-  // their User-Agent and surfaces.
+  // C002 binds its own row-text goldens in c002-main-cases.test.ts.
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  assertEquals(graphql.length, 11)
+  assertEquals(graphql.length, 29)
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -389,7 +388,15 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   }
   for (const loaded of graphql) {
     assertEquals(loaded.golden?.spec.candidate.graphqlUserAgent, USER_AGENT)
-    assertEquals(loaded.golden?.spec.approvedSurfaces, ["graphql-user-agent"])
+    assertEquals(
+      loaded.golden?.spec.approvedSurfaces,
+      loaded.spec.id === "c008-text-percent" ||
+        loaded.spec.id === "c008-raw-extra-field"
+        ? ["stdout", "graphql-user-agent"]
+        : loaded.spec.id === "c008-raw-null-name"
+        ? ["exit", "stdout", "stderr", "graphql-user-agent"]
+        : ["graphql-user-agent"],
+    )
     const frozen = resolveCase(loaded.spec, substitutions).graphql
     const candidate = resolveCase(
       candidateCaseView(loaded).spec,

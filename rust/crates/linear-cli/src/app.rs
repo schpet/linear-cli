@@ -6,9 +6,10 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::cli::clap_input::{OptionValue, ParsedAction};
 use crate::cli::{self, DispatchAction};
-use crate::commands::{auth_list, auth_whoami, team_id};
-use crate::config::StartupConfig;
+use crate::commands::{auth_list, auth_whoami, client, team_id, team_list};
+use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
 use crate::startup::{AppStartupReport, render_startup_diagnostic};
@@ -267,6 +268,98 @@ fn dispatch(
             write_stdout(context, &output)?;
             Ok(ExitStatus::Success)
         }
+        DispatchAction::TeamList => {
+            let flags = team_list::Options {
+                json: action_switch(&action, "json")?,
+                web: action_switch(&action, "web")?,
+                app: action_switch(&action, "app")?,
+            };
+            if flags.web || flags.app {
+                let (url, opening) = team_list::web_opening(&context.config()?.options, flags.app)?;
+                context.write_stdout_with_policy(&opening, OutputPolicy::ConsoleLike)?;
+                team_list::open(&url, flags.app)?;
+                return Ok(ExitStatus::Success);
+            }
+            let spinner = !flags.json
+                && context.stdout_tty
+                && context.startup.settings.no_color == NoColor::Absent;
+            if spinner {
+                context.write_stdout_with_policy(
+                    team_list::spinner_frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let prepared = (|| {
+                let config = context.config()?;
+                let credentials = context.credentials()?;
+                let workspace = action
+                    .global_workspace
+                    .as_ref()
+                    .map(|value| value.value.as_str());
+                client::prepare_transport(
+                    &config.options,
+                    credentials,
+                    workspace,
+                    &config.transport_env,
+                )
+                .map_err(|error| error.with_context("Failed to fetch teams"))
+            })();
+            let transport = match prepared {
+                Ok(transport) => transport,
+                Err(error) => {
+                    if spinner {
+                        context.write_stdout_with_policy(
+                            team_list::SPINNER_CLEAR,
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                    }
+                    return Err(error);
+                }
+            };
+            let columns = team_list::stdout_columns(context.stdout_tty);
+            let color = context.stdout_tty && !context.no_color();
+            let output_result = if spinner {
+                block_on_network(async {
+                    let pending = team_list::run(&transport, flags.json, columns, color);
+                    tokio::pin!(pending);
+                    let mut ticks = tokio::time::interval(Duration::from_millis(75));
+                    ticks.tick().await;
+                    let mut frame = 1;
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut pending => break result,
+                            _ = ticks.tick() => {
+                                context.write_stdout_with_policy(
+                                    team_list::spinner_frame(frame).as_bytes(),
+                                    OutputPolicy::ConsoleLike,
+                                )?;
+                                frame = frame.wrapping_add(1);
+                            }
+                        }
+                    }
+                })
+            } else {
+                block_on_network(async {
+                    team_list::run(&transport, flags.json, columns, color).await
+                })
+            };
+            if spinner {
+                context.write_stdout_with_policy(
+                    team_list::SPINNER_CLEAR,
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let output = output_result.map_err(|error| {
+                if error.context.is_none() {
+                    error.with_context("Failed to fetch teams")
+                } else {
+                    error
+                }
+            })?;
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+            Ok(ExitStatus::Success)
+        }
         DispatchAction::Document => {
             write_stdout(context, b"Use --help to see available subcommands\n")?;
             Ok(ExitStatus::Success)
@@ -297,6 +390,19 @@ fn dispatch(
                 route.path
             ),
         )),
+    }
+}
+
+fn action_switch(action: &ParsedAction, name: &str) -> Result<bool, AppError> {
+    match action.option(name) {
+        None => Ok(false),
+        Some(option) => match &option.value.value {
+            OptionValue::Switch(value) => Ok(*value),
+            _ => Err(AppError::new(
+                AppErrorKind::Invariant,
+                format!("team list option {name} was not a switch"),
+            )),
+        },
     }
 }
 
