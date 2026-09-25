@@ -1,0 +1,114 @@
+{
+  "id": "c021-partial-data-error",
+  "route": "linear template list",
+  "reason": "Partial data with a GraphQL error fails the command and prints no rows.",
+  "argv": [
+    "template",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "get-templates",
+            "operation": {
+              "document": "query GetTemplates { templates { id name description type icon color hasFormFields lastAppliedAt sortOrder createdAt updatedAt team { id key name } inheritedFrom { id name } creator { id name } templateData } }"
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "graphqlErrors",
+              "status": 200,
+              "data": {
+                "templates": [
+                  {
+                    "id": "tpl-kickoff",
+                    "name": "Kickoff",
+                    "description": "Kickoff description",
+                    "type": "project",
+                    "icon": null,
+                    "color": null,
+                    "hasFormFields": false,
+                    "lastAppliedAt": null,
+                    "sortOrder": 0,
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-02T00:00:00.000Z",
+                    "team": null,
+                    "inheritedFrom": null,
+                    "creator": {
+                      "id": "user-1",
+                      "name": "Sam"
+                    },
+                    "templateData": "{\"title\":\"Untitled\"}"
+                  }
+                ]
+              },
+              "errors": [
+                {
+                  "message": "partial template failure",
+                  "path": [
+                    "templates",
+                    0,
+                    "templateData"
+                  ]
+                }
+              ]
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to list templates: partial template failure\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

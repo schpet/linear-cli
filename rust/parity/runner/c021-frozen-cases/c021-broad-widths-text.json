@@ -1,0 +1,147 @@
+{
+  "id": "c021-broad-widths-text",
+  "route": "linear template list",
+  "reason": "A long unknown form type widens TYPE, TEAM caps at 15 without truncating a long key, an over-long ID overflows, and NAME truncates at its 20-column floor.",
+  "argv": [
+    "template",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "get-templates",
+            "operation": {
+              "document": "query GetTemplates { templates { id name description type icon color hasFormFields lastAppliedAt sortOrder createdAt updatedAt team { id key name } inheritedFrom { id name } creator { id name } templateData } }"
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "templates": [
+                  {
+                    "id": "tpl-extremely-long-template-identifier-overflow",
+                    "name": "Long type template name overflow",
+                    "description": "Long type template name overflow description",
+                    "type": "a-very-long-unknown-server-template-type-value-xyz",
+                    "icon": null,
+                    "color": null,
+                    "hasFormFields": true,
+                    "lastAppliedAt": null,
+                    "sortOrder": 0,
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-02T00:00:00.000Z",
+                    "team": null,
+                    "inheritedFrom": null,
+                    "creator": {
+                      "id": "user-1",
+                      "name": "Sam"
+                    },
+                    "templateData": "{\"title\":\"Untitled\"}"
+                  },
+                  {
+                    "id": "tpl-short",
+                    "name": "Short",
+                    "description": "Short description",
+                    "type": "issue",
+                    "icon": null,
+                    "color": null,
+                    "hasFormFields": false,
+                    "lastAppliedAt": null,
+                    "sortOrder": 0,
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-02T00:00:00.000Z",
+                    "team": {
+                      "id": "team-plat-id",
+                      "key": "PLATFORMINFRASTRUCTURE",
+                      "name": "Platform"
+                    },
+                    "inheritedFrom": null,
+                    "creator": {
+                      "id": "user-1",
+                      "name": "Sam"
+                    },
+                    "templateData": "{\"title\":\"Untitled\"}"
+                  },
+                  {
+                    "id": "tpl-tiny",
+                    "name": "Tiny",
+                    "description": "Tiny description",
+                    "type": "issue",
+                    "icon": null,
+                    "color": null,
+                    "hasFormFields": false,
+                    "lastAppliedAt": null,
+                    "sortOrder": 0,
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                    "updatedAt": "2024-01-02T00:00:00.000Z",
+                    "team": null,
+                    "inheritedFrom": null,
+                    "creator": {
+                      "id": "user-1",
+                      "name": "Sam"
+                    },
+                    "templateData": "{\"title\":\"Untitled\"}"
+                  }
+                ]
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "ID                                   NAME                 TYPE                                                      TEAM           \ntpl-extremely-long-template-identifier-overflow Long type templat... a-very-long-unknown-server-template-type-value-xyz (form) Workspace      \ntpl-short                            Short                issue                                                     PLATFORMINFRASTRUCTURE\ntpl-tiny                             Tiny                 issue                                                     Workspace      \n\n3 templates found.\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

@@ -1,0 +1,87 @@
+{
+  "id": "c021-raw-missing-null",
+  "route": "linear template list",
+  "reason": "Deno emits a template missing non-null name and carrying null hasFormFields/templateData unchanged; Rust needs a named v3 strict-decode golden.",
+  "argv": [
+    "template",
+    "list",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "get-templates",
+            "operation": {
+              "document": "query GetTemplates { templates { id name description type icon color hasFormFields lastAppliedAt sortOrder createdAt updatedAt team { id key name } inheritedFrom { id name } creator { id name } templateData } }"
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"templates\":[{\"id\":\"tpl-raw\",\"description\":null,\"type\":\"issue\",\"icon\":null,\"color\":null,\"hasFormFields\":null,\"lastAppliedAt\":null,\"sortOrder\":0,\"createdAt\":\"2024-01-01T00:00:00.000Z\",\"updatedAt\":\"2024-01-02T00:00:00.000Z\",\"team\":null,\"inheritedFrom\":null,\"creator\":null,\"templateData\":null}]}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "[\n  {\n    \"id\": \"tpl-raw\",\n    \"description\": null,\n    \"type\": \"issue\",\n    \"icon\": null,\n    \"color\": null,\n    \"hasFormFields\": null,\n    \"lastAppliedAt\": null,\n    \"sortOrder\": 0,\n    \"createdAt\": \"2024-01-01T00:00:00.000Z\",\n    \"updatedAt\": \"2024-01-02T00:00:00.000Z\",\n    \"team\": null,\n    \"inheritedFrom\": null,\n    \"creator\": null,\n    \"templateData\": null\n  }\n]\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}
