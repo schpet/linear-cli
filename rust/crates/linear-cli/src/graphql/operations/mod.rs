@@ -8,4 +8,5 @@ pub mod agent_session;
 pub mod auth_list;
 pub mod auth_whoami;
 pub mod issue_update;
+pub mod team_resolver;
 pub mod teams;

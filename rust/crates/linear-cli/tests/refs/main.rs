@@ -43,6 +43,8 @@ macro_rules! e0_case {
     };
 }
 
+mod team;
+
 fn case(raw: &str) -> Value {
     serde_json::from_str(raw).unwrap_or_else(|error| panic!("frozen E0 JSON: {error}"))
 }

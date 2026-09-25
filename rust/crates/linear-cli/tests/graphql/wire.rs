@@ -184,7 +184,7 @@ fn edit_refuses_deserialization_so_a_missing_field_can_never_become_clear() {
         assert!(
             error
                 .to_string()
-                .contains("Edit<T> is an input-only adapter and cannot be deserialized"),
+                .contains("Edit<T> is a write-only adapter and cannot be deserialized"),
             "{body}: {error}"
         );
     }

@@ -213,3 +213,29 @@ The frozen Deno `CYCLE_ALIASES` is a plain JavaScript object. A `/team/ENG/cycle
 `linear completions bash|fish|zsh` now prints static scripts generated from a completion view of the same clap tree, rather than Cliffy's scripts. Bash and zsh come from `clap_complete` 4.6.11. Fish comes from a project generator: a table-driven helper walks the words before the cursor to one exact command path, so fish completes every option and value at any depth and never mixes up `issue update` with `issue comment update` or `project update` with `project-update`. Enum values are embedded, so pressing TAB no longer runs the CLI or its config/credential startup; the 36 route aliases and the listed secondary spellings `--ref`/`--reply-to` are navigated and offered in all three shells, while hidden options and the hidden `complete` route stay absent. The default name is the literal `linear`. `--name` must be a plain command word (`[A-Za-z0-9_][A-Za-z0-9_.-]*`); Deno emitted any value unescaped. The hidden `completions complete <action> [command...]` shim remains for saved v2 scripts with the frozen values and LF-joined, no-trailing-newline output; its unknown-command and closed-stdout failures become handled `✗` diagnostics instead of uncaught stack traces, still exit 1. One accepted naming collision remains: bash confuses `project update` with `project-update` and `initiative update` with `initiative-update`, a collision class v2 also had. Fish falls back to its default file completion when no entry applies: for positionals, untyped option values, and words after `--` or an unknown command word. v2 fish never offered files. Regenerate an installed script after upgrading, and prefer writing it to a completion file over `source <(linear completions bash)`, which runs startup in every new shell. Zsh `completions zsh --help` omits Cliffy's `(Default: "linear")` text for `--name` and uses shorter help-row padding; the generated script still defaults to `linear`. See [C086 review](reviews/C086.md).
 
 The generated Bash script also treats a value after `--workspace` and a word after `--` as a command word when choosing suggestions. A private real-Bash probe found the same behavior in the frozen v2 script, so C086 retains that limitation for Bash. The project fish generator rejects unknown long and short flags while selecting its command path and then allows fish's ordinary file fallback; the frozen v2 fish script did not validate those flags before offering command words. Fish also tracks valued options on leaves, so completing another flag after `issue create -p1`, `-tBug`, or `--title -urgent` remains available; a real-fish QA probe binds that behavior.
+
+## F06-TEAMREF-B typed team lookup
+
+The resolver decodes `id`, `key`, and `name` as non-null GraphQL fields before
+applying key/UUID/name precedence. Frozen Deno checks `key` and `name` when it
+walks the first `teams.nodes` result, but its untyped client can encounter a
+malformed aliased `teamById` or `GetAllTeams` node later. Rust rejects any
+malformed selected node while decoding the response, even if an earlier key
+candidate would have won. This is a deliberate strict-response v3 difference
+for every command that calls the shared resolver. C016E0's
+`c016-team-malformed` case captures Deno's `Malformed team in API response`
+text for a null key; future C016/C010 command goldens must bind Rust's typed
+shape error at the public route. B's public library tests check the strict
+decode and uncontextualized error. No B command route claims an exact binary
+comparison yet.
+
+If Linear repeats a `GetAllTeams` cursor while claiming another page, Rust
+stops with `Linear repeated a team pagination cursor on page N` and a retry
+suggestion. Deno's loop would resend indefinitely. An initial omitted cursor,
+and a later explicit null or empty-string cursor, remain distinct and are
+covered by B's typed request tests and the frozen E0 null-cursor case.
+
+If a malformed response omits `endCursor` entirely while claiming another
+page, Cynic decodes it as null and Rust sends `after: null`; Deno would omit
+the next `after` variable. The frozen E0 corpus covers explicit null, not
+an absent cursor field.

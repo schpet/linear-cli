@@ -1,4 +1,4 @@
-//! Three-state mutation edits: unchanged, cleared, or set to a value.
+//! Three-state nullable inputs and query variables: omitted, null, or a value.
 //!
 //! Linear's update inputs distinguish an omitted key (leave the field alone)
 //! from an explicit `null` (clear the field, or for `trashed`, restore the
@@ -23,7 +23,7 @@
 //! lists. Nullable input-object fields are not covered yet; add a forwarding
 //! `cynic::InputObject` impl together with a derive that uses it.
 //!
-//! `Edit<T>` is input-only. It carries a `Deserialize` impl solely because
+//! `Edit<T>` is serialization-only. It carries a `Deserialize` impl solely because
 //! [`cynic::Enum`] requires `DeserializeOwned`, and that impl always fails:
 //! a lenient impl would turn a missing field into `Clear` (serde feeds
 //! missing fields through `deserialize_option`), silently converting "leave
@@ -31,6 +31,8 @@
 
 use serde::de::{Deserialize, Deserializer, Error as _};
 use serde::ser::{Error as _, Serialize, Serializer};
+
+use crate::graphql::schema;
 
 /// A field edit that can leave a value unchanged, clear it, or set it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -110,7 +112,7 @@ impl<'de, T> Deserialize<'de> for Edit<T> {
     /// Always fails. See the module documentation for why this exists.
     fn deserialize<D: Deserializer<'de>>(_deserializer: D) -> Result<Self, D::Error> {
         Err(D::Error::custom(
-            "Edit<T> is an input-only adapter and cannot be deserialized",
+            "Edit<T> is a write-only adapter and cannot be deserialized",
         ))
     }
 }
@@ -125,3 +127,12 @@ where
 impl<T: cynic::Enum> cynic::Enum for Edit<T> {
     type SchemaType = T::SchemaType;
 }
+
+// Query variables need the same nullable schema type and argument coercion as
+// Option<T>, while Edit's serializer keeps omission distinct from explicit null.
+impl<T: schema::variable::Variable> schema::variable::Variable for Edit<T> {
+    const TYPE: cynic::variables::VariableType = cynic::variables::VariableType::Nullable(&T::TYPE);
+}
+
+impl<T, L> cynic::coercions::CoercesTo<Option<L>> for Edit<T> where T: cynic::coercions::CoercesTo<L>
+{}
