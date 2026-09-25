@@ -4,6 +4,7 @@ pub mod client;
 pub mod completions;
 pub mod cycle_list;
 pub mod display;
+pub mod label_list;
 pub mod relative_time;
 pub mod team_id;
 pub(crate) mod team_key;

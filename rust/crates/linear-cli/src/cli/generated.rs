@@ -10825,7 +10825,7 @@ impl Route {
             Self::InitiativeUpdateCreateR83 => super::DispatchAction::Unimplemented,
             Self::InitiativeUpdateListR84 => super::DispatchAction::Unimplemented,
             Self::LabelR85 => super::DispatchAction::ParentPending,
-            Self::LabelListR86 => super::DispatchAction::Unimplemented,
+            Self::LabelListR86 => super::DispatchAction::LabelList,
             Self::LabelCreateR87 => super::DispatchAction::Unimplemented,
             Self::LabelDeleteR88 => super::DispatchAction::Unimplemented,
             Self::TemplateR89 => super::DispatchAction::ParentPending,

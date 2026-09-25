@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "caseId": "c016-team-vs-workspace",
+  "deviationId": "C016-V3-TEAM-VS-WORKSPACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "argv",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "argv": [
+      "label",
+      "list",
+      "--workspace-only",
+      "--team",
+      "ENG",
+      "--json"
+    ],
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

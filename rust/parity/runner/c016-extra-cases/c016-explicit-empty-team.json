@@ -1,0 +1,51 @@
+{
+  "route": "linear label list",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "id": "c016-explicit-empty-team",
+  "reason": "Frozen Deno rejects an explicitly empty --team value in Cliffy's parser (exit 2, help) before the action; Rust v3 also rejects it as invalid input, with different parser/error bytes.",
+  "argv": [
+    "label",
+    "list",
+    "--team",
+    "",
+    "--json"
+  ],
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear label list\nVersion: 2.6.0            \n\nDescription:\n\n  List issue labels\n\nOptions:\n\n  -h, --help           - Show this help.                                                            \n  --team       <team>  - Filter by team key, name, or ID (e.g., TC). Shows that team's labels plus  \n                         workspace labels.                                                          \n  --workspace          - Show only workspace-level labels (not team-specific)                       \n  --all                - Show all labels (both workspace and team)                                  \n  -j, --json           - Output as JSON                                                             \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Missing value for option \"--team\".\n\n"
+    },
+    "fileEffects": []
+  }
+}

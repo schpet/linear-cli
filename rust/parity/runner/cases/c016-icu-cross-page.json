@@ -1,0 +1,176 @@
+{
+  "route": "linear label list",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "118f2812308e950163a16bf277155f09b215d6d1b82d8da892e05b7249543daf"
+  },
+  "id": "c016-icu-cross-page",
+  "reason": "Locale sorting is global across pages with punctuation and composed/decomposed accents.",
+  "argv": [
+    "label",
+    "list",
+    "--json"
+  ],
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000024\",\n      \"name\": \"!start\",\n      \"description\": null,\n      \"color\": \"#336699\",\n      \"team\": null\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000022\",\n      \"name\": \"éclair\",\n      \"description\": null,\n      \"color\": \"#336699\",\n      \"team\": null\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000025\",\n      \"name\": \"Éclair\",\n      \"description\": null,\n      \"color\": \"#336699\",\n      \"team\": null\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000023\",\n      \"name\": \"Issue\",\n      \"description\": null,\n      \"color\": \"#336699\",\n      \"team\": null\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000026\",\n      \"name\": \"issue\",\n      \"description\": null,\n      \"color\": \"#336699\",\n      \"team\": null\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000027\",\n      \"name\": \"releaseNote\",\n      \"description\": null,\n      \"color\": \"#336699\",\n      \"team\": null\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000021\",\n      \"name\": \"zeta\",\n      \"description\": null,\n      \"color\": \"#336699\",\n      \"team\": null\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": \"cursor-last\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "labels-first",
+            "operation": {
+              "document": "query GetIssueLabels($filter: IssueLabelFilter, $first: Int, $after: String) { issueLabels(filter: $filter, first: $first, after: $after) { nodes { id name description color team { key name } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issueLabels": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-8000-000000000021",
+                      "name": "zeta",
+                      "description": null,
+                      "color": "#336699",
+                      "team": null
+                    },
+                    {
+                      "id": "00000000-0000-4000-8000-000000000022",
+                      "name": "éclair",
+                      "description": null,
+                      "color": "#336699",
+                      "team": null
+                    },
+                    {
+                      "id": "00000000-0000-4000-8000-000000000023",
+                      "name": "Issue",
+                      "description": null,
+                      "color": "#336699",
+                      "team": null
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "cursor-one"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "labels-cursor-one",
+            "operation": {
+              "document": "query GetIssueLabels($filter: IssueLabelFilter, $first: Int, $after: String) { issueLabels(filter: $filter, first: $first, after: $after) { nodes { id name description color team { key name } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 100,
+                "after": "cursor-one"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issueLabels": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-8000-000000000024",
+                      "name": "!start",
+                      "description": null,
+                      "color": "#336699",
+                      "team": null
+                    },
+                    {
+                      "id": "00000000-0000-4000-8000-000000000025",
+                      "name": "Éclair",
+                      "description": null,
+                      "color": "#336699",
+                      "team": null
+                    },
+                    {
+                      "id": "00000000-0000-4000-8000-000000000026",
+                      "name": "issue",
+                      "description": null,
+                      "color": "#336699",
+                      "team": null
+                    },
+                    {
+                      "id": "00000000-0000-4000-8000-000000000027",
+                      "name": "releaseNote",
+                      "description": null,
+                      "color": "#336699",
+                      "team": null
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": "cursor-last"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

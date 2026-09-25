@@ -3,6 +3,7 @@ mod auth_whoami;
 mod client;
 mod cycle_list;
 mod display;
+mod label_list;
 mod relative_time;
 mod team_list;
 mod team_states;

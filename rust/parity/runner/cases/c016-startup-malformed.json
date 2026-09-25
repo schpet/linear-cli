@@ -1,0 +1,54 @@
+{
+  "route": "linear label list",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": {
+    "id": "C016-STARTUP-STRICT",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "1d1094bea70c3cd108b605d449a74a81800fd4413b4b4007348a7c24da9a9b8e"
+  },
+  "id": "c016-startup-malformed",
+  "reason": "Malformed credential startup precedes help.",
+  "argv": [
+    "label",
+    "list",
+    "--help"
+  ],
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "referenceModuleUrl"
+  ],
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) Error: Failed to parse credentials file at {{configHome}}/linear/credentials.toml. The file may be corrupted.\nYou can delete it and re-authenticate with `linear auth login`.\nParse error: Parse error on line 1, column 6: Not closed by \"]]\" after started with \"[[\"\n    throw new Error(\n          ^\n    at loadCredentials ({{referenceModuleUrl}}/src/credentials.ts:157:11)\n    at async {{referenceModuleUrl}}/src/credentials.ts:471:1\n"
+    },
+    "fileEffects": []
+  },
+  "configFixture": "c016-bad-credentials"
+}

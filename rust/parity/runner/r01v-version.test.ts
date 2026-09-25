@@ -52,8 +52,9 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  // C021 adds 52 template-list cases; C019 adds 38 cycle-list cases.
-  assertEquals(cases.length, 464)
+  // C021 adds 52 template-list cases; C019 adds 38 cycle-list cases;
+  // C016 adds 57 label-list cases.
+  assertEquals(cases.length, 521)
   const c011Graphql = new Map<string, { id: string; surfaces: string[] }>([
     ["c011-infinite-position", {
       id: "C011-STRICT-STATE-DECODE",
@@ -137,6 +138,20 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     if (loaded.spec.id.startsWith("c002-")) {
       // C002 pins its own frozen bytes, deviations and goldens.
       authList++
+      continue
+    }
+    if (loaded.spec.id.startsWith("c016-")) {
+      // C016's closed case and golden inventories are pinned by
+      // c016-main-cases.test.ts and reviewed-golden.test.ts. Keep this test's
+      // version-transform set closed without duplicating its v3 deviations.
+      assert(loaded.spec.deviation?.id !== "R01V-CLI-VERSION")
+      if (loaded.spec.graphql != null) {
+        graphql++
+        assertEquals(
+          loaded.golden?.spec.candidate.graphqlUserAgent,
+          `schpet-linear-cli/${V3}`,
+        )
+      }
       continue
     }
     if (loaded.spec.graphql != null) {
@@ -355,7 +370,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     3,
     3,
     43,
-    155,
+    192,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)

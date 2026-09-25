@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "caseId": "c016-combined-workspace-only",
+  "deviationId": "C016-V3-COMBINED-WORKSPACE-ONLY",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "argv",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "argv": [
+      "--workspace",
+      "acme",
+      "label",
+      "list",
+      "--workspace-only",
+      "--json"
+    ],
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

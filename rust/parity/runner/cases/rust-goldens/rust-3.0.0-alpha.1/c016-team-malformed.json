@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c016-team-malformed",
+  "deviationId": "C016-V3-TEAM-MALFORMED",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to fetch labels: response JSON did not match the expected operation shape: invalid type: null, expected a string\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

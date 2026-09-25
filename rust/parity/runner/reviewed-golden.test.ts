@@ -823,8 +823,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  // C021 adds 41 and C019 adds 28 GraphQL cases to the committed corpus.
-  assertEquals(graphql.length, 155)
+  // C021 adds 41, C019 adds 28, and C016 adds 37 GraphQL cases.
+  assertEquals(graphql.length, 192)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -869,6 +869,55 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     ]],
     ["c021-transport-error", ["stderr", "graphql-user-agent"]],
   ])
+  const c016Surfaces = new Map<string, string[]>([
+    ["c016-combined-workspace-only", [
+      "argv",
+      "graphql-user-agent",
+    ]],
+    ["c016-collision-project-key", ["argv", "graphql-user-agent"]],
+    ["c016-connection-null", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]],
+    ["c016-cursor-null", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-fixture",
+      "graphql-user-agent",
+    ]],
+    ["c016-cursor-repeat", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-fixture",
+      "graphql-user-agent",
+    ]],
+    ["c016-http-503", ["stderr", "graphql-user-agent"]],
+    ["c016-nodes-malformed", ["stderr", "graphql-user-agent"]],
+    ["c016-page-info-missing", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]],
+    ["c016-root-workspace-bad-team", [
+      "argv",
+      "graphql-fixture",
+      "graphql-user-agent",
+    ]],
+    ["c016-root-workspace-success", ["graphql-fixture", "graphql-user-agent"]],
+    ["c016-team-malformed", ["stderr", "graphql-user-agent"]],
+    ["c016-team-vs-workspace", ["argv", "graphql-user-agent"]],
+  ])
+  const c016FixtureDeltas = new Set([
+    "c016-cursor-null",
+    "c016-cursor-repeat",
+    "c016-root-workspace-bad-team",
+    "c016-root-workspace-success",
+  ])
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -885,6 +934,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       loaded.golden?.spec.approvedSurfaces,
       c011Surfaces.get(loaded.spec.id) ??
         c021Surfaces.get(loaded.spec.id) ??
+        c016Surfaces.get(loaded.spec.id) ??
         (loaded.spec.id === "c019-transport-error"
           ? ["stderr", "graphql-user-agent"]
           : undefined) ??
@@ -914,6 +964,24 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
           step.identity.userAgent = USER_AGENT
         }
       }
+    }
+    if (c016FixtureDeltas.has(loaded.spec.id)) {
+      const delta = loaded.golden?.spec.candidate.graphql
+      const group = expected.groups[0]
+      if (delta == null || group?.mode !== "ordered") {
+        throw new Error(`${loaded.spec.id}: missing reviewed ordered delta`)
+      }
+      group.steps = group.steps.slice(0, delta.steps.length)
+      for (const [index, override] of delta.steps.entries()) {
+        const step = group.steps[index]
+        if (step.kind !== "graphql" || step.id !== override.id) {
+          throw new Error(`${loaded.spec.id}: unexpected reviewed step`)
+        }
+        if (override.variables != null) {
+          step.operation.variables = override.variables
+        }
+      }
+      expected.expectedRequests = group.steps.length
     }
     assertEquals(candidate, expected, loaded.spec.id)
   }

@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "caseId": "c016-collision-project-key",
+  "deviationId": "C016-V3-COLLISION-PROJECT-KEY",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "argv",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "argv": [
+      "label",
+      "list",
+      "--workspace-only",
+      "--json"
+    ],
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c016-collision-raw-key",
+  "deviationId": "C016-V3-COLLISION-RAW-KEY",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear label list\nVersion: 3.0.0-alpha.1    \n\nDescription:\n\n  List issue labels\n\nOptions:\n\n  -h, --help                - Show this help.                                                            \n  --workspace       <slug>  - Target workspace (uses credentials)                                        \n  --team            <team>  - Filter by team key, name, or ID (e.g., TC). Shows that team's labels plus  \n                              workspace labels.                                                          \n  --workspace-only          - Show only workspace-level labels (not team-specific)                       \n  --all                     - Show all labels (both workspace and team)                                  \n  -j, --json                - Output as JSON                                                             \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Missing value for option \"--workspace\".\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

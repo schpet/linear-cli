@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "caseId": "c016-cursor-repeat",
+  "deviationId": "C016-V3-CURSOR-REPEAT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr",
+    "graphql-fixture",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to fetch labels: Linear repeated a label pagination cursor on page 2\n  Retry the command.\n"
+      },
+      "fileEffects": []
+    },
+    "graphql": {
+      "steps": [
+        {
+          "id": "labels-first"
+        },
+        {
+          "id": "labels-cursor-one"
+        }
+      ]
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

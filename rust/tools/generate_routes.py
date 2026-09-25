@@ -268,6 +268,7 @@ def generate():
             "linear template list": "TemplateList",
             "linear user list": "UserList",
             "linear cycle list": "CycleList",
+            "linear label list": "LabelList",
             "linear document": "Document",
             "linear markdown": "Markdown",
             "linear team id": "TeamId",

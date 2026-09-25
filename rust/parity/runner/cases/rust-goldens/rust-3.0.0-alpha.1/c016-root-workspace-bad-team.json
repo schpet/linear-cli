@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "caseId": "c016-root-workspace-bad-team",
+  "deviationId": "C016-V3-ROOT-WORKSPACE-BAD-TEAM",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "argv",
+    "graphql-fixture",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "argv": [
+      "--workspace",
+      "acme",
+      "label",
+      "list",
+      "--json"
+    ],
+    "graphql": {
+      "steps": [
+        {
+          "id": "labels-first",
+          "variables": {
+            "first": 100
+          }
+        }
+      ]
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

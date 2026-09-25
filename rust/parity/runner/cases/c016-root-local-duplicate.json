@@ -1,0 +1,56 @@
+{
+  "route": "linear label list",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": {
+    "id": "C016-V3-ROOT-LOCAL-DUPLICATE",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "7f58fb405c4a1b40337940d585a80cc74f1b0d862232f6e7bf48aa2b1961e54b"
+  },
+  "id": "c016-root-local-duplicate",
+  "reason": "Root workspace followed by local workspace Boolean reveals duplicate precedence.",
+  "argv": [
+    "--workspace",
+    "acme",
+    "label",
+    "list",
+    "--workspace",
+    "--json"
+  ],
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear label list\nVersion: 2.6.0            \n\nDescription:\n\n  List issue labels\n\nOptions:\n\n  -h, --help           - Show this help.                                                            \n  --team       <team>  - Filter by team key, name, or ID (e.g., TC). Shows that team's labels plus  \n                         workspace labels.                                                          \n  --workspace          - Show only workspace-level labels (not team-specific)                       \n  --all                - Show all labels (both workspace and team)                                  \n  -j, --json           - Output as JSON                                                             \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Option \"--workspace\" can only occur once, but was found several times.\n\n"
+    },
+    "fileEffects": []
+  },
+  "configFixture": "c016-acme"
+}

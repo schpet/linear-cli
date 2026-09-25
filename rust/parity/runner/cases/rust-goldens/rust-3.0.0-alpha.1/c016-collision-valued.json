@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c016-collision-valued",
+  "deviationId": "C016-V3-COLLISION-VALUED",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to fetch labels: Cannot use --workspace flag when LINEAR_API_KEY environment variable is set. Either unset LINEAR_API_KEY or remove the --workspace flag.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}
