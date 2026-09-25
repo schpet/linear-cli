@@ -5,6 +5,7 @@
 //! crossed a loopback socket, never only Rust values, because the contract is
 //! what crosses the wire.
 
+mod auth_whoami;
 mod envelope;
 mod fixed_host;
 mod output;

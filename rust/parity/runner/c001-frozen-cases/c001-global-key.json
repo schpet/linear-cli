@@ -10,10 +10,10 @@
   "deviation": {
     "id": "R01H-GRAPHQL-UA",
     "contract": "rust-3.0.0-alpha.1",
-    "sha256": "2a37b0d38e1d7f1945ad7e86676721bdb9f00487ae96fe6c964582667a0d5908"
+    "sha256": "2dc0b7027f7b1f8f893a5462826a8c41e7b1a3f94c6e0b8e16a31361ea985628"
   },
-  "id": "c001-inline-default",
-  "reason": "The default inline synthetic credential selects the alpha workspace.",
+  "id": "c001-global-key",
+  "reason": "An XDG global TOML api_key supplies the fake credential when no higher tier has a key.",
   "argv": [
     "auth",
     "whoami"
@@ -54,7 +54,7 @@
               "document": "query AuthStatus { viewer { id name displayName email admin guest organization { name urlKey logoUrl } } }"
             },
             "identity": {
-              "authorization": "lin_api_fake_alpha",
+              "authorization": "lin_api_fake_global",
               "userAgent": "schpet-linear-cli/2.6.0",
               "headers": {}
             },
@@ -69,8 +69,8 @@
                   "admin": false,
                   "guest": false,
                   "organization": {
-                    "name": "Alpha Org",
-                    "urlKey": "alpha",
+                    "name": "Example Workspace",
+                    "urlKey": "acme",
                     "logoUrl": null
                   }
                 }
@@ -87,12 +87,12 @@
       "code": 0
     },
     "stdout": {
-      "utf8": "Workspace: Alpha Org\n  Slug: alpha\n  URL: https://linear.app/alpha\nUser: Alice Example\n  Display name: Ali\n  Email: alice@example.invalid\n"
+      "utf8": "Workspace: Example Workspace\n  Slug: acme\n  URL: https://linear.app/acme\nUser: Alice Example\n  Display name: Ali\n  Email: alice@example.invalid\n"
     },
     "stderr": {
       "utf8": ""
     },
     "fileEffects": []
   },
-  "configFixture": "c001-two"
+  "configFixture": "c001-global-key"
 }

@@ -10,10 +10,10 @@
   "deviation": {
     "id": "R01H-GRAPHQL-UA",
     "contract": "rust-3.0.0-alpha.1",
-    "sha256": "2a37b0d38e1d7f1945ad7e86676721bdb9f00487ae96fe6c964582667a0d5908"
+    "sha256": "be7f50f37fec98408188b918fdfeaeff4d548e2d1f41b9e4cbf93f0469abd15b"
   },
-  "id": "c001-inline-default",
-  "reason": "The default inline synthetic credential selects the alpha workspace.",
+  "id": "c001-env-sourced-workspace",
+  "reason": "A sourced LINEAR_WORKSPACE selects the second inline credential.",
   "argv": [
     "auth",
     "whoami"
@@ -28,7 +28,8 @@
     "LANG": "C.UTF-8",
     "LINEAR_IGNORE_ENV_FILE": "1",
     "NO_COLOR": "1",
-    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_WORKSPACE": "beta"
   },
   "substitutions": [
     "home",
@@ -54,7 +55,7 @@
               "document": "query AuthStatus { viewer { id name displayName email admin guest organization { name urlKey logoUrl } } }"
             },
             "identity": {
-              "authorization": "lin_api_fake_alpha",
+              "authorization": "lin_api_fake_beta",
               "userAgent": "schpet-linear-cli/2.6.0",
               "headers": {}
             },
@@ -69,8 +70,8 @@
                   "admin": false,
                   "guest": false,
                   "organization": {
-                    "name": "Alpha Org",
-                    "urlKey": "alpha",
+                    "name": "Beta Org",
+                    "urlKey": "beta",
                     "logoUrl": null
                   }
                 }
@@ -87,7 +88,7 @@
       "code": 0
     },
     "stdout": {
-      "utf8": "Workspace: Alpha Org\n  Slug: alpha\n  URL: https://linear.app/alpha\nUser: Alice Example\n  Display name: Ali\n  Email: alice@example.invalid\n"
+      "utf8": "Workspace: Beta Org\n  Slug: beta\n  URL: https://linear.app/beta\nUser: Alice Example\n  Display name: Ali\n  Email: alice@example.invalid\n"
     },
     "stderr": {
       "utf8": ""

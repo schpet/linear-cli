@@ -10,10 +10,10 @@
   "deviation": {
     "id": "R01H-GRAPHQL-UA",
     "contract": "rust-3.0.0-alpha.1",
-    "sha256": "2a37b0d38e1d7f1945ad7e86676721bdb9f00487ae96fe6c964582667a0d5908"
+    "sha256": "de942cb961cafe1f1cb2c47bc9e4251589f8f5e068f0852470e603d66890795a"
   },
-  "id": "c001-inline-default",
-  "reason": "The default inline synthetic credential selects the alpha workspace.",
+  "id": "c001-missing-sourced-workspace-fallback",
+  "reason": "A sourced workspace absent from credentials falls back to the inline default credential.",
   "argv": [
     "auth",
     "whoami"
@@ -28,7 +28,8 @@
     "LANG": "C.UTF-8",
     "LINEAR_IGNORE_ENV_FILE": "1",
     "NO_COLOR": "1",
-    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_WORKSPACE": "missing"
   },
   "substitutions": [
     "home",

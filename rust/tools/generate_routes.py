@@ -261,6 +261,7 @@ def generate():
     for route, v in zip(routes, variants):
         action = {
             "linear": "Root",
+            "linear auth whoami": "AuthWhoami",
             "linear document": "Document",
             "linear markdown": "Markdown",
         }.get(route["path"], "ParentPending" if route["kind"] == "parent_route" else "Unimplemented")

@@ -3,17 +3,17 @@
   "stdin": {
     "utf8": ""
   },
-  "cwdFixture": "empty",
+  "cwdFixture": "c001-empty-key",
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
   "deviation": {
     "id": "R01H-GRAPHQL-UA",
     "contract": "rust-3.0.0-alpha.1",
-    "sha256": "2a37b0d38e1d7f1945ad7e86676721bdb9f00487ae96fe6c964582667a0d5908"
+    "sha256": "27be4f9724c00baa646455e2bfd59a9f6bbacd536a23eede36745b815387f2f9"
   },
-  "id": "c001-inline-default",
-  "reason": "The default inline synthetic credential selects the alpha workspace.",
+  "id": "c001-empty-dotenv-key-fallback",
+  "reason": "An applied empty raw key shadows project api_key, then falls through to inline default.",
   "argv": [
     "auth",
     "whoami"
@@ -26,7 +26,6 @@
     "DENO_DIR": "{{denoDir}}",
     "TZ": "UTC",
     "LANG": "C.UTF-8",
-    "LINEAR_IGNORE_ENV_FILE": "1",
     "NO_COLOR": "1",
     "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
   },

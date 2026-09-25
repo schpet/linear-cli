@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::cli::{self, DispatchAction};
+use crate::commands::auth_whoami;
 use crate::config::StartupConfig;
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
@@ -228,6 +229,23 @@ fn dispatch(
                 b"Use --help to see available commands\n",
                 OutputPolicy::ConsoleLike,
             )?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::AuthWhoami => {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let workspace = action
+                .global_workspace
+                .as_ref()
+                .map(|value| value.value.as_str());
+            let transport = auth_whoami::prepare_transport(
+                &config.options,
+                credentials,
+                workspace,
+                &config.transport_env,
+            )?;
+            let output = block_on_network(async move { auth_whoami::run(&transport).await })?;
+            write_stdout(context, &output)?;
             Ok(ExitStatus::Success)
         }
         DispatchAction::Document => {

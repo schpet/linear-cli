@@ -3,17 +3,17 @@
   "stdin": {
     "utf8": ""
   },
-  "cwdFixture": "empty",
+  "cwdFixture": "c001-dotenv-key",
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
   "deviation": {
     "id": "R01H-GRAPHQL-UA",
     "contract": "rust-3.0.0-alpha.1",
-    "sha256": "2a37b0d38e1d7f1945ad7e86676721bdb9f00487ae96fe6c964582667a0d5908"
+    "sha256": "fdcb86c3823660c1ae500bc8a596082e84fe600cf4fcd55dbb4d39c88e368943"
   },
-  "id": "c001-inline-default",
-  "reason": "The default inline synthetic credential selects the alpha workspace.",
+  "id": "c001-dotenv-key",
+  "reason": "A private cwd .env raw key selects the fake identity without a process LINEAR_API_KEY.",
   "argv": [
     "auth",
     "whoami"
@@ -26,7 +26,6 @@
     "DENO_DIR": "{{denoDir}}",
     "TZ": "UTC",
     "LANG": "C.UTF-8",
-    "LINEAR_IGNORE_ENV_FILE": "1",
     "NO_COLOR": "1",
     "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
   },
@@ -54,7 +53,7 @@
               "document": "query AuthStatus { viewer { id name displayName email admin guest organization { name urlKey logoUrl } } }"
             },
             "identity": {
-              "authorization": "lin_api_fake_alpha",
+              "authorization": "lin_api_fake_dotenv",
               "userAgent": "schpet-linear-cli/2.6.0",
               "headers": {}
             },
@@ -69,8 +68,8 @@
                   "admin": false,
                   "guest": false,
                   "organization": {
-                    "name": "Alpha Org",
-                    "urlKey": "alpha",
+                    "name": "Example Workspace",
+                    "urlKey": "acme",
                     "logoUrl": null
                   }
                 }
@@ -87,12 +86,11 @@
       "code": 0
     },
     "stdout": {
-      "utf8": "Workspace: Alpha Org\n  Slug: alpha\n  URL: https://linear.app/alpha\nUser: Alice Example\n  Display name: Ali\n  Email: alice@example.invalid\n"
+      "utf8": "Workspace: Example Workspace\n  Slug: acme\n  URL: https://linear.app/acme\nUser: Alice Example\n  Display name: Ali\n  Email: alice@example.invalid\n"
     },
     "stderr": {
       "utf8": ""
     },
     "fileEffects": []
-  },
-  "configFixture": "c001-two"
+  }
 }

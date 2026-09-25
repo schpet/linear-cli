@@ -11,6 +11,7 @@ async function filesUnder(directory: string, prefix = ""): Promise<string[]> {
   for await (const entry of Deno.readDir(directory)) {
     const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`
     if (entry.isDirectory) {
+      if (relative === "rust-goldens") continue
       files.push(...await filesUnder(join(directory, entry.name), relative))
     } else if (entry.isFile) {
       files.push(relative)
@@ -23,7 +24,7 @@ async function filesUnder(directory: string, prefix = ""): Promise<string[]> {
 
 Deno.test("auth whoami oracle keeps exact cases, private paths, and request identity", async () => {
   const cases = await loadCases(root, new Set(["linear auth whoami"]))
-  assertEquals(cases.length, 10)
+  assertEquals(cases.length, 19)
   let graphqlCount = 0
   for (const item of cases) {
     assertEquals(item.spec.env.PATH, "{{bin}}", item.spec.id)
@@ -47,9 +48,9 @@ Deno.test("auth whoami oracle keeps exact cases, private paths, and request iden
       item.spec.id,
     )
   }
-  assertEquals(graphqlCount, 7)
+  assertEquals(graphqlCount, 15)
   const files = (await filesUnder(root)).sort()
-  assertEquals(files.length, 11)
+  assertEquals(files.length, 27)
   const lines = await Promise.all(
     files.map(async (file) =>
       `${await sha256Hex(
@@ -59,6 +60,6 @@ Deno.test("auth whoami oracle keeps exact cases, private paths, and request iden
   )
   assertEquals(
     await sha256Hex(new TextEncoder().encode(lines.join(""))),
-    "8c0e12ccac1bf1043996d75e83960605b09a1c5e97018f9afb5b0b4cae9eefe4",
+    "9669e198459d2b59c73534c0d81bd232f7c34e57b12da5335dd41587a0d16af0",
   )
 })

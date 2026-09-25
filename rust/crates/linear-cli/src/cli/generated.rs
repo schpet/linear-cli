@@ -10746,7 +10746,7 @@ impl Route {
             Self::AuthListR4 => super::DispatchAction::Unimplemented,
             Self::AuthDefaultR5 => super::DispatchAction::Unimplemented,
             Self::AuthTokenR6 => super::DispatchAction::Unimplemented,
-            Self::AuthWhoamiR7 => super::DispatchAction::Unimplemented,
+            Self::AuthWhoamiR7 => super::DispatchAction::AuthWhoami,
             Self::AuthMigrateR8 => super::DispatchAction::Unimplemented,
             Self::IssueR9 => super::DispatchAction::ParentPending,
             Self::IssueIdR10 => super::DispatchAction::Unimplemented,
