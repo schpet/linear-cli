@@ -823,8 +823,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  // C022 adds 84 GraphQL cases, with its own exact case and golden guard.
-  assertEquals(graphql.length, 276)
+  // C023 adds 39 GraphQL cases, with its own exact case and golden guard.
+  assertEquals(graphql.length, 315)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -989,6 +989,11 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     "c016-root-workspace-bad-team",
     "c016-root-workspace-success",
   ])
+  const c023FixtureDeltas = new Set([
+    "c023-missing-cursor",
+    "c023-null-cursor",
+    "c023f-repeat-cursor",
+  ])
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -1008,23 +1013,25 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
         loaded.spec.id,
       )
     }
-    assertEquals(
-      loaded.golden?.spec.approvedSurfaces,
-      c011Surfaces.get(loaded.spec.id) ??
-        c021Surfaces.get(loaded.spec.id) ??
-        c022Graphql.get(loaded.spec.id)?.[1] ??
-        c016Surfaces.get(loaded.spec.id) ??
-        (loaded.spec.id === "c019-transport-error"
-          ? ["stderr", "graphql-user-agent"]
-          : undefined) ??
-        (loaded.spec.id === "c008-text-percent" ||
-            loaded.spec.id === "c008-raw-extra-field" ||
-            loaded.spec.id === "c015-raw-extra-json"
-          ? ["stdout", "graphql-user-agent"]
-          : loaded.spec.id === "c008-raw-null-name"
-          ? ["exit", "stdout", "stderr", "graphql-user-agent"]
-          : ["graphql-user-agent"]),
-    )
+    if (!loaded.spec.id.startsWith("c023")) {
+      assertEquals(
+        loaded.golden?.spec.approvedSurfaces,
+        c011Surfaces.get(loaded.spec.id) ??
+          c021Surfaces.get(loaded.spec.id) ??
+          c022Graphql.get(loaded.spec.id)?.[1] ??
+          c016Surfaces.get(loaded.spec.id) ??
+          (loaded.spec.id === "c019-transport-error"
+            ? ["stderr", "graphql-user-agent"]
+            : undefined) ??
+          (loaded.spec.id === "c008-text-percent" ||
+              loaded.spec.id === "c008-raw-extra-field" ||
+              loaded.spec.id === "c015-raw-extra-json"
+            ? ["stdout", "graphql-user-agent"]
+            : loaded.spec.id === "c008-raw-null-name"
+            ? ["exit", "stdout", "stderr", "graphql-user-agent"]
+            : ["graphql-user-agent"]),
+      )
+    }
     const frozen = resolveCase(loaded.spec, substitutions).graphql
     const candidate = resolveCase(
       candidateCaseView(loaded).spec,
@@ -1044,7 +1051,10 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
         }
       }
     }
-    if (c016FixtureDeltas.has(loaded.spec.id)) {
+    if (
+      c016FixtureDeltas.has(loaded.spec.id) ||
+      c023FixtureDeltas.has(loaded.spec.id)
+    ) {
       const delta = loaded.golden?.spec.candidate.graphql
       const group = expected.groups[0]
       if (delta == null || group?.mode !== "ordered") {

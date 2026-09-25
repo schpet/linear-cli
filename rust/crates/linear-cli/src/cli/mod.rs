@@ -20,6 +20,7 @@ pub enum DispatchAction {
     AuthList,
     AuthWhoami,
     TeamList,
+    ProjectList,
     UserList,
     TeamStates,
     TemplateList,

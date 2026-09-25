@@ -379,3 +379,45 @@ remain unqualified pending a committed PTY adapter. The typed operation
 requires the selected GraphQL fields to have their schema shapes; malformed
 or unselected extra raw fields are outside the frozen C019 cases and no
 general raw-response preservation is claimed.
+
+## C023 `project list` typed projects
+
+`project list` requests the source `GetProjects` selection through Cynic,
+resolves an optional team before applying its canonical key, and combines
+all pages before sorting by finite `sortOrder`, root-locale name and ID. JSON
+keeps the selected GraphQL connection shape, names, nulls and final pageInfo.
+The 53 C023E0/C023F cases are unchanged Deno evidence in separate trees; the
+main corpus copies retain their argv, fixtures and baseline expected bytes.
+Thirty-nine GraphQL cases bind the v3 User-Agent
+`schpet-linear-cli/3.0.0-alpha.1`. Eight local parser/help cases plus eleven
+GraphQL cases bind additional, observed v3 surfaces in case-specific SHA-pinned
+goldens. The scoped replay passes 53/53 with zero baseline drift.
+
+Clap treats a following switch as another option, so the frozen spelling
+`project list --team --json` is a missing `--team` value in v3. A literal team
+reference that begins with `--` is written `--team=--json`; the
+`c023f-team-flag-value` golden changes only the Rust candidate argv and
+User-Agent. The Deno baseline argv remains byte-for-byte unchanged. Eight
+help/usage cases bind the version row's `2.6.0` to `3.0.0-alpha.1`; their
+command descriptions, options, exit and diagnostics are otherwise unchanged.
+
+Typed response decoding rejects non-finite JSON numbers and null or missing
+required fields before printing partial projects (`c023-1-infinite-sort`,
+`c023-2-infinite-sort`, `c023-one-null-sort`, `c023-two-null-sort`). A missing
+or null `endCursor` and a repeated cursor stop pagination rather than sending
+another request (`c023-missing-cursor`, `c023-null-cursor`,
+`c023f-repeat-cursor`); each golden pins the shorter request prefix and exact
+error. The first-page HTTP 500 case binds Rust's concise transport diagnostic.
+The raw extra-wire-fields case omits unselected `serverOnly` fields in Rust
+JSON, while preserving every selected field. Text output treats `%` in field
+values literally rather than interpolating Deno's console-format tokens in
+`c023-percent-text`. `c023f-width-table` binds Rust's Unicode-width table for U+4DC0
+where Deno measures one column. These differences are limited to their
+reviewed cases; no other malformed response, locale or terminal-width behavior
+is claimed by the frozen corpus.
+
+Direct synthetic compiled-binary QA compared 40-, 80-, 120- and 200-column
+PTYs with absent, empty and present `NO_COLOR`. The 40-column table matched
+exactly; wider tables differed only by the same U+4DC0 name-width cell bound
+above. The Linux `xdg-open` probe matched the frozen binary's exact URL argv,
+stdout, stderr and status for web, app, combined flags and opener exit 7.

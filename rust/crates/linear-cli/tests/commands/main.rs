@@ -4,6 +4,7 @@ mod client;
 mod cycle_list;
 mod display;
 mod label_list;
+mod project_list;
 mod prosemirror;
 mod relative_time;
 mod team_list;

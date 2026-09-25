@@ -12,8 +12,8 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, label_list, table, team_id, team_list, team_states,
-    template_list, template_view, user_list,
+    auth_list, auth_whoami, client, cycle_list, label_list, project_list, table, team_id,
+    team_list, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -274,6 +274,188 @@ fn dispatch(
             )?;
             let output = block_on_network(async move { auth_whoami::run(&transport).await })?;
             write_stdout(context, &output)?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::ProjectList => {
+            let options = project_list::Options {
+                team: action_string(&action, "team")?,
+                all_teams: action_switch(&action, "all-teams")?,
+                status: action_string(&action, "status")?,
+                web: action_switch(&action, "web")?,
+                app: action_switch(&action, "app")?,
+                json: action_switch(&action, "json")?,
+            };
+            let cli_workspace = action
+                .global_workspace
+                .as_ref()
+                .map(|value| value.value.as_str());
+            if options.web || options.app {
+                let config = context.config()?;
+                let credentials = context.credentials()?;
+                let configured_workspace = config
+                    .options
+                    .workspace()
+                    .map(|value| value.value().clone())
+                    .filter(|value| !value.is_empty());
+                let needs_viewer = configured_workspace.is_none();
+                let needs_team_lookup = !options.all_teams && options.team.is_some();
+                let configured_team = if options.all_teams {
+                    None
+                } else {
+                    configured_team_key(&config.options)
+                };
+                let (workspace, team_key) = if needs_viewer || needs_team_lookup {
+                    let inputs = client::selection_inputs(&config.options, cli_workspace)
+                        .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?;
+                    let transport = client::prepare_transport_with_inputs(
+                        &config.options,
+                        credentials,
+                        &inputs,
+                        &config.transport_env,
+                    )
+                    .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?;
+                    block_on_network(async {
+                        let workspace = match configured_workspace {
+                            Some(workspace) => workspace,
+                            None => project_list::viewer_workspace(&transport).await?,
+                        };
+                        let team_key = match options.team.as_deref() {
+                            Some(team) if needs_team_lookup => {
+                                let prepared = prepare_team_lookup(
+                                    team,
+                                    &WorkspaceScope::from_selection(&inputs, credentials),
+                                )?;
+                                Some(
+                                    resolve_team_with_transport(&prepared, &transport)
+                                        .await?
+                                        .key,
+                                )
+                            }
+                            Some(_) | None => configured_team,
+                        };
+                        Ok((workspace, team_key))
+                    })
+                    .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?
+                } else {
+                    let workspace = configured_workspace.ok_or_else(|| {
+                        AppError::new(
+                            AppErrorKind::Invariant,
+                            "project browser workspace was not resolved",
+                        )
+                    })?;
+                    (workspace, configured_team)
+                };
+                let (url, line) =
+                    project_list::opening(&workspace, team_key.as_deref(), options.app);
+                context.write_stdout_with_policy(&line, OutputPolicy::ConsoleLike)?;
+                project_list::open(&url, options.app)?;
+                return Ok(ExitStatus::Success);
+            }
+
+            let show_spinner = spinner::enabled(
+                options.json,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
+            if show_spinner {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let prepared = (|| {
+                project_list::check_conflicting_flags(&options)?;
+                let config = context.config()?;
+                let credentials = context.credentials()?;
+                let inputs = client::selection_inputs(&config.options, cli_workspace)?;
+                let team_lookup = if options.all_teams {
+                    None
+                } else {
+                    options
+                        .team
+                        .as_deref()
+                        .map(|team| {
+                            prepare_team_lookup(
+                                team,
+                                &WorkspaceScope::from_selection(&inputs, credentials),
+                            )
+                        })
+                        .transpose()?
+                };
+                let transport = client::prepare_transport_with_inputs(
+                    &config.options,
+                    credentials,
+                    &inputs,
+                    &config.transport_env,
+                )?;
+                Ok::<_, AppError>((team_lookup, transport))
+            })();
+            let (team_lookup, transport) = match prepared {
+                Ok(prepared) => prepared,
+                Err(error) => {
+                    if show_spinner {
+                        context
+                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                    }
+                    return Err(error.with_context(project_list::FETCH_CONTEXT));
+                }
+            };
+            let columns = crate::commands::table::stdout_columns(context.stdout_tty);
+            let color = context.stdout_tty && !context.no_color();
+            let configured_team = if options.all_teams {
+                None
+            } else {
+                configured_team_key(&context.config()?.options)
+            };
+            let pending = async {
+                let team_key = if options.all_teams {
+                    None
+                } else if let Some(prepared) = team_lookup.as_ref() {
+                    Some(resolve_team_with_transport(prepared, &transport).await?.key)
+                } else {
+                    configured_team
+                };
+                project_list::run(
+                    &transport,
+                    team_key.as_deref(),
+                    options.status.as_deref(),
+                    options.json,
+                    columns,
+                    color,
+                )
+                .await
+            };
+            let result = if show_spinner {
+                block_on_network(async {
+                    tokio::pin!(pending);
+                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+                    ticks.tick().await;
+                    let mut frame = 1;
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut pending => break result,
+                            _ = ticks.tick() => {
+                                context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                                frame = frame.wrapping_add(1);
+                            }
+                        }
+                    }
+                })
+            } else {
+                block_on_network(pending)
+            };
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            let output = result.map_err(|error| {
+                if error.context.is_some() {
+                    error
+                } else {
+                    error.with_context(project_list::FETCH_CONTEXT)
+                }
+            })?;
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }
         DispatchAction::TeamList => {

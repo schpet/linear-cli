@@ -1,0 +1,90 @@
+{
+  "id": "c023-unknown-status-json",
+  "route": "linear project list",
+  "reason": "Unknown status type survives JSON without date computation.",
+  "argv": [
+    "project",
+    "list",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Alpha\",\n      \"description\": \"Synthetic description\",\n      \"slugId\": \"ALPHA\",\n      \"icon\": null,\n      \"color\": \"#cccccc\",\n      \"sortOrder\": 1,\n      \"status\": {\n        \"id\": \"ps1\",\n        \"name\": \"Planned\",\n        \"color\": \"#ffcc00\",\n        \"type\": \"mystery\"\n      },\n      \"lead\": {\n        \"name\": \"Ada Lovelace\",\n        \"displayName\": \"Ada\",\n        \"initials\": \"AL\"\n      },\n      \"priority\": 2,\n      \"health\": null,\n      \"startDate\": null,\n      \"targetDate\": null,\n      \"startedAt\": null,\n      \"completedAt\": null,\n      \"canceledAt\": null,\n      \"createdAt\": \"2024-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"2024-01-02T00:00:00.000Z\",\n      \"url\": \"https://linear.app/alpha/project/p1\",\n      \"teams\": {\n        \"nodes\": [\n          {\n            \"key\": \"ENG\"\n          }\n        ]\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C023-GRAPHQL-UA", "contract": "rust-3.0.0-alpha.1", "sha256": "174ecc9a237ba14513191da497ca2c6e3cdde9abe3be85b58f604c21ff4b3429"},
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "projects",
+            "operation": {
+              "document": "query GetProjects($filter: ProjectFilter, $first: Int, $after: String) { projects(filter: $filter, first: $first, after: $after) { nodes { id name description slugId icon color sortOrder status { id name color type } lead { name displayName initials } priority health startDate targetDate startedAt completedAt canceledAt createdAt updatedAt url teams { nodes { key } } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"projects\":{\"nodes\":[{\"id\":\"p1\",\"name\":\"Alpha\",\"description\":\"Synthetic description\",\"slugId\":\"ALPHA\",\"icon\":null,\"color\":\"#cccccc\",\"sortOrder\":1,\"status\":{\"id\":\"ps1\",\"name\":\"Planned\",\"color\":\"#ffcc00\",\"type\":\"mystery\"},\"lead\":{\"name\":\"Ada Lovelace\",\"displayName\":\"Ada\",\"initials\":\"AL\"},\"priority\":2,\"health\":null,\"startDate\":null,\"targetDate\":null,\"startedAt\":null,\"completedAt\":null,\"canceledAt\":null,\"createdAt\":\"2024-01-01T00:00:00.000Z\",\"updatedAt\":\"2024-01-02T00:00:00.000Z\",\"url\":\"https://linear.app/alpha/project/p1\",\"teams\":{\"nodes\":[{\"key\":\"ENG\"}]}}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

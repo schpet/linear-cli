@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "caseId": "c023-null-cursor",
+  "deviationId": "C023-V3-c023-null-cursor",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "graphql-user-agent",
+    "exit",
+    "stdout",
+    "stderr",
+    "graphql-fixture"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to fetch projects: Linear reported more projects but returned no pagination cursor on page 1\n  Retry the command.\n"
+      },
+      "fileEffects": []
+    },
+    "graphql": {
+      "steps": [
+        {
+          "id": "page-one"
+        }
+      ]
+    }
+  }
+}

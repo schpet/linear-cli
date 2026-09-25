@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c023f-width-table",
+  "deviationId": "C023-V3-c023f-width-table",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "graphql-user-agent",
+    "stdout"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "SLUG        NAME   STATUS PRIORITY HEALTH LEAD TEAMS DATE             \nwidth-wide  ABCD䷀ Plan   High     atRisk -    -     Start: 2024-02-01\nwidth-short A      Plan   High     atRisk -    -     Start: 2024-02-01\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

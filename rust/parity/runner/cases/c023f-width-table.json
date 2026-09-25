@@ -1,0 +1,150 @@
+{
+  "id": "c023f-width-table",
+  "route": "linear project list",
+  "reason": "U+4DC0 changes the NAME header and short row padding",
+  "argv": [
+    "project",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "SLUG        NAME  STATUS PRIORITY HEALTH LEAD TEAMS DATE             \nwidth-wide  ABCD䷀ Plan   High     atRisk -    -     Start: 2024-02-01\nwidth-short A     Plan   High     atRisk -    -     Start: 2024-02-01\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C023-V3-c023f-width-table", "contract": "rust-3.0.0-alpha.1", "sha256": "5ad550d7ddfb6c8f59e39a172c4018654a90b4a9331ee617aa579c568a2b0361"},
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "projects",
+            "operation": {
+              "document": "query GetProjects($filter: ProjectFilter, $first: Int, $after: String) { projects(filter: $filter, first: $first, after: $after) { nodes { id name description slugId icon color sortOrder status { id name color type } lead { name displayName initials } priority health startDate targetDate startedAt completedAt canceledAt createdAt updatedAt url teams { nodes { key } } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "width-wide",
+                      "name": "ABCD䷀",
+                      "description": "Synthetic description",
+                      "slugId": "width-wide",
+                      "icon": null,
+                      "color": "#cccccc",
+                      "sortOrder": 0,
+                      "status": {
+                        "id": "status-width-wide",
+                        "name": "Plan",
+                        "color": "#abc",
+                        "type": "planned"
+                      },
+                      "lead": null,
+                      "priority": 2,
+                      "health": "atRisk",
+                      "startDate": "2024-02-01",
+                      "targetDate": null,
+                      "startedAt": null,
+                      "completedAt": null,
+                      "canceledAt": null,
+                      "createdAt": "9999-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "url": "https://linear.app/example/project/width-wide",
+                      "teams": {
+                        "nodes": []
+                      }
+                    },
+                    {
+                      "id": "width-short",
+                      "name": "A",
+                      "description": "Synthetic description",
+                      "slugId": "width-short",
+                      "icon": null,
+                      "color": "#cccccc",
+                      "sortOrder": 1,
+                      "status": {
+                        "id": "status-width-short",
+                        "name": "Plan",
+                        "color": "#abc",
+                        "type": "planned"
+                      },
+                      "lead": null,
+                      "priority": 2,
+                      "health": "atRisk",
+                      "startDate": "2024-02-01",
+                      "targetDate": null,
+                      "startedAt": null,
+                      "completedAt": null,
+                      "canceledAt": null,
+                      "createdAt": "9999-01-01T00:00:00.000Z",
+                      "updatedAt": "9999-01-01T00:00:00.000Z",
+                      "url": "https://linear.app/example/project/width-short",
+                      "teams": {
+                        "nodes": []
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

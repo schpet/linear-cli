@@ -5,6 +5,7 @@ pub mod completions;
 pub mod cycle_list;
 pub mod display;
 pub mod label_list;
+pub mod project_list;
 pub mod prosemirror;
 pub mod relative_time;
 pub mod table;

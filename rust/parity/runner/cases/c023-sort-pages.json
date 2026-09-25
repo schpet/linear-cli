@@ -1,0 +1,345 @@
+{
+  "id": "c023-sort-pages",
+  "route": "linear project list",
+  "reason": "Two pages reverse both name and id ties at equal sortOrder; negative/decimal keys and final pageInfo remain observable.",
+  "argv": [
+    "project",
+    "list",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"p-neg\",\n      \"name\": \"Negative\",\n      \"description\": \"Synthetic description\",\n      \"slugId\": \"ALPHA\",\n      \"icon\": null,\n      \"color\": \"#cccccc\",\n      \"sortOrder\": -2,\n      \"status\": {\n        \"id\": \"ps1\",\n        \"name\": \"Planned\",\n        \"color\": \"#ffcc00\",\n        \"type\": \"planned\"\n      },\n      \"lead\": {\n        \"name\": \"Ada Lovelace\",\n        \"displayName\": \"Ada\",\n        \"initials\": \"AL\"\n      },\n      \"priority\": 2,\n      \"health\": null,\n      \"startDate\": null,\n      \"targetDate\": null,\n      \"startedAt\": null,\n      \"completedAt\": null,\n      \"canceledAt\": null,\n      \"createdAt\": \"2024-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"2024-01-02T00:00:00.000Z\",\n      \"url\": \"https://linear.app/alpha/project/p-neg\",\n      \"teams\": {\n        \"nodes\": [\n          {\n            \"key\": \"ENG\"\n          }\n        ]\n      }\n    },\n    {\n      \"id\": \"p-name-a\",\n      \"name\": \"Alpha\",\n      \"description\": \"Synthetic description\",\n      \"slugId\": \"ALPHA\",\n      \"icon\": null,\n      \"color\": \"#cccccc\",\n      \"sortOrder\": 0.5,\n      \"status\": {\n        \"id\": \"ps1\",\n        \"name\": \"Planned\",\n        \"color\": \"#ffcc00\",\n        \"type\": \"planned\"\n      },\n      \"lead\": {\n        \"name\": \"Ada Lovelace\",\n        \"displayName\": \"Ada\",\n        \"initials\": \"AL\"\n      },\n      \"priority\": 2,\n      \"health\": null,\n      \"startDate\": null,\n      \"targetDate\": null,\n      \"startedAt\": null,\n      \"completedAt\": null,\n      \"canceledAt\": null,\n      \"createdAt\": \"2024-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"2024-01-02T00:00:00.000Z\",\n      \"url\": \"https://linear.app/alpha/project/p-b\",\n      \"teams\": {\n        \"nodes\": [\n          {\n            \"key\": \"ENG\"\n          }\n        ]\n      }\n    },\n    {\n      \"id\": \"p-a\",\n      \"name\": \"Same\",\n      \"description\": \"Synthetic description\",\n      \"slugId\": \"ALPHA\",\n      \"icon\": null,\n      \"color\": \"#cccccc\",\n      \"sortOrder\": 0.5,\n      \"status\": {\n        \"id\": \"ps1\",\n        \"name\": \"Planned\",\n        \"color\": \"#ffcc00\",\n        \"type\": \"planned\"\n      },\n      \"lead\": {\n        \"name\": \"Ada Lovelace\",\n        \"displayName\": \"Ada\",\n        \"initials\": \"AL\"\n      },\n      \"priority\": 2,\n      \"health\": null,\n      \"startDate\": null,\n      \"targetDate\": null,\n      \"startedAt\": null,\n      \"completedAt\": null,\n      \"canceledAt\": null,\n      \"createdAt\": \"2024-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"2024-01-02T00:00:00.000Z\",\n      \"url\": \"https://linear.app/alpha/project/p-b\",\n      \"teams\": {\n        \"nodes\": [\n          {\n            \"key\": \"ENG\"\n          }\n        ]\n      }\n    },\n    {\n      \"id\": \"p-b\",\n      \"name\": \"Same\",\n      \"description\": \"Synthetic description\",\n      \"slugId\": \"ALPHA\",\n      \"icon\": null,\n      \"color\": \"#cccccc\",\n      \"sortOrder\": 0.5,\n      \"status\": {\n        \"id\": \"ps1\",\n        \"name\": \"Planned\",\n        \"color\": \"#ffcc00\",\n        \"type\": \"planned\"\n      },\n      \"lead\": {\n        \"name\": \"Ada Lovelace\",\n        \"displayName\": \"Ada\",\n        \"initials\": \"AL\"\n      },\n      \"priority\": 2,\n      \"health\": null,\n      \"startDate\": null,\n      \"targetDate\": null,\n      \"startedAt\": null,\n      \"completedAt\": null,\n      \"canceledAt\": null,\n      \"createdAt\": \"2024-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"2024-01-02T00:00:00.000Z\",\n      \"url\": \"https://linear.app/alpha/project/p-a\",\n      \"teams\": {\n        \"nodes\": [\n          {\n            \"key\": \"ENG\"\n          }\n        ]\n      }\n    },\n    {\n      \"id\": \"p-name-z\",\n      \"name\": \"Zulu\",\n      \"description\": \"Synthetic description\",\n      \"slugId\": \"ALPHA\",\n      \"icon\": null,\n      \"color\": \"#cccccc\",\n      \"sortOrder\": 0.5,\n      \"status\": {\n        \"id\": \"ps1\",\n        \"name\": \"Planned\",\n        \"color\": \"#ffcc00\",\n        \"type\": \"planned\"\n      },\n      \"lead\": {\n        \"name\": \"Ada Lovelace\",\n        \"displayName\": \"Ada\",\n        \"initials\": \"AL\"\n      },\n      \"priority\": 2,\n      \"health\": null,\n      \"startDate\": null,\n      \"targetDate\": null,\n      \"startedAt\": null,\n      \"completedAt\": null,\n      \"canceledAt\": null,\n      \"createdAt\": \"2024-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"2024-01-02T00:00:00.000Z\",\n      \"url\": \"https://linear.app/alpha/project/p-a\",\n      \"teams\": {\n        \"nodes\": [\n          {\n            \"key\": \"ENG\"\n          }\n        ]\n      }\n    },\n    {\n      \"id\": \"p-z\",\n      \"name\": \"Zulu\",\n      \"description\": \"Synthetic description\",\n      \"slugId\": \"ALPHA\",\n      \"icon\": null,\n      \"color\": \"#cccccc\",\n      \"sortOrder\": 2,\n      \"status\": {\n        \"id\": \"ps1\",\n        \"name\": \"Planned\",\n        \"color\": \"#ffcc00\",\n        \"type\": \"planned\"\n      },\n      \"lead\": {\n        \"name\": \"Ada Lovelace\",\n        \"displayName\": \"Ada\",\n        \"initials\": \"AL\"\n      },\n      \"priority\": 2,\n      \"health\": null,\n      \"startDate\": null,\n      \"targetDate\": null,\n      \"startedAt\": null,\n      \"completedAt\": null,\n      \"canceledAt\": null,\n      \"createdAt\": \"2024-01-01T00:00:00.000Z\",\n      \"updatedAt\": \"2024-01-02T00:00:00.000Z\",\n      \"url\": \"https://linear.app/alpha/project/p-z\",\n      \"teams\": {\n        \"nodes\": [\n          {\n            \"key\": \"ENG\"\n          }\n        ]\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": \"c2\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C023-GRAPHQL-UA", "contract": "rust-3.0.0-alpha.1", "sha256": "bf8cf00d68c1c43fa544a718392b211dbfbba67780db020178768a910b6b2520"},
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "page-one",
+            "operation": {
+              "document": "query GetProjects($filter: ProjectFilter, $first: Int, $after: String) { projects(filter: $filter, first: $first, after: $after) { nodes { id name description slugId icon color sortOrder status { id name color type } lead { name displayName initials } priority health startDate targetDate startedAt completedAt canceledAt createdAt updatedAt url teams { nodes { key } } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "p-z",
+                      "name": "Zulu",
+                      "description": "Synthetic description",
+                      "slugId": "ALPHA",
+                      "icon": null,
+                      "color": "#cccccc",
+                      "sortOrder": 2,
+                      "status": {
+                        "id": "ps1",
+                        "name": "Planned",
+                        "color": "#ffcc00",
+                        "type": "planned"
+                      },
+                      "lead": {
+                        "name": "Ada Lovelace",
+                        "displayName": "Ada",
+                        "initials": "AL"
+                      },
+                      "priority": 2,
+                      "health": null,
+                      "startDate": null,
+                      "targetDate": null,
+                      "startedAt": null,
+                      "completedAt": null,
+                      "canceledAt": null,
+                      "createdAt": "2024-01-01T00:00:00.000Z",
+                      "updatedAt": "2024-01-02T00:00:00.000Z",
+                      "url": "https://linear.app/alpha/project/p-z",
+                      "teams": {
+                        "nodes": [
+                          {
+                            "key": "ENG"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "p-name-z",
+                      "name": "Zulu",
+                      "description": "Synthetic description",
+                      "slugId": "ALPHA",
+                      "icon": null,
+                      "color": "#cccccc",
+                      "sortOrder": 0.5,
+                      "status": {
+                        "id": "ps1",
+                        "name": "Planned",
+                        "color": "#ffcc00",
+                        "type": "planned"
+                      },
+                      "lead": {
+                        "name": "Ada Lovelace",
+                        "displayName": "Ada",
+                        "initials": "AL"
+                      },
+                      "priority": 2,
+                      "health": null,
+                      "startDate": null,
+                      "targetDate": null,
+                      "startedAt": null,
+                      "completedAt": null,
+                      "canceledAt": null,
+                      "createdAt": "2024-01-01T00:00:00.000Z",
+                      "updatedAt": "2024-01-02T00:00:00.000Z",
+                      "url": "https://linear.app/alpha/project/p-a",
+                      "teams": {
+                        "nodes": [
+                          {
+                            "key": "ENG"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "p-b",
+                      "name": "Same",
+                      "description": "Synthetic description",
+                      "slugId": "ALPHA",
+                      "icon": null,
+                      "color": "#cccccc",
+                      "sortOrder": 0.5,
+                      "status": {
+                        "id": "ps1",
+                        "name": "Planned",
+                        "color": "#ffcc00",
+                        "type": "planned"
+                      },
+                      "lead": {
+                        "name": "Ada Lovelace",
+                        "displayName": "Ada",
+                        "initials": "AL"
+                      },
+                      "priority": 2,
+                      "health": null,
+                      "startDate": null,
+                      "targetDate": null,
+                      "startedAt": null,
+                      "completedAt": null,
+                      "canceledAt": null,
+                      "createdAt": "2024-01-01T00:00:00.000Z",
+                      "updatedAt": "2024-01-02T00:00:00.000Z",
+                      "url": "https://linear.app/alpha/project/p-a",
+                      "teams": {
+                        "nodes": [
+                          {
+                            "key": "ENG"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "c1"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "page-two",
+            "operation": {
+              "document": "query GetProjects($filter: ProjectFilter, $first: Int, $after: String) { projects(filter: $filter, first: $first, after: $after) { nodes { id name description slugId icon color sortOrder status { id name color type } lead { name displayName initials } priority health startDate targetDate startedAt completedAt canceledAt createdAt updatedAt url teams { nodes { key } } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 100,
+                "after": "c1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "p-a",
+                      "name": "Same",
+                      "description": "Synthetic description",
+                      "slugId": "ALPHA",
+                      "icon": null,
+                      "color": "#cccccc",
+                      "sortOrder": 0.5,
+                      "status": {
+                        "id": "ps1",
+                        "name": "Planned",
+                        "color": "#ffcc00",
+                        "type": "planned"
+                      },
+                      "lead": {
+                        "name": "Ada Lovelace",
+                        "displayName": "Ada",
+                        "initials": "AL"
+                      },
+                      "priority": 2,
+                      "health": null,
+                      "startDate": null,
+                      "targetDate": null,
+                      "startedAt": null,
+                      "completedAt": null,
+                      "canceledAt": null,
+                      "createdAt": "2024-01-01T00:00:00.000Z",
+                      "updatedAt": "2024-01-02T00:00:00.000Z",
+                      "url": "https://linear.app/alpha/project/p-b",
+                      "teams": {
+                        "nodes": [
+                          {
+                            "key": "ENG"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "p-name-a",
+                      "name": "Alpha",
+                      "description": "Synthetic description",
+                      "slugId": "ALPHA",
+                      "icon": null,
+                      "color": "#cccccc",
+                      "sortOrder": 0.5,
+                      "status": {
+                        "id": "ps1",
+                        "name": "Planned",
+                        "color": "#ffcc00",
+                        "type": "planned"
+                      },
+                      "lead": {
+                        "name": "Ada Lovelace",
+                        "displayName": "Ada",
+                        "initials": "AL"
+                      },
+                      "priority": 2,
+                      "health": null,
+                      "startDate": null,
+                      "targetDate": null,
+                      "startedAt": null,
+                      "completedAt": null,
+                      "canceledAt": null,
+                      "createdAt": "2024-01-01T00:00:00.000Z",
+                      "updatedAt": "2024-01-02T00:00:00.000Z",
+                      "url": "https://linear.app/alpha/project/p-b",
+                      "teams": {
+                        "nodes": [
+                          {
+                            "key": "ENG"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "p-neg",
+                      "name": "Negative",
+                      "description": "Synthetic description",
+                      "slugId": "ALPHA",
+                      "icon": null,
+                      "color": "#cccccc",
+                      "sortOrder": -2,
+                      "status": {
+                        "id": "ps1",
+                        "name": "Planned",
+                        "color": "#ffcc00",
+                        "type": "planned"
+                      },
+                      "lead": {
+                        "name": "Ada Lovelace",
+                        "displayName": "Ada",
+                        "initials": "AL"
+                      },
+                      "priority": 2,
+                      "health": null,
+                      "startDate": null,
+                      "targetDate": null,
+                      "startedAt": null,
+                      "completedAt": null,
+                      "canceledAt": null,
+                      "createdAt": "2024-01-01T00:00:00.000Z",
+                      "updatedAt": "2024-01-02T00:00:00.000Z",
+                      "url": "https://linear.app/alpha/project/p-neg",
+                      "teams": {
+                        "nodes": [
+                          {
+                            "key": "ENG"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": "c2"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

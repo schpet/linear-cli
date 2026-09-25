@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c023f-surplus",
+  "deviationId": "C023-V3-c023f-surplus",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear project list\nVersion: 3.0.0-alpha.1      \n\nDescription:\n\n  List projects\n\nOptions:\n\n  -h, --help             - Show this help.                      \n  --workspace  <slug>    - Target workspace (uses credentials)  \n  --team       <team>    - Filter by team key, name, or ID      \n  --all-teams            - Show projects from all teams         \n  --status     <status>  - Filter by status name                \n  -w, --web              - Open in web browser                  \n  -a, --app              - Open in Linear.app                   \n  -j, --json             - Output as JSON                       \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: No arguments allowed for command \"linear project list\".\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}
