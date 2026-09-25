@@ -1,0 +1,49 @@
+{
+  "route": "linear team states",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear team states [team]\nVersion: 2.6.0                    \n\nDescription:\n\n  List workflow states for a team (by key, name, or ID)\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n  -j, --json           - Output as JSON                       \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Too many arguments: unexpected\n\n"
+    },
+    "fileEffects": []
+  },
+  "id": "c011-extra-argument",
+  "reason": "Extra positional argument fails in the CLI parser before a request.",
+  "argv": [
+    "team",
+    "states",
+    "ENG",
+    "unexpected"
+  ],
+  "graphql": null
+}

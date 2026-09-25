@@ -1,0 +1,53 @@
+{
+  "route": "linear team states",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch workflow states: That URL is for the \"acme\" workspace, but this is the \"ghost\" workspace.\n  Pass --workspace acme, or use a URL from \"ghost\".\n"
+    },
+    "fileEffects": []
+  },
+  "id": "c011-url-workspace-mismatch",
+  "reason": "A Linear team URL from acme is rejected when --workspace selects ghost before any API request.",
+  "argv": [
+    "--workspace",
+    "ghost",
+    "team",
+    "states",
+    "https://linear.app/acme/team/eng/overview",
+    "--json"
+  ],
+  "graphql": null,
+  "configFixture": "default-acme"
+}
