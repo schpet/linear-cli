@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c021-type-invalid",
+  "deviationId": "C021-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear template list\nVersion: 3.0.0-alpha.1       \n\nDescription:\n\n  List templates. Without --team, every template in the workspace is shown.\n\nOptions:\n\n  -h, --help           - Show this help.                                                                                                       \n  --workspace  <slug>  - Target workspace (uses credentials)                                                                                   \n  --type       <type>  - Only templates of this type (issue, project, or document)                     (Values: \u001b[32m\"issue\"\u001b[39m, \u001b[32m\"project\"\u001b[39m, \u001b[32m\"document\"\u001b[39m)\n  --team       <team>  - Team key, name, or ID. Shows that team's templates plus workspace templates.                                          \n  -j, --json           - Output as JSON                                                                                                        \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Option \"--type\" must be of type \"template-type\", but got \"bogus\". Expected values: \"issue\", \"project\", \"document\"\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

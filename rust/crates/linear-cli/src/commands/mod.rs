@@ -7,4 +7,5 @@ pub mod team_id;
 pub(crate) mod team_key;
 pub mod team_list;
 pub mod team_states;
+pub mod template_list;
 pub mod user_list;

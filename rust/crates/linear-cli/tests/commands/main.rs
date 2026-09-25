@@ -4,4 +4,5 @@ mod client;
 mod display;
 mod team_list;
 mod team_states;
+mod template_list;
 mod user_list;

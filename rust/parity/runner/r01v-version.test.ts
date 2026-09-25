@@ -52,8 +52,8 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  // C011 contributes 41 team-state cases with their own scoped bindings.
-  assertEquals(cases.length, 374)
+  // C021 adds 52 template-list cases to the committed corpus.
+  assertEquals(cases.length, 426)
   const c011Graphql = new Map<string, { id: string; surfaces: string[] }>([
     ["c011-infinite-position", {
       id: "C011-STRICT-STATE-DECODE",
@@ -88,6 +88,36 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       surfaces: ["stdout", "graphql-user-agent"],
     }],
   ])
+  const c021Graphql = new Map<string, { id: string; surfaces: string[] }>([
+    ["c021-hexagram-width-text", {
+      id: "C021-WIDTH-TABLE",
+      surfaces: ["stdout", "graphql-user-agent"],
+    }],
+    ["c021-http-500", {
+      id: "C021-TRANSPORT-DIAGNOSTIC",
+      surfaces: ["stderr", "graphql-user-agent"],
+    }],
+    ["c021-raw-extra-field", {
+      id: "C021-TYPED-JSON-FIELDS",
+      surfaces: ["stdout", "graphql-user-agent"],
+    }],
+    ["c021-raw-lone-surrogate", {
+      id: "C021-STRICT-TEMPLATE-DECODE",
+      surfaces: ["exit", "stdout", "stderr", "graphql-user-agent"],
+    }],
+    ["c021-raw-missing-null", {
+      id: "C021-STRICT-TEMPLATE-DECODE",
+      surfaces: ["exit", "stdout", "stderr", "graphql-user-agent"],
+    }],
+    ["c021-raw-template-data-object", {
+      id: "C021-STRICT-TEMPLATE-DECODE",
+      surfaces: ["exit", "stdout", "stderr", "graphql-user-agent"],
+    }],
+    ["c021-transport-error", {
+      id: "C021-TRANSPORT-DIAGNOSTIC",
+      surfaces: ["stderr", "graphql-user-agent"],
+    }],
+  ])
   const ids: string[] = []
   let header = 0
   let bare = 0
@@ -108,6 +138,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       assertEquals(
         loaded.spec.deviation?.id,
         c011Graphql.get(loaded.spec.id)?.id ??
+          c021Graphql.get(loaded.spec.id)?.id ??
           (loaded.spec.id === "c008-text-percent"
             ? "C008-SAFE-CONSOLE-PERCENT"
             : loaded.spec.id === "c008-raw-null-name"
@@ -121,6 +152,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
         c011Graphql.get(loaded.spec.id)?.surfaces ??
+          c021Graphql.get(loaded.spec.id)?.surfaces ??
           (loaded.spec.id === "c008-text-percent"
             ? ["stdout", "graphql-user-agent"]
             : loaded.spec.id === "c008-raw-null-name"
@@ -238,6 +270,18 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
             "C015-TYPED-JSON-FIELDS",
           ].includes(loaded.spec.deviation.id),
       )
+    } else if (loaded.spec.id.startsWith("c021-")) {
+      assert(
+        loaded.spec.deviation == null ||
+          [
+            "R01H-GRAPHQL-UA",
+            "C021-CLI-VERSION",
+            "C021-WIDTH-TABLE",
+            "C021-TRANSPORT-DIAGNOSTIC",
+            "C021-TYPED-JSON-FIELDS",
+            "C021-STRICT-TEMPLATE-DECODE",
+          ].includes(loaded.spec.deviation.id),
+      )
     } else if (loaded.spec.id.startsWith("c086-")) {
       const c086Deviations = new Set<string>([
         "C086-CLI-VERSION",
@@ -293,7 +337,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     3,
     3,
     43,
-    86,
+    127,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)

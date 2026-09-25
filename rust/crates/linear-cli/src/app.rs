@@ -11,7 +11,9 @@ use crate::cli::clap_input::{OptionValue, ParsedAction};
 use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
-use crate::commands::{auth_list, auth_whoami, client, team_id, team_list, team_states, user_list};
+use crate::commands::{
+    auth_list, auth_whoami, client, team_id, team_list, team_states, template_list, user_list,
+};
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
@@ -559,6 +561,128 @@ fn dispatch(
                 context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
             }
             let output = output_result.map_err(|error| error.with_context(team_states::CONTEXT))?;
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::TemplateList => {
+            let json = action_switch(&action, "json")?;
+            let template_type = match action.option("type") {
+                None => None,
+                Some(option) => match &option.value.value {
+                    OptionValue::Enum(value) => {
+                        Some(template_list::TemplateType::from_route_value(value)?)
+                    }
+                    _ => {
+                        return Err(AppError::new(
+                            AppErrorKind::Invariant,
+                            "template list --type was not an enum",
+                        ));
+                    }
+                },
+            };
+            let team_reference = match action.option("team") {
+                None => None,
+                Some(option) => match &option.value.value {
+                    OptionValue::String(value) => Some(value.as_str()),
+                    _ => {
+                        return Err(AppError::new(
+                            AppErrorKind::Invariant,
+                            "template list --team was not a string",
+                        ));
+                    }
+                },
+            };
+            let show_spinner = spinner::enabled(
+                json,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
+            if show_spinner {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let prepared = (|| {
+                let config = context.config()?;
+                let credentials = context.credentials()?;
+                let workspace = action
+                    .global_workspace
+                    .as_ref()
+                    .map(|value| value.value.as_str());
+                template_list::prepare(
+                    &config.options,
+                    credentials,
+                    workspace,
+                    &config.transport_env,
+                    team_reference,
+                )
+            })();
+            let prepared = match prepared {
+                Ok(prepared) => prepared,
+                Err(error) => {
+                    if show_spinner {
+                        context
+                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                    }
+                    return Err(error);
+                }
+            };
+            let columns = team_list::stdout_columns(context.stdout_tty);
+            let color = context.stdout_tty && !context.no_color();
+            let options = template_list::Options {
+                template_type,
+                json,
+            };
+            let output_result = if show_spinner {
+                block_on_network(async {
+                    let pending = template_list::run(
+                        &prepared.transport,
+                        prepared.team.as_ref(),
+                        options,
+                        columns,
+                        color,
+                    );
+                    tokio::pin!(pending);
+                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+                    ticks.tick().await;
+                    let mut frame = 1;
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut pending => break result,
+                            _ = ticks.tick() => {
+                                context.write_stdout_with_policy(
+                                    spinner::frame(frame).as_bytes(),
+                                    OutputPolicy::ConsoleLike,
+                                )?;
+                                frame = frame.wrapping_add(1);
+                            }
+                        }
+                    }
+                })
+            } else {
+                block_on_network(async {
+                    template_list::run(
+                        &prepared.transport,
+                        prepared.team.as_ref(),
+                        options,
+                        columns,
+                        color,
+                    )
+                    .await
+                })
+            };
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            let output = output_result.map_err(|error| {
+                if error.context.is_none() {
+                    error.with_context(template_list::CONTEXT)
+                } else {
+                    error
+                }
+            })?;
             context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }

@@ -251,3 +251,45 @@ If a malformed response omits `endCursor` entirely while claiming another
 page, Cynic decodes it as null and Rust sends `after: null`; Deno would omit
 the next `after` variable. The frozen E0 corpus covers explicit null, not
 an absent cursor field.
+
+## C021 `template list` typed templates
+
+`template list` sends the source `GetTemplates` selection once, after an
+optional shared team lookup. It filters by type and resolved team ID while
+retaining workspace templates, then sorts by type, lowercased name, scope and
+team key. JSON remains an array with GraphQL field names, nulls and nesting;
+`templateData` stays a JSON-encoded string. `sortOrder` uses the shared
+ECMAScript number formatter. The query is unpaginated, matching frozen Deno.
+The captured text cases retain the four-column table, form marker, padding,
+name truncation and singular/plural count. Direct compiled-Deno PTY QA covers
+the underline and spinner behavior separately from the pipe-based corpus.
+
+Four help/usage cases bind `C021-CLI-VERSION`: the Deno header's
+`Version: 2.6.0` becomes the Rust breaking-major `Version: 3.0.0-alpha.1`,
+with its row padding recalculated; exit and stderr are unchanged. API clients
+that inspect the GraphQL User-Agent should accept
+`schpet-linear-cli/3.0.0-alpha.1` in place of `2.6.0`, as in
+`R01H-GRAPHQL-UA`. Seven source GraphQL cases with additional changes keep
+that header bound within their case-specific goldens.
+
+`C021-STRICT-TEMPLATE-DECODE` binds three malformed raw response cases. Deno's
+untyped client prints successful JSON for an unpaired surrogate in `name`, a
+missing required `name` plus null required `hasFormFields`, and an object in
+the string-valued `templateData` field. Rust rejects the surrogate while
+parsing the response JSON and the latter two at the typed Cynic boundary; all
+exit 1 with a specific diagnostic and print no partial JSON. Repair the server
+data rather than relying on malformed values passing through.
+`C021-TYPED-JSON-FIELDS` binds one otherwise valid response
+where Deno includes an unselected `extra` field in JSON and Rust omits it from
+the typed projection. Selected GraphQL fields and the template order are
+unchanged.
+
+`C021-WIDTH-TABLE` binds the U+4DC0 text-row difference already recorded for
+`C002-WIDTH-TABLE`: the Rust Unicode width table counts that code point as two
+columns while frozen Deno counts one, so the long name truncates and pads
+differently. `C021-TRANSPORT-DIAGNOSTIC` binds the two HTTP-error cases: Deno
+includes a serialized GraphQL request/response in stderr; Rust emits a concise
+status line such as `Failed to list templates: unexpected HTTP status 500
+Internal Server Error`. Both fail once without stdout or file effects. These
+decisions are confined to the SHA-pinned C021 cases; no wider Unicode, malformed
+GraphQL or HTTP-message equivalence is claimed.

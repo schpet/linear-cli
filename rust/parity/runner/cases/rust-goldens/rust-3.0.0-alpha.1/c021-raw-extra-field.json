@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c021-raw-extra-field",
+  "deviationId": "C021-TYPED-JSON-FIELDS",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "[\n  {\n    \"id\": \"tpl-raw\",\n    \"name\": \"Raw\",\n    \"description\": null,\n    \"type\": \"issue\",\n    \"icon\": null,\n    \"color\": null,\n    \"hasFormFields\": false,\n    \"lastAppliedAt\": null,\n    \"sortOrder\": 0,\n    \"createdAt\": \"2024-01-01T00:00:00.000Z\",\n    \"updatedAt\": \"2024-01-02T00:00:00.000Z\",\n    \"team\": {\n      \"id\": \"team-eng-id\",\n      \"key\": \"ENG\",\n      \"name\": \"Engineering\"\n    },\n    \"inheritedFrom\": null,\n    \"creator\": null,\n    \"templateData\": \"{}\"\n  }\n]\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

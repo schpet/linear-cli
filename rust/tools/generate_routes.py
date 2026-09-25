@@ -265,6 +265,7 @@ def generate():
             "linear auth whoami": "AuthWhoami",
             "linear team list": "TeamList",
             "linear team states": "TeamStates",
+            "linear template list": "TemplateList",
             "linear user list": "UserList",
             "linear document": "Document",
             "linear markdown": "Markdown",

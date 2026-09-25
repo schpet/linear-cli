@@ -823,8 +823,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  // C011 adds 32 User-Agent-bound GraphQL cases to the committed corpus.
-  assertEquals(graphql.length, 86)
+  // C021 adds 41 User-Agent-bound GraphQL cases to the committed corpus.
+  assertEquals(graphql.length, 127)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -845,6 +845,30 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     ["c011-raw-extra-field", ["stdout", "graphql-user-agent"]],
     ["c011-width-u4dc0", ["stdout", "graphql-user-agent"]],
   ])
+  const c021Surfaces = new Map<string, string[]>([
+    ["c021-hexagram-width-text", ["stdout", "graphql-user-agent"]],
+    ["c021-http-500", ["stderr", "graphql-user-agent"]],
+    ["c021-raw-extra-field", ["stdout", "graphql-user-agent"]],
+    ["c021-raw-lone-surrogate", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]],
+    ["c021-raw-missing-null", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]],
+    ["c021-raw-template-data-object", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]],
+    ["c021-transport-error", ["stderr", "graphql-user-agent"]],
+  ])
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -860,6 +884,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     assertEquals(
       loaded.golden?.spec.approvedSurfaces,
       c011Surfaces.get(loaded.spec.id) ??
+        c021Surfaces.get(loaded.spec.id) ??
         (loaded.spec.id === "c008-text-percent" ||
             loaded.spec.id === "c008-raw-extra-field" ||
             loaded.spec.id === "c015-raw-extra-json"

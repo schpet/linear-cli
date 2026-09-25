@@ -135,9 +135,9 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   const c002 = (item: { spec: { id: string } }) =>
     item.spec.id.startsWith("c002-")
   const others = loaded.filter((item) => !c002(item))
-  // C011 adds nine non-GraphQL and 32 typed workflow-state cases.
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 262)
-  assertEquals(others.filter((item) => item.spec.graphql != null).length, 86)
+  // C021 adds 11 local and 41 GraphQL template-list cases.
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 273)
+  assertEquals(others.filter((item) => item.spec.graphql != null).length, 127)
   assertEquals(loaded.filter(c002).length, 26)
 })
 
