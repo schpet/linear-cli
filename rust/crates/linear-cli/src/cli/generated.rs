@@ -10830,7 +10830,7 @@ impl Route {
             Self::LabelDeleteR88 => super::DispatchAction::Unimplemented,
             Self::TemplateR89 => super::DispatchAction::ParentPending,
             Self::TemplateListR90 => super::DispatchAction::TemplateList,
-            Self::TemplateViewR91 => super::DispatchAction::Unimplemented,
+            Self::TemplateViewR91 => super::DispatchAction::TemplateView,
             Self::DocumentR92 => super::DispatchAction::Document,
             Self::DocumentListR93 => super::DispatchAction::Unimplemented,
             Self::DocumentViewR94 => super::DispatchAction::Unimplemented,

@@ -302,6 +302,52 @@ Internal Server Error`. Both fail once without stdout or file effects. These
 decisions are confined to the SHA-pinned C021 cases; no wider Unicode, malformed
 GraphQL or HTTP-message equivalence is claimed.
 
+## C022 `template view` typed lookup and copyable Markdown
+
+`template view <name-or-uuid>` sends one typed Cynic `GetTemplate` request for
+a UUID, preserving the supplied spelling, or one `GetTemplates` request for an
+exact case-insensitive name lookup. It rejects a Linear URL before selecting
+credentials. A missing name reports the sorted available names; an ambiguous
+name reports matching IDs in response order. JSON retains the selected
+GraphQL field names and nesting and leaves `templateData` as its original
+string. The command does not resolve a team or page the template list, matching
+the captured Deno behavior.
+
+Text mode parses `templateData` only after the request and prints metadata,
+scalar and nested pre-fills in source order. Rich `descriptionData` and
+`contentData` use raw, copyable Markdown from a typed ProseMirror converter;
+the output no longer contains charmd styling or terminal-width reflow. The
+`C022-TEMPLATE-BODY-MARKDOWN` golden binds two added Markdown escapes in the
+frozen rich-text case. Direct 40-, 80- and 200-column PTY checks also cover
+width independence across absent, empty and nonempty `NO_COLOR` values.
+
+The 102 frozen cases contain 84 GraphQL fixtures. Seventy-one reviewed v3
+goldens change only the GraphQL User-Agent to
+`schpet-linear-cli/3.0.0-alpha.1`; thirteen more GraphQL cases bind their
+additional observed difference. Ten local cases have no GraphQL fixture and
+bind only their output difference. Nine `C022-CLI-VERSION` cases change the
+padded help/usage `Version:` line from `2.6.0` to `3.0.0-alpha.1`, without an
+exit-code change. `C022-TYPED-JSON-FIELDS` omits one extra, unselected response
+field from JSON while retaining every selected field.
+
+`C022-STRICT-TEMPLATE-DECODE` binds eight malformed response cases. Rust
+rejects an object or null in the string-valued outer `templateData`, a null
+`template`, and a missing required `name`; it emits one contextual error and
+never prints a partial template. Six cases switch from Deno success to Rust exit 1; two
+already failed under Deno and receive a more specific Rust diagnostic.
+`C022-INNER-NONFINITE-NUMBER` rejects encoded `1e400` in text mode, where
+JavaScript's `JSON.parse` would yield `Infinity`.
+`C022-INNER-LONE-SURROGATE` rejects an encoded lone surrogate in text mode,
+where the frozen Deno output includes a replacement character. JSON mode
+still preserves each original encoded `templateData` string.
+`C022-TRANSPORT-DIAGNOSTIC` binds concise contextual stderr for malformed
+HTTP response and connection refusal, with exit and stdout unchanged.
+
+These decisions bind only the SHA-pinned C022 cases and approved output/User-
+Agent surfaces. The 128-level nested inner-JSON limit has no pinned compiled
+C022 golden and remains a non-claim. Neither the frozen fixture responses nor
+request sequence, variables, authorization, paths or file effects are waived.
+
 ## C019 `cycle list` typed cycles
 
 `cycle list` uses the shared team resolver and then follows the source

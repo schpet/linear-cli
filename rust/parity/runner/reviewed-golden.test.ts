@@ -823,8 +823,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  // C021 adds 41, C019 adds 28, and C016 adds 37 GraphQL cases.
-  assertEquals(graphql.length, 192)
+  // C022 adds 84 GraphQL cases, with its own exact case and golden guard.
+  assertEquals(graphql.length, 276)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -869,6 +869,77 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     ]],
     ["c021-transport-error", ["stderr", "graphql-user-agent"]],
   ])
+  const c022Graphql = new Map<string, [string, string[]]>([
+    ["c022-json-extra-field", ["C022-TYPED-JSON-FIELDS", [
+      "stdout",
+      "graphql-user-agent",
+    ]]],
+    ["c022-json-missing-name", ["C022-STRICT-TEMPLATE-DECODE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-json-null-outer", ["C022-STRICT-TEMPLATE-DECODE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-json-null-template", ["C022-STRICT-TEMPLATE-DECODE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-json-object-outer", ["C022-STRICT-TEMPLATE-DECODE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-lone-surrogate", ["C022-INNER-LONE-SURROGATE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-markdown-escapes", ["C022-TEMPLATE-BODY-MARKDOWN", [
+      "stdout",
+      "graphql-user-agent",
+    ]]],
+    ["c022-non-json-response", ["C022-TRANSPORT-DIAGNOSTIC", [
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-number-infinity", ["C022-INNER-NONFINITE-NUMBER", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-text-missing-name", ["C022-STRICT-TEMPLATE-DECODE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-text-null-outer", ["C022-STRICT-TEMPLATE-DECODE", [
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-text-null-template", ["C022-STRICT-TEMPLATE-DECODE", [
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+    ["c022-text-object-outer", ["C022-STRICT-TEMPLATE-DECODE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+  ])
+  assertEquals(c022Graphql.size, 13)
   const c016Surfaces = new Map<string, string[]>([
     ["c016-combined-workspace-only", [
       "argv",
@@ -930,10 +1001,18 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   }
   for (const loaded of graphql) {
     assertEquals(loaded.golden?.spec.candidate.graphqlUserAgent, USER_AGENT)
+    if (loaded.spec.id.startsWith("c022-")) {
+      assertEquals(
+        loaded.spec.deviation?.id,
+        c022Graphql.get(loaded.spec.id)?.[0] ?? "R01H-GRAPHQL-UA",
+        loaded.spec.id,
+      )
+    }
     assertEquals(
       loaded.golden?.spec.approvedSurfaces,
       c011Surfaces.get(loaded.spec.id) ??
         c021Surfaces.get(loaded.spec.id) ??
+        c022Graphql.get(loaded.spec.id)?.[1] ??
         c016Surfaces.get(loaded.spec.id) ??
         (loaded.spec.id === "c019-transport-error"
           ? ["stderr", "graphql-user-agent"]

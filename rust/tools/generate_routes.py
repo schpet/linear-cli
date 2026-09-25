@@ -266,6 +266,7 @@ def generate():
             "linear team list": "TeamList",
             "linear team states": "TeamStates",
             "linear template list": "TemplateList",
+            "linear template view": "TemplateView",
             "linear user list": "UserList",
             "linear cycle list": "CycleList",
             "linear label list": "LabelList",

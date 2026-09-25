@@ -1,0 +1,91 @@
+{
+  "route": "linear template view",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": {"id": "C022-STRICT-TEMPLATE-DECODE", "contract": "rust-3.0.0-alpha.1", "sha256": "41a98c3fb86ff9be9b075c82afa79b5754e438ce126ee86a61dda6bb04dea877"},
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"id\": \"11111111-1111-4111-8111-111111111111\",\n  \"name\": \"Bug report\",\n  \"description\": \"Standard bug intake\",\n  \"type\": \"issue\",\n  \"icon\": null,\n  \"color\": null,\n  \"hasFormFields\": false,\n  \"lastAppliedAt\": null,\n  \"sortOrder\": 0,\n  \"createdAt\": \"2024-01-01T12:00:00.000Z\",\n  \"updatedAt\": \"2024-01-02T12:00:00.000Z\",\n  \"team\": {\n    \"id\": \"team-eng-id\",\n    \"key\": \"ENG\",\n    \"name\": \"Engineering\"\n  },\n  \"inheritedFrom\": null,\n  \"creator\": {\n    \"id\": \"user-1\",\n    \"name\": \"Sam\"\n  },\n  \"templateData\": {\n    \"title\": \"raw\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "id": "c022-json-object-outer",
+  "reason": "Deno JSON prints object-valued outer templateData.",
+  "argv": [
+    "template",
+    "view",
+    "11111111-1111-4111-8111-111111111111",
+    "--json"
+  ],
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "get-template",
+            "operation": {
+              "document": "query GetTemplate($id: String!) { template(id: $id) { id name description type icon color hasFormFields lastAppliedAt sortOrder createdAt updatedAt team { id key name } inheritedFrom { id name } creator { id name } templateData } }",
+              "variables": {
+                "id": "11111111-1111-4111-8111-111111111111"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"template\":{\"id\":\"11111111-1111-4111-8111-111111111111\",\"name\":\"Bug report\",\"description\":\"Standard bug intake\",\"type\":\"issue\",\"icon\":null,\"color\":null,\"hasFormFields\":false,\"lastAppliedAt\":null,\"sortOrder\":0,\"createdAt\":\"2024-01-01T12:00:00.000Z\",\"updatedAt\":\"2024-01-02T12:00:00.000Z\",\"team\":{\"id\":\"team-eng-id\",\"key\":\"ENG\",\"name\":\"Engineering\"},\"inheritedFrom\":null,\"creator\":{\"id\":\"user-1\",\"name\":\"Sam\"},\"templateData\":{\"title\":\"raw\"}}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -13,7 +13,7 @@ use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, label_list, team_id, team_list, team_states,
-    template_list, user_list,
+    template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -773,6 +773,97 @@ fn dispatch(
             let output = output_result.map_err(|error| {
                 if error.context.is_none() {
                     error.with_context(template_list::CONTEXT)
+                } else {
+                    error
+                }
+            })?;
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::TemplateView => {
+            let json = action_switch(&action, "json")?;
+            let reference = action.positionals.first().ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Invariant,
+                    "template view received no template reference",
+                )
+            })?;
+            // Deno starts this spinner before the URL check and credential
+            // selection, and stops it before reporting either failure.
+            let show_spinner = spinner::enabled(
+                json,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
+            if show_spinner {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let prepared = (|| {
+                let config = context.config()?;
+                let credentials = context.credentials()?;
+                let workspace = action
+                    .global_workspace
+                    .as_ref()
+                    .map(|value| value.value.as_str());
+                template_view::prepare(
+                    &config.options,
+                    credentials,
+                    workspace,
+                    &config.transport_env,
+                    reference,
+                )
+            })();
+            let prepared = match prepared {
+                Ok(prepared) => prepared,
+                Err(error) => {
+                    if show_spinner {
+                        context
+                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                    }
+                    return Err(if error.context.is_none() {
+                        error.with_context(template_view::CONTEXT)
+                    } else {
+                        error
+                    });
+                }
+            };
+            let zone = chrono::Local;
+            let output_result = if show_spinner {
+                block_on_network(async {
+                    let pending =
+                        template_view::run(&prepared.transport, &prepared.reference, json, &zone);
+                    tokio::pin!(pending);
+                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+                    ticks.tick().await;
+                    let mut frame = 1;
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut pending => break result,
+                            _ = ticks.tick() => {
+                                context.write_stdout_with_policy(
+                                    spinner::frame(frame).as_bytes(),
+                                    OutputPolicy::ConsoleLike,
+                                )?;
+                                frame = frame.wrapping_add(1);
+                            }
+                        }
+                    }
+                })
+            } else {
+                block_on_network(async {
+                    template_view::run(&prepared.transport, &prepared.reference, json, &zone).await
+                })
+            };
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            let output = output_result.map_err(|error| {
+                if error.context.is_none() {
+                    error.with_context(template_view::CONTEXT)
                 } else {
                     error
                 }

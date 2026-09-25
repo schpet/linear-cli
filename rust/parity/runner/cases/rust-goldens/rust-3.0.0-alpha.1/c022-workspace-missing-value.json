@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c022-workspace-missing-value",
+  "deviationId": "C022-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear template view <template>\nVersion: 3.0.0-alpha.1                  \n\nDescription:\n\n  Show a template and what it pre-fills. Pass its name or ID.\n\nOptions:\n\n  -h, --help           - Show this help.                                                                 \n  --workspace  <slug>  - Target workspace (uses credentials)                                             \n  -j, --json           - Output the template as JSON (templateData stays a JSON-encoded string; use `jq  \n                         '.templateData | fromjson'`)                                                    \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Missing value for option \"--workspace\".\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

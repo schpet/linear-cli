@@ -1,0 +1,110 @@
+{
+  "route": "linear template view",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": {"id": "R01H-GRAPHQL-UA", "contract": "rust-3.0.0-alpha.1", "sha256": "7439b690d43a7eb7456c8b8f5331e3c02f45e377ef43802b7b4ebc40a14688ac"},
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"id\": \"11111111-1111-4111-8111-111111111111\",\n  \"name\": \"Bug report\",\n  \"description\": \"Standard bug intake\",\n  \"type\": \"issue\",\n  \"icon\": null,\n  \"color\": null,\n  \"hasFormFields\": false,\n  \"lastAppliedAt\": null,\n  \"sortOrder\": 0,\n  \"createdAt\": \"2024-01-01T12:00:00.000Z\",\n  \"updatedAt\": \"2024-01-02T12:00:00.000Z\",\n  \"team\": {\n    \"id\": \"team-eng-id\",\n    \"key\": \"ENG\",\n    \"name\": \"Engineering\"\n  },\n  \"inheritedFrom\": null,\n  \"creator\": {\n    \"id\": \"user-1\",\n    \"name\": \"Sam\"\n  },\n  \"templateData\": \"{\\\"title\\\":\\\"Bug: \\\",\\\"priority\\\":2,\\\"labelIds\\\":[\\\"bug\\\"],\\\"descriptionData\\\":{\\\"type\\\":\\\"doc\\\",\\\"content\\\":[{\\\"type\\\":\\\"paragraph\\\",\\\"content\\\":[{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"A \\\",\\\"marks\\\":[{\\\"type\\\":\\\"bold\\\"}]},{\\\"type\\\":\\\"text\\\",\\\"text\\\":\\\"body\\\"}]}]}}\"\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "id": "c022-uuid-json",
+  "reason": "Typed UUID lookup preserves encoded templateData.",
+  "argv": [
+    "template",
+    "view",
+    "11111111-1111-4111-8111-111111111111",
+    "--json"
+  ],
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "get-template",
+            "operation": {
+              "document": "query GetTemplate($id: String!) { template(id: $id) { id name description type icon color hasFormFields lastAppliedAt sortOrder createdAt updatedAt team { id key name } inheritedFrom { id name } creator { id name } templateData } }",
+              "variables": {
+                "id": "11111111-1111-4111-8111-111111111111"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "template": {
+                  "id": "11111111-1111-4111-8111-111111111111",
+                  "name": "Bug report",
+                  "description": "Standard bug intake",
+                  "type": "issue",
+                  "icon": null,
+                  "color": null,
+                  "hasFormFields": false,
+                  "lastAppliedAt": null,
+                  "sortOrder": 0,
+                  "createdAt": "2024-01-01T12:00:00.000Z",
+                  "updatedAt": "2024-01-02T12:00:00.000Z",
+                  "team": {
+                    "id": "team-eng-id",
+                    "key": "ENG",
+                    "name": "Engineering"
+                  },
+                  "inheritedFrom": null,
+                  "creator": {
+                    "id": "user-1",
+                    "name": "Sam"
+                  },
+                  "templateData": "{\"title\":\"Bug: \",\"priority\":2,\"labelIds\":[\"bug\"],\"descriptionData\":{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"A \",\"marks\":[{\"type\":\"bold\"}]},{\"type\":\"text\",\"text\":\"body\"}]}]}}"
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

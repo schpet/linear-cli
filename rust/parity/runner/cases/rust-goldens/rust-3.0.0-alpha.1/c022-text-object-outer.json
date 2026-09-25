@@ -1,0 +1,27 @@
+{
+  "formatVersion": 1,
+  "caseId": "c022-text-object-outer",
+  "deviationId": "C022-STRICT-TEMPLATE-DECODE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to view template: response JSON did not match the expected operation shape: invalid type: map, expected a string\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

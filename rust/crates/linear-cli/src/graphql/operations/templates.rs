@@ -1,8 +1,11 @@
 //! `GetTemplates`: the unpaginated workspace template list used by
-//! `template list`. Its `Template` fragment is shared by template commands.
+//! `template list` and `template view`'s name lookup, and `GetTemplate`: one
+//! template by ID. Both select the shared `Template` fragment.
 //!
-//! Mirrors the `GetTemplates` document in `src/utils/templates.ts`
-//! field-for-field and in selection order. The oracle sends no variables.
+//! Mirrors the `GetTemplates` and `GetTemplate` documents in
+//! `src/utils/templates.ts` field-for-field and in selection order.
+//! `GetTemplates` sends no variables; `GetTemplate` sends the reference as
+//! typed, case preserved.
 //! `sortOrder` is a `Float!`, so [`Template`] deliberately does not implement
 //! `Serialize`: the shared JSON module projects it through the JS number formatter
 //! instead of Serde's `f64` spelling.
@@ -16,6 +19,24 @@ use crate::graphql::schema;
 #[cynic(schema = "linear", graphql_type = "Query")]
 pub struct GetTemplates {
     pub templates: Vec<Template>,
+}
+
+#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
+pub struct GetTemplateVariables {
+    pub id: String,
+}
+
+/// `template(id:)` is non-null in the schema: Linear reports a missing ID as a
+/// GraphQL error, and a `null` field fails the typed decode.
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "GetTemplateVariables"
+)]
+pub struct GetTemplate {
+    #[arguments(id: $id)]
+    pub template: Template,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]

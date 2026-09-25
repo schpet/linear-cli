@@ -135,10 +135,9 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   const c002 = (item: { spec: { id: string } }) =>
     item.spec.id.startsWith("c002-")
   const others = loaded.filter((item) => !c002(item))
-  // C021 adds 11 local and 41 GraphQL cases; C019 adds 10 and 28;
-  // C016 adds 20 local and 37 GraphQL cases.
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 303)
-  assertEquals(others.filter((item) => item.spec.graphql != null).length, 192)
+  // C022 adds 18 local and 84 GraphQL cases to the pinned inventory.
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 321)
+  assertEquals(others.filter((item) => item.spec.graphql != null).length, 276)
   assertEquals(loaded.filter(c002).length, 26)
 })
 
