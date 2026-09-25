@@ -1,0 +1,160 @@
+{
+  "id": "f06e0-miss-two-pages",
+  "route": "linear team members",
+  "reason": "A miss fetches both GetAllTeams pages and suggests keys sorted by key rather than response or name order.",
+  "argv": [
+    "team",
+    "members",
+    "Unknown",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch team members: Team not found: Unknown\n  Valid team keys: ABC (Zeta), ZED (Alpha). Run `linear team list` to see all teams.\n"
+    },
+    "fileEffects": []
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "resolve-team",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }\n",
+              "variables": {
+                "reference": "Unknown",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": []
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "all-teams-first",
+            "operation": {
+              "document": "query GetAllTeams($first: Int, $after: String) {\n      teams(first: $first, after: $after) {\n        nodes {\n          id\n          key\n          name\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "x",
+                      "key": "ZED",
+                      "name": "Alpha"
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "page-2"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "all-teams-page-2",
+            "operation": {
+              "document": "query GetAllTeams($first: Int, $after: String) {\n      teams(first: $first, after: $after) {\n        nodes {\n          id\n          key\n          name\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n",
+              "variables": {
+                "first": 100,
+                "after": "page-2"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "y",
+                      "key": "ABC",
+                      "name": "Zeta"
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": "final"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

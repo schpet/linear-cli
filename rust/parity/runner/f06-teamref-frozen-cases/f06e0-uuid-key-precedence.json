@@ -1,0 +1,134 @@
+{
+  "id": "f06e0-uuid-key-precedence",
+  "route": "linear team members",
+  "reason": "An exact key match outranks the first ID result for UUID input.",
+  "argv": [
+    "team",
+    "members",
+    "01234567-89ab-4cde-8f01-23456789abcd",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "resolve-team",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }\n",
+              "variables": {
+                "reference": "01234567-89ab-4cde-8f01-23456789abcd",
+                "id": "01234567-89ab-4cde-8f01-23456789abcd",
+                "isUuid": true
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "team-eng",
+                      "key": "ENG",
+                      "name": "Engineering"
+                    },
+                    {
+                      "id": "x",
+                      "key": "01234567-89ab-4cde-8f01-23456789abcd",
+                      "name": "Other"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "empty-members",
+            "operation": {
+              "document": "query GetTeamMembers(\n      $teamKey: String!\n      $includeDisabled: Boolean!\n      $first: Int\n      $after: String\n    ) {\n      team(id: $teamKey) {\n        members(\n          includeDisabled: $includeDisabled\n          first: $first\n          after: $after\n        ) {\n          nodes {\n            id\n            name\n            displayName\n            email\n            active\n            initials\n            description\n            timezone\n            lastSeen\n            statusEmoji\n            statusLabel\n            guest\n            isAssignable\n            admin\n            owner\n            isMe\n            url\n          }\n          pageInfo {\n            hasNextPage\n            endCursor\n          }\n        }\n      }\n    }\n",
+              "variables": {
+                "teamKey": "01234567-89ab-4cde-8f01-23456789abcd",
+                "includeDisabled": false,
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "team": {
+                  "members": {
+                    "nodes": [],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
