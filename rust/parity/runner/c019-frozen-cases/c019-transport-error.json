@@ -1,0 +1,123 @@
+{
+  "id": "c019-transport-error",
+  "route": "linear cycle list",
+  "reason": "HTTP failure during cycle page.",
+  "argv": [
+    "cycle",
+    "list",
+    "--team",
+    "ENG",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to list cycles: GraphQL Error (Code: 503): {\"response\":{\"status\":503,\"headers\":{},\"body\":\"service unavailable\"},\"request\":{\"query\":\"query GetTeamCycles($teamId: String!, $first: Int, $after: String) {\\n  team(id: $teamId) {\\n    id\\n    name\\n    cycles(first: $first, after: $after) {\\n      nodes {\\n        id\\n        number\\n        name\\n        startsAt\\n        endsAt\\n        completedAt\\n        isActive\\n        isFuture\\n        isPast\\n      }\\n      pageInfo {\\n        hasNextPage\\n        endCursor\\n      }\\n    }\\n  }\\n}\",\"variables\":{\"teamId\":\"team-eng-id\",\"first\":100}}}\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "resolve-team",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) { teams(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] }) { nodes { id key name } } teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) { nodes { id key name } } }",
+              "variables": {
+                "reference": "ENG",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "team-eng-id",
+                      "key": "ENG",
+                      "name": "Engineering"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "cycles",
+            "operation": {
+              "document": "query GetTeamCycles($teamId: String!, $first: Int, $after: String) { team(id: $teamId) { id name cycles(first: $first, after: $after) { nodes { id number name startsAt endsAt completedAt isActive isFuture isPast } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "teamId": "team-eng-id",
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 503,
+              "headers": {},
+              "body": {
+                "utf8": "service unavailable"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
