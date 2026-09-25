@@ -11,6 +11,7 @@ use tokio::time::{self, Instant};
 
 use crate::auth::{LookupFailureCategory, LookupResult};
 use crate::config::ConfigSecret;
+use crate::text::js_space;
 
 use super::KeyringReader;
 
@@ -187,7 +188,7 @@ impl LinuxKeyringReader {
         }
         let stderr_is_empty = String::from_utf8(stderr)
             .ok()
-            .is_some_and(|stderr| stderr.trim_matches(js_whitespace).is_empty());
+            .is_some_and(|stderr| stderr.trim_matches(js_space).is_empty());
         if status.code() == Some(1) && stderr_is_empty {
             Ok(None)
         } else {
@@ -205,23 +206,6 @@ async fn read_capped(reader: impl AsyncRead + Unpin, max: usize) -> Result<Vec<u
         .await
         .map_err(|error| error.kind())?;
     Ok(bytes)
-}
-
-fn js_whitespace(character: char) -> bool {
-    matches!(
-        character,
-        '\u{0009}'..='\u{000d}'
-            | '\u{0020}'
-            | '\u{00a0}'
-            | '\u{1680}'
-            | '\u{2000}'..='\u{200a}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202f}'
-            | '\u{205f}'
-            | '\u{3000}'
-            | '\u{feff}'
-    )
 }
 
 impl KeyringReader for LinuxKeyringReader {

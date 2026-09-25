@@ -4,6 +4,7 @@ use std::fmt;
 use std::path::{Component, Path, PathBuf};
 
 use crate::graphql::transport::EndpointUrl;
+use crate::text::js_space;
 
 use super::dotenv::SelectedEnv;
 use super::parse::{ConfigTier, ConfigValue};
@@ -394,10 +395,6 @@ fn vcs(raw: Raw<'_>) -> Result<Vcs, OptionErrorReason> {
     choice(raw, &[("git", Vcs::Git), ("jj", Vcs::Jj)])
 }
 
-// ECMAScript WhiteSpace and LineTerminator, matching JS String.prototype.trim().
-fn js_space(ch: char) -> bool {
-    matches!(ch, '\u{0009}'..='\u{000d}' | '\u{0020}' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}' | '\u{feff}')
-}
 fn template(raw: Raw<'_>) -> Result<String, OptionErrorReason> {
     let value = text(raw)?;
     let trimmed = value.trim_matches(js_space);

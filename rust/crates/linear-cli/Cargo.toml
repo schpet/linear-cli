@@ -63,3 +63,7 @@ path = "tests/auth/main.rs"
 [[test]]
 name = "startup"
 path = "tests/startup/main.rs"
+
+[[test]]
+name = "refs"
+path = "tests/refs/main.rs"
