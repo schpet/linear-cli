@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::cli::{self, DispatchAction};
-use crate::commands::auth_whoami;
+use crate::commands::{auth_whoami, team_id};
 use crate::config::StartupConfig;
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
@@ -264,6 +264,11 @@ fn dispatch(
                 format!("{}\n", route.description).as_bytes(),
                 OutputPolicy::ConsoleLike,
             )?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::TeamId => {
+            let text = team_id::render(context)?;
+            context.write_stdout_with_policy(text.as_bytes(), OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }
         DispatchAction::Unimplemented => Err(AppError::new(

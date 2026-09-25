@@ -15,6 +15,7 @@ pub enum DispatchAction {
     Document,
     ParentPending,
     Markdown,
+    TeamId,
     Unimplemented,
 }
 

@@ -1,0 +1,52 @@
+{
+  "id": "c009-invalid-project-shadows-global",
+  "route": "linear team id",
+  "reason": "Invalid project team_id shadows valid global key in Deno.",
+  "argv": [
+    "team",
+    "id"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "c009-invalid-team",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "cwd"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to get team id: No team id configured\n  Run `linear config` to set a team.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R02B3-STARTUP-VALIDATION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "94d6397d2ab2b0ac2ce57a515d62a13f67604788e287cae941f03b6828efc2c1"
+  },
+  "configFixture": "c009-global"
+}

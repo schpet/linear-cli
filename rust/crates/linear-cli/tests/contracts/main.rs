@@ -9,6 +9,7 @@ mod help;
 mod inventory;
 mod parser;
 mod startup;
+mod team_id;
 
 mod broken_pipe;
 mod output;

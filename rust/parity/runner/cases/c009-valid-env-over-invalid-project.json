@@ -1,0 +1,52 @@
+{
+  "id": "c009-valid-env-over-invalid-project",
+  "route": "linear team id",
+  "reason": "Valid process key shadows invalid lower project key in Deno.",
+  "argv": [
+    "team",
+    "id"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "c009-poisoned-lower",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1",
+    "LINEAR_TEAM_ID": "process"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "cwd"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "PROCESS\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R02B3-STARTUP-VALIDATION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "463e6f48ca2d8ca0f5942f86acc671eb5cfbdee65b226d1bef56e2bd34de66ad"
+  }
+}

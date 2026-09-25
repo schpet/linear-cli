@@ -1,0 +1,51 @@
+{
+  "id": "c009-metadata-no-color-unset",
+  "route": "linear team id",
+  "reason": "Probe non-TTY stderr formatting with NO_COLOR unset.",
+  "argv": [
+    "team",
+    "id"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_TEAM_ID": "eng"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "ENG\n"
+    },
+    "stderr": {
+      "utf8": "\u001b[33mWarning: Failed to read keyring for workspace \"fake-workspace\": Could not run secret-tool. Install libsecret (e.g. apt install libsecret-tools, pacman -S libsecret).\nAlternatively, set the LINEAR_API_KEY environment variable.\n  (Failed to spawn 'secret-tool': entity not found)\u001b[39m\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R02C2G-CREDENTIAL-STARTUP",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "8e28a661dae61e8fa491e32abdaec35667caa1be8743c510984aab2028ec1708"
+  },
+  "configFixture": "c009-metadata"
+}

@@ -264,6 +264,7 @@ def generate():
             "linear auth whoami": "AuthWhoami",
             "linear document": "Document",
             "linear markdown": "Markdown",
+            "linear team id": "TeamId",
         }.get(route["path"], "ParentPending" if route["kind"] == "parent_route" else "Unimplemented")
         lines.append(f"            Self::{v} => super::DispatchAction::{action},")
     lines += ["        }", "    }", "}"]

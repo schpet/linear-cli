@@ -1,0 +1,51 @@
+{
+  "id": "c009-invalid-unrelated-option",
+  "route": "linear team id",
+  "reason": "Deno ignores unrelated invalid option for team id.",
+  "argv": [
+    "team",
+    "id"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "c009-invalid-other",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "cwd"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "PROJECT\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R02B3-STARTUP-VALIDATION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "cacc51b9d9301ead36a8ec8c53eac186fe5cb3c0c39226e29f43c359dac82a34"
+  }
+}

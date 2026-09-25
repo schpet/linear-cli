@@ -1,0 +1,52 @@
+{
+  "id": "c009-extra-poisoned-config",
+  "route": "linear team id",
+  "reason": "Config startup precedes surplus positional parsing.",
+  "argv": [
+    "team",
+    "id",
+    "extra"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "c009-invalid-team",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "cwd"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear team id\nVersion: 2.6.0         \n\nDescription:\n\n  Print the configured team id\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: No arguments allowed for command \"linear team id\".\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R02B3-STARTUP-VALIDATION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "150b112a33d085df97ad74085d2ad129e4bec2497f4d85a38e0a60788fdd68f1"
+  }
+}

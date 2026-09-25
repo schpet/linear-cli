@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c009-extra-positional",
+  "deviationId": "C009-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear team id\nVersion: 3.0.0-alpha.1 \n\nDescription:\n\n  Print the configured team id\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: No arguments allowed for command \"linear team id\".\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

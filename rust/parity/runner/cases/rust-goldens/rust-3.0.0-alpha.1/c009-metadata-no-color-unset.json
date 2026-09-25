@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c009-metadata-no-color-unset",
+  "deviationId": "R02C2G-CREDENTIAL-STARTUP",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "ENG\n"
+      },
+      "stderr": {
+        "utf8": "\u001b[33mWarning: Failed to read keyring for workspace \"fake-workspace\": keyring tool unavailable\u001b[39m\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

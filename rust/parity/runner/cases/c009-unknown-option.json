@@ -1,0 +1,52 @@
+{
+  "id": "c009-unknown-option",
+  "route": "linear team id",
+  "reason": "Unknown option is rejected.",
+  "argv": [
+    "team",
+    "id",
+    "--bogus"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1",
+    "LINEAR_TEAM_ID": "eng"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear team id\nVersion: 2.6.0         \n\nDescription:\n\n  Print the configured team id\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Unknown option \"--bogus\". Did you mean option \"--help\"?\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C009-CLI-VERSION",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "30dc0ac4314a7e881dd58358ffa281b3f287569bcb2777ae1752cc5bb9a7ddf9"
+  }
+}

@@ -97,6 +97,10 @@ impl BinarySandbox {
             .env("LINEAR_IGNORE_ENV_FILE", "1");
         command
     }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
 }
 
 impl Drop for BinarySandbox {

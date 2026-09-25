@@ -52,7 +52,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  assertEquals(cases.length, 158)
+  assertEquals(cases.length, 200)
   const ids: string[] = []
   let header = 0
   let bare = 0
@@ -133,6 +133,20 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
         "stdout",
         "stderr",
       ])
+    } else if (loaded.spec.id.startsWith("c009-")) {
+      assert(
+        loaded.spec.deviation == null ||
+          [
+            "C009-CLI-VERSION",
+            "R02B3-STARTUP-VALIDATION",
+            "R02C2G-CREDENTIAL-STARTUP",
+          ].includes(loaded.spec.deviation.id),
+      )
+    } else if (loaded.spec.id.startsWith("c009g-")) {
+      assert(
+        loaded.spec.deviation == null ||
+          loaded.spec.deviation.id === "R02B3-STARTUP-VALIDATION",
+      )
     } else if (
       loaded.spec.deviation?.id !== "R01V-CLI-VERSION" &&
       loaded.spec.deviation?.id !== "R01H-GRAPHQL-UA"
