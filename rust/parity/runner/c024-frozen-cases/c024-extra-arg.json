@@ -1,0 +1,48 @@
+{
+  "id": "c024-extra-arg",
+  "route": "linear project view",
+  "reason": "Surplus positional",
+  "argv": [
+    "project",
+    "view",
+    "85d3dad6-136e-49ff-9593-33dc4b22b5ee",
+    "other"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear project view [projectId]\nVersion: 2.6.0                          \n\nDescription:\n\n  View project details\n\nOptions:\n\n  -h, --help           - Show this help.                           \n  --workspace  <slug>  - Target workspace (uses credentials)       \n  -w, --web            - Open in web browser                       \n  -a, --app            - Open in Linear.app                        \n  -j, --json           - Output as JSON                            \n  --no-pager           - Disable automatic paging for long output  \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Too many arguments: other\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

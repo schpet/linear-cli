@@ -1,0 +1,49 @@
+{
+  "id": "c024-app-web",
+  "route": "linear project view",
+  "reason": "App wins when both browser flags set",
+  "argv": [
+    "project",
+    "view",
+    "85d3dad6-136e-49ff-9593-33dc4b22b5ee",
+    "-a",
+    "-w"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "workspace-config",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Opening https://linear.app/alpha/project/85d3dad6-136e-49ff-9593-33dc4b22b5ee in Linear.app\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to view project: Failed to spawn 'xdg-open': entity not found\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

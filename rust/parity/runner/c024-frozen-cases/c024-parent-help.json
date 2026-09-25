@@ -1,0 +1,46 @@
+{
+  "id": "c024-parent-help",
+  "route": "linear project view",
+  "reason": "Parent help",
+  "argv": [
+    "project",
+    "--help"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear project\nVersion: 2.6.0         \n\nDescription:\n\n  Manage Linear projects\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\nCommands:\n\n  list                  - List projects                  \n  view, v  [projectId]  - View project details           \n  create                - Create a new Linear project    \n  update   <projectId>  - Update a Linear project        \n  delete   <projectId>  - Delete (trash) a Linear project\n  comment               - Manage project comments        \n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

@@ -1,0 +1,48 @@
+{
+  "id": "c024-foreign-url",
+  "route": "linear project view",
+  "reason": "Cross-workspace URL fails before request",
+  "argv": [
+    "project",
+    "view",
+    "https://linear.app/beta/project/simple-abc123def456",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "workspace-config",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to view project: That URL is for the \"beta\" workspace, but this is the \"alpha\" workspace.\n  Pass --workspace beta, or use a URL from \"alpha\".\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}
