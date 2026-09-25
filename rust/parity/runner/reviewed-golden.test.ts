@@ -67,6 +67,454 @@ async function withCorpus(
   }
 }
 
+async function frozenGraphQLCase(id: string): Promise<Record<string, unknown>> {
+  const spec = JSON.parse(
+    await Deno.readTextFile(
+      new URL(`./c016-frozen-cases/${id}.json`, import.meta.url),
+    ),
+  )
+  spec.id = "sample"
+  spec.route = "linear"
+  return spec
+}
+
+function graphqlGolden(
+  steps: Array<{ id: string; variables?: Record<string, unknown> }>,
+  surfaces = ["graphql-fixture", "graphql-user-agent"],
+): Record<string, unknown> {
+  return golden({
+    graphql: { steps },
+    graphqlUserAgent: USER_AGENT,
+  }, surfaces)
+}
+
+Deno.test("reviewed GraphQL delta keeps a frozen baseline and derives only a request prefix", async () => {
+  await withCorpus(async (dir, write) => {
+    const spec = await frozenGraphQLCase("c016-cursor-null")
+    await write(graphqlGolden([{ id: "labels-first" }]), spec)
+    const [loaded] = await loadCases(
+      dir,
+      new Set(["linear"]),
+      undefined,
+      CONTRACT,
+    )
+    const frozen = structuredClone(loaded.spec.graphql)
+    const candidate = candidateCaseView(loaded)
+    assertEquals(loaded.spec.graphql, frozen)
+    assertEquals(loaded.spec.graphql?.expectedRequests, 2)
+    assertEquals(candidate.spec.graphql?.expectedRequests, 1)
+    assertEquals(candidate.spec.graphql?.groups[0].mode, "ordered")
+    if (candidate.spec.graphql?.groups[0].mode !== "ordered") {
+      throw new Error("candidate GraphQL group must be ordered")
+    }
+    assertEquals(
+      candidate.spec.graphql.groups[0].steps.map((step) => step.id),
+      [
+        "labels-first",
+      ],
+    )
+    assertEquals(candidate.runtimeUserAgent, USER_AGENT)
+  })
+})
+
+Deno.test("reviewed GraphQL delta can replace only variables on a retained request", async () => {
+  await withCorpus(async (dir, write) => {
+    const spec = await frozenGraphQLCase("c016-default-team")
+    await write(
+      graphqlGolden([{ id: "labels-first", variables: { first: 100 } }]),
+      spec,
+    )
+    const [loaded] = await loadCases(
+      dir,
+      new Set(["linear"]),
+      undefined,
+      CONTRACT,
+    )
+    const original = loaded.spec.graphql
+    const candidate = candidateCaseView(loaded).spec.graphql
+    assert(original != null && candidate != null)
+    assertEquals(original.expectedRequests, 1)
+    assertEquals(candidate.expectedRequests, 1)
+    assertEquals(candidate.path, original.path)
+    assertEquals(candidate.initialRecords, original.initialRecords)
+    assertEquals(candidate.expectedRecords, original.expectedRecords)
+    if (
+      original.groups[0].mode !== "ordered" ||
+      candidate.groups[0].mode !== "ordered"
+    ) {
+      throw new Error("fixture must be ordered")
+    }
+    const before = original.groups[0].steps[0]
+    const after = candidate.groups[0].steps[0]
+    assert(before.kind === "graphql" && after.kind === "graphql")
+    assertEquals(after.operation, {
+      ...before.operation,
+      variables: { first: 100 },
+    })
+    assertEquals(after.identity, before.identity)
+    assertEquals(after.response, before.response)
+    assertEquals(after.effects, before.effects)
+  })
+})
+
+Deno.test("GraphQL deltas reject non-prefix, redundant, unsafe and unapproved changes at load time", async () => {
+  await withCorpus(async (dir, write) => {
+    const spec = await frozenGraphQLCase("c016-cursor-null")
+    const load = () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT)
+    const rejects: Array<[
+      Record<string, unknown>,
+      string,
+    ]> = [
+      [graphqlGolden([]), "Invalid"],
+      [graphqlGolden([{ id: "labels-cursor-one" }]), "not the frozen prefix"],
+      [graphqlGolden([{ id: "unknown" }]), "not the frozen prefix"],
+      [
+        graphqlGolden([{ id: "labels-first" }, { id: "labels-first" }]),
+        "not the frozen prefix",
+      ],
+      [
+        graphqlGolden([
+          { id: "labels-first" },
+          { id: "labels-cursor-one" },
+          { id: "extra" },
+        ]),
+        "must be a prefix",
+      ],
+      [
+        graphqlGolden([
+          { id: "labels-first" },
+          { id: "labels-cursor-one" },
+        ]),
+        "does not change",
+      ],
+      [
+        graphqlGolden([{ id: "labels-first", variables: { first: 100 } }]),
+        "variables are unchanged",
+      ],
+      [
+        graphqlGolden([{ id: "labels-first", variables: { first: "wrong" } }]),
+        "Int",
+      ],
+      [
+        graphqlGolden([{
+          id: "labels-first",
+          variables: { first: 100, after: "{{home}}" },
+        }]),
+        "placeholders",
+      ],
+      [
+        graphqlGolden([{
+          id: "labels-first",
+          variables: { first: 100, after: "lin_api_real" },
+        }]),
+        "credentials",
+      ],
+      [
+        graphqlGolden([{ id: "labels-first" }], ["graphql-user-agent"]),
+        "approvedSurfaces",
+      ],
+      [
+        golden({ graphql: { steps: [{ id: "labels-first" }] } }, [
+          "graphql-fixture",
+        ]),
+        "requires the Rust User-Agent",
+      ],
+    ]
+    for (const [value, message] of rejects) {
+      await write(value, spec)
+      await assertRejects(load, SchemaError, message)
+    }
+    await write(graphqlGolden([{ id: "labels-first" }]), spec)
+    const casePath = join(dir, "sample.json")
+    const pinned = JSON.parse(await Deno.readTextFile(casePath))
+    pinned.deviation.sha256 = "0".repeat(64)
+    await Deno.writeTextFile(casePath, JSON.stringify(pinned))
+    await assertRejects(load, SchemaError, "SHA-256 differs")
+  })
+})
+
+Deno.test("GraphQL delta schema is closed and requires a GraphQL fixture", async () => {
+  for (
+    const candidate of [
+      {
+        graphql: { steps: [{ id: "labels-first", response: {} }] },
+        graphqlUserAgent: USER_AGENT,
+      },
+      {
+        graphql: { steps: [{ id: "labels-first" }], document: "query X { x }" },
+        graphqlUserAgent: USER_AGENT,
+      },
+    ]
+  ) {
+    assertThrows(
+      () =>
+        parseReviewedGolden(
+          golden(candidate, ["graphql-fixture", "graphql-user-agent"]),
+        ),
+      SchemaError,
+    )
+  }
+  await withCorpus(async (dir, write) => {
+    await write(graphqlGolden([{ id: "labels-first" }]))
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT),
+      SchemaError,
+      "needs a GraphQL fixture",
+    )
+  })
+})
+
+Deno.test("GraphQL delta rejects missing original variables and changed source records", async () => {
+  await withCorpus(async (dir, write) => {
+    const source = await frozenGraphQLCase("c016-cursor-null")
+    const withoutVariables = structuredClone(parseCase(source))
+    const group = withoutVariables.graphql?.groups[0]
+    if (group?.mode !== "ordered" || group.steps[0].kind !== "graphql") {
+      throw new Error("missing frozen GraphQL step")
+    }
+    const first = group.steps[0]
+    delete first.operation.variables
+    await write(
+      graphqlGolden([{ id: "labels-first", variables: { first: 100 } }]),
+      withoutVariables,
+    )
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT),
+      SchemaError,
+      "cannot add a variables key",
+    )
+    const changedRecords = structuredClone(parseCase(source))
+    if (changedRecords.graphql == null) {
+      throw new Error("missing frozen fixture")
+    }
+    changedRecords.graphql.expectedRecords = { unexpected: true }
+    await write(graphqlGolden([{ id: "labels-first" }]), changedRecords)
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT),
+      SchemaError,
+      "effect-free ordered group",
+    )
+    const mutation = structuredClone(parseCase(source))
+    const mutationGroup = mutation.graphql?.groups[0]
+    if (
+      mutationGroup?.mode !== "ordered" ||
+      mutationGroup.steps[0].kind !== "graphql"
+    ) throw new Error("missing frozen GraphQL step")
+    const mutationStep = mutationGroup.steps[0]
+    mutationStep.operation = { document: "mutation { __typename }" }
+    mutationStep.response = {
+      kind: "data",
+      data: { __typename: "Mutation" },
+    }
+    await write(graphqlGolden([{ id: "labels-first" }]), mutation)
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT),
+      SchemaError,
+      "effect-free query steps",
+    )
+    const droppedMutation = structuredClone(parseCase(source))
+    const droppedGroup = droppedMutation.graphql?.groups[0]
+    if (
+      droppedGroup?.mode !== "ordered" ||
+      droppedGroup.steps[1].kind !== "graphql"
+    ) throw new Error("missing frozen GraphQL suffix step")
+    droppedGroup.steps[1].operation = {
+      document: "mutation { __typename }",
+    }
+    droppedGroup.steps[1].response = {
+      kind: "data",
+      data: { __typename: "Mutation" },
+    }
+    await write(graphqlGolden([{ id: "labels-first" }]), droppedMutation)
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT),
+      SchemaError,
+      "effect-free query steps",
+    )
+    const splitGroups = structuredClone(parseCase(source))
+    const split = splitGroups.graphql?.groups[0]
+    if (splitGroups.graphql == null || split?.mode !== "ordered") {
+      throw new Error("missing frozen ordered group")
+    }
+    splitGroups.graphql.groups = [
+      { mode: "ordered", steps: [split.steps[0]] },
+      { mode: "ordered", steps: [split.steps[1]] },
+    ]
+    await write(graphqlGolden([{ id: "labels-first" }]), splitGroups)
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT),
+      SchemaError,
+      "effect-free ordered group",
+    )
+    const lanes = structuredClone(parseCase(source))
+    const ordered = lanes.graphql?.groups[0]
+    if (lanes.graphql == null || ordered?.mode !== "ordered") {
+      throw new Error("missing frozen ordered group")
+    }
+    lanes.graphql.groups = [{
+      mode: "lanes",
+      timeoutMs: 1000,
+      lanes: [
+        { id: "first", steps: [ordered.steps[0]] },
+        { id: "second", steps: [ordered.steps[1]] },
+      ],
+    }]
+    await write(graphqlGolden([{ id: "labels-first" }]), lanes)
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT),
+      SchemaError,
+      "effect-free ordered group",
+    )
+  })
+})
+
+Deno.test("candidate-only request prefix is enforced while the baseline keeps both pages", async () => {
+  await withCorpus(async (dir, write) => {
+    const spec = await frozenGraphQLCase("c016-cursor-null")
+    const parsed = parseCase(spec)
+    const group = parsed.graphql?.groups[0]
+    if (
+      group?.mode !== "ordered" ||
+      group.steps.some((step) => step.kind !== "graphql")
+    ) {
+      throw new Error("expected two frozen GraphQL steps")
+    }
+    const steps = group.steps
+    const first = steps[0]
+    const second = steps[1]
+    if (first.kind !== "graphql" || second.kind !== "graphql") {
+      throw new Error("expected GraphQL steps")
+    }
+    spec.expected = {
+      exit: { code: 0 },
+      stdout: { utf8: "ok" },
+      stderr: { utf8: "" },
+      fileEffects: [],
+    }
+    const runDir = await Deno.makeTempDir({
+      dir: CASE_ROOT_PARENT,
+      prefix: "reviewed-graphql-delta-",
+    })
+    try {
+      const denoDir = join(runDir, "deno-dir")
+      await Deno.mkdir(denoDir)
+      const ctx = {
+        denoDir,
+        referenceBinary: join(runDir, "pinned-reference"),
+        confinement: await prepareConfinement({
+          denoDir,
+          statusHelper: await testStatusHelper(runDir),
+        }),
+        sandboxParent: runDir,
+      }
+      const script = async (
+        name: string,
+        userAgent: string,
+        requests: string[],
+      ): Promise<Program> => {
+        const path = join(runDir, name)
+        const lines = requests.map((body) =>
+          `/usr/bin/curl --silent --show-error --noproxy '*' --request POST --header 'content-type: application/json' --header 'authorization: lin_api_fake' --header 'user-agent: ${userAgent}' --data-raw '${body}' "$LINEAR_GRAPHQL_ENDPOINT" >/dev/null`
+        )
+        await Deno.writeTextFile(
+          path,
+          `#!/bin/sh\n${lines.join("\n")}\nprintf ok\n`,
+          { mode: 0o755 },
+        )
+        return { kind: "executable", path }
+      }
+      const body = (step: typeof first) => {
+        if (step.kind !== "graphql") throw new Error("expected GraphQL")
+        return JSON.stringify({
+          query: step.operation.document,
+          variables: step.operation.variables,
+        })
+      }
+      const baseline = await script("baseline.sh", "schpet-linear-cli/2.6.0", [
+        body(first),
+        body(second),
+      ])
+      const candidate = await script("candidate.sh", USER_AGENT, [body(first)])
+      const bothPages = await script("both-pages.sh", USER_AGENT, [
+        body(first),
+        body(second),
+      ])
+      const wrongVariables = await script("wrong-variables.sh", USER_AGENT, [
+        JSON.stringify({
+          query: first.operation.document,
+          variables: { first: 100, after: "wrong" },
+        }),
+      ])
+      const selected = new Set(["linear"])
+      const run = async (
+        value: Record<string, unknown>,
+        program: Program,
+      ) => {
+        await write(value, spec)
+        const [loaded] = await loadCases(dir, selected, undefined, CONTRACT)
+        const [result] = await runCorpus([loaded], baseline, {
+          name: "synthetic Rust candidate",
+          contract: CONTRACT,
+          program,
+          implementedRoutes: selected,
+        }, ctx)
+        assertEquals(result.baseline.mismatches, [])
+        assertEquals(result.baseline.fixture?.graphqlRequests, 2)
+        return result
+      }
+      const shortened = graphqlGolden([{ id: "labels-first" }])
+      const pass = await run(shortened, candidate)
+      assertEquals(
+        pass.status,
+        "pass",
+        JSON.stringify(pass.candidate?.mismatches),
+      )
+      assertEquals(pass.candidate?.fixture?.graphqlRequests, 1)
+      const replacement = { first: 100, after: "candidate-only" }
+      const variableCandidate = await script(
+        "candidate-variables.sh",
+        USER_AGENT,
+        [
+          JSON.stringify({
+            query: first.operation.document,
+            variables: replacement,
+          }),
+        ],
+      )
+      const variablePass = await run(
+        graphqlGolden([{ id: "labels-first", variables: replacement }]),
+        variableCandidate,
+      )
+      assertEquals(
+        variablePass.status,
+        "pass",
+        JSON.stringify(variablePass.candidate?.mismatches),
+      )
+      for (const program of [bothPages, wrongVariables]) {
+        const failed = await run(shortened, program)
+        assertEquals(failed.status, "fail")
+        assert(
+          failed.candidate?.mismatches.some((mismatch) =>
+            mismatch.surface === "fixture"
+          ),
+        )
+      }
+      const missing = await run(
+        golden({ graphqlUserAgent: USER_AGENT }, ["graphql-user-agent"]),
+        candidate,
+      )
+      assertEquals(missing.status, "fail")
+      assert(
+        missing.candidate?.mismatches.some((mismatch) =>
+          mismatch.surface === "fixture"
+        ),
+      )
+    } finally {
+      await Deno.remove(runDir, { recursive: true })
+    }
+  })
+})
+
 Deno.test("golden format v1 is closed and complete", () => {
   const valid = golden({ argv: ["--v3"] }, ["argv"])
   assertEquals(parseReviewedGolden(valid).formatVersion, 1)

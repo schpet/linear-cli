@@ -527,8 +527,23 @@ export const APPROVED_SURFACES = [
   "stdout",
   "stderr",
   "files",
+  "graphql-fixture",
   "graphql-user-agent",
 ] as const
+
+// A reviewed Rust candidate may use a prefix of an existing, effect-free
+// ordered GraphQL script and replace variables on retained requests. The
+// loader derives the full fixture from the frozen case; responses, identity,
+// documents, records, and all other fixture fields cannot be supplied here.
+const CandidateGraphQLDeltaSchema = v.strictObject({
+  steps: v.pipe(
+    v.array(v.strictObject({
+      id: nonEmpty,
+      variables: v.optional(JsonObjectSchema),
+    })),
+    v.minLength(1),
+  ),
+})
 
 export const GoldenSchema = v.strictObject({
   formatVersion: v.literal(1),
@@ -543,6 +558,7 @@ export const GoldenSchema = v.strictObject({
   candidate: v.strictObject({
     argv: v.optional(v.array(v.string())),
     expected: v.optional(ExpectedSchema),
+    graphql: v.optional(CandidateGraphQLDeltaSchema),
     graphqlUserAgent: v.optional(v.literal(RUST_USER_AGENT)),
   }),
 })

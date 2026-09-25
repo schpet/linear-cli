@@ -85,6 +85,80 @@ function sameStdout(
   return bytesEqual(decodeByteValue(left), decodeByteValue(right))
 }
 
+/** Derive only the reviewed candidate request script; never mutate the frozen fixture. */
+function applyGraphQLDelta(
+  spec: CaseSpec,
+  delta: ReviewedGolden["candidate"]["graphql"],
+): CaseSpec["graphql"] {
+  if (delta == null) return spec.graphql
+  const fixture = spec.graphql
+  if (fixture == null || spec.fixtureServer != null) {
+    throw new SchemaError(
+      `case ${spec.id}: GraphQL delta needs a GraphQL fixture`,
+    )
+  }
+  if (
+    fixture.groups.length !== 1 || fixture.groups[0].mode !== "ordered" ||
+    !same(fixture.initialRecords, fixture.expectedRecords)
+  ) {
+    throw new SchemaError(
+      `case ${spec.id}: GraphQL delta needs one effect-free ordered group`,
+    )
+  }
+  const original = fixture.groups[0].steps
+  if (
+    original.some((step) => {
+      if (step.kind !== "graphql" || step.effects.length !== 0) return true
+      return getOperationAST(
+        parse(step.operation.document),
+        step.operation.operationName,
+      )?.operation !== "query"
+    }) ||
+    delta.steps.length > original.length
+  ) {
+    throw new SchemaError(
+      `case ${spec.id}: GraphQL delta must be a prefix of effect-free query steps`,
+    )
+  }
+  let changedVariables = false
+  const steps = delta.steps.map((entry, index) => {
+    const source = original[index]
+    if (source.kind !== "graphql" || entry.id !== source.id) {
+      throw new SchemaError(
+        `case ${spec.id}: GraphQL delta step ${
+          index + 1
+        } is not the frozen prefix`,
+      )
+    }
+    if (entry.variables == null) return { ...source }
+    if (source.operation.variables == null) {
+      throw new SchemaError(
+        `case ${spec.id}: GraphQL delta cannot add a variables key`,
+      )
+    }
+    if (same(entry.variables, source.operation.variables)) {
+      throw new SchemaError(
+        `case ${spec.id}: GraphQL delta variables are unchanged on ${source.id}`,
+      )
+    }
+    changedVariables = true
+    return {
+      ...source,
+      operation: { ...source.operation, variables: entry.variables },
+    }
+  })
+  if (steps.length === original.length && !changedVariables) {
+    throw new SchemaError(
+      `case ${spec.id}: GraphQL delta does not change the fixture`,
+    )
+  }
+  return {
+    ...fixture,
+    expectedRequests: steps.length,
+    groups: [{ mode: "ordered", steps }],
+  }
+}
+
 function changedSurfaces(spec: CaseSpec, golden: ReviewedGolden): string[] {
   const changed: string[] = []
   if (
@@ -113,6 +187,7 @@ function changedSurfaces(spec: CaseSpec, golden: ReviewedGolden): string[] {
   if (golden.candidate.graphqlUserAgent != null) {
     changed.push("graphql-user-agent")
   }
+  if (golden.candidate.graphql != null) changed.push("graphql-fixture")
   return changed
 }
 
@@ -188,6 +263,23 @@ async function loadReviewedBinding(
       `case ${spec.id}: reviewed golden identity differs from case binding`,
     )
   }
+  const delta = golden.candidate.graphql
+  if (delta != null) {
+    const serialized = JSON.stringify(delta)
+    if (
+      serialized.includes("{{") || /lin_(api|oauth)_(?!fake)/i.test(serialized)
+    ) {
+      throw new SchemaError(
+        `case ${spec.id}: GraphQL delta cannot contain placeholders or credentials`,
+      )
+    }
+    if (golden.candidate.graphqlUserAgent == null) {
+      throw new SchemaError(
+        `case ${spec.id}: GraphQL delta requires the Rust User-Agent binding`,
+      )
+    }
+  }
+  const candidateGraphql = applyGraphQLDelta(spec, delta)
   const actual = changedSurfaces(spec, golden)
   if (
     golden.candidate.argv != null && !actual.includes("argv") ||
@@ -230,6 +322,11 @@ async function loadReviewedBinding(
     ...spec,
     argv: golden.candidate.argv ?? spec.argv,
     expected: golden.candidate.expected ?? spec.expected,
+    graphql: candidateGraphql,
+  }
+  if (delta != null) {
+    parseCase(candidateSpec)
+    await checkGraphQLFixture(candidateSpec, path)
   }
   const stdout = candidateSpec.expected.stdout
   if (
@@ -306,6 +403,7 @@ export function candidateCaseView(loaded: LoadedCase): LoadedCase {
       ...loaded.spec,
       argv: golden.candidate.argv ?? loaded.spec.argv,
       expected: golden.candidate.expected ?? loaded.spec.expected,
+      graphql: applyGraphQLDelta(loaded.spec, golden.candidate.graphql),
     },
     runtimeUserAgent: golden.candidate.graphqlUserAgent,
   }
