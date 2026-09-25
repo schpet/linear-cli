@@ -1,0 +1,117 @@
+{
+  "route": "linear user list",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"u-ali\",\n      \"name\": \"Ali\",\n      \"displayName\": \"Ali\",\n      \"email\": \"ali@example.invalid\",\n      \"active\": true,\n      \"initials\": \"AL\",\n      \"description\": null,\n      \"timezone\": null,\n      \"lastSeen\": null,\n      \"statusEmoji\": null,\n      \"statusLabel\": null,\n      \"guest\": false,\n      \"isAssignable\": true,\n      \"admin\": false,\n      \"owner\": false,\n      \"isMe\": false,\n      \"url\": \"https://linear.app/example/profiles/ali\"\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "id": "c015-alias-json",
+  "reason": "The user parent alias reaches the same list route.",
+  "argv": [
+    "u",
+    "list",
+    "-j"
+  ],
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "page-1",
+            "operation": {
+              "document": "query GetOrganizationMembers($includeDisabled: Boolean!, $first: Int, $after: String) { viewer { organization { users(includeDisabled: $includeDisabled, first: $first, after: $after) { nodes { id name displayName email active initials description timezone lastSeen statusEmoji statusLabel guest isAssignable admin owner isMe url } pageInfo { hasNextPage endCursor } } } } }",
+              "variables": {
+                "includeDisabled": false,
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "viewer": {
+                  "organization": {
+                    "users": {
+                      "nodes": [
+                        {
+                          "id": "u-ali",
+                          "name": "Ali",
+                          "displayName": "Ali",
+                          "email": "ali@example.invalid",
+                          "active": true,
+                          "initials": "AL",
+                          "description": null,
+                          "timezone": null,
+                          "lastSeen": null,
+                          "statusEmoji": null,
+                          "statusLabel": null,
+                          "guest": false,
+                          "isAssignable": true,
+                          "admin": false,
+                          "owner": false,
+                          "isMe": false,
+                          "url": "https://linear.app/example/profiles/ali"
+                        }
+                      ],
+                      "pageInfo": {
+                        "hasNextPage": false,
+                        "endCursor": null
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

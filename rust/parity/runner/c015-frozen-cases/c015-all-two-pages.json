@@ -1,0 +1,191 @@
+{
+  "route": "linear user list",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"u-ada\",\n      \"name\": \"Ada\",\n      \"displayName\": \"Ada\",\n      \"email\": \"ada@example.invalid\",\n      \"active\": true,\n      \"initials\": \"AD\",\n      \"description\": null,\n      \"timezone\": null,\n      \"lastSeen\": null,\n      \"statusEmoji\": null,\n      \"statusLabel\": null,\n      \"guest\": false,\n      \"isAssignable\": true,\n      \"admin\": false,\n      \"owner\": false,\n      \"isMe\": false,\n      \"url\": \"https://linear.app/example/profiles/ada\"\n    },\n    {\n      \"id\": \"u-bea\",\n      \"name\": \"Bea\",\n      \"displayName\": \"Bea\",\n      \"email\": \"bea@example.invalid\",\n      \"active\": false,\n      \"initials\": \"BE\",\n      \"description\": null,\n      \"timezone\": null,\n      \"lastSeen\": null,\n      \"statusEmoji\": null,\n      \"statusLabel\": null,\n      \"guest\": false,\n      \"isAssignable\": true,\n      \"admin\": false,\n      \"owner\": false,\n      \"isMe\": false,\n      \"url\": \"https://linear.app/example/profiles/bea\"\n    },\n    {\n      \"id\": \"u-zoe\",\n      \"name\": \"zoe\",\n      \"displayName\": \"zoe\",\n      \"email\": \"zoe@example.invalid\",\n      \"active\": false,\n      \"initials\": \"ZO\",\n      \"description\": null,\n      \"timezone\": null,\n      \"lastSeen\": null,\n      \"statusEmoji\": null,\n      \"statusLabel\": null,\n      \"guest\": false,\n      \"isAssignable\": true,\n      \"admin\": false,\n      \"owner\": false,\n      \"isMe\": false,\n      \"url\": \"https://linear.app/example/profiles/zoe\"\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": \"p2\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "id": "c015-all-two-pages",
+  "reason": "All members across pages sort globally while inactive nodes remain.",
+  "argv": [
+    "user",
+    "list",
+    "--all",
+    "--json"
+  ],
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "page-1",
+            "operation": {
+              "document": "query GetOrganizationMembers($includeDisabled: Boolean!, $first: Int, $after: String) { viewer { organization { users(includeDisabled: $includeDisabled, first: $first, after: $after) { nodes { id name displayName email active initials description timezone lastSeen statusEmoji statusLabel guest isAssignable admin owner isMe url } pageInfo { hasNextPage endCursor } } } } }",
+              "variables": {
+                "includeDisabled": true,
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "viewer": {
+                  "organization": {
+                    "users": {
+                      "nodes": [
+                        {
+                          "id": "u-zoe",
+                          "name": "zoe",
+                          "displayName": "zoe",
+                          "email": "zoe@example.invalid",
+                          "active": false,
+                          "initials": "ZO",
+                          "description": null,
+                          "timezone": null,
+                          "lastSeen": null,
+                          "statusEmoji": null,
+                          "statusLabel": null,
+                          "guest": false,
+                          "isAssignable": true,
+                          "admin": false,
+                          "owner": false,
+                          "isMe": false,
+                          "url": "https://linear.app/example/profiles/zoe"
+                        }
+                      ],
+                      "pageInfo": {
+                        "hasNextPage": true,
+                        "endCursor": "p1"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "page-2",
+            "operation": {
+              "document": "query GetOrganizationMembers($includeDisabled: Boolean!, $first: Int, $after: String) { viewer { organization { users(includeDisabled: $includeDisabled, first: $first, after: $after) { nodes { id name displayName email active initials description timezone lastSeen statusEmoji statusLabel guest isAssignable admin owner isMe url } pageInfo { hasNextPage endCursor } } } } }",
+              "variables": {
+                "includeDisabled": true,
+                "first": 100,
+                "after": "p1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "viewer": {
+                  "organization": {
+                    "users": {
+                      "nodes": [
+                        {
+                          "id": "u-ada",
+                          "name": "Ada",
+                          "displayName": "Ada",
+                          "email": "ada@example.invalid",
+                          "active": true,
+                          "initials": "AD",
+                          "description": null,
+                          "timezone": null,
+                          "lastSeen": null,
+                          "statusEmoji": null,
+                          "statusLabel": null,
+                          "guest": false,
+                          "isAssignable": true,
+                          "admin": false,
+                          "owner": false,
+                          "isMe": false,
+                          "url": "https://linear.app/example/profiles/ada"
+                        },
+                        {
+                          "id": "u-bea",
+                          "name": "Bea",
+                          "displayName": "Bea",
+                          "email": "bea@example.invalid",
+                          "active": false,
+                          "initials": "BE",
+                          "description": null,
+                          "timezone": null,
+                          "lastSeen": null,
+                          "statusEmoji": null,
+                          "statusLabel": null,
+                          "guest": false,
+                          "isAssignable": true,
+                          "admin": false,
+                          "owner": false,
+                          "isMe": false,
+                          "url": "https://linear.app/example/profiles/bea"
+                        }
+                      ],
+                      "pageInfo": {
+                        "hasNextPage": false,
+                        "endCursor": "p2"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

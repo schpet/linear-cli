@@ -1,0 +1,136 @@
+{
+  "route": "linear user list",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Workspace Members (2):\n\nFallback (Fallback) [BL]\n\nAlias (Full Name) [FN] (inactive) (guest) (not assignable) (admin) (owner) (you)\n  Email: rich@example.invalid\n  Role: Engineer\n  Timezone: America/Los_Angeles\n  Status: 🌱 Working\n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "id": "c015-rich-text",
+  "reason": "Pins fallback header, all six marker order, optional field lines, and blank omissions.",
+  "argv": [
+    "user",
+    "list",
+    "--all"
+  ],
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "page-1",
+            "operation": {
+              "document": "query GetOrganizationMembers($includeDisabled: Boolean!, $first: Int, $after: String) { viewer { organization { users(includeDisabled: $includeDisabled, first: $first, after: $after) { nodes { id name displayName email active initials description timezone lastSeen statusEmoji statusLabel guest isAssignable admin owner isMe url } pageInfo { hasNextPage endCursor } } } } }",
+              "variables": {
+                "includeDisabled": true,
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "viewer": {
+                  "organization": {
+                    "users": {
+                      "nodes": [
+                        {
+                          "id": "u-rich",
+                          "name": "Full Name",
+                          "displayName": "Alias",
+                          "email": "rich@example.invalid",
+                          "active": false,
+                          "initials": "FN",
+                          "description": "Engineer",
+                          "timezone": "America/Los_Angeles",
+                          "lastSeen": null,
+                          "statusEmoji": "🌱",
+                          "statusLabel": "Working",
+                          "guest": true,
+                          "isAssignable": false,
+                          "admin": true,
+                          "owner": true,
+                          "isMe": true,
+                          "url": "https://linear.app/example/profiles/rich"
+                        },
+                        {
+                          "id": "u-blank",
+                          "name": "Fallback",
+                          "displayName": "",
+                          "email": "",
+                          "active": true,
+                          "initials": "BL",
+                          "description": "",
+                          "timezone": "",
+                          "lastSeen": null,
+                          "statusEmoji": "🌱",
+                          "statusLabel": "",
+                          "guest": false,
+                          "isAssignable": true,
+                          "admin": false,
+                          "owner": false,
+                          "isMe": false,
+                          "url": "https://linear.app/example/profiles/blank"
+                        }
+                      ],
+                      "pageInfo": {
+                        "hasNextPage": false,
+                        "endCursor": null
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
