@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c019-startup-bad-config",
+  "deviationId": "R02B3-STARTUP-VALIDATION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ invalid config file {{cwd}}/linear.toml: invalid TOML\n  Fix or remove the config file.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

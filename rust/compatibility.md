@@ -293,3 +293,35 @@ status line such as `Failed to list templates: unexpected HTTP status 500
 Internal Server Error`. Both fail once without stdout or file effects. These
 decisions are confined to the SHA-pinned C021 cases; no wider Unicode, malformed
 GraphQL or HTTP-message equivalence is claimed.
+
+## C019 `cycle list` typed cycles
+
+`cycle list` uses the shared team resolver and then follows the source
+`GetTeamCycles` connection, concatenating `nodes` across pages and sorting by
+descending `startsAt` for both output modes. The command retains GraphQL
+field names and nesting in JSON. Its finite numeric values use the shared
+ECMAScript number formatter, so their JSON spelling is preserved without
+passing through `serde_json::Value`. A repeated cursor fails explicitly in
+Rust; the frozen Deno loop would keep requesting it. An empty cursor is
+rejected by the shared paginator for this route, as the frozen
+`c019-empty-cursor` case requires.
+
+The 28 GraphQL-backed frozen cases pin the breaking-major User-Agent through
+`R01H-GRAPHQL-UA`, with `c019-transport-error` using
+`C019-TRANSPORT-DIAGNOSTIC` to bind its additional stderr difference. Deno
+prints a serialized GraphQL request and response for the captured HTTP 503;
+Rust prints a concise status diagnostic. Four help/usage cases bind
+`C019-CLI-VERSION`, where Rust prints `3.0.0-alpha.1` in place of Deno's
+`2.6.0`. In `c019-startup-bad-config`, Rust validates the malformed
+`linear.toml` before showing help and exits 1; Deno shows help successfully.
+The new C019 golden reuses the established `R02B3-STARTUP-VALIDATION`
+deviation ID to bind that startup order.
+
+The captured text cases exercise the shared UTF-16 name truncation and
+versioned Unicode width behavior. They do not establish width or locale
+equivalence for uncaptured characters and locales. The direct PTY comparison
+uses one 120-column terminal; dynamic widths and narrow-terminal truncation
+remain unqualified pending a committed PTY adapter. The typed operation
+requires the selected GraphQL fields to have their schema shapes; malformed
+or unselected extra raw fields are outside the frozen C019 cases and no
+general raw-response preservation is claimed.

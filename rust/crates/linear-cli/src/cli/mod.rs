@@ -23,6 +23,7 @@ pub enum DispatchAction {
     UserList,
     TeamStates,
     TemplateList,
+    CycleList,
     Document,
     ParentPending,
     Markdown,

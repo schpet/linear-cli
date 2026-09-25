@@ -1,0 +1,201 @@
+{
+  "id": "c019-states-text",
+  "route": "linear cycle list",
+  "reason": "All status priorities, date slicing, null-name fallback and Unicode display width.",
+  "argv": [
+    "cycle",
+    "list",
+    "--team",
+    "ENG"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "# NAME                                                 START      END        STATUS   \n3 Upcoming                                             2026-09-01 2026-12-31 Upcoming \n2 Active α                                             2026-08-01 2026-12-31 Active   \n6 A very long cycle name which exercises truncation 🧪 2026-04-01 2026-12-31 Active   \n5 Cycle 5                                              2026-03-01 2026-12-31 Unknown  \n4 Cycle 4                                              2026-02-01 2026-12-31 Completed\n1 Cycle 1                                              2026-01-01 2026-12-31 Past     \n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "5889046283a20c399b7509cfa51c2809acb6fd40e1e3c1876792a378fbed1017"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "resolve-team",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) { teams(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] }) { nodes { id key name } } teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) { nodes { id key name } } }",
+              "variables": {
+                "reference": "ENG",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "team-eng-id",
+                      "key": "ENG",
+                      "name": "Engineering"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "cycles",
+            "operation": {
+              "document": "query GetTeamCycles($teamId: String!, $first: Int, $after: String) { team(id: $teamId) { id name cycles(first: $first, after: $after) { nodes { id number name startsAt endsAt completedAt isActive isFuture isPast } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "teamId": "team-eng-id",
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "team": {
+                  "id": "team-eng-id",
+                  "name": "Engineering",
+                  "cycles": {
+                    "nodes": [
+                      {
+                        "id": "past",
+                        "number": 1,
+                        "name": null,
+                        "startsAt": "2026-01-01T12:34:56Z",
+                        "endsAt": "2026-12-31T18:00:00.000Z",
+                        "completedAt": null,
+                        "isActive": false,
+                        "isFuture": false,
+                        "isPast": true
+                      },
+                      {
+                        "id": "active",
+                        "number": 2,
+                        "name": "Active α",
+                        "startsAt": "2026-08-01T00:00:00Z",
+                        "endsAt": "2026-12-31T18:00:00.000Z",
+                        "completedAt": null,
+                        "isActive": true,
+                        "isFuture": false,
+                        "isPast": false
+                      },
+                      {
+                        "id": "future",
+                        "number": 3,
+                        "name": "Upcoming",
+                        "startsAt": "2026-09-01T00:00:00Z",
+                        "endsAt": "2026-12-31T18:00:00.000Z",
+                        "completedAt": null,
+                        "isActive": false,
+                        "isFuture": true,
+                        "isPast": false
+                      },
+                      {
+                        "id": "completed",
+                        "number": 4,
+                        "name": null,
+                        "startsAt": "2026-02-01T00:00:00Z",
+                        "endsAt": "2026-12-31T18:00:00.000Z",
+                        "completedAt": "2026-02-15T00:00:00Z",
+                        "isActive": false,
+                        "isFuture": false,
+                        "isPast": false
+                      },
+                      {
+                        "id": "unknown",
+                        "number": 5,
+                        "name": null,
+                        "startsAt": "2026-03-01T00:00:00Z",
+                        "endsAt": "2026-12-31T18:00:00.000Z",
+                        "completedAt": null,
+                        "isActive": false,
+                        "isFuture": false,
+                        "isPast": false
+                      },
+                      {
+                        "id": "precedence",
+                        "number": 6,
+                        "name": "A very long cycle name which exercises truncation 🧪",
+                        "startsAt": "2026-04-01T00:00:00Z",
+                        "endsAt": "2026-12-31T18:00:00.000Z",
+                        "completedAt": "2026-04-02T00:00:00Z",
+                        "isActive": true,
+                        "isFuture": true,
+                        "isPast": true
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

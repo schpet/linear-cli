@@ -52,8 +52,8 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  // C021 adds 52 template-list cases to the committed corpus.
-  assertEquals(cases.length, 426)
+  // C021 adds 52 template-list cases; C019 adds 38 cycle-list cases.
+  assertEquals(cases.length, 464)
   const c011Graphql = new Map<string, { id: string; surfaces: string[] }>([
     ["c011-infinite-position", {
       id: "C011-STRICT-STATE-DECODE",
@@ -118,6 +118,12 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       surfaces: ["stderr", "graphql-user-agent"],
     }],
   ])
+  const c019Graphql = new Map<string, { id: string; surfaces: string[] }>([
+    ["c019-transport-error", {
+      id: "C019-TRANSPORT-DIAGNOSTIC",
+      surfaces: ["stderr", "graphql-user-agent"],
+    }],
+  ])
   const ids: string[] = []
   let header = 0
   let bare = 0
@@ -138,6 +144,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       assertEquals(
         loaded.spec.deviation?.id,
         c011Graphql.get(loaded.spec.id)?.id ??
+          c019Graphql.get(loaded.spec.id)?.id ??
           c021Graphql.get(loaded.spec.id)?.id ??
           (loaded.spec.id === "c008-text-percent"
             ? "C008-SAFE-CONSOLE-PERCENT"
@@ -152,6 +159,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
         c011Graphql.get(loaded.spec.id)?.surfaces ??
+          c019Graphql.get(loaded.spec.id)?.surfaces ??
           c021Graphql.get(loaded.spec.id)?.surfaces ??
           (loaded.spec.id === "c008-text-percent"
             ? ["stdout", "graphql-user-agent"]
@@ -270,6 +278,16 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
             "C015-TYPED-JSON-FIELDS",
           ].includes(loaded.spec.deviation.id),
       )
+    } else if (loaded.spec.id.startsWith("c019-")) {
+      assert(
+        loaded.spec.deviation == null ||
+          [
+            "R01H-GRAPHQL-UA",
+            "C019-CLI-VERSION",
+            "C019-TRANSPORT-DIAGNOSTIC",
+            "R02B3-STARTUP-VALIDATION",
+          ].includes(loaded.spec.deviation.id),
+      )
     } else if (loaded.spec.id.startsWith("c021-")) {
       assert(
         loaded.spec.deviation == null ||
@@ -337,7 +355,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     3,
     3,
     43,
-    127,
+    155,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)

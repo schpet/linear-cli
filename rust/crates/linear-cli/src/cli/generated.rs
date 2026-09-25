@@ -10800,7 +10800,7 @@ impl Route {
             Self::ProjectUpdateCreateR58 => super::DispatchAction::Unimplemented,
             Self::ProjectUpdateListR59 => super::DispatchAction::Unimplemented,
             Self::CycleR60 => super::DispatchAction::ParentPending,
-            Self::CycleListR61 => super::DispatchAction::Unimplemented,
+            Self::CycleListR61 => super::DispatchAction::CycleList,
             Self::CycleViewR62 => super::DispatchAction::Unimplemented,
             Self::MilestoneR63 => super::DispatchAction::ParentPending,
             Self::MilestoneListR64 => super::DispatchAction::Unimplemented,

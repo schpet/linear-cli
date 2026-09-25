@@ -1,6 +1,7 @@
 mod auth_list;
 mod auth_whoami;
 mod client;
+mod cycle_list;
 mod display;
 mod team_list;
 mod team_states;

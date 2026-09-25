@@ -12,7 +12,8 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, team_id, team_list, team_states, template_list, user_list,
+    auth_list, auth_whoami, client, cycle_list, team_id, team_list, team_states, template_list,
+    user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -686,6 +687,97 @@ fn dispatch(
             context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }
+        DispatchAction::CycleList => {
+            let json = action_switch(&action, "json")?;
+            let team_reference = match action_string(&action, "team")? {
+                Some(explicit) => explicit,
+                None => configured_team_key(&context.config()?.options).ok_or_else(|| {
+                    AppError::new(
+                        AppErrorKind::Validation,
+                        "Could not determine team key from directory name or team flag",
+                    )
+                    .with_context(cycle_list::CONTEXT)
+                })?,
+            };
+            let selected = (|| {
+                let config = context.config()?;
+                let credentials = context.credentials()?;
+                let workspace = action
+                    .global_workspace
+                    .as_ref()
+                    .map(|value| value.value.as_str());
+                let inputs = client::selection_inputs(&config.options, workspace)?;
+                let scope = WorkspaceScope::from_selection(&inputs, credentials);
+                let prepared = prepare_team_lookup(&team_reference, &scope)?;
+                let transport = client::prepare_transport_with_inputs(
+                    &config.options,
+                    credentials,
+                    &inputs,
+                    &config.transport_env,
+                )?;
+                Ok::<_, AppError>((prepared, transport))
+            })()
+            .map_err(|error| error.with_context(cycle_list::CONTEXT))?;
+            let (prepared, transport) = selected;
+            let team = block_on_network(async {
+                resolve_team_with_transport(&prepared, &transport).await
+            })
+            .map_err(|error| error.with_context(cycle_list::CONTEXT))?;
+
+            // Deno starts this spinner after the team lookup, and its catch
+            // path leaves the last frame visible on a cycle-fetch error.
+            let show_spinner = spinner::enabled(
+                json,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
+            if show_spinner {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let columns = team_list::stdout_columns(context.stdout_tty);
+            let color = !context.no_color();
+            let output = if show_spinner {
+                block_on_network(async {
+                    let pending = cycle_list::run(&transport, &team.id, json, columns, color);
+                    tokio::pin!(pending);
+                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+                    ticks.tick().await;
+                    let mut frame = 1;
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut pending => break result,
+                            _ = ticks.tick() => {
+                                context.write_stdout_with_policy(
+                                    spinner::frame(frame).as_bytes(),
+                                    OutputPolicy::ConsoleLike,
+                                )?;
+                                frame = frame.wrapping_add(1);
+                            }
+                        }
+                    }
+                })
+            } else {
+                block_on_network(async {
+                    cycle_list::run(&transport, &team.id, json, columns, color).await
+                })
+            }
+            .map_err(|error| {
+                if error.context.is_none() {
+                    error.with_context(cycle_list::CONTEXT)
+                } else {
+                    error
+                }
+            })?;
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+            Ok(ExitStatus::Success)
+        }
         DispatchAction::Document => {
             write_stdout(context, b"Use --help to see available subcommands\n")?;
             Ok(ExitStatus::Success)
@@ -751,6 +843,19 @@ fn action_switch(action: &ParsedAction, name: &str) -> Result<bool, AppError> {
             _ => Err(AppError::new(
                 AppErrorKind::Invariant,
                 format!("team list option {name} was not a switch"),
+            )),
+        },
+    }
+}
+
+fn action_string(action: &ParsedAction, name: &str) -> Result<Option<String>, AppError> {
+    match action.option(name) {
+        None => Ok(None),
+        Some(option) => match &option.value.value {
+            OptionValue::String(value) => Ok(Some(value.clone())),
+            _ => Err(AppError::new(
+                AppErrorKind::Invariant,
+                format!("option {name} was not a string"),
             )),
         },
     }
