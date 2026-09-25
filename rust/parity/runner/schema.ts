@@ -567,6 +567,10 @@ export const CaseSchema = v.pipe(
         "configFixture is a kebab-case fixture name",
       ),
     )),
+    // One closed opt-in process probe for Git-root config discovery. This is
+    // deliberately narrower than an arbitrary executable fixture.
+    gitProbe: v.optional(v.picklist(["parent-root", "outside-repo"])),
+    cwdSubdir: v.optional(v.literal("subdir")),
     env: EnvSchema,
     substitutions: v.pipe(
       v.array(v.picklist([
@@ -600,6 +604,10 @@ export const CaseSchema = v.pipe(
     expected: ExpectedSchema,
     deviation: v.nullable(DeviationSchema),
   }),
+  v.check(
+    (spec) => (spec.gitProbe == null) === (spec.cwdSubdir == null),
+    "gitProbe and cwdSubdir must be specified together",
+  ),
   v.check(
     (spec) =>
       spec.fixtureServer != null || spec.graphql != null ||

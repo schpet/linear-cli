@@ -5,6 +5,7 @@
 import {
   type ConfinedObservation,
   type Confinement,
+  ConfinementError,
   programInvocation,
   runConfined,
 } from "./bwrap.ts"
@@ -34,6 +35,8 @@ import { describeProgram, type Program } from "./program.ts"
 import {
   createSandbox,
   diffTrees,
+  gitHelperIntegrity,
+  gitProbeExpected,
   hashTree,
   UnsupportedSandboxEntryError,
 } from "./sandbox.ts"
@@ -189,6 +192,8 @@ export async function executeCase(
     ctx.sandboxParent,
     loaded.fixtureDir,
     loaded.configFixtureDir,
+    loaded.spec.gitProbe,
+    loaded.spec.cwdSubdir,
   )
   let server: FixtureServer | null = null
   let graphqlServer: GraphQLServer | null = null
@@ -198,7 +203,7 @@ export async function executeCase(
       resolveCase(loaded.spec, {
         home: sandbox.home,
         configHome: sandbox.configHome,
-        cwd: sandbox.cwd,
+        cwd: sandbox.invocationCwd,
         bin: sandbox.bin,
         denoDir: ctx.denoDir,
         fixturePort: String(fixturePort),
@@ -245,11 +250,50 @@ export async function executeCase(
       childEnv.DENO_CERT = caPath
       childEnv.SSL_CERT_FILE = caPath
     }
+    if (loaded.spec.gitProbe != null) {
+      const helper = sandbox.gitHelperPath
+      if (helper == null) {
+        throw new ConfinementError("Git probe helper is absent")
+      }
+      const probe = await runConfined(ctx.confinement, {
+        executable: "/bin/sh",
+        args: [
+          "-c",
+          'exec "$@"',
+          "git-probe",
+          helper,
+          "rev-parse",
+          "--show-toplevel",
+        ],
+        readOnly: [],
+        caseRoot: sandbox.root,
+        cwd: sandbox.invocationCwd,
+        tmp: sandbox.tmp,
+        env: childEnv,
+        stdin: new Uint8Array(),
+        timeoutMs: 5_000,
+        outputCapBytes: 4_096,
+        signal: ctx.signal,
+      })
+      const expected = gitProbeExpected(loaded.spec.gitProbe, sandbox.cwd)
+      const code = probe.targetExit != null && "code" in probe.targetExit
+        ? probe.targetExit.code
+        : null
+      if (
+        probe.timedOut || probe.truncated || code !== expected.code ||
+        new TextDecoder().decode(probe.stdout) !== expected.stdout ||
+        new TextDecoder().decode(probe.stderr) !== expected.stderr
+      ) {
+        throw new ConfinementError(
+          `private Git probe failed its confined execution check for ${loaded.spec.gitProbe}`,
+        )
+      }
+    }
     const before = await hashTree(sandbox.root)
     const observation = await runConfined(ctx.confinement, {
       ...programInvocation(program, resolved.argv),
       caseRoot: sandbox.root,
-      cwd: sandbox.cwd,
+      cwd: sandbox.invocationCwd,
       tmp: sandbox.tmp,
       env: childEnv,
       stdin: resolved.stdin,
@@ -276,6 +320,10 @@ export async function executeCase(
         if (mismatches[index].surface === "files") mismatches.splice(index, 1)
       }
       mismatches.push({ surface: "files", detail: unsupportedEntry.message })
+    }
+    const gitIntegrity = await gitHelperIntegrity(sandbox, loaded.spec.gitProbe)
+    if (gitIntegrity != null) {
+      mismatches.push({ surface: "files", detail: gitIntegrity })
     }
     if (server != null && loaded.spec.fixtureServer != null) {
       mismatches.push(...compareFixture(loaded.spec.fixtureServer, server))

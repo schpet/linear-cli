@@ -23,8 +23,8 @@ import {
   type TargetStatusRecord,
 } from "./target-status.ts"
 
-// Resolved absolutely: the child's PATH is the case's explicit PATH, which is
-// an empty sandbox bin directory, and Rust's spawn resolves programs against it.
+// Resolved absolutely: the child's PATH is the case's explicit private bin,
+// normally empty but containing the fixed Git probe for opted-in cases.
 export const BWRAP_CANDIDATES = ["/usr/bin/bwrap", "/bin/bwrap"]
 export const MIN_BWRAP_VERSION = "0.9.0"
 export const SANDBOX_HOSTNAME = "linear-parity"

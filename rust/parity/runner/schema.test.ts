@@ -6,6 +6,7 @@ import {
   substitute,
 } from "./schema.ts"
 import { validCase } from "./test-fixtures.ts"
+import { candidateCaseView, type LoadedCase } from "./cases.ts"
 
 function rejects(
   mutate: (spec: Record<string, unknown>) => void,
@@ -41,6 +42,33 @@ Deno.test("a complete case parses and keeps byte fields as utf8/base64 objects",
   const spec = parseCase(validCase())
   assertEquals(spec.expected.stdout, { utf8: "x" })
   assertEquals(spec.expected.stderr, { base64: "" })
+})
+
+Deno.test("Git probe is a paired, closed candidate-preserved case choice", () => {
+  rejects((spec) => (spec.gitProbe = "parent-root"), "gitProbe")
+  rejects((spec) => (spec.cwdSubdir = "subdir"), "gitProbe")
+  rejects((spec) => {
+    spec.gitProbe = "arbitrary-command"
+    spec.cwdSubdir = "subdir"
+  }, "gitProbe")
+  rejects((spec) => {
+    spec.gitProbe = "outside-repo"
+    spec.cwdSubdir = "../host"
+  }, "cwdSubdir")
+  const raw = validCase()
+  raw.gitProbe = "parent-root"
+  raw.cwdSubdir = "subdir"
+  const spec = parseCase(raw)
+  const loaded: LoadedCase = {
+    file: "sample.json",
+    spec,
+    fixtureDir: null,
+    configFixtureDir: null,
+  }
+  const candidate = candidateCaseView(loaded)
+  assertEquals(candidate.spec.gitProbe, "parent-root")
+  assertEquals(candidate.spec.cwdSubdir, "subdir")
+  assertEquals(candidate.spec.argv, ["--version"])
 })
 
 Deno.test("pipe stdout variants require literal byte-exact prefixes within the declared cap", () => {

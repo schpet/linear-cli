@@ -4,14 +4,46 @@
 import { join, relative } from "@std/path"
 import { copy } from "@std/fs/copy"
 import { sha256Hex } from "./bytes.ts"
-import type { FileEffect } from "./schema.ts"
+import type { CaseSpec, FileEffect } from "./schema.ts"
+
+const GIT_HELPER_MODE = 0o500
+const OUTSIDE_REPO_STDERR =
+  "fatal: not a git repository (or any of the parent directories): .git\n"
+
+/** Fixed helpers, never supplied by a case file. Both accept exactly one Git query. */
+export function gitProbeScript(
+  probe: NonNullable<CaseSpec["gitProbe"]>,
+): string {
+  const header =
+    '#!/bin/sh\nif [ "$#" -ne 2 ] || [ "$1" != "rev-parse" ] || [ "$2" != "--show-toplevel" ]; then\n  exit 129\nfi\n'
+  switch (probe) {
+    case "parent-root":
+      return `${header}cd -P .. || exit 129\npwd -P\n`
+    case "outside-repo":
+      return `${header}printf '%s\\n' 'fatal: not a git repository (or any of the parent directories): .git' >&2\nexit 128\n`
+  }
+}
+
+export function gitProbeExpected(
+  probe: NonNullable<CaseSpec["gitProbe"]>,
+  cwd: string,
+): { code: number; stdout: string; stderr: string } {
+  switch (probe) {
+    case "parent-root":
+      return { code: 0, stdout: `${cwd}\n`, stderr: "" }
+    case "outside-repo":
+      return { code: 128, stdout: "", stderr: OUTSIDE_REPO_STDERR }
+  }
+}
 
 export interface Sandbox {
   root: string
   home: string
   configHome: string
   cwd: string
+  invocationCwd: string
   bin: string
+  gitHelperPath: string | null
   /** Bound to /tmp inside the sandbox, so implicit temp writes are file effects. */
   tmp: string
   remove(): Promise<void>
@@ -21,7 +53,12 @@ export async function createSandbox(
   parent: string | undefined,
   fixtureDir: string | null,
   configFixtureDir: string | null = null,
+  gitProbe: CaseSpec["gitProbe"] = undefined,
+  cwdSubdir: CaseSpec["cwdSubdir"] = undefined,
 ): Promise<Sandbox> {
+  if ((gitProbe == null) !== (cwdSubdir == null)) {
+    throw new Error("gitProbe and cwdSubdir must be specified together")
+  }
   const root = await Deno.makeTempDir({
     dir: parent,
     prefix: "linear-parity-case-",
@@ -31,12 +68,32 @@ export async function createSandbox(
   const cwd = join(root, "cwd")
   const bin = join(root, "bin")
   const tmp = join(root, "tmp")
+  const invocationCwd = cwdSubdir == null ? cwd : join(cwd, cwdSubdir)
+  const gitHelperPath = gitProbe == null ? null : join(bin, "git")
   try {
     for (const dir of [home, bin, tmp]) await Deno.mkdir(dir)
     if (configFixtureDir == null) await Deno.mkdir(configHome)
     else await copy(configFixtureDir, configHome)
     if (fixtureDir == null) await Deno.mkdir(cwd)
     else await copy(fixtureDir, cwd)
+    if (cwdSubdir != null) {
+      const info = await Deno.lstat(invocationCwd).catch(() => null)
+      if (info == null) await Deno.mkdir(invocationCwd)
+      else if (info.isSymlink || !info.isDirectory) {
+        throw new Error("cwdSubdir must be a real directory")
+      }
+    }
+    if (gitProbe != null && gitHelperPath != null) {
+      await Deno.writeTextFile(gitHelperPath, gitProbeScript(gitProbe))
+      await Deno.chmod(gitHelperPath, GIT_HELPER_MODE)
+      const info = await Deno.lstat(gitHelperPath)
+      if (
+        !info.isFile || info.isSymlink || info.mode == null ||
+        (info.mode & 0o777) !== GIT_HELPER_MODE
+      ) {
+        throw new Error("Git probe helper is not a regular executable")
+      }
+    }
   } catch (error) {
     await Deno.remove(root, { recursive: true }).catch(() => {})
     throw error
@@ -46,10 +103,33 @@ export async function createSandbox(
     home,
     configHome,
     cwd,
+    invocationCwd,
     bin,
+    gitHelperPath,
     tmp,
     remove: () => Deno.remove(root, { recursive: true }),
   }
+}
+
+/** Mode is not part of treeDigest, so check it explicitly after each child. */
+export async function gitHelperIntegrity(
+  sandbox: Sandbox,
+  probe: CaseSpec["gitProbe"],
+): Promise<string | null> {
+  if (sandbox.gitHelperPath == null || probe == null) return null
+  const info = await Deno.lstat(sandbox.gitHelperPath).catch(() => null)
+  if (
+    info == null || !info.isFile || info.isSymlink || info.mode == null ||
+    (info.mode & 0o777) !== GIT_HELPER_MODE
+  ) {
+    return "private Git probe helper type or mode changed"
+  }
+  const actual = await sha256Hex(await Deno.readFile(sandbox.gitHelperPath))
+  const expected = await sha256Hex(
+    new TextEncoder().encode(gitProbeScript(probe)),
+  )
+  if (actual !== expected) return "private Git probe helper content changed"
+  return null
 }
 
 export type TreeEntry =
