@@ -135,8 +135,9 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   const c002 = (item: { spec: { id: string } }) =>
     item.spec.id.startsWith("c002-")
   const others = loaded.filter((item) => !c002(item))
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 246)
-  assertEquals(others.filter((item) => item.spec.graphql != null).length, 29)
+  // C015 adds seven non-GraphQL cases and 25 typed user-list GraphQL cases.
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 253)
+  assertEquals(others.filter((item) => item.spec.graphql != null).length, 54)
   assertEquals(loaded.filter(c002).length, 26)
 })
 

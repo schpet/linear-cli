@@ -375,7 +375,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  assertEquals(graphql.length, 29)
+  // C015 adds 25 User-Agent-bound GraphQL cases to the committed corpus.
+  assertEquals(graphql.length, 54)
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -391,7 +392,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     assertEquals(
       loaded.golden?.spec.approvedSurfaces,
       loaded.spec.id === "c008-text-percent" ||
-        loaded.spec.id === "c008-raw-extra-field"
+        loaded.spec.id === "c008-raw-extra-field" ||
+        loaded.spec.id === "c015-raw-extra-json"
         ? ["stdout", "graphql-user-agent"]
         : loaded.spec.id === "c008-raw-null-name"
         ? ["exit", "stdout", "stderr", "graphql-user-agent"]

@@ -9,7 +9,7 @@ use std::time::Duration;
 use crate::cli::clap_input::{OptionValue, ParsedAction};
 use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
-use crate::commands::{auth_list, auth_whoami, client, team_id, team_list};
+use crate::commands::{auth_list, auth_whoami, client, team_id, team_list, user_list};
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
@@ -352,6 +352,82 @@ fn dispatch(
             let output = output_result.map_err(|error| {
                 if error.context.is_none() {
                     error.with_context("Failed to fetch teams")
+                } else {
+                    error
+                }
+            })?;
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::UserList => {
+            let include_disabled = action_switch(&action, "all")?;
+            let json = action_switch(&action, "json")?;
+            let show_spinner = spinner::enabled(
+                json,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
+            if show_spinner {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let prepared = (|| {
+                let config = context.config()?;
+                let credentials = context.credentials()?;
+                let workspace = action
+                    .global_workspace
+                    .as_ref()
+                    .map(|value| value.value.as_str());
+                client::prepare_transport(
+                    &config.options,
+                    credentials,
+                    workspace,
+                    &config.transport_env,
+                )
+                .map_err(|error| error.with_context(user_list::CONTEXT))
+            })();
+            let transport = match prepared {
+                Ok(transport) => transport,
+                Err(error) => {
+                    if show_spinner {
+                        context
+                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                    }
+                    return Err(error);
+                }
+            };
+            let output_result = if show_spinner {
+                block_on_network(async {
+                    let pending = user_list::run(&transport, include_disabled, json);
+                    tokio::pin!(pending);
+                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+                    ticks.tick().await;
+                    let mut frame = 1;
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut pending => break result,
+                            _ = ticks.tick() => {
+                                context.write_stdout_with_policy(
+                                    spinner::frame(frame).as_bytes(),
+                                    OutputPolicy::ConsoleLike,
+                                )?;
+                                frame = frame.wrapping_add(1);
+                            }
+                        }
+                    }
+                })
+            } else {
+                block_on_network(async { user_list::run(&transport, include_disabled, json).await })
+            };
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            let output = output_result.map_err(|error| {
+                if error.context.is_none() {
+                    error.with_context(user_list::CONTEXT)
                 } else {
                     error
                 }

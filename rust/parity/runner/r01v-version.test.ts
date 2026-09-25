@@ -52,7 +52,8 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  assertEquals(cases.length, 301)
+  // C015 contributes 32 cases with its own version and typed-JSON bindings.
+  assertEquals(cases.length, 333)
   const ids: string[] = []
   let header = 0
   let bare = 0
@@ -78,6 +79,8 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
           ? "C008-STRICT-TEAM-NAME"
           : loaded.spec.id === "c008-raw-extra-field"
           ? "C008-TYPED-JSON-FIELDS"
+          : loaded.spec.id === "c015-raw-extra-json"
+          ? "C015-TYPED-JSON-FIELDS"
           : "R01H-GRAPHQL-UA",
       )
       assertEquals(
@@ -86,7 +89,8 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
           ? ["stdout", "graphql-user-agent"]
           : loaded.spec.id === "c008-raw-null-name"
           ? ["exit", "stdout", "stderr", "graphql-user-agent"]
-          : loaded.spec.id === "c008-raw-extra-field"
+          : loaded.spec.id === "c008-raw-extra-field" ||
+              loaded.spec.id === "c015-raw-extra-json"
           ? ["stdout", "graphql-user-agent"]
           : ["graphql-user-agent"],
       )
@@ -177,6 +181,15 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
           loaded.spec.deviation.id === "C008-STRICT-TEAM-NAME" ||
           loaded.spec.deviation.id === "C008-TYPED-JSON-FIELDS",
       )
+    } else if (loaded.spec.id.startsWith("c015-")) {
+      assert(
+        loaded.spec.deviation == null ||
+          [
+            "R01H-GRAPHQL-UA",
+            "C015-CLI-VERSION",
+            "C015-TYPED-JSON-FIELDS",
+          ].includes(loaded.spec.deviation.id),
+      )
     } else if (loaded.spec.id.startsWith("c086-")) {
       const c086Deviations = new Set<string>([
         "C086-CLI-VERSION",
@@ -232,7 +245,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     3,
     3,
     43,
-    29,
+    54,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)
