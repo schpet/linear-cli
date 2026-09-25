@@ -1,0 +1,119 @@
+{
+  "route": "linear label list",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": null,
+  "id": "c016-default-text",
+  "reason": "Default text prints header, rows, count, and workspace/team columns.",
+  "argv": [
+    "label",
+    "list"
+  ],
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "ID                                   NAME  COLOR   TEAM     \n00000000-0000-4000-8000-000000000002 Alpha #00ff00 Workspace\n00000000-0000-4000-8000-000000000003 café  #0000ff DESIGN   \n00000000-0000-4000-8000-000000000001 zebra #ff0000 ENG      \n\n3 labels found.\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "labels-first",
+            "operation": {
+              "document": "query GetIssueLabels($filter: IssueLabelFilter, $first: Int, $after: String) { issueLabels(filter: $filter, first: $first, after: $after) { nodes { id name description color team { key name } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issueLabels": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-8000-000000000001",
+                      "name": "zebra",
+                      "description": null,
+                      "color": "#ff0000",
+                      "team": {
+                        "key": "ENG",
+                        "name": "Engineering"
+                      }
+                    },
+                    {
+                      "id": "00000000-0000-4000-8000-000000000002",
+                      "name": "Alpha",
+                      "description": "Shared",
+                      "color": "#00ff00",
+                      "team": null
+                    },
+                    {
+                      "id": "00000000-0000-4000-8000-000000000003",
+                      "name": "café",
+                      "description": "Unicode",
+                      "color": "#0000ff",
+                      "team": {
+                        "key": "DESIGN",
+                        "name": "Design"
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
