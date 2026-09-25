@@ -71,6 +71,120 @@ Deno.test("Git probe is a paired, closed candidate-preserved case choice", () =>
   assertEquals(candidate.spec.argv, ["--version"])
 })
 
+Deno.test("cwdRoot is confined to nested-cwd expected output", () => {
+  const nested = validCase()
+  nested.gitProbe = "parent-root"
+  nested.cwdSubdir = "subdir"
+  listField(nested, "substitutions").push("cwd")
+  listField(nested, "substitutions").push("cwdRoot")
+  objectField(nested, "expected").stderr = {
+    utf8: "root={{cwdRoot}} invoked={{cwd}}",
+  }
+  const parsed = parseCase(nested)
+  assertEquals(parsed.substitutions.includes("cwdRoot"), true)
+  assertEquals(
+    substitute(
+      "root={{cwdRoot}} invoked={{cwd}}",
+      parsed.substitutions,
+      {
+        home: "h",
+        configHome: "c",
+        cwd: "/case/cwd/subdir",
+        cwdRoot: "/case/cwd",
+        bin: "b",
+        denoDir: "d",
+        fixturePort: "0",
+        referenceModuleUrl: "file:///reference",
+      },
+      "test",
+    ),
+    "root=/case/cwd invoked=/case/cwd/subdir",
+  )
+  rejects((spec) => {
+    listField(spec, "substitutions").push("cwdRoot")
+  }, "cwdRoot substitution requires cwdSubdir")
+  for (const field of ["argv", "stdin", "env"]) {
+    const forbidden = structuredClone(nested)
+    if (field === "argv") forbidden.argv = ["{{cwdRoot}}"]
+    if (field === "stdin") forbidden.stdin = { utf8: "{{cwdRoot}}" }
+    if (field === "env") objectField(forbidden, "env").EXTRA = "{{cwdRoot}}"
+    assertThrows(
+      () => parseCase(forbidden),
+      SchemaError,
+      "cwdRoot is restricted to expected output",
+    )
+  }
+  const fileEffect = structuredClone(nested)
+  objectField(fileEffect, "expected").fileEffects = [{
+    path: "link",
+    change: "created",
+    kind: "symlink",
+    target: "{{cwdRoot}}",
+  }]
+  assertThrows(
+    () => parseCase(fileEffect),
+    SchemaError,
+    "cwdRoot is restricted to expected output",
+  )
+  assertThrows(
+    () =>
+      substitute("{{cwdRoot}}", [], {
+        home: "h",
+        configHome: "c",
+        cwd: "w",
+        cwdRoot: "r",
+        bin: "b",
+        denoDir: "d",
+        fixturePort: "0",
+        referenceModuleUrl: "file:///reference",
+      }, "test"),
+    SchemaError,
+    "not declared",
+  )
+})
+
+Deno.test("cwdRoot cannot enter fixture or GraphQL traffic", async () => {
+  const fixture = JSON.parse(
+    await Deno.readTextFile(
+      new URL("./cases/api-loopback-viewer-200.json", import.meta.url),
+    ),
+  )
+  if (!isRecord(fixture)) throw new Error("fixture case is not an object")
+  fixture.gitProbe = "parent-root"
+  fixture.cwdSubdir = "subdir"
+  listField(fixture, "substitutions").push("cwdRoot")
+  const response =
+    listField(objectField(fixture, "fixtureServer"), "responses")[0]
+  if (!isRecord(response)) throw new Error("fixture response is not an object")
+  objectField(response, "body").utf8 = "{{cwdRoot}}"
+  assertThrows(
+    () => parseCase(fixture),
+    SchemaError,
+    "cwdRoot is restricted to expected output",
+  )
+
+  const graphql = JSON.parse(
+    await Deno.readTextFile(
+      new URL("./cases/api-graphql-variable.json", import.meta.url),
+    ),
+  )
+  if (!isRecord(graphql)) throw new Error("GraphQL case is not an object")
+  graphql.gitProbe = "parent-root"
+  graphql.cwdSubdir = "subdir"
+  listField(graphql, "substitutions").push("cwdRoot")
+  const group = listField(objectField(graphql, "graphql"), "groups")[0]
+  if (!isRecord(group)) throw new Error("GraphQL group is not an object")
+  const step = listField(group, "steps")[0]
+  if (!isRecord(step)) throw new Error("GraphQL step is not an object")
+  objectField(objectField(objectField(step, "response"), "data"), "issue")
+    .identifier = "{{cwdRoot}}"
+  assertThrows(
+    () => parseCase(graphql),
+    SchemaError,
+    "cwdRoot is restricted to expected output",
+  )
+})
+
 Deno.test("pipe stdout variants require literal byte-exact prefixes within the declared cap", () => {
   const withStdout = (stdout: unknown, cap = 1024) => {
     const spec = validCase()
@@ -289,6 +403,7 @@ Deno.test("substitution replaces only declared placeholders and rejects the rest
     home: "H",
     configHome: "C",
     cwd: "W",
+    cwdRoot: "R",
     bin: "B",
     denoDir: "D",
     fixturePort: "8",

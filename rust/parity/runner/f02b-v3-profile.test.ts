@@ -19,6 +19,7 @@ const dummy = {
   home: "h",
   configHome: "c",
   cwd: "w",
+  cwdRoot: "r",
   bin: "b",
   denoDir: "d",
   fixturePort: "0",

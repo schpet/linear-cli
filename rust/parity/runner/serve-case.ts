@@ -133,6 +133,7 @@ function resolveWithPort(
     home: "/nonexistent/home",
     configHome: "/nonexistent/config",
     cwd: "/nonexistent/cwd",
+    cwdRoot: "/nonexistent/cwd-root",
     bin: "/nonexistent/bin",
     denoDir: "/nonexistent/deno-dir",
     fixturePort: String(port),

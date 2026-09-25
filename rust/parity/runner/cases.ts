@@ -163,6 +163,24 @@ async function loadReviewedBinding(
     )
   }
   if (
+    golden.candidate.argv != null &&
+    JSON.stringify(golden.candidate.argv).includes("{{cwdRoot}}")
+  ) {
+    throw new SchemaError(
+      `case ${spec.id}: Rust golden cwdRoot is restricted to expected output`,
+    )
+  }
+  if (
+    golden.candidate.expected?.fileEffects != null &&
+    JSON.stringify(golden.candidate.expected.fileEffects).includes(
+      "{{cwdRoot}}",
+    )
+  ) {
+    throw new SchemaError(
+      `case ${spec.id}: Rust golden cwdRoot is restricted to expected output`,
+    )
+  }
+  if (
     golden.caseId !== spec.id || golden.deviationId !== binding.id ||
     golden.contract !== binding.contract
   ) {
@@ -227,6 +245,7 @@ async function loadReviewedBinding(
     home: "h",
     configHome: "c",
     cwd: "w",
+    cwdRoot: "r",
     bin: "b",
     denoDir: "d",
     fixturePort: "0",
@@ -941,6 +960,7 @@ export async function loadCases(
       home: "h",
       configHome: "c",
       cwd: "w",
+      cwdRoot: "r",
       bin: "b",
       denoDir: "d",
       fixturePort: "0",

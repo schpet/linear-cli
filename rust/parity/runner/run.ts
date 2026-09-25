@@ -204,6 +204,7 @@ export async function executeCase(
         home: sandbox.home,
         configHome: sandbox.configHome,
         cwd: sandbox.invocationCwd,
+        cwdRoot: sandbox.cwd,
         bin: sandbox.bin,
         denoDir: ctx.denoDir,
         fixturePort: String(fixturePort),

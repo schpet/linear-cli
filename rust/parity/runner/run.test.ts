@@ -88,6 +88,30 @@ Deno.test("reference module URL distinguishes interpreted and pinned compiled pr
   })
 })
 
+Deno.test("nested cwd substitutions resolve to distinct invocation and fixture roots", async () => {
+  await withDir(async (_dir, ctx) => {
+    const loaded = loadedCase({
+      id: "cwd-root-public",
+      gitProbe: "parent-root",
+      cwdSubdir: "subdir",
+      argv: ["-c", "pwd -P; cd -P ..; pwd -P"],
+      substitutions: ["home", "configHome", "cwd", "cwdRoot", "bin", "denoDir"],
+      expected: {
+        exit: { code: 0 },
+        stdout: { utf8: "{{cwd}}\n{{cwdRoot}}\n" },
+        stderr: { utf8: "" },
+        fileEffects: [],
+      },
+    })
+    const result = await executeCase(
+      loaded,
+      { kind: "executable", path: "/bin/sh" },
+      ctx,
+    )
+    assertEquals(result.mismatches, [])
+  })
+})
+
 Deno.test("public case runner compares pipe prefix, authenticated closure and effective cap", async () => {
   await withDir(async (_dir, ctx) => {
     const loop = 'for(;;) { syswrite(STDOUT, "abcd") or die "EPIPE" }'

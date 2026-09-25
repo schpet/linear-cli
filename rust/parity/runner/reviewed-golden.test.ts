@@ -92,6 +92,63 @@ Deno.test("golden format v1 is closed and complete", () => {
   assertEquals(parseCase(spec).deviation?.id, GOLDEN_ID)
 })
 
+Deno.test("nested cwd root is allowed only in reviewed expected output", async () => {
+  await withCorpus(async (dir, write) => {
+    const spec = validCase()
+    spec.gitProbe = "parent-root"
+    spec.cwdSubdir = "subdir"
+    const substitutions = spec.substitutions
+    if (!Array.isArray(substitutions)) throw new Error("missing substitutions")
+    substitutions.push("cwd")
+    substitutions.push("cwdRoot")
+    const expected = parseCase(spec).expected
+    await write(
+      golden({
+        expected: {
+          ...expected,
+          stderr: { utf8: "root={{cwdRoot}} invoked={{cwd}}" },
+        },
+      }, ["stderr"]),
+      spec,
+    )
+    const [loaded] = await loadCases(
+      dir,
+      new Set(["linear"]),
+      undefined,
+      CONTRACT,
+    )
+    assertEquals(
+      candidateCaseView(loaded).spec.expected.stderr,
+      { utf8: "root={{cwdRoot}} invoked={{cwd}}" },
+    )
+    await write(golden({ argv: ["{{cwdRoot}}"] }, ["argv"]), spec)
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT),
+      SchemaError,
+      "cwdRoot is restricted to expected output",
+    )
+    await write(
+      golden({
+        expected: {
+          ...expected,
+          fileEffects: [{
+            path: "link",
+            change: "created",
+            kind: "symlink",
+            target: "{{cwdRoot}}",
+          }],
+        },
+      }, ["files"]),
+      spec,
+    )
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT),
+      SchemaError,
+      "cwdRoot is restricted to expected output",
+    )
+  })
+})
+
 Deno.test("corpus validates SHA, identity, surfaces and orphan files before filtering", async () => {
   await withCorpus(async (dir, write) => {
     const routes = new Set(["linear"])
@@ -320,6 +377,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     home: "h",
     configHome: "c",
     cwd: "w",
+    cwdRoot: "r",
     bin: "b",
     denoDir: "d",
     fixturePort: "1234",

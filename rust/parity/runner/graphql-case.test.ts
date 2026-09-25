@@ -78,6 +78,7 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
     home: "h",
     configHome: "c",
     cwd: "w",
+    cwdRoot: "r",
     bin: "b",
     denoDir: "d",
     fixturePort: "123",

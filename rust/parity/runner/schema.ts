@@ -17,6 +17,7 @@ export const SUBSTITUTION_NAMES = [
   "home",
   "configHome",
   "cwd",
+  "cwdRoot",
   "bin",
   "denoDir",
   "fixturePort",
@@ -26,6 +27,7 @@ export type SubstitutionName =
   | "home"
   | "configHome"
   | "cwd"
+  | "cwdRoot"
   | "bin"
   | "denoDir"
   | "fixturePort"
@@ -577,6 +579,7 @@ export const CaseSchema = v.pipe(
         "home",
         "configHome",
         "cwd",
+        "cwdRoot",
         "bin",
         "denoDir",
         "fixturePort",
@@ -609,6 +612,10 @@ export const CaseSchema = v.pipe(
     "gitProbe and cwdSubdir must be specified together",
   ),
   v.check(
+    (spec) => !spec.substitutions.includes("cwdRoot") || spec.cwdSubdir != null,
+    "cwdRoot substitution requires cwdSubdir",
+  ),
+  v.check(
     (spec) =>
       spec.fixtureServer != null || spec.graphql != null ||
       !spec.substitutions.includes("fixturePort"),
@@ -632,6 +639,18 @@ export const CaseSchema = v.pipe(
         graphql: spec.graphql,
       }).includes("{{referenceModuleUrl}}"),
     "referenceModuleUrl is restricted to expected output",
+  ),
+  v.check(
+    (spec) =>
+      !JSON.stringify({
+        argv: spec.argv,
+        stdin: spec.stdin,
+        env: spec.env,
+        fixtureServer: spec.fixtureServer,
+        graphql: spec.graphql,
+        fileEffects: spec.expected.fileEffects,
+      }).includes("{{cwdRoot}}"),
+    "cwdRoot is restricted to expected output",
   ),
   v.check(
     (spec) =>
