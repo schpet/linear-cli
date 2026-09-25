@@ -1,4 +1,4 @@
-//! Typed, shadow-only extraction from the registered clap grammar.
+//! Typed production extraction from the registered clap grammar.
 use std::ffi::OsString;
 
 use clap::ArgMatches;
@@ -763,6 +763,35 @@ fn unknown_option(route: &'static RouteMeta, invalid: &str) -> AppError {
     )
 }
 
+fn short_switch_equals_error(route: &'static RouteMeta, words: &[String]) -> Option<AppError> {
+    for word in words.iter().skip(1) {
+        let Some((flag, value)) = word.split_once('=') else {
+            continue;
+        };
+        if !flag.starts_with('-') || flag.starts_with("--") || flag.chars().count() != 2 {
+            continue;
+        }
+        let option = route
+            .inherited_global_options
+            .iter()
+            .chain(route.local_options.iter())
+            .find(|option| {
+                option.args.is_empty()
+                    && super::spelling::effective_flags(route, option).contains(&flag)
+            });
+        if let Some(option) = option {
+            return Some(AppError::usage(
+                route.route,
+                format!(
+                    "Option \"{}\" doesn't take a value, but got \"{value}\".",
+                    canonical_flag(option)
+                ),
+            ));
+        }
+    }
+    None
+}
+
 pub fn parse(argv: &[OsString]) -> Result<Invocation, AppError> {
     let mut words = vec!["linear".to_owned()];
     for token in argv {
@@ -777,6 +806,14 @@ pub fn parse(argv: &[OsString]) -> Result<Invocation, AppError> {
     if let Some(error) = root_lexical_error(&words, root) {
         return Err(error);
     }
+    if words.get(1).is_some_and(|word| word == "--workspace")
+        && words.get(2).is_some_and(String::is_empty)
+    {
+        return Err(AppError::usage(
+            root.route,
+            "Missing value for option \"--workspace\".",
+        ));
+    }
     let tree = clap_tree::build()?;
     let matches = match tree.clone().try_get_matches_from(&words) {
         Ok(matches) => matches,
@@ -785,6 +822,12 @@ pub fn parse(argv: &[OsString]) -> Result<Invocation, AppError> {
                 Some(route) => route,
                 None => failure_route(&words, tree)?,
             };
+            if error.kind() == ErrorKind::UnknownArgument
+                && context_text(&error, ContextKind::InvalidArg).as_deref() == Some("-=")
+                && let Some(mapped) = short_switch_equals_error(route, &words)
+            {
+                return Err(mapped);
+            }
             if error.kind() == ErrorKind::TooManyValues {
                 for token in words.iter().skip(1) {
                     for (spelling, canonical) in [
@@ -983,6 +1026,23 @@ pub fn parse(argv: &[OsString]) -> Result<Invocation, AppError> {
         let root_help_first = words
             .get(1)
             .is_some_and(|word| word == "-h" || word == "--help");
+        if saw_help
+            && saw_version
+            && !long_version
+            && !has_other
+            && words
+                .iter()
+                .position(|word| word == "-V")
+                .is_some_and(|version_index| {
+                    words.iter().enumerate().any(|(index, word)| {
+                        index < version_index && (word == "-h" || word == "--help")
+                    }) && words.iter().enumerate().all(|(index, word)| {
+                        index < version_index || (word != "-h" && word != "--help")
+                    })
+                })
+        {
+            return Ok(Invocation::Version { long: false });
+        }
         if has_other || (saw_help && saw_version && !root_help_first) {
             let name = last_standalone(&words);
             return Err(AppError::usage(

@@ -5,16 +5,24 @@ use linear_cli::app::{AppContext, run, write_final_error};
 use serde_json::Value;
 
 const CASES: &[&str] = &[
+    "c2-bulk-help",
+    "c2-bulk-unknown-option",
+    "c2-empty-help-suffix",
+    "c2-empty-switch-suffix",
+    "c2-bulk-empty-tail",
     "c2-global-before-issue-bare",
     "c2-global-before-issue-help",
     "c2-issue-workspace-bare",
     "c2-issue-workspace-missing",
     "c2-issue-short-version",
     "c2-mine-hidden-option-typo",
+    "c2-mine-sort-help-value",
     "c2-root-literal-double-dash",
     "c2-root-negated-workspace-help",
     "c2-root-short-bundle-help-version",
     "c2-root-workspace-equals-help",
+    "c2-workspace-missing-help",
+    "c2-workspace-delimiter-value",
     "grammar-help-then-version",
     "grammar-issue-unknown-command",
     "grammar-issue-unknown-option",
@@ -148,25 +156,24 @@ fn source_derived_standalone_action_order() {
     let version = (0, "3.0.0-alpha.1\n".to_owned(), String::new());
     assert_eq!(run_args(&["-h", "-V"]), version);
     assert_eq!(run_args(&["--help", "-V"]), version);
-    let (status, stdout, stderr) = run_args(&["-h", "--version"]);
-    assert_eq!(status, 0);
-    assert_eq!(
-        stdout,
+    for args in [&["-V", "-h"][..], &["-V", "--help"]] {
+        assert_source_usage(
+            args,
+            "linear",
+            "Option \"--help\" cannot be combined with other options.",
+        );
+    }
+    let help =
         linear_cli::cli::render::help(linear_cli::cli::root().expect("root route"), true, false)
-            .expect("root help")
-    );
-    assert!(stderr.is_empty());
+            .expect("root help");
+    assert_eq!(run_args(&["-h", "--version"]), (0, help, String::new()));
 }
 
 #[test]
-fn source_derived_required_values_consume_dash_tokens() {
-    let expected = (
-        0,
-        "Use --help to see available commands\n".to_owned(),
-        String::new(),
-    );
-    assert_eq!(run_args(&["--workspace", "--help"]), expected);
-    assert_eq!(run_args(&["--workspace", "--"]), expected);
+fn production_workspace_flag_looking_value_is_usage() {
+    for args in [&["--workspace", "--help"][..], &["--workspace", "--"]] {
+        assert_source_usage(args, "linear", "Missing value for option \"--workspace\".");
+    }
 }
 
 #[test]
@@ -253,7 +260,7 @@ fn source_derived_inherited_option_wins_equal_distance() {
 }
 
 #[test]
-fn source_derived_action_keeps_positionals_options_and_literal() {
+fn legacy_parser_action_keeps_positionals_options_and_literal() {
     use linear_cli::cli::parser::{ParseOutcome, parse};
     let args = ["issue", "view", "ABC-1", "--workspace", "ws", "--", "raw"].map(str::to_owned);
     let outcome = parse(&args).expect("registered route parses");
@@ -361,7 +368,35 @@ fn source_derived_empty_next_value_and_zero_argument_inline_errors() {
         "linear issue",
         "Option \"--help\" doesn't take a value, but got \"1\".",
     );
-    assert_eq!(run_args(&["issue", "--help="]).0, 0);
+    assert_eq!(run_args(&["issue", "--help="]).0, 2);
+}
+
+#[test]
+fn production_empty_boolean_switch_suffixes_are_usage() {
+    for (args, route, message) in [
+        (
+            &["issue", "-h="][..],
+            "linear issue",
+            "Unknown option \"-=\". Did you mean option \"-h\"?",
+        ),
+        (
+            &["-V="][..],
+            "linear",
+            "Unknown option \"-=\". Did you mean option \"-h\"?",
+        ),
+        (
+            &["--version="][..],
+            "linear",
+            "Invalid number of values for option \"--version...\".",
+        ),
+        (
+            &["issue", "view", "ABC-1", "--json="][..],
+            "linear issue view",
+            "Option \"--json\" doesn't take a value, but got \"\".",
+        ),
+    ] {
+        assert_source_usage(args, route, message);
+    }
 }
 
 #[test]
@@ -424,7 +459,7 @@ fn source_derived_short_equals_and_variable_order() {
 }
 
 #[test]
-fn source_derived_short_equals_preserves_typed_option_value() {
+fn legacy_parser_short_equals_preserves_typed_option_value() {
     use linear_cli::cli::parser::{ParseOutcome, parse};
     for args in [
         vec!["issue", "mine", "-s=priority"],
@@ -598,7 +633,7 @@ fn observed_registered_enum_usage_from_binary() {
         (
             &["issue", "mine", "--sort", "--help"],
             "linear issue mine",
-            "Option \"--sort\" must be of type \"sort\", but got \"--help\". Expected values: \"manual\", \"priority\"",
+            "Missing value for option \"--sort\".",
         ),
         (
             &["issue", "l", "--sort", "nonsense"],
@@ -669,7 +704,7 @@ fn observed_registered_enum_usage_from_binary() {
 }
 
 #[test]
-fn registered_enum_values_and_unrelated_strings_reach_actions() {
+fn legacy_parser_enum_values_and_unrelated_strings_reach_actions() {
     use linear_cli::cli::parser::{ParseOutcome, parse};
     for (args, expected_name, expected_value) in [
         (vec!["issue", "mine", "--sort", "manual"], "sort", "manual"),
@@ -792,7 +827,7 @@ fn observed_registered_positional_arity_from_binary() {
         (
             &["issue", "archive", "--bulk", "A", "", "B"],
             "linear issue archive",
-            "Too many arguments: B",
+            "Missing value for option \"--bulk\".",
         ),
     ];
     for (args, route_path, message) in cases {
@@ -829,7 +864,7 @@ fn observed_registered_positional_arity_from_binary() {
 }
 
 #[test]
-fn registered_positional_help_and_parent_routes() {
+fn legacy_parser_positional_help_and_parent_routes() {
     use linear_cli::cli::parser::{ParseOutcome, parse};
     for (args, route_path) in [
         (vec!["issue", "attach", "--help"], "linear issue attach"),
@@ -871,7 +906,7 @@ fn registered_positional_help_and_parent_routes() {
 }
 
 #[test]
-fn registered_positional_accepted_arity_reaches_action() {
+fn legacy_parser_positional_accepted_arity_reaches_action() {
     use linear_cli::cli::parser::{ParseOutcome, parse};
     for (args, route_path, values) in [
         (vec!["issue", "view", "A"], "linear issue view", vec!["A"]),
@@ -916,7 +951,7 @@ fn registered_positional_accepted_arity_reaches_action() {
 }
 
 #[test]
-fn registered_variadic_option_consumes_remaining_values() {
+fn legacy_parser_variadic_option_consumes_remaining_values() {
     use linear_cli::cli::parser::{ParseOutcome, parse};
 
     for (args, expected) in [
@@ -973,24 +1008,14 @@ fn registered_variadic_option_consumes_remaining_values() {
 }
 
 #[test]
-fn observed_variadic_option_reaches_action_from_binary() {
+fn production_bulk_boundaries_reach_action_or_usage() {
     let unimplemented = b"\xe2\x9c\x97 linear issue archive is registered, but this action is not implemented yet\n";
-    for args in [
-        vec!["issue", "archive", "--bulk", "A", "B", "C"],
-        vec!["issue", "archive", "--bulk", "A", "B", "--help"],
-        vec![
-            "issue",
-            "archive",
-            "--bulk",
-            "A",
-            "B",
-            "--definitely-not-an-option",
-        ],
-    ] {
+    let args = ["issue", "archive", "--bulk", "A", "B", "C"];
+    {
         let sandbox = super::startup::BinarySandbox::new();
         let output = sandbox
             .command()
-            .args(&args)
+            .args(args)
             .env("TZ", "UTC")
             .env("LANG", "C.UTF-8")
             .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
@@ -1004,6 +1029,48 @@ fn observed_variadic_option_reaches_action_from_binary() {
             "binary stderr (Rust action boundary)",
             &output.stderr,
             unimplemented,
+        );
+    }
+    for (args, message) in [
+        (
+            &["issue", "archive", "--bulk", "A", "B", "--help"][..],
+            "Option \"--help\" cannot be combined with other options.",
+        ),
+        (
+            &[
+                "issue",
+                "archive",
+                "--bulk",
+                "A",
+                "B",
+                "--definitely-not-an-option",
+            ][..],
+            "Unknown option \"--definitely-not-an-option\". Did you mean option \"--bulk-stdin\"?",
+        ),
+    ] {
+        assert_source_usage(args, "linear issue archive", message);
+        let expected = run_args(args);
+        let sandbox = super::startup::BinarySandbox::new();
+        let output = sandbox
+            .command()
+            .args(args)
+            .env("TZ", "UTC")
+            .env("LANG", "C.UTF-8")
+            .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
+            .output()
+            .expect("binary runs");
+        assert_eq!(output.status.code(), Some(2), "{args:?} binary exit");
+        assert_bytes(
+            args[0],
+            "binary stdout",
+            &output.stdout,
+            expected.1.as_bytes(),
+        );
+        assert_bytes(
+            args[0],
+            "binary stderr",
+            &output.stderr,
+            expected.2.as_bytes(),
         );
     }
 }

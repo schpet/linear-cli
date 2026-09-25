@@ -1,0 +1,53 @@
+{
+  "id": "c2-mine-sort-help-value",
+  "route": "linear issue mine",
+  "reason": "R01C2 v3 enum missing-value and standalone help precedence.",
+  "argv": [
+    "issue",
+    "mine",
+    "--sort",
+    "--help"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear issue mine\nVersion: 2.6.0            \n\nDescription:\n\n  List your issues\n\nOptions:\n\n  -h, --help                       - Show this help.                                                                                                \n  --workspace      <slug>          - Target workspace (uses credentials)                                                                            \n  -s, --state      <state>         - Filter by workflow state type (triage, backlog, unstarted, started, completed,   (Default: [ \u001b[32m\"unstarted\"\u001b[39m ])    \n                                     canceled), name, or ID (can be repeated for multiple states)                                                   \n  --all-states                     - Show issues from all states                                                                                    \n  --sort           <sort>          - Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT)            (Values: \u001b[32m\"manual\"\u001b[39m, \u001b[32m\"priority\"\u001b[39m)\n  --team           <team>          - Team key, name, or ID to list issues for (if not your default team)                                            \n  --project        <project>       - Filter by project (UUID, slug ID, or name)                                                                     \n  --project-label  <projectLabel>  - Filter by project label name (shows issues from all projects with this label)                                  \n  --cycle          <cycle>         - Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative                                \n                                     offset like +1                                                                                                 \n  --milestone      <milestone>     - Filter by project milestone (UUID, or name when --project is set)                                              \n  -l, --label      <label>         - Filter by label name (can be repeated for multiple labels)                                                     \n  --limit          <limit>         - Maximum number of issues to fetch (default: 50, use 0 for unlimited)             (Default: \u001b[33m50\u001b[39m)                 \n  --created-after  <date>          - Filter issues created after this date (ISO 8601 or YYYY-MM-DD)                                                 \n  --updated-after  <date>          - Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)                                                 \n  -w, --web                        - Open in web browser                                                                                            \n  -a, --app                        - Open in Linear.app                                                                                             \n  --no-pager                       - Disable automatic paging for long output                                                                       \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Option \"--sort\" must be of type \"sort\", but got \"--help\". Expected values: \"manual\", \"priority\"\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01C2-ENUM-HELP-VALUE",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "f891a351605df5e02498cf30844702fde5b4dfd82ef4d85439943148a0c528f0"
+  }
+}

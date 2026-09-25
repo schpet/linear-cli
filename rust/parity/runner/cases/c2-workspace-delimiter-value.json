@@ -1,0 +1,50 @@
+{
+  "id": "c2-workspace-delimiter-value",
+  "route": "linear",
+  "reason": "R01C2 v3 parser cutover: R01C2-WORKSPACE-DELIMITER-VALUE",
+  "argv": [
+    "--workspace",
+    "--"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Use --help to see available commands\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01C2-WORKSPACE-DELIMITER-VALUE",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "58c5a1c43d39d9b923268598fac4d8287df9e6523167f830e1ed654ce7730c14"
+  }
+}

@@ -44,8 +44,8 @@
     "fileEffects": []
   },
   "deviation": {
-    "id": "R01V-CLI-VERSION",
+    "id": "R01C2-LABEL-LIST-HELP",
     "contract": "rust-3.0.0-alpha.1",
-    "sha256": "408370dfb22d985ed53ffb0490d2cc05c1fbd3035db90a76fdb2b27a3b13bb61"
+    "sha256": "291a38241c8d2aec75b943a1de06c543f185330628f08888a78ed4a2b272993b"
   }
 }

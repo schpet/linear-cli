@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c2-bulk-empty-tail",
+  "deviationId": "R01C2-BULK-EMPTY-TAIL",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear issue archive \u001b[33m[\u001b[95m\u001b[95missueId\u001b[95m\u001b[33m]\u001b[95m\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m                 \n\n\u001b[1mDescription:\u001b[22m\n\n  Archive an issue                                                                                                                      \n                                                                                                                                        \n  Linear archives closed issues on its own, and its docs say \"archiving happens automatically with no option to manually archive items\".\n  Prefer closing (issue update --state) and letting auto-archive run, or issue delete to trash. This command calls the issueArchive     \n  mutation, which the Linear app and its official MCP server do not expose; archived issues drop out of list, query, and search results \n  unless --include-archived is passed. See https://linear.app/docs/delete-archive-issues                                                \n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m               \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                                              \n  \u001b[94m--workspace\u001b[39m    \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m    \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)                          \n  \u001b[94m-y\u001b[39m, \u001b[94m--confirm\u001b[39m            \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Skip confirmation prompt                                     \n  \u001b[94m--bulk\u001b[39m         \u001b[33m<\u001b[39m\u001b[95mids...\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Archive multiple issues by identifier (e.g., TC-123 TC-124)  \n  \u001b[94m--bulk-file\u001b[39m    \u001b[33m<\u001b[39m\u001b[95mfile\u001b[39m\u001b[33m>\u001b[39m    \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Read issue identifiers from a file (one per line)            \n  \u001b[94m--bulk-stdin\u001b[39m             \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Read issue identifiers from stdin                            \n\n"
+      },
+      "stderr": {
+        "utf8": "\u001b[31m  \u001b[1merror\u001b[22m: Missing value for option \"--bulk\".\n\u001b[39m\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

@@ -1,4 +1,4 @@
-//! Pure v3 effective spelling data shared by clap and the later help cutover.
+//! Pure v3 effective spelling data shared by clap and help rendering.
 use super::{OptionMeta, ROUTES, RouteMeta};
 
 const LABEL_WORKSPACE_ONLY: &[&str] = &["--workspace-only"];
@@ -11,15 +11,11 @@ pub fn effective_flags(route: &RouteMeta, option: &OptionMeta) -> &'static [&'st
     }
 }
 
-/// Proposed help rows; the production renderer adopts these in R01C2.
+/// Effective help rows in the renderer's inherited-before-local order.
 pub fn effective_help_options(
     route: &RouteMeta,
 ) -> Vec<(&'static OptionMeta, &'static [&'static str])> {
-    let mut rows = route
-        .local_options
-        .iter()
-        .map(|option| (option, effective_flags(route, option)))
-        .collect::<Vec<_>>();
+    let mut rows = Vec::new();
     if route.path == "linear label list" {
         if let Some(root) = ROUTES.iter().find(|candidate| candidate.path == "linear")
             && let Some(workspace) = root
@@ -27,15 +23,21 @@ pub fn effective_help_options(
                 .iter()
                 .find(|option| option.name == "workspace" && option.global)
         {
-            rows.push((workspace, workspace.flags));
+            rows.push((workspace, effective_flags(route, workspace)));
         }
     } else {
         rows.extend(
             route
                 .inherited_global_options
                 .iter()
-                .map(|option| (option, option.flags)),
+                .map(|option| (option, effective_flags(route, option))),
         );
     }
+    rows.extend(
+        route
+            .local_options
+            .iter()
+            .map(|option| (option, effective_flags(route, option))),
+    );
     rows
 }

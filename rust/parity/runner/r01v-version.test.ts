@@ -52,7 +52,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  assertEquals(cases.length, 150)
+  assertEquals(cases.length, 158)
   const ids: string[] = []
   let header = 0
   let bare = 0
@@ -81,10 +81,58 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       )
     } else if (loaded.spec.id.startsWith("r02c2-")) {
       credentialStartup++
-      assertEquals(
-        loaded.spec.deviation?.id,
-        "R02C2G-CREDENTIAL-STARTUP",
-      )
+      assertEquals(loaded.spec.deviation?.id, "R02C2G-CREDENTIAL-STARTUP")
+    } else if (loaded.spec.id === "c2-label-list-help") {
+      assertEquals(loaded.spec.deviation?.id, "R01C2-LABEL-LIST-HELP")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, ["stdout"])
+    } else if (loaded.spec.id === "c2-workspace-missing-help") {
+      assertEquals(loaded.spec.deviation?.id, "R01C2-WORKSPACE-HELP-VALUE")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, [
+        "exit",
+        "stdout",
+        "stderr",
+      ])
+    } else if (loaded.spec.id === "c2-bulk-help") {
+      assertEquals(loaded.spec.deviation?.id, "R01C2-BULK-HELP-PRECEDENCE")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, [
+        "exit",
+        "stdout",
+        "stderr",
+      ])
+    } else if (loaded.spec.id === "c2-mine-sort-help-value") {
+      assertEquals(loaded.spec.deviation?.id, "R01C2-ENUM-HELP-VALUE")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, ["stdout", "stderr"])
+    } else if (loaded.spec.id === "c2-workspace-delimiter-value") {
+      assertEquals(loaded.spec.deviation?.id, "R01C2-WORKSPACE-DELIMITER-VALUE")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, [
+        "exit",
+        "stdout",
+        "stderr",
+      ])
+    } else if (loaded.spec.id === "c2-bulk-empty-tail") {
+      assertEquals(loaded.spec.deviation?.id, "R01C2-BULK-EMPTY-TAIL")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, ["stdout", "stderr"])
+    } else if (loaded.spec.id === "c2-bulk-unknown-option") {
+      assertEquals(loaded.spec.deviation?.id, "R01C2-BULK-UNKNOWN-OPTION")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, [
+        "exit",
+        "stdout",
+        "stderr",
+      ])
+    } else if (loaded.spec.id === "c2-empty-help-suffix") {
+      assertEquals(loaded.spec.deviation?.id, "R01C2-EMPTY-HELP-SUFFIX")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, [
+        "exit",
+        "stdout",
+        "stderr",
+      ])
+    } else if (loaded.spec.id === "c2-empty-switch-suffix") {
+      assertEquals(loaded.spec.deviation?.id, "R01C2-EMPTY-SWITCH-SUFFIX")
+      assertEquals(loaded.golden?.spec.approvedSurfaces, [
+        "exit",
+        "stdout",
+        "stderr",
+      ])
     } else if (
       loaded.spec.deviation?.id !== "R01V-CLI-VERSION" &&
       loaded.spec.deviation?.id !== "R01H-GRAPHQL-UA"
@@ -121,8 +169,8 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
   }
   ids.sort()
   assertEquals([ids.length, header, bare, long, padded, graphql], [
-    108,
-    102,
+    107,
+    101,
     3,
     3,
     43,
@@ -132,7 +180,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
   assertEquals(credentialStartup, 10)
   assertEquals(
     await sha256Hex(new TextEncoder().encode(ids.join("\n") + "\n")),
-    "483ccd730cbed6efbee760a1fb25896eeeb7e722dee14776bbfdd41ab8aa5730",
+    "34bb064d9fe1d227ea4767737debb942366ca33cf58505a25d4b0307d4b452c6",
   )
 
   const transportCases = await loadCases(transport, routes, undefined, CONTRACT)

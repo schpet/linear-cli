@@ -1,0 +1,50 @@
+{
+  "id": "c2-workspace-missing-help",
+  "route": "linear",
+  "reason": "Frozen missing workspace value before help. R01C2 v3 parser cutover binding.",
+  "argv": [
+    "--workspace",
+    "--help"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Use --help to see available commands\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01C2-WORKSPACE-HELP-VALUE",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "0a4458b24fe97f122a2cd6ed5fbd4ee4e2b637072d19e7498185935e2f859518"
+  }
+}

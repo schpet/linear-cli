@@ -71,6 +71,45 @@ fn invoke(args: &[&str]) -> (ExitStatus, String, String) {
 }
 
 #[test]
+fn every_route_and_alias_reaches_its_canonical_help_boundary() {
+    let mut aliases = 0;
+    for route in linear_cli::cli::ROUTES {
+        let canonical = route.path.split(' ').skip(1).collect::<Vec<_>>();
+        for replacement in
+            std::iter::once(None).chain(route.aliases.iter().map(|alias| Some(*alias)))
+        {
+            let mut words = canonical.clone();
+            if let Some(alias) = replacement {
+                aliases += 1;
+                let last = words.last_mut().expect("non-root alias");
+                *last = alias;
+            }
+            words.push("--help");
+            let (status, stdout, stderr) = invoke(&words);
+            assert!(
+                matches!(status, ExitStatus::Success | ExitStatus::UsageFailure),
+                "{} {words:?} returned {status:?}",
+                route.path
+            );
+            assert_eq!(
+                stdout,
+                linear_cli::cli::render::help(route, true, status == ExitStatus::Success)
+                    .expect("route help"),
+                "{} {words:?} help route",
+                route.path
+            );
+            if status == ExitStatus::Success {
+                assert!(stderr.is_empty(), "{} {words:?} stderr", route.path);
+            } else {
+                assert!(stderr.contains("error:"), "{} {words:?} usage", route.path);
+            }
+        }
+    }
+    assert_eq!(linear_cli::cli::ROUTES.len(), 110);
+    assert_eq!(aliases, 36);
+}
+
+#[test]
 fn known_bare_routes_and_short_version() {
     assert_eq!(
         invoke(&[]),

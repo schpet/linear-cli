@@ -8,6 +8,43 @@ fn parse(args: &[&str]) -> Result<Invocation, linear_cli::error::AppError> {
     clap_input::parse(&args)
 }
 
+#[test]
+fn help_rows_keep_inherited_before_local_order_on_every_route() {
+    let root_workspace = ROUTES
+        .iter()
+        .find(|route| route.path == "linear")
+        .and_then(|route| {
+            route
+                .local_options
+                .iter()
+                .find(|option| option.name == "workspace" && option.global)
+        })
+        .expect("root workspace selector");
+    assert_eq!(ROUTES.len(), 110);
+    for route in ROUTES {
+        let actual = linear_cli::cli::spelling::effective_help_options(route)
+            .into_iter()
+            .map(|(option, _)| (option.name, option.global))
+            .collect::<Vec<_>>();
+        let mut expected = if route.path == "linear label list" {
+            vec![(root_workspace.name, root_workspace.global)]
+        } else {
+            route
+                .inherited_global_options
+                .iter()
+                .map(|option| (option.name, option.global))
+                .collect::<Vec<_>>()
+        };
+        expected.extend(
+            route
+                .local_options
+                .iter()
+                .map(|option| (option.name, option.global)),
+        );
+        assert_eq!(actual, expected, "{} help row order", route.path);
+    }
+}
+
 fn action(args: &[&str]) -> clap_input::ParsedAction {
     match parse(args).expect("typed clap parse") {
         Invocation::Action(action) => action,
@@ -172,6 +209,16 @@ fn every_negated_switch_exposes_positive_boolean_and_origin() {
 
 #[test]
 fn help_and_version_spelling_are_typed() {
+    for args in [&["-h", "-V"][..], &["--help", "-V"]] {
+        assert!(matches!(
+            parse(args).expect("short version wins"),
+            Invocation::Version { long: false }
+        ));
+    }
+    assert!(matches!(
+        parse(&["-h", "--version"]).expect("long version follows help"),
+        Invocation::Help { long: false, .. }
+    ));
     assert!(matches!(
         parse(&["issue", "--help"]).expect("help"),
         Invocation::Help { long: true, .. }
@@ -458,6 +505,46 @@ fn inherited_help_and_root_version_keep_source_precedence() {
             route: ROUTES.first().expect("root").route
         }
     );
+}
+
+#[test]
+fn empty_help_suffix_preserves_values_and_rejects_standalone_switch() {
+    let title = action(&["issue", "create", "--title", "--help="]);
+    assert_eq!(
+        title.option("title").expect("title option").value.value,
+        OptionValue::String("--help=".to_owned())
+    );
+    assert!(matches!(
+        parse(&["issue", "--help="])
+            .expect_err("standalone empty help suffix")
+            .kind,
+        AppErrorKind::Usage { .. }
+    ));
+    let literal = action(&["--", "--help="]);
+    assert_eq!(literal.literal, ["--help="]);
+    let two_values = action(&[
+        "issue",
+        "create",
+        "--title",
+        "--help=",
+        "--description",
+        "-h=",
+    ]);
+    assert_eq!(
+        two_values.option("title").expect("title").value.value,
+        OptionValue::String("--help=".to_owned())
+    );
+    assert_eq!(
+        two_values
+            .option("description")
+            .expect("description")
+            .value
+            .value,
+        OptionValue::String("-h=".to_owned())
+    );
+    let mixed = parse(&["issue", "create", "--title", "--help=", "--help="])
+        .expect_err("second empty help suffix is standalone");
+    assert!(matches!(mixed.kind, AppErrorKind::Usage { .. }));
 }
 
 #[test]

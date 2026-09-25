@@ -205,17 +205,12 @@ pub fn help(route: &RouteMeta, colors: bool, long: bool) -> Result<String, AppEr
             String::new(),
         ]);
     }
-    for option in route
-        .inherited_global_options
-        .iter()
-        .chain(route.local_options.iter())
-    {
+    for (option, flags) in super::spelling::effective_help_options(route) {
         if option.hidden {
             continue;
         }
         option_rows.push(vec![
-            option
-                .flags
+            flags
                 .iter()
                 .map(|flag| style::bright_blue(flag, colors))
                 .collect::<Vec<_>>()

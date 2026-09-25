@@ -1,11 +1,12 @@
 use std::error::Error;
+use std::ffi::OsString;
 use std::future::Future;
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::cli::{self, DispatchAction, RouteMeta};
+use crate::cli::{self, DispatchAction};
 use crate::config::StartupConfig;
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
@@ -191,31 +192,36 @@ pub fn run(argv: &[String], context: &mut AppContext<'_>) -> Result<ExitStatus, 
     if let Err(error) = &context.startup.result {
         return Err(error.app_error());
     }
-    match cli::parser::parse(argv)? {
-        cli::parser::ParseOutcome::Help { route, long } => {
+    let os_argv = argv.iter().map(OsString::from).collect::<Vec<_>>();
+    match cli::clap_input::parse(&os_argv)? {
+        cli::clap_input::Invocation::Help { route, long } => {
             let help = cli::render::help(route, context.help_color(), long)?;
             write_stdout(context, help.as_bytes())?;
             Ok(ExitStatus::Success)
         }
-        cli::parser::ParseOutcome::Version { long: false } => {
+        cli::clap_input::Invocation::Version { long: false } => {
             write_stdout(
                 context,
                 format!("{}\n", env!("CARGO_PKG_VERSION")).as_bytes(),
             )?;
             Ok(ExitStatus::Success)
         }
-        cli::parser::ParseOutcome::Version { long: true } => {
+        cli::clap_input::Invocation::Version { long: true } => {
             write_stdout(
                 context,
                 cli::render::long_version(context.help_color()).as_bytes(),
             )?;
             Ok(ExitStatus::Success)
         }
-        cli::parser::ParseOutcome::Action { route, .. } => dispatch(route, context),
+        cli::clap_input::Invocation::Action(action) => dispatch(action, context),
     }
 }
 
-fn dispatch(route: &RouteMeta, context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
+fn dispatch(
+    action: cli::clap_input::ParsedAction,
+    context: &mut AppContext<'_>,
+) -> Result<ExitStatus, AppError> {
+    let route = action.route;
     match route.route.action() {
         DispatchAction::Root => {
             context.write_stdout_with_policy(
