@@ -1,0 +1,50 @@
+{
+  "id": "c023-empty-status",
+  "route": "linear project list",
+  "reason": "Cliffy rejects an explicitly empty --status value before any GraphQL request.",
+  "argv": [
+    "project",
+    "list",
+    "--status",
+    "",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear project list\nVersion: 2.6.0              \n\nDescription:\n\n  List projects\n\nOptions:\n\n  -h, --help             - Show this help.                      \n  --workspace  <slug>    - Target workspace (uses credentials)  \n  --team       <team>    - Filter by team key, name, or ID      \n  --all-teams            - Show projects from all teams         \n  --status     <status>  - Filter by status name                \n  -w, --web              - Open in web browser                  \n  -a, --app              - Open in Linear.app                   \n  -j, --json             - Output as JSON                       \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Missing value for option \"--status\".\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

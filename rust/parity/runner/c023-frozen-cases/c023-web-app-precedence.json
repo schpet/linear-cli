@@ -1,0 +1,51 @@
+{
+  "id": "c023-web-app-precedence",
+  "route": "linear project list",
+  "reason": "--app wins when both browser flags are present; --status and --json are ignored.",
+  "argv": [
+    "project",
+    "list",
+    "--web",
+    "--app",
+    "--status",
+    "Paused",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "workspace-config",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Opening https://linear.app/alpha/projects/all in Linear.app\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to open projects: Failed to spawn 'xdg-open': entity not found\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

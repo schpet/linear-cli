@@ -1,0 +1,123 @@
+{
+  "id": "c023-web-viewer-team",
+  "route": "linear project list",
+  "reason": "Viewer lookup precedes explicit team resolution in browser branch.",
+  "argv": [
+    "--workspace",
+    "beta",
+    "project",
+    "list",
+    "--web",
+    "--team",
+    "ENG"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Opening https://linear.app/beta/team/ENG/projects/all in web browser\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to open projects: Failed to spawn 'xdg-open': entity not found\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "viewer",
+            "operation": {
+              "document": "query GetViewer { viewer { organization { urlKey } } }"
+            },
+            "identity": {
+              "authorization": "lin_api_fake_beta",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "viewer": {
+                  "organization": {
+                    "urlKey": "beta"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "resolve-team",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) { teams(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] }) { nodes { id key name } } teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) { nodes { id key name } } }",
+              "variables": {
+                "reference": "ENG",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_beta",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "team-eng-id",
+                      "key": "ENG",
+                      "name": "Engineering"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

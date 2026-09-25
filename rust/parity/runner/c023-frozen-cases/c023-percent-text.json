@@ -1,0 +1,129 @@
+{
+  "id": "c023-percent-text",
+  "route": "linear project list",
+  "reason": "User-supplied percent directives in cells exercise console formatting.",
+  "argv": [
+    "project",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "SLUG NAME                STATUS PRIORITY HEALTH  LEAD TEAMS DATE             \nXcolor: #abc  A BNaN C D%o E% %c%d    %c High     Unknown AL   T%   %cStart: 2024-02-01%c\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "projects",
+            "operation": {
+              "document": "query GetProjects($filter: ProjectFilter, $first: Int, $after: String) { projects(filter: $filter, first: $first, after: $after) { nodes { id name description slugId icon color sortOrder status { id name color type } lead { name displayName initials } priority health startDate targetDate startedAt completedAt canceledAt createdAt updatedAt url teams { nodes { key } } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "p1",
+                      "name": "A%s B%d C%c D%o E%%",
+                      "description": "Synthetic description",
+                      "slugId": "X%s",
+                      "icon": null,
+                      "color": "#cccccc",
+                      "sortOrder": 1,
+                      "status": {
+                        "id": "ps",
+                        "name": "%d",
+                        "color": "#abc",
+                        "type": "planned"
+                      },
+                      "lead": {
+                        "name": "Ada Lovelace",
+                        "displayName": "Ada",
+                        "initials": "AL"
+                      },
+                      "priority": 2,
+                      "health": null,
+                      "startDate": "2024-02-01",
+                      "targetDate": null,
+                      "startedAt": null,
+                      "completedAt": null,
+                      "canceledAt": null,
+                      "createdAt": "2024-01-01T00:00:00.000Z",
+                      "updatedAt": "2024-01-02T00:00:00.000Z",
+                      "url": "https://linear.app/alpha/project/p1",
+                      "teams": {
+                        "nodes": [
+                          {
+                            "key": "T%%"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
