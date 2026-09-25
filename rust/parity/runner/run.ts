@@ -8,6 +8,7 @@ import {
   programInvocation,
   runConfined,
 } from "./bwrap.ts"
+import { normalize, toFileUrl } from "@std/path"
 import { sha256Hex } from "./bytes.ts"
 import type { LoadedCase } from "./cases.ts"
 import { candidateCaseView, checkLaneDeadline, resolveCase } from "./cases.ts"
@@ -64,6 +65,8 @@ function fixedHosts(
 export interface RunContext {
   /** Staged module cache handed to every child as DENO_DIR. */
   denoDir: string
+  /** Verified pinned compiled binary for source URL substitution. */
+  referenceBinary: string
   /** Bubblewrap facts and shared read-only binds; every child runs through it. */
   confinement: Confinement
   /** Parent directory for per-case sandboxes: a private lane directory under /var/tmp. */
@@ -71,6 +74,32 @@ export interface RunContext {
   signal?: AbortSignal
   /** Test hook: override case limits (used by self-check controls). */
   limits?: { timeoutMs?: number; outputCapBytes?: number }
+}
+
+// The compiled reference pinned by rust/parity/baseline.json (SHA-256
+// a17675c5ab9a0bf5f32f65e5e68112676576972a9979f5a97bc844f6b23e0835)
+// embeds this module root. A confined comparison recorded its stack URL.
+const PINNED_COMPILED_MODULE_ROOT = "/tmp/deno-compile-reference-linear"
+
+export function referenceModuleUrl(program: Program, ctx: RunContext): string {
+  const root = program.kind === "interpreted-reference"
+    ? program.workspace
+    : program.path === ctx.referenceBinary
+    ? PINNED_COMPILED_MODULE_ROOT
+    : null
+  if (root == null) {
+    throw new SchemaError(
+      "referenceModuleUrl requires the interpreted or pinned compiled reference",
+    )
+  }
+  return toFileUrl(normalize(root)).href.replace(/\/$/, "")
+}
+
+function needsReferenceModuleUrl(loaded: LoadedCase): boolean {
+  const expected = loaded.spec.expected
+  return [expected.stdout, expected.stderr].some((field) =>
+    "utf8" in field && field.utf8.includes("{{referenceModuleUrl}}")
+  )
 }
 
 export interface ObservationSummary {
@@ -173,6 +202,9 @@ export async function executeCase(
         bin: sandbox.bin,
         denoDir: ctx.denoDir,
         fixturePort: String(fixturePort),
+        referenceModuleUrl: needsReferenceModuleUrl(loaded)
+          ? referenceModuleUrl(program, ctx)
+          : "file:///unused",
       }, loaded.runtimeUserAgent)
     if (loaded.spec.fixtureServer != null) {
       server = startFixtureServer((port) => {

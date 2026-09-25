@@ -157,6 +157,11 @@ async function loadReviewedBinding(
     throw new SchemaError(`case ${spec.id}: reviewed golden is not UTF-8 JSON`)
   }
   const golden = parseReviewedGolden(parsed, path)
+  if (JSON.stringify(golden.candidate).includes("{{referenceModuleUrl}}")) {
+    throw new SchemaError(
+      `case ${spec.id}: Rust golden cannot use referenceModuleUrl`,
+    )
+  }
   if (
     golden.caseId !== spec.id || golden.deviationId !== binding.id ||
     golden.contract !== binding.contract
@@ -225,6 +230,7 @@ async function loadReviewedBinding(
     bin: "b",
     denoDir: "d",
     fixturePort: "0",
+    referenceModuleUrl: "file:///reference",
   }, golden.candidate.graphqlUserAgent)
   return { spec: golden, sha256: hash }
 }
@@ -938,6 +944,7 @@ export async function loadCases(
       bin: "b",
       denoDir: "d",
       fixturePort: "0",
+      referenceModuleUrl: "file:///reference",
     })
     if (filter == null || spec.id.includes(filter)) {
       loaded.push({ file, spec, fixtureDir, configFixtureDir, golden })

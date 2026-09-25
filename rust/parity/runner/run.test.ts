@@ -1,12 +1,17 @@
 // Integration of sandbox, confinement wrapper, engine, fixture server,
 // comparison and descriptor logic with small shell programs; the namespace
 // lane is exercised by `deno task parity` itself.
-import { assert, assertEquals, assertRejects } from "@std/assert"
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { join } from "@std/path"
 import { CASE_ROOT_PARENT, prepareConfinement } from "./bwrap.ts"
 import type { LoadedCase } from "./cases.ts"
 import { loadCases } from "./cases.ts"
-import { executeCase, type RunContext, runCorpus } from "./run.ts"
+import {
+  executeCase,
+  referenceModuleUrl,
+  type RunContext,
+  runCorpus,
+} from "./run.ts"
 import type { Program } from "./program.ts"
 import { readManifest } from "../verify.ts"
 import { toReportCase } from "./report.ts"
@@ -14,7 +19,7 @@ import { parseCase, SchemaError } from "./schema.ts"
 import { testStatusHelper, validCase } from "./test-fixtures.ts"
 
 async function withDir<T>(
-  fn: (dir: string, ctx: RunContext) => Promise<T>,
+  fn: (dir: string, ctx: RunContext) => T | Promise<T>,
 ): Promise<T> {
   const dir = await Deno.makeTempDir({
     dir: CASE_ROOT_PARENT,
@@ -27,7 +32,12 @@ async function withDir<T>(
       denoDir,
       statusHelper: await testStatusHelper(dir),
     })
-    return await fn(dir, { denoDir, confinement, sandboxParent: dir })
+    return await fn(dir, {
+      denoDir,
+      referenceBinary: join(dir, "pinned-reference"),
+      confinement,
+      sandboxParent: dir,
+    })
   } finally {
     await Deno.remove(dir, { recursive: true })
   }
@@ -52,6 +62,31 @@ function loadedCase(overrides: Record<string, unknown>): LoadedCase {
     configFixtureDir: null,
   }
 }
+
+Deno.test("reference module URL distinguishes interpreted and pinned compiled programs", async () => {
+  await withDir((_dir, ctx) => {
+    assertEquals(
+      referenceModuleUrl({
+        kind: "interpreted-reference",
+        workspace: "/tmp/reference dir/",
+        deno: "/bin/deno",
+      }, ctx),
+      "file:///tmp/reference%20dir",
+    )
+    assertEquals(
+      referenceModuleUrl(
+        { kind: "executable", path: ctx.referenceBinary },
+        ctx,
+      ),
+      "file:///tmp/deno-compile-reference-linear",
+    )
+    assertThrows(
+      () => referenceModuleUrl({ kind: "executable", path: "/tmp/other" }, ctx),
+      SchemaError,
+      "requires the interpreted or pinned compiled reference",
+    )
+  })
+})
 
 Deno.test("public case runner compares pipe prefix, authenticated closure and effective cap", async () => {
   await withDir(async (_dir, ctx) => {

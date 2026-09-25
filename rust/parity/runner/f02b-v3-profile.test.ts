@@ -22,6 +22,7 @@ const dummy = {
   bin: "b",
   denoDir: "d",
   fixturePort: "0",
+  referenceModuleUrl: "file:///reference",
 }
 
 async function temporaryCorpus(

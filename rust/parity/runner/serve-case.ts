@@ -136,6 +136,7 @@ function resolveWithPort(
     bin: "/nonexistent/bin",
     denoDir: "/nonexistent/deno-dir",
     fixturePort: String(port),
+    referenceModuleUrl: "file:///reference",
   }, loaded.runtimeUserAgent).graphql
   if (graphql == null) {
     throw new DriverError("GraphQL fixture vanished during resolution")

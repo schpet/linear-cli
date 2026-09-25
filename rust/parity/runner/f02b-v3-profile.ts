@@ -87,6 +87,7 @@ const dummyValues = {
   bin: "b",
   denoDir: "d",
   fixturePort: "0",
+  referenceModuleUrl: "file:///reference",
 }
 
 function sortedJson(value: unknown): string {

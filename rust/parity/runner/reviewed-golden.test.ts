@@ -201,6 +201,23 @@ Deno.test("corpus validates SHA, identity, surfaces and orphan files before filt
     )
     const baseExpected = parseCase(validCase()).expected
     await write(golden({
+      expected: {
+        ...baseExpected,
+        stderr: { utf8: "{{referenceModuleUrl}}/src/credentials.ts" },
+      },
+    }, ["stderr"]))
+    await assertRejects(
+      () => loadCases(dir, routes, "unselected", CONTRACT),
+      SchemaError,
+      "Rust golden cannot use referenceModuleUrl",
+    )
+    await write(golden({ argv: ["{{referenceModuleUrl}}"] }, ["argv"]))
+    await assertRejects(
+      () => loadCases(dir, routes, "unselected", CONTRACT),
+      SchemaError,
+      "Rust golden cannot use referenceModuleUrl",
+    )
+    await write(golden({
       expected: { ...baseExpected, stdout: { base64: "eA==" } },
     }, ["stdout"]))
     await assertRejects(
@@ -306,6 +323,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     bin: "b",
     denoDir: "d",
     fixturePort: "1234",
+    referenceModuleUrl: "file:///reference",
   }
   for (const loaded of graphql) {
     assertEquals(loaded.golden?.spec.candidate.graphqlUserAgent, USER_AGENT)
@@ -420,7 +438,12 @@ Deno.test("reviewed argv and byte differences use separate exact candidate view"
         denoDir,
         statusHelper: await testStatusHelper(runDir),
       })
-      const ctx = { denoDir, confinement, sandboxParent: runDir }
+      const ctx = {
+        denoDir,
+        referenceBinary: join(runDir, "pinned-reference"),
+        confinement,
+        sandboxParent: runDir,
+      }
       const good = join(runDir, "good.sh")
       await Deno.writeTextFile(
         good,
@@ -616,6 +639,7 @@ Deno.test("GraphQL candidate fixture requires exact v3 identity and preserves re
       await Deno.mkdir(denoDir)
       const ctx = {
         denoDir,
+        referenceBinary: join(runDir, "pinned-reference"),
         confinement: await prepareConfinement({
           denoDir,
           statusHelper: await testStatusHelper(runDir),

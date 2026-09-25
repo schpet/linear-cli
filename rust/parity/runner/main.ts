@@ -490,6 +490,7 @@ async function innerInLane(
   Deno.addSignalListener("SIGTERM", onSignal)
   const ctx: RunContext = {
     denoDir: options.denoDir,
+    referenceBinary: options.referenceBinary,
     confinement,
     sandboxParent,
     signal: abort.signal,

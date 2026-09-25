@@ -81,6 +81,7 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
     bin: "b",
     denoDir: "d",
     fixturePort: "123",
+    referenceModuleUrl: "file:///reference",
   }
   assertEquals(resolveCase(parsed, values).graphql?.path, "/graphql")
   const caseDir = new URL("./cases", import.meta.url).pathname

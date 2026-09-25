@@ -264,6 +264,7 @@ Deno.test("substitution replaces only declared placeholders and rejects the rest
     bin: "B",
     denoDir: "D",
     fixturePort: "8",
+    referenceModuleUrl: "file:///reference",
   }
   assertEquals(
     substitute(
@@ -289,6 +290,40 @@ Deno.test("substitution replaces only declared placeholders and rejects the rest
     SchemaError,
   )
   assertThrows(() => substitute("{{home", ["home"], values, "t"), SchemaError)
+})
+
+Deno.test("reference module URL is confined to expected output and PATH is private", () => {
+  rejects(
+    (spec) => (objectField(spec, "env").PATH = "/usr/bin"),
+    "PATH must be the private sandbox placeholder",
+  )
+  const valid = validCase()
+  listField(valid, "substitutions").push("referenceModuleUrl")
+  objectField(valid, "expected").stderr = {
+    utf8: "at {{referenceModuleUrl}}/src/credentials.ts",
+  }
+  parseCase(valid)
+  rejects((spec) => {
+    listField(spec, "substitutions").push("referenceModuleUrl")
+    objectField(spec, "expected").stderr = {
+      utf8: "{{referenceModuleUrl}}",
+    }
+    spec.argv = ["{{referenceModuleUrl}}"]
+  }, "referenceModuleUrl is restricted to expected output")
+  rejects((spec) => {
+    listField(spec, "substitutions").push("referenceModuleUrl")
+    objectField(spec, "expected").stderr = {
+      utf8: "{{referenceModuleUrl}}",
+    }
+    spec.stdin = { utf8: "{{referenceModuleUrl}}" }
+  }, "referenceModuleUrl is restricted to expected output")
+  rejects((spec) => {
+    listField(spec, "substitutions").push("referenceModuleUrl")
+    objectField(spec, "expected").stderr = {
+      utf8: "{{referenceModuleUrl}}",
+    }
+    objectField(spec, "env").OTHER = "{{referenceModuleUrl}}"
+  }, "referenceModuleUrl is restricted to expected output")
 })
 
 Deno.test("candidate descriptors need an explicit program and route list", () => {

@@ -20,6 +20,7 @@ export const SUBSTITUTION_NAMES = [
   "bin",
   "denoDir",
   "fixturePort",
+  "referenceModuleUrl",
 ]
 export type SubstitutionName =
   | "home"
@@ -28,6 +29,7 @@ export type SubstitutionName =
   | "bin"
   | "denoDir"
   | "fixturePort"
+  | "referenceModuleUrl"
 
 const UNSUPPORTED_FIELDS: Record<string, string> = {
   pty: "PTY keystrokes and terminal traces are P04 work",
@@ -486,6 +488,10 @@ const EnvSchema = v.pipe(
     "DENO_DIR must be the staged placeholder {{denoDir}}",
   ),
   v.check(
+    (env) => env.PATH === "{{bin}}",
+    "PATH must be the private sandbox placeholder {{bin}}",
+  ),
+  v.check(
     (env) =>
       env.LINEAR_API_KEY == null ||
       env.LINEAR_API_KEY.startsWith("lin_api_fake"),
@@ -570,6 +576,7 @@ export const CaseSchema = v.pipe(
         "bin",
         "denoDir",
         "fixturePort",
+        "referenceModuleUrl",
       ])),
       v.check(
         (names) => new Set(names).size === names.length,
@@ -598,6 +605,25 @@ export const CaseSchema = v.pipe(
       spec.fixtureServer != null || spec.graphql != null ||
       !spec.substitutions.includes("fixturePort"),
     "fixturePort substitution requires a fixtureServer or graphql fixture",
+  ),
+  v.check(
+    (spec) =>
+      !spec.substitutions.includes("referenceModuleUrl") ||
+      [spec.expected.stdout, spec.expected.stderr].some((field) =>
+        "utf8" in field && field.utf8.includes("{{referenceModuleUrl}}")
+      ),
+    "referenceModuleUrl substitution requires expected output",
+  ),
+  v.check(
+    (spec) =>
+      !JSON.stringify({
+        argv: spec.argv,
+        stdin: spec.stdin,
+        env: spec.env,
+        fixtureServer: spec.fixtureServer,
+        graphql: spec.graphql,
+      }).includes("{{referenceModuleUrl}}"),
+    "referenceModuleUrl is restricted to expected output",
   ),
   v.check(
     (spec) =>
