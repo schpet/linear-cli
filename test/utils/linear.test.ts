@@ -3,9 +3,14 @@ import { assertThrows } from "@std/assert"
 import {
   compareWorkflowStates,
   findTeam,
+  getCycleIdByNameOrNumber,
   getIssueIdentifier,
+  getIssueLabelIdByNameForTeam,
+  getProjectIdByName,
+  getProjectLabelIdByName,
   getStartedState,
   isLinearUuid,
+  lookupUserId,
   lowestPositionStateOfType,
   resolveInitiativeId,
   resolveMilestoneId,
@@ -1099,6 +1104,295 @@ Deno.test("resolveStateSelection - a page that never advances is an error, not a
       () => resolveStateSelection(["In Review"], { teamKeys: ["ENG"] }),
       CliError,
       "no new pagination cursor",
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("getProjectIdByName resolves a project URL by slug alone, never by name", async () => {
+  // A different project is *named* exactly the slug in the URL. The general
+  // lookup tries names first, so if the URL's slug went through it, this other
+  // project would win — and `project delete <url>` would delete it.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetProjectIdByName",
+      variables: { name: "576342554a6e" },
+      response: {
+        data: { projects: { nodes: [{ id: "project-named-like-the-slug" }] } },
+      },
+    },
+    {
+      queryName: "GetProjectIdBySlugId",
+      variables: { slugId: "576342554a6e" },
+      response: {
+        data: { projects: { nodes: [{ id: "project-with-that-slug" }] } },
+      },
+    },
+  ])
+  try {
+    await withUrlWorkspace(async () => {
+      assertEquals(
+        await getProjectIdByName(
+          "https://linear.app/url-test-workspace/project/mobile-launch-576342554a6e",
+        ),
+        "project-with-that-slug",
+      )
+    })
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("resolveInitiativeId does not fall back to a name when a URL's slug misses", async () => {
+  // The initiative in the URL is gone, and another initiative happens to be
+  // named exactly its slug. Falling back to a name lookup would quietly hand
+  // back that other initiative.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "ResolveInitiativeBySlug",
+      variables: { slugId: "1e2f47b4f76d" },
+      response: { data: { initiatives: { nodes: [] } } },
+    },
+    {
+      queryName: "ResolveInitiativeByName",
+      response: {
+        data: {
+          initiatives: {
+            nodes: [{
+              id: "initiative-named-like-the-slug",
+              name: "1e2f47b4f76d",
+              slugId: "aaaaaaaaaaaa",
+            }],
+          },
+        },
+      },
+    },
+  ])
+  try {
+    await withUrlWorkspace(async () => {
+      await assertRejects(
+        () =>
+          resolveInitiativeId(
+            "https://linear.app/url-test-workspace/initiative/gone-1e2f47b4f76d",
+          ),
+        NotFoundError,
+      )
+    })
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("getIssueIdentifier reads the identifier out of an issue URL", async () => {
+  const previousWorkspace = Deno.env.get("LINEAR_WORKSPACE")
+  Deno.env.set("LINEAR_WORKSPACE", "url-test-workspace")
+  const { cleanup } = await setupMockLinearServer([])
+  try {
+    // No request should be needed: the identifier is in the path.
+    assertEquals(
+      await getIssueIdentifier(
+        "https://linear.app/url-test-workspace/issue/ENG-123/some-title",
+      ),
+      "ENG-123",
+    )
+    // A comment link still names its issue.
+    assertEquals(
+      await getIssueIdentifier(
+        "https://linear.app/url-test-workspace/issue/ENG-123/t#comment-325482e4",
+      ),
+      "ENG-123",
+    )
+  } finally {
+    await cleanup()
+    if (previousWorkspace == null) {
+      Deno.env.delete("LINEAR_WORKSPACE")
+    } else {
+      Deno.env.set("LINEAR_WORKSPACE", previousWorkspace)
+    }
+  }
+})
+
+function cycleLookupResponse(
+  key: string,
+  cycles: Array<
+    { id: string; number: number; name: string | null; isNext?: boolean }
+  >,
+  options: { cyclesEnabled?: boolean; active?: string } = {},
+) {
+  const nodes = cycles.map((c) => ({
+    id: c.id,
+    number: c.number,
+    name: c.name,
+    startsAt: "2026-09-21T07:00:00.000Z",
+    isNext: c.isNext ?? false,
+    isPrevious: false,
+  }))
+  const active = nodes.find((n) => n.id === options.active) ?? null
+  return {
+    data: {
+      team: {
+        key,
+        cyclesEnabled: options.cyclesEnabled ?? true,
+        cycles: {
+          nodes,
+          pageInfo: { hasNextPage: false, endCursor: null },
+        },
+        activeCycle: active == null
+          ? null
+          : { id: active.id, number: active.number, name: active.name },
+      },
+    },
+  }
+}
+
+async function withUrlWorkspace<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = Deno.env.get("LINEAR_WORKSPACE")
+  Deno.env.set("LINEAR_WORKSPACE", "url-test-workspace")
+  try {
+    return await fn()
+  } finally {
+    if (previous == null) {
+      Deno.env.delete("LINEAR_WORKSPACE")
+    } else {
+      Deno.env.set("LINEAR_WORKSPACE", previous)
+    }
+  }
+}
+
+Deno.test("getCycleIdByNameOrNumber reads a cycle URL's number as a number, never a name", async () => {
+  // Cycle #5 is *named* "7". The general lookup matches a name or a number, so
+  // handed "7" it would stop at #5. A URL's /cycle/7 means cycle number 7.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetTeamCyclesForLookup",
+      response: cycleLookupResponse("CLI", [
+        { id: "cycle-named-seven", number: 5, name: "7" },
+        { id: "cycle-number-seven", number: 7, name: null },
+      ]),
+    },
+  ])
+  try {
+    await withUrlWorkspace(async () => {
+      assertEquals(
+        await getCycleIdByNameOrNumber(
+          "https://linear.app/url-test-workspace/team/CLI/cycle/7",
+          "team-cli",
+        ),
+        "cycle-number-seven",
+      )
+    })
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("getCycleIdByNameOrNumber reads the app's upcoming as next", async () => {
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetTeamCyclesForLookup",
+      response: cycleLookupResponse(
+        "CLI",
+        [
+          { id: "cycle-5", number: 5, name: null },
+          { id: "cycle-6", number: 6, name: null, isNext: true },
+        ],
+        { active: "cycle-5" },
+      ),
+    },
+  ])
+  try {
+    await withUrlWorkspace(async () => {
+      assertEquals(
+        await getCycleIdByNameOrNumber(
+          "https://linear.app/url-test-workspace/team/CLI/cycle/upcoming",
+          "team-cli",
+        ),
+        "cycle-6",
+      )
+      assertEquals(
+        await getCycleIdByNameOrNumber(
+          "https://linear.app/url-test-workspace/team/CLI/cycle/active",
+          "team-cli",
+        ),
+        "cycle-5",
+      )
+    })
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("getCycleIdByNameOrNumber reports a cycle URL for another team before anything else", async () => {
+  // FIG has cycles disabled. Without the ordering, the user would be told
+  // that, instead of the actual problem: the URL names a different team.
+  const { cleanup } = await setupMockLinearServer([
+    {
+      queryName: "GetTeamCyclesForLookup",
+      response: cycleLookupResponse("FIG", [], { cyclesEnabled: false }),
+    },
+  ])
+  try {
+    await withUrlWorkspace(async () => {
+      const error = await assertRejects(
+        () =>
+          getCycleIdByNameOrNumber(
+            "https://linear.app/url-test-workspace/team/CLI/cycle/5",
+            "team-fig",
+          ),
+        ValidationError,
+        "That cycle URL is for team CLI, but this command is working in team FIG.",
+      )
+      assertEquals(error.suggestion, "Pass --team CLI.")
+    })
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("label lookups refuse a pasted URL instead of searching for it as a name", async () => {
+  // No mocks: a request would come back as an unconfigured-query error, so
+  // passing here also proves the refusal happens before any lookup.
+  const { cleanup } = await setupMockLinearServer([])
+  const url = "https://linear.app/url-test-workspace/issue/ENG-1/x"
+  try {
+    await assertRejects(
+      () => getIssueLabelIdByNameForTeam(url, "ENG"),
+      ValidationError,
+      "this command does not take one",
+    )
+    await assertRejects(
+      () => getProjectLabelIdByName(url),
+      ValidationError,
+      "this command does not take one",
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+Deno.test("user and workflow-state lookups refuse a pasted URL", async () => {
+  // No mocks, so a lookup that reached the API would fail differently.
+  const { cleanup } = await setupMockLinearServer([])
+  const url = "https://linear.app/url-test-workspace/settings/members"
+  try {
+    // --assignee, --lead and --member all resolve through lookupUserId.
+    await assertRejects(
+      () => lookupUserId(url),
+      ValidationError,
+      "this command does not take one",
+    )
+    // --state on issue create/update.
+    assertThrows(
+      () => resolveWorkflowState([], url),
+      ValidationError,
+      "this command does not take one",
+    )
+    // --state on issue query/mine.
+    await assertRejects(
+      () => resolveStateSelection([url], { allTeams: true }),
+      ValidationError,
+      "this command does not take one",
     )
   } finally {
     await cleanup()

@@ -10,6 +10,7 @@ import {
   collectCommentPages,
   renderCommentThreads,
 } from "../../utils/comments.ts"
+import { resolveDocumentReference } from "../../utils/linear.ts"
 
 // `document(id:)` accepts a UUID or a slug ID, so no resolver is needed.
 const GetDocumentComments = gql(`
@@ -34,10 +35,13 @@ export const commentListCommand = new Command()
   .description("List comments on a document (by ID or slug)")
   .arguments("<document:string>")
   .option("-j, --json", "Output as JSON")
-  .action(async (options, document) => {
+  .action(async (options, rawDocument) => {
     const { json } = options
 
     try {
+      // Inside the try: resolution rejects a wrong-kind or cross-workspace URL,
+      // and those errors have to reach handleError like every other failure.
+      const document = resolveDocumentReference(rawDocument)
       const client = getGraphQLClient()
       const comments = await collectCommentPages(async (after) => {
         const data = await translateNotFound(

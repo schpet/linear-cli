@@ -5,6 +5,7 @@ import { getGraphQLClient } from "../../utils/graphql.ts"
 import { formatRelativeTime } from "../../utils/display.ts"
 import { shouldShowSpinner } from "../../utils/hyperlink.ts"
 import { handleError, NotFoundError } from "../../utils/errors.ts"
+import { rejectLinearUrl } from "../../utils/linear-url.ts"
 
 const GetAgentSessionDetails = gql(`
   query GetAgentSessionDetails($id: String!) {
@@ -79,6 +80,7 @@ export const agentSessionViewCommand = new Command()
   .option("-j, --json", "Output as JSON")
   .action(async ({ json }, sessionId) => {
     try {
+      rejectLinearUrl(sessionId, "an agent session ID")
       const { Spinner } = await import("@std/cli/unstable-spinner")
       const showSpinner = shouldShowSpinner() && !json
       const spinner = showSpinner ? new Spinner() : null

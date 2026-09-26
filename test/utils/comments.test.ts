@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert"
+import { assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { stripAnsiCode } from "@std/fmt/colors"
 import { stub } from "@std/testing/mock"
 import {
@@ -162,4 +162,22 @@ Deno.test("renderCommentThreads keeps a reply whose parent is absent", () => {
   assertEquals(lines.some((line) => line.includes("still here")), true)
   // It is not misrepresented as a root comment.
   assertEquals(lines.some((line) => line.includes("commented")), false)
+})
+
+Deno.test("buildCommentCreateInput refuses a comment link as the reply parent", () => {
+  // Every comment-add command's --reply-to arrives here. A comment link carries
+  // only the first eight characters of the comment's ID, so sending it as
+  // `parentId` could only fail at the API with a much less useful message.
+  assertThrows(
+    () =>
+      buildCommentCreateInput(
+        { kind: "issue", issueId: "issue-uuid" },
+        {
+          body: "reply",
+          parentId: "https://linear.app/acme/issue/ENG-1/x#comment-325482e4",
+        },
+      ),
+    ValidationError,
+    "first eight characters",
+  )
 })

@@ -25,6 +25,7 @@ import {
 import { CliError, NotFoundError, ValidationError } from "./errors.ts"
 import { getGraphQLClient } from "./graphql.ts"
 import { normalizeIssueIdentifier } from "./issue-identifier.ts"
+import { expectLinearUrlKind, rejectLinearUrl } from "./linear-url.ts"
 import { getCurrentIssueFromVcs } from "./vcs.ts"
 
 /**
@@ -102,6 +103,18 @@ export async function getIssueIdentifier(
   providedId?: string,
 ): Promise<string | undefined> {
   if (providedId) {
+    // A pasted issue URL carries the identifier in its path. Reading it here
+    // covers every command and flag that funnels through this function,
+    // including --parent and both sides of `issue relation`.
+    const urlRef = expectLinearUrlKind(
+      providedId,
+      "issue",
+      "an issue URL or an identifier like ENG-123",
+    )
+    if (urlRef != null) {
+      return urlRef.identifier
+    }
+
     const normalizedIdentifier = normalizeIssueIdentifier(providedId)
     if (normalizedIdentifier) {
       return normalizedIdentifier
@@ -319,6 +332,9 @@ export function resolveWorkflowState(
   states: readonly WorkflowState[],
   nameOrType: string,
 ): WorkflowState | undefined {
+  // Workflow states have no URL; a pasted one is refused here rather than
+  // reported as a state that does not exist.
+  rejectLinearUrl(nameOrType, "a workflow state name or type")
   const nameMatch = states.find(
     (s) => s.name.toLowerCase() === nameOrType.toLowerCase(),
   )
@@ -455,6 +471,7 @@ export async function resolveStateSelection(
   const types: string[] = []
   const lookups: string[] = []
   for (const value of values) {
+    rejectLinearUrl(value, "a workflow state name, type, or ID")
     if (value.trim() === "") {
       throw new ValidationError("--state value is empty", {
         suggestion: `Pass a state type (${
@@ -1617,13 +1634,63 @@ export function isLinearUuid(value: string): boolean {
 }
 
 /**
+ * Normalise a document reference.
+ *
+ * `document(id:)` already accepts a UUID or a slug ID, so a pasted document URL
+ * only has to be reduced to its slug ID. Anything that is not a Linear URL is
+ * handed back untouched.
+ */
+export function resolveDocumentReference(input: string): string {
+  const urlRef = expectLinearUrlKind(
+    input,
+    "document",
+    "a document URL, UUID, or slug ID",
+  )
+  return urlRef?.slugId ?? input
+}
+
+/**
  * Look up a project ID by UUID, slug ID, or exact name.
  * Returns undefined when no project matches. Use [[resolveProjectId]] when
  * you want a missing project to throw.
  */
+/**
+ * Look up a project by slug ID and nothing else.
+ *
+ * A reference taken from a URL must come through here rather than the general
+ * lookup: a twelve-hex slug ID is also a perfectly legal project *name*, and
+ * `getProjectIdByName` tries names first, so a project named after another
+ * project's slug would win — and `project delete <url>` would delete it.
+ */
+export async function findProjectIdBySlug(
+  slugId: string,
+): Promise<string | undefined> {
+  const client = getGraphQLClient()
+  const slugQuery = gql(/* GraphQL */ `
+    query GetProjectIdBySlugId($slugId: String!) {
+      projects(filter: { slugId: { eq: $slugId } }) {
+        nodes {
+          id
+        }
+      }
+    }
+  `)
+  const slugData = await client.request(slugQuery, { slugId })
+  return slugData.projects?.nodes[0]?.id
+}
+
 export async function getProjectIdByName(
   input: string,
 ): Promise<string | undefined> {
+  const urlRef = expectLinearUrlKind(
+    input,
+    "project",
+    "a project URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    return await findProjectIdBySlug(urlRef.slugId)
+  }
+
   if (isLinearUuid(input)) return input
 
   const client = getGraphQLClient()
@@ -1655,17 +1722,7 @@ export async function getProjectIdByName(
   const nameMatch = nameMatches[0]?.id
   if (nameMatch) return nameMatch
 
-  const slugQuery = gql(/* GraphQL */ `
-    query GetProjectIdBySlugId($slugId: String!) {
-      projects(filter: { slugId: { eq: $slugId } }) {
-        nodes {
-          id
-        }
-      }
-    }
-  `)
-  const slugData = await client.request(slugQuery, { slugId: input })
-  return slugData.projects?.nodes[0]?.id
+  return await findProjectIdBySlug(input)
 }
 
 /**
@@ -1770,6 +1827,14 @@ export async function findTeam(
     throw new ValidationError("Team reference is empty", {
       suggestion: "Pass a team key, name, or ID, e.g. --team ENG.",
     })
+  }
+  const urlRef = expectLinearUrlKind(
+    reference,
+    "team",
+    "a team URL, key, name, or ID",
+  )
+  if (urlRef != null) {
+    reference = urlRef.teamKey
   }
   const client = getGraphQLClient()
   const query = gql(/* GraphQL */ `
@@ -1921,6 +1986,9 @@ export async function lookupUserId(
    */
   input: "self" | "@me" | string,
 ): Promise<string | undefined> {
+  // A profile URL is not one of the common things the CLI accepts a URL for,
+  // so it is refused plainly rather than searched for as a username.
+  rejectLinearUrl(input, "an email, username, display name, or @me")
   if (input === "@me" || input === "self") {
     const client = getGraphQLClient()
     const query = gql(/* GraphQL */ `
@@ -1980,6 +2048,9 @@ export async function getIssueLabelIdByNameForTeam(
   name: string,
   teamKey: string,
 ): Promise<string | undefined> {
+  // Labels have no URL of their own, so a pasted one is refused here rather
+  // than looked up as a label name and reported missing.
+  rejectLinearUrl(name, "a label name")
   const client = getGraphQLClient()
   const query = gql(/* GraphQL */ `
     query GetIssueLabelIdByNameForTeam($name: String!, $teamKey: String!) {
@@ -2003,6 +2074,7 @@ export async function getIssueLabelIdByNameForTeam(
 export async function getProjectLabelIdByName(
   name: string,
 ): Promise<string | undefined> {
+  rejectLinearUrl(name, "a project label name")
   const client = getGraphQLClient()
   const query = gql(/* GraphQL */ `
     query GetProjectLabelIdByName($name: String!) {
@@ -2324,6 +2396,9 @@ export async function resolveMilestoneId(
   input: string,
   projectId?: string,
 ): Promise<string> {
+  // Linear has no milestone URL, so a pasted URL here is always a mistake and
+  // is said so plainly rather than looked up as a milestone name.
+  rejectLinearUrl(input, "a milestone name or UUID")
   if (isLinearUuid(input)) return input
   if (!projectId) {
     throw new ValidationError(
@@ -2372,6 +2447,11 @@ export async function getCycleIdByNameOrNumber(
   cycleNameOrNumber: string,
   teamId: string,
 ): Promise<string> {
+  const urlRef = expectLinearUrlKind(
+    cycleNameOrNumber,
+    "cycle",
+    "a cycle URL, number, or name",
+  )
   const client = getGraphQLClient()
   const query = gql(/* GraphQL */ `
     query GetTeamCyclesForLookup($teamId: String!, $after: String) {
@@ -2404,6 +2484,20 @@ export async function getCycleIdByNameOrNumber(
   if (!data.team) {
     throw new NotFoundError("Team", teamId)
   }
+  // Checked before anything about the team's cycles: when a cycle URL names a
+  // different team, that contradiction is the problem worth reporting, not
+  // whatever happens to be true of the wrong team.
+  if (
+    urlRef != null &&
+    urlRef.teamKey.toUpperCase() !== data.team.key.toUpperCase()
+  ) {
+    // Resolving it anyway would find the wrong team's cycle with the same
+    // number — plausible-looking and wrong.
+    throw new ValidationError(
+      `That cycle URL is for team ${urlRef.teamKey}, but this command is working in team ${data.team.key}.`,
+      { suggestion: `Pass --team ${urlRef.teamKey}.` },
+    )
+  }
   if (!data.team.cyclesEnabled) {
     throw new ValidationError(
       `Cycles are not enabled for team ${data.team.key}`,
@@ -2427,7 +2521,25 @@ export async function getCycleIdByNameOrNumber(
     cycles.push(...(page.team.cycles?.nodes || []))
     pageInfo = page.team.cycles?.pageInfo
   }
-  const keyword = cycleNameOrNumber.toLowerCase()
+  let reference = cycleNameOrNumber
+  if (urlRef != null) {
+    if (typeof urlRef.cycle === "number") {
+      // Match the number alone. The general path below also matches cycle
+      // names, so a cycle that happened to be named "5" could win there.
+      const cycleNumber = urlRef.cycle
+      const byNumber = cycles.find((c) => c.number === cycleNumber)
+      if (!byNumber) {
+        throw new NotFoundError(
+          "Cycle",
+          `#${cycleNumber} in team ${data.team.key}`,
+        )
+      }
+      return byNumber.id
+    }
+    reference = urlRef.cycle
+  }
+
+  const keyword = reference.toLowerCase()
 
   // Reserved keywords take precedence over coincidental cycle names; use the
   // cycle number to reach a cycle literally named "next"/"previous"/"active".
@@ -2470,16 +2582,16 @@ export async function getCycleIdByNameOrNumber(
     return previous.id
   }
 
-  if (/^[+-]\d+$/.test(cycleNameOrNumber)) {
-    const offset = Number(cycleNameOrNumber)
+  if (/^[+-]\d+$/.test(reference)) {
+    const offset = Number(reference)
     if (!Number.isSafeInteger(offset)) {
       throw new ValidationError(
-        `Cycle offset ${cycleNameOrNumber} is out of range`,
+        `Cycle offset ${reference} is out of range`,
       )
     }
     if (!data.team.activeCycle) {
       throw new ValidationError(
-        `Cannot resolve relative cycle ${cycleNameOrNumber}: the team has no active cycle`,
+        `Cannot resolve relative cycle ${reference}: the team has no active cycle`,
         {
           suggestion:
             "Use 'next', a cycle number, or a cycle name while no cycle is active.",
@@ -2491,7 +2603,7 @@ export async function getCycleIdByNameOrNumber(
     if (!target) {
       throw new NotFoundError(
         "Cycle",
-        `${cycleNameOrNumber} (cycle ${targetNumber})`,
+        `${reference} (cycle ${targetNumber})`,
       )
     }
     return target.id
@@ -2500,10 +2612,10 @@ export async function getCycleIdByNameOrNumber(
   const match = cycles.find(
     (c) =>
       (c.name != null && c.name.toLowerCase() === keyword) ||
-      String(c.number) === cycleNameOrNumber,
+      String(c.number) === reference,
   )
   if (!match) {
-    throw new NotFoundError("Cycle", cycleNameOrNumber)
+    throw new NotFoundError("Cycle", reference)
   }
   return match.id
 }
@@ -2514,22 +2626,59 @@ export async function getCycleIdByNameOrNumber(
  * ValidationError when the name is ambiguous — initiative names are not
  * unique, so an ambiguous match must not pick silently.
  */
-export async function resolveInitiativeId(input: string): Promise<string> {
-  if (isLinearUuid(input)) return input
-
+/**
+ * Look up an initiative by slug ID and nothing else. See
+ * [[findProjectIdBySlug]]: a URL's slug must not fall through to a name lookup
+ * that a same-named initiative could win.
+ */
+export async function findInitiativeIdBySlug(
+  slugId: string,
+  options: { includeArchived?: boolean } = {},
+): Promise<string | undefined> {
   const client = getGraphQLClient()
-
   const slugQuery = gql(/* GraphQL */ `
-    query ResolveInitiativeBySlug($slugId: String!) {
-      initiatives(filter: { slugId: { eq: $slugId } }) {
+    query ResolveInitiativeBySlug($slugId: String!, $includeArchived: Boolean) {
+      initiatives(
+        filter: { slugId: { eq: $slugId } }
+        includeArchived: $includeArchived
+      ) {
         nodes {
           id
         }
       }
     }
   `)
-  const slugData = await client.request(slugQuery, { slugId: input })
-  const slugMatch = slugData.initiatives?.nodes[0]?.id
+  // Commands that act on archived initiatives (unarchive, delete) must be able
+  // to find them by URL too; the others keep Linear's default of hiding them.
+  const slugData = await client.request(slugQuery, {
+    slugId,
+    includeArchived: options.includeArchived ?? false,
+  })
+  return slugData.initiatives?.nodes[0]?.id
+}
+
+export async function resolveInitiativeId(input: string): Promise<string> {
+  const urlRef = expectLinearUrlKind(
+    input,
+    "initiative",
+    "an initiative URL, UUID, slug ID, or exact name",
+  )
+  if (urlRef != null) {
+    const fromUrl = await findInitiativeIdBySlug(urlRef.slugId)
+    if (fromUrl == null) {
+      throw new NotFoundError("Initiative", input, {
+        suggestion:
+          "The initiative in that URL may have been deleted, or be in a workspace this key cannot see.",
+      })
+    }
+    return fromUrl
+  }
+
+  if (isLinearUuid(input)) return input
+
+  const client = getGraphQLClient()
+
+  const slugMatch = await findInitiativeIdBySlug(input)
   if (slugMatch) return slugMatch
 
   const nameQuery = gql(/* GraphQL */ `
@@ -2570,6 +2719,7 @@ export async function resolveInitiativeId(input: string): Promise<string> {
  * unique human identifier, so an ambiguous match must not pick silently.
  */
 export async function resolveReleaseId(input: string): Promise<string> {
+  rejectLinearUrl(input, "a release name, version, or UUID")
   if (isLinearUuid(input)) return input
 
   const client = getGraphQLClient()

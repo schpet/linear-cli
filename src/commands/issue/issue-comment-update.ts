@@ -4,6 +4,7 @@ import { gql } from "../../__codegen__/gql.ts"
 import { getGraphQLClient } from "../../utils/graphql.ts"
 import { CliError, handleError, ValidationError } from "../../utils/errors.ts"
 import { withMarkdownHint } from "../../utils/markdown-help.ts"
+import { rejectCommentUrl, rejectLinearUrl } from "../../utils/linear-url.ts"
 
 export const commentUpdateCommand = new Command()
   .name("update")
@@ -18,6 +19,8 @@ export const commentUpdateCommand = new Command()
     const { body, bodyFile } = options
 
     try {
+      rejectCommentUrl(commentId)
+      rejectLinearUrl(commentId, "a comment UUID")
       // Validate that body and bodyFile are not both provided
       if (body && bodyFile) {
         throw new ValidationError(

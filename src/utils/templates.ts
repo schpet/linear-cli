@@ -2,6 +2,7 @@ import { gql } from "../__codegen__/gql.ts"
 import type { GetTemplatesQuery } from "../__codegen__/graphql.ts"
 import { getGraphQLClient } from "./graphql.ts"
 import { isLinearUuid } from "./linear.ts"
+import { rejectLinearUrl } from "./linear-url.ts"
 import {
   CliError,
   isClientError,
@@ -221,6 +222,7 @@ export async function resolveTemplate(
   reference: string,
   scope?: TemplateScope,
 ): Promise<Template> {
+  rejectLinearUrl(reference, "a template name or UUID")
   if (isLinearUuid(reference)) {
     const template = await fetchTemplate(reference)
     if (scope != null) {

@@ -20,6 +20,7 @@ import {
   toDocumentTargetInput,
 } from "./attachment-target.ts"
 import { withMarkdownHint } from "../../utils/markdown-help.ts"
+import { resolveDocumentReference } from "../../utils/linear.ts"
 
 const GetDocumentForEdit = gql(`
   query GetDocumentForEdit($id: String!) {
@@ -233,9 +234,10 @@ export const updateCommand = new Command()
         edit,
         force,
       },
-      documentId,
+      rawDocumentId,
     ) => {
       try {
+        const documentId = resolveDocumentReference(rawDocumentId)
         const targetOptions: DocumentTargetOptions = {
           project,
           issue,
