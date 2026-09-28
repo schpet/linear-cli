@@ -1,0 +1,48 @@
+{
+  "id": "c020-url-leading-zero-unsupported",
+  "route": "linear cycle view",
+  "reason": "URL cycle numbers reject leading zeros.",
+  "argv": [
+    "cycle",
+    "view",
+    "https://linear.app/acme/team/ENG/cycle/05",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch cycle details: \"https://linear.app/acme/team/ENG/cycle/05\" is a Linear URL, but \"05\" is not a cycle number.\n  Pass a cycle URL, number, or name.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

@@ -1,0 +1,185 @@
+{
+  "id": "c020-team-uuid",
+  "route": "linear cycle view",
+  "reason": "UUID team reference selects ResolveTeam teamById before lookup.",
+  "argv": [
+    "cycle",
+    "view",
+    "5",
+    "--team",
+    "11111111-1111-4111-8111-111111111111",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"id\": \"cycle-5\",\n  \"number\": 5,\n  \"name\": \"Sprint 5\",\n  \"description\": \"Ship the parser.\",\n  \"startsAt\": \"2026-02-10T00:00:00.000Z\",\n  \"endsAt\": \"2026-02-24T00:00:00.000Z\",\n  \"completedAt\": null,\n  \"isActive\": false,\n  \"isFuture\": false,\n  \"isPast\": true,\n  \"createdAt\": \"2020-01-01T00:00:00.000Z\",\n  \"updatedAt\": \"2020-01-02T00:00:00.000Z\",\n  \"team\": {\n    \"id\": \"11111111-1111-4111-8111-111111111111\",\n    \"key\": \"ENG\",\n    \"name\": \"Engineering\"\n  },\n  \"issues\": {\n    \"nodes\": [],\n    \"pageInfo\": {\n      \"hasNextPage\": false,\n      \"endCursor\": null\n    }\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "resolve-team",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) { teams(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] }) { nodes { id key name } } teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) { nodes { id key name } } }",
+              "variables": {
+                "reference": "11111111-1111-4111-8111-111111111111",
+                "id": "11111111-1111-4111-8111-111111111111",
+                "isUuid": true
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"teams\":{\"nodes\":[]},\"teamById\":{\"nodes\":[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"key\":\"ENG\",\"name\":\"Engineering\"}]}}}"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "lookup",
+            "operation": {
+              "document": "query GetTeamCyclesForLookup($teamId: String!, $after: String) { team(id: $teamId) { key cyclesEnabled cycles(first: 250, after: $after) { nodes { id number name startsAt isNext isPrevious } pageInfo { hasNextPage endCursor } } activeCycle { id number name } } }",
+              "variables": {
+                "teamId": "11111111-1111-4111-8111-111111111111",
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "team": {
+                  "key": "ENG",
+                  "cyclesEnabled": true,
+                  "cycles": {
+                    "nodes": [
+                      {
+                        "id": "cycle-5",
+                        "number": 5,
+                        "name": "Sprint 5",
+                        "startsAt": "2026-02-10T00:00:00.000Z",
+                        "isNext": false,
+                        "isPrevious": false
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  },
+                  "activeCycle": null
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "detail",
+            "operation": {
+              "document": "query GetCycleDetails($id: String!) { cycle(id: $id) { id number name description startsAt endsAt completedAt isActive isFuture isPast createdAt updatedAt team { id key name } issues { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "id": "cycle-5"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "cycle": {
+                  "id": "cycle-5",
+                  "number": 5,
+                  "name": "Sprint 5",
+                  "description": "Ship the parser.",
+                  "startsAt": "2026-02-10T00:00:00.000Z",
+                  "endsAt": "2026-02-24T00:00:00.000Z",
+                  "completedAt": null,
+                  "isActive": false,
+                  "isFuture": false,
+                  "isPast": true,
+                  "createdAt": "2020-01-01T00:00:00.000Z",
+                  "updatedAt": "2020-01-02T00:00:00.000Z",
+                  "team": {
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "key": "ENG",
+                    "name": "Engineering"
+                  },
+                  "issues": {
+                    "nodes": [],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
