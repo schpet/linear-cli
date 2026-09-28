@@ -12,14 +12,17 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, label_list, project_list, table, team_id,
-    team_list, team_members, team_states, template_list, template_view, user_list,
+    auth_list, auth_whoami, client, cycle_list, label_list, project_list, project_view, table,
+    team_id, team_list, team_members, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
 use crate::platform::spinner;
-use crate::refs::{WorkspaceScope, prepare_team_lookup, resolve_team_with_transport};
+use crate::refs::{
+    WorkspaceScope, prepare_project_lookup, prepare_team_lookup, resolve_project_with_transport,
+    resolve_team_with_transport,
+};
 use crate::startup::{AppStartupReport, render_startup_diagnostic};
 
 /// Lazily run one network action on a current-thread IO runtime. The action
@@ -55,6 +58,7 @@ pub struct AppContext<'a> {
     pub cwd: PathBuf,
     pub stdout: &'a mut dyn Write,
     pub stderr: &'a mut dyn Write,
+    pub stdin_tty: bool,
     pub stdout_tty: bool,
     pub stderr_tty: bool,
     pub stdout_finalization: Option<(OutputPolicy, OutputOutcome)>,
@@ -458,6 +462,7 @@ fn dispatch(
             context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }
+        DispatchAction::ProjectView => dispatch_project_view(context, &action),
         DispatchAction::TeamList => {
             let flags = team_list::Options {
                 json: action_switch(&action, "json")?,
@@ -1327,6 +1332,229 @@ fn missing_team_key() -> AppError {
     .with_suggestion("Please specify a team key, name, or ID as an argument.")
 }
 
+fn dispatch_project_view(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    use crate::platform::{markdown_terminal::HostSource, pager, selector};
+    use crate::refs::is_linear_uuid;
+
+    let json = action_switch(action, "json")?;
+    let web = action_switch(action, "web")?;
+    let app = action_switch(action, "app")?;
+    // Negated switches already carry their positive state after clap extraction.
+    let pager_enabled = project_pager_enabled(action)?;
+    let explicit = action.positionals.first().map(String::as_str);
+    let cli_workspace = action
+        .global_workspace
+        .as_ref()
+        .map(|value| value.value.as_str());
+    let original = if let Some(reference) = explicit {
+        reference.to_owned()
+    } else {
+        if json {
+            return Err(AppError::new(AppErrorKind::Validation, "A project is required with --json")
+                .with_suggestion("Pass a project UUID, slug ID, or exact name, or drop --json to pick one from a list.")
+                .with_context(project_view::CONTEXT));
+        }
+        let interactive = {
+            let config = context.config()?;
+            selector::interactive_allowed(
+                context.stdin_tty,
+                context.stdout_tty,
+                config.ci.as_deref(),
+            )
+        };
+        if !interactive {
+            return Err(AppError::new(AppErrorKind::Validation, "No project specified")
+                .with_suggestion("Pass a project UUID, slug ID, or exact name. Running `linear project view` with no argument picks from a list, but only on a terminal.")
+                .with_context(project_view::CONTEXT));
+        }
+        let config = context.config()?;
+        let team_key = configured_team_key(&config.options);
+        let transport = client::prepare_transport(
+            &config.options,
+            context.credentials()?,
+            cli_workspace,
+            &config.transport_env,
+        )
+        .map_err(|error| error.with_context(project_view::CONTEXT))?;
+        let projects =
+            block_on_network(project_view::fetch_picker(&transport, team_key.as_deref()))
+                .map_err(|error| error.with_context(project_view::CONTEXT))?;
+        let options = project_view::picker_options(&projects)
+            .map_err(|error| error.with_context(project_view::CONTEXT))?;
+        let ci = context.config()?.ci.clone();
+        let selection = selector::run(
+            &options,
+            &selector::PromptLabels {
+                message: "Select a project",
+                search_label: "Search projects",
+                max_rows: 10,
+            },
+            ci.as_deref(),
+            context.stdout,
+        )
+        .map_err(|error| error.with_context(project_view::CONTEXT))?;
+        match selection {
+            selector::Selection::Selected(id) => id,
+            selector::Selection::Interrupted => return Ok(ExitStatus::HandledFailure),
+            selector::Selection::EndOfInput => {
+                return Err(AppError::new(
+                    AppErrorKind::Validation,
+                    "Project selection ended before a project was chosen",
+                )
+                .with_context(project_view::CONTEXT));
+            }
+        }
+    };
+
+    // A UUID browser reference needs neither credential selection nor GraphQL.
+    let (resolved_id, transport) =
+        if explicit.is_some() && is_linear_uuid(&original) && (web || app) {
+            (original.clone(), None)
+        } else {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, cli_workspace)
+                .map_err(|error| error.with_context(project_view::CONTEXT))?;
+            let reference = if explicit.is_some() {
+                Some(
+                    prepare_project_lookup(
+                        &original,
+                        &WorkspaceScope::from_selection(&inputs, credentials),
+                    )
+                    .map_err(|error| error.with_context(project_view::CONTEXT))?,
+                )
+            } else {
+                None
+            };
+            let transport = client::prepare_transport_with_inputs(
+                &config.options,
+                credentials,
+                &inputs,
+                &config.transport_env,
+            )
+            .map_err(|error| error.with_context(project_view::CONTEXT))?;
+            let id = match reference {
+                Some(reference) => block_on_network(resolve_project_with_transport(
+                    &reference, &original, &transport,
+                ))
+                .map_err(|error| error.with_context(project_view::CONTEXT))?,
+                None => original.clone(),
+            };
+            (id, Some(transport))
+        };
+
+    if web || app {
+        let workspace = context
+            .config()?
+            .options
+            .workspace()
+            .map(|value| value.value().clone())
+            .filter(|value| !value.is_empty());
+        let Some(workspace) = workspace else {
+            context.write_stderr(
+                b"workspace is not set via command line, configuration file, or environment.\n",
+            )?;
+            return Ok(ExitStatus::HandledFailure);
+        };
+        let url = format!("https://linear.app/{workspace}/project/{resolved_id}");
+        let destination = if app { "Linear.app" } else { "web browser" };
+        context.write_stdout_with_policy(
+            format!("Opening {url} in {destination}\n").as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        project_list::open(&url, app).map_err(|mut error| {
+            error.context = None;
+            error.with_context(project_view::CONTEXT)
+        })?;
+        return Ok(ExitStatus::Success);
+    }
+
+    let transport = transport
+        .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "project transport missing"))?;
+    let show_spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = if show_spinner {
+        block_on_network(async {
+            let pending = project_view::fetch_details(&transport, &resolved_id, &original);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(project_view::fetch_details(
+            &transport,
+            &resolved_id,
+            &original,
+        ))
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let project = result.map_err(|error| error.with_context(project_view::CONTEXT))?;
+    if json {
+        let bytes = project_view::json(&project)
+            .map_err(|error| error.with_context(project_view::CONTEXT))?;
+        context.write_stdout_with_policy(&bytes, OutputPolicy::ConsoleLike)?;
+        return Ok(ExitStatus::Success);
+    }
+    let markdown = project_view::markdown(&project, chrono::Utc::now(), &chrono::Local)
+        .map_err(|error| error.with_context(project_view::CONTEXT))?;
+    if !context.stdout_tty {
+        context.write_stdout_with_policy(
+            format!("{markdown}\n").as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        return Ok(ExitStatus::Success);
+    }
+    let config = context.config()?;
+    let pager_value = config.pager.clone();
+    let no_color = context.startup.settings.no_color;
+    let hyperlink_format = config
+        .options
+        .hyperlink_format()
+        .map(|value| value.value().clone());
+    let mut runner = pager::ProcessPagerRunner::inheriting(config.child_env.iter());
+    let request = pager::PagerRequest {
+        enabled: pager_enabled,
+        stdout_tty: context.stdout_tty,
+        size: pager::stdout_size(),
+        pager: pager_value.as_deref(),
+        os: pager::HOST_OS,
+    };
+    pager::render_and_show(
+        &markdown,
+        &request,
+        no_color,
+        hyperlink_format.as_deref(),
+        HostSource::System,
+        &mut runner,
+        context.stdout,
+    )
+    .map_err(|error| error.with_context(project_view::CONTEXT))?;
+    Ok(ExitStatus::Success)
+}
+
 fn action_switch(action: &ParsedAction, name: &str) -> Result<bool, AppError> {
     match action.option(name) {
         None => Ok(false),
@@ -1338,6 +1566,10 @@ fn action_switch(action: &ParsedAction, name: &str) -> Result<bool, AppError> {
             )),
         },
     }
+}
+
+fn project_pager_enabled(action: &ParsedAction) -> Result<bool, AppError> {
+    action_switch(action, "no-pager")
 }
 
 fn action_string(action: &ParsedAction, name: &str) -> Result<Option<String>, AppError> {
@@ -1434,6 +1666,32 @@ fn write_usage_error(
         )?;
     }
     Ok(ExitStatus::UsageFailure)
+}
+
+#[cfg(test)]
+mod project_view_flag_tests {
+    use super::project_pager_enabled;
+    use crate::cli::clap_input::{self, Invocation};
+    use crate::error::{AppError, AppErrorKind};
+
+    #[test]
+    fn negated_pager_flag_controls_the_action_setting() -> Result<(), AppError> {
+        for (flag, expected) in [(None, true), (Some("--no-pager"), false)] {
+            let mut args = vec!["project", "view", "00000000-0000-4000-8000-000000000001"];
+            if let Some(flag) = flag {
+                args.push(flag);
+            }
+            let words = args.into_iter().map(Into::into).collect::<Vec<_>>();
+            let Invocation::Action(action) = clap_input::parse(&words)? else {
+                return Err(AppError::new(
+                    AppErrorKind::Invariant,
+                    "expected project view action",
+                ));
+            };
+            assert_eq!(project_pager_enabled(&action)?, expected);
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

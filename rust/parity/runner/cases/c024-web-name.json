@@ -1,0 +1,97 @@
+{
+  "id": "c024-web-name",
+  "route": "linear project view",
+  "reason": "Name resolves before browser open",
+  "argv": [
+    "project",
+    "view",
+    "Simple Project",
+    "--web"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "workspace-config",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Opening https://linear.app/alpha/project/85d3dad6-136e-49ff-9593-33dc4b22b5ee in web browser\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to view project: Failed to spawn 'xdg-open': entity not found\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C024-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "cadc66f332dc070d1e4e0b969e02338bef48e33a2d65d871990a02e71ba5d8c1"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "GetProjectIdByName",
+            "operation": {
+              "document": "query GetProjectIdByName($name: String!) { projects(filter: { name: { eq: $name } }) { nodes { id } } }",
+              "variables": {
+                "name": "Simple Project"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "85d3dad6-136e-49ff-9593-33dc4b22b5ee"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

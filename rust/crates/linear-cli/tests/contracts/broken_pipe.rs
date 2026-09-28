@@ -51,6 +51,7 @@ fn context<'a>(stdout: &'a mut dyn Write, stderr: &'a mut dyn Write) -> AppConte
         cwd: std::env::temp_dir(),
         stdout,
         stderr,
+        stdin_tty: false,
         stdout_tty: false,
         stderr_tty: false,
         stdout_finalization: None,

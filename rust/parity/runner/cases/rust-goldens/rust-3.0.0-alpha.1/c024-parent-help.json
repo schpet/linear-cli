@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c024-parent-help",
+  "deviationId": "C024-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear project\nVersion: 3.0.0-alpha.1 \n\nDescription:\n\n  Manage Linear projects\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\nCommands:\n\n  list                  - List projects                  \n  view, v  [projectId]  - View project details           \n  create                - Create a new Linear project    \n  update   <projectId>  - Update a Linear project        \n  delete   <projectId>  - Delete (trash) a Linear project\n  comment               - Manage project comments        \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

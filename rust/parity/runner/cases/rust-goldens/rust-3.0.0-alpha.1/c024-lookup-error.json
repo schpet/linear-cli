@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "caseId": "c024-lookup-error",
+  "deviationId": "C024-GRAPHQL-UA",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

@@ -21,6 +21,7 @@ pub enum DispatchAction {
     AuthWhoami,
     TeamList,
     ProjectList,
+    ProjectView,
     UserList,
     TeamMembers,
     TeamStates,

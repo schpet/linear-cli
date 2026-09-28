@@ -11,6 +11,7 @@ pub mod cycles;
 pub mod issue_labels;
 pub mod issue_update;
 pub mod organization_members;
+pub mod project_view;
 pub mod projects;
 pub mod team_members;
 pub mod team_resolver;

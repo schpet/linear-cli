@@ -44,6 +44,7 @@ fn make_context<'a>(stdout: &'a mut dyn Write, stderr: &'a mut dyn Write) -> App
         cwd: std::env::temp_dir(),
         stdout,
         stderr,
+        stdin_tty: false,
         stdout_tty: false,
         stderr_tty: false,
         stdout_finalization: None,

@@ -823,8 +823,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  // C023 adds 39 GraphQL cases; C010/F06 add another 70.
-  assertEquals(graphql.length, 385)
+  // C023 adds 39 GraphQL cases; C024 adds 35; C010/F06 add another 70.
+  assertEquals(graphql.length, 420)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -1048,7 +1048,11 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     if (loaded.spec.id.startsWith("f06e0-")) {
       assertEquals(loaded.spec.deviation?.id, "R01H-GRAPHQL-UA", loaded.spec.id)
     }
-    if (!loaded.spec.id.startsWith("c023")) {
+    // These cohorts pin their approved surfaces in their own corpus guards.
+    if (
+      !loaded.spec.id.startsWith("c023") &&
+      !loaded.spec.id.startsWith("c024-")
+    ) {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
         c011Surfaces.get(loaded.spec.id) ??

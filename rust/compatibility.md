@@ -491,3 +491,35 @@ inherit terminal stdout/stderr. On write failure, including early quit with
 exit 0, the next fallback is tried as in Deno. If all attempts fail, direct
 console output adds one LF. This foundation does not yet attach the renderer
 to `project view`; the C024 action owns that route and raw non-TTY output.
+
+## C024A project view action
+
+The promoted 54-case `project view` pipe corpus passes the Rust candidate with
+40 case-specific reviewed golden bindings. Thirty-five cases have a GraphQL
+fixture; its User-Agent changes from `schpet-linear-cli/2.6.0` to
+`schpet-linear-cli/3.0.0-alpha.1`. The other approved differences are:
+
+- `C024-CLI-VERSION`: `c024-alias-help`, `c024-extra-arg`, `c024-help`,
+  `c024-parent-help`, and `c024-unknown-flag` display the Rust major version.
+- `C024-TYPED-JSON-FIELDS`: `c024-extra-wire-json` drops the unselected
+  `serverOnly` response field when projecting typed GraphQL data.
+- `C024-STRICT-FLOAT-DECODE`: `c024-one-null-sort-json`,
+  `c024-one-node-null-sort-text`, and `c024-two-null-sort-text` reject a
+  schema-invalid `Float! sortOrder: null` at the typed response boundary.
+- `C024-STRICT-NUMBER-DECODE`: `c024-overflow-json` and
+  `c024-overflow-text` reject raw `progress: 1e400` as an out-of-range JSON
+  number. Deno parses it as Infinity and then renders or serializes it.
+- `C024-TRANSPORT-DIAGNOSTIC`: `c024-detail-http` reports a concise typed HTTP
+  status error instead of Deno's serialized GraphQL request/response.
+
+The action additionally rejects non-adjacent repeated picker or issue cursors,
+so an A→B→A response fails rather than looping. This guard was code-reviewed
+but has no dedicated A→B→A regression test yet. Ctrl-C during picker selection
+exits 1 without a diagnostic; EOF exits 1 with a selection error. These are
+v3 choices for branches absent from the frozen pipe corpus. Separate C024A
+QA exercises 14 isolated synthetic PTY scenarios, including pager fallback,
+nondefault picker search, Ctrl-C and EOF; the `qa-review` table passes 14/14.
+Bounded live read-only comparisons cover UUID, URL, exact-name and bare-slug
+JSON plus UUID text and a real PTY picker. The different terminal Markdown
+renderer remains a documented v3 output choice; native Windows pager behavior
+and a real interactive pager remain unqualified.

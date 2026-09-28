@@ -265,6 +265,7 @@ def generate():
             "linear auth whoami": "AuthWhoami",
             "linear team list": "TeamList",
             "linear project list": "ProjectList",
+            "linear project view": "ProjectView",
             "linear team members": "TeamMembers",
             "linear team states": "TeamStates",
             "linear template list": "TemplateList",

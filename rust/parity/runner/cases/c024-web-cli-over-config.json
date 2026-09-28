@@ -1,0 +1,50 @@
+{
+  "id": "c024-web-cli-over-config",
+  "route": "linear project view",
+  "reason": "Browser URL uses config workspace despite CLI workspace flag",
+  "argv": [
+    "--workspace",
+    "beta",
+    "project",
+    "view",
+    "85d3dad6-136e-49ff-9593-33dc4b22b5ee",
+    "--web"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "workspace-config",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Opening https://linear.app/alpha/project/85d3dad6-136e-49ff-9593-33dc4b22b5ee in web browser\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to view project: Failed to spawn 'xdg-open': entity not found\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

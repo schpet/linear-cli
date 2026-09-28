@@ -105,6 +105,7 @@ fn main() -> ExitCode {
         cwd,
         stdout: &mut out,
         stderr: &mut err,
+        stdin_tty: io::stdin().is_terminal(),
         stdout_tty: stdout.is_terminal(),
         stderr_tty: stderr.is_terminal(),
         stdout_finalization: None,

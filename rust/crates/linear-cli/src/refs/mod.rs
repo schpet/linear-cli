@@ -1,9 +1,11 @@
 //! Linear URL classification, local workspace checks and typed team lookup.
+mod project;
 mod team;
 mod url;
 mod uuid;
 mod workspace;
 
+pub use project::{ProjectReference, prepare_project_lookup, resolve_project_with_transport};
 pub use team::{
     PreparedTeamLookup, ResolvedTeam, find_team, prepare_team_lookup, resolve_team,
     resolve_team_with_transport,
