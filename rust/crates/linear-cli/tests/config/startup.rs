@@ -596,3 +596,19 @@ fn binary_offline_markdown_ignores_unselected_transport_inputs() {
         assert!(output.stderr.is_empty(), "{name}");
     }
 }
+
+#[test]
+fn ci_comes_only_from_the_process_environment() {
+    let files = MemFiles::default().file("/work/.env", b"CI=true\n");
+    let from_file = load_startup(&process(&[]), &files, &no_git())
+        .result
+        .unwrap();
+    assert_eq!(from_file.ci, None);
+    assert_eq!(from_file.child_env.get("CI"), None);
+
+    let from_process = load_startup(&process(&[("CI", "")]), &files, &no_git())
+        .result
+        .unwrap();
+    assert_eq!(from_process.ci.as_deref(), Some(""));
+    assert_eq!(from_process.child_env.get("CI"), None);
+}

@@ -328,20 +328,26 @@ fn process_snapshot_filters_and_preserves_empty_values() {
                 OsString::from("http://proxy"),
             ),
             (OsString::from("UNRELATED"), OsString::from("ignored")),
+            (OsString::from("CI"), OsString::from("")),
         ],
     )
     .unwrap();
     assert_eq!(snapshot.inputs.cwd, cwd);
     assert_eq!(snapshot.inputs.env("LINEAR_API_KEY"), Some(""));
     assert_eq!(snapshot.inputs.env("https_proxy"), Some("http://proxy"));
+    assert_eq!(snapshot.inputs.env("CI"), Some(""));
     assert!(!snapshot.inputs.process_env.contains_key("UNRELATED"));
     let windows = ProcessEnvSnapshot::from_vars_os(
         PathBuf::from("C:\\tmp"),
         OsFamily::Windows,
-        [(OsString::from("linear_api_key"), OsString::from("fake"))],
+        [
+            (OsString::from("linear_api_key"), OsString::from("fake")),
+            (OsString::from("ci"), OsString::from("false")),
+        ],
     )
     .unwrap();
     assert_eq!(windows.inputs.env("LINEAR_API_KEY"), Some("fake"));
+    assert_eq!(windows.inputs.env("CI"), Some("false"));
     assert_eq!(
         windows
             .original_names

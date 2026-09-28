@@ -11,6 +11,7 @@ unicode-width = "=0.2.2"
 chrono = { version = "=0.4.45", default-features = false, features = ["std", "clock"] }
 icu_collator = { version = "=2.3.1", default-features = false, features = ["compiled_data"] }
 terminal_size = "=0.4.4"
+console = { version = "=0.16.6", default-features = false, features = ["std"] }
 cynic = { version = "=3.14.0", default-features = false, features = ["rkyv"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip", "raw_value"] }
@@ -21,6 +22,7 @@ tokio = { version = "=1.47.4", default-features = false, features = ["rt", "time
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.189"
+rustix = { version = "=1.1.5", default-features = false, features = ["std", "termios"] }
 
 [dev-dependencies]
 tokio = { version = "=1.47.4", default-features = false, features = ["process", "io-util"] }

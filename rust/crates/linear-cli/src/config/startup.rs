@@ -78,6 +78,8 @@ pub struct StartupConfig {
     pub options: ConfigOptions,
     pub child_env: ChildEnvOverlay,
     pub transport_env: TransportEnvInputs,
+    /// Process CI value; the source dotenv loader does not admit CI entries.
+    pub ci: Option<String>,
 }
 
 impl fmt::Debug for StartupConfig {
@@ -403,15 +405,18 @@ pub fn load_startup(
             !process.inputs.process_env.contains_key(&normalized)
         })
         .collect();
+    let child_env = ChildEnvOverlay {
+        os: process.inputs.os,
+        values: overlay,
+    };
+    let ci = process.inputs.env("CI").map(str::to_owned);
     StartupReport {
         settings: display,
         diagnostics,
         result: Ok(StartupConfig {
             options,
-            child_env: ChildEnvOverlay {
-                os: process.inputs.os,
-                values: overlay,
-            },
+            child_env,
+            ci,
             transport_env: TransportEnvInputs::from_process(process),
         }),
     }

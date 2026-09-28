@@ -270,6 +270,7 @@ fn relevant(name: &str, os: OsFamily) -> bool {
         || matches!(
             key.as_str(),
             "NO_COLOR"
+                | "CI"
                 | "HOME"
                 | "XDG_CONFIG_HOME"
                 | "APPDATA"

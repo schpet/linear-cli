@@ -459,3 +459,17 @@ fn nonregular_metadata_does_not_block() {
     assert_eq!(selected.diagnostics.len(), 1);
     assert!(selected.applied.is_empty());
 }
+
+#[test]
+fn ci_is_not_an_admitted_dotenv_key() {
+    let tree = TempTree::new();
+    tree.write(".env", b"CI=true\n");
+    let probe = Probe::new(GitProbeResult::SpawnFailure);
+    let absent = load_env(&tree.inputs(), &RealFileSource, &probe).unwrap();
+    assert!(!absent.applied.contains_key("CI"));
+
+    let mut present = tree.inputs();
+    present.process_env.insert("CI".to_owned(), String::new());
+    let selected = load_env(&present, &RealFileSource, &probe).unwrap();
+    assert!(!selected.applied.contains_key("CI"));
+}

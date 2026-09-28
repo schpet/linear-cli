@@ -10,6 +10,7 @@ mod golden;
 mod help;
 mod inventory;
 mod parser;
+mod selector;
 mod spinner;
 mod startup;
 mod team_id;
