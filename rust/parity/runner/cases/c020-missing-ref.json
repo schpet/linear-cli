@@ -1,0 +1,47 @@
+{
+  "id": "c020-missing-ref",
+  "route": "linear cycle view",
+  "reason": "Required positional reference parser error.",
+  "argv": [
+    "cycle",
+    "view"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear cycle view <cycleRef>\nVersion: 2.6.0                       \n\nDescription:\n\n  View cycle details\n\nOptions:\n\n  -h, --help           - Show this help.                                   \n  --workspace  <slug>  - Target workspace (uses credentials)               \n  --team       <team>  - Team key, name, or ID (defaults to current team)  \n  -j, --json           - Output as JSON                                    \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Missing argument(s): cycleRef\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C020-MISSING-REF", "contract": "rust-3.0.0-alpha.1", "sha256": "ef2f1d56d0ec110b29700a3221a0809674ee92262a297d0f60dc78010324831b"}
+}

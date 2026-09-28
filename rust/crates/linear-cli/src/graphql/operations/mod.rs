@@ -7,6 +7,7 @@
 pub mod agent_session;
 pub mod auth_list;
 pub mod auth_whoami;
+pub mod cycle_view;
 pub mod cycles;
 pub mod issue_labels;
 pub mod issue_update;

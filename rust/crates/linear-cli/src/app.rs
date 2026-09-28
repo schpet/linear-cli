@@ -12,8 +12,8 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, label_list, project_list, project_view, table,
-    team_id, team_list, team_members, team_states, template_list, template_view, user_list,
+    auth_list, auth_whoami, client, cycle_list, cycle_view, label_list, project_list, project_view,
+    table, team_id, team_list, team_members, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -1055,6 +1055,155 @@ fn dispatch(
                     error
                 }
             })?;
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+            Ok(ExitStatus::Success)
+        }
+        DispatchAction::CycleView => {
+            let reference = action
+                .positionals
+                .first()
+                .ok_or_else(|| {
+                    AppError::new(AppErrorKind::Invariant, "cycle view reference disappeared")
+                })?
+                .clone();
+            let json = action_switch(&action, "json")?;
+            let explicit_team = action_string(&action, "team")?;
+            let selected = (|| {
+                let config = context.config()?;
+                let credentials = context.credentials()?;
+                let workspace = action
+                    .global_workspace
+                    .as_ref()
+                    .map(|value| value.value.as_str());
+                let inputs = client::selection_inputs(&config.options, workspace)?;
+                let scope = WorkspaceScope::from_selection(&inputs, credentials);
+                let url = crate::refs::expect_url_kind(
+                    &reference,
+                    crate::refs::LinearUrlKind::Cycle,
+                    "a cycle URL, number, or name",
+                    &scope,
+                )?;
+                let url_team = match &url {
+                    Some(crate::refs::LinearUrlRef::Cycle { team_key, .. }) => {
+                        Some(team_key.clone())
+                    }
+                    Some(_) => {
+                        return Err(AppError::new(AppErrorKind::Invariant, "expected cycle URL"));
+                    }
+                    None => None,
+                };
+                let team_reference = explicit_team
+                    .or(url_team)
+                    .or_else(|| configured_team_key(&config.options))
+                    .ok_or_else(|| {
+                        AppError::new(
+                            AppErrorKind::Validation,
+                            "Could not determine team key from directory name or team flag",
+                        )
+                    })?;
+                let prepared = prepare_team_lookup(&team_reference, &scope)?;
+                let transport = client::prepare_transport_with_inputs(
+                    &config.options,
+                    credentials,
+                    &inputs,
+                    &config.transport_env,
+                )?;
+                Ok::<_, AppError>((url, prepared, transport))
+            })()
+            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+            let (url, prepared, transport) = selected;
+            let team = block_on_network(async {
+                resolve_team_with_transport(&prepared, &transport).await
+            })
+            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+            let cycle_id = block_on_network(async {
+                cycle_view::resolve_id(&transport, &team.id, &reference, url.as_ref()).await
+            })
+            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+            let show_spinner = spinner::enabled(
+                json,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
+            if show_spinner {
+                context.write_stdout_with_policy(
+                    spinner::frame(0).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let request = cycle_view::detail_request(&cycle_id);
+            let response = if show_spinner {
+                block_on_network(async {
+                    let pending = transport.send_request(&request);
+                    tokio::pin!(pending);
+                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+                    ticks.tick().await;
+                    let mut frame = 1;
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut pending => break result.map_err(AppError::from),
+                            _ = ticks.tick() => {
+                                context.write_stdout_with_policy(
+                                    spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike,
+                                )?;
+                                frame = frame.wrapping_add(1);
+                            }
+                        }
+                    }
+                })
+            } else {
+                block_on_network(async {
+                    transport
+                        .send_request(&request)
+                        .await
+                        .map_err(AppError::from)
+                })
+            }
+            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+            let details: Result<crate::graphql::operations::cycle_view::GetCycleDetails, _> =
+                crate::graphql::transport::classify_typed(response);
+            if show_spinner
+                && (details.is_ok()
+                    || matches!(
+                        &details,
+                        Err(crate::graphql::transport::TransportFailure::Response(
+                            crate::graphql::envelope::ResponseError::UnexpectedShape(_)
+                        ))
+                    ))
+            {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            let details =
+                details.map_err(|error| AppError::from(error).with_context(cycle_view::CONTEXT))?;
+            let cycle = details.cycle.ok_or_else(|| {
+                AppError::not_found("Cycle", &reference).with_context(cycle_view::CONTEXT)
+            })?;
+            let output = if json {
+                cycle_view::json(&cycle).map_err(|error| error.with_context(cycle_view::CONTEXT))?
+            } else {
+                let markdown = cycle_view::markdown(&cycle, chrono::Utc::now(), &chrono::Local)
+                    .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+                let rendered = if context.stdout_tty {
+                    use std::num::NonZeroU16;
+                    let columns = u16::try_from(table::stdout_columns(true))
+                        .ok()
+                        .and_then(NonZeroU16::new)
+                        .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
+                    let options = crate::platform::markdown_terminal::RenderOptions::for_terminal(
+                        columns,
+                        context.startup.settings.no_color,
+                        true,
+                        None,
+                        crate::platform::markdown_terminal::HostSource::System,
+                    );
+                    crate::platform::markdown_terminal::render(&markdown, &options)
+                        .map_err(|error| error.with_context(cycle_view::CONTEXT))?
+                } else {
+                    markdown
+                };
+                format!("{rendered}\n").into_bytes()
+            };
             context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
             Ok(ExitStatus::Success)
         }

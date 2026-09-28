@@ -2,6 +2,7 @@ mod auth_list;
 mod auth_whoami;
 mod client;
 mod cycle_list;
+mod cycle_view;
 mod display;
 mod label_list;
 mod project_list;

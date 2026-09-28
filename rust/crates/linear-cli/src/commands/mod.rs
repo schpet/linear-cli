@@ -3,6 +3,7 @@ pub mod auth_whoami;
 pub mod client;
 pub mod completions;
 pub mod cycle_list;
+pub mod cycle_view;
 pub mod display;
 pub mod label_list;
 pub mod project_list;

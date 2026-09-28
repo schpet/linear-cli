@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c020-json-reordered",
+  "deviationId": "C020-JSON-REORDERED",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "graphql-user-agent",
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "{\n  \"id\": \"cycle-5\",\n  \"number\": 5,\n  \"name\": \"Sprint 5\",\n  \"description\": \"Ship the parser.\",\n  \"startsAt\": \"2026-02-10T00:00:00.000Z\",\n  \"endsAt\": \"2026-02-24T00:00:00.000Z\",\n  \"completedAt\": null,\n  \"isActive\": false,\n  \"isFuture\": false,\n  \"isPast\": true,\n  \"createdAt\": \"2020-01-01T00:00:00.000Z\",\n  \"updatedAt\": \"2020-01-02T00:00:00.000Z\",\n  \"team\": {\n    \"id\": \"team-eng-id\",\n    \"key\": \"ENG\",\n    \"name\": \"Engineering\"\n  },\n  \"issues\": {\n    \"nodes\": [],\n    \"pageInfo\": {\n      \"hasNextPage\": false,\n      \"endCursor\": null\n    }\n  }\n}\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}
