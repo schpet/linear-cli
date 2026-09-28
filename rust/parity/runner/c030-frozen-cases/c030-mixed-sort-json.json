@@ -1,0 +1,260 @@
+{
+  "id": "c030-mixed-sort-json",
+  "route": "linear milestone list",
+  "reason": "Mixed ordering in JSON with contrary sortOrder and stable ties",
+  "argv": [
+    "milestone",
+    "list",
+    "--project",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000094\",\n      \"name\": \"Early\",\n      \"targetDate\": \"2025-12-31\",\n      \"sortOrder\": -4,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000086\",\n      \"name\": \"🚀 Launch\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 4,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000095\",\n      \"name\": \"10 items\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": -5,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000096\",\n      \"name\": \"9 items\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": -6,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000088\",\n      \"name\": \"apple\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 2,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000082\",\n      \"name\": \"Apple\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 8,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000081\",\n      \"name\": \"banana\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 9,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000085\",\n      \"name\": \"éclair\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 5,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000083\",\n      \"name\": \"Émile\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 7,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000084\",\n      \"name\": \"Eve\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 6,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000090\",\n      \"name\": \"Tie\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 1,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000089\",\n      \"name\": \"Tie\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 0,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000087\",\n      \"name\": \"Zulu\",\n      \"targetDate\": \"2026-04-01\",\n      \"sortOrder\": 3,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000093\",\n      \"name\": \"Late\",\n      \"targetDate\": \"2026-12-31\",\n      \"sortOrder\": -3,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000092\",\n      \"name\": \"Alpha\",\n      \"targetDate\": null,\n      \"sortOrder\": -2,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000091\",\n      \"name\": \"zeta\",\n      \"targetDate\": null,\n      \"sortOrder\": -1,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "GetProjectMilestones",
+            "operation": {
+              "document": "query GetProjectMilestones($projectId: String!, $first: Int, $after: String) { project(id: $projectId) { id name projectMilestones(first: $first, after: $after) { nodes { id name targetDate sortOrder project { id name } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "Mobile App",
+                  "projectMilestones": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-8000-000000000081",
+                        "name": "banana",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 9,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000082",
+                        "name": "Apple",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 8,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000083",
+                        "name": "Émile",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 7,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000084",
+                        "name": "Eve",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 6,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000085",
+                        "name": "éclair",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 5,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000086",
+                        "name": "🚀 Launch",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 4,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000087",
+                        "name": "Zulu",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 3,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000088",
+                        "name": "apple",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 2,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000090",
+                        "name": "Tie",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 1,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000089",
+                        "name": "Tie",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": 0,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000091",
+                        "name": "zeta",
+                        "targetDate": null,
+                        "sortOrder": -1,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000092",
+                        "name": "Alpha",
+                        "targetDate": null,
+                        "sortOrder": -2,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000093",
+                        "name": "Late",
+                        "targetDate": "2026-12-31",
+                        "sortOrder": -3,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000094",
+                        "name": "Early",
+                        "targetDate": "2025-12-31",
+                        "sortOrder": -4,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000095",
+                        "name": "10 items",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": -5,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000096",
+                        "name": "9 items",
+                        "targetDate": "2026-04-01",
+                        "sortOrder": -6,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

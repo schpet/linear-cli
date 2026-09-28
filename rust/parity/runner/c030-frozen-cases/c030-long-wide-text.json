@@ -1,0 +1,149 @@
+{
+  "id": "c030-long-wide-text",
+  "route": "linear milestone list",
+  "reason": "Long, wide and surrogate-pair names plus long project names at 120 columns",
+  "argv": [
+    "milestone",
+    "list",
+    "--project",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "NAME                                  ID                                   TARGET DATE  PROJECT                       \nA very long milestone name that ke... 00000000-0000-4000-8000-000000000101 2026-01-01   Mobile App                    \n日本語のマイルストーン名前は幅が広いのでずっと続きますよ本当に長い名前です 00000000-0000-4000-8000-000000000102 2026-01-02   Mobile App                    \nx🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀�... 00000000-0000-4000-8000-000000000103 2026-01-03   Mobile App                    \nShort                                 00000000-0000-4000-8000-000000000104 2026-01-04   An Extremely Long Project N...\nWide project                          00000000-0000-4000-8000-000000000105 2026-01-05   プロジェクト名前テスト        \n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "GetProjectMilestones",
+            "operation": {
+              "document": "query GetProjectMilestones($projectId: String!, $first: Int, $after: String) { project(id: $projectId) { id name projectMilestones(first: $first, after: $after) { nodes { id name targetDate sortOrder project { id name } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "Mobile App",
+                  "projectMilestones": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-8000-000000000101",
+                        "name": "A very long milestone name that keeps going well past the available table width to force truncation",
+                        "targetDate": "2026-01-01",
+                        "sortOrder": 1,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000102",
+                        "name": "日本語のマイルストーン名前は幅が広いのでずっと続きますよ本当に長い名前です",
+                        "targetDate": "2026-01-02",
+                        "sortOrder": 2,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000103",
+                        "name": "x🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀",
+                        "targetDate": "2026-01-03",
+                        "sortOrder": 3,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000104",
+                        "name": "Short",
+                        "targetDate": "2026-01-04",
+                        "sortOrder": 4,
+                        "project": {
+                          "id": "9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+                          "name": "An Extremely Long Project Name That Exceeds Thirty"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000105",
+                        "name": "Wide project",
+                        "targetDate": "2026-01-05",
+                        "sortOrder": 5,
+                        "project": {
+                          "id": "9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+                          "name": "プロジェクト名前テスト"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

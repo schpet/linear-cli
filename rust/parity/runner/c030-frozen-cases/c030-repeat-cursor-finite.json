@@ -1,0 +1,200 @@
+{
+  "id": "c030-repeat-cursor-finite",
+  "route": "linear milestone list",
+  "reason": "Page 2 repeats page 1 cursor; Deno requests page 3 and keeps duplicates",
+  "argv": [
+    "milestone",
+    "list",
+    "--project",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000072\",\n      \"name\": \"Final\",\n      \"targetDate\": \"2026-01-01\",\n      \"sortOrder\": 2,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000071\",\n      \"name\": \"Repeat\",\n      \"targetDate\": \"2026-02-01\",\n      \"sortOrder\": 1,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000071\",\n      \"name\": \"Repeat\",\n      \"targetDate\": \"2026-02-01\",\n      \"sortOrder\": 1,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": \"end\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "page-1",
+            "operation": {
+              "document": "query GetProjectMilestones($projectId: String!, $first: Int, $after: String) { project(id: $projectId) { id name projectMilestones(first: $first, after: $after) { nodes { id name targetDate sortOrder project { id name } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "Mobile App",
+                  "projectMilestones": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-8000-000000000071",
+                        "name": "Repeat",
+                        "targetDate": "2026-02-01",
+                        "sortOrder": 1,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "same"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "page-2",
+            "operation": {
+              "document": "query GetProjectMilestones($projectId: String!, $first: Int, $after: String) { project(id: $projectId) { id name projectMilestones(first: $first, after: $after) { nodes { id name targetDate sortOrder project { id name } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 100,
+                "after": "same"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "Mobile App",
+                  "projectMilestones": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-8000-000000000071",
+                        "name": "Repeat",
+                        "targetDate": "2026-02-01",
+                        "sortOrder": 1,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "same"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "page-3",
+            "operation": {
+              "document": "query GetProjectMilestones($projectId: String!, $first: Int, $after: String) { project(id: $projectId) { id name projectMilestones(first: $first, after: $after) { nodes { id name targetDate sortOrder project { id name } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 100,
+                "after": "same"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "Mobile App",
+                  "projectMilestones": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-8000-000000000072",
+                        "name": "Final",
+                        "targetDate": "2026-01-01",
+                        "sortOrder": 2,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": "end"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

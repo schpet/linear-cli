@@ -1,0 +1,49 @@
+{
+  "id": "c030-unsupported-url",
+  "route": "linear milestone list",
+  "reason": "A project URL without a slug ID is rejected before credentials",
+  "argv": [
+    "milestone",
+    "list",
+    "--project",
+    "https://linear.app/alpha/project/no-slug-here",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch milestones: \"https://linear.app/alpha/project/no-slug-here\" is a Linear URL, but \"no-slug-here\" does not end in a Linear slug ID.\n  Pass a project URL, UUID, slug ID, or exact name.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}
