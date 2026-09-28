@@ -461,3 +461,33 @@ input as `Invalid Date` in text and unchanged raw JSON, whereas JavaScript
 also accepts date-only values and some timestamps without an offset. The
 same date-parser boundary is described above for C015. No frozen C010 case
 covers these inputs, so wider date-parser parity is not claimed.
+
+## C024F2 terminal Markdown and pager foundation
+
+TTY Markdown uses pinned `pulldown-cmark = 0.13.4` and a focused ANSI event
+renderer. `pulldown-cmark-mdcat = 2.17.0` required Rust 1.95 in the bounded
+spike, above the pinned 1.93 toolchain. The scratch renderer matched charmd
+for 84/102 fixture/mode combinations. The 18 differences are intentional v3
+terminal-format changes: an ordered list may start at `0` instead of charmd's
+`1`; unsafe control characters in document text become U+FFFD; CRLF hard
+breaks normalize to LF; and GFM-style tables without outer pipes render as
+tables. This is structural TTY compatibility, not byte-exact charmd output.
+The renderer uses 80 columns if terminal-size lookup fails; its pager then
+uses the source's strictly greater than 50 rendered-line fallback.
+The terminal-size adapter also treats either reported zero dimension as
+unknown, so a zero-size terminal follows that 80-column/>50-line path;
+Deno may instead pass zero rows into its paging threshold. Markdown nested
+deeper than 64 block/inline levels fails on a TTY with a Validation error;
+the raw non-TTY path can still print the description. This bounded failure
+is deliberate to avoid unbounded recursive rendering.
+
+`NO_COLOR` absent allows style and configured image OSC-8 links; present-empty
+keeps style but suppresses those links; present-nonempty suppresses both.
+`PAGER` comes from the process environment, since source dotenv files do not
+admit that key. A non-UTF-8 `PAGER` is retained during startup and reported
+as a Validation error only if paging is attempted; help, version, and short
+direct output remain available. Pager children receive exact rendered bytes on stdin and
+inherit terminal stdout/stderr. On write failure, including early quit with
+exit 0, the next fallback is tried as in Deno. If all attempts fail, direct
+console output adds one LF. This foundation does not yet attach the renderer
+to `project view`; the C024 action owns that route and raw non-TTY output.

@@ -163,6 +163,35 @@ fn source_precedence_and_redacted_overlay_are_typed() {
 }
 
 #[test]
+fn pager_is_captured_only_from_process_environment() {
+    let files = MemFiles::default().file(
+        "/work/.env",
+        b"PAGER=dotenv-pager\nNO_COLOR=1\nLINEAR_DEBUG=1\n",
+    );
+    let absent = load_startup(&process(&[]), &files, &no_git());
+    assert_eq!(absent.result.unwrap().pager, None);
+    assert_eq!(absent.settings.no_color, NoColor::Absent);
+
+    for value in ["", "  ", "less -R"] {
+        let report = load_startup(&process(&[("PAGER", value)]), &files, &no_git());
+        let ready = report.result.unwrap();
+        assert_eq!(ready.pager.as_deref(), Some(std::ffi::OsStr::new(value)));
+        assert_eq!(ready.child_env.get("PAGER"), None);
+    }
+
+    use std::os::unix::ffi::OsStringExt;
+    let invalid = OsString::from_vec(vec![0xff]);
+    let process = ProcessEnvSnapshot::from_vars_os(
+        PathBuf::from("/work"),
+        OsFamily::Unix,
+        [(OsString::from("PAGER"), invalid.clone())],
+    )
+    .unwrap();
+    let ready = load_startup(&process, &files, &no_git()).result.unwrap();
+    assert_eq!(ready.pager, Some(invalid));
+}
+
+#[test]
 fn windows_child_overlay_lookup_is_case_insensitive() {
     let process = ProcessEnvSnapshot::from_vars_os(
         PathBuf::from("/work"),

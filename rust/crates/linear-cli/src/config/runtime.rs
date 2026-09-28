@@ -204,6 +204,8 @@ impl std::error::Error for ProcessEnvError {}
 #[derive(Clone, Eq, PartialEq)]
 pub struct ProcessEnvSnapshot {
     pub inputs: ConfigInputs,
+    /// Kept losslessly so invalid UTF-8 only fails if a pager is actually used.
+    pub pager: Option<OsString>,
     /// Original spelling of a normalized key; mainly useful for Windows diagnostics.
     pub original_names: BTreeMap<String, String>,
 }
@@ -220,6 +222,7 @@ impl ProcessEnvSnapshot {
     ) -> Result<Self, ProcessEnvError> {
         let mut process_env = BTreeMap::new();
         let mut original_names = BTreeMap::new();
+        let mut pager = None;
         for (raw_name, raw_value) in variables {
             let Some(name) = raw_name.to_str() else {
                 if relevant(&raw_name.to_string_lossy(), os) {
@@ -227,14 +230,20 @@ impl ProcessEnvSnapshot {
                 }
                 continue;
             };
-            if !relevant(name, os) {
-                continue;
-            }
             let key = if os == OsFamily::Windows {
                 name.to_ascii_uppercase()
             } else {
                 name.to_owned()
             };
+            if key == "PAGER" {
+                if pager.replace(raw_value).is_some() {
+                    return Err(ProcessEnvError::DuplicateName { name: key });
+                }
+                continue;
+            }
+            if !relevant(&key, os) {
+                continue;
+            }
             let Some(value) = raw_value.to_str() else {
                 return Err(ProcessEnvError::InvalidValue {
                     name: name.to_owned(),
@@ -248,6 +257,7 @@ impl ProcessEnvSnapshot {
             original_names.insert(key, name.to_owned());
         }
         Ok(Self {
+            pager,
             inputs: ConfigInputs {
                 cwd,
                 os,

@@ -1,5 +1,6 @@
 //! One owned, injectable config startup result for all routes, including help.
 use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::fmt;
 use std::sync::OnceLock;
 
@@ -80,6 +81,8 @@ pub struct StartupConfig {
     pub transport_env: TransportEnvInputs,
     /// Process CI value; the source dotenv loader does not admit CI entries.
     pub ci: Option<String>,
+    /// Process PAGER value; dotenv files cannot set it either.
+    pub pager: Option<OsString>,
 }
 
 impl fmt::Debug for StartupConfig {
@@ -410,6 +413,7 @@ pub fn load_startup(
         values: overlay,
     };
     let ci = process.inputs.env("CI").map(str::to_owned);
+    let pager = process.pager.clone();
     StartupReport {
         settings: display,
         diagnostics,
@@ -417,6 +421,7 @@ pub fn load_startup(
             options,
             child_env,
             ci,
+            pager,
             transport_env: TransportEnvInputs::from_process(process),
         }),
     }

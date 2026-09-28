@@ -9,6 +9,8 @@ mod fish_completion;
 mod golden;
 mod help;
 mod inventory;
+mod markdown_terminal;
+mod pager;
 mod parser;
 mod selector;
 mod spinner;
