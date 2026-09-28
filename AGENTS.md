@@ -43,3 +43,11 @@
 - use `deno task test` instead of `deno test`, use `deno task snapshot` to update snapshots
 - use the NO_COLOR variable for snapshot tests so they don't include ansi escape codes
 - new feature should get tests
+
+## Rust rewrite workflow
+
+- Use this repository's single jj working copy. Do not create another jj workspace or worktree for the Rust port. Serialize tracked edits and builds; agents may plan or review concurrently without changing files.
+- Keep `@` an empty, undescribed scratch change between items. Record each reviewed slice with `jj commit -m`, then move only the local `rust-port` bookmark. Do not push or move `main`.
+- The original Deno `src`, lockfile and schema remain in this working copy and are checked against frozen `main`. Run parity with `--reference` pointing to this directory and the SHA-pinned compiled reference binary; see `rust/PARITY_HARNESS.md`.
+- Example: `deno task parity -- --reference /home/exedev/workspace/linear-cli --reference-binary untracked/notebook/2026-09-23-rust-port/P01/reference-linear`.
+- Helpful new Rust dependencies do not require a permission pause. Pin versions/features and record the reason and tradeoff in the item review.

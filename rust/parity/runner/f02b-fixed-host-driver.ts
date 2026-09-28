@@ -324,7 +324,7 @@ export interface Options {
 }
 
 const USAGE =
-  `usage: deno run --frozen --allow-all --config rust/parity/deno.json rust/parity/runner/f02b-fixed-host-driver.ts --probe <f02b_fixed_host_probe> --reference <workspace> --reference-binary <binary> [options]
+  `usage: deno run --frozen --allow-all --config rust/parity/deno.json rust/parity/runner/f02b-fixed-host-driver.ts --probe <f02b_fixed_host_probe> --reference <working-copy> --reference-binary <binary> [options]
   --report <file>      write the JSON report here
   --stage-dir <dir>    staged reference module cache root (default: <cache home>/linear-parity/stage)
   --restage            rebuild the staged module cache`
@@ -475,6 +475,7 @@ function cacheHome(): string {
 
 async function outer(options: Options, rawArgs: string[]): Promise<number> {
   await resolveBwrap()
+  options.reference = await Deno.realPath(options.reference)
   const pinned = await loadPinned()
   await verifyBaseline(
     pinned.baseline,

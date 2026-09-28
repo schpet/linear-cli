@@ -11,6 +11,13 @@ export interface Manifest {
 const root = fromFileUrl(new URL("../../", import.meta.url))
 const parity = join(root, "rust/parity")
 const decoder = new TextDecoder()
+const GENERATED_CODEGEN_SHA256: Record<string, string> = {
+  "gql.ts": "8dfea6a7d53a9bc2fab795de6e41872ad1ccbb70acd884d9ac35b97fb4701abc",
+  "graphql.ts":
+    "4ec1201b8b94287c6227bfc413becac85b155300527245bde904a3b6257b73a4",
+  "index.ts":
+    "3498fb63273000c22776eaeb5a66de3ec701a57ee448e36ce578a149fd9e1482",
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value != null && !Array.isArray(value)
@@ -230,6 +237,11 @@ export async function verifyBaseline(
   binary: string,
 ): Promise<void> {
   assert(
+    await Deno.realPath(reference) === await Deno.realPath(root),
+    "interpreted reference must use the repository working copy",
+  )
+  await verifySourceBinding(baseline)
+  assert(
     await sha256(join(reference, "deno.lock")) === baseline.lockSha256,
     "reference lockfile hash drift",
   )
@@ -252,36 +264,6 @@ export async function verifyBaseline(
       version.stdout.startsWith(`deno ${baseline.denoVersion} `) &&
       version.stdout.includes(baseline.target),
     "Deno version/target drift",
-  )
-  const revision = await run(
-    "jj",
-    ["log", "-R", reference, "-r", "@-", "--no-graph", "-T", "commit_id"],
-    reference,
-    jjEnv(),
-  )
-  assert(
-    revision.code === 0 &&
-      revision.stdout.trim() === baseline.referenceRevision,
-    "reference revision drift",
-  )
-  const empty = await run(
-    "jj",
-    [
-      "log",
-      "-R",
-      reference,
-      "-r",
-      "@",
-      "--no-graph",
-      "-T",
-      'if(empty, "empty", "nonempty")',
-    ],
-    reference,
-    jjEnv(),
-  )
-  assert(
-    empty.code === 0 && empty.stdout.trim() === "empty",
-    "reference workspace @ is not empty",
   )
 }
 
@@ -349,6 +331,23 @@ export async function verifySourceBinding(
     diff.code === 0 && diff.stdout.trim() === "",
     `exporter source differs from frozen reference: ${diff.stderr}${diff.stdout}`,
   )
+  const codegen = join(root, "src/__codegen__")
+  const actual: string[] = []
+  for await (const entry of Deno.readDir(codegen)) {
+    assert(entry.isFile, `unexpected generated-code entry: ${entry.name}`)
+    actual.push(entry.name)
+  }
+  assert(
+    JSON.stringify(actual.sort()) ===
+      JSON.stringify(Object.keys(GENERATED_CODEGEN_SHA256).sort()),
+    `generated GraphQL file set drift: ${actual.join(", ")}`,
+  )
+  for (const [name, expected] of Object.entries(GENERATED_CODEGEN_SHA256)) {
+    assert(
+      await sha256(join(codegen, name)) === expected,
+      `generated GraphQL file drift: ${name}`,
+    )
+  }
   const frozen = await run(
     "jj",
     ["file", "show", "-R", root, "-r", baseline.referenceRevision, "deno.json"],
@@ -393,7 +392,7 @@ if (import.meta.main) {
   const [reference, binary] = Deno.args
   assert(
     reference != null && binary != null && Deno.args.length === 2,
-    "usage: deno run ... rust/parity/verify.ts <reference-workspace> <reference-binary>",
+    "usage: deno run ... rust/parity/verify.ts <working-copy> <reference-binary>",
   )
   const baseline = readBaseline(
     JSON.parse(await Deno.readTextFile(join(parity, "baseline.json"))),
@@ -406,7 +405,6 @@ if (import.meta.main) {
     "manifest baseline identity drift",
   )
   await verifyBaseline(baseline, reference, binary)
-  await verifySourceBinding(baseline)
   compareManifest(manifest, await withSourceMap(await exportRuntime()))
   await verifyProbes(manifest.probes, binary)
   console.log(

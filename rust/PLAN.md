@@ -114,13 +114,13 @@ Use the [Claude agent skill](/home/exedev/repos/dotfiles/.codex/skills/claude-ag
 For every work item:
 
 1. Coordinator creates a file-backed packet with baseline revision, scope, exact contracts/fixtures, dependencies, owner, allowed paths and completion checks. Write the micro-plan; get Claude feedback and record disposition before code changes. A scope change needs updated plan feedback. A leaf may start before P10 when its relevant frozen oracle and adapters are sufficient; its remaining whole-surface and platform gates stay open.
-2. Give the implementer a separate jj workspace with an empty mutable `@` above the prerequisite commits. No concurrent edits in one checkout. Shared command registration/Cargo.lock/manifest changes go through a designated sequential integration lane.
+2. Use the repository's single jj working copy. Keep `@` empty and undescribed between items; serialize tracked edits and builds. Agents can plan, review and prepare file-backed packets concurrently, but the coordinator gives one implementer ownership of the working copy at a time.
 3. Add meaningful regression/contract tests first where practical, then implement the slice. Preserve red/green evidence for behavior; avoid tests that merely restate struct wiring. Keep all pending parity gaps visible.
 4. Run the focused parity cases and Rust checks. A separate fresh Claude reviewer reads the entire item diff, relevant source/reference behavior, tests, fixture/normalizer changes and deviations. Record each finding as fixed, rejected with evidence, or a real blocker. Re-review substantive follow-up diffs; the reviewed tree must match the final tree.
 5. Run the QA skill on the actual candidate binary, then assign a separate agent to manually exercise the command against the real workspace where applicable. Capture exact candidate hash and sanitized evidence. Fix failures in the same item and re-run affected tests/reviews/QA.
 6. Coordinator integrates the item, checks the integrated tree (especially shared modules), and records one final commit with `jj commit -m "Port issue view to Rust"` (with a `Rust-port-item: C062` trailer in the actual multiline message). Keep `@` empty. A work item is done only when all its gates pass; a reviewed code commit with unavailable live/platform verification remains explicitly blocked in the manifest.
 
-Skill links refer to the current host installation; workers should resolve those named skills in their own environment. Use the jj and jj-workspace skills for implementation/integration mechanics. Start a local `rust-port` bookmark; advance only that bookmark through completed commits. Never edit a described/bookmarked/immutable change directly, never invoke interactive jj commands, and never let `gh` move the checkout. The coordinator owns integration and bookmark movement. No pushes, PR publication, releases or main updates are included. Never run `just tag`: that recipe moves main and pushes it. Keep the existing Deno/JSR publishing route available until a separate cutover decision.
+Skill links refer to the current host installation; workers should resolve those named skills in their own environment. Use the jj skill for the single-working-copy commit workflow. Advance only the local `rust-port` bookmark through completed commits. Never edit a described/bookmarked/immutable change directly, never invoke interactive jj commands, and never let `gh` move the checkout. The coordinator owns integration and bookmark movement. No pushes, PR publication, releases or main updates are included. Never run `just tag`: that recipe moves main and pushes it. Keep the existing Deno/JSR publishing route available until a separate cutover decision.
 
 Each durable `rust/reviews/<ID>.md` names the baseline/candidate tree, implementer/provider, plan-review and diff-review results, test commands, QA artifact, live evidence, remaining blockers and deviation dispositions. Large raw transcripts stay in the notebook; no credentials, user workspace payload dumps or token output are committed. Add late evidence through a new scratch change and squash with an explicit message, then rerun any changed-code gate; do not type edits into the recorded commit.
 
@@ -138,7 +138,7 @@ Agent sessions, particular template types, admin actions, native app launching a
 
 ## Validation and final acceptance
 
-Planned Rust checks (after the workspace exists):
+Planned Rust checks (from the working copy):
 
 ```sh
 cargo fmt --manifest-path rust/Cargo.toml --all -- --check

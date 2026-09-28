@@ -1,5 +1,6 @@
-// Parity runner entry point: `deno task parity -- --reference <workspace> --reference-binary <binary> [...]`.
-// The outer process verifies the pinned reference, stages its module cache,
+// Parity runner entry point: `deno task parity -- --reference <working-copy> --reference-binary <binary> [...]`.
+// The outer process verifies unchanged Deno source in the current working copy,
+// then stages its module cache,
 // then re-executes itself inside an unprivileged user/net/PID namespace where
 // the preflight, fixture server and every child run; each child is further
 // confined to an allowlisted filesystem by Bubblewrap (bwrap.ts).
@@ -11,7 +12,12 @@ import {
   relative,
   resolve,
 } from "@std/path"
-import { readBaseline, readManifest, verifyBaseline } from "../verify.ts"
+import {
+  readBaseline,
+  readManifest,
+  verifyBaseline,
+  verifySourceBinding,
+} from "../verify.ts"
 import { CASE_ROOT_PARENT, prepareConfinement, resolveBwrap } from "./bwrap.ts"
 import { encodeByteValue, sha256Hex } from "./bytes.ts"
 import { loadCases } from "./cases.ts"
@@ -69,7 +75,7 @@ interface Options {
 }
 
 const USAGE =
-  `usage: deno task parity -- --reference <workspace> --reference-binary <binary> [options]
+  `usage: deno task parity -- --reference <working-copy> --reference-binary <binary> [options]
   --candidate <descriptor.json>  candidate program, implemented routes and optional contract (default: frozen-deno)
   --cases <dir>                  case corpus (default: rust/parity/runner/cases)
   --filter <substring>           run only case ids containing the substring
@@ -333,6 +339,7 @@ function cacheHome(): string {
 async function outer(options: Options, rawArgs: string[]): Promise<number> {
   // Bubblewrap is a hard dependency of the lane: fail before staging anything.
   await resolveBwrap()
+  options.reference = await Deno.realPath(options.reference)
   const pinned = await loadPinned()
   await verifyBaseline(
     pinned.baseline,
@@ -374,7 +381,7 @@ async function outer(options: Options, rawArgs: string[]): Promise<number> {
       helper.sourceSha256.slice(0, 16)
     }, ${helper.compiler.version})`,
   )
-  return await enterNamespace({
+  const result = await enterNamespace({
     denoPath: Deno.execPath(),
     parityConfig: join(parityDir, "deno.json"),
     runnerMain: join(runnerDir, "main.ts"),
@@ -389,6 +396,8 @@ async function outer(options: Options, rawArgs: string[]): Promise<number> {
       helper.path,
     ],
   })
+  await verifySourceBinding(pinned.baseline)
+  return result
 }
 
 async function writeProposals(

@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "@std/assert"
+import { assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { fromFileUrl, join } from "@std/path"
 import { withSourceMap } from "./source-map.ts"
 import {
@@ -8,6 +8,7 @@ import {
   exportRuntime,
   readBaseline,
   readManifest,
+  verifyBaseline,
   verifySourceBinding,
 } from "./verify.ts"
 
@@ -256,4 +257,17 @@ Deno.test("the working copy is bound to the frozen reference source", async () =
     JSON.parse(await Deno.readTextFile(join(parity, "baseline.json"))),
   )
   await verifySourceBinding(baseline)
+})
+
+Deno.test("an unrelated reference directory is rejected before any hash checks", async () => {
+  const directory = await Deno.makeTempDir()
+  try {
+    await assertRejects(
+      () => verifyBaseline({}, directory, join(directory, "missing-binary")),
+      Error,
+      "interpreted reference must use the repository working copy",
+    )
+  } finally {
+    await Deno.remove(directory, { recursive: true })
+  }
 })

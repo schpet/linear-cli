@@ -32,7 +32,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[3]
 CASES = ROOT / "rust/parity/runner/c024-frozen-cases"
-REF = Path("/home/exedev/workspace/linear-cli-rust-deno-reference")
+REF = ROOT
 BIN = Path("/home/exedev/workspace/linear-cli/untracked/notebook/2026-09-23-rust-port/P01/reference-linear")
 DENO = Path("/home/exedev/.deno/bin/deno")
 STAGE = Path("/home/exedev/.cache/linear-parity/stage/3da729da08fe6d48/deno")
@@ -40,12 +40,55 @@ SOURCE_SHA256 = "4f9832d6cb912cf7a545e8fd40133e678dcca99ea2a77ea1c82c05c23396f43
 BINARY_SHA256 = "a17675c5ab9a0bf5f32f65e5e68112676576972a9979f5a97bc844f6b23e0835"
 LOCK_SHA256 = "3da729da08fe6d48236e055b2eaac95788b5e5ccfd0f66dacdc5f6a0b0b96403"
 REFERENCE_REVISION = "d4fe6fa7358f018fd1da0c6b96ec2b022247e898"
+GENERATED_SHA256 = {
+    "gql.ts": "8dfea6a7d53a9bc2fab795de6e41872ad1ccbb70acd884d9ac35b97fb4701abc",
+    "graphql.ts": "4ec1201b8b94287c6227bfc413becac85b155300527245bde904a3b6257b73a4",
+    "index.ts": "3498fb63273000c22776eaeb5a66de3ec701a57ee448e36ce578a149fd9e1482",
+}
 MAX_OUTPUT = 2 * 1024 * 1024
 TIMEOUT = 25.0
 
 
 def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def check_generated() -> None:
+    directory = REF / "src/__codegen__"
+    if sorted(path.name for path in directory.iterdir()) != sorted(GENERATED_SHA256):
+        raise RuntimeError("generated GraphQL file set changed")
+    for name, expected in GENERATED_SHA256.items():
+        if sha((directory / name).read_bytes()) != expected:
+            raise RuntimeError(f"generated GraphQL file changed: {name}")
+
+
+def check_root_config() -> None:
+    frozen = subprocess.run(
+        ["jj", "file", "show", "-r", REFERENCE_REVISION, "deno.json"],
+        cwd=REF, capture_output=True, text=True, check=True,
+    ).stdout
+    current = json.loads((REF / "deno.json").read_text())
+    approved_tasks = {
+        "parity": "deno run --frozen --allow-all --quiet --config rust/parity/deno.json rust/parity/runner/main.ts",
+        "parity:test": "deno test --frozen --allow-all --quiet --config rust/parity/deno.json rust/parity/",
+    }
+    for name, command in approved_tasks.items():
+        if current["tasks"].get(name) == command:
+            del current["tasks"][name]
+    if current.get("test") == {"exclude": ["rust/"]}:
+        del current["test"]
+    if current != json.loads(frozen):
+        raise RuntimeError("root deno.json differs from frozen revision")
+
+
+def check_stage_marker() -> None:
+    marker = json.loads((STAGE.parent / "staged.json").read_text())
+    if marker != {
+        "lockSha256": LOCK_SHA256,
+        "denoVersion": "2.7.9",
+        "workspace": str(ROOT),
+    }:
+        raise RuntimeError("staged Deno cache was built for another reference")
 
 
 def canonical_query(value: str) -> str:
@@ -326,21 +369,20 @@ def drive(label: str, name: str, directory: Path) -> dict:
 
 def main() -> None:
     if sys.argv[1:] != ["--inside"]:
-        revision = subprocess.run(
-            ["jj", "log", "-r", "@-", "--no-graph", "-T", "commit_id"],
-            cwd=REF, capture_output=True, text=True, check=True,
-        ).stdout.strip()
-        if revision != REFERENCE_REVISION:
-            raise RuntimeError("interpreted reference revision changed")
         changed = subprocess.run(
-            ["jj", "diff", "-r", "@", "--summary"],
+            ["jj", "diff", "--from", REFERENCE_REVISION, "--to", "@",
+             "--summary", "--", "src", "deno.lock", "graphql"],
             cwd=REF, capture_output=True, text=True, check=True,
         ).stdout.strip()
         if changed:
-            raise RuntimeError("interpreted reference working copy changed")
+            raise RuntimeError("interpreted Deno source differs from frozen revision")
+        check_root_config()
+        check_generated()
         result = subprocess.run(["/bin/unshare", "--user", "--map-root-user", "--net",
                                  "--pid", "--fork", "--mount-proc", sys.executable,
                                  str(Path(__file__).resolve()), "--inside"], check=False)
+        check_root_config()
+        check_generated()
         raise SystemExit(result.returncode)
     subprocess.run(["/bin/ip", "link", "set", "lo", "up"], check=True)
     with socket.socket() as probe:
@@ -349,6 +391,7 @@ def main() -> None:
             raise RuntimeError("network namespace unexpectedly reached a non-loopback address")
     if not (BIN.is_file() and REF.is_dir() and STAGE.is_dir()):
         raise RuntimeError("pinned reference or staged Deno cache missing")
+    check_stage_marker()
     if sha(BIN.read_bytes()) != BINARY_SHA256:
         raise RuntimeError("compiled reference changed")
     if sha((REF / "src/commands/project/project-view.ts").read_bytes()) != SOURCE_SHA256:
