@@ -135,9 +135,10 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   const c002 = (item: { spec: { id: string } }) =>
     item.spec.id.startsWith("c002-")
   const others = loaded.filter((item) => !c002(item))
-  // C023 adds 14 local and 39 GraphQL cases; C010/F06 add another 24 and 70.
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 378)
-  assertEquals(others.filter((item) => item.spec.graphql != null).length, 420)
+  // These corpus-wide counts also guard older fixtures without cohort tests.
+  // Update them when adding reviewed command cases.
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 395)
+  assertEquals(others.filter((item) => item.spec.graphql != null).length, 486)
   assertEquals(loaded.filter(c002).length, 26)
 })
 
@@ -319,6 +320,26 @@ Deno.test("loader rejects invalid fixture operations and duplicate IDs", async (
         message,
       )
     }
+  } finally {
+    await Deno.remove(dir, { recursive: true })
+  }
+})
+
+Deno.test("loader checks every GraphQL case digest after warming the schema", async () => {
+  const dir = await Deno.makeTempDir()
+  try {
+    const first = graphqlCase()
+    first.id = "a"
+    const second = graphqlCase()
+    second.id = "b"
+    fixture(second).schemaSha256 = "0".repeat(64)
+    await Deno.writeTextFile(`${dir}/a.json`, JSON.stringify(first))
+    await Deno.writeTextFile(`${dir}/b.json`, JSON.stringify(second))
+    await assertRejects(
+      () => loadCases(dir, new Set(["linear"])),
+      SchemaError,
+      `${dir}/b.json: GraphQL schema digest differs from pinned baseline`,
+    )
   } finally {
     await Deno.remove(dir, { recursive: true })
   }

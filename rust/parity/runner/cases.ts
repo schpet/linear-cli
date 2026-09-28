@@ -194,6 +194,7 @@ function changedSurfaces(spec: CaseSpec, golden: ReviewedGolden): string[] {
 async function loadReviewedBinding(
   dir: string,
   spec: CaseSpec,
+  pinned: PinnedGraphQLContext,
 ): Promise<LoadedCase["golden"]> {
   const binding = spec.deviation
   if (binding == null) return null
@@ -326,7 +327,7 @@ async function loadReviewedBinding(
   }
   if (delta != null) {
     parseCase(candidateSpec)
-    await checkGraphQLFixture(candidateSpec, path)
+    await checkGraphQLFixture(candidateSpec, path, pinned)
   }
   const stdout = candidateSpec.expected.stdout
   if (
@@ -749,30 +750,49 @@ function checkResponseReferences(
   }
 }
 
+interface PinnedGraphQLContext {
+  digests(): Promise<{ hash: string; baselineHash: string }>
+  schema(): Promise<GraphQLSchema>
+}
+
+function pinnedGraphQLContext(): PinnedGraphQLContext {
+  let loaded:
+    | Promise<{ sdl: string; hash: string; baselineHash: string }>
+    | undefined
+  let built: Promise<GraphQLSchema> | undefined
+  const digests = () =>
+    loaded ??= (async () => {
+      const root = join(import.meta.dirname ?? ".", "../../..")
+      const sdl = await Deno.readTextFile(join(root, "graphql/schema.graphql"))
+      const hash = await sha256Hex(new TextEncoder().encode(sdl))
+      const baseline = v.parse(
+        v.object({ schemaSha256: v.string() }),
+        JSON.parse(
+          await Deno.readTextFile(join(root, "rust/parity/baseline.json")),
+        ),
+      )
+      return { sdl, hash, baselineHash: baseline.schemaSha256 }
+    })()
+  return {
+    digests,
+    schema: () => built ??= digests().then(({ sdl }) => buildPinnedSchema(sdl)),
+  }
+}
+
 async function checkGraphQLFixture(
   spec: CaseSpec,
   file: string,
+  pinned: PinnedGraphQLContext,
 ): Promise<void> {
   const fixture = spec.graphql
   if (fixture == null) return
-  const root = join(import.meta.dirname ?? ".", "../../..")
-  const sdl = await Deno.readTextFile(join(root, "graphql/schema.graphql"))
-  const bytes = new TextEncoder().encode(sdl)
-  const hash = Array.from(
-    new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
-  ).map((value) => value.toString(16).padStart(2, "0")).join("")
-  const baseline = v.parse(
-    v.object({ schemaSha256: v.string() }),
-    JSON.parse(
-      await Deno.readTextFile(join(root, "rust/parity/baseline.json")),
-    ),
-  )
-  if (hash !== baseline.schemaSha256 || fixture.schemaSha256 !== hash) {
+  const { hash, baselineHash } = await pinned.digests()
+  if (hash !== baselineHash || fixture.schemaSha256 !== hash) {
     throw new SchemaError(
       `${file}: GraphQL schema digest differs from pinned baseline`,
     )
   }
-  const schema = buildPinnedSchema(sdl)
+  const schema = await pinned.schema()
   checkLaneDeadline(spec, spec.timeoutMs)
   const recordValues = new Map<string, unknown[]>()
   for (const [key, value] of Object.entries(fixture.initialRecords)) {
@@ -969,6 +989,7 @@ export async function loadCases(
   filter?: string,
   contract: CandidateContract = FROZEN_CONTRACT,
 ): Promise<LoadedCase[]> {
+  const pinned = pinnedGraphQLContext()
   const files: string[] = []
   for await (const entry of Deno.readDir(dir)) {
     if (entry.isFile && entry.name.endsWith(".json")) files.push(entry.name)
@@ -990,7 +1011,7 @@ export async function loadCases(
       )
     }
     const spec = parseCase(parsed, file)
-    await checkGraphQLFixture(spec, file)
+    await checkGraphQLFixture(spec, file, pinned)
     if (spec.graphql != null) {
       const steps = spec.graphql.groups.flatMap((group) =>
         group.mode === "ordered"
@@ -1022,7 +1043,7 @@ export async function loadCases(
         `${file}: route "${spec.route}" is not in rust/parity/manifest.json`,
       )
     }
-    const golden = await loadReviewedBinding(dir, spec)
+    const golden = await loadReviewedBinding(dir, spec, pinned)
     if (golden != null) boundIds.add(spec.id)
     if (
       contract === RUST_CONTRACT && spec.graphql != null &&

@@ -823,8 +823,9 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  // C023 adds 39 GraphQL cases; C024 adds 35; C010/F06 add another 70.
-  assertEquals(graphql.length, 420)
+  // This count also guards older GraphQL fixtures without cohort tests.
+  // Update it when adding reviewed command cases.
+  assertEquals(graphql.length, 486)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -1019,6 +1020,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     "c023-null-cursor",
     "c023f-repeat-cursor",
   ])
+  const c020FixtureDeltas = new Set(["c020-cycles-null-later"])
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -1051,7 +1053,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     // These cohorts pin their approved surfaces in their own corpus guards.
     if (
       !loaded.spec.id.startsWith("c023") &&
-      !loaded.spec.id.startsWith("c024-")
+      !loaded.spec.id.startsWith("c024-") &&
+      !loaded.spec.id.startsWith("c020-")
     ) {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
@@ -1093,7 +1096,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     }
     if (
       c016FixtureDeltas.has(loaded.spec.id) ||
-      c023FixtureDeltas.has(loaded.spec.id)
+      c023FixtureDeltas.has(loaded.spec.id) ||
+      c020FixtureDeltas.has(loaded.spec.id)
     ) {
       const delta = loaded.golden?.spec.candidate.graphql
       const group = expected.groups[0]
