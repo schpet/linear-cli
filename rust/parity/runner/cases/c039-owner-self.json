@@ -1,0 +1,148 @@
+{
+  "id": "c039-owner-self",
+  "route": "linear initiative create",
+  "reason": "owner self",
+  "argv": [
+    "initiative",
+    "create",
+    "-n",
+    "Initiative 502",
+    "-o",
+    "self"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Created initiative: Server Initiative 502\n  Slug: INI-502\n  URL: https://linear.app/alpha/initiative/ini-502\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "63e431e28c7d4add9541eec3574e2cea48c51928979edf81f6a011729b06877c"
+  },
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {
+      "Initiative:00000000-0000-4000-9000-000000000502": {
+        "id": "00000000-0000-4000-9000-000000000502",
+        "slugId": "INI-502",
+        "name": "Server Initiative 502",
+        "url": "https://linear.app/alpha/initiative/ini-502"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "viewer",
+            "operation": {
+              "document": "query GetViewerId {\n        viewer {\n          id\n        }\n      }\n    ",
+              "variables": {}
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "viewer": {
+                  "id": "00000000-0000-4000-9000-000000000502"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation CreateInitiative($input: InitiativeCreateInput!) {\n    initiativeCreate(input: $input) {\n      success\n      initiative {\n        id\n        slugId\n        name\n        url\n      }\n    }\n  }\n",
+              "variables": {
+                "input": {
+                  "name": "Initiative 502",
+                  "ownerId": "00000000-0000-4000-9000-000000000502"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeCreate": {
+                  "success": true,
+                  "initiative": {
+                    "id": "00000000-0000-4000-9000-000000000502",
+                    "slugId": "INI-502",
+                    "name": "Server Initiative 502",
+                    "url": "https://linear.app/alpha/initiative/ini-502"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Initiative:00000000-0000-4000-9000-000000000502",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-000000000502",
+                  "slugId": "INI-502",
+                  "name": "Server Initiative 502",
+                  "url": "https://linear.app/alpha/initiative/ini-502"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c039-invalid-color-before-date",
+  "deviationId": "C039-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Color must be a valid hex code (e.g., #5E6AD2)\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

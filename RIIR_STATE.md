@@ -4,9 +4,9 @@ Updated 2026-09-29. This is the pickup point for the local Rust port, not a rele
 
 ## Current status
 
-- **22/86 original command leaves are implemented (~26%).** C039E0 `initiative create` source evidence and C039P reusable prompt adapter are reviewed local commits; C039A typed Cynic create is next. The remaining 64 leaves, complete-corpus audit, native OS checks, packaging and release remain.
+- **23/86 original command leaves are implemented (~27%).** C039A `initiative create` is complete offline, reviewed and committed locally above C039P. It passes 29/29 scoped parity cases and 11/11 actual-binary QA cases; live create and a committed PTY fixture remain pending. The remaining 63 leaves, complete-corpus audit, native OS checks, packaging and release remain.
 - C038 `initiative view` is complete offline and live: 67/67 scoped replay, 1,332/1,366 integrated replay (34 then-unimplemented leaves, zero failure/drift), `qa-review` 15/15, and exact 527-byte Deno/Rust live UUID JSON. The user-authorized `schpet` initiative is intentionally retained; its private ledger is `untracked/notebook/C038/live-fixture-ledger.md`. **Do not repeat the create or remove its global attempt sentinel.** Manifest QA/live are passed; PTY fixture status remains pending. Live C038 coverage was one name-only, Active, project-less initiative; other resolution/rendering branches rest on offline evidence.
-- The local `rust-port` stack includes C038 live handoff `90e86b19`, the throughput-policy commit and C039P; check `jj log` for the current bookmark. Keep `@` an empty, undescribed scratch between items. `main` is the frozen Deno reference `d4fe6fa7`; nothing has been pushed. Work only in this one jj working copy; do not create workspaces. Check `jj status` before editing.
+- The local `rust-port` stack includes C038 live handoff `90e86b19`, the throughput-policy commit, C039P and C039A; check `jj log` for the current bookmark. Keep `@` an empty, undescribed scratch between items. `main` is the frozen Deno reference `d4fe6fa7`; nothing has been pushed. Work only in this one jj working copy; do not create workspaces. Check `jj status` before editing.
 - **Throughput policy changed 2026-09-29:** for ordinary reads/CRUD, freeze about 15–25 distinct cases, run scoped replay/focused Rust tests/Clippy and per-command QA, and get one Claude whole-diff review. Full replay and full Deno suite run every roughly five newly completed leaves (counter restarted after the C038 full gate), on cross-cutting harness changes, at final integration and before any future push. Batch delete/archive/unarchive, cross-resource comment add/list, and milestone/label/team create/delete. Keep deeper multi-review/evidence treatment for auth, issue start/create/update/pull-request/commits/describe and interactive prompts. Only one Claude/subagent task at a time; medium effort for implementation after approval. See `rust/PLAN.md`.
 
 ## Progress log
@@ -15,6 +15,7 @@ Updated 2026-09-29. This is the pickup point for the local Rust port, not a rele
 - 2026-09-29 — C039E0 29-case source evidence committed as `e1f04f06`; C039P prompt adapter and C039A create remain open.
 - 2026-09-29 — Adopted tiered verification and family batching for the remaining port; append one line here per completed work item instead of rewriting historical narrative.
 - 2026-09-29 — C039P prompt foundation passed focused 15/15, scoped warnings-denied Clippy and confined PTY QA; Sol/Claude corrections ended with Claude SHIP, with no route or live call; see `rust/reviews/C039P.md`.
+- 2026-09-29 — C039A typed `initiative create` passed scoped 29/29, focused 7/7, guard 2/2, actual-binary QA 11/11 and Sol/Claude SHIP; live create remains pending; see `rust/reviews/C039.md`.
 
 ## Historical detailed notes (frozen before the throughput change)
 

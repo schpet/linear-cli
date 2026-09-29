@@ -12,10 +12,10 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, cycle_view, initiative_list, initiative_view,
-    label_list, milestone_list, milestone_view, project_comment_list, project_list,
-    project_update_list, project_view, table, team_id, team_list, team_members, team_states,
-    template_list, template_view, user_list,
+    auth_list, auth_whoami, client, cycle_list, cycle_view, initiative_create, initiative_list,
+    initiative_view, label_list, milestone_list, milestone_view, project_comment_list,
+    project_list, project_update_list, project_view, table, team_id, team_list, team_members,
+    team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -469,6 +469,7 @@ fn dispatch(
         DispatchAction::ProjectUpdateList => dispatch_project_update_list(context, &action),
         DispatchAction::InitiativeList => dispatch_initiative_list(context, &action),
         DispatchAction::InitiativeView => dispatch_initiative_view(context, &action),
+        DispatchAction::InitiativeCreate => dispatch_initiative_create(context, &action),
         DispatchAction::MilestoneList => dispatch_milestone_list(context, &action),
         DispatchAction::MilestoneView => dispatch_milestone_view(context, &action),
         DispatchAction::TeamList => {
@@ -1918,6 +1919,103 @@ fn dispatch_project_update_list(
         }
     })?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_initiative_create(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let mut options = initiative_create::Options {
+        name: action_string(action, "name")?,
+        description: action_string(action, "description")?,
+        status: action_string(action, "status")?,
+        owner: action_string(action, "owner")?,
+        target_date: action_string(action, "target-date")?,
+        color: action_string(action, "color")?,
+        icon: action_string(action, "icon")?,
+        interactive: action_switch(action, "interactive")?,
+    };
+    let config = context.config()?;
+    let credentials = context.credentials()?;
+    let cli_workspace = action
+        .global_workspace
+        .as_ref()
+        .map(|value| value.value.as_str());
+    let inputs = client::selection_inputs(&config.options, cli_workspace)
+        .map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
+    let transport = client::prepare_transport_with_inputs(
+        &config.options,
+        credentials,
+        &inputs,
+        &config.transport_env,
+    )
+    .map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
+    if initiative_create::should_prompt(&options, context.stdout_tty) {
+        context.write_stdout_with_policy(
+            b"\nCreate a new initiative\n\n",
+            OutputPolicy::ConsoleLike,
+        )?;
+        let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+        let prompted = initiative_create::prompt(&mut options, &mut session);
+        let result = match prompted {
+            Ok(outcome) => {
+                session.close()?;
+                outcome
+            }
+            Err(error) => {
+                return Err(match session.close() {
+                    Ok(()) => error,
+                    Err(mut cleanup) => {
+                        cleanup.message.push_str(&format!(
+                            "; prompt also failed: {}",
+                            error.display_message()
+                        ));
+                        cleanup
+                    }
+                });
+            }
+        };
+        match result {
+            initiative_create::PromptResult::Complete => {}
+            initiative_create::PromptResult::Interrupted => {
+                return Ok(ExitStatus::ChildCode(
+                    std::num::NonZeroU8::new(130).ok_or_else(|| {
+                        AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
+                    })?,
+                ));
+            }
+            initiative_create::PromptResult::EndOfInput => {
+                return Err(AppError::new(
+                    AppErrorKind::Validation,
+                    "unexpected EOF while prompting for initiative",
+                ));
+            }
+        }
+    }
+    let status = initiative_create::validate(&options)?;
+    let owner_id = block_on_network(initiative_create::resolve_owner(
+        &transport,
+        options.owner.as_deref(),
+    ))
+    .map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
+    let show_spinner = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = block_on_network(initiative_create::submit_create(
+        &transport, options, status, owner_id,
+    ));
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let result = result.map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
+    context.write_stdout_with_policy(&result, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }
 

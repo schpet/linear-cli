@@ -1,0 +1,55 @@
+{
+  "id": "c039-no-key-before-validation",
+  "route": "linear initiative create",
+  "reason": "no key before validation",
+  "argv": [
+    "initiative",
+    "create",
+    "-s",
+    "bogus"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "referenceModuleUrl"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) Error: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n    throw new Error(\n          ^\n    at getGraphQLClient ({{referenceModuleUrl}}/src/utils/graphql.ts:112:11)\n    at Command.<anonymous> ({{referenceModuleUrl}}/src/commands/initiative/initiative-create.ts:85:20)\n    at Command.execute (https://jsr.io/@cliffy/command/1.0.0/command.ts:2310:41)\n    at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0/command.ts:2126:14)\n    at async {{referenceModuleUrl}}/src/main.ts:4:3\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C039-DIAGNOSTIC",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "eeeb894ea2116a26154372384a160a963218e1d0df60f545b4fd4b30c52eed80"
+  }
+}

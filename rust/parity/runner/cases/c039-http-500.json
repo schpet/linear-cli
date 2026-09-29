@@ -1,0 +1,98 @@
+{
+  "id": "c039-http-500",
+  "route": "linear initiative create",
+  "reason": "http 500",
+  "argv": [
+    "initiative",
+    "create",
+    "-n",
+    "Initiative 708"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to create initiative: GraphQL Error (Code: 500): {\"response\":{\"status\":500,\"headers\":{},\"body\":\"upstream unavailable\"},\"request\":{\"query\":\"mutation CreateInitiative($input: InitiativeCreateInput!) {\\n  initiativeCreate(input: $input) {\\n    success\\n    initiative {\\n      id\\n      slugId\\n      name\\n      url\\n    }\\n  }\\n}\",\"variables\":{\"input\":{\"name\":\"Initiative 708\"}}}}\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C039-DIAGNOSTIC",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "f9d5ea8b81f6f7593d40da071fa67394644a8fdf57a8ed5c924072883410e403"
+  },
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation CreateInitiative($input: InitiativeCreateInput!) {\n    initiativeCreate(input: $input) {\n      success\n      initiative {\n        id\n        slugId\n        name\n        url\n      }\n    }\n  }\n",
+              "variables": {
+                "input": {
+                  "name": "Initiative 708"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 500,
+              "headers": {
+                "content-type": "text/plain"
+              },
+              "body": {
+                "utf8": "upstream unavailable"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

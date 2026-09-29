@@ -10811,7 +10811,7 @@ impl Route {
             Self::InitiativeR69 => super::DispatchAction::ParentPending,
             Self::InitiativeListR70 => super::DispatchAction::InitiativeList,
             Self::InitiativeViewR71 => super::DispatchAction::InitiativeView,
-            Self::InitiativeCreateR72 => super::DispatchAction::Unimplemented,
+            Self::InitiativeCreateR72 => super::DispatchAction::InitiativeCreate,
             Self::InitiativeArchiveR73 => super::DispatchAction::Unimplemented,
             Self::InitiativeUpdateR74 => super::DispatchAction::Unimplemented,
             Self::InitiativeUnarchiveR75 => super::DispatchAction::Unimplemented,

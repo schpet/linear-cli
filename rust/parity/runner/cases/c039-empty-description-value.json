@@ -1,0 +1,57 @@
+{
+  "id": "c039-empty-description-value",
+  "route": "linear initiative create",
+  "reason": "explicit empty description value rejected by Cliffy before action",
+  "argv": [
+    "initiative",
+    "create",
+    "-n",
+    "Roadmap",
+    "-d",
+    ""
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear initiative create\nVersion: 2.6.0                   \n\nDescription:\n\n  Create a new Linear initiative\n\nOptions:\n\n  -h, --help                        - Show this help.                                        \n  --workspace        <slug>         - Target workspace (uses credentials)                    \n  -n, --name         <name>         - Initiative name (required)                             \n  -d, --description  <description>  - Initiative description                                 \n  -s, --status       <status>       - Status: planned, active, completed (default: planned)  \n  -o, --owner        <owner>        - Owner (username, email, or @me for yourself)           \n  --target-date      <targetDate>   - Target completion date (YYYY-MM-DD)                    \n  -c, --color        <color>        - Color hex code (e.g., #5E6AD2)                         \n  --icon             <icon>         - Icon name                                              \n  -i, --interactive                 - Interactive mode (default if no flags provided)        \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Missing value for option \"--description\".\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C039-CLAP-PARSER",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "6e0b37fa898cf6935816ed1386e4263c46f2013034b317960c1810c06ed5ae41"
+  },
+  "configFixture": "workspace-credential"
+}

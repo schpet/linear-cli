@@ -1,0 +1,163 @@
+{
+  "id": "c039-owner-first-fallback",
+  "route": "linear initiative create",
+  "reason": "owner first fallback",
+  "argv": [
+    "initiative",
+    "create",
+    "-n",
+    "Initiative 505",
+    "-o",
+    "ali"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Created initiative: Server Initiative 505\n  Slug: INI-505\n  URL: https://linear.app/alpha/initiative/ini-505\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "9031e387e8b446b9e3da8d910ab995bc783474fd40bce9afab2d7f3c5a67a531"
+  },
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {
+      "Initiative:00000000-0000-4000-9000-000000000505": {
+        "id": "00000000-0000-4000-9000-000000000505",
+        "slugId": "INI-505",
+        "name": "Server Initiative 505",
+        "url": "https://linear.app/alpha/initiative/ini-505"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "users",
+            "operation": {
+              "document": "query LookupUser($input: String!) {\n        users(\n          filter: {\n            or: [\n              { email: { eqIgnoreCase: $input } }\n              { displayName: { eqIgnoreCase: $input } }\n              { name: { containsIgnoreCaseAndAccent: $input } }\n            ]\n          }\n        ) {\n          nodes {\n            id\n            email\n            displayName\n            name\n          }\n        }\n      }\n    ",
+              "variables": {
+                "input": "ali"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "users": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000605",
+                      "email": "x@example.com",
+                      "displayName": "First",
+                      "name": "Alison"
+                    },
+                    {
+                      "id": "00000000-0000-4000-9000-000000000606",
+                      "email": "y@example.com",
+                      "displayName": "Second",
+                      "name": "Alice"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation CreateInitiative($input: InitiativeCreateInput!) {\n    initiativeCreate(input: $input) {\n      success\n      initiative {\n        id\n        slugId\n        name\n        url\n      }\n    }\n  }\n",
+              "variables": {
+                "input": {
+                  "name": "Initiative 505",
+                  "ownerId": "00000000-0000-4000-9000-000000000605"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeCreate": {
+                  "success": true,
+                  "initiative": {
+                    "id": "00000000-0000-4000-9000-000000000505",
+                    "slugId": "INI-505",
+                    "name": "Server Initiative 505",
+                    "url": "https://linear.app/alpha/initiative/ini-505"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Initiative:00000000-0000-4000-9000-000000000505",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-000000000505",
+                  "slugId": "INI-505",
+                  "name": "Server Initiative 505",
+                  "url": "https://linear.app/alpha/initiative/ini-505"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
