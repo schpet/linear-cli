@@ -5,6 +5,7 @@ pub mod completions;
 pub mod cycle_list;
 pub mod cycle_view;
 pub mod display;
+pub mod initiative_list;
 pub mod label_list;
 pub mod milestone_list;
 pub mod milestone_view;

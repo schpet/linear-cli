@@ -10160,8 +10160,8 @@
       "workItem": "C037",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "qaStatus": "passed",
+      "liveStatus": "passed"
     },
     {
       "path": "linear initiative view",

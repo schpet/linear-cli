@@ -4,6 +4,7 @@ mod client;
 mod cycle_list;
 mod cycle_view;
 mod display;
+mod initiative_list;
 mod label_list;
 mod milestone_list;
 mod milestone_view;

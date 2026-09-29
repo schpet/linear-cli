@@ -1,0 +1,153 @@
+{
+  "formatVersion": 2,
+  "caseId": "c037-first-page-repeat-cursor-proposal",
+  "deviationId": "C037-ALL-PAGES",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "graphql-fixture",
+    "graphql-user-agent",
+    "exit",
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to fetch initiatives: Linear repeated an initiative pagination cursor on page 3\n  Retry the command.\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "graphqlPages": {
+      "kind": "append-initiative-pages",
+      "retainedSteps": [
+        "initiatives"
+      ],
+      "appendedSteps": [
+        {
+          "id": "initiatives-page-2",
+          "operation": {
+            "document": "query GetInitiativesPage($filter: InitiativeFilter, $includeArchived: Boolean, $after: String) {\n  initiatives(filter: $filter, includeArchived: $includeArchived, after: $after) {\n    nodes { id slugId name description status targetDate health color icon url archivedAt\n      owner { id displayName initials }\n      projects { nodes { id name status { name } } }\n    }\n    pageInfo { hasNextPage endCursor }\n  }\n}",
+            "operationName": "GetInitiativesPage",
+            "variables": {
+              "filter": {
+                "status": {
+                  "eq": "Active"
+                }
+              },
+              "includeArchived": false,
+              "after": "cycle-a"
+            }
+          },
+          "response": {
+            "kind": "data",
+            "data": {
+              "initiatives": {
+                "nodes": [
+                  {
+                    "id": "00000000-0000-4000-9000-000000000002",
+                    "slugId": "INI-2",
+                    "name": "Page 2 initiative",
+                    "description": "Description 1",
+                    "status": "Active",
+                    "targetDate": "2999-01-01",
+                    "health": "onTrack",
+                    "color": "#123456",
+                    "icon": "🎯",
+                    "url": "https://linear.app/alpha/initiative/ini-1",
+                    "archivedAt": null,
+                    "owner": {
+                      "id": "00000000-0000-4000-9000-000000000501",
+                      "displayName": "Alice A",
+                      "initials": "AA"
+                    },
+                    "projects": {
+                      "nodes": [
+                        {
+                          "id": "00000000-0000-4000-9000-000000000601",
+                          "name": "Project 1",
+                          "status": {
+                            "name": "Started"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "pageInfo": {
+                  "hasNextPage": true,
+                  "endCursor": "cycle-b"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "initiatives-page-3",
+          "operation": {
+            "document": "query GetInitiativesPage($filter: InitiativeFilter, $includeArchived: Boolean, $after: String) {\n  initiatives(filter: $filter, includeArchived: $includeArchived, after: $after) {\n    nodes { id slugId name description status targetDate health color icon url archivedAt\n      owner { id displayName initials }\n      projects { nodes { id name status { name } } }\n    }\n    pageInfo { hasNextPage endCursor }\n  }\n}",
+            "operationName": "GetInitiativesPage",
+            "variables": {
+              "filter": {
+                "status": {
+                  "eq": "Active"
+                }
+              },
+              "includeArchived": false,
+              "after": "cycle-b"
+            }
+          },
+          "response": {
+            "kind": "data",
+            "data": {
+              "initiatives": {
+                "nodes": [
+                  {
+                    "id": "00000000-0000-4000-9000-000000000003",
+                    "slugId": "INI-3",
+                    "name": "Page 3 initiative",
+                    "description": "Description 1",
+                    "status": "Active",
+                    "targetDate": "2999-01-01",
+                    "health": "onTrack",
+                    "color": "#123456",
+                    "icon": "🎯",
+                    "url": "https://linear.app/alpha/initiative/ini-1",
+                    "archivedAt": null,
+                    "owner": {
+                      "id": "00000000-0000-4000-9000-000000000501",
+                      "displayName": "Alice A",
+                      "initials": "AA"
+                    },
+                    "projects": {
+                      "nodes": [
+                        {
+                          "id": "00000000-0000-4000-9000-000000000601",
+                          "name": "Project 1",
+                          "status": {
+                            "name": "Started"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "pageInfo": {
+                  "hasNextPage": true,
+                  "endCursor": "cycle-a"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "expectedRequests": 3
+    }
+  }
+}

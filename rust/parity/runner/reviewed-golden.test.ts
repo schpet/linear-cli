@@ -2099,7 +2099,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   )
   // This count also guards older GraphQL fixtures without cohort tests.
   // Update it when adding reviewed command cases.
-  assertEquals(graphql.length, 725)
+  assertEquals(graphql.length, 781)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -2318,7 +2318,10 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     referenceModuleUrl: "file:///reference",
   }
   for (const loaded of graphql) {
-    assertEquals(loaded.golden?.spec.candidate.graphqlUserAgent, USER_AGENT)
+    assertEquals(
+      (loaded.golden ?? loaded.goldenV2)?.spec.candidate.graphqlUserAgent,
+      USER_AGENT,
+    )
     if (loaded.spec.id.startsWith("c022-")) {
       assertEquals(
         loaded.spec.deviation?.id,
@@ -2344,7 +2347,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       !loaded.spec.id.startsWith("c030-") &&
       !loaded.spec.id.startsWith("c031-") &&
       !loaded.spec.id.startsWith("c027-") &&
-      !loaded.spec.id.startsWith("c035-")
+      !loaded.spec.id.startsWith("c035-") &&
+      !loaded.spec.id.startsWith("c037-")
     ) {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
@@ -2364,6 +2368,12 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
             ? ["exit", "stdout", "stderr", "graphql-user-agent"]
             : ["graphql-user-agent"]),
       )
+    }
+    if (loaded.spec.id.startsWith("c037-")) {
+      // C037's four v2 cases append one or two pages (2-3 requests total).
+      // Its guard pins exact surfaces, no argv, and the sole allowed empty
+      // v1 GraphQL delta; P02's focused tests verify page projection.
+      continue
     }
     const frozen = resolveCase(loaded.spec, substitutions).graphql
     const candidate = resolveCase(

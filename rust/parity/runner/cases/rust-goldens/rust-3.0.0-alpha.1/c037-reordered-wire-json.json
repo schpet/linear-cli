@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c037-reordered-wire-json",
+  "deviationId": "C037-TYPED-JSON",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-9000-000000000046\",\n      \"slugId\": \"INI-46\",\n      \"name\": \"Initiative 46\",\n      \"description\": \"Description 46\",\n      \"status\": \"Active\",\n      \"targetDate\": \"2999-01-01\",\n      \"health\": \"onTrack\",\n      \"color\": \"#123456\",\n      \"icon\": \"🎯\",\n      \"url\": \"https://linear.app/alpha/initiative/ini-46\",\n      \"archivedAt\": null,\n      \"owner\": {\n        \"id\": \"00000000-0000-4000-9000-000000000546\",\n        \"displayName\": \"Alice A\",\n        \"initials\": \"AA\"\n      },\n      \"projects\": {\n        \"nodes\": [\n          {\n            \"id\": \"00000000-0000-4000-9000-000000000646\",\n            \"name\": \"Project 46\",\n            \"status\": {\n              \"name\": \"Started\"\n            }\n          }\n        ]\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

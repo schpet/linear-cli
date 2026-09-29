@@ -1,0 +1,159 @@
+{
+  "id": "c037-wide-unicode-text",
+  "route": "linear initiative list",
+  "reason": "wide unicode text",
+  "argv": [
+    "initiative",
+    "list"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "SLUG   NAME                                             STATUS HEALTH  OWNER PROJ TARGET    \nINI-39 éééééééééééééééééééééééé                         Active onTrack AA    1    2999-01-01\nINI-38 界界界界界界界界界界界界界界界界界界界界界界界界 Active onTrack AA    1    2999-01-01\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "b0557cfbf5b25ab9fae591b352dc8f8030ea6336267aba468fdb535d195b94c6"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "initiatives",
+            "operation": {
+              "document": "query GetInitiatives($filter: InitiativeFilter, $includeArchived: Boolean) {\n  initiatives(filter: $filter, includeArchived: $includeArchived) {\n    nodes { id slugId name description status targetDate health color icon url archivedAt\n      owner { id displayName initials }\n      projects { nodes { id name status { name } } }\n    }\n    pageInfo { hasNextPage endCursor }\n  }\n}",
+              "variables": {
+                "filter": {
+                  "status": {
+                    "eq": "Active"
+                  }
+                },
+                "includeArchived": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000038",
+                      "slugId": "INI-38",
+                      "name": "界界界界界界界界界界界界界界界界界界界界界界界界",
+                      "description": "Description 38",
+                      "status": "Active",
+                      "targetDate": "2999-01-01",
+                      "health": "onTrack",
+                      "color": "#123456",
+                      "icon": "🎯",
+                      "url": "https://linear.app/alpha/initiative/ini-38",
+                      "archivedAt": null,
+                      "owner": {
+                        "id": "00000000-0000-4000-9000-000000000538",
+                        "displayName": "Alice A",
+                        "initials": "AA"
+                      },
+                      "projects": {
+                        "nodes": [
+                          {
+                            "id": "00000000-0000-4000-9000-000000000638",
+                            "name": "Project 38",
+                            "status": {
+                              "name": "Started"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "00000000-0000-4000-9000-000000000039",
+                      "slugId": "INI-39",
+                      "name": "éééééééééééééééééééééééé",
+                      "description": "Description 39",
+                      "status": "Active",
+                      "targetDate": "2999-01-01",
+                      "health": "onTrack",
+                      "color": "#123456",
+                      "icon": "🎯",
+                      "url": "https://linear.app/alpha/initiative/ini-39",
+                      "archivedAt": null,
+                      "owner": {
+                        "id": "00000000-0000-4000-9000-000000000539",
+                        "displayName": "Alice A",
+                        "initials": "AA"
+                      },
+                      "projects": {
+                        "nodes": [
+                          {
+                            "id": "00000000-0000-4000-9000-000000000639",
+                            "name": "Project 39",
+                            "status": {
+                              "name": "Started"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

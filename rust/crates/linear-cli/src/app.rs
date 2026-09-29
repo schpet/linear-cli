@@ -12,9 +12,10 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, cycle_view, label_list, milestone_list,
-    milestone_view, project_comment_list, project_list, project_update_list, project_view, table,
-    team_id, team_list, team_members, team_states, template_list, template_view, user_list,
+    auth_list, auth_whoami, client, cycle_list, cycle_view, initiative_list, label_list,
+    milestone_list, milestone_view, project_comment_list, project_list, project_update_list,
+    project_view, table, team_id, team_list, team_members, team_states, template_list,
+    template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -466,6 +467,7 @@ fn dispatch(
         DispatchAction::ProjectView => dispatch_project_view(context, &action),
         DispatchAction::ProjectCommentList => dispatch_project_comment_list(context, &action),
         DispatchAction::ProjectUpdateList => dispatch_project_update_list(context, &action),
+        DispatchAction::InitiativeList => dispatch_initiative_list(context, &action),
         DispatchAction::MilestoneList => dispatch_milestone_list(context, &action),
         DispatchAction::MilestoneView => dispatch_milestone_view(context, &action),
         DispatchAction::TeamList => {
@@ -1914,6 +1916,94 @@ fn dispatch_project_update_list(
             error.with_context(project_update_list::CONTEXT)
         }
     })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_initiative_list(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let options = initiative_list::Options {
+        status: action_string(action, "status")?,
+        all_statuses: action_switch(action, "all-statuses")?,
+        owner: action_string(action, "owner")?,
+        web: action_switch(action, "web")?,
+        app: action_switch(action, "app")?,
+        json: action_switch(action, "json")?,
+        archived: action_switch(action, "archived")?,
+    };
+    let cli_workspace = action
+        .global_workspace
+        .as_ref()
+        .map(|value| value.value.as_str());
+    if options.web || options.app {
+        let config = context.config()?;
+        let workspace = match config
+            .options
+            .workspace()
+            .map(|value| value.value().clone())
+            .filter(|value| !value.is_empty())
+        {
+            Some(workspace) => workspace,
+            None => {
+                let credentials = context
+                    .credentials()
+                    .map_err(|error| error.with_context(initiative_list::OPEN_CONTEXT))?;
+                let inputs = client::selection_inputs(&config.options, cli_workspace)
+                    .map_err(|error| error.with_context(initiative_list::OPEN_CONTEXT))?;
+                let transport = client::prepare_transport_with_inputs(
+                    &config.options,
+                    credentials,
+                    &inputs,
+                    &config.transport_env,
+                )
+                .map_err(|error| error.with_context(initiative_list::OPEN_CONTEXT))?;
+                block_on_network(initiative_list::viewer_workspace(&transport))
+                    .map_err(|error| error.with_context(initiative_list::OPEN_CONTEXT))?
+            }
+        };
+        let (url, opening) = initiative_list::opening(&workspace, options.app);
+        context.write_stdout_with_policy(&opening, OutputPolicy::ConsoleLike)?;
+        initiative_list::open(&url, options.app)?;
+        return Ok(ExitStatus::Success);
+    }
+
+    let show_spinner = spinner::enabled(
+        options.json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = (|| {
+        let status =
+            initiative_list::status_filter(options.status.as_deref(), options.all_statuses)?;
+        initiative_list::validate_owner(options.owner.as_deref())?;
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let transport = client::prepare_transport(
+            &config.options,
+            credentials,
+            cli_workspace,
+            &config.transport_env,
+        )?;
+        block_on_network(initiative_list::run(
+            &transport,
+            status.as_deref(),
+            options.owner.as_deref(),
+            options.archived,
+            options.json,
+            table::stdout_columns(context.stdout_tty),
+            context.stdout_tty && !context.no_color(),
+        ))
+    })();
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = result.map_err(|error| error.with_context(initiative_list::FETCH_CONTEXT))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

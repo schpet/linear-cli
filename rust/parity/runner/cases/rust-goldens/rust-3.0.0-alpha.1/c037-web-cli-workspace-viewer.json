@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c037-web-cli-workspace-viewer",
+  "deviationId": "C037-OPEN-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": "Opening https://linear.app/viewer-beta/initiatives in web browser\n"
+      },
+      "stderr": {
+        "utf8": "✗ Failed to open initiatives: Failed to spawn 'xdg-open': entity not found\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}
