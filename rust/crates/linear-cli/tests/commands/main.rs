@@ -13,6 +13,7 @@ mod initiative_view;
 mod label_list;
 mod milestone_create;
 mod milestone_list;
+mod milestone_update;
 mod milestone_view;
 mod project_comment_list;
 mod project_list;

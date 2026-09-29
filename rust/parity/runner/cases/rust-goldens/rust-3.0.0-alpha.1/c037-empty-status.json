@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c037-empty-status",
-  "deviationId": "C037-CLAP-PARSER",
+  "deviationId": "CLAP-NATIVE-PARSER",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear initiative list\nVersion: 3.0.0-alpha.1         \n\nDescription:\n\n  List initiatives\n\nOptions:\n\n  -h, --help                - Show this help.                                \n  --workspace     <slug>    - Target workspace (uses credentials)            \n  -s, --status    <status>  - Filter by status (active, planned, completed)  \n  --all-statuses            - Show all statuses (default: active only)       \n  -o, --owner     <owner>   - Filter by owner (username or email)            \n  -w, --web                 - Open initiatives page in web browser           \n  -a, --app                 - Open initiatives page in Linear.app            \n  -j, --json                - Output as JSON                                 \n  --archived                - Include archived initiatives                   \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Missing value for option \"--status\".\n\n"
+        "utf8": "error: invalid value '' for '--status <status>': expected a nonempty value\n"
       },
       "fileEffects": []
     }

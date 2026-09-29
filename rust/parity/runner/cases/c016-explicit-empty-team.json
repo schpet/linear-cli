@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-EXPLICIT-EMPTY-TEAM",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "90978547b5e646a14ea83aebffe9dcb01c47ee4ea14a3f2f2bf9cac15908ae64"
-  },
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "dd076e212bbc5d1a525a9a79fba9479af0d65972f5869b9b1f4d2ebcb99427dd"},
   "id": "c016-explicit-empty-team",
   "reason": "Frozen Deno rejects an explicitly empty --team value in Cliffy's parser (exit 2, help) before the action; Rust v3 also rejects it as invalid input, with different parser/error bytes.",
   "argv": [

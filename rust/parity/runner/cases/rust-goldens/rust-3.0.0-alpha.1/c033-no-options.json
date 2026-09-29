@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c033-no-options",
+  "deviationId": "C033-NO-OPTIONS-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ At least one update option must be provided\n  Use --name, --description, --target-date, --sort-order, or --project\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

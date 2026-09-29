@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -9,7 +10,7 @@ const frozenRoot = new URL("./c030-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "8a4c08d7f119f513b27dec68a93a29d95cf03e69cd93ddd263c96b9721c14c41"
+  "315e04ef659eb0eb341e6b20d56821c0c3e2597d34fbd5c81dd85be04d153c55"
 const pointer =
   /"deviation": \{"id": "[A-Z0-9-]+", "contract": "rust-3\.0\.0-alpha\.1", "sha256": "[0-9a-f]{64}"\}/
 
@@ -178,8 +179,9 @@ Deno.test("C030 main cases preserve all 93 frozen inputs and fixtures", async ()
     const candidate = parseCase(JSON.parse(promoted), name)
     assertEquals(source.deviation, null, name)
     if (source.graphql != null) graphql++
-    const id = special.get(source.id)?.[0] ??
-      (source.graphql == null ? null : "R01H-GRAPHQL-UA")
+    const id =
+      (nativeParserContract(source.id) ?? special.get(source.id))?.[0] ??
+        (source.graphql == null ? null : "R01H-GRAPHQL-UA")
     assertEquals(candidate.deviation?.id ?? null, id, name)
     const restored = id == null
       ? promoted
@@ -239,7 +241,7 @@ Deno.test("C030 v3 goldens bind exact cases, surfaces and bundle", async () => {
   const lines: string[] = []
   for (const entry of loaded) {
     const id = entry.spec.id
-    const expected = special.get(id) ??
+    const expected = nativeParserContract(id) ?? special.get(id) ??
       (entry.spec.graphql == null ? null : ["R01H-GRAPHQL-UA", [
         "graphql-user-agent",
       ]])

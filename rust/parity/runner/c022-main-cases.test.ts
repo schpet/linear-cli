@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { sha256Hex } from "./bytes.ts"
@@ -8,7 +9,7 @@ const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const contract = "rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "dad41ff6f8dda31dbf84076434d63c5e12910b4928adc57b4db2c3f7fb1e8700"
+  "2ebd0f258cf8ded5a68cd1a8c46fcf07cc6e0358209a403856c8e6a0c60bbc95"
 const specific = new Map<string, [string, string[]]>([
   ["c022-alias-help", ["C022-CLI-VERSION", ["stdout"]]],
   ["c022-bad-option", ["C022-CLI-VERSION", ["stdout"]]],
@@ -119,7 +120,7 @@ Deno.test("C022 main cases retain all 102 frozen Deno inputs and fixture bytes",
     const promoted = parseCase(JSON.parse(candidate), name)
     assertEquals(frozen.deviation, null, name)
     if (frozen.graphql != null) graphqlCount++
-    const expected = specific.get(frozen.id)
+    const expected = nativeParserContract(frozen.id) ?? specific.get(frozen.id)
     const expectedId = expected?.[0] ??
       (frozen.graphql == null ? null : "R01H-GRAPHQL-UA")
     assertEquals(promoted.deviation?.id ?? null, expectedId, name)
@@ -170,7 +171,7 @@ Deno.test("C022 reviewed v3 goldens are exact and case-scoped", async () => {
       JSON.parse(new TextDecoder().decode(bytes)),
       goldenName,
     )
-    const expected = specific.get(source.id)
+    const expected = nativeParserContract(source.id) ?? specific.get(source.id)
     assertEquals(golden.caseId, source.id)
     assertEquals(golden.deviationId, source.deviation.id)
     assertEquals(golden.contract, contract)

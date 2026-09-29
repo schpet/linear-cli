@@ -7,7 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {"id": "C022-CLI-VERSION", "contract": "rust-3.0.0-alpha.1", "sha256": "487498e6a6f6a631ec582d8c804ad35b025251c8906b7de45b10b8d5b778c2f3"},
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "4da3ba3da51ad751e17648d230241780de734af3420dd17fedfbf5f7f2c64c5a"},
   "env": {
     "HOME": "{{home}}",
     "XDG_CONFIG_HOME": "{{configHome}}",

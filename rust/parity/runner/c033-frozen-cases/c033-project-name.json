@@ -1,0 +1,177 @@
+{
+  "id": "c033-project-name",
+  "route": "linear milestone update",
+  "reason": "Exact project name resolves once before move",
+  "argv": [
+    "milestone",
+    "update",
+    "00000000-0000-4000-9000-000000003301",
+    "--project",
+    "Mobile App"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Updated milestone: Existing\n  ID: 00000000-0000-4000-9000-000000003301\n  Target Date: 2026-10-01\n  Sort Order: 5\n  Project: Mobile App\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {
+      "ProjectMilestone:00000000-0000-4000-9000-000000003301": {
+        "id": "00000000-0000-4000-9000-000000003301",
+        "name": "Existing",
+        "description": "Keep description",
+        "targetDate": "2026-10-01",
+        "sortOrder": 5,
+        "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+        "untouched": "preserve me"
+      }
+    },
+    "expectedRecords": {
+      "ProjectMilestone:00000000-0000-4000-9000-000000003301": {
+        "id": "00000000-0000-4000-9000-000000003301",
+        "name": "Existing",
+        "description": "Keep description",
+        "targetDate": "2026-10-01",
+        "sortOrder": 5,
+        "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+        "untouched": "preserve me"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "by-name",
+            "operation": {
+              "document": "query GetProjectIdByName($name: String!) { projects(filter: { name: { eq: $name } }) { nodes { id } } }",
+              "variables": {
+                "name": "Mobile App"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "update",
+            "operation": {
+              "document": "mutation UpdateProjectMilestone($id: String!, $input: ProjectMilestoneUpdateInput!) {\n    projectMilestoneUpdate(id: $id, input: $input) {\n      success\n      projectMilestone {\n        id\n        name\n        targetDate\n        sortOrder\n        project {\n          id\n          name\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000003301",
+                "input": {
+                  "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projectMilestoneUpdate": {
+                  "success": true,
+                  "projectMilestone": {
+                    "id": "00000000-0000-4000-9000-000000003301",
+                    "name": "Existing",
+                    "targetDate": "2026-10-01",
+                    "sortOrder": 5,
+                    "project": {
+                      "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                      "name": "Mobile App"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "ProjectMilestone:00000000-0000-4000-9000-000000003301",
+                "before": {
+                  "value": {
+                    "id": "00000000-0000-4000-9000-000000003301",
+                    "name": "Existing",
+                    "description": "Keep description",
+                    "targetDate": "2026-10-01",
+                    "sortOrder": 5,
+                    "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                    "untouched": "preserve me"
+                  }
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-000000003301",
+                  "name": "Existing",
+                  "description": "Keep description",
+                  "targetDate": "2026-10-01",
+                  "sortOrder": 5,
+                  "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "untouched": "preserve me"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

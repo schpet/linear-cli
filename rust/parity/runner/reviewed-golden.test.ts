@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { join } from "@std/path"
 import { CASE_ROOT_PARENT, prepareConfinement } from "./bwrap.ts"
@@ -2099,8 +2100,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   )
   // This count also guards older GraphQL fixtures without cohort tests.
   // Update it when adding reviewed command cases.
-  // C039/C048/C043/C054/C032 add 15/22/20/18/17 typed GraphQL cases.
-  assertEquals(graphql.length, 924)
+  // C039/C048/C043/C054/C032/C033 add 15/22/20/18/17/17 typed GraphQL cases.
+  assertEquals(graphql.length, 941)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -2324,6 +2325,25 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     referenceModuleUrl: "file:///reference",
   }
   for (const loaded of graphql) {
+    // This closed SHA-bound native parser cohort has its own guard. Keep
+    // source fixtures intact and explicitly assert candidate requests/effects.
+    const native = nativeParserContract(loaded.spec.id)
+    if (native != null) {
+      assertEquals(loaded.golden?.spec.deviationId, native[0])
+      assertEquals(loaded.golden?.spec.approvedSurfaces, native[1])
+      const candidate = candidateCaseView(loaded)
+      if (loaded.spec.graphql != null) {
+        assertEquals(loaded.golden?.spec.candidate.graphqlUserAgent, USER_AGENT)
+        assertEquals(candidate.spec.graphql?.expectedRequests, 0)
+        assertEquals(candidate.spec.graphql?.groups, [])
+        assertEquals(
+          candidate.spec.graphql?.expectedRecords,
+          loaded.spec.graphql.initialRecords,
+        )
+      }
+      continue
+    }
+
     assertEquals(
       (loaded.golden ?? loaded.goldenV2)?.spec.candidate.graphqlUserAgent,
       USER_AGENT,
@@ -2355,7 +2375,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       !loaded.spec.id.startsWith("c027-") &&
       !loaded.spec.id.startsWith("c035-") &&
       !loaded.spec.id.startsWith("c037-") &&
-      !/^c0(38|39|48|43|54|32)-/.test(loaded.spec.id)
+      !/^c0(38|39|48|43|54|32|33)-/.test(loaded.spec.id)
     ) {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,

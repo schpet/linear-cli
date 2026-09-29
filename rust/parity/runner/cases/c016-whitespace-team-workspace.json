@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-WHITESPACE-TEAM-WORKSPACE",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "e09207a92c9c3de0cbe099185058ea5240fcc4f1e2f9286cef6839f3fa2a5d97"
-  },
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "32327b35c193f0ee01d02827ce98ad23b7b659e4d7ffc4ed702fef5fa489a0d1"},
   "id": "c016-whitespace-team-workspace",
   "reason": "Frozen Deno local workspace filter wins over a whitespace explicit team and reaches label fetch; Rust v3 rejects the invalid explicit team before filter precedence.",
   "argv": [

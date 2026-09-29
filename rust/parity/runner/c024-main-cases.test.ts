@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -114,7 +115,8 @@ Deno.test("C024 goldens pin only reviewed Rust differences", async () => {
   assertEquals(loaded.filter((entry) => entry.golden != null).length, 40)
   assertEquals(specific.size, 12)
   for (const entry of loaded) {
-    const exceptional = specific.get(entry.spec.id)
+    const exceptional = nativeParserContract(entry.spec.id) ??
+      specific.get(entry.spec.id)
     const id = exceptional?.[0] ??
       (entry.spec.graphql == null ? null : "C024-GRAPHQL-UA")
     const surfaces = exceptional?.[1] ??

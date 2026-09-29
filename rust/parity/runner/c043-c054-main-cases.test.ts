@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -57,6 +58,10 @@ for (const [prefix, count, entity] of leaves) {
       } else if (source.id.endsWith("-missing-required-body")) {
         deviation = `${prefix.toUpperCase()}-STRICT-COMMENT-DECODE`
         surfaces = ["exit", "stdout", "stderr", "graphql-user-agent"]
+      }
+      const native = nativeParserContract(source.id)
+      if (native != null) {
+        ;[deviation, surfaces] = native
       }
       assertEquals(entry.spec.deviation?.id ?? null, deviation)
       assertEquals(entry.golden?.spec.deviationId ?? null, deviation)

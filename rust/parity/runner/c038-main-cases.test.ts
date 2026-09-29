@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assert, assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -9,7 +10,7 @@ const frozenRoot = new URL("./c038-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "b139e215ab1d1d0fdc28bc0fcec26bae08e13b4887926b7259fc8819e03fb0f0"
+  "52df61cff5f71d239a550a7de1357521db16e0d1bc1a901d3121dc753bb11ecc"
 
 const categories: Record<string, string[]> = {
   "C038-CLAP-PARSER": [
@@ -147,7 +148,7 @@ Deno.test("C038 goldens bind only named v3 surfaces and the exact 67-file bundle
   const lines: string[] = []
   for (const entry of loaded) {
     const id = entry.spec.id
-    const category = categoryById.get(id)
+    const category = nativeParserContract(id)?.[0] ?? categoryById.get(id)
     assert(category != null, `unknown C038 category ${id}`)
     const golden = entry.golden
     assert(golden != null, `missing v1 golden ${id}`)

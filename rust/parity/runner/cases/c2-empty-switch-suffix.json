@@ -44,9 +44,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "R01C2-EMPTY-SWITCH-SUFFIX",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "847bf5e08254e2b6e695ddc0fac002c973102a8683311a2832ac30827c2385f8"
-  }
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "2ce740f0b898f6245ea8f31ee2999205a3eba46c52a35c41ac7a45dd896b2e81"}
 }

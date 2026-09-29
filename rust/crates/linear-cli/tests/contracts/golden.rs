@@ -20,7 +20,8 @@ pub fn expected_for_case(id: &str, case: &Value) -> Value {
     assert!(
         matches!(
             deviation_id,
-            "R01V-CLI-VERSION"
+            "CLAP-NATIVE-PARSER"
+                | "R01V-CLI-VERSION"
                 | "R01C2-LABEL-LIST-HELP"
                 | "R01C2-WORKSPACE-HELP-VALUE"
                 | "R01C2-BULK-HELP-PRECEDENCE"

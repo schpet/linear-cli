@@ -7,7 +7,7 @@ const frozenRoot = new URL("./c015-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "d71af58535397c0ac2157a5b55116279cb16cf80f364e1fa162178eea8163a14"
+  "6de4af0da96714c049b09a90571b675d21dcbd0d17591e2e39eaa913e79ce99b"
 
 Deno.test("C015 main cases retain all frozen Deno inputs and the private fixture", async () => {
   const frozenNames: string[] = []

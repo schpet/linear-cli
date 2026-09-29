@@ -1,11 +1,10 @@
 {
   "formatVersion": 1,
   "caseId": "c2-empty-switch-suffix",
-  "deviationId": "R01C2-EMPTY-SWITCH-SUFFIX",
+  "deviationId": "CLAP-NATIVE-PARSER",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "exit",
-    "stdout",
     "stderr"
   ],
   "candidate": {
@@ -14,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear issue view \u001b[33m[\u001b[95m\u001b[95missueId\u001b[95m\u001b[33m]\u001b[95m\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m              \n\n\u001b[1mDescription:\u001b[22m\n\n  View issue details (default) or open in browser/app\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m                       \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                                 \n  \u001b[94m--workspace\u001b[39m              \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)             \n  \u001b[94m-w\u001b[39m, \u001b[94m--web\u001b[39m                        \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Open in web browser                             \n  \u001b[94m-a\u001b[39m, \u001b[94m--app\u001b[39m                        \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Open in Linear.app                              \n  \u001b[94m--no-comments\u001b[39m                    \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Exclude comments from the output                \n  \u001b[94m--show-resolved-threads\u001b[39m          \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Include resolved comment threads in the output  \n  \u001b[94m--no-pager\u001b[39m                       \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Disable automatic paging for long output        \n  \u001b[94m-j\u001b[39m, \u001b[94m--json\u001b[39m                       \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Output issue data as JSON                       \n  \u001b[94m--no-download\u001b[39m                    \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Keep remote URLs instead of downloading files   \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "\u001b[31m  \u001b[1merror\u001b[22m: Option \"--json\" doesn't take a value, but got \"\".\n\u001b[39m\n"
+        "utf8": "error: unexpected value '' for '--json' found; no more were expected\n\nUsage: linear issue view --json [issueId]\n"
       },
       "fileEffects": []
     }

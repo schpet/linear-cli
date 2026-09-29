@@ -14,9 +14,9 @@ use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, cycle_view, document_comment_list,
     initiative_comment_list, initiative_create, initiative_list, initiative_update_list,
-    initiative_view, label_list, milestone_create, milestone_list, milestone_view,
-    project_comment_list, project_list, project_update_list, project_view, table, team_id,
-    team_list, team_members, team_states, template_list, template_view, user_list,
+    initiative_view, label_list, milestone_create, milestone_list, milestone_update,
+    milestone_view, project_comment_list, project_list, project_update_list, project_view, table,
+    team_id, team_list, team_members, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -478,6 +478,7 @@ fn dispatch(
         DispatchAction::MilestoneList => dispatch_milestone_list(context, &action),
         DispatchAction::MilestoneView => dispatch_milestone_view(context, &action),
         DispatchAction::MilestoneCreate => dispatch_milestone_create(context, &action),
+        DispatchAction::MilestoneUpdate => dispatch_milestone_update(context, &action),
         DispatchAction::TeamList => {
             let flags = team_list::Options {
                 json: action_switch(&action, "json")?,
@@ -1861,11 +1862,11 @@ fn dispatch_project_update_list(
     let first = match action.option("limit") {
         None => 10,
         Some(option) => match option.value.value {
-            OptionValue::Number(value) => project_update_list::graphql_int(value)?,
+            OptionValue::PositiveInteger(value) => project_update_list::graphql_int(value)?,
             _ => {
                 return Err(AppError::new(
                     AppErrorKind::Invariant,
-                    "project update limit was not numeric",
+                    "project update limit was not a positive integer",
                 ));
             }
         },
@@ -2033,11 +2034,11 @@ fn dispatch_initiative_update_list(
     let first = match action.option("limit") {
         None => 10,
         Some(option) => match option.value.value {
-            OptionValue::Number(value) => initiative_update_list::graphql_int(value)?,
+            OptionValue::PositiveInteger(value) => initiative_update_list::graphql_int(value)?,
             _ => {
                 return Err(AppError::new(
                     AppErrorKind::Invariant,
-                    "initiative update limit was not numeric",
+                    "initiative update limit was not a positive integer",
                 ));
             }
         },
@@ -2498,6 +2499,127 @@ fn dispatch_milestone_create(
     Ok(ExitStatus::Success)
 }
 
+fn dispatch_milestone_update(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let id = action
+        .positionals
+        .first()
+        .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "milestone update received no id"))?;
+    crate::refs::reject_linear_url(id, "a milestone UUID")
+        .map_err(|error| error.with_context(milestone_update::CONTEXT))?;
+    let sort_order = match action.option("sort-order") {
+        None => None,
+        Some(option) => match option.value.value {
+            OptionValue::Number(value) => Some(value),
+            _ => {
+                return Err(AppError::new(
+                    AppErrorKind::Invariant,
+                    "milestone update sort-order was not a number",
+                ));
+            }
+        },
+    };
+    let mut options = milestone_update::Options {
+        name: action_string(action, "name")?,
+        description: action_string(action, "description")?,
+        target_date: action_string(action, "target-date")?,
+        sort_order,
+        project_id: action_string(action, "project")?,
+    };
+    // The source throws this outside its catch, before spinner/config/client.
+    options.require_update()?;
+    let show_spinner = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let workspace = action
+            .global_workspace
+            .as_ref()
+            .map(|value| value.value.as_str());
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        // Source constructs the client before validating an optional project.
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        let reference = options
+            .project_id
+            .as_ref()
+            .filter(|value| !value.is_empty())
+            .map(|original| {
+                prepare_project_lookup(
+                    original,
+                    &WorkspaceScope::from_selection(&inputs, credentials),
+                )
+            })
+            .transpose()?;
+        Ok::<_, AppError>((reference, transport))
+    })();
+    let (reference, transport) = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(error.with_context(milestone_update::CONTEXT));
+        }
+    };
+    let update = async {
+        if let Some(reference) = reference {
+            let original = options.project_id.as_ref().ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Invariant,
+                    "prepared project has no original reference",
+                )
+            })?;
+            options.project_id =
+                Some(resolve_project_with_transport(&reference, original, &transport).await?);
+        }
+        milestone_update::submit(&transport, id, &options).await
+    };
+    let result = if show_spinner {
+        block_on_network(async {
+            tokio::pin!(update);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut update => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(update)
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = result.map_err(|error| error.with_context(milestone_update::CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
 fn action_switch(action: &ParsedAction, name: &str) -> Result<bool, AppError> {
     match action.option(name) {
         None => Ok(false),
@@ -2542,6 +2664,34 @@ pub fn write_final_error(
     context: &mut AppContext<'_>,
     error: &AppError,
 ) -> Result<ExitStatus, AppError> {
+    if let Some(native) = error.native_parser_error() {
+        let use_stderr = native.use_stderr();
+        // clap was built without its color feature. Preserve its native
+        // rendering rather than applying our handled-error ANSI wrapper.
+        let text = native.render().to_string();
+        if use_stderr {
+            write_stderr(context, text.as_bytes())?;
+        } else {
+            write_stdout(context, text.as_bytes())?;
+        }
+        let code = u8::try_from(native.exit_code()).map_err(|error| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                "clap exit code does not fit process status",
+            )
+            .with_source(error)
+        })?;
+        return Ok(match code {
+            0 => ExitStatus::Success,
+            2 => ExitStatus::UsageFailure,
+            _ => ExitStatus::ChildCode(std::num::NonZeroU8::new(code).ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Invariant,
+                    "nonzero clap exit code became zero",
+                )
+            })?),
+        });
+    }
     if let AppErrorKind::Usage { route } = error.kind {
         return write_usage_error(context, error, route);
     }

@@ -46,5 +46,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id": "C030-REPEATED-SWITCH-SPELLING", "contract": "rust-3.0.0-alpha.1", "sha256": "a47a5d382f09411581157f8caaf672559ffe689308540d808aae4f849b1ab906"}
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "7d35b6babdc3c011dc702dd68b834b8b7a6456b595a64661a61823c48bce9bb8"}
 }

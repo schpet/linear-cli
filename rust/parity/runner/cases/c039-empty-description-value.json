@@ -48,10 +48,6 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "C039-CLAP-PARSER",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "6e0b37fa898cf6935816ed1386e4263c46f2013034b317960c1810c06ed5ae41"
-  },
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "e61b320c1beaf40613e71825e52a9de7522e7363ea44966f7644be8f2361ecc5"},
   "configFixture": "workspace-credential"
 }

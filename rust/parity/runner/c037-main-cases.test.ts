@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -9,7 +10,7 @@ const frozenRoot = new URL("./c037-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "b3bb76345cae10d353158b4eb675525517f4505f795f57d50b206ff3ef7c0bac"
+  "384751ae388bcdd33de8ff04f92b5857cd3e770c5546616af473bace743bf34c"
 
 const pages = new Set([
   "c037-first-page-more-json",
@@ -50,6 +51,8 @@ function approvedSurfaces(
   category: string,
   graphql: boolean,
 ): string[] {
+  const native = nativeParserContract(id)
+  if (native != null) return native[1]
   const ua = ["graphql-user-agent"]
   switch (category) {
     case "C037-ALL-PAGES":
@@ -151,21 +154,22 @@ Deno.test("C037 goldens bind named v3 changes and only four v2 page scripts", as
   for (const entry of loaded) {
     const id = entry.spec.id
     const golden = entry.golden ?? entry.goldenV2
-    const category = pages.has(id)
-      ? "C037-ALL-PAGES"
-      : parser.has(id)
-      ? "C037-CLAP-PARSER"
-      : strict.has(id)
-      ? "C037-STRICT-DECODE"
-      : selectedJson.has(id)
-      ? "C037-TYPED-JSON"
-      : cursors.has(id)
-      ? "C037-CURSOR-REJECT"
-      : entry.spec.substitutions.includes("referenceModuleUrl")
-      ? "C037-OPEN-DIAGNOSTIC"
-      : entry.spec.graphql == null
-      ? null
-      : "R01H-GRAPHQL-UA"
+    const category = nativeParserContract(id)?.[0] ??
+      (pages.has(id)
+        ? "C037-ALL-PAGES"
+        : parser.has(id)
+        ? "C037-CLAP-PARSER"
+        : strict.has(id)
+        ? "C037-STRICT-DECODE"
+        : selectedJson.has(id)
+        ? "C037-TYPED-JSON"
+        : cursors.has(id)
+        ? "C037-CURSOR-REJECT"
+        : entry.spec.substitutions.includes("referenceModuleUrl")
+        ? "C037-OPEN-DIAGNOSTIC"
+        : entry.spec.graphql == null
+        ? null
+        : "R01H-GRAPHQL-UA")
     assertEquals(entry.spec.deviation?.id ?? null, category, id)
     assertEquals(golden?.spec.deviationId ?? null, category, id)
     if (golden == null) continue
@@ -198,7 +202,8 @@ Deno.test("C037 goldens bind named v3 changes and only four v2 page scripts", as
   }
   assertEquals(Object.fromEntries(categories), {
     "C037-ALL-PAGES": 4,
-    "C037-CLAP-PARSER": 12,
+    "C037-CLAP-PARSER": 5,
+    "CLAP-NATIVE-PARSER": 7,
     "C037-CURSOR-REJECT": 2,
     "C037-OPEN-DIAGNOSTIC": 13,
     "C037-STRICT-DECODE": 3,

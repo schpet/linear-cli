@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assert, assertEquals } from "@std/assert"
 import { dirname, join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -111,7 +112,7 @@ const fileNames = [
 const frozenProjectionSha256 =
   "d94246f82006e506c6283a8a14a59611b4ffa389667df13ab1e6539a2a135cf4"
 const goldenBundleSha256 =
-  "5b36e09b763acbe9318ba1e9d1187a0685bed99eed033201d19fe36714c5a261"
+  "ab2c4439df38ef3718e776da43e222eda033b6ddaf5356788d21d55711a52543"
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical)
@@ -242,7 +243,7 @@ Deno.test("C002 auth list cases keep frozen Deno bytes and reviewed v3 goldens",
     assertEquals(item.spec.route, "linear auth list", id)
     assertEquals(item.spec.env.PATH, "{{bin}}", id)
     assertEquals(item.spec.fixtureServer, null, id)
-    const binding = bindings.get(id)
+    const binding = nativeParserContract(id) ?? bindings.get(id)
     assert(binding !== undefined, id)
     if (binding == null) {
       assertEquals(item.spec.deviation, null, id)

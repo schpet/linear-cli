@@ -580,6 +580,14 @@ fn route_and_explicit_empty_project_follow_v3_usage_grammar() {
         let args: Vec<OsString> = argv.iter().map(OsString::from).collect();
         let error = clap_input::parse(&args).expect_err("usage error");
         assert!(matches!(error.kind, AppErrorKind::Usage { .. }));
-        assert_eq!(error.message, "Missing value for option \"--project\".");
+        let expected = linear_cli::cli::clap_tree::build()
+            .expect("clap tree")
+            .try_get_matches_from(std::iter::once("linear").chain(argv.iter().copied()))
+            .expect_err("native missing value");
+        assert_eq!(error.message, expected.to_string(), "{argv:?}");
+        assert_eq!(
+            error.native_parser_error().expect("native error").kind(),
+            expected.kind()
+        );
     }
 }

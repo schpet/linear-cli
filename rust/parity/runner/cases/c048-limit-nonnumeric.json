@@ -46,9 +46,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "C048-V3-LIMIT-DIAGNOSTIC",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "c91e2cff1689b4fd4f3ba7f7d320683cfff638c849e54b800a29fc756f05a36d"
-  }
+  "deviation": {"id": "RUST-POSITIVE-LIMIT-INPUT", "contract": "rust-3.0.0-alpha.1", "sha256": "d2665666450643d6b7f95c62d8181b2d41e6d8610c7a57a5ca40f3b08bd7e5b5"}
 }

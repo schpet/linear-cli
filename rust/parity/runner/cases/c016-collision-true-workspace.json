@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-COLLISION-TRUE-WORKSPACE",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "83587771d9f7426811b92601280705e4f7d40227c519126fb22a6348436912fe"
-  },
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "fe2e56097123a54cce93a4ada72f88b4d75d6346977dc048127636bc480875a1"},
   "id": "c016-collision-true-workspace",
   "reason": "Even a credential workspace named \"true\" is not found by the Boolean local option.",
   "argv": [

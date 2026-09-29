@@ -42,9 +42,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "R01C2-WORKSPACE-HELP-VALUE",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "0a4458b24fe97f122a2cd6ed5fbd4ee4e2b637072d19e7498185935e2f859518"
-  }
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "6b2a6485a118660f0123e8516496ed7eb00ebc77f4315f76de11e0221fd07f73"}
 }

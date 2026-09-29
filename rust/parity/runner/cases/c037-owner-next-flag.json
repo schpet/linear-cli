@@ -47,11 +47,7 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "C037-CLAP-PARSER",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "15358c3c813a42693251c35a2534ebe282a5e26b8f82156bc51f9c2a663def84"
-  },
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "2068074bfe8fef7cc36b34b11c6e9e4b2801a57bef84f9e73a4f7b843fb3601e"},
   "graphql": {
     "path": "/graphql",
     "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",

@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c035-limit-repeat",
-  "deviationId": "C035-CLI-VERSION",
+  "deviationId": "RUST-POSITIVE-LIMIT-INPUT",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear project-update list <projectId>\nVersion: 3.0.0-alpha.1                         \n\nDescription:\n\n  List status updates for a project\n\nOptions:\n\n  -h, --help            - Show this help.                                   \n  --workspace  <slug>   - Target workspace (uses credentials)               \n  --json                - Output as JSON                                    \n  --limit      <limit>  - Limit results                        (Default: \u001b[33m10\u001b[39m)\n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Option \"--limit\" can only occur once, but was found several times.\n\n"
+        "utf8": "error: the argument '--limit <limit>' cannot be used multiple times\n\nUsage: linear project-update list [OPTIONS] [projectId]\n"
       },
       "fileEffects": []
     }

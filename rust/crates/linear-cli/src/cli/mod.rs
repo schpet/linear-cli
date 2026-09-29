@@ -2,6 +2,7 @@ pub mod clap_input;
 pub mod clap_tree;
 pub mod fish_completion;
 mod generated;
+mod numeric;
 pub mod parser;
 pub mod render;
 pub mod spelling;
@@ -40,6 +41,7 @@ pub enum DispatchAction {
     MilestoneList,
     MilestoneView,
     MilestoneCreate,
+    MilestoneUpdate,
     LabelList,
     Document,
     ParentPending,

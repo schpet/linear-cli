@@ -7,7 +7,7 @@ const frozenRoot = new URL("./c019-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "10c1cf85ddd426b8faf7dfaef8b68276256aca8b9278d0a98b7980a9372f180b"
+  "4c0b77be314f109bc1c3600f0f4ca0bf5dc04078654881c50b853f7eaeb16d1b"
 
 async function files(root: string): Promise<string[]> {
   const found: string[] = []

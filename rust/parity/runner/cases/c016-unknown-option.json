@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-UNKNOWN-OPTION",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "49ea99be0ce7e5fa73cce4ba3512590eca13b0f699be0108192b0123bdf1918f"
-  },
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "3856fd5bd3a84b0d88268df4a23877c6a69ddb1ddade2e5647efca08bd3390d1"},
   "id": "c016-unknown-option",
   "reason": "Unknown local option fails parser.",
   "argv": [

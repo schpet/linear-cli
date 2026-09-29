@@ -47,7 +47,7 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id": "C035-EMPTY-JSON-SWITCH", "contract": "rust-3.0.0-alpha.1", "sha256": "ef9209e6c24191943a6b0880feb31b124222f88cd3621192a07d3005063a35e0"},
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "b61c160a67467c75f47a00aa182cf814e5ea7cf614acbe41979415abf90caf31"},
   "graphql": {
     "path": "/graphql",
     "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",

@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c038-repeated-json",
-  "deviationId": "C038-CLAP-PARSER",
+  "deviationId": "CLAP-NATIVE-PARSER",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear initiative view <initiativeId>\nVersion: 3.0.0-alpha.1                        \n\nDescription:\n\n  View initiative details\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n  -w, --web            - Open in web browser                  \n  -a, --app            - Open in Linear.app                   \n  -j, --json           - Output as JSON                       \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Option \"--json\" can only occur once, but was found several times.\n\n"
+        "utf8": "error: the argument '--json' cannot be used multiple times\n\nUsage: linear initiative view [OPTIONS] [initiativeId]\n"
       },
       "fileEffects": []
     }

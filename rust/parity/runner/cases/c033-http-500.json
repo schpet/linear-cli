@@ -1,0 +1,120 @@
+{
+  "id": "c033-http-500",
+  "route": "linear milestone update",
+  "reason": "HTTP rejection without GraphQL body never retries",
+  "argv": [
+    "milestone",
+    "update",
+    "00000000-0000-4000-9000-000000003301",
+    "--name",
+    "Launch"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to update milestone: GraphQL Error (Code: 500): {\"response\":{\"status\":500,\"headers\":{},\"body\":\"upstream unavailable\"},\"request\":{\"query\":\"mutation UpdateProjectMilestone($id: String!, $input: ProjectMilestoneUpdateInput!) {\\n  projectMilestoneUpdate(id: $id, input: $input) {\\n    success\\n    projectMilestone {\\n      id\\n      name\\n      targetDate\\n      sortOrder\\n      project {\\n        id\\n        name\\n      }\\n    }\\n  }\\n}\",\"variables\":{\"id\":\"00000000-0000-4000-9000-000000003301\",\"input\":{\"name\":\"Launch\"}}}}\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C033-DIAGNOSTIC",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "61692030c4e3e15c4eeebf24dcf14d6e1b9dacd23523a67bdfa44042e9ee36f3"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {
+      "ProjectMilestone:00000000-0000-4000-9000-000000003301": {
+        "id": "00000000-0000-4000-9000-000000003301",
+        "name": "Existing",
+        "description": "Keep description",
+        "targetDate": "2026-10-01",
+        "sortOrder": 5,
+        "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+        "untouched": "preserve me"
+      }
+    },
+    "expectedRecords": {
+      "ProjectMilestone:00000000-0000-4000-9000-000000003301": {
+        "id": "00000000-0000-4000-9000-000000003301",
+        "name": "Existing",
+        "description": "Keep description",
+        "targetDate": "2026-10-01",
+        "sortOrder": 5,
+        "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+        "untouched": "preserve me"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "update",
+            "operation": {
+              "document": "mutation UpdateProjectMilestone($id: String!, $input: ProjectMilestoneUpdateInput!) {\n    projectMilestoneUpdate(id: $id, input: $input) {\n      success\n      projectMilestone {\n        id\n        name\n        targetDate\n        sortOrder\n        project {\n          id\n          name\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000003301",
+                "input": {
+                  "name": "Launch"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 500,
+              "headers": {
+                "content-type": "text/plain"
+              },
+              "body": {
+                "utf8": "upstream unavailable"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

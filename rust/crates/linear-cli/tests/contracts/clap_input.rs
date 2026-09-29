@@ -45,6 +45,24 @@ fn help_rows_keep_inherited_before_local_order_on_every_route() {
     }
 }
 
+fn assert_native_error(args: &[&str]) -> linear_cli::error::AppError {
+    let words = std::iter::once("linear")
+        .chain(args.iter().copied())
+        .map(OsString::from)
+        .collect::<Vec<_>>();
+    let expected = linear_cli::cli::clap_tree::build()
+        .unwrap()
+        .try_get_matches_from(words)
+        .unwrap_err();
+    let actual = parse(args).expect_err("native parser failure");
+    let native = actual.native_parser_error().expect("clap error retained");
+    assert_eq!(native.kind(), expected.kind());
+    assert_eq!(native.render().to_string(), expected.render().to_string());
+    assert_eq!(native.use_stderr(), expected.use_stderr());
+    assert_eq!(native.exit_code(), expected.exit_code());
+    actual
+}
+
 fn action(args: &[&str]) -> clap_input::ParsedAction {
     match parse(args).expect("typed clap parse") {
         Invocation::Action(action) => action,
@@ -96,17 +114,17 @@ fn all_six_metadata_defaults_are_typed_and_sourced() {
         (
             &["project-update", "list", "PRJ"][..],
             "limit",
-            OptionValue::Number(10.0),
+            OptionValue::PositiveInteger(std::num::NonZeroU32::new(10).unwrap()),
         ),
         (
             &["initiative-update", "list", "INI"][..],
             "limit",
-            OptionValue::Number(10.0),
+            OptionValue::PositiveInteger(std::num::NonZeroU32::new(10).unwrap()),
         ),
         (
             &["document", "list"][..],
             "limit",
-            OptionValue::Number(50.0),
+            OptionValue::PositiveInteger(std::num::NonZeroU32::new(50).unwrap()),
         ),
     ];
     for (argv, name, value) in expected {
@@ -118,20 +136,46 @@ fn all_six_metadata_defaults_are_typed_and_sourced() {
 }
 
 #[test]
-fn numeric_values_use_finite_decimal_typed_boundary() {
-    for (input, expected) in [("+5", 5.0), (".5", 0.5), ("1e3", 1000.0), ("-1", -1.0)] {
+fn milestone_sort_order_uses_strict_finite_decimal_boundary() {
+    for (input, expected) in [
+        ("+5", 5.0),
+        (".5", 0.5),
+        ("1e3", 1000.0),
+        ("-1", -1.0),
+        ("-0", 0.0),
+    ] {
         let parsed = action(&["milestone", "update", "M1", "--sort-order", input]);
         let option = parsed.option("sort-order").expect("sort-order");
         assert_eq!(option.value.origin, ValueOrigin::Explicit);
         assert_eq!(option.value.value, OptionValue::Number(expected));
     }
-    for input in ["0x10", "0b1", " 5 ", "NaN", "Infinity"] {
+    for input in [
+        "",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "0x",
+        "1e999",
+        "0x10",
+        "0b1",
+        "0o7",
+        " 5 ",
+        " ",
+        "\u{00a0}5",
+        "5\u{00a0}",
+        "5 ",
+        " 5",
+    ] {
         let error = parse(&["milestone", "update", "M1", "--sort-order", input])
-            .expect_err("non-decimal or nonfinite number");
+            .expect_err("malformed or nonfinite number");
         assert!(
             matches!(error.kind, AppErrorKind::Usage { .. }),
             "{input:?}"
         );
+    }
+    // The reviewed source-number gate must not widen unrelated flags.
+    for input in ["0x10", "0b1", " 5 "] {
+        assert!(parse(&["issue", "query", "--limit", input]).is_err());
     }
 }
 
@@ -148,7 +192,7 @@ fn workspace_spelling_and_global_source_stay_distinct() {
     );
     let error = parse(&["label", "list", "--workspace"]).expect_err("value required");
     assert!(matches!(error.kind, AppErrorKind::Usage { .. }));
-    assert_eq!(error.message, "Missing value for option \"--workspace\".");
+    assert_native_error(&["label", "list", "--workspace"]);
     let duplicate = parse(&["--workspace", "a", "issue", "mine", "--workspace", "b"])
         .expect_err("repeated credential selector");
     assert_eq!(
@@ -364,31 +408,16 @@ fn bulk_help_and_literal_boundaries_are_explicit() {
 }
 
 #[test]
-fn canonical_value_diagnostics_and_nested_error_routes() {
-    let title = parse(&["issue", "create", "--title="]).expect_err("empty title");
-    assert_eq!(title.message, "Missing value for option \"--title\".");
-    let file = parse(&["issue", "create", "--description-file="]).expect_err("empty file");
-    assert_eq!(
-        file.message,
-        "Missing value for option \"--description-file\"."
-    );
-    let variable = parse(&["api", "--variable", "badformat"]).expect_err("variable");
-    assert!(
-        variable
-            .message
-            .starts_with("Invalid variable format: badformat.")
-    );
-    let duplicate =
-        parse(&["issue", "create", "--title", "x", "--title", "y"]).expect_err("duplicate title");
-    assert_eq!(
-        duplicate.message,
-        "Option \"--title\" can only occur once, but was found several times."
-    );
-    let help_value = parse(&["--help=x"]).expect_err("help rejects value");
-    assert_eq!(
-        help_value.message,
-        "Option \"--help\" doesn't take a value, but got \"x\"."
-    );
+fn native_value_diagnostics_and_nested_error_routes() {
+    for args in [
+        vec!["issue", "create", "--title="],
+        vec!["issue", "create", "--description-file="],
+        vec!["api", "--variable", "badformat"],
+        vec!["issue", "create", "--title", "x", "--title", "y"],
+        vec!["--help=x"],
+    ] {
+        assert_native_error(&args);
+    }
     let route = ROUTES
         .iter()
         .find(|route| route.path == "linear issue mine")
@@ -406,7 +435,7 @@ fn canonical_value_diagnostics_and_nested_error_routes() {
             route: parent.route
         }
     );
-    assert!(unknown_parent.message.contains("--help"));
+    assert!(unknown_parent.message.contains("--bogus"));
     let child = ROUTES
         .iter()
         .find(|route| route.path == "linear issue comment add")
@@ -683,6 +712,68 @@ fn standalone_conflicts_keep_the_parse_level_and_last_option() {
                 route: ROUTES.first().expect("root").route
             },
             "{args:?}"
+        );
+    }
+}
+
+#[test]
+fn shared_limits_require_positive_u32_and_preserve_defaults() {
+    use std::num::NonZeroU32;
+    for prefix in [
+        vec!["document", "list"],
+        vec!["project-update", "list", "P1"],
+        vec!["initiative-update", "list", "I1"],
+    ] {
+        for input in [
+            "0",
+            "-0",
+            "-1",
+            "0.5",
+            "1.0",
+            "1e3",
+            "0x10",
+            "0b1",
+            "0o7",
+            "",
+            " ",
+            " 5",
+            "5 ",
+            "\u{00a0}5",
+            "5\u{00a0}",
+            "NaN",
+            "Infinity",
+            "4294967296",
+        ] {
+            let mut args = prefix.clone();
+            args.extend(["--limit", input]);
+            let error = parse(&args).expect_err("strict limit must fail in parser");
+            assert!(matches!(error.kind, AppErrorKind::Usage { .. }), "{args:?}");
+            if !input.is_empty() {
+                assert!(
+                    error.message.contains("positive decimal integer"),
+                    "{}",
+                    error.message
+                );
+            }
+        }
+        for (input, value) in [
+            ("1", 1),
+            ("16", 16),
+            ("2147483647", 2_147_483_647),
+            ("2147483648", 2_147_483_648),
+            ("4294967295", u32::MAX),
+        ] {
+            let mut args = prefix.clone();
+            args.extend(["--limit", input]);
+            let parsed = action(&args);
+            assert_eq!(
+                parsed.option("limit").unwrap().value.value,
+                OptionValue::PositiveInteger(NonZeroU32::new(value).unwrap())
+            );
+        }
+        assert_eq!(
+            action(&prefix).option("limit").unwrap().value.origin,
+            ValueOrigin::Default
         );
     }
 }

@@ -18,7 +18,7 @@ use crate::text::js_space;
 
 pub const CONTEXT: &str = "Failed to fetch initiative updates";
 
-pub fn graphql_int(value: f64) -> Result<i32, AppError> {
+pub fn graphql_int(value: std::num::NonZeroU32) -> Result<i32, AppError> {
     crate::commands::project_update_list::graphql_int(value).map_err(|mut error| {
         error.context = Some(CONTEXT.to_owned());
         error

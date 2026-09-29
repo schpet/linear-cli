@@ -260,10 +260,15 @@ fn unsafe_or_missing_names_fail_before_generation() {
     ] {
         let output = run(args);
         assert_eq!(output.status.code(), Some(2), "{args:?}");
-        assert_eq!(output.stdout, help.stdout, "{args:?}");
+        let words = std::iter::once("linear").chain(args.iter().copied());
+        let native = linear_cli::cli::clap_tree::build()
+            .expect("clap tree")
+            .try_get_matches_from(words)
+            .expect_err("native missing name");
+        assert!(output.stdout.is_empty(), "{args:?}");
         assert_eq!(
             text(&output.stderr),
-            "  error: Missing value for option \"--name\".\n\n",
+            native.render().to_string(),
             "{args:?}"
         );
     }
@@ -288,10 +293,15 @@ fn completions_parent_prints_help_and_rejects_workspace() {
     ] {
         let output = run(args);
         assert_eq!(output.status.code(), Some(2), "{args:?}");
-        assert!(
-            text(&output.stderr).starts_with("  error: Unknown option \"--workspace\"."),
-            "{args:?}: {}",
-            text(&output.stderr)
+        let native = linear_cli::cli::clap_tree::build()
+            .expect("clap tree")
+            .try_get_matches_from(std::iter::once("linear").chain(args.iter().copied()))
+            .expect_err("native unexpected workspace");
+        assert!(output.stdout.is_empty(), "{args:?}");
+        assert_eq!(
+            text(&output.stderr),
+            native.render().to_string(),
+            "{args:?}"
         );
     }
     let root_workspace = run(&["--workspace", "x", "completions", "bash"]);

@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { sha256Hex } from "./bytes.ts"
@@ -7,7 +8,7 @@ const frozenRoot = new URL("./c021-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "9532583e60b3e4bdcb0b675fd305ddd5f4bb618d52e09d48c7c74fa124d30bd6"
+  "1cd10a75ce546356f6d3857d75bc5c0e8324495e01396a7d826d581739f347ce"
 const specific = new Map<string, [string, string[]]>([
   ["c021-help", ["C021-CLI-VERSION", ["stdout"]]],
   ["c021-hexagram-width-text", ["C021-WIDTH-TABLE", [
@@ -76,7 +77,7 @@ Deno.test("C021 main cases retain all frozen Deno inputs and fixture bytes", asy
     if (frozen.graphql != null) {
       graphqlCount++
     }
-    const expected = specific.get(frozen.id)
+    const expected = nativeParserContract(frozen.id) ?? specific.get(frozen.id)
     const expectedId = expected?.[0] ??
       (frozen.graphql == null ? null : "R01H-GRAPHQL-UA")
     assertEquals(promoted.deviation?.id ?? null, expectedId, name)
@@ -116,7 +117,8 @@ Deno.test("C021 reviewed v3 goldens are exact and case-scoped", async () => {
     const golden = JSON.parse(new TextDecoder().decode(bytes))
     assertEquals(
       golden.approvedSurfaces,
-      specific.get(source.id)?.[1] ?? ["graphql-user-agent"],
+      (nativeParserContract(source.id) ?? specific.get(source.id))?.[1] ??
+        ["graphql-user-agent"],
       source.id,
     )
     lines.push([goldenName, hash])

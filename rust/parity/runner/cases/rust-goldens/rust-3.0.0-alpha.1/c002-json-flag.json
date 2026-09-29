@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c002-json-flag",
-  "deviationId": "C002-HELP-VERSION",
+  "deviationId": "CLAP-NATIVE-PARSER",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear auth list\nVersion: 3.0.0-alpha.1   \n\nDescription:\n\n  List configured workspaces\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Unknown option \"--json\". Did you mean option \"--help\"?\n\n"
+        "utf8": "error: unexpected argument '--json' found\n\n  tip: to pass '--json' as a value, use '-- --json'\n\nUsage: linear auth list [OPTIONS]\n"
       },
       "fileEffects": []
     }

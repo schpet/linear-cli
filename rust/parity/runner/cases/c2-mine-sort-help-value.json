@@ -45,9 +45,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "R01C2-ENUM-HELP-VALUE",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "f891a351605df5e02498cf30844702fde5b4dfd82ef4d85439943148a0c528f0"
-  }
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "d93f1ce0ab5bac0fb6df8d54dcdf222380e62e65eb3874371cdcbcc8e304afc8"}
 }

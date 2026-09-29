@@ -834,7 +834,7 @@ fn public_binary_rejects_list_options_and_arguments_before_network() {
     for (args, expected_error) in [
         (
             vec!["auth", "list", "--json"],
-            "  error: Unknown option \"--json\". Did you mean option \"--help\"?\n\n",
+            "error: unexpected argument '--json' found\n\n  tip: to pass '--json' as a value, use '-- --json'\n\nUsage: linear auth list [OPTIONS]\n",
         ),
         (
             vec!["auth", "list", "extra"],
@@ -849,7 +849,11 @@ fn public_binary_rejects_list_options_and_arguments_before_network() {
             ],
         );
         assert_eq!(output.status.code(), Some(2), "{args:?}");
-        assert!(output.stdout.starts_with(b"\nUsage:   linear auth list\n"));
+        if args.contains(&"--json") {
+            assert!(output.stdout.is_empty(), "{args:?}");
+        } else {
+            assert!(output.stdout.starts_with(b"\nUsage:   linear auth list\n"));
+        }
         assert_eq!(output.stderr, expected_error.as_bytes(), "{args:?}");
     }
 }

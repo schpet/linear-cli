@@ -187,47 +187,12 @@ fn label_workspace_filter_arg(
         .action(ArgAction::SetTrue))
 }
 
-pub(crate) fn finite_number(value: &str) -> Option<f64> {
-    let trimmed = value.trim_matches(crate::text::js_space);
-    if trimmed.is_empty() {
-        return (!value.is_empty()).then_some(0.0);
-    }
-    let value = trimmed;
-    let radix = [
-        ("0x", 16),
-        ("0X", 16),
-        ("0o", 8),
-        ("0O", 8),
-        ("0b", 2),
-        ("0B", 2),
-    ];
-    for (prefix, base) in radix {
-        if let Some(digits) = value.strip_prefix(prefix) {
-            if digits.is_empty() {
-                return None;
-            }
-            let mut number = 0.0;
-            for ch in digits.chars() {
-                number = number * f64::from(base) + f64::from(ch.to_digit(base)?);
-            }
-            return Some(number);
-        }
-    }
-    value.parse::<f64>().ok()
-}
-
 fn parse_finite_number(value: &str) -> Result<String, String> {
-    match value.parse::<f64>() {
-        Ok(number) if number.is_finite() => Ok(value.to_owned()),
-        Ok(_) | Err(_) => Err(format!("expected a finite number, got {value:?}")),
-    }
+    super::numeric::finite_decimal(value).map(|_| value.to_owned())
 }
 
-fn parse_project_update_limit(value: &str) -> Result<String, String> {
-    match finite_number(value) {
-        Some(number) if number.is_finite() => Ok(value.to_owned()),
-        Some(_) | None => Err(format!("expected a finite number, got {value:?}")),
-    }
+fn parse_positive_limit(value: &str) -> Result<String, String> {
+    super::numeric::positive_u32(value).map(|_| value.to_owned())
 }
 
 fn parse_nonempty_string(value: &str) -> Result<String, String> {
@@ -367,12 +332,8 @@ fn valued_option_arg(
         }
         "number" => {
             arg = arg.allow_hyphen_values(true);
-            arg = if matches!(
-                route.path,
-                "linear project-update list" | "linear initiative-update list"
-            ) && option.name == "limit"
-            {
-                arg.value_parser(parse_project_update_limit)
+            arg = if super::numeric::positive_limit(route.path, option.name) {
+                arg.value_parser(parse_positive_limit)
             } else {
                 arg.value_parser(parse_finite_number)
             };
@@ -689,30 +650,4 @@ pub fn selected_workspace(matches: &ArgMatches) -> Result<Option<String>, AppErr
         }
     }
     Ok(workspace)
-}
-
-#[cfg(test)]
-mod project_update_limit_tests {
-    use super::{finite_number, parse_project_update_limit};
-
-    #[test]
-    fn valid_hex_exponent_and_js_outer_space_are_numeric() {
-        assert_eq!(finite_number("0x2"), Some(2.0));
-        assert_eq!(finite_number("1e1"), Some(10.0));
-        assert_eq!(finite_number(" \u{00a0}0x2\u{00a0} "), Some(2.0));
-        assert!(parse_project_update_limit(" \u{00a0}0x2\u{00a0} ").is_ok());
-        for value in [" ", "\t", "\u{00a0}"] {
-            assert_eq!(finite_number(value), Some(0.0));
-            assert!(parse_project_update_limit(value).is_ok());
-        }
-        assert_eq!(finite_number(""), None);
-    }
-
-    #[test]
-    fn signed_or_empty_radix_digits_are_rejected() {
-        for value in ["0x-1", "0x+5", "0x", "0b+1", "0o-7"] {
-            assert_eq!(finite_number(value), None, "{value}");
-            assert!(parse_project_update_limit(value).is_err(), "{value}");
-        }
-    }
 }

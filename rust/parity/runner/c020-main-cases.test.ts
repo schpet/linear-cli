@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { sha256Hex } from "./bytes.ts"
@@ -7,7 +8,7 @@ const frozenRoot = new URL("./c020-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "51a7b0dc2ad156cbd3b6730f774d8fd9e62a90669df4701aa50c7e6261c83360"
+  "fff83dd803465ce864aa0978aa48bd6132450677a482ab94bd45b3b685d6905d"
 const special = new Map<string, [string, string[]]>([
   ["c020-alias-help", ["C020-ALIAS-HELP", ["stdout"]]],
   ["c020-cycles-null-first", ["C020-CYCLES-NULL-FIRST", [
@@ -77,7 +78,7 @@ Deno.test("C020 main cases preserve all 83 frozen inputs and both fixtures", asy
     const source = parseCase(JSON.parse(frozen))
     const candidate = parseCase(JSON.parse(promoted))
     if (source.graphql != null) graphql++
-    const expected = special.get(source.id)
+    const expected = nativeParserContract(source.id) ?? special.get(source.id)
     const id = expected?.[0] ??
       (source.graphql == null ? null : "R01H-GRAPHQL-UA")
     assertEquals(candidate.deviation?.id ?? null, id, name)
@@ -125,7 +126,8 @@ Deno.test("C020 v3 goldens bind exact cases, surfaces and bundle", async () => {
     assertEquals(golden.deviationId, source.deviation.id)
     assertEquals(
       golden.approvedSurfaces,
-      special.get(source.id)?.[1] ?? ["graphql-user-agent"],
+      (nativeParserContract(source.id) ?? special.get(source.id))?.[1] ??
+        ["graphql-user-agent"],
     )
     lines.push(`${hash}  ${path}\n`)
   }

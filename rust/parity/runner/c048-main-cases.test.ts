@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -44,7 +45,8 @@ Deno.test("C048 promotion preserves 26 source cases and reviewed golden bindings
     assertEquals(routes.has(source.route), true, source.id)
     assertEquals(source.deviation, null, source.id)
     assertEquals({ ...entry.spec, deviation: null }, source, source.id)
-    const expectedId = special.get(source.id) ??
+    const expectedId = nativeParserContract(source.id)?.[0] ??
+      special.get(source.id) ??
       (source.graphql == null ? null : "R01H-GRAPHQL-UA")
     assertEquals(entry.spec.deviation?.id ?? null, expectedId, source.id)
     assertEquals(entry.golden?.spec.deviationId ?? null, expectedId, source.id)

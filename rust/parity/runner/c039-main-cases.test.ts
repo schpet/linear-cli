@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assert, assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -9,7 +10,7 @@ const frozenRoot = new URL("./c039-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "fa43e40ee51d7f95557aa1e3b7ea9e21d242bcefef376adfe80bc135d5d7bc97"
+  "13951d1b99222c9e2cef7d2028c975d85f1904055e89421932a1b733c5c2dae4"
 
 const categories: Record<string, string[]> = {
   "R01H-GRAPHQL-UA": [
@@ -147,7 +148,7 @@ Deno.test("C039 goldens bind only diagnostics, help, and versioned User-Agent", 
   const lines: string[] = []
   for (const entry of loaded) {
     const id = entry.spec.id
-    const category = categoryById.get(id)
+    const category = nativeParserContract(id)?.[0] ?? categoryById.get(id)
     assert(category != null, id)
     const golden = entry.golden
     assert(golden != null, id)

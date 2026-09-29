@@ -58,12 +58,23 @@ fn one_page_request_keeps_exact_graphql_int() {
 }
 
 #[test]
-fn graphql_int_rejects_fractional_and_out_of_range_values() {
-    assert_eq!(graphql_int(0.0).expect("zero"), 0);
-    assert_eq!(graphql_int(-1.0).expect("negative"), -1);
-    assert_eq!(graphql_int(2_147_483_647.0).expect("maximum"), i32::MAX);
-    for value in [0.5, -1.5, 2_147_483_648.0, -2_147_483_649.0, f64::INFINITY] {
-        assert!(graphql_int(value).is_err(), "{value}");
+fn graphql_int_converts_positive_u32_without_truncation() {
+    use std::num::NonZeroU32;
+    assert_eq!(graphql_int(NonZeroU32::new(1).unwrap()).unwrap(), 1);
+    assert_eq!(
+        graphql_int(NonZeroU32::new(2_147_483_647).unwrap()).unwrap(),
+        i32::MAX
+    );
+    for value in [2_147_483_648, u32::MAX] {
+        let error = graphql_int(NonZeroU32::new(value).unwrap()).unwrap_err();
+        assert_eq!(
+            error.message,
+            "--limit must be at most 2147483647 for a GraphQL Int"
+        );
+        assert_eq!(
+            error.context.as_deref(),
+            Some("Failed to fetch project updates")
+        );
     }
 }
 

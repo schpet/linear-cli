@@ -546,6 +546,9 @@ export const APPROVED_SURFACES = [
 // documents, records, and all other fixture fields cannot be supplied here.
 // An empty prefix requires one frozen query, except the exact C038 empty-ID source fixture;
 // the loader enforces that and derives a zero-request candidate fixture.
+// One exact C033 decimal-parser rejection may also drop its frozen mutation;
+// the loader pins its source/effect state, exit 2 and approved diagnostic surfaces
+// and derives expectedRecords from initialRecords. No record override is accepted.
 const CandidateGraphQLDeltaSchema = v.strictObject({
   steps: v.array(v.strictObject({
     id: nonEmpty,

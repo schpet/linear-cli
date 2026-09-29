@@ -256,9 +256,14 @@ fn direct_binary_parser_contracts() {
 
 #[test]
 fn source_derived_inherited_option_wins_equal_distance() {
-    let (status, _stdout, stderr) = run_args(&["issue", "--wwrks"]);
-    assert_eq!(status, 2);
-    assert!(stderr.contains("Did you mean option \"--workspace\"?"));
+    let args = ["issue", "--wwrks"];
+    let (status, stdout, stderr) = run_args(&args);
+    assert!(assert_native_surface(
+        &args,
+        i32::from(status),
+        stdout.as_bytes(),
+        stderr.as_bytes()
+    ));
 }
 
 #[test]
@@ -289,8 +294,51 @@ fn legacy_parser_action_keeps_positionals_options_and_literal() {
     }
 }
 
+// Native errors must retain clap's exact rendering, exit and stream. Handwritten
+// arity/help paths still use their frozen expectations until separately replaced.
+fn assert_native_surface(args: &[&str], status: i32, stdout: &[u8], stderr: &[u8]) -> bool {
+    let words = args
+        .iter()
+        .map(std::ffi::OsString::from)
+        .collect::<Vec<_>>();
+    let Some(error) = linear_cli::cli::clap_input::parse(&words).err() else {
+        return false;
+    };
+    let Some(native) = error.native_parser_error() else {
+        return false;
+    };
+    assert_eq!(status, native.exit_code(), "{args:?} native exit");
+    let text = native.render().to_string();
+    let (expected_stdout, expected_stderr) = if native.use_stderr() {
+        ("", text.as_str())
+    } else {
+        (text.as_str(), "")
+    };
+    assert_bytes(
+        &format!("{args:?}"),
+        "native stdout",
+        stdout,
+        expected_stdout.as_bytes(),
+    );
+    assert_bytes(
+        &format!("{args:?}"),
+        "native stderr",
+        stderr,
+        expected_stderr.as_bytes(),
+    );
+    true
+}
+
 fn assert_source_usage(args: &[&str], route_path: &str, message: &str) {
     let (status, stdout, stderr) = run_args(args);
+    if assert_native_surface(
+        args,
+        i32::from(status),
+        stdout.as_bytes(),
+        stderr.as_bytes(),
+    ) {
+        return;
+    }
     assert_eq!(status, 2, "{args:?} exit");
     let route = linear_cli::cli::ROUTES
         .iter()
@@ -564,6 +612,14 @@ fn direct_binary_source_derived_parser_matrix() {
             .env("LINEAR_GRAPHQL_ENDPOINT", "http://127.0.0.1:1/graphql")
             .output()
             .expect("binary runs");
+        if assert_native_surface(
+            args,
+            output.status.code().expect("exit code"),
+            &output.stdout,
+            &output.stderr,
+        ) {
+            continue;
+        }
         let route = linear_cli::cli::ROUTES
             .iter()
             .find(|route| route.path == *route_path)
@@ -679,6 +735,14 @@ fn observed_registered_enum_usage_from_binary() {
             .env("NO_COLOR", "1")
             .output()
             .expect("binary runs");
+        if assert_native_surface(
+            args,
+            output.status.code().expect("exit code"),
+            &output.stdout,
+            &output.stderr,
+        ) {
+            continue;
+        }
         let route = linear_cli::cli::ROUTES
             .iter()
             .find(|route| route.path == *route_path)
@@ -843,6 +907,14 @@ fn observed_registered_positional_arity_from_binary() {
             .env("NO_COLOR", "1")
             .output()
             .expect("binary runs");
+        if assert_native_surface(
+            args,
+            output.status.code().expect("exit code"),
+            &output.stdout,
+            &output.stderr,
+        ) {
+            continue;
+        }
         let route = linear_cli::cli::ROUTES
             .iter()
             .find(|route| route.path == *route_path)

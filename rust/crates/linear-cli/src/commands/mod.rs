@@ -15,6 +15,7 @@ pub mod initiative_view;
 pub mod label_list;
 pub mod milestone_create;
 pub mod milestone_list;
+pub mod milestone_update;
 pub mod milestone_view;
 pub mod project_comment_list;
 pub mod project_list;

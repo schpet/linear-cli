@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c033n-initiative-fraction",
+  "deviationId": "RUST-POSITIVE-LIMIT-INPUT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "error: invalid value '0.5' for '--limit <limit>': expected a positive decimal integer between 1 and 4294967295, got \"0.5\"\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

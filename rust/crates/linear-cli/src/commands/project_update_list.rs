@@ -1,6 +1,7 @@
 //! `project-update list`: one typed page and source-shaped output.
 
 use std::future::Future;
+use std::num::NonZeroU32;
 use std::time::SystemTime;
 
 use cynic::QueryBuilder;
@@ -22,22 +23,13 @@ pub fn output_color(stdout_tty: bool, no_color: bool) -> bool {
     stdout_tty && !no_color
 }
 
-pub fn graphql_int(value: f64) -> Result<i32, AppError> {
-    if !value.is_finite()
-        || value.fract() != 0.0
-        || value < f64::from(i32::MIN)
-        || value > f64::from(i32::MAX)
-    {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "--limit must be a GraphQL Int between -2147483648 and 2147483647",
-        )
-        .with_context(CONTEXT));
-    }
-    format!("{value:.0}").parse::<i32>().map_err(|error| {
+/// CLI page sizes are positive u32 values; GraphQL has a signed Int boundary.
+/// Conversion fails before transport or project resolution; nothing truncates.
+pub fn graphql_int(value: NonZeroU32) -> Result<i32, AppError> {
+    i32::try_from(value.get()).map_err(|error| {
         AppError::new(
-            AppErrorKind::Invariant,
-            "validated limit could not be converted",
+            AppErrorKind::Validation,
+            "--limit must be at most 2147483647 for a GraphQL Int",
         )
         .with_source(error)
         .with_context(CONTEXT)

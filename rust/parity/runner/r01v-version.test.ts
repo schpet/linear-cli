@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assert, assertEquals, assertRejects } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -52,9 +53,10 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  // C039/C048/C043/C054/C032 add 29/26/24/21/23 reviewed cases after C038.
+  // C039/C048/C043/C054/C032/C033 add 29/26/24/21/23/24 reviewed cases after C038.
+  // C033n adds 4 local positive-limit cases.
   // Keep the whole reviewed corpus size explicit; command guards pin cohorts.
-  assertEquals(cases.length, 1489)
+  assertEquals(cases.length, 1517)
   const c011Graphql = new Map<string, { id: string; surfaces: string[] }>([
     ["c011-infinite-position", {
       id: "C011-STRICT-STATE-DECODE",
@@ -246,6 +248,29 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
   let credentialStartup = 0
   let authList = 0
   for (const loaded of cases) {
+    // This closed SHA-bound native parser cohort has its own guard. Keep
+    // source fixtures intact and explicitly assert candidate requests/effects.
+    const native = nativeParserContract(loaded.spec.id)
+    if (native != null) {
+      assertEquals(loaded.golden?.spec.deviationId, native[0])
+      assertEquals(loaded.golden?.spec.approvedSurfaces, native[1])
+      const candidate = candidateCaseView(loaded)
+      if (loaded.spec.graphql != null) {
+        assertEquals(
+          loaded.golden?.spec.candidate.graphqlUserAgent,
+          `schpet-linear-cli/${V3}`,
+        )
+        assertEquals(candidate.spec.graphql?.expectedRequests, 0)
+        assertEquals(candidate.spec.graphql?.groups, [])
+        assertEquals(
+          candidate.spec.graphql?.expectedRecords,
+          loaded.spec.graphql.initialRecords,
+        )
+      }
+      if (loaded.spec.graphql != null) graphql++
+      continue
+    }
+
     if (loaded.spec.id.startsWith("c002-")) {
       // C002 pins its own frozen bytes, deviations and goldens.
       authList++
@@ -350,8 +375,8 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       }
       continue
     }
-    if (/^c0(38|39|48|43|54|32)-/.test(loaded.spec.id)) {
-      // C038, C039, C048, C043/C054 and C032 guards pin their v3 parser,
+    if (/^c0(38|39|48|43|54|32|33)-/.test(loaded.spec.id)) {
+      // C038, C039, C048, C043/C054 and C032/C033 guards pin their v3 parser,
       // diagnostic, decode and query deltas.
       assert(loaded.spec.deviation?.id !== "R01V-CLI-VERSION")
       if (loaded.spec.graphql != null) {
@@ -571,7 +596,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
           (loaded.spec.graphql == null ? null : ["graphql-user-agent"]),
         loaded.spec.id,
       )
-    } else if (/^c0(38|39|48|43|54|32)-/.test(loaded.spec.id)) {
+    } else if (/^c0(38|39|48|43|54|32|33)-/.test(loaded.spec.id)) {
       // These cohorts' exact identities and surfaces are pinned by their own
       // guards.
       assert(loaded.spec.deviation != null)
@@ -635,21 +660,22 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     }
   }
   ids.sort()
-  // GraphQL: C039/C048/C043/C054/C032 add 15/22/20/18/17 cases after C038.
+  // GraphQL: C039/C048/C043/C054/C032/C033 add 15/22/20/18/17/17 cases after C038.
   assertEquals([ids.length, header, bare, long, padded, graphql], [
-    107,
-    101,
+    96,
+    90,
     3,
     3,
-    43,
-    924,
+    37,
+    941,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)
-  assertEquals(authList, 26)
+  // One auth-list native parser case no longer carries a version header.
+  assertEquals(authList, 25)
   assertEquals(
     await sha256Hex(new TextEncoder().encode(ids.join("\n") + "\n")),
-    "34bb064d9fe1d227ea4767737debb942366ca33cf58505a25d4b0307d4b452c6",
+    "4a4738a56a8b650af865ea62042e625928d2bcf08b9f96737cb73664642f71fd",
   )
 
   const transportCases = await loadCases(transport, routes, undefined, CONTRACT)

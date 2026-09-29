@@ -1,0 +1,165 @@
+{
+  "id": "c033-all-fields-project-uuid",
+  "route": "linear milestone update",
+  "reason": "All requested fields patched; project UUID skips lookup",
+  "argv": [
+    "milestone",
+    "update",
+    "00000000-0000-4000-9000-000000003301",
+    "--name",
+    "Launch",
+    "--description",
+    "Ship",
+    "--target-date",
+    "2026-12-01",
+    "--sort-order",
+    "2",
+    "--project",
+    "9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Updated milestone: Launch\n  ID: 00000000-0000-4000-9000-000000003301\n  Target Date: 2026-12-01\n  Sort Order: 2\n  Project: Mobile App\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "1277be4b19caee3096426876faf389c9f6fad98edbbbd05cd83344c260a3ac18"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {
+      "ProjectMilestone:00000000-0000-4000-9000-000000003301": {
+        "id": "00000000-0000-4000-9000-000000003301",
+        "name": "Existing",
+        "description": "Keep description",
+        "targetDate": "2026-10-01",
+        "sortOrder": 5,
+        "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+        "untouched": "preserve me"
+      }
+    },
+    "expectedRecords": {
+      "ProjectMilestone:00000000-0000-4000-9000-000000003301": {
+        "id": "00000000-0000-4000-9000-000000003301",
+        "name": "Launch",
+        "description": "Ship",
+        "targetDate": "2026-12-01",
+        "sortOrder": 2,
+        "projectId": "9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+        "untouched": "preserve me"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "update",
+            "operation": {
+              "document": "mutation UpdateProjectMilestone($id: String!, $input: ProjectMilestoneUpdateInput!) {\n    projectMilestoneUpdate(id: $id, input: $input) {\n      success\n      projectMilestone {\n        id\n        name\n        targetDate\n        sortOrder\n        project {\n          id\n          name\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000003301",
+                "input": {
+                  "name": "Launch",
+                  "description": "Ship",
+                  "targetDate": "2026-12-01",
+                  "sortOrder": 2,
+                  "projectId": "9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projectMilestoneUpdate": {
+                  "success": true,
+                  "projectMilestone": {
+                    "id": "00000000-0000-4000-9000-000000003301",
+                    "name": "Launch",
+                    "targetDate": "2026-12-01",
+                    "sortOrder": 2,
+                    "project": {
+                      "id": "9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+                      "name": "Mobile App"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "ProjectMilestone:00000000-0000-4000-9000-000000003301",
+                "before": {
+                  "value": {
+                    "id": "00000000-0000-4000-9000-000000003301",
+                    "name": "Existing",
+                    "description": "Keep description",
+                    "targetDate": "2026-10-01",
+                    "sortOrder": 5,
+                    "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                    "untouched": "preserve me"
+                  }
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-000000003301",
+                  "name": "Launch",
+                  "description": "Ship",
+                  "targetDate": "2026-12-01",
+                  "sortOrder": 2,
+                  "projectId": "9c8b7a6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+                  "untouched": "preserve me"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

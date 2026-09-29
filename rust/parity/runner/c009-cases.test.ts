@@ -101,6 +101,8 @@ Deno.test("team id frozen oracle keeps exact cases, private paths, and bundle", 
   )
   assertEquals(
     await sha256Hex(new TextEncoder().encode(lines.join(""))),
-    "e692024971e843d14c994f9e664b1c84ef5a4288152c9f8016bda0a8ec82fcca",
+    // C033 rebinds json-rejected/unknown-option candidate diagnostics to
+    // native clap; frozen input/output expectations and private fixtures stay.
+    "18b681257332dfe5f41107b4a4d02aefd43d407ec46cc930a91cac3d812bd884",
   )
 })

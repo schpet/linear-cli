@@ -49,7 +49,7 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id": "R01H-GRAPHQL-UA", "contract": "rust-3.0.0-alpha.1", "sha256": "8a6a21adf561087c3df5c11687028691708e0e99bab3a8fbab93e5452362be1e"},
+  "deviation": {"id": "RUST-POSITIVE-LIMIT-INPUT", "contract": "rust-3.0.0-alpha.1", "sha256": "98c53eb663df00bbc36534c2fba43261d2a3bc8ee67bce81ee62555c1a913351"},
   "graphql": {
     "path": "/graphql",
     "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",

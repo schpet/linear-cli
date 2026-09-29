@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -129,7 +130,8 @@ Deno.test("C023 main corpus pins only reviewed Rust v3 differences", async () =>
   ])
   assertEquals(extraSurfaces.size, 20)
   for (const entry of loaded) {
-    const expected = extraSurfaces.get(entry.spec.id) ??
+    const expected = nativeParserContract(entry.spec.id)?.[1] ??
+      extraSurfaces.get(entry.spec.id) ??
       (entry.spec.graphql == null ? null : ["graphql-user-agent"])
     assertEquals(
       entry.golden?.spec.approvedSurfaces ?? null,
@@ -138,11 +140,12 @@ Deno.test("C023 main corpus pins only reviewed Rust v3 differences", async () =>
     )
     assertEquals(
       entry.spec.deviation?.id ?? null,
-      extraSurfaces.has(entry.spec.id)
-        ? `C023-V3-${entry.spec.id}`
-        : entry.spec.graphql == null
-        ? null
-        : "C023-GRAPHQL-UA",
+      nativeParserContract(entry.spec.id)?.[0] ??
+        (extraSurfaces.has(entry.spec.id)
+          ? `C023-V3-${entry.spec.id}`
+          : entry.spec.graphql == null
+          ? null
+          : "C023-GRAPHQL-UA"),
       entry.spec.id,
     )
   }

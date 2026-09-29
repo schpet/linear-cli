@@ -41,9 +41,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "R01V-CLI-VERSION",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "57ffdf8da70579e222eeb6e65f5bfc044568a79190c6f226ed8d3d03dd9d383d"
-  }
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "df9808b4d79a870b918f4d27060972bbe6b0ab1c2d68bdc008b052b7772cf48e"}
 }

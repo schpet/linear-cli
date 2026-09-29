@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c016-unknown-option",
-  "deviationId": "C016-V3-UNKNOWN-OPTION",
+  "deviationId": "CLAP-NATIVE-PARSER",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear label list\nVersion: 3.0.0-alpha.1    \n\nDescription:\n\n  List issue labels\n\nOptions:\n\n  -h, --help                - Show this help.                                                            \n  --workspace       <slug>  - Target workspace (uses credentials)                                        \n  --team            <team>  - Filter by team key, name, or ID (e.g., TC). Shows that team's labels plus  \n                              workspace labels.                                                          \n  --workspace-only          - Show only workspace-level labels (not team-specific)                       \n  --all                     - Show all labels (both workspace and team)                                  \n  -j, --json                - Output as JSON                                                             \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Unknown option \"--bogus\". Did you mean option \"--help\"?\n\n"
+        "utf8": "error: unexpected argument '--bogus' found\n\n  tip: to pass '--bogus' as a value, use '-- --bogus'\n\nUsage: linear label list [OPTIONS]\n"
       },
       "fileEffects": []
     }

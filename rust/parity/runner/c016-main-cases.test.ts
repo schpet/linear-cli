@@ -9,7 +9,7 @@ const probeRoot = new URL("./c016-v3-probe-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "a6ea20abfcdadf8d45120ffdecf8e45e9eec47016c404a7829a286c511c32a8f"
+  "c3777e3d08fcd4307ec2e9795bc91f7838246b0901e4415d832d2f7da8c4b917"
 const combinedEvidenceSha256 =
   "335409d87bbed9d698cacb622f6887e6f3de01cea3165c23334523880cf0efb8"
 const combinedCaseSha256 =

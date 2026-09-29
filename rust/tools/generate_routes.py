@@ -284,6 +284,7 @@ def generate():
             "linear milestone list": "MilestoneList",
             "linear milestone view": "MilestoneView",
             "linear milestone create": "MilestoneCreate",
+            "linear milestone update": "MilestoneUpdate",
             "linear label list": "LabelList",
             "linear document": "Document",
             "linear markdown": "Markdown",

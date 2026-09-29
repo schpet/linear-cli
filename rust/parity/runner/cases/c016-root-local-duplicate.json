@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-ROOT-LOCAL-DUPLICATE",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "7f58fb405c4a1b40337940d585a80cc74f1b0d862232f6e7bf48aa2b1961e54b"
-  },
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "7ec4f41c019d803d094ad136b9a97d2e0e0a528e50ad01f48580768a508e459b"},
   "id": "c016-root-local-duplicate",
   "reason": "Root workspace followed by local workspace Boolean reveals duplicate precedence.",
   "argv": [

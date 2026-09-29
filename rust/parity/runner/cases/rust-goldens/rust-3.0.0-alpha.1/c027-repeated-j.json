@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c027-repeated-j",
-  "deviationId": "C027-REPEATED-SWITCH-SPELLING",
+  "deviationId": "CLAP-NATIVE-PARSER",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout",
@@ -13,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear project comment list <project>\nVersion: 3.0.0-alpha.1                        \n\nDescription:\n\n  List comments on a project (by ID, slug, or name)\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n  -j, --json           - Output as JSON                       \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Option \"--json\" can only occur once, but was found several times.\n\n"
+        "utf8": "error: the argument '--json' cannot be used multiple times\n\nUsage: linear project comment list [OPTIONS] [project]\n"
       },
       "fileEffects": []
     }

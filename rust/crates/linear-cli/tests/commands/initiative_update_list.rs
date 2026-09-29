@@ -33,9 +33,20 @@ fn request_preserves_one_page_graphql_int_and_selection() {
             json!({"id":INITIATIVE,"first":first})
         );
     }
-    assert_eq!(graphql_int(2.0).expect("integer"), 2);
-    for bad in [0.5, f64::INFINITY, 2_147_483_648.0] {
-        assert!(graphql_int(bad).is_err());
+    assert_eq!(
+        graphql_int(std::num::NonZeroU32::new(2).unwrap()).expect("integer"),
+        2
+    );
+    for bad in [2_147_483_648, u32::MAX] {
+        let error = graphql_int(std::num::NonZeroU32::new(bad).unwrap()).unwrap_err();
+        assert_eq!(
+            error.message,
+            "--limit must be at most 2147483647 for a GraphQL Int"
+        );
+        assert_eq!(
+            error.context.as_deref(),
+            Some("Failed to fetch initiative updates")
+        );
     }
 }
 

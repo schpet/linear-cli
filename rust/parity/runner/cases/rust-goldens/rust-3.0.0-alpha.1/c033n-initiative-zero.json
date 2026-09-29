@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c033n-initiative-zero",
+  "deviationId": "RUST-POSITIVE-LIMIT-INPUT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "error: invalid value '0' for '--limit <limit>': expected a positive decimal integer between 1 and 4294967295, got \"0\"\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

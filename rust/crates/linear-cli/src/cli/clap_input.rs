@@ -1,8 +1,8 @@
 //! Typed production extraction from the registered clap grammar.
 use std::ffi::OsString;
+use std::num::NonZeroU32;
 
 use clap::ArgMatches;
-use clap::error::{ContextKind, ContextValue, ErrorKind};
 use clap::parser::ValueSource;
 
 use super::clap_tree::{self, VariableAssignment};
@@ -33,6 +33,7 @@ pub enum OptionValue {
     Switch(bool),
     String(String),
     Number(f64),
+    PositiveInteger(NonZeroU32),
     Enum(String),
     Collected(Vec<CollectedValue>),
     Bulk(Vec<String>),
@@ -214,8 +215,16 @@ fn arity(route: &'static RouteMeta, args: &[String], has_action: bool) -> Result
     Ok(())
 }
 
-fn default_value(option: &OptionMeta) -> Result<Option<OptionValue>, AppError> {
+fn default_value(route: &RouteMeta, option: &OptionMeta) -> Result<Option<OptionValue>, AppError> {
     match option.default {
+        OptionDefault::Integer(value)
+            if super::numeric::positive_limit(route.path, option.name) =>
+        {
+            Ok(Some(OptionValue::PositiveInteger(
+                super::numeric::positive_u32(&value.to_string())
+                    .map_err(|_| invariant("invalid positive integer metadata default"))?,
+            )))
+        }
         OptionDefault::Integer(value) => Ok(Some(OptionValue::Number(
             value
                 .to_string()
@@ -249,7 +258,7 @@ fn typed_option(
                 },
             }));
         }
-        return Ok(default_value(option)?.map(|value| TypedOption {
+        return Ok(default_value(route, option)?.map(|value| TypedOption {
             name: option.name,
             value: Sourced {
                 value,
@@ -298,17 +307,15 @@ fn typed_option(
             .ok_or_else(|| invariant(format!("explicit option lacks value: {id}")))?
             .clone();
         match descriptor.type_name {
+            "number" if super::numeric::positive_limit(route.path, option.name) => {
+                OptionValue::PositiveInteger(
+                    super::numeric::positive_u32(&value)
+                        .map_err(|_| invariant("clap validated positive integer cannot parse"))?,
+                )
+            }
             "number" => OptionValue::Number(
-                if matches!(
-                    route.path,
-                    "linear project-update list" | "linear initiative-update list"
-                ) && option.name == "limit"
-                {
-                    clap_tree::finite_number(&value)
-                } else {
-                    value.parse::<f64>().ok()
-                }
-                .ok_or_else(|| invariant("clap validated number cannot parse"))?,
+                super::numeric::finite_decimal(&value)
+                    .map_err(|_| invariant("clap validated decimal number cannot parse"))?,
             ),
             "string" => OptionValue::String(value),
             _ => {
@@ -378,14 +385,6 @@ fn workspace(
     Ok(selected)
 }
 
-fn context_text(error: &clap::Error, kind: ContextKind) -> Option<String> {
-    match error.get(kind) {
-        Some(ContextValue::String(value)) => Some(value.clone()),
-        Some(ContextValue::StyledStr(value)) => Some(value.to_string()),
-        _ => None,
-    }
-}
-
 fn tolerant_tree(command: clap::Command) -> clap::Command {
     command.ignore_errors(true).mut_subcommands(tolerant_tree)
 }
@@ -432,28 +431,6 @@ fn failure_parent_route(
     Ok(None)
 }
 
-fn error_option(route: &'static RouteMeta, display: &str) -> Option<&'static OptionMeta> {
-    let spelling = display.split_whitespace().next().unwrap_or(display);
-    if route.path == "linear label list" && spelling == "--workspace" {
-        return ROUTES
-            .iter()
-            .find(|candidate| candidate.path == "linear")
-            .and_then(|root| {
-                root.local_options
-                    .iter()
-                    .find(|option| option.name == "workspace" && option.global)
-            });
-    }
-    route
-        .local_options
-        .iter()
-        .chain(route.inherited_global_options.iter())
-        .find(|option| {
-            super::spelling::effective_flags(route, option).contains(&spelling)
-                || display == format!("opt:{}", option.name)
-        })
-}
-
 fn canonical_flag(option: &OptionMeta) -> String {
     if option.name.chars().count() == 1 {
         format!("-{}", option.name)
@@ -487,83 +464,6 @@ fn suggestion_flags(route: &'static RouteMeta) -> Vec<&'static str> {
             .copied()
     }));
     flags
-}
-
-fn map_error(error: clap::Error, route: &'static RouteMeta) -> AppError {
-    let invalid = context_text(&error, ContextKind::InvalidArg).unwrap_or_default();
-    let value = context_text(&error, ContextKind::InvalidValue).unwrap_or_default();
-    let prior = context_text(&error, ContextKind::PriorArg).unwrap_or_default();
-    let option = error_option(route, &invalid);
-    let flag = match invalid.as_str() {
-        "-h" | "--help" => "--help".to_owned(),
-        "-V" | "--version" => "--version".to_owned(),
-        _ => option
-            .map(canonical_flag)
-            .unwrap_or_else(|| invalid.clone()),
-    };
-    let message = match error.kind() {
-        ErrorKind::UnknownArgument => {
-            let candidates = suggestion_flags(route);
-            let suggestion = closest(&invalid, &candidates).map_or(String::new(), |name| {
-                format!(" Did you mean option \"{name}\"?")
-            });
-            format!("Unknown option \"{invalid}\".{suggestion}")
-        }
-        ErrorKind::InvalidSubcommand => format!("Unknown command \"{invalid}\"."),
-        ErrorKind::InvalidValue | ErrorKind::ValueValidation if value.is_empty() => {
-            format!("Missing value for option \"{flag}\".")
-        }
-        ErrorKind::InvalidValue | ErrorKind::ValueValidation => {
-            let descriptor = option.and_then(|option| option.args.first());
-            if descriptor.is_some_and(|descriptor| descriptor.type_name == "variable") {
-                format!(
-                    "Invalid variable format: {value}. Variables must be in key=value format, e.g. --variable teamId=abc"
-                )
-            } else if let Some((descriptor, choices)) = descriptor.and_then(|descriptor| {
-                route.local_types.iter().find_map(|type_meta| {
-                    if type_meta.name == descriptor.type_name
-                        && let TypeHandler::Enum(choices) = type_meta.handler
-                    {
-                        return Some((descriptor, choices));
-                    }
-                    None
-                })
-            }) {
-                let expected = choices
-                    .iter()
-                    .map(|choice| format!("\"{choice}\""))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!(
-                    "Option \"{flag}\" must be of type \"{}\", but got \"{value}\". Expected values: {expected}",
-                    descriptor.type_name
-                )
-            } else {
-                format!("Option \"{flag}\" has invalid value \"{value}\".")
-            }
-        }
-        ErrorKind::TooManyValues
-            if option.is_some_and(|option| option.args.is_empty())
-                || ["-h", "--help", "-V", "--version"].contains(&invalid.as_str()) =>
-        {
-            format!("Option \"{flag}\" doesn't take a value, but got \"{value}\".")
-        }
-        ErrorKind::TooManyValues
-        | ErrorKind::TooFewValues
-        | ErrorKind::WrongNumberOfValues
-        | ErrorKind::NoEquals => format!("Invalid number of values for option \"{flag}\"."),
-        ErrorKind::ArgumentConflict if invalid == prior => {
-            format!("Option \"{flag}\" can only occur once, but was found several times.")
-        }
-        ErrorKind::ArgumentConflict => format!("Option \"{flag}\" conflicts with another option."),
-        _ => {
-            return invariant(format!(
-                "unexpected clap parse error kind: {:?}",
-                error.kind()
-            ));
-        }
-    };
-    AppError::usage(route.route, message)
 }
 
 fn last_standalone(words: &[String]) -> &'static str {
@@ -770,35 +670,6 @@ fn unknown_option(route: &'static RouteMeta, invalid: &str) -> AppError {
     )
 }
 
-fn short_switch_equals_error(route: &'static RouteMeta, words: &[String]) -> Option<AppError> {
-    for word in words.iter().skip(1) {
-        let Some((flag, value)) = word.split_once('=') else {
-            continue;
-        };
-        if !flag.starts_with('-') || flag.starts_with("--") || flag.chars().count() != 2 {
-            continue;
-        }
-        let option = route
-            .inherited_global_options
-            .iter()
-            .chain(route.local_options.iter())
-            .find(|option| {
-                option.args.is_empty()
-                    && super::spelling::effective_flags(route, option).contains(&flag)
-            });
-        if let Some(option) = option {
-            return Some(AppError::usage(
-                route.route,
-                format!(
-                    "Option \"{}\" doesn't take a value, but got \"{value}\".",
-                    canonical_flag(option)
-                ),
-            ));
-        }
-    }
-    None
-}
-
 pub fn parse(argv: &[OsString]) -> Result<Invocation, AppError> {
     let mut words = vec!["linear".to_owned()];
     for token in argv {
@@ -829,35 +700,7 @@ pub fn parse(argv: &[OsString]) -> Result<Invocation, AppError> {
                 Some(route) => route,
                 None => failure_route(&words, tree)?,
             };
-            if error.kind() == ErrorKind::UnknownArgument
-                && context_text(&error, ContextKind::InvalidArg).as_deref() == Some("-=")
-                && let Some(mapped) = short_switch_equals_error(route, &words)
-            {
-                return Err(mapped);
-            }
-            if error.kind() == ErrorKind::TooManyValues {
-                for token in words.iter().skip(1) {
-                    for (spelling, canonical) in [
-                        ("-h=", "--help"),
-                        ("--help=", "--help"),
-                        ("-V=", "--version"),
-                        ("--version=", "--version"),
-                    ] {
-                        if let Some(value) = token
-                            .strip_prefix(spelling)
-                            .filter(|value| !value.is_empty())
-                        {
-                            return Err(AppError::usage(
-                                route.route,
-                                format!(
-                                    "Option \"{canonical}\" doesn't take a value, but got \"{value}\"."
-                                ),
-                            ));
-                        }
-                    }
-                }
-            }
-            return Err(map_error(error, route));
+            return Err(AppError::native_parser(route.route, error));
         }
     };
     let mut chain = Vec::new();

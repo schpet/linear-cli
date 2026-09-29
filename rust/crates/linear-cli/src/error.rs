@@ -65,6 +65,15 @@ impl AppError {
         }
     }
 
+    /// Preserve clap's rendering, stream and exit code without rewording it.
+    pub fn native_parser(route: Route, error: clap::Error) -> Self {
+        Self::usage(route, error.to_string()).with_source(error)
+    }
+
+    pub fn native_parser_error(&self) -> Option<&clap::Error> {
+        self.source.as_deref()?.downcast_ref::<clap::Error>()
+    }
+
     pub fn not_found(entity: &str, identifier: &str) -> Self {
         Self::new(
             AppErrorKind::NotFound,

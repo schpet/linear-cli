@@ -46,5 +46,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id": "C035-CLAP-DIAGNOSTIC", "contract": "rust-3.0.0-alpha.1", "sha256": "cbc949b31140fe04c8b4d719e809fcc301bfeae06e3357d54338c781c2f95525"}
+  "deviation": {"id": "RUST-POSITIVE-LIMIT-INPUT", "contract": "rust-3.0.0-alpha.1", "sha256": "9dc0952cbbdfbba6da563206c2ed2f3529af2fe8cc11a5370ce82e8872e66b14"}
 }

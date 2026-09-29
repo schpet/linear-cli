@@ -233,16 +233,24 @@ fn every_ordinary_descriptor_enforces_its_value_type() {
             if argument.type_name == "number" {
                 numbers += 1;
                 let mut valid = base.clone();
-                valid.extend([(*flag).to_owned(), "-1".to_owned()]);
+                let positive_limit = option.name == "limit"
+                    && matches!(
+                        route.path,
+                        "linear document list"
+                            | "linear project-update list"
+                            | "linear initiative-update list"
+                    );
+                let valid_value = if positive_limit { "1" } else { "-1" };
+                valid.extend([(*flag).to_owned(), valid_value.to_owned()]);
                 let matches = tree
                     .clone()
                     .try_get_matches_from(valid)
-                    .expect("negative number accepted");
+                    .expect("number accepted in its domain");
                 assert_eq!(
                     selected(&matches)
                         .get_one::<String>(&format!("opt:{}", option.name))
                         .map(String::as_str),
-                    Some("-1")
+                    Some(valid_value)
                 );
                 let mut invalid = base;
                 invalid.extend([(*flag).to_owned(), "x".to_owned()]);

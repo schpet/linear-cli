@@ -175,10 +175,112 @@ function isC038EmptyIdSource(spec: CaseSpec): boolean {
     same(spec.graphql, C038_EMPTY_ID_FROZEN_GRAPHQL)
 }
 
+// The sole mutation exception: exact frozen C033 source input/effect state.
+// A strict decimal parser rejects this input before any transport is prepared.
+const C033_SORT_RADIX_FROZEN_GRAPHQL = {
+  "path": "/graphql",
+  "schemaSha256":
+    "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+  "expectedRequests": 1,
+  "initialRecords": {
+    "ProjectMilestone:00000000-0000-4000-9000-000000003301": {
+      "id": "00000000-0000-4000-9000-000000003301",
+      "name": "Existing",
+      "description": "Keep description",
+      "targetDate": "2026-10-01",
+      "sortOrder": 5,
+      "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+      "untouched": "preserve me",
+    },
+  },
+  "expectedRecords": {
+    "ProjectMilestone:00000000-0000-4000-9000-000000003301": {
+      "id": "00000000-0000-4000-9000-000000003301",
+      "name": "Existing",
+      "description": "Keep description",
+      "targetDate": "2026-10-01",
+      "sortOrder": 16,
+      "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+      "untouched": "preserve me",
+    },
+  },
+  "groups": [
+    {
+      "mode": "ordered",
+      "steps": [
+        {
+          "kind": "graphql",
+          "id": "update",
+          "operation": {
+            "document":
+              "mutation UpdateProjectMilestone($id: String!, $input: ProjectMilestoneUpdateInput!) {\n    projectMilestoneUpdate(id: $id, input: $input) {\n      success\n      projectMilestone {\n        id\n        name\n        targetDate\n        sortOrder\n        project {\n          id\n          name\n        }\n      }\n    }\n  }\n",
+            "variables": {
+              "id": "00000000-0000-4000-9000-000000003301",
+              "input": {
+                "sortOrder": 16,
+              },
+            },
+          },
+          "identity": {
+            "authorization": "lin_api_fake",
+            "userAgent": "schpet-linear-cli/2.6.0",
+            "headers": {},
+          },
+          "response": {
+            "kind": "data",
+            "data": {
+              "projectMilestoneUpdate": {
+                "success": true,
+                "projectMilestone": {
+                  "id": "00000000-0000-4000-9000-000000003301",
+                  "name": "Existing",
+                  "targetDate": "2026-10-01",
+                  "sortOrder": 16,
+                  "project": {
+                    "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                    "name": "Mobile App",
+                  },
+                },
+              },
+            },
+          },
+          "effects": [
+            {
+              "kind": "put",
+              "record": "ProjectMilestone:00000000-0000-4000-9000-000000003301",
+              "before": {
+                "value": {
+                  "id": "00000000-0000-4000-9000-000000003301",
+                  "name": "Existing",
+                  "description": "Keep description",
+                  "targetDate": "2026-10-01",
+                  "sortOrder": 5,
+                  "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "untouched": "preserve me",
+                },
+              },
+              "after": {
+                "id": "00000000-0000-4000-9000-000000003301",
+                "name": "Existing",
+                "description": "Keep description",
+                "targetDate": "2026-10-01",
+                "sortOrder": 16,
+                "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "untouched": "preserve me",
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+}
+
 /** Derive only the reviewed candidate request script; never mutate the frozen fixture. */
 function applyGraphQLDelta(
   spec: CaseSpec,
   delta: ReviewedGolden["candidate"]["graphql"],
+  golden?: ReviewedGolden,
 ): CaseSpec["graphql"] {
   if (delta == null) return spec.graphql
   const fixture = spec.graphql
@@ -186,6 +288,44 @@ function applyGraphQLDelta(
     throw new SchemaError(
       `case ${spec.id}: GraphQL delta needs a GraphQL fixture`,
     )
+  }
+  if (spec.id === "c033-sort-radix" && delta.steps.length === 0) {
+    const expected = golden?.candidate.expected
+    if (
+      spec.route !== "linear milestone update" ||
+      !same(spec.argv, [
+        "milestone",
+        "update",
+        "00000000-0000-4000-9000-000000003301",
+        "--sort-order",
+        " 0x10 ",
+      ]) ||
+      !same(fixture, C033_SORT_RADIX_FROZEN_GRAPHQL) ||
+      golden?.deviationId !== "C033-FINITE-DECIMAL-INPUT" ||
+      golden.candidate.argv != null ||
+      golden.candidate.graphqlUserAgent !== RUST_USER_AGENT ||
+      !same(expected?.exit, { code: 2 }) ||
+      !same(expected?.stdout, { utf8: "" }) ||
+      !same(expected?.fileEffects, []) ||
+      expected?.stderr == null || !("utf8" in expected.stderr) ||
+      !expected.stderr.utf8.startsWith("error: invalid value ") ||
+      !expected.stderr.utf8.includes("expected a finite decimal number") ||
+      !same(
+        [...golden.approvedSurfaces].sort(),
+        ["exit", "stdout", "stderr", "graphql-fixture", "graphql-user-agent"]
+          .sort(),
+      )
+    ) {
+      throw new SchemaError(
+        `case ${spec.id}: mutation parser rejection differs from the exact C033 contract`,
+      )
+    }
+    return {
+      ...fixture,
+      expectedRequests: 0,
+      groups: [],
+      expectedRecords: structuredClone(fixture.initialRecords),
+    }
   }
   if (
     fixture.groups.length !== 1 || fixture.groups[0].mode !== "ordered" ||
@@ -729,7 +869,7 @@ async function loadReviewedBinding(
       )
     }
   }
-  const candidateGraphql = applyGraphQLDelta(spec, delta)
+  const candidateGraphql = applyGraphQLDelta(spec, delta, golden)
   const actual = changedSurfaces(spec, golden)
   if (
     golden.candidate.argv != null && !actual.includes("argv") ||
@@ -890,7 +1030,7 @@ export function candidateCaseView(loaded: LoadedCase): LoadedCase {
       argv: golden.candidate.argv ?? loaded.spec.argv,
       expected: golden.candidate.expected ?? loaded.spec.expected,
       substitutions: candidateSubstitutions(loaded.spec, golden),
-      graphql: applyGraphQLDelta(loaded.spec, golden.candidate.graphql),
+      graphql: applyGraphQLDelta(loaded.spec, golden.candidate.graphql, golden),
     },
     runtimeUserAgent: golden.candidate.graphqlUserAgent,
   }

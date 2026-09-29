@@ -299,3 +299,28 @@ fn empty_no_color_preserves_color_but_nonempty_disables_it() {
         assert_eq!(diagnostic.contains("\x1b["), expected_color);
     }
 }
+
+#[test]
+fn native_clap_failures_keep_exact_rendering_stream_and_exit() {
+    use linear_cli::cli::clap_input;
+    use std::ffi::OsString;
+    for args in [
+        vec!["milestone", "update", "M1", "--sort-order", "Infinity"],
+        vec!["milestone", "update", "M1", "--name", ""],
+        vec!["milestone", "update", "M1", "--bogus"],
+        vec!["project-update", "list", "P1", "--limit", "0"],
+    ] {
+        let words = args.iter().map(OsString::from).collect::<Vec<_>>();
+        let error = clap_input::parse(&words).unwrap_err();
+        let native = error
+            .native_parser_error()
+            .expect("native clap error preserved");
+        let (status, stdout, stderr) = invoke(&args);
+        assert!(native.use_stderr());
+        assert_eq!(i32::from(status.code()), native.exit_code());
+        assert!(stdout.is_empty());
+        assert_eq!(stderr, native.render().to_string());
+        assert!(!stderr.contains('✗'));
+        assert!(!stderr.contains("Version:"));
+    }
+}

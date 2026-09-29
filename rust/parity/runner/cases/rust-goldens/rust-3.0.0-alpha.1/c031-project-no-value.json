@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c031-project-no-value",
-  "deviationId": "C031-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-PARSER",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear milestone view <milestone>\nVersion: 3.0.0-alpha.1                    \n\nDescription:\n\n  View milestone details. By default lists the first 10 attached issues from the first page of 50; use --all to paginate the full set.\n\nOptions:\n\n  -h, --help              - Show this help.                                                                   \n  --workspace  <slug>     - Target workspace (uses credentials)                                               \n  --all                   - Fetch and list every issue attached to the milestone (paginates the Linear API).  \n  --project    <project>  - Project for resolving a milestone name (UUID, slug ID, or name)                   \n  -j, --json              - Output as JSON                                                                    \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Missing value for option \"--project\".\n\n"
+        "utf8": "error: a value is required for '--project <project>' but none was supplied\n"
       },
       "fileEffects": []
     }

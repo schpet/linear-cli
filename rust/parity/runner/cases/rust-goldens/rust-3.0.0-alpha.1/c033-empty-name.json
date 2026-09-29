@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c033-empty-name",
+  "deviationId": "CLAP-NATIVE-PARSER",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "error: invalid value '' for '--name <name>': expected a nonempty value\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-COLLISION-BARE",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "c35e7968fa6253e27848f12988a8463b57df72ec5c0fb587f77b74cfa71e88f2"
-  },
+  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "ac535c90ace7f94e39a7f385334feb1cf6652ed618d62963448f60ee91d01f7c"},
   "id": "c016-collision-bare",
   "reason": "Frozen local Boolean collides with credential selector.",
   "argv": [

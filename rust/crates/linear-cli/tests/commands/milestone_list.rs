@@ -350,9 +350,14 @@ fn route_dispatches_and_requires_an_attached_hyphen_leading_project() {
     ] {
         let error = parse(&args).expect_err("v3 rejects a pending hyphen value");
         assert!(matches!(error.kind, AppErrorKind::Usage { .. }), "{args:?}");
+        let expected = linear_cli::cli::clap_tree::build()
+            .expect("clap tree")
+            .try_get_matches_from(std::iter::once("linear").chain(args.iter().copied()))
+            .expect_err("native missing value");
+        assert_eq!(error.message, expected.to_string(), "{args:?}");
         assert_eq!(
-            error.message, "Missing value for option \"--project\".",
-            "{args:?}"
+            error.native_parser_error().expect("native error").kind(),
+            expected.kind()
         );
     }
 }
