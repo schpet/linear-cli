@@ -52,9 +52,9 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
-  // C038 adds 67 reviewed initiative-view cases (51 GraphQL, 16 local).
+  // C039/C048/C043/C054/C032 add 29/26/24/21/23 reviewed cases after C038.
   // Keep the whole reviewed corpus size explicit; command guards pin cohorts.
-  assertEquals(cases.length, 1366)
+  assertEquals(cases.length, 1489)
   const c011Graphql = new Map<string, { id: string; surfaces: string[] }>([
     ["c011-infinite-position", {
       id: "C011-STRICT-STATE-DECODE",
@@ -350,8 +350,9 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       }
       continue
     }
-    if (loaded.spec.id.startsWith("c038-")) {
-      // C038's 67-case guard pins its v3 parser, diagnostic and query deltas.
+    if (/^c0(38|39|48|43|54|32)-/.test(loaded.spec.id)) {
+      // C038, C039, C048, C043/C054 and C032 guards pin their v3 parser,
+      // diagnostic, decode and query deltas.
       assert(loaded.spec.deviation?.id !== "R01V-CLI-VERSION")
       if (loaded.spec.graphql != null) {
         graphql++
@@ -570,8 +571,9 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
           (loaded.spec.graphql == null ? null : ["graphql-user-agent"]),
         loaded.spec.id,
       )
-    } else if (loaded.spec.id.startsWith("c038-")) {
-      // C038's exact identities and surfaces are pinned by its own guard.
+    } else if (/^c0(38|39|48|43|54|32)-/.test(loaded.spec.id)) {
+      // These cohorts' exact identities and surfaces are pinned by their own
+      // guards.
       assert(loaded.spec.deviation != null)
     } else if (loaded.spec.id.startsWith("c086-")) {
       const c086Deviations = new Set<string>([
@@ -633,13 +635,14 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     }
   }
   ids.sort()
+  // GraphQL: C039/C048/C043/C054/C032 add 15/22/20/18/17 cases after C038.
   assertEquals([ids.length, header, bare, long, padded, graphql], [
     107,
     101,
     3,
     3,
     43,
-    832,
+    924,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)

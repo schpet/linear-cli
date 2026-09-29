@@ -19,6 +19,7 @@ pub mod initiative_view;
 pub mod initiatives;
 pub mod issue_labels;
 pub mod issue_update;
+pub mod milestone_create;
 pub mod milestone_view;
 pub mod milestones;
 pub mod organization_members;

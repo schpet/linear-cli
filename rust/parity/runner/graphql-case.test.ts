@@ -137,8 +137,9 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   const others = loaded.filter((item) => !c002(item))
   // These corpus-wide counts also guard older fixtures without cohort tests.
   // Update them when adding reviewed command cases.
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 508) // C038 adds 16 local cases.
-  assertEquals(others.filter((item) => item.spec.graphql != null).length, 832) // C038 adds 51 query cases.
+  // C039/C048/C043/C054/C032 add 14/4/4/3/6 local and 15/22/20/18/17 GraphQL cases.
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 539)
+  assertEquals(others.filter((item) => item.spec.graphql != null).length, 924)
   assertEquals(loaded.filter(c002).length, 26)
 })
 

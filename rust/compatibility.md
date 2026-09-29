@@ -721,3 +721,7 @@ The other 35 GraphQL cases change only the versioned User-Agent. Pipe Markdown r
 ## C043/C054 comment-list family
 
 Typed initiative/document comment lists preserve source connection JSON, complete pagination and shared C027 thread rendering. Source45/45, candidate24/24 +21/21, C02766/66 and direct QA11/11 each pass. Missing nonnull body rejects explicitly under leaf-specific strict-decode goldens; other new deltas are Rust version/parser stdout and GraphQL User-Agent. Fresh Claude SHIP and bounded exact empty live JSON/text closeout pass; populated/pagination coverage remains offline. See [review](reviews/C043-C054.md).
+
+## C032 milestone create
+
+Typed Cynic create preserves input omission, project resolution and success text.23 source/scoped cases and final QA13/13 pass. Named v3 deltas: `C032-CLI-VERSION` changes version-only stdout; `C032-DIAGNOSTIC` replaces the HTTP500 request dump with a concise error; `C032-STRICT-MILESTONE-DECODE` rejects null required payload instead of silent success. Post-send timeout, non-Connect network errors and unreadable/invalid successful responses warn that the milestone may already exist, with no retry; actual post-write close/RST exposed and verified the correction. Full batch checkpoint and fresh Claude SHIP pass; live create pending. See [review](reviews/C032.md).

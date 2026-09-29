@@ -10805,7 +10805,7 @@ impl Route {
             Self::MilestoneR63 => super::DispatchAction::ParentPending,
             Self::MilestoneListR64 => super::DispatchAction::MilestoneList,
             Self::MilestoneViewR65 => super::DispatchAction::MilestoneView,
-            Self::MilestoneCreateR66 => super::DispatchAction::Unimplemented,
+            Self::MilestoneCreateR66 => super::DispatchAction::MilestoneCreate,
             Self::MilestoneUpdateR67 => super::DispatchAction::Unimplemented,
             Self::MilestoneDeleteR68 => super::DispatchAction::Unimplemented,
             Self::InitiativeR69 => super::DispatchAction::ParentPending,

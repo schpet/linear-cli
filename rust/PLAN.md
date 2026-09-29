@@ -146,6 +146,8 @@ Skill links refer to the current host installation; workers should resolve those
 
 Each durable `rust/reviews/<ID>.md` briefly names the baseline/candidate tree, implementer/provider, relevant review result, scoped checks, QA/live evidence, blockers and deviations. Large raw transcripts stay in the notebook; no credentials, user workspace payload dumps or token output are committed. Add late evidence through a new scratch change, then rerun only changed-code gates; do not type edits into the recorded commit.
 
+Checkpoint 2026-09-29: C032 completes the C039/C048/C043/C054/C032 batch with full Rust650/650, corpus1455/1489 (34 unimplemented,zero failure/drift), Deno278/278 and fresh Claude SHIP. Restart the five-leaf counter. Next reviewed small items are C033 milestone update and C074 direct comment delete, before new confirmation/bulk foundations. Native workers remain `gpt-6.1-sol`/high; preserve source numeric lexical forms and use existing JS number formatting for C033.
+
 ## Per-command QA and real workspace use
 
 Run the [qa-review skill](/home/exedev/repos/dotfiles/.codex/skills/qa-review/SKILL.md) after **every implemented command**, including aliases/modes changed by its diff. Build first, derive a 5–15 case table from the diff, persist it under `~/.local/state/qa/linear-cli/` with item and revision identity, and execute the binary. Cover real users' happy paths, absent data, invalid explicit input, auth/API failure, pipe/TTY behavior and side effects as relevant. Update each case immediately with pass/fail/blocked/skipped and evidence. Code reading is a documented fallback, never a substitute for runnable cases. Existing user authorization covers continuing this planned sequence; do not repeatedly ask whether to resume routine QA.

@@ -1,0 +1,133 @@
+{
+  "id": "c032-whitespace-values",
+  "route": "linear milestone create",
+  "reason": "whitespace-only values are nonempty and passed verbatim without local date validation",
+  "argv": [
+    "milestone",
+    "create",
+    "--project",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+    "--name",
+    "  Q3  ",
+    "--description",
+    " ",
+    "--target-date",
+    " "
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Created milestone: Server Q3\n  ID: 00000000-0000-4000-9000-000000003203\n  Project: Mobile App\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {
+      "ProjectMilestone:00000000-0000-4000-9000-000000003203": {
+        "id": "00000000-0000-4000-9000-000000003203",
+        "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+        "name": "Server Q3",
+        "targetDate": null,
+        "description": " "
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation CreateProjectMilestone($input: ProjectMilestoneCreateInput!) {\n    projectMilestoneCreate(input: $input) {\n      success\n      projectMilestone {\n        id\n        name\n        targetDate\n        project {\n          id\n          name\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "input": {
+                  "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "  Q3  ",
+                  "description": " ",
+                  "targetDate": " "
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projectMilestoneCreate": {
+                  "success": true,
+                  "projectMilestone": {
+                    "id": "00000000-0000-4000-9000-000000003203",
+                    "name": "Server Q3",
+                    "targetDate": null,
+                    "project": {
+                      "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                      "name": "Mobile App"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "ProjectMilestone:00000000-0000-4000-9000-000000003203",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-000000003203",
+                  "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "Server Q3",
+                  "targetDate": null,
+                  "description": " "
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

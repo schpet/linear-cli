@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c032-empty-description-value",
+  "deviationId": "C032-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear milestone create --project <project> --name <name>\nVersion: 3.0.0-alpha.1                                            \n\nDescription:\n\n  Create a new project milestone\n\nOptions:\n\n  -h, --help                    - Show this help.                                \n  --workspace    <slug>         - Target workspace (uses credentials)            \n  --project      <project>      - Project (UUID, slug ID, or name)     (required)\n  --name         <name>         - Milestone name                       (required)\n  --description  <description>  - Milestone description                          \n  --target-date  <date>         - Target date (YYYY-MM-DD)                       \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Missing value for option \"--description\".\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

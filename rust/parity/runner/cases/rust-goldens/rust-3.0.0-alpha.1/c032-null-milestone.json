@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "caseId": "c032-null-milestone",
+  "deviationId": "C032-STRICT-MILESTONE-DECODE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to create milestone: response JSON did not match the expected operation shape: invalid type: null, expected struct CreatedMilestone; milestone may already exist\n"
+      },
+      "fileEffects": []
+    }
+  }
+}
