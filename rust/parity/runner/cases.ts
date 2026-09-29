@@ -11,21 +11,28 @@ import {
   isNonNullType,
   isObjectType,
   isUnionType,
+  Kind,
   parse,
+  print,
 } from "graphql"
 import { bytesEqual, decodeByteValue, sha256Hex } from "./bytes.ts"
 import type { StdoutMode } from "./target-status.ts"
 import { buildPinnedSchema, matchGraphQL } from "./graphql-match.ts"
+import { projectGraphQLResponse } from "./graphql-server.ts"
+import { GraphQLState } from "./graphql-state.ts"
 import {
   type CandidateContract,
   type CaseSpec,
   FROZEN_CONTRACT,
   FROZEN_USER_AGENT,
   GraphQLFixtureSchema,
+  type GraphQLStepSpec,
   type InteractionSpec,
   parseCase,
   parseReviewedGolden,
+  parseReviewedGoldenV2,
   type ReviewedGolden,
+  type ReviewedGoldenV2,
   type RuntimeGraphQLFixtureSpec,
   RUST_CONTRACT,
   RUST_USER_AGENT,
@@ -43,9 +50,16 @@ export interface LoadedCase {
   fixtureDir: string | null
   configFixtureDir: string | null
   golden?: { spec: ReviewedGolden; sha256: string } | null
+  goldenV2?: {
+    spec: ReviewedGoldenV2
+    sha256: string
+    checkedFixture: NonNullable<CaseSpec["graphql"]>
+  } | null
   /** Candidate-only override applied after the frozen case is resolved. */
   runtimeUserAgent?: typeof RUST_USER_AGENT
 }
+
+const checkedV2Cases = new WeakSet<LoadedCase>()
 
 function same(left: unknown, right: unknown): boolean {
   if (Object.is(left, right)) return true
@@ -202,11 +216,315 @@ function changedSurfaces(spec: CaseSpec, golden: ReviewedGolden): string[] {
   return changed
 }
 
+function changedSurfacesV2(spec: CaseSpec, golden: ReviewedGoldenV2): string[] {
+  const changed = ["graphql-fixture", "graphql-user-agent"]
+  const expected = golden.candidate.expected
+  if (expected != null) {
+    if (!same(spec.expected.exit, expected.exit)) changed.push("exit")
+    if (!sameStdout(spec.expected.stdout, expected.stdout)) {
+      changed.push("stdout")
+    }
+    if (
+      !bytesEqual(
+        decodeByteValue(spec.expected.stderr),
+        decodeByteValue(expected.stderr),
+      )
+    ) {
+      changed.push("stderr")
+    }
+    if (!same(spec.expected.fileEffects, expected.fileEffects)) {
+      changed.push("files")
+    }
+  }
+  return changed
+}
+
+function initiativePageInfo(data: unknown, label: string): {
+  hasNextPage: boolean
+  endCursor: string | null
+} {
+  if (
+    !record(data) || Object.keys(data).length !== 1 || !record(data.initiatives)
+  ) {
+    throw new SchemaError(`${label}: response.data needs only initiatives`)
+  }
+  const connection = data.initiatives
+  if (!Array.isArray(connection.nodes) || !record(connection.pageInfo)) {
+    throw new SchemaError(`${label}: initiatives needs nodes and pageInfo`)
+  }
+  const pageInfo = connection.pageInfo
+  if (
+    typeof pageInfo.hasNextPage !== "boolean" ||
+    !(pageInfo.endCursor === null || typeof pageInfo.endCursor === "string")
+  ) {
+    throw new SchemaError(`${label}: pageInfo has invalid shape`)
+  }
+  return { hasNextPage: pageInfo.hasNextPage, endCursor: pageInfo.endCursor }
+}
+
+function containsRecordReference(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(containsRecordReference)
+  return record(value) && (
+    Object.hasOwn(value, "$record") ||
+    Object.values(value).some(containsRecordReference)
+  )
+}
+
+function checkedPageOperation(
+  frozenDocument: string,
+  appendedDocument: string,
+  operationName: string | undefined,
+  label: string,
+): void {
+  const frozen = parse(frozenDocument)
+  const appended = parse(appendedDocument)
+  if (
+    frozen.definitions.length !== 1 || appended.definitions.length !== 1 ||
+    frozen.definitions[0].kind !== Kind.OPERATION_DEFINITION ||
+    appended.definitions[0].kind !== Kind.OPERATION_DEFINITION
+  ) throw new SchemaError(`${label}: needs one operation without fragments`)
+  const base = frozen.definitions[0]
+  const next = appended.definitions[0]
+  if (
+    base.operation !== "query" || next.operation !== "query" ||
+    next.selectionSet.selections.length !== 1 ||
+    base.selectionSet.selections.length !== 1 ||
+    next.selectionSet.selections[0].kind !== Kind.FIELD ||
+    base.selectionSet.selections[0].kind !== Kind.FIELD ||
+    next.selectionSet.selections[0].name.value !== "initiatives" ||
+    operationName != null && operationName !== next.name?.value
+  ) throw new SchemaError(`${label}: appended query must select initiatives`)
+  const field = next.selectionSet.selections[0]
+  const baseField = base.selectionSet.selections[0]
+  const afterArguments =
+    field.arguments?.filter((entry) => entry.name.value === "after") ?? []
+  const afterDefinitions =
+    next.variableDefinitions?.filter((entry) =>
+      entry.variable.name.value === "after"
+    ) ?? []
+  if (
+    afterArguments.length !== 1 ||
+    afterArguments[0].value.kind !== Kind.VARIABLE ||
+    afterArguments[0].value.name.value !== "after" ||
+    afterDefinitions.length !== 1 ||
+    afterDefinitions[0].type.kind !== Kind.NAMED_TYPE ||
+    afterDefinitions[0].type.name.value !== "String" ||
+    afterDefinitions[0].defaultValue != null ||
+    (afterDefinitions[0].directives?.length ?? 0) !== 0 ||
+    (baseField.arguments ?? []).some((entry) => entry.name.value === "after") ||
+    (base.variableDefinitions ?? []).some((entry) =>
+      entry.variable.name.value === "after"
+    )
+  ) {
+    throw new SchemaError(
+      `${label}: needs exactly after:$after and $after:String`,
+    )
+  }
+  const comparableBase = print({
+    ...frozen,
+    definitions: [{ ...base, name: undefined }],
+  })
+  const comparableNext = print({
+    ...appended,
+    definitions: [{
+      ...next,
+      name: undefined,
+      variableDefinitions: next.variableDefinitions?.filter((entry) =>
+        entry.variable.name.value !== "after"
+      ),
+      selectionSet: {
+        ...next.selectionSet,
+        selections: [{
+          ...field,
+          arguments: field.arguments?.filter((entry) =>
+            entry.name.value !== "after"
+          ),
+        }],
+      },
+    }],
+  })
+  if (comparableNext !== comparableBase) {
+    throw new SchemaError(
+      `${label}: appended query changes the frozen selection or arguments`,
+    )
+  }
+}
+
+async function deriveInitiativePages(
+  spec: CaseSpec,
+  golden: ReviewedGoldenV2,
+  path: string,
+  pinned: PinnedGraphQLContext,
+): Promise<NonNullable<CaseSpec["graphql"]>> {
+  const fixture = spec.graphql
+  const pages = golden.candidate.graphqlPages
+  if (
+    spec.route !== "linear initiative list" || fixture == null ||
+    spec.fixtureServer != null || fixture.groups.length !== 1 ||
+    fixture.groups[0].mode !== "ordered" ||
+    fixture.groups[0].steps.length !== 1 ||
+    !same(fixture.initialRecords, fixture.expectedRecords) ||
+    Object.keys(fixture.initialRecords).length !== 0 ||
+    fixture.expectedRequests !== 1
+  ) {
+    throw new SchemaError(
+      `${path}: v2 needs one effect-free frozen initiative query`,
+    )
+  }
+  const frozenStep = fixture.groups[0].steps[0]
+  if (
+    frozenStep.kind !== "graphql" || frozenStep.effects.length !== 0 ||
+    frozenStep.response.kind !== "data" ||
+    pages.retainedSteps[0] !== frozenStep.id
+  ) throw new SchemaError(`${path}: v2 retained step differs from frozen query`)
+  if (containsRecordReference(frozenStep.response.data)) {
+    throw new SchemaError(`${path}: v2 cannot use record references`)
+  }
+  const firstPage = initiativePageInfo(frozenStep.response.data, path)
+  if (!firstPage.hasNextPage || !firstPage.endCursor) {
+    throw new SchemaError(
+      `${path}: frozen first page needs a continuation cursor`,
+    )
+  }
+  const repeat = spec.id === "c037-first-page-repeat-cursor-proposal"
+  if (repeat) {
+    const expected = golden.candidate.expected
+    if (
+      expected == null || !("code" in expected.exit) ||
+      expected.exit.code === 0 || "mode" in expected.stdout ||
+      decodeByteValue(expected.stdout).length !== 0
+    ) {
+      throw new SchemaError(
+        `${path}: repeated-cursor candidate must exit nonzero with empty stdout`,
+      )
+    }
+  }
+  if (
+    pages.appendedSteps.length !== (repeat ? 2 : 1) ||
+    pages.expectedRequests !== 1 + pages.appendedSteps.length
+  ) throw new SchemaError(`${path}: appended page count differs from case`)
+  const seen = new Set([frozenStep.id])
+  const baseVariables = frozenStep.operation.variables ?? {}
+  let cursor = firstPage.endCursor
+  const schema = await pinned.schema()
+  const appended = []
+  for (const [index, page] of pages.appendedSteps.entries()) {
+    if (seen.has(page.id)) {
+      throw new SchemaError(`${path}: duplicate appended step id`)
+    }
+    seen.add(page.id)
+    const label = `${path}: ${page.id}`
+    const serialized = JSON.stringify(page)
+    if (
+      serialized.includes("{{") || /lin_(api|oauth)_(?!fake)/i.test(serialized)
+    ) {
+      throw new SchemaError(
+        `${label}: appended page contains forbidden literal`,
+      )
+    }
+    try {
+      checkedPageOperation(
+        frozenStep.operation.document,
+        page.operation.document,
+        page.operation.operationName,
+        label,
+      )
+    } catch (error) {
+      throw new SchemaError(
+        `${label}: invalid appended query: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+    const vars = page.operation.variables
+    if (
+      typeof vars.after !== "string" || vars.after.length === 0 ||
+      vars.after !== cursor ||
+      Object.keys(vars).length !== Object.keys(baseVariables).length + 1 ||
+      !Object.entries(baseVariables).every(([key, value]) =>
+        Object.hasOwn(vars, key) && same(vars[key], value)
+      )
+    ) {
+      throw new SchemaError(
+        `${label}: variables differ from frozen page or preceding cursor`,
+      )
+    }
+    if (containsRecordReference(page.response.data)) {
+      throw new SchemaError(`${label}: record reference is forbidden`)
+    }
+    const info = initiativePageInfo(page.response.data, label)
+    if (repeat) {
+      if (
+        !info.hasNextPage || !info.endCursor ||
+        index === 0 && info.endCursor === firstPage.endCursor ||
+        index === 1 &&
+          (info.endCursor !== firstPage.endCursor ||
+            cursor === firstPage.endCursor)
+      ) throw new SchemaError(`${label}: repeat case needs A→B→A cursors`)
+    } else if (info.hasNextPage) {
+      throw new SchemaError(`${label}: final appended page must be terminal`)
+    }
+    cursor = info.endCursor ?? ""
+    const step: GraphQLStepSpec = {
+      kind: "graphql",
+      id: page.id,
+      operation: page.operation,
+      identity: structuredClone(frozenStep.identity),
+      response: page.response,
+      effects: [],
+    }
+    try {
+      await projectGraphQLResponse(
+        schema,
+        new GraphQLState({}),
+        step,
+        page.operation.document,
+        vars,
+        page.operation.operationName,
+      )
+    } catch (error) {
+      throw new SchemaError(
+        `${label}: invalid projected response: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+    appended.push(step)
+  }
+  const candidateGraphql: NonNullable<CaseSpec["graphql"]> = {
+    ...fixture,
+    expectedRequests: pages.expectedRequests,
+    groups: [{ mode: "ordered", steps: [frozenStep, ...appended] }],
+  }
+  const candidateSpec: CaseSpec = {
+    ...spec,
+    expected: golden.candidate.expected ?? spec.expected,
+    graphql: candidateGraphql,
+  }
+  parseCase(candidateSpec)
+  await checkGraphQLFixture(candidateSpec, path, pinned)
+  resolveCase(candidateSpec, {
+    home: "h",
+    configHome: "c",
+    cwd: "w",
+    cwdRoot: "r",
+    bin: "b",
+    denoDir: "d",
+    fixturePort: "0",
+    referenceModuleUrl: "file:///reference",
+  }, golden.candidate.graphqlUserAgent)
+  return candidateGraphql
+}
+
 async function loadReviewedBinding(
   dir: string,
   spec: CaseSpec,
   pinned: PinnedGraphQLContext,
-): Promise<LoadedCase["golden"]> {
+): Promise<
+  | { v1: NonNullable<LoadedCase["golden"]>; v2?: never }
+  | { v2: NonNullable<LoadedCase["goldenV2"]>; v1?: never }
+  | null
+> {
   const binding = spec.deviation
   if (binding == null) return null
   const root = join(await Deno.realPath(dir), "rust-goldens")
@@ -242,6 +560,33 @@ async function loadReviewedBinding(
     parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes))
   } catch {
     throw new SchemaError(`case ${spec.id}: reviewed golden is not UTF-8 JSON`)
+  }
+  if (!record(parsed) || !Number.isInteger(parsed.formatVersion)) {
+    throw new SchemaError(
+      `${path}: reviewed golden formatVersion must be 1 or 2`,
+    )
+  }
+  if (parsed.formatVersion === 2) {
+    const v2 = parseReviewedGoldenV2(parsed, path)
+    if (
+      v2.caseId !== spec.id || v2.deviationId !== binding.id ||
+      v2.contract !== binding.contract
+    ) throw new SchemaError(`${path}: v2 identity differs from case binding`)
+    if (JSON.stringify(v2.candidate).includes("{{referenceModuleUrl}}")) {
+      throw new SchemaError(`${path}: v2 cannot use referenceModuleUrl`)
+    }
+    const surfaces = changedSurfacesV2(spec, v2)
+    if (
+      v2.candidate.expected != null && surfaces.length === 2 ||
+      !same([...surfaces].sort(), [...v2.approvedSurfaces].sort())
+    ) throw new SchemaError(`${path}: v2 approvedSurfaces differ from changes`)
+    const checkedFixture = await deriveInitiativePages(spec, v2, path, pinned)
+    return { v2: { spec: v2, sha256: hash, checkedFixture } }
+  }
+  if (parsed.formatVersion !== 1) {
+    throw new SchemaError(
+      `${path}: reviewed golden formatVersion must be 1 or 2`,
+    )
   }
   const golden = parseReviewedGolden(parsed, path)
   if (JSON.stringify(golden.candidate).includes("{{referenceModuleUrl}}")) {
@@ -375,7 +720,7 @@ async function loadReviewedBinding(
     fixturePort: "0",
     referenceModuleUrl: "file:///reference",
   }, golden.candidate.graphqlUserAgent)
-  return { spec: golden, sha256: hash }
+  return { v1: { spec: golden, sha256: hash } }
 }
 
 async function checkGoldenTree(
@@ -415,6 +760,26 @@ async function checkGoldenTree(
 }
 
 export function candidateCaseView(loaded: LoadedCase): LoadedCase {
+  if (loaded.golden != null && loaded.goldenV2 != null) {
+    throw new SchemaError(
+      `case ${loaded.spec.id}: both golden versions are bound`,
+    )
+  }
+  if (loaded.goldenV2 != null) {
+    if (!checkedV2Cases.has(loaded) || loaded.goldenV2.checkedFixture == null) {
+      throw new SchemaError(`case ${loaded.spec.id}: unvalidated v2 candidate`)
+    }
+    return {
+      ...loaded,
+      spec: {
+        ...loaded.spec,
+        expected: loaded.goldenV2.spec.candidate.expected ??
+          loaded.spec.expected,
+        graphql: loaded.goldenV2.checkedFixture,
+      },
+      runtimeUserAgent: loaded.goldenV2.spec.candidate.graphqlUserAgent,
+    }
+  }
   const golden = loaded.golden?.spec
   if (golden == null) {
     if (loaded.spec.deviation != null || loaded.spec.graphql != null) {
@@ -1069,11 +1434,17 @@ export async function loadCases(
         `${file}: route "${spec.route}" is not in rust/parity/manifest.json`,
       )
     }
-    const golden = await loadReviewedBinding(dir, spec, pinned)
-    if (golden != null) boundIds.add(spec.id)
+    const binding = await loadReviewedBinding(dir, spec, pinned)
+    const golden = binding?.v1 ?? null
+    const goldenV2 = binding?.v2 ?? null
+    if (golden != null && goldenV2 != null) {
+      throw new SchemaError(`${file}: both reviewed golden versions are bound`)
+    }
+    if (binding != null) boundIds.add(spec.id)
     if (
       contract === RUST_CONTRACT && spec.graphql != null &&
-      golden?.spec.candidate.graphqlUserAgent !== RUST_USER_AGENT
+      golden?.spec.candidate.graphqlUserAgent !== RUST_USER_AGENT &&
+      goldenV2?.spec.candidate.graphqlUserAgent !== RUST_USER_AGENT
     ) {
       throw new SchemaError(
         `${file}: Rust contract requires exact GraphQL User-Agent binding`,
@@ -1112,7 +1483,16 @@ export async function loadCases(
       referenceModuleUrl: "file:///reference",
     })
     if (filter == null || spec.id.includes(filter)) {
-      loaded.push({ file, spec, fixtureDir, configFixtureDir, golden })
+      const item: LoadedCase = {
+        file,
+        spec,
+        fixtureDir,
+        configFixtureDir,
+        golden,
+        goldenV2,
+      }
+      if (goldenV2 != null) checkedV2Cases.add(item)
+      loaded.push(item)
     }
   }
   await checkGoldenTree(dir, boundIds)

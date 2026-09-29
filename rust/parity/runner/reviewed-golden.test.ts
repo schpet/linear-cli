@@ -22,6 +22,7 @@ import {
   type GraphQLFixtureSpec,
   parseCase,
   parseReviewedGolden,
+  parseReviewedGoldenV2,
   SchemaError,
   ZeroRequestCandidateGraphQLSchema,
 } from "./schema.ts"
@@ -31,6 +32,860 @@ import * as v from "valibot"
 const CONTRACT = "rust-3.0.0-alpha.1"
 const USER_AGENT = "schpet-linear-cli/3.0.0-alpha.1"
 const GOLDEN_ID = "R01H-SYNTHETIC"
+
+const C037_ID = "c037-first-page-more-json"
+const C037_DEVIATION = "C037P02-SYNTHETIC"
+
+function getPath(root: unknown, keys: readonly (string | number)[]): unknown {
+  let value = root
+  for (const key of keys) {
+    if (typeof value !== "object" || value == null) {
+      throw new Error(`test path ${keys.join(".")} is absent`)
+    }
+    value = Reflect.get(value, key)
+  }
+  return value
+}
+
+function setPath(
+  root: unknown,
+  keys: readonly (string | number)[],
+  value: unknown,
+): void {
+  const parent = getPath(root, keys.slice(0, -1))
+  if (typeof parent !== "object" || parent == null) {
+    throw new Error(`test path ${keys.join(".")} is absent`)
+  }
+  Reflect.set(parent, keys[keys.length - 1], value)
+}
+
+function changeV2Document(
+  golden: Record<string, unknown>,
+  change: (document: string) => string,
+): void {
+  const path = [
+    "candidate",
+    "graphqlPages",
+    "appendedSteps",
+    0,
+    "operation",
+    "document",
+  ]
+  const document = getPath(golden, path)
+  if (typeof document !== "string") throw new Error("test query is missing")
+  setPath(golden, path, change(document))
+}
+
+function getV2Steps(golden: Record<string, unknown>): unknown[] {
+  const steps = getPath(golden, ["candidate", "graphqlPages", "appendedSteps"])
+  if (!Array.isArray(steps)) throw new Error("test pages are missing")
+  return steps
+}
+
+async function withC037V2Corpus(
+  fn: (
+    dir: string,
+    write: (
+      golden: Record<string, unknown>,
+      mutate?: (spec: Record<string, unknown>) => void,
+    ) => Promise<void>,
+    validGolden: () => Record<string, unknown>,
+  ) => Promise<void>,
+  caseId = C037_ID,
+): Promise<void> {
+  const dir = await Deno.makeTempDir({ prefix: "linear-reviewed-v2-" })
+  const root = join(dir, "rust-goldens", CONTRACT)
+  await Deno.mkdir(root, { recursive: true })
+  const original = JSON.parse(
+    await Deno.readTextFile(
+      new URL(`./c037-frozen-cases/${caseId}.json`, import.meta.url),
+    ),
+  )
+  const frozenStep = original.graphql.groups[0].steps[0]
+  const document = frozenStep.operation.document.replace(
+    "$includeArchived: Boolean)",
+    "$includeArchived: Boolean, $after: String)",
+  ).replace(
+    "includeArchived: $includeArchived)",
+    "includeArchived: $includeArchived, after: $after)",
+  )
+  const validGolden = () => {
+    const second = structuredClone(frozenStep.response.data)
+    if (second.initiatives.nodes.length > 0) {
+      second.initiatives.nodes[0].id = "00000000-0000-4000-9000-000000000050"
+    }
+    const repeat = caseId === "c037-first-page-repeat-cursor-proposal"
+    const cursor = frozenStep.response.data.initiatives.pageInfo.endCursor
+    second.initiatives.pageInfo = repeat
+      ? { hasNextPage: true, endCursor: "cycle-b" }
+      : { hasNextPage: false, endCursor: null }
+    const appendedSteps = [{
+      id: "initiative-page-2",
+      operation: {
+        document,
+        variables: {
+          ...frozenStep.operation.variables,
+          after: cursor,
+        },
+      },
+      response: { kind: "data", data: second },
+    }]
+    if (repeat) {
+      const third = structuredClone(second)
+      third.initiatives.pageInfo = { hasNextPage: true, endCursor: cursor }
+      appendedSteps.push({
+        id: "initiative-page-3",
+        operation: {
+          document,
+          variables: { ...frozenStep.operation.variables, after: "cycle-b" },
+        },
+        response: { kind: "data", data: third },
+      })
+    }
+    const result = {
+      formatVersion: 2,
+      caseId,
+      deviationId: C037_DEVIATION,
+      contract: CONTRACT,
+      approvedSurfaces: ["graphql-fixture", "graphql-user-agent"],
+      candidate: {
+        graphqlUserAgent: USER_AGENT,
+        graphqlPages: {
+          kind: "append-initiative-pages",
+          retainedSteps: ["initiatives"],
+          appendedSteps,
+          expectedRequests: 1 + appendedSteps.length,
+        },
+      },
+    }
+    if (repeat) {
+      result.approvedSurfaces = [
+        "exit",
+        "stdout",
+        "stderr",
+        "graphql-fixture",
+        "graphql-user-agent",
+      ]
+      setPath(result, ["candidate", "expected"], {
+        exit: { code: 1 },
+        stdout: { utf8: "" },
+        stderr: { utf8: "✗ repeated cursor\n" },
+        fileEffects: [],
+      })
+    }
+    return result
+  }
+  const write = async (
+    golden: Record<string, unknown>,
+    mutate?: (spec: Record<string, unknown>) => void,
+  ) => {
+    const spec = structuredClone(original)
+    mutate?.(spec)
+    const raw = JSON.stringify(golden, null, 2) + "\n"
+    await Deno.writeTextFile(join(root, `${caseId}.json`), raw)
+    spec.deviation = {
+      id: C037_DEVIATION,
+      contract: CONTRACT,
+      sha256: await sha256Hex(new TextEncoder().encode(raw)),
+    }
+    await Deno.writeTextFile(join(dir, `${caseId}.json`), JSON.stringify(spec))
+  }
+  try {
+    await fn(dir, write, validGolden)
+  } finally {
+    await Deno.remove(dir, { recursive: true })
+  }
+}
+
+Deno.test("v2 pagination preserves frozen first page and derives validated candidate pages", async () => {
+  await withC037V2Corpus(async (dir, write, validGolden) => {
+    const golden = validGolden()
+    await write(golden)
+    const [loaded] = await loadCases(
+      dir,
+      new Set(["linear initiative list"]),
+      undefined,
+      CONTRACT,
+    )
+    const frozen = structuredClone(loaded.spec)
+    const view = candidateCaseView(loaded)
+    assertEquals(loaded.spec, frozen)
+    assertEquals(loaded.spec.graphql?.expectedRequests, 1)
+    assertEquals(view.spec.graphql?.expectedRequests, 2)
+    assertEquals(view.runtimeUserAgent, USER_AGENT)
+    assertEquals(view.golden, null)
+    assertEquals(view.goldenV2?.spec.formatVersion, 2)
+    const group = view.spec.graphql?.groups[0]
+    assert(group?.mode === "ordered")
+    assertEquals(
+      group.steps[0],
+      loaded.spec.graphql?.groups[0].mode === "ordered"
+        ? loaded.spec.graphql.groups[0].steps[0]
+        : null,
+    )
+    assertEquals(group.steps[1].kind, "graphql")
+    if (group.steps[1].kind !== "graphql") throw new Error("expected query")
+    assertEquals(group.steps[1].operation.variables?.after, "page-a")
+    assertEquals(
+      group.steps[1].response,
+      getPath(golden, [
+        "candidate",
+        "graphqlPages",
+        "appendedSteps",
+        0,
+        "response",
+      ]),
+    )
+    assertEquals(
+      group.steps[1].identity,
+      group.steps[0].kind === "graphql" ? group.steps[0].identity : null,
+    )
+    assertThrows(
+      () => candidateCaseView({ ...loaded }),
+      SchemaError,
+      "unvalidated v2",
+    )
+    assertThrows(
+      () =>
+        candidateCaseView({
+          ...loaded,
+          golden: {
+            spec: parseReviewedGolden({
+              ...golden,
+              formatVersion: 1,
+              candidate: {},
+            }),
+            sha256: "0".repeat(64),
+          },
+        }),
+      SchemaError,
+      "both golden versions",
+    )
+    assertThrows(() => parseReviewedGolden(golden), SchemaError)
+    assertThrows(
+      () => parseReviewedGoldenV2({ ...golden, formatVersion: 1 }),
+      SchemaError,
+    )
+    assertEquals(parseReviewedGoldenV2(golden).formatVersion, 2)
+  })
+})
+
+Deno.test("v2 pagination loads all four eligible frozen initiative cases", async () => {
+  for (
+    const caseId of [
+      "c037-first-page-more-json",
+      "c037-first-page-more-text",
+      "c037-empty-first-page-has-next",
+      "c037-first-page-repeat-cursor-proposal",
+    ]
+  ) {
+    await withC037V2Corpus(async (dir, write, validGolden) => {
+      const value = validGolden()
+      await write(value)
+      const [loaded] = await loadCases(
+        dir,
+        new Set(["linear initiative list"]),
+        undefined,
+        CONTRACT,
+      )
+      assertEquals(loaded.spec.id, caseId)
+      assertEquals(loaded.spec.graphql?.expectedRequests, 1)
+      assertEquals(
+        candidateCaseView(loaded).spec.graphql?.expectedRequests,
+        caseId === "c037-first-page-repeat-cursor-proposal" ? 3 : 2,
+      )
+    }, caseId)
+  }
+})
+
+Deno.test("v2 pagination rejects malformed pages and changed frozen inputs at load time", async () => {
+  await withC037V2Corpus(async (dir, write, validGolden) => {
+    const load = () =>
+      loadCases(
+        dir,
+        new Set(["linear initiative list", "linear initiative view"]),
+        undefined,
+        CONTRACT,
+      )
+    const cases: Array<[(golden: Record<string, unknown>) => void, string]> = [
+      [(g) => {
+        g.formatVersion = 3
+      }, "formatVersion"],
+      [(g) => {
+        g.caseId = "other"
+      }, "caseId"],
+      [(g) => {
+        setPath(g, ["candidate", "argv"], ["initiative", "list"])
+      }, "argv"],
+      [(g) => {
+        setPath(g, ["candidate", "graphql"], { steps: [] })
+      }, "graphql"],
+      [(g) => {
+        setPath(g, ["candidate", "graphqlPages", "retainedSteps"], ["other"])
+      }, "retained step"],
+      [(g) => {
+        setPath(g, ["candidate", "graphqlPages", "retainedSteps"], [
+          "initiatives",
+          "junk",
+        ])
+      }, "retainedSteps"],
+      [(g) => {
+        setPath(g, ["candidate", "graphqlPages", "retainedSteps"], [
+          "initiatives",
+          "initiatives",
+        ])
+      }, "retainedSteps"],
+      [(g) => {
+        setPath(g, ["candidate", "graphqlPages", "expectedRequests"], 3)
+      }, "count"],
+      [(g) => {
+        setPath(g, ["candidate", "graphqlPages", "appendedSteps"], [
+          ...getV2Steps(g),
+          ...getV2Steps(g),
+        ])
+      }, "appended page count"],
+      [(g) => {
+        setPath(
+          g,
+          ["candidate", "graphqlPages", "appendedSteps", 0, "id"],
+          "initiatives",
+        )
+      }, "duplicate"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "operation",
+          "variables",
+          "after",
+        ], "wrong")
+      }, "cursor"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "operation",
+          "variables",
+          "first",
+        ], 1)
+      }, "variables"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "operation",
+          "exactOrigins",
+        ], [])
+      }, "exactOrigins"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "operation",
+          "allowExtraTypename",
+        ], true)
+      }, "allowExtraTypename"],
+      [(g) => {
+        changeV2Document(
+          g,
+          (document) => document.replace(", after: $after)", ")"),
+        )
+      }, "needs exactly after"],
+      [(g) => {
+        changeV2Document(
+          g,
+          (document) => document.replace("$after: String)", "$after: String!)"),
+        )
+      }, "needs exactly after"],
+      [(g) => {
+        changeV2Document(
+          g,
+          (document) =>
+            document.replace("after: $after)", "after: $after, first: 50)"),
+        )
+      }, "changes the frozen selection"],
+      [(g) => {
+        changeV2Document(g, (document) => document.replace("archivedAt", ""))
+      }, "changes the frozen selection"],
+      [(g) => {
+        setPath(
+          g,
+          [
+            "candidate",
+            "graphqlPages",
+            "appendedSteps",
+            0,
+            "operation",
+            "document",
+          ],
+          `${
+            getPath(g, [
+              "candidate",
+              "graphqlPages",
+              "appendedSteps",
+              0,
+              "operation",
+              "document",
+            ])
+          } query Another { __typename }`,
+        )
+      }, "one operation"],
+      [(g) => {
+        setPath(
+          g,
+          [
+            "candidate",
+            "graphqlPages",
+            "appendedSteps",
+            0,
+            "operation",
+            "document",
+          ],
+          `${
+            getPath(g, [
+              "candidate",
+              "graphqlPages",
+              "appendedSteps",
+              0,
+              "operation",
+              "document",
+            ])
+          } fragment X on Query { __typename }`,
+        )
+      }, "fragments"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "operation",
+          "document",
+        ], "query {")
+      }, "invalid appended query"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "response",
+          "data",
+          "initiatives",
+          "nodes",
+          0,
+          "name",
+        ], undefined)
+      }, "projected response"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "response",
+          "data",
+          "initiatives",
+          "nodes",
+          0,
+          "health",
+        ], "invalid-health")
+      }, "projected response"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "response",
+          "data",
+          "initiatives",
+          "nodes",
+          0,
+        ], { "$record": "unknown" })
+      }, "record reference"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "response",
+          "data",
+          "initiatives",
+          "pageInfo",
+          "hasNextPage",
+        ], true)
+      }, "terminal"],
+      [(g) => {
+        setPath(g, [
+          "candidate",
+          "graphqlPages",
+          "appendedSteps",
+          0,
+          "response",
+          "data",
+          "extra",
+        ], {})
+      }, "only initiatives"],
+      [(g) => {
+        setPath(g, ["approvedSurfaces"], ["graphql-fixture"])
+      }, "approvedSurfaces"],
+      [(g) => {
+        setPath(g, ["candidate", "graphqlUserAgent"], undefined)
+      }, "graphqlUserAgent"],
+    ]
+    for (const [change, message] of cases) {
+      const value = validGolden()
+      change(value)
+      await write(value)
+      await assertRejects(load, SchemaError, message)
+    }
+    await write(validGolden(), (spec) => {
+      setPath(spec, [
+        "graphql",
+        "groups",
+        0,
+        "steps",
+        0,
+        "response",
+        "data",
+        "initiatives",
+        "pageInfo",
+        "endCursor",
+      ], null)
+    })
+    await assertRejects(load, SchemaError, "continuation cursor")
+    await write(validGolden(), (spec) => {
+      setPath(spec, [
+        "graphql",
+        "groups",
+        0,
+        "steps",
+        0,
+        "response",
+        "data",
+        "initiatives",
+        "pageInfo",
+        "hasNextPage",
+      ], false)
+    })
+    await assertRejects(load, SchemaError, "continuation cursor")
+    await write(validGolden(), (spec) => {
+      setPath(
+        spec,
+        ["graphql", "groups", 0, "steps", 0, "operation", "document"],
+        "query GetInitiatives { initiatives { pageInfo { hasNextPage endCursor } } }",
+      )
+    })
+    await assertRejects(load, SchemaError, "invalid fixture expectation")
+    await write(validGolden(), (spec) => {
+      setPath(spec, [
+        "graphql",
+        "groups",
+        0,
+        "steps",
+        0,
+        "response",
+        "data",
+        "extra",
+      ], {})
+    })
+    await assertRejects(load, SchemaError, "only initiatives")
+    await write(validGolden(), (spec) => {
+      spec.route = "linear initiative view"
+    })
+    await assertRejects(load, SchemaError, "v2 needs one")
+  })
+})
+
+Deno.test("v2 repeated cursor requires exactly A to B to A", async () => {
+  await withC037V2Corpus(async (dir, write, validGolden) => {
+    const load = () =>
+      loadCases(dir, new Set(["linear initiative list"]), undefined, CONTRACT)
+    const valid = validGolden()
+    await write(valid)
+    const [loaded] = await load()
+    assertEquals(candidateCaseView(loaded).spec.graphql?.expectedRequests, 3)
+    assertEquals(
+      candidateCaseView(loaded).spec.expected,
+      loaded.goldenV2?.spec.candidate.expected,
+    )
+    const wrongThird = validGolden()
+    setPath(wrongThird, [
+      "candidate",
+      "graphqlPages",
+      "appendedSteps",
+      1,
+      "response",
+      "data",
+      "initiatives",
+      "pageInfo",
+      "endCursor",
+    ], "cycle-c")
+    await write(wrongThird)
+    await assertRejects(load, SchemaError, "A→B→A")
+    const wrongSecond = validGolden()
+    setPath(wrongSecond, [
+      "candidate",
+      "graphqlPages",
+      "appendedSteps",
+      0,
+      "response",
+      "data",
+      "initiatives",
+      "pageInfo",
+      "endCursor",
+    ], "cycle-a")
+    await write(wrongSecond)
+    await assertRejects(load, SchemaError, "A→B→A")
+    const wrongAfter = validGolden()
+    setPath(wrongAfter, [
+      "candidate",
+      "graphqlPages",
+      "appendedSteps",
+      1,
+      "operation",
+      "variables",
+      "after",
+    ], "cycle-a")
+    await write(wrongAfter)
+    await assertRejects(load, SchemaError, "preceding cursor")
+    const noFailureExpectation = validGolden()
+    setPath(noFailureExpectation, ["candidate", "expected"], undefined)
+    setPath(noFailureExpectation, ["approvedSurfaces"], [
+      "graphql-fixture",
+      "graphql-user-agent",
+    ])
+    await write(noFailureExpectation)
+    await assertRejects(load, SchemaError, "exit nonzero with empty stdout")
+  }, "c037-first-page-repeat-cursor-proposal")
+})
+
+Deno.test("v2 candidate consumes two ordered pages and reports reviewed provenance", async () => {
+  await withC037V2Corpus(async (dir, write, validGolden) => {
+    const value = validGolden()
+    const source = parseCase(JSON.parse(
+      await Deno.readTextFile(
+        new URL(`./c037-frozen-cases/${C037_ID}.json`, import.meta.url),
+      ),
+    ))
+    const firstNodes = getPath(source, [
+      "graphql",
+      "groups",
+      0,
+      "steps",
+      0,
+      "response",
+      "data",
+      "initiatives",
+      "nodes",
+    ])
+    const secondNodes = getPath(value, [
+      "candidate",
+      "graphqlPages",
+      "appendedSteps",
+      0,
+      "response",
+      "data",
+      "initiatives",
+      "nodes",
+    ])
+    const finalPageInfo = getPath(value, [
+      "candidate",
+      "graphqlPages",
+      "appendedSteps",
+      0,
+      "response",
+      "data",
+      "initiatives",
+      "pageInfo",
+    ])
+    if (!Array.isArray(firstNodes) || !Array.isArray(secondNodes)) {
+      throw new Error("synthetic pages need node arrays")
+    }
+    const mergedText = JSON.stringify(
+      {
+        nodes: [...firstNodes, ...secondNodes],
+        pageInfo: finalPageInfo,
+      },
+      null,
+      2,
+    ) + "\n"
+    setPath(value, ["candidate", "expected"], {
+      ...source.expected,
+      stdout: { utf8: mergedText },
+    })
+    setPath(value, ["approvedSurfaces"], [
+      "stdout",
+      "graphql-fixture",
+      "graphql-user-agent",
+    ])
+    await write(value)
+    const [loaded] = await loadCases(
+      dir,
+      new Set(["linear initiative list"]),
+      undefined,
+      CONTRACT,
+    )
+    const frozenGroup = loaded.spec.graphql?.groups[0]
+    const candidateGroup = candidateCaseView(loaded).spec.graphql?.groups[0]
+    assertEquals(loaded.spec.expected, source.expected)
+    assertEquals(loaded.goldenV2?.spec.candidate.expected?.stdout, {
+      utf8: mergedText,
+    })
+    assert(mergedText !== getPath(source, ["expected", "stdout", "utf8"]))
+    assert(
+      frozenGroup?.mode === "ordered" && candidateGroup?.mode === "ordered",
+    )
+    const runDir = await Deno.makeTempDir({
+      dir: CASE_ROOT_PARENT,
+      prefix: "reviewed-v2-pages-",
+    })
+    try {
+      const denoDir = join(runDir, "deno-dir")
+      await Deno.mkdir(denoDir)
+      const ctx = {
+        denoDir,
+        referenceBinary: join(runDir, "pinned-reference"),
+        confinement: await prepareConfinement({
+          denoDir,
+          statusHelper: await testStatusHelper(runDir),
+        }),
+        sandboxParent: runDir,
+      }
+      const body = (step: typeof frozenGroup.steps[number]) => {
+        if (step.kind !== "graphql") throw new Error("expected GraphQL")
+        return JSON.stringify({
+          query: step.operation.document,
+          variables: step.operation.variables,
+        })
+      }
+      const script = async (
+        name: string,
+        agent: string,
+        requests: string[],
+        merge: boolean,
+      ): Promise<Program> => {
+        const path = join(runDir, name)
+        const lines = requests.map((request, index) =>
+          `p${
+            index + 1
+          }=$(/usr/bin/curl --silent --show-error --noproxy '*' --request POST --header 'content-type: application/json' --header 'authorization: lin_api_fake' --header 'user-agent: ${agent}' --data-raw '${request}' "$LINEAR_GRAPHQL_ENDPOINT")`
+        )
+        lines.push(
+          merge
+            ? '/usr/bin/jq -n --argjson first "$p1" --argjson second "${p2:-null}" \'{nodes: ($first.data.initiatives.nodes + $second.data.initiatives.nodes), pageInfo: $second.data.initiatives.pageInfo}\''
+            : "/usr/bin/jq -n --argjson first \"$p1\" '$first.data.initiatives'",
+        )
+        await Deno.writeTextFile(
+          path,
+          `#!/bin/sh\nset -eu\n${lines.join("\n")}\n`,
+          { mode: 0o755 },
+        )
+        return { kind: "executable", path }
+      }
+      const first = body(frozenGroup.steps[0])
+      const second = body(candidateGroup.steps[1])
+      const baseline = await script("baseline.sh", "schpet-linear-cli/2.6.0", [
+        first,
+      ], false)
+      const two = await script("two.sh", USER_AGENT, [first, second], true)
+      const one = await script("one.sh", USER_AGENT, [first], true)
+      const extra = await script("extra.sh", USER_AGENT, [
+        first,
+        second,
+        second,
+      ], true)
+      const wrongCursor = await script("wrong-cursor.sh", USER_AGENT, [
+        first,
+        JSON.stringify({
+          query: candidateGroup.steps[1].kind === "graphql"
+            ? candidateGroup.steps[1].operation.document
+            : "",
+          variables: {
+            ...(candidateGroup.steps[1].kind === "graphql"
+              ? candidateGroup.steps[1].operation.variables
+              : {}),
+            after: "wrong-cursor",
+          },
+        }),
+      ], true)
+      const wrongDocument = await script("wrong-document.sh", USER_AGENT, [
+        first,
+        JSON.stringify({
+          query: candidateGroup.steps[1].kind === "graphql"
+            ? candidateGroup.steps[1].operation.document.replace(
+              "archivedAt",
+              "",
+            )
+            : "",
+          variables: candidateGroup.steps[1].kind === "graphql"
+            ? candidateGroup.steps[1].operation.variables
+            : {},
+        }),
+      ], true)
+      const selected = new Set(["linear initiative list"])
+      const run = async (program: Program) => {
+        const [result] = await runCorpus([loaded], baseline, {
+          name: "synthetic Rust candidate",
+          contract: CONTRACT,
+          program,
+          implementedRoutes: selected,
+        }, ctx)
+        assertEquals(result.baseline.mismatches, [])
+        assertEquals(result.baseline.fixture?.graphqlRequests, 1)
+        assertEquals(result.reviewedDeviation?.id, C037_DEVIATION)
+        assertEquals(result.reviewedDeviation?.sha256, loaded.goldenV2?.sha256)
+        return result
+      }
+      const pass = await run(two)
+      assertEquals(
+        pass.status,
+        "pass",
+        JSON.stringify(pass.candidate?.mismatches),
+      )
+      assertEquals(pass.candidate?.fixture?.graphqlRequests, 2)
+      assertEquals(
+        pass.candidate?.observation.stdoutBytes,
+        new TextEncoder().encode(mergedText).length,
+      )
+      const missing = await run(one)
+      assertEquals(missing.status, "fail")
+      assert(
+        (missing.candidate?.mismatches ?? []).some((mismatch) =>
+          mismatch.surface === "fixture"
+        ),
+      )
+      const unexpected = await run(extra)
+      assertEquals(unexpected.status, "fail")
+      assert(
+        (unexpected.candidate?.mismatches ?? []).some((mismatch) =>
+          mismatch.surface === "fixture"
+        ),
+      )
+      for (const program of [wrongCursor, wrongDocument]) {
+        const wrong = await run(program)
+        assertEquals(wrong.status, "fail")
+        assert(
+          (wrong.candidate?.mismatches ?? []).some((mismatch) =>
+            mismatch.surface === "fixture"
+          ),
+        )
+      }
+    } finally {
+      await Deno.remove(runDir, { recursive: true })
+    }
+  })
+})
 
 function golden(candidate: Record<string, unknown>, surfaces: string[]) {
   return {

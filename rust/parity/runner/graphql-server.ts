@@ -25,8 +25,8 @@ import { assetResponse, matchAssetRequest } from "./http-assets.ts"
 import { LaneScheduler } from "./lane-scheduler.ts"
 import type {
   AssetStepSpec,
+  GraphQLStepSpec,
   RuntimeGraphQLFixtureSpec,
-  RuntimeGraphQLStepSpec,
   RuntimeInteractionSpec,
 } from "./schema.ts"
 
@@ -261,6 +261,133 @@ function failure(): Response {
   return jsonResponse(500, { errors: [{ message: "fixture mismatch" }] })
 }
 
+export async function projectGraphQLResponse(
+  schema: GraphQLSchema,
+  state: GraphQLState,
+  step: Pick<GraphQLStepSpec, "response">,
+  query: string,
+  variables: Record<string, unknown> | undefined,
+  operationName: string | undefined,
+): Promise<
+  { data: unknown; suppressEffects: boolean; mutationExecuted: boolean }
+> {
+  const source =
+    step.response.kind === "data" || step.response.kind === "graphqlErrors"
+      ? step.response.data
+      : null
+  if (source == null && step.response.kind === "graphqlErrors") {
+    return { data: null, suppressEffects: false, mutationExecuted: false }
+  }
+  const fixtureErrors: string[] = []
+  let suppressEffects = false
+  let sawRootMutationField = false
+  function fixtureError(message: string): never {
+    fixtureErrors.push(message)
+    throw new FixtureDataError(message)
+  }
+  const document = parse(query)
+  const selected = getOperationAST(document, operationName)
+  if (selected?.operation === "mutation" && isRecord(source)) {
+    const mutationType = schema.getMutationType()
+    for (const selection of selected.selectionSet.selections) {
+      if (selection.kind !== Kind.FIELD || selection.directives?.length) {
+        continue
+      }
+      const name = selection.name.value
+      const field = mutationType?.getFields()[name]
+      if (field == null || !Object.hasOwn(source, name)) continue
+      try {
+        if (sourceHasSuccessFalse(source[name], field.type, schema, state)) {
+          suppressEffects = true
+        }
+      } catch (error) {
+        fixtureError(
+          error instanceof Error ? error.message : "invalid fixture value",
+        )
+      }
+    }
+  }
+  const result = await execute({
+    schema,
+    document,
+    rootValue: source,
+    variableValues: variables,
+    operationName,
+    fieldResolver(
+      rawSource: unknown,
+      _args: Record<string, unknown>,
+      _context: unknown,
+      info: GraphQLResolveInfo,
+    ) {
+      if (info.parentType === schema.getMutationType()) {
+        sawRootMutationField = true
+      }
+      let record: unknown
+      try {
+        record = state.resolve(rawSource)
+      } catch {
+        return fixtureError("record reference is missing")
+      }
+      if (!isRecord(record) || !Object.hasOwn(record, info.fieldName)) {
+        return fixtureError(
+          `missing fixture field ${info.parentType.name}.${info.fieldName}`,
+        )
+      }
+      if (
+        (isObjectType(info.parentType) || isInterfaceType(info.parentType)) &&
+        Object.hasOwn(info.parentType.getFields(), "success") &&
+        record.success === false
+      ) suppressEffects = true
+      const value = record[info.fieldName]
+      try {
+        validateOutput(value, info.returnType, schema, state)
+        if (sourceHasSuccessFalse(value, info.returnType, schema, state)) {
+          suppressEffects = true
+        }
+      } catch (error) {
+        return fixtureError(
+          error instanceof Error ? error.message : "invalid fixture value",
+        )
+      }
+      return value
+    },
+    typeResolver(
+      value: unknown,
+      _context: unknown,
+      _info: GraphQLResolveInfo,
+      abstractType,
+    ) {
+      let record: unknown
+      try {
+        record = state.resolve(value)
+      } catch {
+        return fixtureError("record reference is missing")
+      }
+      if (!isRecord(record) || typeof record.__typename !== "string") {
+        return fixtureError("abstract record lacks __typename")
+      }
+      const concrete = schema.getType(record.__typename)
+      if (
+        concrete == null || !isObjectType(concrete) ||
+        !schema.getPossibleTypes(abstractType).includes(concrete)
+      ) return fixtureError("abstract record has invalid __typename")
+      return record.__typename
+    },
+  })
+  if (fixtureErrors.length > 0) throw new FixtureDataError(fixtureErrors[0])
+  if (result.errors != null && result.errors.length > 0) {
+    throw new FixtureDataError(
+      "GraphQL execution produced an unexpected error",
+    )
+  }
+  return {
+    data: result.data,
+    suppressEffects,
+    mutationExecuted: selected?.operation !== "mutation" ||
+      sawRootMutationField,
+  }
+}
+
 export interface GraphQLRequestSummary {
   kind: "graphql" | "asset"
   authorizationMatched: boolean
@@ -309,131 +436,6 @@ export function startGraphQLServer(
       state: new GraphQLState(spec.initialRecords),
     }
     return resolved
-  }
-  async function project(
-    step: RuntimeGraphQLStepSpec,
-    query: string,
-    variables: Record<string, unknown> | undefined,
-    operationName: string | undefined,
-  ): Promise<
-    { data: unknown; suppressEffects: boolean; mutationExecuted: boolean }
-  > {
-    const { state } = active()
-    const source =
-      step.response.kind === "data" || step.response.kind === "graphqlErrors"
-        ? step.response.data
-        : null
-    if (source == null && step.response.kind === "graphqlErrors") {
-      return { data: null, suppressEffects: false, mutationExecuted: false }
-    }
-    const fixtureErrors: string[] = []
-    let suppressEffects = false
-    let sawRootMutationField = false
-    function fixtureError(message: string): never {
-      fixtureErrors.push(message)
-      throw new FixtureDataError(message)
-    }
-    const document = parse(query)
-    const selected = getOperationAST(document, operationName)
-    if (selected?.operation === "mutation" && isRecord(source)) {
-      const mutationType = schema.getMutationType()
-      for (const selection of selected.selectionSet.selections) {
-        if (selection.kind !== Kind.FIELD || selection.directives?.length) {
-          continue
-        }
-        const name = selection.name.value
-        const field = mutationType?.getFields()[name]
-        if (field == null || !Object.hasOwn(source, name)) continue
-        try {
-          if (sourceHasSuccessFalse(source[name], field.type, schema, state)) {
-            suppressEffects = true
-          }
-        } catch (error) {
-          fixtureError(
-            error instanceof Error ? error.message : "invalid fixture value",
-          )
-        }
-      }
-    }
-    const result = await execute({
-      schema,
-      document,
-      rootValue: source,
-      variableValues: variables,
-      operationName,
-      fieldResolver(
-        rawSource: unknown,
-        _args: Record<string, unknown>,
-        _context: unknown,
-        info: GraphQLResolveInfo,
-      ) {
-        if (info.parentType === schema.getMutationType()) {
-          sawRootMutationField = true
-        }
-        let record: unknown
-        try {
-          record = state.resolve(rawSource)
-        } catch {
-          return fixtureError("record reference is missing")
-        }
-        if (!isRecord(record) || !Object.hasOwn(record, info.fieldName)) {
-          return fixtureError(
-            `missing fixture field ${info.parentType.name}.${info.fieldName}`,
-          )
-        }
-        if (
-          (isObjectType(info.parentType) || isInterfaceType(info.parentType)) &&
-          Object.hasOwn(info.parentType.getFields(), "success") &&
-          record.success === false
-        ) suppressEffects = true
-        const value = record[info.fieldName]
-        try {
-          validateOutput(value, info.returnType, schema, state)
-          if (sourceHasSuccessFalse(value, info.returnType, schema, state)) {
-            suppressEffects = true
-          }
-        } catch (error) {
-          return fixtureError(
-            error instanceof Error ? error.message : "invalid fixture value",
-          )
-        }
-        return value
-      },
-      typeResolver(
-        value: unknown,
-        _context: unknown,
-        _info: GraphQLResolveInfo,
-        abstractType,
-      ) {
-        let record: unknown
-        try {
-          record = state.resolve(value)
-        } catch {
-          return fixtureError("record reference is missing")
-        }
-        if (!isRecord(record) || typeof record.__typename !== "string") {
-          return fixtureError("abstract record lacks __typename")
-        }
-        const concrete = schema.getType(record.__typename)
-        if (
-          concrete == null || !isObjectType(concrete) ||
-          !schema.getPossibleTypes(abstractType).includes(concrete)
-        ) return fixtureError("abstract record has invalid __typename")
-        return record.__typename
-      },
-    })
-    if (fixtureErrors.length > 0) throw new FixtureDataError(fixtureErrors[0])
-    if (result.errors != null && result.errors.length > 0) {
-      throw new FixtureDataError(
-        "GraphQL execution produced an unexpected error",
-      )
-    }
-    return {
-      data: result.data,
-      suppressEffects,
-      mutationExecuted: selected?.operation !== "mutation" ||
-        sawRootMutationField,
-    }
   }
   async function handleInteraction(
     request: Request,
@@ -587,7 +589,9 @@ export function startGraphQLServer(
             { status: step.response.status, headers: step.response.headers },
           )
         } else {
-          const projection = await project(
+          const projection = await projectGraphQLResponse(
+            schema,
+            state,
             step,
             parsed.query,
             parsed.variables,

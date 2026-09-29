@@ -404,6 +404,11 @@ export async function runCorpus(
 ): Promise<CaseResult[]> {
   const results: CaseResult[] = []
   for (const loaded of cases) {
+    if (loaded.golden != null && loaded.goldenV2 != null) {
+      throw new SchemaError(
+        `case ${loaded.spec.id}: both reviewed golden versions are bound`,
+      )
+    }
     const baselineRun = await executeCase(loaded, baseline, ctx)
     let status: CaseStatus
     let candidateRun: CaseRun | null = null
@@ -422,6 +427,7 @@ export async function runCorpus(
       )
       status = candidateRun.mismatches.length === 0 ? "pass" : "fail"
     }
+    const reviewed = loaded.golden ?? loaded.goldenV2
     const result: CaseResult = {
       id: loaded.spec.id,
       route: loaded.spec.route,
@@ -429,12 +435,12 @@ export async function runCorpus(
       baseline: baselineRun,
       candidate: candidateRun,
       reviewedDeviation:
-        candidate.contract === RUST_CONTRACT && loaded.golden != null
+        candidate.contract === RUST_CONTRACT && reviewed != null
           ? {
-            id: loaded.golden.spec.deviationId,
-            contract: loaded.golden.spec.contract,
-            sha256: loaded.golden.sha256,
-            approvedSurfaces: loaded.golden.spec.approvedSurfaces,
+            id: reviewed.spec.deviationId,
+            contract: reviewed.spec.contract,
+            sha256: reviewed.sha256,
+            approvedSurfaces: reviewed.spec.approvedSurfaces,
           }
           : null,
     }

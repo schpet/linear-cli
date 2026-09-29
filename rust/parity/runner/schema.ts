@@ -572,6 +572,55 @@ export const GoldenSchema = v.strictObject({
 })
 export type ReviewedGolden = v.InferOutput<typeof GoldenSchema>
 
+// C037 pagination is an append-only candidate fixture. Keep v1's public
+// parser and candidate shape unchanged for every existing reviewed golden.
+const AppendedInitiativePageSchema = v.strictObject({
+  id: nonEmpty,
+  operation: v.strictObject({
+    document: nonEmpty,
+    operationName: v.optional(v.string()),
+    variables: JsonObjectSchema,
+  }),
+  response: v.strictObject({ kind: v.literal("data"), data: JsonSchema }),
+})
+
+export const GoldenV2Schema = v.strictObject({
+  formatVersion: v.literal(2),
+  caseId: v.picklist([
+    "c037-first-page-more-json",
+    "c037-first-page-more-text",
+    "c037-empty-first-page-has-next",
+    "c037-first-page-repeat-cursor-proposal",
+  ]),
+  deviationId: nonEmpty,
+  contract: v.literal(RUST_CONTRACT),
+  approvedSurfaces: v.pipe(
+    v.array(v.picklist(APPROVED_SURFACES)),
+    v.minLength(1),
+    v.check((surfaces) => new Set(surfaces).size === surfaces.length),
+  ),
+  candidate: v.strictObject({
+    expected: v.optional(ExpectedSchema),
+    graphqlUserAgent: v.literal(RUST_USER_AGENT),
+    graphqlPages: v.strictObject({
+      kind: v.literal("append-initiative-pages"),
+      retainedSteps: v.strictTuple([nonEmpty]),
+      appendedSteps: v.pipe(
+        v.array(AppendedInitiativePageSchema),
+        v.minLength(1),
+        v.maxLength(2),
+      ),
+      expectedRequests: v.pipe(
+        v.number(),
+        v.integer(),
+        v.minValue(2),
+        v.maxValue(3),
+      ),
+    }),
+  }),
+})
+export type ReviewedGoldenV2 = v.InferOutput<typeof GoldenV2Schema>
+
 export const CaseSchema = v.pipe(
   v.strictObject({
     id: v.pipe(v.string(), v.regex(/^[a-z0-9][a-z0-9-]*$/, "id is kebab-case")),
@@ -832,6 +881,17 @@ export function parseReviewedGolden(
   label = "reviewed golden",
 ): ReviewedGolden {
   const result = v.safeParse(GoldenSchema, input)
+  if (!result.success) {
+    throw new SchemaError(`${label}: ${formatIssues(result.issues)}`)
+  }
+  return result.output
+}
+
+export function parseReviewedGoldenV2(
+  input: unknown,
+  label = "reviewed golden v2",
+): ReviewedGoldenV2 {
+  const result = v.safeParse(GoldenV2Schema, input)
   if (!result.success) {
     throw new SchemaError(`${label}: ${formatIssues(result.issues)}`)
   }
