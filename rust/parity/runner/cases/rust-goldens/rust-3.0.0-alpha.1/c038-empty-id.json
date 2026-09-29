@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "caseId": "c038-empty-id",
+  "deviationId": "C038-EMPTY-INPUT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr",
+    "graphql-fixture",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear initiative view <initiativeId>\nVersion: 3.0.0-alpha.1                        \n\nDescription:\n\n  View initiative details\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n  -w, --web            - Open in web browser                  \n  -a, --app            - Open in Linear.app                   \n  -j, --json           - Output as JSON                       \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Initiative reference cannot be empty. Provide an initiative URL, UUID, slug ID, or exact name.\n\n"
+      },
+      "fileEffects": []
+    },
+    "graphql": {
+      "steps": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

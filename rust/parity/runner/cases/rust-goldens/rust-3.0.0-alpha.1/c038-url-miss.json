@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c038-url-miss",
+  "deviationId": "C038-URL-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to resolve initiative: Initiative not found: https://linear.app/alpha/initiative/absent-000000000039\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

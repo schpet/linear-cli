@@ -1,0 +1,153 @@
+{
+  "id": "c038-url-hit",
+  "route": "linear initiative view",
+  "reason": "url hit",
+  "argv": [
+    "initiative",
+    "view",
+    "https://linear.app/alpha/initiative/roadmap-000000000038",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"id\": \"00000000-0000-4000-9000-000000000048\",\n  \"slugId\": \"INI-48\",\n  \"name\": \"URL hit\",\n  \"description\": \"Description 48\",\n  \"status\": \"Active\",\n  \"targetDate\": \"2999-01-01\",\n  \"health\": \"onTrack\",\n  \"color\": \"#123456\",\n  \"icon\": \"🎯\",\n  \"url\": \"https://linear.app/alpha/initiative/ini-48\",\n  \"archivedAt\": null,\n  \"createdAt\": \"2020-01-01T12:00:00.000Z\",\n  \"updatedAt\": \"2020-01-02T12:00:00.000Z\",\n  \"owner\": {\n    \"id\": \"00000000-0000-4000-9000-000000000548\",\n    \"name\": \"Alice Name\",\n    \"displayName\": \"Alice Display\"\n  },\n  \"projects\": {\n    \"nodes\": [\n      {\n        \"id\": \"00000000-0000-4000-9000-000000000648\",\n        \"slugId\": \"PROJ-48\",\n        \"name\": \"Project 48\",\n        \"status\": {\n          \"name\": \"Started\",\n          \"type\": \"started\"\n        }\n      }\n    ]\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "699648f0f845c482b4945f7f9c4c6f5edd0d36c17456b812899971e1ce9b55dd"
+  },
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "url-slug",
+            "operation": {
+              "document": "query ResolveInitiativeBySlug($slugId: String!, $includeArchived: Boolean) {\n      initiatives(\n        filter: { slugId: { eq: $slugId } }\n        includeArchived: $includeArchived\n      ) {\n        nodes {\n          id\n        }\n      }\n    }\n  ",
+              "variables": {
+                "slugId": "000000000038",
+                "includeArchived": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000048"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetInitiativeDetails($id: String!) {\n    initiative(id: $id) {\n      id\n      slugId\n      name\n      description\n      status\n      targetDate\n      health\n      color\n      icon\n      url\n      archivedAt\n      createdAt\n      updatedAt\n      owner {\n        id\n        name\n        displayName\n      }\n      projects {\n        nodes {\n          id\n          slugId\n          name\n          status {\n            name\n            type\n          }\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000000048"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiative": {
+                  "id": "00000000-0000-4000-9000-000000000048",
+                  "slugId": "INI-48",
+                  "name": "URL hit",
+                  "description": "Description 48",
+                  "status": "Active",
+                  "targetDate": "2999-01-01",
+                  "health": "onTrack",
+                  "color": "#123456",
+                  "icon": "🎯",
+                  "url": "https://linear.app/alpha/initiative/ini-48",
+                  "archivedAt": null,
+                  "createdAt": "2020-01-01T12:00:00.000Z",
+                  "updatedAt": "2020-01-02T12:00:00.000Z",
+                  "owner": {
+                    "id": "00000000-0000-4000-9000-000000000548",
+                    "name": "Alice Name",
+                    "displayName": "Alice Display"
+                  },
+                  "projects": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000000648",
+                        "slugId": "PROJ-48",
+                        "name": "Project 48",
+                        "status": {
+                          "name": "Started",
+                          "type": "started"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

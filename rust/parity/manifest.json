@@ -10289,7 +10289,7 @@
       "workItem": "C038",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {

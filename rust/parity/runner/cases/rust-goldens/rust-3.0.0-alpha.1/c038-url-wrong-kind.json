@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c038-url-wrong-kind",
+  "deviationId": "C038-URL-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to resolve initiative: \"https://linear.app/alpha/project/roadmap-000000000038\" is a project URL, not an initiative URL.\n  Pass an initiative URL, UUID, slug ID, or exact name.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

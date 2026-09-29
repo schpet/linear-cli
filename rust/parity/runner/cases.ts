@@ -594,6 +594,21 @@ async function deriveInitiativePages(
   return candidateGraphql
 }
 
+/** The reviewed Rust diagnostic may replace a source-only module URL stack. */
+function candidateSubstitutions(
+  spec: CaseSpec,
+  golden: ReviewedGolden,
+): CaseSpec["substitutions"] {
+  const expected = golden.candidate.expected
+  if (expected == null) return spec.substitutions
+  const hasReferenceToken = [expected.stdout, expected.stderr].some((field) =>
+    "utf8" in field && field.utf8.includes("{{referenceModuleUrl}}")
+  )
+  return hasReferenceToken
+    ? spec.substitutions
+    : spec.substitutions.filter((name) => name !== "referenceModuleUrl")
+}
+
 async function loadReviewedBinding(
   dir: string,
   spec: CaseSpec,
@@ -757,6 +772,7 @@ async function loadReviewedBinding(
     ...spec,
     argv: golden.candidate.argv ?? spec.argv,
     expected: golden.candidate.expected ?? spec.expected,
+    substitutions: candidateSubstitutions(spec, golden),
     graphql: candidateGraphql,
   }
   if (delta != null) {
@@ -873,6 +889,7 @@ export function candidateCaseView(loaded: LoadedCase): LoadedCase {
       ...loaded.spec,
       argv: golden.candidate.argv ?? loaded.spec.argv,
       expected: golden.candidate.expected ?? loaded.spec.expected,
+      substitutions: candidateSubstitutions(loaded.spec, golden),
       graphql: applyGraphQLDelta(loaded.spec, golden.candidate.graphql),
     },
     runtimeUserAgent: golden.candidate.graphqlUserAgent,

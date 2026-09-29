@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c038-no-api-key-web",
+  "deviationId": "C038-ERROR-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to resolve initiative: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

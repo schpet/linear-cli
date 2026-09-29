@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c038-url-mismatch-before-kind",
+  "deviationId": "C038-URL-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to resolve initiative: That URL is for the \"alpha\" workspace, but this is the \"beta\" workspace.\n  LINEAR_API_KEY is set, and the CLI won't combine it with --workspace. Unset it and pass --workspace alpha, or use a URL from \"beta\".\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

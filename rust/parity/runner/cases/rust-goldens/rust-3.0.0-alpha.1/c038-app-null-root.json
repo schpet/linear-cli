@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c038-app-null-root",
+  "deviationId": "C038-OPEN-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to fetch initiative details: Initiative not found: 00000000-0000-4000-9000-000000000305\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

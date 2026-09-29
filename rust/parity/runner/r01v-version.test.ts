@@ -52,8 +52,9 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     return route.path
   }))
   const cases = await loadCases(corpus, routes, undefined, CONTRACT)
+  // C038 adds 67 reviewed initiative-view cases (51 GraphQL, 16 local).
   // Keep the whole reviewed corpus size explicit; command guards pin cohorts.
-  assertEquals(cases.length, 1299)
+  assertEquals(cases.length, 1366)
   const c011Graphql = new Map<string, { id: string; surfaces: string[] }>([
     ["c011-infinite-position", {
       id: "C011-STRICT-STATE-DECODE",
@@ -349,6 +350,18 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
       }
       continue
     }
+    if (loaded.spec.id.startsWith("c038-")) {
+      // C038's 67-case guard pins its v3 parser, diagnostic and query deltas.
+      assert(loaded.spec.deviation?.id !== "R01V-CLI-VERSION")
+      if (loaded.spec.graphql != null) {
+        graphql++
+        assertEquals(
+          loaded.golden?.spec.candidate.graphqlUserAgent,
+          `schpet-linear-cli/${V3}`,
+        )
+      }
+      continue
+    }
     if (loaded.spec.id.startsWith("c020-")) {
       // C020's closed 83-case matrix pins its v3 golden surfaces separately.
       assert(loaded.spec.deviation?.id !== "R01V-CLI-VERSION")
@@ -557,6 +570,9 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
           (loaded.spec.graphql == null ? null : ["graphql-user-agent"]),
         loaded.spec.id,
       )
+    } else if (loaded.spec.id.startsWith("c038-")) {
+      // C038's exact identities and surfaces are pinned by its own guard.
+      assert(loaded.spec.deviation != null)
     } else if (loaded.spec.id.startsWith("c086-")) {
       const c086Deviations = new Set<string>([
         "C086-CLI-VERSION",
@@ -623,7 +639,7 @@ Deno.test("R01V binds exactly the frozen version stdout cases", async () => {
     3,
     3,
     43,
-    781,
+    832,
   ])
   assertEquals(startup, 5)
   assertEquals(credentialStartup, 10)

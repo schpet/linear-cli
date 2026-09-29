@@ -9,6 +9,7 @@ pub mod auth_list;
 pub mod auth_whoami;
 pub mod cycle_view;
 pub mod cycles;
+pub mod initiative_view;
 pub mod initiatives;
 pub mod issue_labels;
 pub mod issue_update;

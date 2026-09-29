@@ -1072,9 +1072,18 @@ pub fn parse(argv: &[OsString]) -> Result<Invocation, AppError> {
             ));
         }
     }
+    let parsed_positionals = positionals(route, selected)?;
+    if route.path == "linear initiative view"
+        && parsed_positionals.first().is_some_and(String::is_empty)
+    {
+        return Err(AppError::usage(
+            route.route,
+            "Initiative reference cannot be empty. Provide an initiative URL, UUID, slug ID, or exact name.",
+        ));
+    }
     Ok(Invocation::Action(ParsedAction {
         route,
-        positionals: positionals(route, selected)?,
+        positionals: parsed_positionals,
         literal: literal(selected)?,
         global_workspace,
         options,

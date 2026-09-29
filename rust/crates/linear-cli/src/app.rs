@@ -12,10 +12,10 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, cycle_view, initiative_list, label_list,
-    milestone_list, milestone_view, project_comment_list, project_list, project_update_list,
-    project_view, table, team_id, team_list, team_members, team_states, template_list,
-    template_view, user_list,
+    auth_list, auth_whoami, client, cycle_list, cycle_view, initiative_list, initiative_view,
+    label_list, milestone_list, milestone_view, project_comment_list, project_list,
+    project_update_list, project_view, table, team_id, team_list, team_members, team_states,
+    template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -468,6 +468,7 @@ fn dispatch(
         DispatchAction::ProjectCommentList => dispatch_project_comment_list(context, &action),
         DispatchAction::ProjectUpdateList => dispatch_project_update_list(context, &action),
         DispatchAction::InitiativeList => dispatch_initiative_list(context, &action),
+        DispatchAction::InitiativeView => dispatch_initiative_view(context, &action),
         DispatchAction::MilestoneList => dispatch_milestone_list(context, &action),
         DispatchAction::MilestoneView => dispatch_milestone_view(context, &action),
         DispatchAction::TeamList => {
@@ -1916,6 +1917,87 @@ fn dispatch_project_update_list(
             error.with_context(project_update_list::CONTEXT)
         }
     })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_initiative_view(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let original = action.positionals.first().ok_or_else(|| {
+        AppError::new(
+            AppErrorKind::Invariant,
+            "initiative view received no reference",
+        )
+    })?;
+    let app = action_switch(action, "app")?;
+    let web = action_switch(action, "web")?;
+    let json = action_switch(action, "json")?;
+    let config = context.config()?;
+    let credentials = context.credentials()?;
+    let cli_workspace = action
+        .global_workspace
+        .as_ref()
+        .map(|value| value.value.as_str());
+    let inputs = client::selection_inputs(&config.options, cli_workspace)
+        .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    let transport = client::prepare_transport_with_inputs(
+        &config.options,
+        credentials,
+        &inputs,
+        &config.transport_env,
+    )
+    .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    let scope = WorkspaceScope::from_selection(&inputs, credentials);
+    let reference = initiative_view::prepare_reference(original, &scope)
+        .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    let id = block_on_network(initiative_view::resolve_reference(
+        &transport, &reference, original,
+    ))?;
+    let show_spinner = !(app || web)
+        && spinner::enabled(
+            json,
+            context.stdout_tty,
+            context.startup.settings.no_color == NoColor::Absent,
+        );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = block_on_network(initiative_view::fetch_details(&transport, id, original));
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let detail = result?;
+    if app || web {
+        if detail.url.is_empty() {
+            return Err(AppError::not_found("Initiative", original)
+                .with_context(initiative_view::FETCH_CONTEXT));
+        }
+        context.write_stdout_with_policy(
+            &initiative_view::opening(&detail, app),
+            OutputPolicy::ConsoleLike,
+        )?;
+        crate::platform::opener::open(&detail.url, app)
+            .map_err(|error| error.with_context(initiative_view::OPEN_CONTEXT))?;
+        return Ok(ExitStatus::Success);
+    }
+    let output = if json {
+        initiative_view::render_json(&detail)
+    } else {
+        let columns = std::num::NonZeroU16::new(
+            u16::try_from(table::stdout_columns(context.stdout_tty)).unwrap_or(80),
+        )
+        .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
+        initiative_view::render_text(
+            &detail,
+            context.stdout_tty,
+            columns,
+            context.startup.settings.no_color,
+        )
+    }
+    .map_err(|error| error.with_context(initiative_view::FETCH_CONTEXT))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

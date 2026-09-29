@@ -1,0 +1,118 @@
+{
+  "id": "c038-slug-and-name-miss",
+  "route": "linear initiative view",
+  "reason": "slug and name miss",
+  "argv": [
+    "initiative",
+    "view",
+    "No such initiative"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort",
+    "referenceModuleUrl"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) NotFoundError: Initiative not found: No such initiative\n      throw new NotFoundError(\"Initiative\", initiativeId)\n            ^\n    at Command.<anonymous> ({{referenceModuleUrl}}/src/commands/initiative/initiative-view.ts:82:13)\n    at async Command.execute (https://jsr.io/@cliffy/command/1.0.0/command.ts:2310:7)\n    at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0/command.ts:2126:14)\n    at async {{referenceModuleUrl}}/src/main.ts:4:3\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C038-ERROR-DIAGNOSTIC",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "cf2f0d42ea6e8db52ea0b6abf550b484c0f089e15f20fc7399d11aac06215c13"
+  },
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "slug",
+            "operation": {
+              "document": "query GetInitiativeBySlugForView($slugId: String!) {\n      initiatives(filter: { slugId: { eq: $slugId } }) {\n        nodes {\n          id\n          slugId\n        }\n      }\n    }\n  ",
+              "variables": {
+                "slugId": "No such initiative"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": []
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "name",
+            "operation": {
+              "document": "query GetInitiativeByNameForView($name: String!) {\n      initiatives(filter: { name: { eqIgnoreCase: $name } }) {\n        nodes {\n          id\n          name\n        }\n      }\n    }\n  ",
+              "variables": {
+                "name": "No such initiative"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": []
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
