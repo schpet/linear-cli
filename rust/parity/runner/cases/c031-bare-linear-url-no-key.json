@@ -1,0 +1,49 @@
+{
+  "id": "c031-bare-linear-url-no-key",
+  "route": "linear milestone view",
+  "reason": "Bare URL without key fails before HTTP",
+  "argv": [
+    "milestone",
+    "view",
+    "https://linear.app/alpha/milestone/foo",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch milestone details: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C031-BARE-LINEAR-URL", "contract": "rust-3.0.0-alpha.1", "sha256": "e5c711303b07dddf7554c92539ad31c93477b9842663aa8b4af134b41fe71022"}
+}

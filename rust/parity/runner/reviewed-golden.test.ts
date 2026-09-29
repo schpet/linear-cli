@@ -1244,7 +1244,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   )
   // This count also guards older GraphQL fixtures without cohort tests.
   // Update it when adding reviewed command cases.
-  assertEquals(graphql.length, 555)
+  assertEquals(graphql.length, 614)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -1445,6 +1445,11 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     "c030-repeat-cursor-finite",
     "c030-repeat-cursor-finite-text",
   ])
+  const c031FixtureDeltas = new Set([
+    "c031-all-repeat-cursor-finite",
+    "c031-bare-linear-url-legacy",
+    "c031-bare-linear-unsupported-legacy",
+  ])
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -1479,7 +1484,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       !loaded.spec.id.startsWith("c023") &&
       !loaded.spec.id.startsWith("c024-") &&
       !loaded.spec.id.startsWith("c020-") &&
-      !loaded.spec.id.startsWith("c030-")
+      !loaded.spec.id.startsWith("c030-") &&
+      !loaded.spec.id.startsWith("c031-")
     ) {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
@@ -1523,7 +1529,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       c016FixtureDeltas.has(loaded.spec.id) ||
       c023FixtureDeltas.has(loaded.spec.id) ||
       c020FixtureDeltas.has(loaded.spec.id) ||
-      c030FixtureDeltas.has(loaded.spec.id)
+      c030FixtureDeltas.has(loaded.spec.id) ||
+      c031FixtureDeltas.has(loaded.spec.id)
     ) {
       const delta = loaded.golden?.spec.candidate.graphql
       const group = expected.groups[0]
@@ -1541,6 +1548,9 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
         }
       }
       expected.expectedRequests = group.steps.length
+      if (c031FixtureDeltas.has(loaded.spec.id) && delta.steps.length === 0) {
+        expected.groups = []
+      }
     }
     assertEquals(candidate, expected, loaded.spec.id)
   }

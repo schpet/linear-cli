@@ -9427,8 +9427,8 @@
       "workItem": "C031",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "qaStatus": "passed",
+      "liveStatus": "passed"
     },
     {
       "path": "linear milestone create",

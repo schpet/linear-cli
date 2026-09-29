@@ -6,6 +6,7 @@ mod cycle_view;
 mod display;
 mod label_list;
 mod milestone_list;
+mod milestone_view;
 mod project_list;
 mod project_view;
 mod prosemirror;

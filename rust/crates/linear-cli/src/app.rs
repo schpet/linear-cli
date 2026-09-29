@@ -13,8 +13,8 @@ use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, cycle_view, label_list, milestone_list,
-    project_list, project_view, table, team_id, team_list, team_members, team_states,
-    template_list, template_view, user_list,
+    milestone_view, project_list, project_view, table, team_id, team_list, team_members,
+    team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -465,6 +465,7 @@ fn dispatch(
         }
         DispatchAction::ProjectView => dispatch_project_view(context, &action),
         DispatchAction::MilestoneList => dispatch_milestone_list(context, &action),
+        DispatchAction::MilestoneView => dispatch_milestone_view(context, &action),
         DispatchAction::TeamList => {
             let flags = team_list::Options {
                 json: action_switch(&action, "json")?,
@@ -1703,6 +1704,140 @@ fn dispatch_project_view(
         context.stdout,
     )
     .map_err(|error| error.with_context(project_view::CONTEXT))?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_milestone_view(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let json = action_switch(action, "json")?;
+    let all = action_switch(action, "all")?;
+    let original = action
+        .positionals
+        .first()
+        .ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                "milestone view received no milestone",
+            )
+        })?
+        .clone();
+    let project = action_string(action, "project")?;
+    let show_spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let workspace = action
+            .global_workspace
+            .as_ref()
+            .map(|value| value.value.as_str());
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let reference = project
+            .as_deref()
+            .map(|value| {
+                prepare_project_lookup(value, &WorkspaceScope::from_selection(&inputs, credentials))
+            })
+            .transpose()?;
+        // A UUID project needs no network resolution, so the milestone URL
+        // diagnostic takes precedence over credential selection in that case.
+        if reference.is_none() || project.as_deref().is_some_and(crate::refs::is_linear_uuid) {
+            crate::refs::reject_linear_url(&original, "a milestone name or UUID")?;
+        }
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        Ok::<_, AppError>((reference, transport))
+    })();
+    let (reference, transport) = match prepared {
+        Ok(value) => value,
+        Err(error) => {
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(error.with_context(milestone_view::CONTEXT));
+        }
+    };
+    let fetch = async {
+        let request_id = match (reference.as_ref(), project.as_deref()) {
+            (Some(reference), Some(project)) => {
+                let project_id =
+                    resolve_project_with_transport(reference, project, &transport).await?;
+                crate::refs::reject_linear_url(&original, "a milestone name or UUID")?;
+                milestone_view::resolve_id(&transport, &original, &project_id).await?
+            }
+            (None, None) => original.clone(),
+            _ => {
+                return Err(AppError::new(
+                    AppErrorKind::Invariant,
+                    "project reference mismatch",
+                ));
+            }
+        };
+        milestone_view::fetch(&transport, &original, &request_id, all).await
+    };
+    let result = if show_spinner {
+        block_on_network(async {
+            tokio::pin!(fetch);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut fetch => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(fetch)
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let milestone = result.map_err(|error| error.with_context(milestone_view::CONTEXT))?;
+    let output = if json {
+        milestone_view::json(&milestone)
+            .map_err(|error| error.with_context(milestone_view::CONTEXT))?
+    } else {
+        let markdown =
+            milestone_view::markdown(&milestone, all, chrono::Utc::now(), &chrono::Local);
+        let rendered = if context.stdout_tty {
+            use std::num::NonZeroU16;
+            let columns = u16::try_from(table::stdout_columns(true))
+                .ok()
+                .and_then(NonZeroU16::new)
+                .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
+            let options = crate::platform::markdown_terminal::RenderOptions::for_terminal(
+                columns,
+                context.startup.settings.no_color,
+                true,
+                None,
+                crate::platform::markdown_terminal::HostSource::System,
+            );
+            crate::platform::markdown_terminal::render(&markdown, &options)
+                .map_err(|error| error.with_context(milestone_view::CONTEXT))?
+        } else {
+            markdown
+        };
+        format!("{rendered}\n").into_bytes()
+    };
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }
 

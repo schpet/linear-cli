@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c031-parent-help",
+  "deviationId": "C031-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear milestone\nVersion: 3.0.0-alpha.1   \n\nDescription:\n\n  Manage Linear project milestones\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\nCommands:\n\n  list                  - List milestones for a project                                                 \n  view, v  <milestone>  - View milestone details. By default lists the first 10 attached issues from the\n                          first page of 50; use --all to paginate the full set.                         \n  create                - Create a new project milestone                                                \n  update   <id>         - Update an existing project milestone                                          \n  delete   <id>         - Delete a project milestone                                                    \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

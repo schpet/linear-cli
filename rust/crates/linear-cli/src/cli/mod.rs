@@ -30,6 +30,7 @@ pub enum DispatchAction {
     CycleList,
     CycleView,
     MilestoneList,
+    MilestoneView,
     LabelList,
     Document,
     ParentPending,

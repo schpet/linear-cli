@@ -1,0 +1,211 @@
+{
+  "id": "c031-all-null-second-root",
+  "route": "linear milestone view",
+  "reason": "Later null root discards partial output",
+  "argv": [
+    "milestone",
+    "view",
+    "00000000-0000-4000-8000-000000000001",
+    "--all"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch milestone details: Milestone not found: 00000000-0000-4000-8000-000000000001\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "R01H-GRAPHQL-UA", "contract": "rust-3.0.0-alpha.1", "sha256": "47df0ae79a1d695788a762aec0cfdc719626585ca400e9d5593dffcf25193eef"},
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "page-1",
+            "operation": {
+              "document": "query GetMilestoneDetails($id: String!, $first: Int!, $after: String) { projectMilestone(id: $id) { id name description targetDate sortOrder createdAt updatedAt project { id name slugId url } issues(first: $first, after: $after) { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "first": 50
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projectMilestone": {
+                  "id": "00000000-0000-4000-8000-000000000099",
+                  "name": "Launch",
+                  "description": "Ship the release.",
+                  "targetDate": "2025-03-01",
+                  "sortOrder": 4,
+                  "createdAt": "2020-01-01T00:00:00Z",
+                  "updatedAt": "2020-02-01T00:00:00Z",
+                  "project": {
+                    "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                    "name": "Mobile App",
+                    "slugId": "abc123def456",
+                    "url": "https://linear.app/alpha/project/mobile-app-abc123def456"
+                  },
+                  "issues": {
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "cursor-1"
+                    },
+                    "extraIssues": "dropped",
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000000001",
+                        "identifier": "APP-1",
+                        "title": "Issue 1",
+                        "state": {
+                          "name": "Completed",
+                          "type": "completed"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000002",
+                        "identifier": "APP-2",
+                        "title": "Issue 2",
+                        "state": {
+                          "name": "Completed",
+                          "type": "completed"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000003",
+                        "identifier": "APP-3",
+                        "title": "Issue 3",
+                        "state": {
+                          "name": "Completed",
+                          "type": "completed"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000004",
+                        "identifier": "APP-4",
+                        "title": "Issue 4",
+                        "state": {
+                          "name": "Completed",
+                          "type": "completed"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000005",
+                        "identifier": "APP-5",
+                        "title": "Issue 5",
+                        "state": {
+                          "name": "Completed",
+                          "type": "completed"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000006",
+                        "identifier": "APP-6",
+                        "title": "Issue 6",
+                        "state": {
+                          "name": "Completed",
+                          "type": "completed"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000007",
+                        "identifier": "APP-7",
+                        "title": "Issue 7",
+                        "state": {
+                          "name": "Completed",
+                          "type": "completed"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000008",
+                        "identifier": "APP-8",
+                        "title": "Issue 8",
+                        "state": {
+                          "name": "Completed",
+                          "type": "completed"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "page-2",
+            "operation": {
+              "document": "query GetMilestoneDetails($id: String!, $first: Int!, $after: String) { projectMilestone(id: $id) { id name description targetDate sortOrder createdAt updatedAt project { id name slugId url } issues(first: $first, after: $after) { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "first": 50,
+                "after": "cursor-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"projectMilestone\":null}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
