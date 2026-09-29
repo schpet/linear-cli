@@ -12,6 +12,7 @@ mod inventory;
 mod markdown_terminal;
 mod pager;
 mod parser;
+mod prompt;
 mod selector;
 mod spinner;
 mod startup;
