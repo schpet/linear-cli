@@ -814,6 +814,7 @@ dependencies = [
  "gethostname",
  "icu_collator",
  "libc",
+ "linear-schema",
  "pulldown-cmark",
  "reqwest",
  "rustix",
@@ -825,6 +826,14 @@ dependencies = [
  "tokio-rustls",
  "toml",
  "unicode-width",
+]
+
+[[package]]
+name = "linear-schema"
+version = "3.0.0-alpha.1"
+dependencies = [
+ "cynic",
+ "cynic-codegen",
 ]
 
 [[package]]

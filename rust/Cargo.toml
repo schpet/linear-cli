@@ -1,4 +1,4 @@
 [workspace]
-members = ["crates/linear-cli"]
+members = ["crates/linear-cli", "crates/linear-schema"]
 resolver = "3"
 
