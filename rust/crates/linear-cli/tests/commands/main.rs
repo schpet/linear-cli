@@ -6,6 +6,7 @@ mod cycle_view;
 mod display;
 mod initiative_create;
 mod initiative_list;
+mod initiative_update_list;
 mod initiative_view;
 mod label_list;
 mod milestone_list;

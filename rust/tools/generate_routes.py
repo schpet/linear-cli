@@ -268,6 +268,7 @@ def generate():
             "linear project view": "ProjectView",
             "linear project comment list": "ProjectCommentList",
             "linear project-update list": "ProjectUpdateList",
+            "linear initiative-update list": "InitiativeUpdateList",
             "linear initiative list": "InitiativeList",
             "linear initiative view": "InitiativeView",
             "linear initiative create": "InitiativeCreate",

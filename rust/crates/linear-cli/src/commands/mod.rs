@@ -7,6 +7,7 @@ pub mod cycle_view;
 pub mod display;
 pub mod initiative_create;
 pub mod initiative_list;
+pub mod initiative_update_list;
 pub mod initiative_view;
 pub mod label_list;
 pub mod milestone_list;

@@ -10823,7 +10823,7 @@ impl Route {
             Self::InitiativeCommentListR81 => super::DispatchAction::Unimplemented,
             Self::InitiativeUpdateR82 => super::DispatchAction::ParentPending,
             Self::InitiativeUpdateCreateR83 => super::DispatchAction::Unimplemented,
-            Self::InitiativeUpdateListR84 => super::DispatchAction::Unimplemented,
+            Self::InitiativeUpdateListR84 => super::DispatchAction::InitiativeUpdateList,
             Self::LabelR85 => super::DispatchAction::ParentPending,
             Self::LabelListR86 => super::DispatchAction::LabelList,
             Self::LabelCreateR87 => super::DispatchAction::Unimplemented,

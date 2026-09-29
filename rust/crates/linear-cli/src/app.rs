@@ -13,9 +13,9 @@ use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, cycle_view, initiative_create, initiative_list,
-    initiative_view, label_list, milestone_list, milestone_view, project_comment_list,
-    project_list, project_update_list, project_view, table, team_id, team_list, team_members,
-    team_states, template_list, template_view, user_list,
+    initiative_update_list, initiative_view, label_list, milestone_list, milestone_view,
+    project_comment_list, project_list, project_update_list, project_view, table, team_id,
+    team_list, team_members, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -470,6 +470,7 @@ fn dispatch(
         DispatchAction::InitiativeList => dispatch_initiative_list(context, &action),
         DispatchAction::InitiativeView => dispatch_initiative_view(context, &action),
         DispatchAction::InitiativeCreate => dispatch_initiative_create(context, &action),
+        DispatchAction::InitiativeUpdateList => dispatch_initiative_update_list(context, &action),
         DispatchAction::MilestoneList => dispatch_milestone_list(context, &action),
         DispatchAction::MilestoneView => dispatch_milestone_view(context, &action),
         DispatchAction::TeamList => {
@@ -2016,6 +2017,83 @@ fn dispatch_initiative_create(
     }
     let result = result.map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
     context.write_stdout_with_policy(&result, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_initiative_update_list(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let json = action_switch(action, "json")?;
+    let first = match action.option("limit") {
+        None => 10,
+        Some(option) => match option.value.value {
+            OptionValue::Number(value) => initiative_update_list::graphql_int(value)?,
+            _ => {
+                return Err(AppError::new(
+                    AppErrorKind::Invariant,
+                    "initiative update limit was not numeric",
+                ));
+            }
+        },
+    };
+    let original = action.positionals.first().ok_or_else(|| {
+        AppError::new(
+            AppErrorKind::Invariant,
+            "initiative update list received no initiative",
+        )
+    })?;
+    let show_spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let workspace = action
+            .global_workspace
+            .as_ref()
+            .map(|value| value.value.as_str());
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let reference = initiative_view::prepare_reference(
+            original,
+            &WorkspaceScope::from_selection(&inputs, credentials),
+        )?;
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        let columns = table::stdout_columns(context.stdout_tty);
+        let color = context.stdout_tty && !context.no_color();
+        block_on_network(async {
+            let id = initiative_view::resolve_reference(&transport, &reference, original)
+                .await
+                .map_err(|mut error| {
+                    error.context = Some(initiative_update_list::CONTEXT.to_owned());
+                    error
+                })?;
+            initiative_update_list::run(&transport, original, &id, first, json, columns, color)
+                .await
+        })
+    })();
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = result.map_err(|error| {
+        if error.context.is_some() {
+            error
+        } else {
+            error.with_context(initiative_update_list::CONTEXT)
+        }
+    })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }
 

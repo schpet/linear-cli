@@ -27,6 +27,7 @@ pub enum DispatchAction {
     InitiativeList,
     InitiativeView,
     InitiativeCreate,
+    InitiativeUpdateList,
     UserList,
     TeamMembers,
     TeamStates,

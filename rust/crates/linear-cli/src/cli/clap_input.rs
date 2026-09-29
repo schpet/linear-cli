@@ -299,7 +299,11 @@ fn typed_option(
             .clone();
         match descriptor.type_name {
             "number" => OptionValue::Number(
-                if route.path == "linear project-update list" && option.name == "limit" {
+                if matches!(
+                    route.path,
+                    "linear project-update list" | "linear initiative-update list"
+                ) && option.name == "limit"
+                {
                     clap_tree::finite_number(&value)
                 } else {
                     value.parse::<f64>().ok()

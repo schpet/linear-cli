@@ -367,7 +367,11 @@ fn valued_option_arg(
         }
         "number" => {
             arg = arg.allow_hyphen_values(true);
-            arg = if route.path == "linear project-update list" && option.name == "limit" {
+            arg = if matches!(
+                route.path,
+                "linear project-update list" | "linear initiative-update list"
+            ) && option.name == "limit"
+            {
                 arg.value_parser(parse_project_update_limit)
             } else {
                 arg.value_parser(parse_finite_number)

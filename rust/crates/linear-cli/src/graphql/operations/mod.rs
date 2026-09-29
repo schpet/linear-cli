@@ -10,6 +10,7 @@ pub mod auth_whoami;
 pub mod cycle_view;
 pub mod cycles;
 pub mod initiative_create;
+pub mod initiative_updates;
 pub mod initiative_view;
 pub mod initiatives;
 pub mod issue_labels;
