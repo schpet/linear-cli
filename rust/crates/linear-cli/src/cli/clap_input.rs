@@ -299,9 +299,12 @@ fn typed_option(
             .clone();
         match descriptor.type_name {
             "number" => OptionValue::Number(
-                value
-                    .parse::<f64>()
-                    .map_err(|_| invariant("clap validated number cannot parse"))?,
+                if route.path == "linear project-update list" && option.name == "limit" {
+                    clap_tree::finite_number(&value)
+                } else {
+                    value.parse::<f64>().ok()
+                }
+                .ok_or_else(|| invariant("clap validated number cannot parse"))?,
             ),
             "string" => OptionValue::String(value),
             _ => {

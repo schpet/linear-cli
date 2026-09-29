@@ -1,0 +1,91 @@
+{
+  "id": "c035-missing-required-raw",
+  "route": "linear project-update list",
+  "reason": "missing required raw",
+  "argv": [
+    "project-update",
+    "list",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Status updates for: Mobile App\n\nID       HEALTH  DATE     AUTHOR \n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch project updates: Cannot read properties of undefined (reading 'slice')\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C035-STRICT-UPDATE-DECODE", "contract": "rust-3.0.0-alpha.1", "sha256": "0ea542254de5aa7836a487e3be577ab5f89a29782f8c56a63b88c9ddafc50556"},
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "updates",
+            "operation": {
+              "document": "query ListProjectUpdates($id: String!, $first: Int) { project(id: $id) { name slugId projectUpdates(first: $first) { nodes { id body health url createdAt user { name displayName } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 10
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"project\":{\"name\":\"Mobile App\",\"slugId\":\"abc123def456\",\"projectUpdates\":{\"nodes\":[{\"body\":\"Update body\",\"health\":\"onTrack\",\"url\":\"https://linear.app/alpha/project/mobile-app-abc123def456/updates/00000000-0000-4000-9000-000000000001\",\"createdAt\":\"2999-01-01T00:00:00Z\",\"user\":{\"name\":\"Alice\",\"displayName\":\"Alice A\"}}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

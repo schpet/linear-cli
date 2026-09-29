@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c035-limit-nonnumeric",
+  "deviationId": "C035-CLAP-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear project-update list <projectId>\nVersion: 3.0.0-alpha.1                         \n\nDescription:\n\n  List status updates for a project\n\nOptions:\n\n  -h, --help            - Show this help.                                   \n  --workspace  <slug>   - Target workspace (uses credentials)               \n  --json                - Output as JSON                                    \n  --limit      <limit>  - Limit results                        (Default: \u001b[33m10\u001b[39m)\n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Option \"--limit\" has invalid value \"nope\".\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

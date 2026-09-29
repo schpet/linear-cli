@@ -9,6 +9,7 @@ mod milestone_list;
 mod milestone_view;
 mod project_comment_list;
 mod project_list;
+mod project_update_list;
 mod project_view;
 mod prosemirror;
 mod relative_time;

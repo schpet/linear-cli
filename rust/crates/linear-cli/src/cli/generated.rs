@@ -10798,7 +10798,7 @@ impl Route {
             Self::ProjectCommentListR56 => super::DispatchAction::ProjectCommentList,
             Self::ProjectUpdateR57 => super::DispatchAction::ParentPending,
             Self::ProjectUpdateCreateR58 => super::DispatchAction::Unimplemented,
-            Self::ProjectUpdateListR59 => super::DispatchAction::Unimplemented,
+            Self::ProjectUpdateListR59 => super::DispatchAction::ProjectUpdateList,
             Self::CycleR60 => super::DispatchAction::ParentPending,
             Self::CycleListR61 => super::DispatchAction::CycleList,
             Self::CycleViewR62 => super::DispatchAction::CycleView,

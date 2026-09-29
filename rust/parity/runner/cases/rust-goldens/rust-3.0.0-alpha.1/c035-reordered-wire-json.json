@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c035-reordered-wire-json",
+  "deviationId": "C035-TYPED-JSON-FIELDS",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "{\n  \"name\": \"Mobile App\",\n  \"slugId\": \"abc123def456\",\n  \"projectUpdates\": {\n    \"nodes\": [\n      {\n        \"id\": \"00000000-0000-4000-9000-000000000001\",\n        \"body\": \"Update body\",\n        \"health\": \"onTrack\",\n        \"url\": \"https://linear.app/alpha/project/mobile-app-abc123def456/updates/00000000-0000-4000-9000-000000000001\",\n        \"createdAt\": \"2999-01-01T00:00:00Z\",\n        \"user\": {\n          \"name\": \"Alice\",\n          \"displayName\": \"Alice A\"\n        }\n      }\n    ],\n    \"pageInfo\": {\n      \"hasNextPage\": false,\n      \"endCursor\": null\n    }\n  }\n}\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "id": "c035-extra-wire-json",
+  "route": "linear project-update list",
+  "reason": "extra wire json",
+  "argv": [
+    "project-update",
+    "list",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"name\": \"Mobile App\",\n  \"slugId\": \"abc123def456\",\n  \"extraProject\": \"project\",\n  \"projectUpdates\": {\n    \"nodes\": [\n      {\n        \"id\": \"00000000-0000-4000-9000-000000000001\",\n        \"body\": \"Update body\",\n        \"health\": \"onTrack\",\n        \"url\": \"https://linear.app/alpha/project/mobile-app-abc123def456/updates/00000000-0000-4000-9000-000000000001\",\n        \"createdAt\": \"2999-01-01T00:00:00Z\",\n        \"user\": {\n          \"name\": \"Alice\",\n          \"displayName\": \"Alice A\",\n          \"extraUser\": \"user\"\n        },\n        \"extraNode\": \"node\"\n      }\n    ],\n    \"pageInfo\": {\n      \"hasNextPage\": false,\n      \"endCursor\": null,\n      \"extraPageInfo\": \"page\"\n    },\n    \"extraConnection\": \"connection\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C035-TYPED-JSON-FIELDS", "contract": "rust-3.0.0-alpha.1", "sha256": "3e8d7e777880984c529808d4317ac6da3521631c70c25b87c96c65b2533c8d82"},
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "updates",
+            "operation": {
+              "document": "query ListProjectUpdates($id: String!, $first: Int) { project(id: $id) { name slugId projectUpdates(first: $first) { nodes { id body health url createdAt user { name displayName } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 10
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"project\":{\"name\":\"Mobile App\",\"slugId\":\"abc123def456\",\"extraProject\":\"project\",\"projectUpdates\":{\"nodes\":[{\"id\":\"00000000-0000-4000-9000-000000000001\",\"body\":\"Update body\",\"health\":\"onTrack\",\"url\":\"https://linear.app/alpha/project/mobile-app-abc123def456/updates/00000000-0000-4000-9000-000000000001\",\"createdAt\":\"2999-01-01T00:00:00Z\",\"user\":{\"name\":\"Alice\",\"displayName\":\"Alice A\",\"extraUser\":\"user\"},\"extraNode\":\"node\"}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null,\"extraPageInfo\":\"page\"},\"extraConnection\":\"connection\"}}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -10,6 +10,7 @@ pub mod milestone_list;
 pub mod milestone_view;
 pub mod project_comment_list;
 pub mod project_list;
+pub mod project_update_list;
 pub mod project_view;
 pub mod prosemirror;
 pub mod relative_time;
