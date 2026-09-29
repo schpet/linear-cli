@@ -544,7 +544,7 @@ export const APPROVED_SURFACES = [
 // ordered GraphQL script and replace variables on retained requests. The
 // loader derives the full fixture from the frozen case; responses, identity,
 // documents, records, and all other fixture fields cannot be supplied here.
-// An empty prefix is accepted only for a frozen script of exactly one query;
+// An empty prefix requires one frozen query, except the exact C038 empty-ID source fixture;
 // the loader enforces that and derives a zero-request candidate fixture.
 const CandidateGraphQLDeltaSchema = v.strictObject({
   steps: v.array(v.strictObject({

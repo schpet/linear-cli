@@ -100,6 +100,81 @@ function sameStdout(
   return bytesEqual(decodeByteValue(left), decodeByteValue(right))
 }
 
+/** Exact committed source fixture for the sole two-query zero-request exception. */
+const C038_EMPTY_ID_FROZEN_GRAPHQL: NonNullable<CaseSpec["graphql"]> = {
+  "path": "/graphql",
+  "schemaSha256":
+    "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+  "expectedRequests": 2,
+  "initialRecords": {},
+  "expectedRecords": {},
+  "groups": [
+    {
+      "mode": "ordered",
+      "steps": [
+        {
+          "kind": "graphql",
+          "id": "slug",
+          "operation": {
+            "document":
+              "query GetInitiativeBySlugForView($slugId: String!) {\n      initiatives(filter: { slugId: { eq: $slugId } }) {\n        nodes {\n          id\n          slugId\n        }\n      }\n    }\n  ",
+            "variables": {
+              "slugId": "",
+            },
+          },
+          "identity": {
+            "authorization": "lin_api_fake_alpha",
+            "userAgent": "schpet-linear-cli/2.6.0",
+            "headers": {},
+          },
+          "response": {
+            "kind": "data",
+            "data": {
+              "initiatives": {
+                "nodes": [],
+              },
+            },
+          },
+          "effects": [],
+        },
+        {
+          "kind": "graphql",
+          "id": "name",
+          "operation": {
+            "document":
+              "query GetInitiativeByNameForView($name: String!) {\n      initiatives(filter: { name: { eqIgnoreCase: $name } }) {\n        nodes {\n          id\n          name\n        }\n      }\n    }\n  ",
+            "variables": {
+              "name": "",
+            },
+          },
+          "identity": {
+            "authorization": "lin_api_fake_alpha",
+            "userAgent": "schpet-linear-cli/2.6.0",
+            "headers": {},
+          },
+          "response": {
+            "kind": "data",
+            "data": {
+              "initiatives": {
+                "nodes": [],
+              },
+            },
+          },
+          "effects": [],
+        },
+      ],
+    },
+  ],
+}
+
+function isC038EmptyIdSource(spec: CaseSpec): boolean {
+  return spec.id === "c038-empty-id" &&
+    spec.route === "linear initiative view" &&
+    same(spec.argv, ["initiative", "view", ""]) &&
+    spec.fixtureServer == null &&
+    same(spec.graphql, C038_EMPTY_ID_FROZEN_GRAPHQL)
+}
+
 /** Derive only the reviewed candidate request script; never mutate the frozen fixture. */
 function applyGraphQLDelta(
   spec: CaseSpec,
@@ -138,7 +213,10 @@ function applyGraphQLDelta(
   if (delta.steps.length === 0) {
     // The reviewed candidate makes no request at all. The server still runs
     // with no groups, so any request reaching it fails fixture comparison.
-    if (original.length !== 1) {
+    if (
+      original.length !== 1 &&
+      !(original.length === 2 && isC038EmptyIdSource(spec))
+    ) {
       throw new SchemaError(
         `case ${spec.id}: zero-request GraphQL delta needs exactly one frozen query step`,
       )
