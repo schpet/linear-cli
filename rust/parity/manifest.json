@@ -10290,7 +10290,7 @@
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
       "qaStatus": "passed",
-      "liveStatus": "pending"
+      "liveStatus": "passed"
     },
     {
       "path": "linear initiative create",
