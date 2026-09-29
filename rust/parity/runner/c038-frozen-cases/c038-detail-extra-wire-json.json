@@ -1,0 +1,92 @@
+{
+  "id": "c038-detail-extra-wire-json",
+  "route": "linear initiative view",
+  "reason": "detail extra wire json",
+  "argv": [
+    "initiative",
+    "view",
+    "00000000-0000-4000-9000-000000000103",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"id\": \"00000000-0000-4000-9000-000000000103\",\n  \"slugId\": \"INI-103\",\n  \"name\": \"Initiative 103\",\n  \"description\": \"Description 103\",\n  \"status\": \"Active\",\n  \"targetDate\": \"2999-01-01\",\n  \"health\": \"onTrack\",\n  \"color\": \"#123456\",\n  \"icon\": \"🎯\",\n  \"url\": \"https://linear.app/alpha/initiative/ini-103\",\n  \"archivedAt\": null,\n  \"createdAt\": \"2020-01-01T12:00:00.000Z\",\n  \"updatedAt\": \"2020-01-02T12:00:00.000Z\",\n  \"owner\": {\n    \"id\": \"00000000-0000-4000-9000-000000000603\",\n    \"name\": \"Alice Name\",\n    \"displayName\": \"Alice Display\",\n    \"extra\": 3\n  },\n  \"projects\": {\n    \"nodes\": [\n      {\n        \"id\": \"00000000-0000-4000-9000-000000000703\",\n        \"slugId\": \"PROJ-103\",\n        \"name\": \"Project 103\",\n        \"status\": {\n          \"name\": \"Started\",\n          \"type\": \"started\",\n          \"extra\": \"raw\"\n        },\n        \"extra\": true\n      }\n    ]\n  },\n  \"unexpected\": \"wire-extra\"\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetInitiativeDetails($id: String!) {\n    initiative(id: $id) {\n      id\n      slugId\n      name\n      description\n      status\n      targetDate\n      health\n      color\n      icon\n      url\n      archivedAt\n      createdAt\n      updatedAt\n      owner {\n        id\n        name\n        displayName\n      }\n      projects {\n        nodes {\n          id\n          slugId\n          name\n          status {\n            name\n            type\n          }\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000000103"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\": {\"initiative\": {\"id\": \"00000000-0000-4000-9000-000000000103\", \"slugId\": \"INI-103\", \"name\": \"Initiative 103\", \"description\": \"Description 103\", \"status\": \"Active\", \"targetDate\": \"2999-01-01\", \"health\": \"onTrack\", \"color\": \"#123456\", \"icon\": \"🎯\", \"url\": \"https://linear.app/alpha/initiative/ini-103\", \"archivedAt\": null, \"createdAt\": \"2020-01-01T12:00:00.000Z\", \"updatedAt\": \"2020-01-02T12:00:00.000Z\", \"owner\": {\"id\": \"00000000-0000-4000-9000-000000000603\", \"name\": \"Alice Name\", \"displayName\": \"Alice Display\", \"extra\": 3}, \"projects\": {\"nodes\": [{\"id\": \"00000000-0000-4000-9000-000000000703\", \"slugId\": \"PROJ-103\", \"name\": \"Project 103\", \"status\": {\"name\": \"Started\", \"type\": \"started\", \"extra\": \"raw\"}, \"extra\": true}]}, \"unexpected\": \"wire-extra\"}, \"sibling\": \"not printed\"}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

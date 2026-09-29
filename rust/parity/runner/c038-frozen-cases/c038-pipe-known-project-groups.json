@@ -1,0 +1,173 @@
+{
+  "id": "c038-pipe-known-project-groups",
+  "route": "linear initiative view",
+  "reason": "pipe known project groups",
+  "argv": [
+    "initiative",
+    "view",
+    "00000000-0000-4000-9000-000000000215"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "# 🎯 Initiative 215\n\n**Slug:** INI-215\n**URL:** https://linear.app/alpha/initiative/ini-215\n**Status:** Active\n**Health:** onTrack\n**Owner:** Alice Display\n**Target Date:** 2999-01-01\n\n**Created:** 1/1/2020\n**Updated:** 1/2/2020\n\n## Description\n\nDescription 215\n\n## Projects (7)\n\n- **Grouped 1** (Status 1)\n- **Grouped 7** (Status 7)\n- **Grouped 2** (Status 2)\n- **Grouped 3** (Status 3)\n- **Grouped 4** (Status 4)\n- **Grouped 5** (Status 5)\n- **Grouped 6** (Status 6)\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetInitiativeDetails($id: String!) {\n    initiative(id: $id) {\n      id\n      slugId\n      name\n      description\n      status\n      targetDate\n      health\n      color\n      icon\n      url\n      archivedAt\n      createdAt\n      updatedAt\n      owner {\n        id\n        name\n        displayName\n      }\n      projects {\n        nodes {\n          id\n          slugId\n          name\n          status {\n            name\n            type\n          }\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000000215"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiative": {
+                  "id": "00000000-0000-4000-9000-000000000215",
+                  "slugId": "INI-215",
+                  "name": "Initiative 215",
+                  "description": "Description 215",
+                  "status": "Active",
+                  "targetDate": "2999-01-01",
+                  "health": "onTrack",
+                  "color": "#123456",
+                  "icon": "🎯",
+                  "url": "https://linear.app/alpha/initiative/ini-215",
+                  "archivedAt": null,
+                  "createdAt": "2020-01-01T12:00:00.000Z",
+                  "updatedAt": "2020-01-02T12:00:00.000Z",
+                  "owner": {
+                    "id": "00000000-0000-4000-9000-000000000715",
+                    "name": "Alice Name",
+                    "displayName": "Alice Display"
+                  },
+                  "projects": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000000901",
+                        "slugId": "P-1",
+                        "name": "Grouped 1",
+                        "status": {
+                          "name": "Status 1",
+                          "type": "started"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000902",
+                        "slugId": "P-2",
+                        "name": "Grouped 2",
+                        "status": {
+                          "name": "Status 2",
+                          "type": "planned"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000903",
+                        "slugId": "P-3",
+                        "name": "Grouped 3",
+                        "status": {
+                          "name": "Status 3",
+                          "type": "backlog"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000904",
+                        "slugId": "P-4",
+                        "name": "Grouped 4",
+                        "status": {
+                          "name": "Status 4",
+                          "type": "paused"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000905",
+                        "slugId": "P-5",
+                        "name": "Grouped 5",
+                        "status": {
+                          "name": "Status 5",
+                          "type": "completed"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000906",
+                        "slugId": "P-6",
+                        "name": "Grouped 6",
+                        "status": {
+                          "name": "Status 6",
+                          "type": "canceled"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000907",
+                        "slugId": "P-7",
+                        "name": "Grouped 7",
+                        "status": {
+                          "name": "Status 7",
+                          "type": "started"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "id": "c038-detail-reordered-wire-json",
+  "route": "linear initiative view",
+  "reason": "detail reordered wire json",
+  "argv": [
+    "initiative",
+    "view",
+    "00000000-0000-4000-9000-000000000104",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"projects\": {\n    \"nodes\": [\n      {\n        \"status\": {\n          \"name\": \"Started\",\n          \"type\": \"started\"\n        },\n        \"name\": \"Project 104\",\n        \"slugId\": \"PROJ-104\",\n        \"id\": \"00000000-0000-4000-9000-000000000704\"\n      }\n    ]\n  },\n  \"owner\": {\n    \"displayName\": \"Alice Display\",\n    \"name\": \"Alice Name\",\n    \"id\": \"00000000-0000-4000-9000-000000000604\"\n  },\n  \"updatedAt\": \"2020-01-02T12:00:00.000Z\",\n  \"createdAt\": \"2020-01-01T12:00:00.000Z\",\n  \"archivedAt\": null,\n  \"url\": \"https://linear.app/alpha/initiative/ini-104\",\n  \"icon\": \"🎯\",\n  \"color\": \"#123456\",\n  \"health\": \"onTrack\",\n  \"targetDate\": \"2999-01-01\",\n  \"status\": \"Active\",\n  \"description\": \"Description 104\",\n  \"name\": \"Initiative 104\",\n  \"slugId\": \"INI-104\",\n  \"id\": \"00000000-0000-4000-9000-000000000104\"\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetInitiativeDetails($id: String!) {\n    initiative(id: $id) {\n      id\n      slugId\n      name\n      description\n      status\n      targetDate\n      health\n      color\n      icon\n      url\n      archivedAt\n      createdAt\n      updatedAt\n      owner {\n        id\n        name\n        displayName\n      }\n      projects {\n        nodes {\n          id\n          slugId\n          name\n          status {\n            name\n            type\n          }\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000000104"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\": {\"initiative\": {\"projects\": {\"nodes\": [{\"status\": {\"name\": \"Started\", \"type\": \"started\"}, \"name\": \"Project 104\", \"slugId\": \"PROJ-104\", \"id\": \"00000000-0000-4000-9000-000000000704\"}]}, \"owner\": {\"displayName\": \"Alice Display\", \"name\": \"Alice Name\", \"id\": \"00000000-0000-4000-9000-000000000604\"}, \"updatedAt\": \"2020-01-02T12:00:00.000Z\", \"createdAt\": \"2020-01-01T12:00:00.000Z\", \"archivedAt\": null, \"url\": \"https://linear.app/alpha/initiative/ini-104\", \"icon\": \"🎯\", \"color\": \"#123456\", \"health\": \"onTrack\", \"targetDate\": \"2999-01-01\", \"status\": \"Active\", \"description\": \"Description 104\", \"name\": \"Initiative 104\", \"slugId\": \"INI-104\", \"id\": \"00000000-0000-4000-9000-000000000104\"}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

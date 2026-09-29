@@ -1,0 +1,50 @@
+{
+  "id": "c038-unknown-flag",
+  "route": "linear initiative view",
+  "reason": "unknown flag",
+  "argv": [
+    "initiative",
+    "view",
+    "00000000-0000-4000-9000-000000000038",
+    "--bogus"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear initiative view <initiativeId>\nVersion: 2.6.0                                \n\nDescription:\n\n  View initiative details\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n  -w, --web            - Open in web browser                  \n  -a, --app            - Open in Linear.app                   \n  -j, --json           - Output as JSON                       \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Unknown option \"--bogus\". Did you mean option \"--help\"?\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

@@ -1,0 +1,150 @@
+{
+  "id": "c038-app-slug-alias-short",
+  "route": "linear initiative view",
+  "reason": "app slug alias short",
+  "argv": [
+    "initiative",
+    "v",
+    "INIT-302",
+    "-a"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort",
+    "referenceModuleUrl"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Opening https://linear.app/alpha/initiative/ini-302 in Linear.app\n"
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) NotFound: Failed to spawn 'xdg-open': entity not found\n  const { success, code } = await process.output();\n                                          ^\n    at spawnChildInner (ext:deno_process/40_process.js:192:17)\n    at spawnInner (ext:deno_process/40_process.js:456:10)\n    at Command.output (ext:deno_process/40_process.js:536:12)\n    at open (https://jsr.io/@opensrc/deno-open/1.0.0/src/mod.ts:80:43)\n    at Command.<anonymous> ({{referenceModuleUrl}}/src/commands/initiative/initiative-view.ts:98:13)\n    at async Command.execute (https://jsr.io/@cliffy/command/1.0.0/command.ts:2310:7)\n    at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0/command.ts:2126:14)\n    at async {{referenceModuleUrl}}/src/main.ts:4:3\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "slug",
+            "operation": {
+              "document": "query GetInitiativeBySlugForView($slugId: String!) {\n      initiatives(filter: { slugId: { eq: $slugId } }) {\n        nodes {\n          id\n          slugId\n        }\n      }\n    }\n  ",
+              "variables": {
+                "slugId": "INIT-302"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000302",
+                      "slugId": "INIT-302"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetInitiativeDetails($id: String!) {\n    initiative(id: $id) {\n      id\n      slugId\n      name\n      description\n      status\n      targetDate\n      health\n      color\n      icon\n      url\n      archivedAt\n      createdAt\n      updatedAt\n      owner {\n        id\n        name\n        displayName\n      }\n      projects {\n        nodes {\n          id\n          slugId\n          name\n          status {\n            name\n            type\n          }\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000000302"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiative": {
+                  "id": "00000000-0000-4000-9000-000000000302",
+                  "slugId": "INI-302",
+                  "name": "App slug destination",
+                  "description": "Description 302",
+                  "status": "Active",
+                  "targetDate": "2999-01-01",
+                  "health": "onTrack",
+                  "color": "#123456",
+                  "icon": "🎯",
+                  "url": "https://linear.app/alpha/initiative/ini-302",
+                  "archivedAt": null,
+                  "createdAt": "2020-01-01T12:00:00.000Z",
+                  "updatedAt": "2020-01-02T12:00:00.000Z",
+                  "owner": {
+                    "id": "00000000-0000-4000-9000-000000000802",
+                    "name": "Alice Name",
+                    "displayName": "Alice Display"
+                  },
+                  "projects": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000000902",
+                        "slugId": "PROJ-302",
+                        "name": "Project 302",
+                        "status": {
+                          "name": "Started",
+                          "type": "started"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "c038-parent-help",
+  "route": "linear initiative view",
+  "reason": "parent help",
+  "argv": [
+    "initiative",
+    "--help"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear initiative\nVersion: 2.6.0            \n\nDescription:\n\n  Manage Linear initiatives\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\nCommands:\n\n  list, ls                                - List initiatives                      \n  view, v         <initiativeId>          - View initiative details               \n  create                                  - Create a new Linear initiative        \n  archive         [initiativeId]          - Archive a Linear initiative           \n  update          <initiativeId>          - Update a Linear initiative            \n  unarchive       <initiativeId>          - Unarchive a Linear initiative         \n  delete          [initiativeId]          - Permanently delete a Linear initiative\n  add-project     <initiative> <project>  - Link a project to an initiative       \n  remove-project  <initiative> <project>  - Unlink a project from an initiative   \n  comment                                 - Manage initiative comments            \n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}
