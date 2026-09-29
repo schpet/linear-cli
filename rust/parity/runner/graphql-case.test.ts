@@ -137,8 +137,8 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   const others = loaded.filter((item) => !c002(item))
   // These corpus-wide counts also guard older fixtures without cohort tests.
   // Update them when adding reviewed command cases.
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 395)
-  assertEquals(others.filter((item) => item.spec.graphql != null).length, 486)
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 419)
+  assertEquals(others.filter((item) => item.spec.graphql != null).length, 555)
   assertEquals(loaded.filter(c002).length, 26)
 })
 

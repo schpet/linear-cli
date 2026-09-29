@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "caseId": "c030-project-then-j",
+  "deviationId": "C030-ATTACHED-PROJECT-VALUE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "argv",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "argv": [
+      "milestone",
+      "list",
+      "--project=-j"
+    ],
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

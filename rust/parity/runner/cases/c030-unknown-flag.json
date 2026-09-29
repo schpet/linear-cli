@@ -1,0 +1,49 @@
+{
+  "id": "c030-unknown-flag",
+  "route": "linear milestone list",
+  "reason": "Unknown local flag is a parser error",
+  "argv": [
+    "milestone",
+    "list",
+    "--project",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+    "--bogus"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear milestone list --project <project>\nVersion: 2.6.0                                    \n\nDescription:\n\n  List milestones for a project\n\nOptions:\n\n  -h, --help              - Show this help.                                \n  --workspace  <slug>     - Target workspace (uses credentials)            \n  --project    <project>  - Project (UUID, slug ID, or name)     (required)\n  -j, --json              - Output as JSON                                 \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Unknown option \"--bogus\". Did you mean option \"--help\"?\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C030-CLI-VERSION", "contract": "rust-3.0.0-alpha.1", "sha256": "51b31e83fdb67eea59afa8267f6fe5cf46b160147fe02b6007e2d0730241bb58"}
+}

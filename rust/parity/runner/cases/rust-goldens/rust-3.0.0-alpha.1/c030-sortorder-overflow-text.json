@@ -1,0 +1,27 @@
+{
+  "formatVersion": 1,
+  "caseId": "c030-sortorder-overflow-text",
+  "deviationId": "C030-STRICT-NUMBER-DECODE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to fetch milestones: response body is not valid JSON: number out of range at line 1 column 220\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

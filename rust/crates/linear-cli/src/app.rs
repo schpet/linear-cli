@@ -12,8 +12,9 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, cycle_view, label_list, project_list, project_view,
-    table, team_id, team_list, team_members, team_states, template_list, template_view, user_list,
+    auth_list, auth_whoami, client, cycle_list, cycle_view, label_list, milestone_list,
+    project_list, project_view, table, team_id, team_list, team_members, team_states,
+    template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -463,6 +464,7 @@ fn dispatch(
             Ok(ExitStatus::Success)
         }
         DispatchAction::ProjectView => dispatch_project_view(context, &action),
+        DispatchAction::MilestoneList => dispatch_milestone_list(context, &action),
         DispatchAction::TeamList => {
             let flags = team_list::Options {
                 json: action_switch(&action, "json")?,
@@ -1701,6 +1703,98 @@ fn dispatch_project_view(
         context.stdout,
     )
     .map_err(|error| error.with_context(project_view::CONTEXT))?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_milestone_list(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let json = action_switch(action, "json")?;
+    let original = action_string(action, "project")?.ok_or_else(|| {
+        AppError::new(
+            AppErrorKind::Invariant,
+            "milestone list received no --project value",
+        )
+    })?;
+    // Deno starts this spinner before config, credential and URL preparation,
+    // and its catch path stops it before reporting any action error.
+    let show_spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let workspace = action
+            .global_workspace
+            .as_ref()
+            .map(|value| value.value.as_str());
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let reference = prepare_project_lookup(
+            &original,
+            &WorkspaceScope::from_selection(&inputs, credentials),
+        )?;
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        Ok::<_, AppError>((reference, transport))
+    })();
+    let (reference, transport) = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(error.with_context(milestone_list::CONTEXT));
+        }
+    };
+    let columns = table::stdout_columns(context.stdout_tty);
+    let color = context.stdout_tty && !context.no_color();
+    // Resolver errors gain the context here; `milestone_list::run` already
+    // applies it to every page, cursor and rendering error.
+    let fetch = async {
+        let project_id = resolve_project_with_transport(&reference, &original, &transport)
+            .await
+            .map_err(|error| error.with_context(milestone_list::CONTEXT))?;
+        milestone_list::run(&transport, &original, &project_id, json, columns, color).await
+    };
+    let output_result = if show_spinner {
+        block_on_network(async {
+            tokio::pin!(fetch);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut fetch => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(fetch)
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = output_result?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }
 

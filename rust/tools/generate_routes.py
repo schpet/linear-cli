@@ -273,6 +273,7 @@ def generate():
             "linear user list": "UserList",
             "linear cycle list": "CycleList",
             "linear cycle view": "CycleView",
+            "linear milestone list": "MilestoneList",
             "linear label list": "LabelList",
             "linear document": "Document",
             "linear markdown": "Markdown",

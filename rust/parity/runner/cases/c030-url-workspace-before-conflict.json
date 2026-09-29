@@ -1,0 +1,53 @@
+{
+  "id": "c030-url-workspace-before-conflict",
+  "route": "linear milestone list",
+  "reason": "URL workspace validation runs before the LINEAR_API_KEY/--workspace conflict",
+  "argv": [
+    "--workspace",
+    "beta",
+    "milestone",
+    "list",
+    "--project",
+    "https://linear.app/alpha/project/mobile-app-abc123def456",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch milestones: That URL is for the \"alpha\" workspace, but this is the \"beta\" workspace.\n  LINEAR_API_KEY is set, and the CLI won't combine it with --workspace. Unset it and pass --workspace alpha, or use a URL from \"beta\".\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

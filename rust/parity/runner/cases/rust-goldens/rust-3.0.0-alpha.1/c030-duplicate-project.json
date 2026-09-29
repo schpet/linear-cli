@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c030-duplicate-project",
+  "deviationId": "C030-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear milestone list --project <project>\nVersion: 3.0.0-alpha.1                            \n\nDescription:\n\n  List milestones for a project\n\nOptions:\n\n  -h, --help              - Show this help.                                \n  --workspace  <slug>     - Target workspace (uses credentials)            \n  --project    <project>  - Project (UUID, slug ID, or name)     (required)\n  -j, --json              - Output as JSON                                 \n\n"
+      },
+      "stderr": {
+        "utf8": "  error: Option \"--project\" can only occur once, but was found several times.\n\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "id": "c030-sortorder-numbers-json",
+  "route": "linear milestone list",
+  "reason": "Finite sortOrder number text round-trips through JS numbers",
+  "argv": [
+    "milestone",
+    "list",
+    "--project",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000051\",\n      \"name\": \"n1\",\n      \"targetDate\": \"2026-01-01\",\n      \"sortOrder\": 0,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000052\",\n      \"name\": \"n2\",\n      \"targetDate\": \"2026-01-02\",\n      \"sortOrder\": 1e+21,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000053\",\n      \"name\": \"n3\",\n      \"targetDate\": \"2026-01-03\",\n      \"sortOrder\": 0.1,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000054\",\n      \"name\": \"n4\",\n      \"targetDate\": \"2026-01-04\",\n      \"sortOrder\": 5e-324,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000055\",\n      \"name\": \"n5\",\n      \"targetDate\": \"2026-01-05\",\n      \"sortOrder\": 1.7976931348623157e+308,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000056\",\n      \"name\": \"n6\",\n      \"targetDate\": \"2026-01-06\",\n      \"sortOrder\": 123456789.125,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000057\",\n      \"name\": \"n7\",\n      \"targetDate\": \"2026-01-07\",\n      \"sortOrder\": -3,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000058\",\n      \"name\": \"n8\",\n      \"targetDate\": \"2026-01-08\",\n      \"sortOrder\": 1,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "R01H-GRAPHQL-UA", "contract": "rust-3.0.0-alpha.1", "sha256": "db6b07c024e606821bf9dcbcc711b4cd61d70f812d00a701acce63c1fb12ab0e"},
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "GetProjectMilestones",
+            "operation": {
+              "document": "query GetProjectMilestones($projectId: String!, $first: Int, $after: String) { project(id: $projectId) { id name projectMilestones(first: $first, after: $after) { nodes { id name targetDate sortOrder project { id name } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"project\":{\"id\":\"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\"name\":\"Mobile App\",\"projectMilestones\":{\"nodes\":[{\"id\":\"00000000-0000-4000-8000-000000000051\",\"name\":\"n1\",\"targetDate\":\"2026-01-01\",\"sortOrder\":-0,\"project\":{\"id\":\"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\"name\":\"Mobile App\"}},{\"id\":\"00000000-0000-4000-8000-000000000052\",\"name\":\"n2\",\"targetDate\":\"2026-01-02\",\"sortOrder\":1e21,\"project\":{\"id\":\"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\"name\":\"Mobile App\"}},{\"id\":\"00000000-0000-4000-8000-000000000053\",\"name\":\"n3\",\"targetDate\":\"2026-01-03\",\"sortOrder\":0.1,\"project\":{\"id\":\"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\"name\":\"Mobile App\"}},{\"id\":\"00000000-0000-4000-8000-000000000054\",\"name\":\"n4\",\"targetDate\":\"2026-01-04\",\"sortOrder\":5e-324,\"project\":{\"id\":\"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\"name\":\"Mobile App\"}},{\"id\":\"00000000-0000-4000-8000-000000000055\",\"name\":\"n5\",\"targetDate\":\"2026-01-05\",\"sortOrder\":1.7976931348623157e308,\"project\":{\"id\":\"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\"name\":\"Mobile App\"}},{\"id\":\"00000000-0000-4000-8000-000000000056\",\"name\":\"n6\",\"targetDate\":\"2026-01-06\",\"sortOrder\":123456789.125,\"project\":{\"id\":\"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\"name\":\"Mobile App\"}},{\"id\":\"00000000-0000-4000-8000-000000000057\",\"name\":\"n7\",\"targetDate\":\"2026-01-07\",\"sortOrder\":-3,\"project\":{\"id\":\"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\"name\":\"Mobile App\"}},{\"id\":\"00000000-0000-4000-8000-000000000058\",\"name\":\"n8\",\"targetDate\":\"2026-01-08\",\"sortOrder\":1.0,\"project\":{\"id\":\"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\"name\":\"Mobile App\"}}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

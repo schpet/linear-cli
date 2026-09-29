@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c030-extra-wire-json",
+  "deviationId": "C030-TYPED-JSON-FIELDS",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000031\",\n      \"name\": \"Extra\",\n      \"targetDate\": \"2026-02-02\",\n      \"sortOrder\": 1,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

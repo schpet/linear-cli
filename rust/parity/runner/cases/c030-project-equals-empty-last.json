@@ -1,0 +1,49 @@
+{
+  "id": "c030-project-equals-empty-last",
+  "route": "linear milestone list",
+  "reason": "--project= as the final argument",
+  "argv": [
+    "milestone",
+    "list",
+    "--json",
+    "--project="
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear milestone list --project <project>\nVersion: 2.6.0                                    \n\nDescription:\n\n  List milestones for a project\n\nOptions:\n\n  -h, --help              - Show this help.                                \n  --workspace  <slug>     - Target workspace (uses credentials)            \n  --project    <project>  - Project (UUID, slug ID, or name)     (required)\n  -j, --json              - Output as JSON                                 \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Missing value for option \"--project\".\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "C030-CLI-VERSION", "contract": "rust-3.0.0-alpha.1", "sha256": "08db9fb4264e53c4059ebc9adb878b5aa4cadfbb38784d6c347a77c511fd48e9"}
+}

@@ -1,0 +1,175 @@
+{
+  "id": "c030-two-pages-json",
+  "route": "linear milestone list",
+  "reason": "Two pages concatenate, sort across pages and keep final pageInfo",
+  "argv": [
+    "milestone",
+    "list",
+    "--project",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000013\",\n      \"name\": \"Alpha\",\n      \"targetDate\": \"2026-02-01\",\n      \"sortOrder\": 3,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000011\",\n      \"name\": \"Zeta\",\n      \"targetDate\": \"2026-05-01\",\n      \"sortOrder\": 1,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000012\",\n      \"name\": \"Gamma\",\n      \"targetDate\": null,\n      \"sortOrder\": 2,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000014\",\n      \"name\": \"Omega\",\n      \"targetDate\": null,\n      \"sortOrder\": 4,\n      \"project\": {\n        \"id\": \"3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\",\n        \"name\": \"Mobile App\"\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": \"cursor-2\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {"id": "R01H-GRAPHQL-UA", "contract": "rust-3.0.0-alpha.1", "sha256": "4fc0027a98c227a8fcef19fcd285dde4097d45818f8b79d443a5a4b36d5f15ff"},
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "page-1",
+            "operation": {
+              "document": "query GetProjectMilestones($projectId: String!, $first: Int, $after: String) { project(id: $projectId) { id name projectMilestones(first: $first, after: $after) { nodes { id name targetDate sortOrder project { id name } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "Mobile App",
+                  "projectMilestones": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-8000-000000000011",
+                        "name": "Zeta",
+                        "targetDate": "2026-05-01",
+                        "sortOrder": 1,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000012",
+                        "name": "Gamma",
+                        "targetDate": null,
+                        "sortOrder": 2,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "cursor-1"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "page-2",
+            "operation": {
+              "document": "query GetProjectMilestones($projectId: String!, $first: Int, $after: String) { project(id: $projectId) { id name projectMilestones(first: $first, after: $after) { nodes { id name targetDate sortOrder project { id name } } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "projectId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "first": 100,
+                "after": "cursor-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "Mobile App",
+                  "projectMilestones": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-8000-000000000013",
+                        "name": "Alpha",
+                        "targetDate": "2026-02-01",
+                        "sortOrder": 3,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-8000-000000000014",
+                        "name": "Omega",
+                        "targetDate": null,
+                        "sortOrder": 4,
+                        "project": {
+                          "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                          "name": "Mobile App"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": "cursor-2"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
