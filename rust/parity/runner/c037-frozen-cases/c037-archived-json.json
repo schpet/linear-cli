@@ -1,0 +1,128 @@
+{
+  "id": "c037-archived-json",
+  "route": "linear initiative list",
+  "reason": "archived json",
+  "argv": [
+    "initiative",
+    "list",
+    "--archived",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-9000-000000000010\",\n      \"slugId\": \"INI-10\",\n      \"name\": \"Initiative 10\",\n      \"description\": \"Description 10\",\n      \"status\": \"Active\",\n      \"targetDate\": \"2999-01-01\",\n      \"health\": \"onTrack\",\n      \"color\": \"#123456\",\n      \"icon\": \"🎯\",\n      \"url\": \"https://linear.app/alpha/initiative/ini-10\",\n      \"archivedAt\": null,\n      \"owner\": {\n        \"id\": \"00000000-0000-4000-9000-000000000510\",\n        \"displayName\": \"Alice A\",\n        \"initials\": \"AA\"\n      },\n      \"projects\": {\n        \"nodes\": [\n          {\n            \"id\": \"00000000-0000-4000-9000-000000000610\",\n            \"name\": \"Project 10\",\n            \"status\": {\n              \"name\": \"Started\"\n            }\n          }\n        ]\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "initiatives",
+            "operation": {
+              "document": "query GetInitiatives($filter: InitiativeFilter, $includeArchived: Boolean) {\n  initiatives(filter: $filter, includeArchived: $includeArchived) {\n    nodes { id slugId name description status targetDate health color icon url archivedAt\n      owner { id displayName initials }\n      projects { nodes { id name status { name } } }\n    }\n    pageInfo { hasNextPage endCursor }\n  }\n}",
+              "variables": {
+                "filter": {
+                  "status": {
+                    "eq": "Active"
+                  }
+                },
+                "includeArchived": true
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000010",
+                      "slugId": "INI-10",
+                      "name": "Initiative 10",
+                      "description": "Description 10",
+                      "status": "Active",
+                      "targetDate": "2999-01-01",
+                      "health": "onTrack",
+                      "color": "#123456",
+                      "icon": "🎯",
+                      "url": "https://linear.app/alpha/initiative/ini-10",
+                      "archivedAt": null,
+                      "owner": {
+                        "id": "00000000-0000-4000-9000-000000000510",
+                        "displayName": "Alice A",
+                        "initials": "AA"
+                      },
+                      "projects": {
+                        "nodes": [
+                          {
+                            "id": "00000000-0000-4000-9000-000000000610",
+                            "name": "Project 10",
+                            "status": {
+                              "name": "Started"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "id": "c037-reordered-wire-json",
+  "route": "linear initiative list",
+  "reason": "reordered wire json",
+  "argv": [
+    "initiative",
+    "list",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"pageInfo\": {\n    \"endCursor\": null,\n    \"hasNextPage\": false\n  },\n  \"nodes\": [\n    {\n      \"projects\": {\n        \"nodes\": [\n          {\n            \"id\": \"00000000-0000-4000-9000-000000000646\",\n            \"name\": \"Project 46\",\n            \"status\": {\n              \"name\": \"Started\"\n            }\n          }\n        ]\n      },\n      \"owner\": {\n        \"id\": \"00000000-0000-4000-9000-000000000546\",\n        \"displayName\": \"Alice A\",\n        \"initials\": \"AA\"\n      },\n      \"archivedAt\": null,\n      \"url\": \"https://linear.app/alpha/initiative/ini-46\",\n      \"icon\": \"🎯\",\n      \"color\": \"#123456\",\n      \"health\": \"onTrack\",\n      \"targetDate\": \"2999-01-01\",\n      \"status\": \"Active\",\n      \"description\": \"Description 46\",\n      \"name\": \"Initiative 46\",\n      \"slugId\": \"INI-46\",\n      \"id\": \"00000000-0000-4000-9000-000000000046\"\n    }\n  ]\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "initiatives",
+            "operation": {
+              "document": "query GetInitiatives($filter: InitiativeFilter, $includeArchived: Boolean) {\n  initiatives(filter: $filter, includeArchived: $includeArchived) {\n    nodes { id slugId name description status targetDate health color icon url archivedAt\n      owner { id displayName initials }\n      projects { nodes { id name status { name } } }\n    }\n    pageInfo { hasNextPage endCursor }\n  }\n}",
+              "variables": {
+                "filter": {
+                  "status": {
+                    "eq": "Active"
+                  }
+                },
+                "includeArchived": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"initiatives\":{\"pageInfo\":{\"endCursor\":null,\"hasNextPage\":false},\"nodes\":[{\"projects\":{\"nodes\":[{\"id\":\"00000000-0000-4000-9000-000000000646\",\"name\":\"Project 46\",\"status\":{\"name\":\"Started\"}}]},\"owner\":{\"id\":\"00000000-0000-4000-9000-000000000546\",\"displayName\":\"Alice A\",\"initials\":\"AA\"},\"archivedAt\":null,\"url\":\"https://linear.app/alpha/initiative/ini-46\",\"icon\":\"🎯\",\"color\":\"#123456\",\"health\":\"onTrack\",\"targetDate\":\"2999-01-01\",\"status\":\"Active\",\"description\":\"Description 46\",\"name\":\"Initiative 46\",\"slugId\":\"INI-46\",\"id\":\"00000000-0000-4000-9000-000000000046\"}]}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

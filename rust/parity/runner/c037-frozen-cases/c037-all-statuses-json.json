@@ -1,0 +1,152 @@
+{
+  "id": "c037-all-statuses-json",
+  "route": "linear initiative list",
+  "reason": "all statuses json",
+  "argv": [
+    "initiative",
+    "list",
+    "--all-statuses",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-9000-000000000005\",\n      \"slugId\": \"INI-5\",\n      \"name\": \"Initiative 5\",\n      \"description\": \"Description 5\",\n      \"status\": \"Active\",\n      \"targetDate\": \"2999-01-01\",\n      \"health\": \"onTrack\",\n      \"color\": \"#123456\",\n      \"icon\": \"🎯\",\n      \"url\": \"https://linear.app/alpha/initiative/ini-5\",\n      \"archivedAt\": null,\n      \"owner\": {\n        \"id\": \"00000000-0000-4000-9000-000000000505\",\n        \"displayName\": \"Alice A\",\n        \"initials\": \"AA\"\n      },\n      \"projects\": {\n        \"nodes\": [\n          {\n            \"id\": \"00000000-0000-4000-9000-000000000605\",\n            \"name\": \"Project 5\",\n            \"status\": {\n              \"name\": \"Started\"\n            }\n          }\n        ]\n      }\n    },\n    {\n      \"id\": \"00000000-0000-4000-9000-000000000004\",\n      \"slugId\": \"INI-4\",\n      \"name\": \"Initiative 4\",\n      \"description\": \"Description 4\",\n      \"status\": \"Proposed\",\n      \"targetDate\": \"2999-01-01\",\n      \"health\": \"onTrack\",\n      \"color\": \"#123456\",\n      \"icon\": \"🎯\",\n      \"url\": \"https://linear.app/alpha/initiative/ini-4\",\n      \"archivedAt\": null,\n      \"owner\": {\n        \"id\": \"00000000-0000-4000-9000-000000000504\",\n        \"displayName\": \"Alice A\",\n        \"initials\": \"AA\"\n      },\n      \"projects\": {\n        \"nodes\": [\n          {\n            \"id\": \"00000000-0000-4000-9000-000000000604\",\n            \"name\": \"Project 4\",\n            \"status\": {\n              \"name\": \"Started\"\n            }\n          }\n        ]\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "initiatives",
+            "operation": {
+              "document": "query GetInitiatives($filter: InitiativeFilter, $includeArchived: Boolean) {\n  initiatives(filter: $filter, includeArchived: $includeArchived) {\n    nodes { id slugId name description status targetDate health color icon url archivedAt\n      owner { id displayName initials }\n      projects { nodes { id name status { name } } }\n    }\n    pageInfo { hasNextPage endCursor }\n  }\n}",
+              "variables": {
+                "includeArchived": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000004",
+                      "slugId": "INI-4",
+                      "name": "Initiative 4",
+                      "description": "Description 4",
+                      "status": "Proposed",
+                      "targetDate": "2999-01-01",
+                      "health": "onTrack",
+                      "color": "#123456",
+                      "icon": "🎯",
+                      "url": "https://linear.app/alpha/initiative/ini-4",
+                      "archivedAt": null,
+                      "owner": {
+                        "id": "00000000-0000-4000-9000-000000000504",
+                        "displayName": "Alice A",
+                        "initials": "AA"
+                      },
+                      "projects": {
+                        "nodes": [
+                          {
+                            "id": "00000000-0000-4000-9000-000000000604",
+                            "name": "Project 4",
+                            "status": {
+                              "name": "Started"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "00000000-0000-4000-9000-000000000005",
+                      "slugId": "INI-5",
+                      "name": "Initiative 5",
+                      "description": "Description 5",
+                      "status": "Active",
+                      "targetDate": "2999-01-01",
+                      "health": "onTrack",
+                      "color": "#123456",
+                      "icon": "🎯",
+                      "url": "https://linear.app/alpha/initiative/ini-5",
+                      "archivedAt": null,
+                      "owner": {
+                        "id": "00000000-0000-4000-9000-000000000505",
+                        "displayName": "Alice A",
+                        "initials": "AA"
+                      },
+                      "projects": {
+                        "nodes": [
+                          {
+                            "id": "00000000-0000-4000-9000-000000000605",
+                            "name": "Project 5",
+                            "status": {
+                              "name": "Started"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

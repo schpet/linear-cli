@@ -1,0 +1,50 @@
+{
+  "id": "c037-web-no-key-configured",
+  "route": "linear initiative list",
+  "reason": "web no key configured",
+  "argv": [
+    "initiative",
+    "list",
+    "--web"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_WORKSPACE": "no-key",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "referenceModuleUrl"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Opening https://linear.app/no-key/initiatives in web browser\n"
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) NotFound: Failed to spawn 'xdg-open': entity not found\n  const { success, code } = await process.output();\n                                          ^\n    at spawnChildInner (ext:deno_process/40_process.js:192:17)\n    at spawnInner (ext:deno_process/40_process.js:456:10)\n    at Command.output (ext:deno_process/40_process.js:536:12)\n    at open (https://jsr.io/@opensrc/deno-open/1.0.0/src/mod.ts:80:43)\n    at Command.<anonymous> ({{referenceModuleUrl}}/src/commands/initiative/initiative-list.ts:111:13)\n    at Command.execute (https://jsr.io/@cliffy/command/1.0.0/command.ts:2310:41)\n    at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0/command.ts:2126:14)\n    at async {{referenceModuleUrl}}/src/main.ts:4:3\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

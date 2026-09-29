@@ -1,0 +1,89 @@
+{
+  "id": "c037-owner-next-flag",
+  "route": "linear initiative list",
+  "reason": "Cliffy consumes --json as owner text; lookup misses",
+  "argv": [
+    "initiative",
+    "list",
+    "--owner",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch initiatives: Owner not found: --json\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "lookup-user",
+            "operation": {
+              "document": "query LookupUser($input: String!) {\n  users(filter: { or: [\n    { email: { eqIgnoreCase: $input } }\n    { displayName: { eqIgnoreCase: $input } }\n    { name: { containsIgnoreCaseAndAccent: $input } }\n  ] }) { nodes { id email displayName name } }\n}",
+              "variables": {
+                "input": "--json"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "users": {
+                  "nodes": []
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
