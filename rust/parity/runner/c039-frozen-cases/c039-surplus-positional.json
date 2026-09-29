@@ -1,0 +1,49 @@
+{
+  "id": "c039-surplus-positional",
+  "route": "linear initiative create",
+  "reason": "surplus positional",
+  "argv": [
+    "initiative",
+    "create",
+    "extra"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear initiative create\nVersion: 2.6.0                   \n\nDescription:\n\n  Create a new Linear initiative\n\nOptions:\n\n  -h, --help                        - Show this help.                                        \n  --workspace        <slug>         - Target workspace (uses credentials)                    \n  -n, --name         <name>         - Initiative name (required)                             \n  -d, --description  <description>  - Initiative description                                 \n  -s, --status       <status>       - Status: planned, active, completed (default: planned)  \n  -o, --owner        <owner>        - Owner (username, email, or @me for yourself)           \n  --target-date      <targetDate>   - Target completion date (YYYY-MM-DD)                    \n  -c, --color        <color>        - Color hex code (e.g., #5E6AD2)                         \n  --icon             <icon>         - Icon name                                              \n  -i, --interactive                 - Interactive mode (default if no flags provided)        \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: No arguments allowed for command \"linear initiative create\".\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

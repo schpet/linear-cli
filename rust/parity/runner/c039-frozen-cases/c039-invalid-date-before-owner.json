@@ -1,0 +1,60 @@
+{
+  "id": "c039-invalid-date-before-owner",
+  "route": "linear initiative create",
+  "reason": "invalid date before owner",
+  "argv": [
+    "initiative",
+    "create",
+    "-n",
+    "Roadmap",
+    "-s",
+    "Active",
+    "-c",
+    "#123456",
+    "--target-date",
+    "bad",
+    "-o",
+    "https://linear.app/acme/profile/me"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "referenceModuleUrl"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) ValidationError: Target date must be in YYYY-MM-DD format\n      throw new ValidationError(\"Target date must be in YYYY-MM-DD format\")\n            ^\n    at Command.<anonymous> ({{referenceModuleUrl}}/src/commands/initiative/initiative-create.ts:210:13)\n    at Command.execute (https://jsr.io/@cliffy/command/1.0.0/command.ts:2310:41)\n    at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0/command.ts:2126:14)\n    at async {{referenceModuleUrl}}/src/main.ts:4:3\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "configFixture": "workspace-credential"
+}
