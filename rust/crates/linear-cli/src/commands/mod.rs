@@ -1,10 +1,13 @@
 pub mod auth_list;
 pub mod auth_whoami;
 pub mod client;
+pub mod comments;
 pub mod completions;
 pub mod cycle_list;
 pub mod cycle_view;
 pub mod display;
+pub mod document_comment_list;
+pub mod initiative_comment_list;
 pub mod initiative_create;
 pub mod initiative_list;
 pub mod initiative_update_list;

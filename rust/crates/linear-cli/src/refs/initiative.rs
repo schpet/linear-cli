@@ -1,0 +1,98 @@
+//! Strict initiative references: URL slug, UUID, plain slug, then exact name.
+use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind, is_linear_uuid};
+use crate::error::{AppError, AppErrorKind};
+use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::operations::initiative_reference::{
+    NameVariables, ResolveInitiativeByName, ResolveInitiativeBySlug, UrlSlugVariables,
+};
+use crate::graphql::transport::GraphQlTransport;
+use cynic::QueryBuilder;
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum InitiativeReference {
+    Id(String),
+    NameOrSlug(String),
+    UrlSlug(String),
+}
+pub fn prepare_initiative_lookup(
+    input: &str,
+    scope: &WorkspaceScope<'_>,
+) -> Result<InitiativeReference, AppError> {
+    match expect_url_kind(
+        input,
+        LinearUrlKind::Initiative,
+        "an initiative URL, UUID, slug ID, or exact name",
+        scope,
+    )? {
+        Some(LinearUrlRef::Initiative { slug_id, .. }) => Ok(InitiativeReference::UrlSlug(slug_id)),
+        Some(_) => Err(AppError::new(
+            AppErrorKind::Invariant,
+            "initiative URL kind check returned a different kind",
+        )),
+        None if is_linear_uuid(input) => Ok(InitiativeReference::Id(input.to_owned())),
+        None => Ok(InitiativeReference::NameOrSlug(input.to_owned())),
+    }
+}
+pub async fn resolve_initiative_with_transport(
+    reference: &InitiativeReference,
+    original: &str,
+    transport: &GraphQlTransport,
+) -> Result<String, AppError> {
+    resolve_initiative_with(
+        reference,
+        original,
+        |query| async move { transport.execute(&query).await.map_err(AppError::from) },
+        |query| async move { transport.execute(&query).await.map_err(AppError::from) },
+    )
+    .await
+}
+pub async fn resolve_initiative_with<S, SF, N, NF>(
+    reference: &InitiativeReference,
+    original: &str,
+    mut slug_fetch: S,
+    mut name_fetch: N,
+) -> Result<String, AppError>
+where
+    S: FnMut(GraphQlRequest<UrlSlugVariables>) -> SF,
+    SF: std::future::Future<Output = Result<ResolveInitiativeBySlug, AppError>>,
+    N: FnMut(GraphQlRequest<NameVariables>) -> NF,
+    NF: std::future::Future<Output = Result<ResolveInitiativeByName, AppError>>,
+{
+    let slug = match reference {
+        InitiativeReference::Id(id) => return Ok(id.clone()),
+        InitiativeReference::UrlSlug(slug) | InitiativeReference::NameOrSlug(slug) => slug,
+    };
+    let data = slug_fetch(GraphQlRequest::with_variables(
+        ResolveInitiativeBySlug::build(UrlSlugVariables {
+            slug_id: slug.clone(),
+            include_archived: Some(false),
+        }),
+    ))
+    .await?;
+    if let Some(found) = data.initiatives.nodes.into_iter().next() {
+        return Ok(found.id.into_inner());
+    }
+    if matches!(reference, InitiativeReference::UrlSlug(_)) {
+        return Err(AppError::not_found("Initiative", original).with_suggestion("The initiative in that URL may have been deleted, or be in a workspace this key cannot see."));
+    }
+    let data = name_fetch(GraphQlRequest::with_variables(
+        ResolveInitiativeByName::build(NameVariables { name: slug.clone() }),
+    ))
+    .await?;
+    let matches = data.initiatives.nodes;
+    if matches.len() > 1 {
+        let listing = matches
+            .iter()
+            .map(|item| format!("  {} — {} ({})", item.name, item.slug_id, item.id.inner()))
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Err(AppError::new(AppErrorKind::Validation, format!("Initiative \"{original}\" is ambiguous; it matches multiple initiatives:\n{listing}")).with_suggestion("Pass the initiative's slug ID or UUID instead."));
+    }
+    matches
+        .into_iter()
+        .next()
+        .map(|item| item.id.into_inner())
+        .ok_or_else(|| {
+            AppError::not_found("Initiative", original)
+                .with_suggestion("Pass an initiative UUID, slug ID, or exact initiative name.")
+        })
+}

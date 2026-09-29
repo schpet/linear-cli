@@ -23,6 +23,8 @@ pub enum DispatchAction {
     ProjectList,
     ProjectView,
     ProjectCommentList,
+    InitiativeCommentList,
+    DocumentCommentList,
     ProjectUpdateList,
     InitiativeList,
     InitiativeView,

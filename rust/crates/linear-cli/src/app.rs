@@ -12,17 +12,19 @@ use crate::cli::{self, DispatchAction};
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, cycle_view, initiative_create, initiative_list,
-    initiative_update_list, initiative_view, label_list, milestone_list, milestone_view,
-    project_comment_list, project_list, project_update_list, project_view, table, team_id,
-    team_list, team_members, team_states, template_list, template_view, user_list,
+    auth_list, auth_whoami, client, cycle_list, cycle_view, document_comment_list,
+    initiative_comment_list, initiative_create, initiative_list, initiative_update_list,
+    initiative_view, label_list, milestone_list, milestone_view, project_comment_list,
+    project_list, project_update_list, project_view, table, team_id, team_list, team_members,
+    team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
 use crate::platform::spinner;
 use crate::refs::{
-    WorkspaceScope, prepare_project_lookup, prepare_team_lookup, resolve_project_with_transport,
+    WorkspaceScope, prepare_initiative_lookup, prepare_project_lookup, prepare_team_lookup,
+    resolve_document_reference, resolve_initiative_with_transport, resolve_project_with_transport,
     resolve_team_with_transport,
 };
 use crate::startup::{AppStartupReport, render_startup_diagnostic};
@@ -466,6 +468,8 @@ fn dispatch(
         }
         DispatchAction::ProjectView => dispatch_project_view(context, &action),
         DispatchAction::ProjectCommentList => dispatch_project_comment_list(context, &action),
+        DispatchAction::InitiativeCommentList => dispatch_initiative_comment_list(context, &action),
+        DispatchAction::DocumentCommentList => dispatch_document_comment_list(context, &action),
         DispatchAction::ProjectUpdateList => dispatch_project_update_list(context, &action),
         DispatchAction::InitiativeList => dispatch_initiative_list(context, &action),
         DispatchAction::InitiativeView => dispatch_initiative_view(context, &action),
@@ -2511,6 +2515,87 @@ fn write_usage_error(
         )?;
     }
     Ok(ExitStatus::UsageFailure)
+}
+
+fn dispatch_initiative_comment_list(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let json = action_switch(action, "json")?;
+    let original = action.positionals.first().ok_or_else(|| {
+        AppError::new(
+            AppErrorKind::Invariant,
+            "initiative comment list received no initiative",
+        )
+    })?;
+    let config = context.config()?;
+    let credentials = context.credentials()?;
+    let workspace = action
+        .global_workspace
+        .as_ref()
+        .map(|value| value.value.as_str());
+    let inputs = client::selection_inputs(&config.options, workspace)
+        .map_err(|error| error.with_context(initiative_comment_list::CONTEXT))?;
+    let reference = prepare_initiative_lookup(
+        original,
+        &WorkspaceScope::from_selection(&inputs, credentials),
+    )
+    .map_err(|error| error.with_context(initiative_comment_list::CONTEXT))?;
+    let transport = client::prepare_transport_with_inputs(
+        &config.options,
+        credentials,
+        &inputs,
+        &config.transport_env,
+    )
+    .map_err(|error| error.with_context(initiative_comment_list::CONTEXT))?;
+    let color = !context.no_color();
+    let output = block_on_network(async {
+        let id = resolve_initiative_with_transport(&reference, original, &transport)
+            .await
+            .map_err(|error| error.with_context(initiative_comment_list::CONTEXT))?;
+        initiative_comment_list::run(&transport, original, &id, json, color).await
+    })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_document_comment_list(
+    context: &mut AppContext<'_>,
+    action: &ParsedAction,
+) -> Result<ExitStatus, AppError> {
+    let json = action_switch(action, "json")?;
+    let original = action.positionals.first().ok_or_else(|| {
+        AppError::new(
+            AppErrorKind::Invariant,
+            "document comment list received no document",
+        )
+    })?;
+    let config = context.config()?;
+    let credentials = context.credentials()?;
+    let workspace = action
+        .global_workspace
+        .as_ref()
+        .map(|value| value.value.as_str());
+    let inputs = client::selection_inputs(&config.options, workspace)
+        .map_err(|error| error.with_context(document_comment_list::CONTEXT))?;
+    let reference = resolve_document_reference(
+        original,
+        &WorkspaceScope::from_selection(&inputs, credentials),
+    )
+    .map_err(|error| error.with_context(document_comment_list::CONTEXT))?;
+    let transport = client::prepare_transport_with_inputs(
+        &config.options,
+        credentials,
+        &inputs,
+        &config.transport_env,
+    )
+    .map_err(|error| error.with_context(document_comment_list::CONTEXT))?;
+    let color = !context.no_color();
+    let output = block_on_network(async {
+        document_comment_list::run(&transport, &reference, &reference, json, color).await
+    })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
 }
 
 #[cfg(test)]

@@ -4,6 +4,8 @@ mod client;
 mod cycle_list;
 mod cycle_view;
 mod display;
+mod document_comment_list;
+mod initiative_comment_list;
 mod initiative_create;
 mod initiative_list;
 mod initiative_update_list;

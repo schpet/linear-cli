@@ -7,9 +7,13 @@
 pub mod agent_session;
 pub mod auth_list;
 pub mod auth_whoami;
+pub mod comments;
 pub mod cycle_view;
 pub mod cycles;
+pub mod document_comments;
+pub mod initiative_comments;
 pub mod initiative_create;
+pub mod initiative_reference;
 pub mod initiative_updates;
 pub mod initiative_view;
 pub mod initiatives;

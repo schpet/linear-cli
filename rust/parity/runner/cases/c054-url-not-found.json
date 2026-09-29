@@ -1,0 +1,101 @@
+{
+  "id": "c054-url-not-found",
+  "route": "linear document comment list",
+  "reason": "url-not-found",
+  "argv": [
+    "document",
+    "comment",
+    "list",
+    "https://linear.app/acme/document/sample-abc123def456"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to list comments: Document not found: abc123def456\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "68265023b34a73d4d7662f29e60123c8d64787b94582e1ae379d6f7cd679f5e5"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "comments",
+            "operation": {
+              "document": "query GetDocumentComments($id: String!, $after: String) { document(id: $id) { id comments(first: 50, after: $after, orderBy: createdAt) { nodes { ...CommentListFields } pageInfo { hasNextPage endCursor } } } }\nfragment CommentListFields on Comment { id body quotedText createdAt updatedAt editedAt url user { id name displayName } externalUser { id name displayName } botActor { id name type subType } parent { id } }",
+              "variables": {
+                "id": "abc123def456",
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "graphqlErrors",
+              "status": 200,
+              "data": null,
+              "errors": [
+                {
+                  "message": "Entity not found: Project",
+                  "extensions": {
+                    "type": "invalid input",
+                    "userError": true,
+                    "userPresentableMessage": "Could not find referenced Project."
+                  }
+                }
+              ]
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "id": "c043-null-initiative-later",
+  "route": "linear initiative comment list",
+  "reason": "Page-two null initiative has no partial output",
+  "argv": [
+    "initiative",
+    "comment",
+    "list",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to list comments: Initiative not found: 3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "comments",
+            "operation": {
+              "document": "query GetInitiativeComments($id: String!, $filterId: ID!, $after: String) { initiative(id: $id) { id name } comments(first: 50, after: $after, orderBy: createdAt, filter: { initiative: { id: { eq: $filterId } } }) { nodes { ...CommentListFields } pageInfo { hasNextPage endCursor } } }\nfragment CommentListFields on Comment { id body quotedText createdAt updatedAt editedAt url user { id name displayName } externalUser { id name displayName } botActor { id name type subType } parent { id } }",
+              "variables": {
+                "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "filterId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiative": {
+                  "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                  "name": "Mobile App"
+                },
+                "comments": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000001",
+                      "body": "Root A",
+                      "quotedText": null,
+                      "createdAt": "2020-01-02T12:00:00Z",
+                      "updatedAt": "2020-02-01T00:00:00Z",
+                      "editedAt": null,
+                      "url": "https://linear.app/alpha/project/mobile-app-abc123def456/activity#00000000-0000-4000-9000-000000000001",
+                      "user": {
+                        "id": "00000000-0000-4000-9000-000000000101",
+                        "name": "user1",
+                        "displayName": "User 1"
+                      },
+                      "externalUser": null,
+                      "botActor": null,
+                      "parent": null
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "one"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "page-2",
+            "operation": {
+              "document": "query GetInitiativeComments($id: String!, $filterId: ID!, $after: String) { initiative(id: $id) { id name } comments(first: 50, after: $after, orderBy: createdAt, filter: { initiative: { id: { eq: $filterId } } }) { nodes { ...CommentListFields } pageInfo { hasNextPage endCursor } } }\nfragment CommentListFields on Comment { id body quotedText createdAt updatedAt editedAt url user { id name displayName } externalUser { id name displayName } botActor { id name type subType } parent { id } }",
+              "variables": {
+                "id": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "filterId": "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+                "after": "one"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\":{\"initiative\":null,\"comments\":{\"nodes\":[],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
