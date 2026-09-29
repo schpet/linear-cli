@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c027-leaf-help",
+  "deviationId": "C027-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear project comment list <project>\nVersion: 3.0.0-alpha.1                        \n\nDescription:\n\n  List comments on a project (by ID, slug, or name)\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n  -j, --json           - Output as JSON                       \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

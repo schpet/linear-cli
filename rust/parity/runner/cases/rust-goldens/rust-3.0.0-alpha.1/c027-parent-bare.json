@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c027-parent-bare",
+  "deviationId": "C027-CLI-VERSION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "\nUsage:   linear project comment\nVersion: 3.0.0-alpha.1         \n\nDescription:\n\n  Manage project comments\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\nCommands:\n\n  add   <project>  - Add a comment or reply to a project's discussion (by ID, slug, or name)\n  list  <project>  - List comments on a project (by ID, slug, or name)                      \n\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

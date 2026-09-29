@@ -22,6 +22,7 @@ pub enum DispatchAction {
     TeamList,
     ProjectList,
     ProjectView,
+    ProjectCommentList,
     UserList,
     TeamMembers,
     TeamStates,

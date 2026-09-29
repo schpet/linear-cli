@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c027-extra-wire-json",
+  "deviationId": "C027-TYPED-JSON-FIELDS",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"00000000-0000-4000-9000-000000000022\",\n      \"body\": \"Comment 22\",\n      \"quotedText\": null,\n      \"createdAt\": \"2020-01-22T12:00:00Z\",\n      \"updatedAt\": \"2020-02-01T00:00:00Z\",\n      \"editedAt\": null,\n      \"url\": \"https://linear.app/alpha/project/mobile-app-abc123def456/activity#00000000-0000-4000-9000-000000000022\",\n      \"user\": {\n        \"id\": \"00000000-0000-4000-9000-000000000122\",\n        \"name\": \"user22\",\n        \"displayName\": \"User 22\"\n      },\n      \"externalUser\": null,\n      \"botActor\": null,\n      \"parent\": {\n        \"id\": \"00000000-0000-4000-9000-000000000001\"\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": \"end\"\n  }\n}\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

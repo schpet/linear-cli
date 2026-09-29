@@ -1244,7 +1244,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   )
   // This count also guards older GraphQL fixtures without cohort tests.
   // Update it when adding reviewed command cases.
-  assertEquals(graphql.length, 614)
+  assertEquals(graphql.length, 668)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -1450,6 +1450,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     "c031-bare-linear-url-legacy",
     "c031-bare-linear-unsupported-legacy",
   ])
+  const c027FixtureDeltas = new Set(["c027-json-equals-empty"])
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -1485,7 +1486,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       !loaded.spec.id.startsWith("c024-") &&
       !loaded.spec.id.startsWith("c020-") &&
       !loaded.spec.id.startsWith("c030-") &&
-      !loaded.spec.id.startsWith("c031-")
+      !loaded.spec.id.startsWith("c031-") &&
+      !loaded.spec.id.startsWith("c027-")
     ) {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
@@ -1530,7 +1532,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       c023FixtureDeltas.has(loaded.spec.id) ||
       c020FixtureDeltas.has(loaded.spec.id) ||
       c030FixtureDeltas.has(loaded.spec.id) ||
-      c031FixtureDeltas.has(loaded.spec.id)
+      c031FixtureDeltas.has(loaded.spec.id) ||
+      c027FixtureDeltas.has(loaded.spec.id)
     ) {
       const delta = loaded.golden?.spec.candidate.graphql
       const group = expected.groups[0]
@@ -1548,7 +1551,10 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
         }
       }
       expected.expectedRequests = group.steps.length
-      if (c031FixtureDeltas.has(loaded.spec.id) && delta.steps.length === 0) {
+      if (
+        (c031FixtureDeltas.has(loaded.spec.id) ||
+          c027FixtureDeltas.has(loaded.spec.id)) && delta.steps.length === 0
+      ) {
         expected.groups = []
       }
     }

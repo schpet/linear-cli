@@ -266,6 +266,7 @@ def generate():
             "linear team list": "TeamList",
             "linear project list": "ProjectList",
             "linear project view": "ProjectView",
+            "linear project comment list": "ProjectCommentList",
             "linear team members": "TeamMembers",
             "linear team states": "TeamStates",
             "linear template list": "TemplateList",

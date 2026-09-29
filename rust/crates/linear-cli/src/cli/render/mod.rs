@@ -1,4 +1,4 @@
-mod style;
+pub(crate) mod style;
 mod table;
 
 use crate::cli::{OptionDefault, OptionMeta, ROUTES, RouteMeta, TypeHandler};

@@ -14,6 +14,7 @@ pub mod issue_update;
 pub mod milestone_view;
 pub mod milestones;
 pub mod organization_members;
+pub mod project_comments;
 pub mod project_view;
 pub mod projects;
 pub mod team_members;
