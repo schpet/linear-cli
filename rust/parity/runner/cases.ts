@@ -32,6 +32,7 @@ import {
   SchemaError,
   substitute,
   type SubstitutionName,
+  ZeroRequestCandidateGraphQLSchema,
 } from "./schema.ts"
 import * as v from "valibot"
 
@@ -119,6 +120,16 @@ function applyGraphQLDelta(
     throw new SchemaError(
       `case ${spec.id}: GraphQL delta must be a prefix of effect-free query steps`,
     )
+  }
+  if (delta.steps.length === 0) {
+    // The reviewed candidate makes no request at all. The server still runs
+    // with no groups, so any request reaching it fails fixture comparison.
+    if (original.length !== 1) {
+      throw new SchemaError(
+        `case ${spec.id}: zero-request GraphQL delta needs exactly one frozen query step`,
+      )
+    }
+    return { ...fixture, expectedRequests: 0, groups: [] }
   }
   let changedVariables = false
   const steps = delta.steps.map((entry, index) => {
@@ -326,7 +337,22 @@ async function loadReviewedBinding(
     graphql: candidateGraphql,
   }
   if (delta != null) {
-    parseCase(candidateSpec)
+    if (delta.steps.length === 0) {
+      // Ordinary candidate fields keep the frozen case checks against the
+      // original fixture; only the derived fixture uses the zero schema.
+      parseCase({ ...candidateSpec, graphql: spec.graphql })
+      const zero = v.safeParse(
+        ZeroRequestCandidateGraphQLSchema,
+        candidateGraphql,
+      )
+      if (!zero.success) {
+        throw new SchemaError(
+          `case ${spec.id}: zero-request candidate GraphQL fixture is invalid`,
+        )
+      }
+    } else {
+      parseCase(candidateSpec)
+    }
     await checkGraphQLFixture(candidateSpec, path, pinned)
   }
   const stdout = candidateSpec.expected.stdout
@@ -1189,11 +1215,20 @@ export function resolveCase(
       })),
     },
     graphql: spec.graphql == null ? spec.graphql : (() => {
-      const frozen = v.parse(
-        GraphQLFixtureSchema,
-        substituteValues(spec.graphql, declared, values, `${label} graphql`),
+      const substituted = substituteValues(
+        spec.graphql,
+        declared,
+        values,
+        `${label} graphql`,
       )
-      return userAgent == null ? frozen : rewriteUserAgent(frozen, userAgent)
+      if (userAgent == null) return v.parse(GraphQLFixtureSchema, substituted)
+      // Only a reviewed candidate view passes a User-Agent. There, and only
+      // there, empty groups mean the derived zero-request fixture.
+      const fixture = record(substituted) &&
+          Array.isArray(substituted.groups) && substituted.groups.length === 0
+        ? v.parse(ZeroRequestCandidateGraphQLSchema, substituted)
+        : v.parse(GraphQLFixtureSchema, substituted)
+      return rewriteUserAgent(fixture, userAgent)
     })(),
   }
 }

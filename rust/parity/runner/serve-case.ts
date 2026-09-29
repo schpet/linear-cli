@@ -125,7 +125,7 @@ async function loadTransportCase(absolute: string): Promise<LoadedCase> {
   return candidateCaseView(found)
 }
 
-function resolveWithPort(
+export function resolveWithPort(
   loaded: LoadedCase,
   port: number,
 ): RuntimeGraphQLFixtureSpec {

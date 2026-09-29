@@ -438,6 +438,15 @@ export const GraphQLFixtureSchema = v.strictObject({
 })
 export type GraphQLFixtureSpec = v.InferOutput<typeof GraphQLFixtureSchema>
 
+// Candidate-only fixture derived from a reviewed empty GraphQL delta. Frozen
+// cases never parse with this schema; `resolveCase` selects it only for a
+// candidate view (a Rust User-Agent is present) whose groups are empty.
+export const ZeroRequestCandidateGraphQLSchema = v.strictObject({
+  ...GraphQLFixtureSchema.entries,
+  expectedRequests: v.literal(0),
+  groups: v.strictTuple([]),
+})
+
 // Baseline cases are parsed by GraphQLFixtureSchema and remain frozen at 2.6.0.
 // Only the resolved candidate fixture may carry the reviewed Rust identity.
 export type RuntimeGraphQLStepSpec = Omit<GraphQLStepSpec, "identity"> & {
@@ -535,14 +544,13 @@ export const APPROVED_SURFACES = [
 // ordered GraphQL script and replace variables on retained requests. The
 // loader derives the full fixture from the frozen case; responses, identity,
 // documents, records, and all other fixture fields cannot be supplied here.
+// An empty prefix is accepted only for a frozen script of exactly one query;
+// the loader enforces that and derives a zero-request candidate fixture.
 const CandidateGraphQLDeltaSchema = v.strictObject({
-  steps: v.pipe(
-    v.array(v.strictObject({
-      id: nonEmpty,
-      variables: v.optional(JsonObjectSchema),
-    })),
-    v.minLength(1),
-  ),
+  steps: v.array(v.strictObject({
+    id: nonEmpty,
+    variables: v.optional(JsonObjectSchema),
+  })),
 })
 
 export const GoldenSchema = v.strictObject({

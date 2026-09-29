@@ -16,8 +16,17 @@ import {
   toReportCase,
 } from "./report.ts"
 import { runCorpus } from "./run.ts"
-import { parseCase, parseReviewedGolden, SchemaError } from "./schema.ts"
+import {
+  type CaseSpec,
+  GraphQLFixtureSchema,
+  type GraphQLFixtureSpec,
+  parseCase,
+  parseReviewedGolden,
+  SchemaError,
+  ZeroRequestCandidateGraphQLSchema,
+} from "./schema.ts"
 import { testStatusHelper, validCase } from "./test-fixtures.ts"
+import * as v from "valibot"
 
 const CONTRACT = "rust-3.0.0-alpha.1"
 const USER_AGENT = "schpet-linear-cli/3.0.0-alpha.1"
@@ -165,7 +174,10 @@ Deno.test("GraphQL deltas reject non-prefix, redundant, unsafe and unapproved ch
       Record<string, unknown>,
       string,
     ]> = [
-      [graphqlGolden([]), "Invalid"],
+      [
+        graphqlGolden([]),
+        "zero-request GraphQL delta needs exactly one frozen query step",
+      ],
       [graphqlGolden([{ id: "labels-cursor-one" }]), "not the frozen prefix"],
       [graphqlGolden([{ id: "unknown" }]), "not the frozen prefix"],
       [
@@ -509,6 +521,413 @@ Deno.test("candidate-only request prefix is enforced while the baseline keeps bo
           mismatch.surface === "fixture"
         ),
       )
+    } finally {
+      await Deno.remove(runDir, { recursive: true })
+    }
+  })
+})
+
+const DUMMY_VALUES = {
+  home: "h",
+  configHome: "c",
+  cwd: "w",
+  cwdRoot: "r",
+  bin: "b",
+  denoDir: "d",
+  fixturePort: "0",
+  referenceModuleUrl: "file:///reference",
+}
+
+Deno.test("zero-request GraphQL delta derives an empty candidate fixture from one frozen query", async () => {
+  await withCorpus(async (dir, write) => {
+    const spec = await frozenGraphQLCase("c016-default-team")
+    const load = async () => {
+      const [loaded] = await loadCases(
+        dir,
+        new Set(["linear"]),
+        undefined,
+        CONTRACT,
+      )
+      return loaded
+    }
+    await write(graphqlGolden([]), spec)
+    const loaded = await load()
+    const frozen = structuredClone(loaded.spec)
+    const candidate = candidateCaseView(loaded)
+    assertEquals(loaded.spec, frozen)
+    const original = loaded.spec.graphql
+    assert(original != null && original.groups[0].mode === "ordered")
+    assertEquals(original.expectedRequests, 1)
+    assertEquals(original.groups[0].steps.length, 1)
+    assertEquals(candidate.runtimeUserAgent, USER_AGENT)
+    assertEquals(candidate.spec.graphql, {
+      ...original,
+      expectedRequests: 0,
+      groups: [],
+    })
+    const resolved = resolveCase(candidate.spec, DUMMY_VALUES, USER_AGENT)
+    assertEquals(resolved.graphql?.expectedRequests, 0)
+    assertEquals(resolved.graphql?.groups, [])
+    assertEquals(resolved.graphql?.path, original.path)
+    // Baseline and no-User-Agent resolution stay on the strict frozen schema.
+    assertThrows(() => resolveCase(candidate.spec, DUMMY_VALUES))
+    assertEquals(
+      resolveCase(loaded.spec, DUMMY_VALUES).graphql?.expectedRequests,
+      1,
+    )
+    assertEquals(
+      resolveCase(loaded.spec, DUMMY_VALUES, USER_AGENT).graphql
+        ?.expectedRequests,
+      1,
+    )
+    // Ordinary candidate surfaces combine with the zero delta and still need
+    // exact approval.
+    const expected = parseCase(spec).expected
+    const stderr = {
+      ...expected,
+      stderr: { utf8: "✗ zero-request candidate\n" },
+    }
+    await write(
+      golden({
+        expected: stderr,
+        graphql: { steps: [] },
+        graphqlUserAgent: USER_AGENT,
+      }, ["graphql-fixture", "graphql-user-agent", "stderr"]),
+      spec,
+    )
+    assertEquals(
+      candidateCaseView(await load()).spec.graphql?.expectedRequests,
+      0,
+    )
+    await write(
+      golden({
+        expected: stderr,
+        graphql: { steps: [] },
+        graphqlUserAgent: USER_AGENT,
+      }, ["graphql-fixture", "graphql-user-agent"]),
+      spec,
+    )
+    await assertRejects(load, SchemaError, "approvedSurfaces")
+    // Candidate case fields are still checked against the frozen fixture and
+    // resolved before any child can run.
+    await write(
+      golden({
+        expected: { ...expected, stderr: { utf8: "{{cwd}}" } },
+        graphql: { steps: [] },
+        graphqlUserAgent: USER_AGENT,
+      }, ["graphql-fixture", "graphql-user-agent", "stderr"]),
+      spec,
+    )
+    await assertRejects(load, SchemaError, "not declared in substitutions")
+    await write(
+      golden({
+        expected: {
+          ...expected,
+          stdout: {
+            mode: "close-after-bytes",
+            count: 33,
+            prefix: { utf8: "a".repeat(33) },
+          },
+        },
+        graphql: { steps: [] },
+        graphqlUserAgent: USER_AGENT,
+      }, ["graphql-fixture", "graphql-user-agent", "stdout"]),
+      { ...spec, outputCapBytes: 32 },
+    )
+    await assertRejects(
+      load,
+      SchemaError,
+      "close-after-bytes count must not exceed outputCapBytes",
+    )
+  })
+})
+
+Deno.test("zero-request GraphQL delta rejects every shape except one frozen effect-free query", async () => {
+  await withCorpus(async (dir, write) => {
+    const load = () => loadCases(dir, new Set(["linear"]), undefined, CONTRACT)
+    const zero = graphqlGolden([])
+    const one = parseCase(await frozenGraphQLCase("c016-default-team"))
+    const two = parseCase(await frozenGraphQLCase("c016-cursor-null"))
+
+    await write(zero, two)
+    await assertRejects(
+      load,
+      SchemaError,
+      "zero-request GraphQL delta needs exactly one frozen query step",
+    )
+
+    const mutation = structuredClone(one)
+    const mutationGroup = mutation.graphql?.groups[0]
+    if (
+      mutationGroup?.mode !== "ordered" ||
+      mutationGroup.steps[0].kind !== "graphql"
+    ) throw new Error("missing frozen GraphQL step")
+    mutationGroup.steps[0].operation = { document: "mutation { __typename }" }
+    mutationGroup.steps[0].response = {
+      kind: "data",
+      data: { __typename: "Mutation" },
+    }
+    await write(zero, mutation)
+    await assertRejects(load, SchemaError, "effect-free query steps")
+
+    const droppedMutation = structuredClone(two)
+    const droppedGroup = droppedMutation.graphql?.groups[0]
+    if (
+      droppedGroup?.mode !== "ordered" ||
+      droppedGroup.steps[1].kind !== "graphql"
+    ) throw new Error("missing frozen GraphQL suffix step")
+    droppedGroup.steps[1].operation = { document: "mutation { __typename }" }
+    droppedGroup.steps[1].response = {
+      kind: "data",
+      data: { __typename: "Mutation" },
+    }
+    await write(zero, droppedMutation)
+    await assertRejects(load, SchemaError, "effect-free query steps")
+
+    const asset = JSON.parse(
+      await Deno.readTextFile(
+        new URL(
+          "./f02b-fixed-host-cases/f02b-control-direct-egress.json",
+          import.meta.url,
+        ),
+      ),
+    )
+    await write(zero, { ...asset, id: "sample", route: "linear" })
+    await assertRejects(load, SchemaError, "effect-free query steps")
+
+    const lanes = structuredClone(two)
+    const ordered = lanes.graphql?.groups[0]
+    if (lanes.graphql == null || ordered?.mode !== "ordered") {
+      throw new Error("missing frozen ordered group")
+    }
+    lanes.graphql.groups = [{
+      mode: "lanes",
+      timeoutMs: 1000,
+      lanes: [
+        { id: "first", steps: [ordered.steps[0]] },
+        { id: "second", steps: [ordered.steps[1]] },
+      ],
+    }]
+    await write(zero, lanes)
+    await assertRejects(load, SchemaError, "effect-free ordered group")
+
+    const changedRecords = structuredClone(one)
+    if (changedRecords.graphql == null) throw new Error("missing fixture")
+    changedRecords.graphql.expectedRecords = { unexpected: true }
+    await write(zero, changedRecords)
+    await assertRejects(load, SchemaError, "effect-free ordered group")
+
+    await write(zero, validCase())
+    await assertRejects(load, SchemaError, "needs a GraphQL fixture")
+
+    await write(golden({ graphql: { steps: [] } }, ["graphql-fixture"]), one)
+    await assertRejects(load, SchemaError, "requires the Rust User-Agent")
+
+    await write(graphqlGolden([], ["graphql-user-agent"]), one)
+    await assertRejects(load, SchemaError, "approvedSurfaces")
+    await write(graphqlGolden([], ["graphql-fixture"]), one)
+    await assertRejects(load, SchemaError, "approvedSurfaces")
+
+    await write(
+      golden({
+        graphql: { steps: [], extra: true },
+        graphqlUserAgent: USER_AGENT,
+      }, ["graphql-fixture", "graphql-user-agent"]),
+      one,
+    )
+    await assertRejects(load, SchemaError, "candidate.graphql")
+
+    await write(zero, one)
+    await load()
+    const casePath = join(dir, "sample.json")
+    const pinned = JSON.parse(await Deno.readTextFile(casePath))
+    pinned.deviation.sha256 = "0".repeat(64)
+    await Deno.writeTextFile(casePath, JSON.stringify(pinned))
+    await assertRejects(load, SchemaError, "SHA-256 differs")
+  })
+})
+
+Deno.test("zero-request fixture schema is candidate-only and exact", async () => {
+  const one = parseCase(await frozenGraphQLCase("c016-default-team"))
+  const fixture = one.graphql
+  assert(fixture != null)
+  const zero: GraphQLFixtureSpec = {
+    ...fixture,
+    expectedRequests: 0,
+    groups: [],
+  }
+  assert(v.safeParse(ZeroRequestCandidateGraphQLSchema, zero).success)
+  // A frozen case can never declare zero requests directly.
+  assertThrows(() => parseCase({ ...one, graphql: zero }), SchemaError)
+  assert(!v.safeParse(GraphQLFixtureSchema, zero).success)
+  const emptyOrdered: GraphQLFixtureSpec = {
+    ...zero,
+    groups: [{ mode: "ordered", steps: [] }],
+  }
+  const extraField = { ...zero, extra: true }
+  for (
+    const invalid of [
+      { ...zero, groups: fixture.groups },
+      { ...zero, expectedRequests: 1 },
+      emptyOrdered,
+      extraField,
+    ]
+  ) {
+    assert(!v.safeParse(ZeroRequestCandidateGraphQLSchema, invalid).success)
+  }
+  // resolveCase applies the zero schema only with a User-Agent and empty
+  // groups; every other shape takes the strict frozen schema.
+  const withFixture = (graphql: GraphQLFixtureSpec): CaseSpec => ({
+    ...one,
+    graphql,
+  })
+  assertEquals(
+    resolveCase(withFixture(zero), DUMMY_VALUES, USER_AGENT).graphql?.groups,
+    [],
+  )
+  assertThrows(() => resolveCase(withFixture(zero), DUMMY_VALUES))
+  for (
+    const invalid of [
+      { ...zero, expectedRequests: 1 },
+      emptyOrdered,
+      extraField,
+    ]
+  ) {
+    assertThrows(() =>
+      resolveCase(withFixture(invalid), DUMMY_VALUES, USER_AGENT)
+    )
+  }
+})
+
+Deno.test("zero-request candidate passes only when no request reaches the fixture server", async () => {
+  await withCorpus(async (dir, write) => {
+    const spec = await frozenGraphQLCase("c016-default-team")
+    const group = parseCase(spec).graphql?.groups[0]
+    if (group?.mode !== "ordered" || group.steps[0].kind !== "graphql") {
+      throw new Error("expected one frozen GraphQL step")
+    }
+    const step = group.steps[0]
+    const body = JSON.stringify({
+      query: step.operation.document,
+      variables: step.operation.variables,
+    })
+    spec.expected = {
+      exit: { code: 0 },
+      stdout: { utf8: "ok" },
+      stderr: { utf8: "" },
+      fileEffects: [],
+    }
+    const runDir = await Deno.makeTempDir({
+      dir: CASE_ROOT_PARENT,
+      prefix: "reviewed-graphql-zero-",
+    })
+    try {
+      const denoDir = join(runDir, "deno-dir")
+      await Deno.mkdir(denoDir)
+      const ctx = {
+        denoDir,
+        referenceBinary: join(runDir, "pinned-reference"),
+        confinement: await prepareConfinement({
+          denoDir,
+          statusHelper: await testStatusHelper(runDir),
+        }),
+        sandboxParent: runDir,
+      }
+      const script = async (
+        name: string,
+        requests: Array<{ userAgent: string; url: string }>,
+      ): Promise<Program> => {
+        const path = join(runDir, name)
+        const lines = requests.map(({ userAgent, url }) =>
+          `/usr/bin/curl --silent --show-error --noproxy '*' --request POST --header 'content-type: application/json' --header 'authorization: lin_api_fake' --header 'user-agent: ${userAgent}' --data-raw '${body}' "${url}" >/dev/null`
+        )
+        await Deno.writeTextFile(
+          path,
+          `#!/bin/sh\n${lines.join("\n")}\nprintf ok\n`,
+          { mode: 0o755 },
+        )
+        return { kind: "executable", path }
+      }
+      const endpoint = "$LINEAR_GRAPHQL_ENDPOINT"
+      const baseline = await script("baseline.sh", [{
+        userAgent: "schpet-linear-cli/2.6.0",
+        url: endpoint,
+      }])
+      const silentBaseline = await script("silent-baseline.sh", [])
+      const zero = await script("zero.sh", [])
+      const request = await script("request.sh", [{
+        userAgent: USER_AGENT,
+        url: endpoint,
+      }])
+      const wrongPath = await script("wrong-path.sh", [{
+        userAgent: USER_AGENT,
+        url: "${LINEAR_GRAPHQL_ENDPOINT%/graphql}/elsewhere",
+      }])
+      const selected = new Set(["linear"])
+      await write(graphqlGolden([]), spec)
+      const [loaded] = await loadCases(dir, selected, undefined, CONTRACT)
+      const frozen = structuredClone(loaded.spec)
+      const run = async (base: Program, program: Program) => {
+        const [result] = await runCorpus([loaded], base, {
+          name: "synthetic zero-request Rust candidate",
+          contract: CONTRACT,
+          program,
+          implementedRoutes: selected,
+        }, ctx)
+        return result
+      }
+
+      const pass = await run(baseline, zero)
+      assertEquals(pass.baseline.mismatches, [])
+      assertEquals(pass.baseline.fixture?.graphqlRequests, 1)
+      assertEquals(pass.baseline.fixture?.userAgents, [
+        "schpet-linear-cli/2.6.0",
+      ])
+      assertEquals(
+        pass.status,
+        "pass",
+        JSON.stringify(pass.candidate?.mismatches),
+      )
+      assertEquals(pass.candidate?.fixture, {
+        requests: 0,
+        unexpected: 0,
+        authorizationMatched: [],
+        userAgents: [],
+        graphqlRequests: 0,
+        assetRequests: 0,
+      })
+      assertEquals(pass.reviewedDeviation?.approvedSurfaces, [
+        "graphql-fixture",
+        "graphql-user-agent",
+      ])
+      assertEquals(countReviewedDeviationPasses([pass]), 1)
+      assertEquals(countReviewedGraphqlUserAgentPasses([pass]), 0)
+
+      for (const program of [request, wrongPath]) {
+        const failed = await run(baseline, program)
+        assertEquals(failed.baseline.mismatches, [])
+        assertEquals(failed.status, "fail")
+        assertEquals(failed.candidate?.fixture?.requests, 1)
+        assertEquals(failed.candidate?.fixture?.unexpected, 1)
+        assertEquals(
+          failed.candidate?.mismatches.map((mismatch) => mismatch.surface),
+          ["fixture", "fixture"],
+        )
+        assertEquals(
+          failed.candidate?.mismatches[0].detail,
+          "unexpected request after final interaction",
+        )
+      }
+
+      const drift = await run(silentBaseline, zero)
+      assertEquals(drift.status, "baseline-drift")
+      assertEquals(drift.candidate, null)
+      assert(
+        drift.baseline.mismatches.some((mismatch) =>
+          mismatch.surface === "fixture"
+        ),
+      )
+      assertEquals(loaded.spec, frozen)
     } finally {
       await Deno.remove(runDir, { recursive: true })
     }

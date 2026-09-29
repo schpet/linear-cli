@@ -5,7 +5,14 @@ import {
   assertThrows,
 } from "@std/assert"
 import { fromFileUrl, join } from "@std/path"
-import { writeAllSync } from "./serve-case.ts"
+import { candidateCaseView } from "./cases.ts"
+import { compareGraphQLFixture } from "./compare.ts"
+import {
+  loadPinnedGraphQLSchema,
+  startGraphQLServer,
+} from "./graphql-server.ts"
+import { parseCase, parseReviewedGolden } from "./schema.ts"
+import { resolveWithPort, writeAllSync } from "./serve-case.ts"
 
 const runnerDir = fromFileUrl(new URL(".", import.meta.url))
 const parityDir = fromFileUrl(new URL("..", import.meta.url))
@@ -288,6 +295,73 @@ class ShortWriter {
     return taken
   }
 }
+
+Deno.test("serve-case resolves a zero-request candidate only with its User-Agent and flags any request", async () => {
+  const frozen = parseCase(
+    JSON.parse(
+      await Deno.readTextFile(
+        join(runnerDir, "c016-frozen-cases/c016-default-team.json"),
+      ),
+    ),
+  )
+  const golden = parseReviewedGolden({
+    formatVersion: 1,
+    caseId: frozen.id,
+    deviationId: "P02D-SYNTHETIC",
+    contract: "rust-3.0.0-alpha.1",
+    approvedSurfaces: ["graphql-fixture", "graphql-user-agent"],
+    candidate: {
+      graphql: { steps: [] },
+      graphqlUserAgent: identity["user-agent"],
+    },
+  })
+  const view = candidateCaseView({
+    file: "synthetic.json",
+    spec: frozen,
+    fixtureDir: null,
+    configFixtureDir: null,
+    golden: { spec: golden, sha256: "0".repeat(64) },
+  })
+  const resolved = resolveWithPort(view, 1234)
+  assertEquals(resolved.expectedRequests, 0)
+  assertEquals(resolved.groups, [])
+  assertThrows(() =>
+    resolveWithPort({ ...view, runtimeUserAgent: undefined }, 1234)
+  )
+  const schema = await loadPinnedGraphQLSchema()
+  for (const path of [null, "/graphql", "/elsewhere"]) {
+    const server = startGraphQLServer(
+      (port) => resolveWithPort(view, port),
+      schema,
+    )
+    try {
+      assertEquals(server.expectedGraphQL, 0)
+      if (path != null) {
+        const response = await fetch(`http://127.0.0.1:${server.port}${path}`, {
+          method: "POST",
+          headers: identity,
+          body: JSON.stringify({ query: "{ viewer { id } }" }),
+        })
+        await response.arrayBuffer()
+      }
+      const mismatches = compareGraphQLFixture(
+        resolveWithPort(view, server.port),
+        server,
+      )
+      if (path == null) {
+        assertEquals(mismatches, [])
+      } else {
+        assertEquals(server.unexpected, 1)
+        assertEquals(mismatches.map((mismatch) => mismatch.detail), [
+          "unexpected request after final interaction",
+          "expected 0 interactions (GraphQL 0, assets 0); observed 1 (GraphQL 1, assets 0), consumed 0",
+        ])
+      }
+    } finally {
+      await server.stop()
+    }
+  }
+})
 
 Deno.test("writeAllSync completes a line across short writes", () => {
   const line = new TextEncoder().encode('{"event":"ready","port":12345}\n')

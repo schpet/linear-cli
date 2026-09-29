@@ -203,6 +203,18 @@ Deno.test("projection rejects count, source identity, and accidental changes", a
   )
 })
 
+Deno.test("projection cannot carry a zero-request fixture through any pin", async () => {
+  const [source] = await loadCases(CASES_DIR, routes, "f02b-fixed-host-both")
+  const graphql = source.spec.graphql
+  assert(graphql != null)
+  const zero = structuredClone(source)
+  zero.spec.graphql = { ...graphql, expectedRequests: 0, groups: [] }
+  for (const [name, pin] of Object.entries(RAW_PINS)) {
+    assert(pin.graphql + pin.asset > 0, `${name} pins no interaction`)
+    assertThrows(() => projectCase(zero, pin), Error, "target counts 0/0")
+  }
+})
+
 Deno.test("asset matcher accepts v3 with correct auth and rejects v2 exactly", async () => {
   const profile = await loadV3ProbeCases(CASES_DIR, routes)
   const item = profile.cases.find((candidate) =>
