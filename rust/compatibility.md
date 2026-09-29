@@ -1,5 +1,12 @@
 # Rust CLI compatibility ledger
 
+## Current index and append-only log
+
+Read this short index, then search for the named deviation or command; do not reread the full historical ledger for every item. Keep JSON field names, nesting and script-oriented output exact. New clap syntax or human rendering differences need one concise entry with old/new behavior, reason and reviewed case/golden link. Append a one-line log pointer below for each completed batch; leave older sections stable unless correcting a factual error.
+
+- 2026-09-29 — Throughput policy changed for remaining ordinary commands: 15–25 distinct source cases, scoped checks and one Claude whole-diff review; see [PLAN.md](PLAN.md#throughput-policy-for-the-remaining-port-2026-09-29). This changes verification cadence, not the JSON/script contract.
+- 2026-09-29 — C038 `initiative view` reviewed v3 human/strictness differences remain recorded in the C038 entries below; its live UUID JSON matched Deno exactly. See [C038.md](reviews/C038.md).
+
 ## Breaking-major contract (decision 2026-09-24)
 
 The Rust CLI is a new major version. The frozen Deno 2.6.0 binary remains an oracle for actions, inputs, JSON, script-oriented text, error status/channels and effects. Clap usage wording/help layout, selected command/flag spelling and human rendering may change only through a named entry here with old/new examples, reason, migration guidance and reviewed Rust-side expected output. No route, alias, flag capability, credential source or effect disappears by implication. R01V bumps Rust `--version` and User-Agent to `3.0.0-alpha.1` with case-specific reviewed goldens; R01C2 does not own the version bump. R01H's harness now accepts only SHA-pinned, versioned, surface-exact Rust goldens; it does not itself establish clap output parity.

@@ -1,8 +1,21 @@
 # Rust rewrite state
 
-Updated 2026-09-29. This is the pickup point for the Rust implementation of the Linear CLI. Keep it current when a work item is integrated. It describes the local `rust-port` stack, not a released Rust CLI. This handoff excludes unrelated security work.
+Updated 2026-09-29. This is the pickup point for the local Rust port, not a released CLI. Read the short section and progress log below first; search historical notes or individual `rust/reviews/` files only for the command being worked on. This handoff excludes unrelated security work.
 
-## Current direction (2026-09-29)
+## Current status
+
+- **22/86 original command leaves are implemented (~26%).** C039E0 `initiative create` source evidence is committed (`e1f04f06`); C039P reusable prompt adapter is in the single jj working copy under focused Sol/Claude corrections, and C039A typed Cynic create is next. The remaining 64 leaves, complete-corpus audit, native OS checks, packaging and release remain.
+- C038 `initiative view` is complete offline and live: 67/67 scoped replay, 1,332/1,366 integrated replay (34 then-unimplemented leaves, zero failure/drift), `qa-review` 15/15, and exact 527-byte Deno/Rust live UUID JSON. The user-authorized `schpet` initiative is intentionally retained; its private ledger is `untracked/notebook/C038/live-fixture-ledger.md`. **Do not repeat the create or remove its global attempt sentinel.** Manifest QA/live are passed; PTY fixture status remains pending. Live C038 coverage was one name-only, Active, project-less initiative; other resolution/rendering branches rest on offline evidence.
+- The local `rust-port` stack includes C038 live handoff `90e86b19` and the throughput-policy commit; check `jj log` for the current bookmark. C039P prompt work is uncommitted in empty-description `@`. `main` is the frozen Deno reference `d4fe6fa7`; nothing has been pushed. Work only in this one jj working copy; do not create workspaces. Check `jj status` before editing.
+- **Throughput policy changed 2026-09-29:** for ordinary reads/CRUD, freeze about 15–25 distinct cases, run scoped replay/focused Rust tests/Clippy and per-command QA, and get one Claude whole-diff review. Full replay and full Deno suite run every roughly five newly completed leaves (counter restarted after the C038 full gate), on cross-cutting harness changes, at final integration and before any future push. Batch delete/archive/unarchive, cross-resource comment add/list, and milestone/label/team create/delete. Keep deeper multi-review/evidence treatment for auth, issue start/create/update/pull-request/commits/describe and interactive prompts. Only one Claude/subagent task at a time; medium effort for implementation after approval. See `rust/PLAN.md`.
+
+## Progress log
+
+- 2026-09-29 — C038 bounded live UUID QA passed; docs/manifest committed as `90e86b19`; retained fixture ledger and six-call relay session recorded in `rust/reviews/C038.md`.
+- 2026-09-29 — C039E0 29-case source evidence committed as `e1f04f06`; C039P prompt adapter and C039A create remain open.
+- 2026-09-29 — Adopted tiered verification and family batching for the remaining port; append one line here per completed work item instead of rewriting historical narrative.
+
+## Historical detailed notes (frozen before the throughput change)
 
 C039E0 `initiative create` source evidence is committed locally as `e1f04f06` in the single working copy; independent Sol and Claude whole-diff reviews returned SHIP, and Claude's narrow documentation closeout also returned SHIP. It freezes 29 guarded pipe-mode Deno cases, including one added parser case proving that explicit empty `--description` is rejected before the action. The pinned interpreted and compiled references agree on 29/29 tracked cases, zero drift (report SHA-256 `84acdac237dbb2bc618e8ab96d2023d1c091e09e76997a4506b889cfcf1f2437`); source mutation fixtures pin ordered owner reads, exact variables and fake record effects. Focused guard and mutation controls pass 5/5; full Deno suite passes 272/272 after the guard correction (log SHA-256 `495fb189fbcd0b2c2f468c7db679f0b421a7043559e5f0c7c2e8cf37b71a0504`). No C039 Rust action, v3 golden, PTY fixture or live create exists. The next reviewed slices are the reusable C039P prompt adapter and then the typed Cynic C039A action; the Claude-SHIP action plan is in the ignored C039 notebook. See `rust/reviews/C039E0.md` and the ignored C039 capture microplan.
 
