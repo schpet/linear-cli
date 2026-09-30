@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c042-non-tty-confirmation",
+  "deviationId": "INIT-PROJECT-ERROR-DIAGNOSTIC",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Interactive confirmation required. Use --force to skip.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

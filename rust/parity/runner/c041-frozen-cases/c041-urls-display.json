@@ -1,0 +1,207 @@
+{
+  "id": "c041-urls-display",
+  "route": "linear initiative add-project",
+  "reason": "urls-display",
+  "argv": [
+    "initiative",
+    "add-project",
+    "https://linear.app/acme/initiative/foo-000000004141",
+    "https://linear.app/acme/project/foo-000000004142"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Added \"Project\" to initiative \"Initiative\"\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "f3f02359464b59cc266ada5103601e304978d3772c38d97c7dc8641208c41988"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 5,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "initiative-url",
+            "operation": {
+              "document": "query ResolveInitiativeBySlug($slugId: String!, $includeArchived: Boolean) { initiatives(filter: { slugId: { eq: $slugId } }, includeArchived: $includeArchived) { nodes { id } } }",
+              "variables": {
+                "slugId": "000000004141",
+                "includeArchived": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000004101"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "initiative-display",
+            "operation": {
+              "document": "query GetInitiativeNameById($id: String!) { initiative(id: $id) { id name } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000004101"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiative": {
+                  "id": "00000000-0000-4000-9000-000000004101",
+                  "name": "Initiative"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "project-url",
+            "operation": {
+              "document": "query GetProjectIdBySlugId($slugId: String!) { projects(filter: { slugId: { eq: $slugId } }) { nodes { id } } }",
+              "variables": {
+                "slugId": "000000004142"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000004102"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "project-display",
+            "operation": {
+              "document": "query GetProjectNameById($id: String!) { project(id: $id) { id name } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000004102"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "00000000-0000-4000-9000-000000004102",
+                  "name": "Project"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "add",
+            "operation": {
+              "document": "mutation AddProjectToInitiative($input: InitiativeToProjectCreateInput!) { initiativeToProjectCreate(input: $input) { success initiativeToProject { id } } }",
+              "variables": {
+                "input": {
+                  "initiativeId": "00000000-0000-4000-9000-000000004101",
+                  "projectId": "00000000-0000-4000-9000-000000004102"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeToProjectCreate": {
+                  "success": true,
+                  "initiativeToProject": {
+                    "id": "link-41"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

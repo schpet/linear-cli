@@ -46,3 +46,5 @@ mod issue_link;
 mod issue_relations;
 
 mod agent_session;
+
+mod initiative_projects;

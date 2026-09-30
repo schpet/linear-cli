@@ -2105,7 +2105,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   // C046 adds 18 typed GraphQL cases.
   // C018 adds 12 typed GraphQL cases; C028/C044/C055 add 9/8/8.
   // C066/C077/C078/C076 + C065/C064 add 44 typed GraphQL cases.
-  assertEquals(graphql.length, 1090)
+  // C041/C042 add 24 typed association GraphQL cases.
+  assertEquals(graphql.length, 1114)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -2422,7 +2423,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       !loaded.spec.id.startsWith("c027-") &&
       !loaded.spec.id.startsWith("c035-") &&
       !loaded.spec.id.startsWith("c037-") &&
-      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17|28|44|55|66|77|78|76|64|65)-/
+      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17|28|44|55|66|77|78|76|64|65|41|42)-/
         .test(
           loaded.spec.id,
         )

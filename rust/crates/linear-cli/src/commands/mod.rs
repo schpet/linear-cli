@@ -56,3 +56,5 @@ pub mod issue_link;
 pub mod issue_id;
 
 pub mod agent_session;
+
+pub mod initiative_projects;

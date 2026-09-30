@@ -12,12 +12,12 @@ use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, comment_add, cycle_list, cycle_view, document_comment_list,
-    initiative_comment_list, initiative_create, initiative_list, initiative_unarchive,
-    initiative_update_list, initiative_view, issue_comment_delete, issue_details, label_create,
-    label_delete, label_list, milestone_create, milestone_delete, milestone_list, milestone_update,
-    milestone_view, project_comment_list, project_delete, project_list, project_update_list,
-    project_view, table, team_create, team_id, team_list, team_members, team_states, template_list,
-    template_view, user_list,
+    initiative_comment_list, initiative_create, initiative_list, initiative_projects,
+    initiative_unarchive, initiative_update_list, initiative_view, issue_comment_delete,
+    issue_details, label_create, label_delete, label_list, milestone_create, milestone_delete,
+    milestone_list, milestone_update, milestone_view, project_comment_list, project_delete,
+    project_list, project_update_list, project_view, table, team_create, team_id, team_list,
+    team_members, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -416,11 +416,27 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::initiative::InitiativeCommand::Delete(_)) => {
                 unsupported("linear initiative delete")
             }
-            Some(cli::initiative::InitiativeCommand::AddProject(_)) => {
-                unsupported("linear initiative add-project")
+            Some(cli::initiative::InitiativeCommand::AddProject(action)) => {
+                dispatch_initiative_projects(
+                    context,
+                    &action.initiative,
+                    &action.project,
+                    action.sort_order,
+                    true,
+                    initiative_projects::Mode::Add,
+                    workspace,
+                )
             }
-            Some(cli::initiative::InitiativeCommand::RemoveProject(_)) => {
-                unsupported("linear initiative remove-project")
+            Some(cli::initiative::InitiativeCommand::RemoveProject(action)) => {
+                dispatch_initiative_projects(
+                    context,
+                    &action.initiative,
+                    &action.project,
+                    None,
+                    action.force,
+                    initiative_projects::Mode::Remove,
+                    workspace,
+                )
             }
             Some(cli::initiative::InitiativeCommand::Comment(action)) => match action.command {
                 None => parent_help(context, "linear initiative comment"),
@@ -1108,6 +1124,143 @@ fn dispatch_initiative_update_list(
         }
     })?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_initiative_projects(
+    context: &mut AppContext<'_>,
+    initiative_arg: &str,
+    project_arg: &str,
+    sort_order: Option<f64>,
+    force: bool,
+    mode: initiative_projects::Mode,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::platform::prompt::{PromptOutcome, PromptSession};
+    let config = context.config()?;
+    let credentials = context.credentials()?;
+    let inputs = client::selection_inputs(&config.options, workspace)?;
+    let transport = client::prepare_transport_with_inputs(
+        &config.options,
+        credentials,
+        &inputs,
+        &config.transport_env,
+    )?;
+    let scope = WorkspaceScope::from_selection(&inputs, credentials);
+    let initiative = block_on_network(initiative_projects::resolve_initiative(
+        &transport,
+        initiative_arg,
+        &scope,
+        mode,
+    ))?;
+    let project = block_on_network(initiative_projects::resolve_project(
+        &transport,
+        project_arg,
+        &scope,
+        mode,
+    ))?;
+    let link = match mode {
+        initiative_projects::Mode::Add => None,
+        initiative_projects::Mode::Remove => {
+            let link = block_on_network(initiative_projects::find_link(
+                &transport,
+                &initiative,
+                &project,
+            ))?;
+            if link.is_none() {
+                context.write_stdout_with_policy(
+                    format!(
+                        "Project \"{}\" is not linked to initiative \"{}\"\n",
+                        project.name, initiative.name
+                    )
+                    .as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+                return Ok(ExitStatus::Success);
+            }
+            if !force {
+                if !context.stdin_tty {
+                    return Err(AppError::new(
+                        AppErrorKind::Validation,
+                        "Interactive confirmation required. Use --force to skip.",
+                    ));
+                }
+                let outcome = {
+                    let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+                    let result = session.confirm(
+                        &format!(
+                            "Remove \"{}\" from initiative \"{}\"?",
+                            project.name, initiative.name
+                        ),
+                        true,
+                    );
+                    session.finish_result(result)?
+                };
+                match outcome {
+                    PromptOutcome::Submitted(true) => {}
+                    PromptOutcome::Submitted(false) => {
+                        context.write_stdout_with_policy(
+                            b"Removal cancelled.\n",
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        return Ok(ExitStatus::Success);
+                    }
+                    PromptOutcome::Interrupted => {
+                        return Ok(ExitStatus::ChildCode(
+                            std::num::NonZeroU8::new(130).ok_or_else(|| {
+                                AppError::new(
+                                    AppErrorKind::Invariant,
+                                    "exit code 130 must be nonzero",
+                                )
+                            })?,
+                        ));
+                    }
+                    PromptOutcome::EndOfInput => {
+                        return Err(AppError::new(
+                            AppErrorKind::Validation,
+                            "unexpected EOF while prompting for confirmation",
+                        ));
+                    }
+                }
+            }
+            link
+        }
+    };
+    let show_spinner = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = match mode {
+        initiative_projects::Mode::Add => block_on_network(initiative_projects::add(
+            &transport,
+            &initiative,
+            &project,
+            sort_order,
+        )),
+        initiative_projects::Mode::Remove => {
+            let link_id = link.ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Invariant,
+                    "confirmed removal requires a link ID",
+                )
+            })?;
+            block_on_network(initiative_projects::remove(
+                &transport,
+                &link_id,
+                &initiative,
+                &project,
+            ))
+        }
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    context.write_stdout_with_policy(&result?, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }
 

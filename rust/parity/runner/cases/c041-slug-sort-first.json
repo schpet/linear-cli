@@ -1,0 +1,168 @@
+{
+  "id": "c041-slug-sort-first",
+  "route": "linear initiative add-project",
+  "reason": "slug-sort-first",
+  "argv": [
+    "initiative",
+    "add-project",
+    "ini",
+    "proj",
+    "--sort-order",
+    "-1.25"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Added \"Project\" to initiative \"Initiative\"\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "67345e165a6e50d281bae8f254d58dc64304dc69cb98816dd30d1556db059bd0"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "initiative-slug",
+            "operation": {
+              "document": "query GetInitiativeBySlugForAddProject($slugId: String!) { initiatives(filter: { slugId: { eq: $slugId } }) { nodes { id slugId name } } }",
+              "variables": {
+                "slugId": "ini"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000004101",
+                      "slugId": "ini",
+                      "name": "Initiative"
+                    },
+                    {
+                      "id": "other",
+                      "slugId": "ini",
+                      "name": "Wrong"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "project-slug",
+            "operation": {
+              "document": "query GetProjectBySlugForAddProject($slugId: String!) { projects(filter: { slugId: { eq: $slugId } }) { nodes { id slugId name } } }",
+              "variables": {
+                "slugId": "proj"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000004102",
+                      "name": "Project",
+                      "slugId": "proj"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "add",
+            "operation": {
+              "document": "mutation AddProjectToInitiative($input: InitiativeToProjectCreateInput!) { initiativeToProjectCreate(input: $input) { success initiativeToProject { id } } }",
+              "variables": {
+                "input": {
+                  "initiativeId": "00000000-0000-4000-9000-000000004101",
+                  "projectId": "00000000-0000-4000-9000-000000004102",
+                  "sortOrder": -1.25
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeToProjectCreate": {
+                  "success": true,
+                  "initiativeToProject": {
+                    "id": "link-41"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
