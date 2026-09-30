@@ -31,6 +31,7 @@ pub mod project_delete;
 pub mod project_updates;
 pub mod project_view;
 pub mod projects;
+pub mod team_create;
 pub mod team_members;
 pub mod team_resolver;
 pub mod teams;

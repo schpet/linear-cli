@@ -15,8 +15,8 @@ use crate::commands::{
     initiative_comment_list, initiative_create, initiative_list, initiative_update_list,
     initiative_view, issue_comment_delete, issue_details, label_list, milestone_create,
     milestone_delete, milestone_list, milestone_update, milestone_view, project_comment_list,
-    project_delete, project_list, project_update_list, project_view, table, team_id, team_list,
-    team_members, team_states, template_list, template_view, user_list,
+    project_delete, project_list, project_update_list, project_view, table, team_create, team_id,
+    team_list, team_members, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -307,7 +307,9 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
         },
         Some(cli::RootCommand::Team(action)) => match action.command {
             None => parent_help(context, "linear team"),
-            Some(cli::team::TeamCommand::Create(_)) => unsupported("linear team create"),
+            Some(cli::team::TeamCommand::Create(action)) => {
+                dispatch_team_create(context, &action, workspace)
+            }
             Some(cli::team::TeamCommand::Delete(_)) => unsupported("linear team delete"),
             Some(cli::team::TeamCommand::List(action)) => {
                 dispatch_team_list(context, &action, workspace)
@@ -1998,6 +2000,126 @@ fn dispatch_team_list(
             error
         }
     })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_team_create(
+    context: &mut AppContext<'_>,
+    action: &cli::team::TeamCreate,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let mut options = team_create::Options {
+        name: action.name.clone(),
+        description: action.description.clone(),
+        key: action.key.clone(),
+        private: action.private,
+    };
+    let interactive = team_create::interactive(action.no_interactive, context.stdout_tty);
+    let mode = team_create::mode(&options, interactive);
+    if mode == team_create::Mode::Prompt {
+        context.write_stdout_with_policy(team_create::PROMPT_HEADER, OutputPolicy::ConsoleLike)?;
+        let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+        let prompted = team_create::prompt(&mut options, &mut session);
+        let result = match prompted {
+            Ok(outcome) => {
+                session.close()?;
+                outcome
+            }
+            Err(error) => {
+                return Err(match session.close() {
+                    Ok(()) => error,
+                    Err(mut cleanup) => {
+                        cleanup.message.push_str(&format!(
+                            "; prompt also failed: {}",
+                            error.display_message()
+                        ));
+                        cleanup
+                    }
+                });
+            }
+        };
+        match result {
+            team_create::PromptResult::Complete => {}
+            team_create::PromptResult::Interrupted => {
+                return Ok(ExitStatus::ChildCode(
+                    std::num::NonZeroU8::new(130).ok_or_else(|| {
+                        AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
+                    })?,
+                ));
+            }
+            team_create::PromptResult::EndOfInput => {
+                return Err(AppError::new(
+                    AppErrorKind::Validation,
+                    "unexpected EOF while prompting for team",
+                ));
+            }
+        }
+    }
+    let announcement = team_create::required_name(&options)
+        .map(|name| team_create::announcement(name, mode))
+        .map_err(|error| error.with_context(team_create::CONTEXT))?;
+    context.write_stdout_with_policy(&announcement, OutputPolicy::ConsoleLike)?;
+    // Only flag mode starts the spinner, after its progress line and before
+    // the client is built; the catch path stops it before any error.
+    let show_spinner = mode == team_create::Mode::Flags
+        && interactive
+        && spinner::enabled(
+            false,
+            context.stdout_tty,
+            context.startup.settings.no_color == NoColor::Absent,
+        );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        client::prepare_transport(
+            &config.options,
+            credentials,
+            workspace,
+            &config.transport_env,
+        )
+    })();
+    let transport = match prepared {
+        Ok(transport) => transport,
+        Err(error) => {
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(error.with_context(team_create::CONTEXT));
+        }
+    };
+    let create = team_create::submit(&transport, &options);
+    let result = if show_spinner {
+        block_on_network(async {
+            tokio::pin!(create);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut create => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(create)
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = result.map_err(|error| error.with_context(team_create::CONTEXT))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

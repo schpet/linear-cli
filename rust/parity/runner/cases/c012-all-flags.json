@@ -1,0 +1,128 @@
+{
+  "id": "c012-all-flags",
+  "route": "linear team create",
+  "reason": "every create flag, private sent as true, flag-mode progress line",
+  "argv": [
+    "team",
+    "create",
+    "-n",
+    "Platform 1201",
+    "-d",
+    "Owns **builds**",
+    "-k",
+    "plt",
+    "--private"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Creating team \"Platform 1201\"\n✓ Created team PLT: Server Platform\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "93c9f68f7b77e815e5f792cdbd4a9fb59079e3a80c1ef5bdaefcad72a76ee181"
+  },
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {
+      "Team:00000000-0000-4000-9000-000000001201": {
+        "id": "00000000-0000-4000-9000-000000001201",
+        "name": "Server Platform",
+        "key": "PLT"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation CreateTeam($input: TeamCreateInput!) {\n              teamCreate(input: $input) {\n                success\n                team { id, name, key }\n              }\n            }\n",
+              "variables": {
+                "input": {
+                  "name": "Platform 1201",
+                  "description": "Owns **builds**",
+                  "key": "plt",
+                  "private": true
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teamCreate": {
+                  "success": true,
+                  "team": {
+                    "id": "00000000-0000-4000-9000-000000001201",
+                    "name": "Server Platform",
+                    "key": "PLT"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Team:00000000-0000-4000-9000-000000001201",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-000000001201",
+                  "name": "Server Platform",
+                  "key": "PLT"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

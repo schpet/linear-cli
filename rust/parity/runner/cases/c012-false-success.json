@@ -1,0 +1,102 @@
+{
+  "id": "c012-false-success",
+  "route": "linear team create",
+  "reason": "success false is reported before the returned team",
+  "argv": [
+    "team",
+    "create",
+    "-n",
+    "Refused 1205",
+    "--no-interactive"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Creating team \"Refused 1205\"\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to create team: Team creation failed\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "afd9b4d26e4be415fad81de8032e5e10e2ce62e455d515bb7cca54d819caf965"
+  },
+  "configFixture": "workspace-credential",
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation CreateTeam($input: TeamCreateInput!) {\n              teamCreate(input: $input) {\n                success\n                team { id, name, key }\n              }\n            }\n",
+              "variables": {
+                "input": {
+                  "name": "Refused 1205"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_alpha",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teamCreate": {
+                  "success": false,
+                  "team": {
+                    "id": "00000000-0000-4000-9000-000000001205",
+                    "name": "Server Refused",
+                    "key": "REF"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

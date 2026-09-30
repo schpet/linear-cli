@@ -25,6 +25,7 @@ mod project_update_list;
 mod project_view;
 mod prosemirror;
 mod relative_time;
+mod team_create;
 mod team_list;
 mod team_members;
 mod team_states;

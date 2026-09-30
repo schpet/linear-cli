@@ -73,7 +73,7 @@ pub async fn submit(
 /// network failure (a reset after the request was written surfaces as a
 /// request-phase error), or an undecodable success response leaves the
 /// create's outcome unknown; errors Linear reported do not.
-fn outcome_unknown(failure: &TransportFailure) -> bool {
+pub(crate) fn outcome_unknown(failure: &TransportFailure) -> bool {
     match failure {
         TransportFailure::Timeout { .. } | TransportFailure::Response(_) => true,
         TransportFailure::Network { phase, .. } => !matches!(phase, NetworkPhase::Connect),

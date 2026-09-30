@@ -2101,8 +2101,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   // This count also guards older GraphQL fixtures without cohort tests.
   // Update it when adding reviewed command cases.
   // C039/C048/C043/C054/C032/C033/C074 add 15/22/20/18/17/17/9 typed GraphQL
-  // cases. C029/C034 add another 14/9 cases; C058/C059 add 5/3.
-  assertEquals(graphql.length, 981)
+  // cases. C029/C034 add another 14/9 cases; C058/C059 add 5/3; C012 adds 5.
+  assertEquals(graphql.length, 986)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
