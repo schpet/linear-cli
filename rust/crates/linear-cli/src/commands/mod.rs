@@ -28,6 +28,7 @@ pub mod project_view;
 pub mod prosemirror;
 pub mod relative_time;
 pub mod table;
+pub mod team_autolinks;
 pub mod team_create;
 pub mod team_id;
 pub(crate) mod team_key;

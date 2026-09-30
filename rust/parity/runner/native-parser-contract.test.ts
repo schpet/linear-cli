@@ -42,12 +42,12 @@ Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound
   const pins = decodeGoldenPins(
     await Deno.readTextFile(join(root, "native-parser-goldens.sha256")),
   )
-  // The separately frozen C077 enum-completion extension has its own cohort guard.
+  // Separately frozen command extensions have their own cohort guards.
   assertNativeCoverage(
     cases,
     NATIVE_PARSER_CONTRACTS,
     pins,
-    new Set(["c077-invalid-type"]),
+    new Set(["c077-invalid-type", "c014-leaf-help"]),
   )
   assertSameIds(Object.keys(nativeVersionSourcePins), [
     "p04a2-version-after4",

@@ -323,7 +323,10 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::team::TeamCommand::Id(action)) => {
                 dispatch_team_id(context, &action, workspace)
             }
-            Some(cli::team::TeamCommand::Autolinks(_)) => unsupported("linear team autolinks"),
+            Some(cli::team::TeamCommand::Autolinks(_)) => {
+                crate::commands::team_autolinks::execute(context.config()?, &context.cwd)?;
+                Ok(ExitStatus::Success)
+            }
             Some(cli::team::TeamCommand::Members(action)) => {
                 dispatch_team_members(context, &action, workspace)
             }
