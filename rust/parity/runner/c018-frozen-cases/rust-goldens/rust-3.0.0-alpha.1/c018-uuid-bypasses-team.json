@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "caseId": "c018-uuid-bypasses-team",
+  "deviationId": "R01H-GRAPHQL-UA",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

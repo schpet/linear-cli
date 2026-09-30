@@ -2103,7 +2103,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   // C039/C048/C043/C054/C032/C033/C074 add 15/22/20/18/17/17/9 typed GraphQL
   // cases. C029/C034 add another 14/9 cases; C058/C059 add 5/3; C012/C017 add 5/5.
   // C046 adds 18 typed GraphQL cases.
-  assertEquals(graphql.length, 1009)
+  // C018 adds 12 typed GraphQL cases.
+  assertEquals(graphql.length, 1021)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -2340,6 +2341,15 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       "graphql-fixture",
     ]],
   ])
+  const c018Surfaces = new Map<string, string[]>([
+    ["c018-strict-null-node", ["stderr", "graphql-user-agent"]],
+    ["c018-strict-null-uuid", [
+      "stderr",
+      "graphql-user-agent",
+      "graphql-fixture",
+    ]],
+  ])
+  const c018FixtureDeltas = new Set(["c018-strict-null-uuid"])
   const c046FixtureDeltas = new Set([
     "c046-strict-later-node",
     "c046-strict-nonenvelope",
@@ -2415,6 +2425,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
           c022Graphql.get(loaded.spec.id)?.[1] ??
           c016Surfaces.get(loaded.spec.id) ??
           c046Surfaces.get(loaded.spec.id) ??
+          c018Surfaces.get(loaded.spec.id) ??
           (loaded.spec.id === "c019-transport-error"
             ? ["stderr", "graphql-user-agent"]
             : undefined) ??
@@ -2461,7 +2472,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       c027FixtureDeltas.has(loaded.spec.id) ||
       c035FixtureDeltas.has(loaded.spec.id) ||
       c038FixtureDeltas.has(loaded.spec.id) ||
-      c046FixtureDeltas.has(loaded.spec.id)
+      c046FixtureDeltas.has(loaded.spec.id) ||
+      c018FixtureDeltas.has(loaded.spec.id)
     ) {
       const delta = loaded.golden?.spec.candidate.graphql
       const group = expected.groups[0]

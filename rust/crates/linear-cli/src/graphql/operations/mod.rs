@@ -41,5 +41,6 @@ pub mod workflow_states;
 pub mod issue_details;
 
 pub mod label_create;
+pub mod label_delete;
 
 pub mod initiative_unarchive;

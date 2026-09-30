@@ -14,7 +14,7 @@ use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, cycle_view, document_comment_list,
     initiative_comment_list, initiative_create, initiative_list, initiative_unarchive,
     initiative_update_list, initiative_view, issue_comment_delete, issue_details, label_create,
-    label_list, milestone_create, milestone_delete, milestone_list, milestone_update,
+    label_delete, label_list, milestone_create, milestone_delete, milestone_list, milestone_update,
     milestone_view, project_comment_list, project_delete, project_list, project_update_list,
     project_view, table, team_create, team_id, team_list, team_members, team_states, template_list,
     template_view, user_list,
@@ -447,7 +447,9 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::label::LabelCommand::Create(action)) => {
                 dispatch_label_create(context, &action, workspace)
             }
-            Some(cli::label::LabelCommand::Delete(_)) => unsupported("linear label delete"),
+            Some(cli::label::LabelCommand::Delete(action)) => {
+                dispatch_label_delete(context, &action, workspace)
+            }
         },
         Some(cli::RootCommand::Template(action)) => match action.command {
             None => parent_help(context, "linear template"),
@@ -1703,6 +1705,124 @@ fn confirm_deletion(
             "unexpected EOF while prompting for confirmation",
         )),
     }
+}
+
+fn dispatch_label_delete(
+    context: &mut AppContext<'_>,
+    action: &cli::label::LabelDelete,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::platform::prompt::{PromptOutcome, PromptSession};
+    let result = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        // Source creates the client before parsing/resolving an explicit team.
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        let team = match action.team.as_deref() {
+            Some(reference) => {
+                let prepared = prepare_team_lookup(
+                    reference,
+                    &WorkspaceScope::from_selection(&inputs, credentials),
+                )?;
+                Some(block_on_network(resolve_team_with_transport(&prepared, &transport))?.key)
+            }
+            None => configured_team_key(&config.options),
+        };
+        let labels = label_delete::scoped(
+            block_on_network(label_delete::lookup(&transport, &action.name_or_id))?,
+            team.as_deref(),
+        );
+        let label = match labels.as_slice() {
+            [] => return Err(label_delete::missing(&action.name_or_id, team.as_deref())),
+            [label] => label.clone(),
+            _ => {
+                if !context.stdin_tty {
+                    return Err(AppError::new(
+                        AppErrorKind::Validation,
+                        format!("Multiple labels named \"{}\" found", action.name_or_id),
+                    )
+                    .with_suggestion("Use --team to disambiguate."));
+                }
+                let outcome = {
+                    let mut session = PromptSession::stdin_stdio(&mut *context.stdout)?;
+                    let result = label_delete::choose(&mut session, &action.name_or_id, &labels);
+                    session.finish_result(result)?
+                };
+                match outcome {
+                    PromptOutcome::Submitted(label) => label,
+                    PromptOutcome::Interrupted => {
+                        return Ok(ExitStatus::ChildCode(
+                            std::num::NonZeroU8::new(130).ok_or_else(|| {
+                                AppError::new(
+                                    AppErrorKind::Invariant,
+                                    "exit code 130 must be nonzero",
+                                )
+                            })?,
+                        ));
+                    }
+                    PromptOutcome::EndOfInput => {
+                        return Err(AppError::new(
+                            AppErrorKind::Validation,
+                            "unexpected EOF while selecting a label",
+                        ));
+                    }
+                }
+            }
+        };
+        if let Some(status) = confirm_deletion(
+            context,
+            action.force,
+            &format!(
+                "Are you sure you want to delete label \"{}\"?",
+                label_delete::display(&label)
+            ),
+        )? {
+            return Ok(status);
+        }
+        let show_spinner = spinner::enabled(
+            false,
+            context.stdout_tty,
+            context.startup.settings.no_color == NoColor::Absent,
+        );
+        if show_spinner {
+            context.write_stdout_with_policy(
+                spinner::frame(0).as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+        }
+        let result = block_on_network(async {
+            let pending = label_delete::submit(&transport, &label);
+            tokio::pin!(pending);
+            if !show_spinner {
+                return pending.await;
+            }
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        });
+        if show_spinner {
+            context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        }
+        context.write_stdout_with_policy(&result?, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error| error.with_context(label_delete::CONTEXT))
 }
 
 fn dispatch_project_delete(

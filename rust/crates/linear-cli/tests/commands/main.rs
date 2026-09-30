@@ -13,6 +13,7 @@ mod initiative_update_list;
 mod initiative_view;
 mod issue_comment_delete;
 mod label_create;
+mod label_delete;
 mod label_list;
 mod milestone_create;
 mod milestone_delete;

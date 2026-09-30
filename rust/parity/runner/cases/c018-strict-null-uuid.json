@@ -1,0 +1,120 @@
+{
+  "id": "c018-strict-null-uuid",
+  "route": "linear label delete",
+  "reason": "strict-null-uuid",
+  "argv": [
+    "label",
+    "delete",
+    "ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF",
+    "--force"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to delete label: Label not found: ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C018-STRICT-LABEL-DECODE",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "377e5607bcb0cd201b9a86eb799d83aa059a05511b4d312e028e9c905bd4b982"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "uuid",
+            "operation": {
+              "document": "query GetLabelById($id: String!) { issueLabel(id: $id) { id name color team { key name } } }",
+              "variables": {
+                "id": "ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\": {\"issueLabel\": null}}"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "name",
+            "operation": {
+              "document": "query GetLabelByName($name: String!) { issueLabels(filter: { name: { eqIgnoreCase: $name } }) { nodes { id name color team { key name } } } }",
+              "variables": {
+                "name": "ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issueLabels": {
+                  "nodes": []
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
