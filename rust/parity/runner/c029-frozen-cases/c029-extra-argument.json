@@ -1,0 +1,52 @@
+{
+  "id": "c029-extra-argument",
+  "route": "linear project delete",
+  "reason": "extra argument",
+  "argv": [
+    "project",
+    "delete",
+    "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d",
+    "extra",
+    "--force"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear project delete <projectId>\nVersion: 2.6.0                            \n\nDescription:\n\n  Delete (trash) a Linear project\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n  -f, --force          - Skip confirmation prompt             \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Too many arguments: extra\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

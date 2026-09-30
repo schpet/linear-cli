@@ -479,3 +479,133 @@ fn invalid_select_configuration_and_key_eof_are_explicit() {
         PromptOutcome::EndOfInput
     );
 }
+
+#[test]
+fn confirmation_scripts_accept_raw_answers_and_preserve_next_prompt() {
+    for (raw, default, expected) in [
+        ("", false, false),
+        ("", true, true),
+        ("y", false, true),
+        ("YeS", false, true),
+        ("N", true, false),
+        ("nO", true, false),
+    ] {
+        let mut session = PromptSession::script(Cursor::new(format!("{raw}\nnext\n")), Vec::new());
+        assert_eq!(
+            session.confirm("Delete?", default).unwrap(),
+            PromptOutcome::Submitted(expected)
+        );
+        assert_eq!(
+            session.text("Next:", 1, |_| Ok(())).unwrap(),
+            PromptOutcome::Submitted("next".into())
+        );
+    }
+    for raw in [" ", " y", "yes ", "true", "1", "é"] {
+        let mut session = PromptSession::script(Cursor::new(format!("{raw}\ny\n")), Vec::new());
+        assert_eq!(
+            session
+                .confirm("Delete?", false)
+                .unwrap_err()
+                .display_message(),
+            "Invalid answer."
+        );
+        assert_eq!(
+            session.confirm("Delete?", false).unwrap(),
+            PromptOutcome::Submitted(true)
+        );
+    }
+}
+
+#[test]
+fn confirmation_keys_retry_raw_whitespace_and_ignore_ctrl_d_and_suggestions() {
+    let mut keys = [
+        PromptKey::Character(' '),
+        PromptKey::Character('y'),
+        PromptKey::Enter,
+        PromptKey::Home,
+        PromptKey::Delete,
+        PromptKey::Character('\u{4}'),
+        PromptKey::Up,
+        PromptKey::Down,
+        PromptKey::Other,
+        PromptKey::Enter,
+        PromptKey::Character('n'),
+        PromptKey::Enter,
+    ]
+    .into_iter();
+    let mut session = PromptSession::<io::Empty, _>::keys(Vec::new(), 80, 24, move || {
+        Ok(keys.next().unwrap_or(PromptKey::EndOfInput))
+    })
+    .unwrap();
+    assert_eq!(
+        session.confirm("Delete?", false).unwrap(),
+        PromptOutcome::Submitted(true)
+    );
+    assert_eq!(
+        session.confirm("Again?", false).unwrap(),
+        PromptOutcome::Submitted(false)
+    );
+    let output = String::from_utf8(session.into_output().unwrap()).unwrap();
+    assert!(output.contains("Invalid answer."));
+    assert!(output.contains("? Delete? › Yes\n"));
+    assert!(output.contains("? Again? › No\n"));
+}
+
+#[test]
+fn confirmation_eof_interrupt_and_invalid_scripts_remain_explicit() {
+    for (key, want) in [
+        (PromptKey::EndOfInput, PromptOutcome::EndOfInput),
+        (PromptKey::Interrupt, PromptOutcome::Interrupted),
+    ] {
+        let mut session =
+            PromptSession::<io::Empty, _>::keys(Vec::new(), 80, 24, move || Ok(key)).unwrap();
+        let result = session.confirm("Delete?", false);
+        assert_eq!(session.finish_result(result).unwrap(), want);
+        assert!(session.confirm("Again?", false).is_err());
+    }
+    for bytes in [b"\xff\n".to_vec(), b"y\x04\n".to_vec(), b"yes".to_vec()] {
+        let mut session = PromptSession::script(Cursor::new(bytes), Vec::new());
+        assert!(session.confirm("Delete?", false).is_err());
+    }
+    let mut empty = PromptSession::script(io::empty(), Vec::new());
+    assert_eq!(
+        empty.confirm("Delete?", false).unwrap(),
+        PromptOutcome::EndOfInput
+    );
+}
+
+#[test]
+fn confirmation_output_failures_finish_without_consuming_keys() {
+    use std::cell::Cell;
+    use std::rc::Rc;
+    struct FailedOutput {
+        fail_write: bool,
+    }
+    impl Write for FailedOutput {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            if self.fail_write {
+                Err(io::Error::other("write closed"))
+            } else {
+                Ok(bytes.len())
+            }
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Err(io::Error::other("flush closed"))
+        }
+    }
+    for fail_write in [false, true] {
+        let reads = Rc::new(Cell::new(0));
+        let observed = Rc::clone(&reads);
+        let mut session =
+            PromptSession::<io::Empty, _>::keys(FailedOutput { fail_write }, 80, 24, move || {
+                observed.set(observed.get() + 1);
+                Ok(PromptKey::Enter)
+            })
+            .unwrap();
+        let result = session.confirm("Delete?", false);
+        let error = session.finish_result(result).unwrap_err();
+        assert_eq!(reads.get(), 0);
+        assert!(error.message.contains("prompt also failed"));
+        assert!(error.message.contains("failed to flush prompt stdout"));
+    }
+}

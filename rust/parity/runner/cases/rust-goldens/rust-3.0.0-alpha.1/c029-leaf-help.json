@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c029-leaf-help",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "Delete (trash) a Linear project\n\nUsage: linear project delete [OPTIONS] <projectId>\n\nArguments:\n  <projectId>  \n\nOptions:\n  -f, --force             Skip confirmation prompt\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

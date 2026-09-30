@@ -13,10 +13,10 @@ use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, cycle_view, document_comment_list,
     initiative_comment_list, initiative_create, initiative_list, initiative_update_list,
-    initiative_view, issue_comment_delete, label_list, milestone_create, milestone_list,
-    milestone_update, milestone_view, project_comment_list, project_list, project_update_list,
-    project_view, table, team_id, team_list, team_members, team_states, template_list,
-    template_view, user_list,
+    initiative_view, issue_comment_delete, label_list, milestone_create, milestone_delete,
+    milestone_list, milestone_update, milestone_view, project_comment_list, project_delete,
+    project_list, project_update_list, project_view, table, team_id, team_list, team_members,
+    team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -329,7 +329,9 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             }
             Some(cli::project::ProjectCommand::Create(_)) => unsupported("linear project create"),
             Some(cli::project::ProjectCommand::Update(_)) => unsupported("linear project update"),
-            Some(cli::project::ProjectCommand::Delete(_)) => unsupported("linear project delete"),
+            Some(cli::project::ProjectCommand::Delete(action)) => {
+                dispatch_project_delete(context, &action, workspace)
+            }
             Some(cli::project::ProjectCommand::Comment(action)) => match action.command {
                 None => parent_help(context, "linear project comment"),
                 Some(cli::project::ProjectCommentCommand::Add(_)) => {
@@ -372,8 +374,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::milestone::MilestoneCommand::Update(action)) => {
                 dispatch_milestone_update(context, &action, workspace)
             }
-            Some(cli::milestone::MilestoneCommand::Delete(_)) => {
-                unsupported("linear milestone delete")
+            Some(cli::milestone::MilestoneCommand::Delete(action)) => {
+                dispatch_milestone_delete(context, &action, workspace)
             }
         },
         Some(cli::RootCommand::Initiative(action)) => match action.command {
@@ -1554,6 +1556,140 @@ fn dispatch_milestone_update(
         context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
     }
     let output = result.map_err(|error| error.with_context(milestone_update::CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+/// None means the user confirmed; every other result is a completed command.
+fn confirm_deletion(
+    context: &mut AppContext<'_>,
+    force: bool,
+    message: &str,
+) -> Result<Option<ExitStatus>, AppError> {
+    use crate::platform::prompt::{PromptOutcome, PromptSession};
+    if force {
+        return Ok(None);
+    }
+    if !context.stdin_tty {
+        return Err(AppError::new(
+            AppErrorKind::Validation,
+            "Interactive confirmation required",
+        )
+        .with_suggestion("Use --force to skip confirmation."));
+    }
+    let outcome = {
+        let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+        let result = session.confirm(message, false);
+        session.finish_result(result)?
+    };
+    match outcome {
+        PromptOutcome::Submitted(true) => Ok(None),
+        PromptOutcome::Submitted(false) => {
+            context.write_stdout_with_policy(b"Deletion canceled\n", OutputPolicy::ConsoleLike)?;
+            Ok(Some(ExitStatus::Success))
+        }
+        PromptOutcome::Interrupted => Ok(Some(ExitStatus::ChildCode(
+            std::num::NonZeroU8::new(130).ok_or_else(|| {
+                AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
+            })?,
+        ))),
+        PromptOutcome::EndOfInput => Err(AppError::new(
+            AppErrorKind::Validation,
+            "unexpected EOF while prompting for confirmation",
+        )),
+    }
+}
+
+fn dispatch_project_delete(
+    context: &mut AppContext<'_>,
+    action: &cli::project::ProjectDelete,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let original = &action.project_id;
+    if let Some(status) = confirm_deletion(
+        context,
+        action.force,
+        &format!("Are you sure you want to delete project {original}?"),
+    )? {
+        return Ok(status);
+    }
+    let show_spinner = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        // Source constructs its client before parsing any project URL.
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        let reference = prepare_project_lookup(
+            original,
+            &WorkspaceScope::from_selection(&inputs, credentials),
+        )?;
+        block_on_network(async {
+            let id = resolve_project_with_transport(&reference, original, &transport).await?;
+            project_delete::submit(&transport, original, &id).await
+        })
+    })();
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = result.map_err(|error| error.with_context(project_delete::CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_milestone_delete(
+    context: &mut AppContext<'_>,
+    action: &cli::milestone::MilestoneDelete,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let id = &action.id;
+    crate::refs::reject_linear_url(id, "a milestone UUID")
+        .map_err(|error| error.with_context(milestone_delete::CONTEXT))?;
+    if let Some(status) = confirm_deletion(
+        context,
+        action.force,
+        &format!("Are you sure you want to delete milestone {id}?"),
+    )? {
+        return Ok(status);
+    }
+    let show_spinner = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        block_on_network(milestone_delete::submit(&transport, id))
+    })();
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = result.map_err(|error| error.with_context(milestone_delete::CONTEXT))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

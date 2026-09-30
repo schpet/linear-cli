@@ -130,6 +130,35 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
+    /// Confirm a destructive action. Only an exactly empty answer takes the
+    /// default; explicit whitespace and padded answers are invalid.
+    pub fn confirm(
+        &mut self,
+        message: &str,
+        default: bool,
+    ) -> Result<PromptOutcome<bool>, AppError> {
+        self.check_ready(message)?;
+        let header = format!("{message} ({})", if default { "Y/n" } else { "y/N" });
+        let parse = |raw: &str| {
+            parse_confirmation(raw, default)
+                .map(|answer| (answer, if answer { "Yes" } else { "No" }.to_owned()))
+        };
+        match &mut self.input {
+            InputSource::Script(_) => {
+                self.write(format!("? {header}\n").as_bytes())?;
+                self.flush()?;
+                let Some(raw) = self.read_script_line()? else {
+                    return Ok(PromptOutcome::EndOfInput);
+                };
+                let (answer, label) = parse(&raw)
+                    .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+                self.write(format!("? {message} › {label}\n").as_bytes())?;
+                Ok(PromptOutcome::Submitted(answer))
+            }
+            InputSource::Keys(_) => self.edit_keys(&header, message, parse),
+        }
+    }
+
     pub fn select(&mut self, select: &PlainSelect<'_>) -> Result<PromptOutcome<String>, AppError> {
         self.check_ready(select.message)?;
         validate_select(select)?;
@@ -307,6 +336,18 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         min_length: usize,
         validate: impl Fn(&str) -> Result<(), String>,
     ) -> Result<PromptOutcome<String>, AppError> {
+        self.edit_keys(message, message, |raw| {
+            validate_text(raw, min_length, &validate)?;
+            Ok((raw.trim().to_owned(), raw.trim().to_owned()))
+        })
+    }
+
+    fn edit_keys<T>(
+        &mut self,
+        header: &str,
+        message: &str,
+        parse: impl Fn(&str) -> Result<(T, String), String>,
+    ) -> Result<PromptOutcome<T>, AppError> {
         let mut value = Vec::<char>::new();
         let mut cursor = 0_usize;
         let mut drawn = false;
@@ -316,7 +357,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 self.write(b"\r\x1b[J")?;
             }
             let raw: String = value.iter().collect();
-            let (line, cursor_column) = text_line(message, &value, cursor, self.columns - 1);
+            let (line, cursor_column) = text_line(header, &value, cursor, self.columns - 1);
             self.write(format!("{line}\n").as_bytes())?;
             let mut lines = 1_usize;
             if let Some(error) = &error_message {
@@ -350,11 +391,11 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 PromptKey::Right => cursor = (cursor + 1).min(value.len()),
                 PromptKey::Home => cursor = 0,
                 PromptKey::End => cursor = value.len(),
-                PromptKey::Enter => match validate_text(&raw, min_length, &validate) {
-                    Ok(()) => {
+                PromptKey::Enter => match parse(&raw) {
+                    Ok((answer, label)) => {
                         self.write(b"\r\x1b[J")?;
-                        self.write(format!("? {message} › {}\n", raw.trim()).as_bytes())?;
-                        return Ok(PromptOutcome::Submitted(raw.trim().to_owned()));
+                        self.write(format!("? {message} › {label}\n").as_bytes())?;
+                        return Ok(PromptOutcome::Submitted(answer));
                     }
                     Err(reason) => error_message = Some(reason),
                 },
@@ -436,6 +477,26 @@ impl<R: Read, W: Write> PromptSession<R, W> {
 }
 
 impl<W: Write> PromptSession<io::Stdin, W> {
+    /// Confirmation is gated by stdin alone. Use a terminal whose attended
+    /// check follows stdin, even when both output streams are redirected.
+    pub fn confirmation_stdio(writer: W) -> Result<Self, AppError> {
+        if !io::stdin().is_terminal() {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                "Interactive confirmation required",
+            )
+            .with_suggestion("Use --force to skip confirmation."));
+        }
+        let (columns, rows) = terminal_size::terminal_size_of(io::stdin())
+            .map(|(terminal_size::Width(w), terminal_size::Height(h))| {
+                (usize::from(w), usize::from(h))
+            })
+            .unwrap_or((80, 24));
+        let mut session = Self::keys(writer, columns, rows, confirmation_key)?;
+        session.raw = Some(RawPrompt::enter_confirmation()?);
+        Ok(session)
+    }
+
     /// Enter the C039 prompt path without applying the search selector's CI or
     /// stdin-TTY gate. The command must decide whether stdout permits prompts.
     pub fn stdio(writer: W) -> Result<Self, AppError> {
@@ -468,6 +529,84 @@ impl<W: Write> PromptSession<io::Stdin, W> {
         })?;
         session.raw = Some(RawPrompt::enter()?);
         Ok(session)
+    }
+}
+
+/// Read input independently of output using the maintained platform decoder.
+/// Existing text/select keep their console key source.
+fn confirmation_key() -> io::Result<PromptKey> {
+    use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
+    loop {
+        if confirmation_input_ended()? {
+            return Ok(PromptKey::EndOfInput);
+        }
+        if crossterm::event::poll(std::time::Duration::from_millis(100))? {
+            break;
+        }
+    }
+    match crossterm::event::read() {
+        Ok(Event::Key(key)) if key.kind != KeyEventKind::Release => Ok(match key.code {
+            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                PromptKey::Interrupt
+            }
+            KeyCode::Char(_)
+                if key
+                    .modifiers
+                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+            {
+                PromptKey::Other
+            }
+            KeyCode::Char(character) => PromptKey::Character(character),
+            KeyCode::Backspace => PromptKey::Backspace,
+            KeyCode::Delete => PromptKey::Delete,
+            KeyCode::Left => PromptKey::Left,
+            KeyCode::Right => PromptKey::Right,
+            KeyCode::Home => PromptKey::Home,
+            KeyCode::End => PromptKey::End,
+            KeyCode::Enter => PromptKey::Enter,
+            _ => PromptKey::Other,
+        }),
+        Ok(_) => Ok(PromptKey::Other),
+        Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(PromptKey::EndOfInput),
+        Err(error) => Err(error),
+    }
+}
+
+// A disconnected terminal must not enter the decoder's EOF polling loop.
+// The bounded library poll also lets us check a hangup arriving while waiting.
+#[cfg(all(unix, not(target_vendor = "apple")))]
+fn confirmation_input_ended() -> io::Result<bool> {
+    use rustix::event::{PollFd, PollFlags, poll};
+    let input = io::stdin();
+    let mut descriptors = [PollFd::new(&input, PollFlags::IN)];
+    poll(
+        &mut descriptors,
+        Some(&rustix::event::Timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        }),
+    )?;
+    Ok(descriptors[0]
+        .revents()
+        .intersects(PollFlags::HUP | PollFlags::ERR | PollFlags::NVAL))
+}
+
+// Apple poll does not support some terminal descriptors. Let crossterm's
+// select backend read input there; terminal disconnect uses ordinary SIGHUP.
+#[cfg(any(not(unix), target_vendor = "apple"))]
+fn confirmation_input_ended() -> io::Result<bool> {
+    Ok(false)
+}
+
+fn parse_confirmation(raw: &str, default: bool) -> Result<bool, String> {
+    if raw.is_empty() {
+        Ok(default)
+    } else if raw.eq_ignore_ascii_case("y") || raw.eq_ignore_ascii_case("yes") {
+        Ok(true)
+    } else if raw.eq_ignore_ascii_case("n") || raw.eq_ignore_ascii_case("no") {
+        Ok(false)
+    } else {
+        Err("Invalid answer.".to_owned())
     }
 }
 
@@ -615,6 +754,10 @@ struct RawPrompt {
 
 #[cfg(unix)]
 impl RawPrompt {
+    fn enter_confirmation() -> Result<Self, AppError> {
+        Self::enter()
+    }
+
     fn enter() -> Result<Self, AppError> {
         use rustix::termios::{OptionalActions, tcgetattr, tcsetattr};
         let input = io::stdin();
@@ -663,14 +806,41 @@ impl Drop for RawPrompt {
 }
 
 #[cfg(not(unix))]
-struct RawPrompt;
+struct RawPrompt {
+    confirmation: bool,
+}
 
 #[cfg(not(unix))]
 impl RawPrompt {
     fn enter() -> Result<Self, AppError> {
-        Ok(Self)
+        Ok(Self {
+            confirmation: false,
+        })
+    }
+    fn enter_confirmation() -> Result<Self, AppError> {
+        crossterm::terminal::enable_raw_mode().map_err(|error| {
+            AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
+                .with_source(error)
+        })?;
+        Ok(Self { confirmation: true })
     }
     fn restore(&mut self) -> Result<(), AppError> {
+        if self.confirmation {
+            self.confirmation = false;
+            crossterm::terminal::disable_raw_mode().map_err(|error| {
+                AppError::new(AppErrorKind::IoProcess, "failed to restore terminal input")
+                    .with_source(error)
+            })?;
+        }
         Ok(())
+    }
+}
+
+#[cfg(not(unix))]
+impl Drop for RawPrompt {
+    fn drop(&mut self) {
+        if let Err(error) = self.restore() {
+            let _ = writeln!(io::stderr(), "failed to restore terminal input: {error}");
+        }
     }
 }

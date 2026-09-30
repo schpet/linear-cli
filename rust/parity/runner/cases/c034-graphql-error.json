@@ -1,0 +1,114 @@
+{
+  "id": "c034-graphql-error",
+  "route": "linear milestone delete",
+  "reason": "graphql error",
+  "argv": [
+    "milestone",
+    "delete",
+    "00000000-0000-4000-9000-000000003207",
+    "--force"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to delete milestone: Entity not found\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "f731bf8a74bbb68ed1e6c05b5d78412af87d5f76a97f476f4d565d150beb2deb"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {
+      "ProjectMilestone:00000000-0000-4000-9000-000000003207": {
+        "id": "00000000-0000-4000-9000-000000003207",
+        "name": "Delete me"
+      },
+      "ProjectMilestone:1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d": {
+        "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+        "name": "Keep me"
+      }
+    },
+    "expectedRecords": {
+      "ProjectMilestone:00000000-0000-4000-9000-000000003207": {
+        "id": "00000000-0000-4000-9000-000000003207",
+        "name": "Delete me"
+      },
+      "ProjectMilestone:1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d": {
+        "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+        "name": "Keep me"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "delete",
+            "operation": {
+              "document": "mutation DeleteProjectMilestone($id: String!) { projectMilestoneDelete(id: $id) { success } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000003207"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "graphqlErrors",
+              "status": 200,
+              "data": null,
+              "errors": [
+                {
+                  "message": "Entity not found"
+                }
+              ]
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

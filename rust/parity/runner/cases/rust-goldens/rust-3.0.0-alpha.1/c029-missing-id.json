@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c029-missing-id",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "error: the following required arguments were not provided:\n  <projectId>\n\nUsage: linear project delete <projectId>\n\nFor more information, try '--help'.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}
