@@ -67,3 +67,8 @@ pub mod issue_comment_list;
 pub mod issue_upload;
 
 pub mod upload;
+
+pub mod document_list;
+pub mod document_target;
+pub mod document_view;
+pub mod release_lookup;

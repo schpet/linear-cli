@@ -1,0 +1,135 @@
+{
+  "id": "c050-alias-table-limit",
+  "route": "linear document list",
+  "reason": "alias-table-limit",
+  "argv": [
+    "docs",
+    "l",
+    "--limit",
+    "2"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 131072,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "SLUG   TITLE                                                                          ATTACHMENT               UPDATED \nslug-0 A very long title 界 color: gray detail detail detail detail detail detail detail det... Cycle: ENG #7 — Sprint   just now%c\nslug-1 A very long title 界 color: gray detail detail detail detail detail detail detail det... Release: Summer (2026.8) just now%c\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "documents",
+            "operation": {
+              "document": "\n  query ListDocuments($filter: DocumentFilter, $first: Int) {\n    documents(filter: $filter, first: $first) {\n      nodes {\n        id\n        title\n        slugId\n        url\n        updatedAt\n        project {\n          name\n          slugId\n        }\n        issue {\n          identifier\n          title\n        }\n        initiative {\n          name\n          slugId\n        }\n        team {\n          name\n          key\n        }\n        cycle {\n          name\n          number\n          team {\n            key\n          }\n        }\n        release {\n          name\n          version\n        }\n        creator {\n          name\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n",
+              "variables": {
+                "first": 2
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "documents": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000051-0",
+                      "title": "A very long title 界 %s detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail ",
+                      "slugId": "slug-0",
+                      "url": "https://linear.app/acme/document/fixture-d4b93e3b2695",
+                      "updatedAt": "2100-01-01T00:00:00Z",
+                      "creator": {
+                        "name": "Ada"
+                      },
+                      "project": null,
+                      "issue": null,
+                      "initiative": null,
+                      "team": null,
+                      "cycle": {
+                        "name": "Sprint",
+                        "number": 7,
+                        "team": {
+                          "key": "ENG"
+                        }
+                      },
+                      "release": null
+                    },
+                    {
+                      "id": "00000000-0000-4000-9000-000000000051-1",
+                      "title": "A very long title 界 %s detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail detail ",
+                      "slugId": "slug-1",
+                      "url": "https://linear.app/acme/document/fixture-d4b93e3b2695",
+                      "updatedAt": "2100-01-01T00:00:00Z",
+                      "creator": {
+                        "name": "Ada"
+                      },
+                      "project": null,
+                      "issue": null,
+                      "initiative": null,
+                      "team": null,
+                      "cycle": null,
+                      "release": {
+                        "name": "Summer",
+                        "version": "2026.8"
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -508,8 +508,12 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
         },
         Some(cli::RootCommand::Document(action)) => match action.command {
             None => document_hint(context),
-            Some(cli::document::DocumentCommand::List(_)) => unsupported("linear document list"),
-            Some(cli::document::DocumentCommand::View(_)) => unsupported("linear document view"),
+            Some(cli::document::DocumentCommand::List(action)) => {
+                dispatch_document_list(context, &action, workspace)
+            }
+            Some(cli::document::DocumentCommand::View(action)) => {
+                dispatch_document_view(context, &action, workspace)
+            }
             Some(cli::document::DocumentCommand::Create(_)) => {
                 unsupported("linear document create")
             }
@@ -4699,4 +4703,201 @@ fn upload_issue_file(
         write_stderr(context, &warning)?;
     }
     Ok(uploaded)
+}
+
+fn dispatch_document_list(
+    context: &mut AppContext<'_>,
+    action: &cli::document::DocumentList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::{document_list, document_target};
+    let result = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let team = configured_team_key(&config.options);
+        let target = document_target::prepare(
+            action,
+            &WorkspaceScope::from_selection(&inputs, credentials),
+            team.as_deref(),
+        )?;
+        let first = i32::try_from(action.limit.get()).map_err(|error| {
+            AppError::new(
+                AppErrorKind::Validation,
+                "Document limit exceeds GraphQL's signed integer range",
+            )
+            .with_source(error)
+        })?;
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        let documents = document_fetch_with_spinner(context, action.json, async {
+            let filter = match target {
+                Some(target) => {
+                    let (kind, id) = document_target::resolve(&target, &transport).await?;
+                    Some(document_target::filter(kind, id))
+                }
+                None => None,
+            };
+            document_list::fetch(&transport, filter, first).await
+        })?;
+        let output = if action.json {
+            document_list::json(&documents)?
+        } else {
+            let columns = crate::platform::pager::stdout_size()
+                .map(|size| usize::from(size.columns))
+                .unwrap_or(120);
+            document_list::text(
+                &documents,
+                columns,
+                context.stdout_tty && !context.no_color(),
+                std::time::SystemTime::now(),
+            )
+            .into_bytes()
+        };
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context(document_list::CONTEXT))
+}
+
+fn dispatch_document_view(
+    context: &mut AppContext<'_>,
+    action: &cli::document::DocumentView,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::document_view;
+    use crate::platform::{markdown_assets, markdown_ast, markdown_serializer, markdown_terminal};
+    let result = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let id = resolve_document_reference(
+            &action.id,
+            &WorkspaceScope::from_selection(&inputs, credentials),
+        )?;
+        let cache_root = config.image_cache_root.clone();
+        let download = !action.no_download
+            && config
+                .options
+                .download_images()
+                .is_none_or(|value| *value.value());
+        let hyperlink = config
+            .options
+            .hyperlink_format()
+            .map(|value| value.value().clone());
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        let document = document_fetch_with_spinner(
+            context,
+            action.raw || action.json,
+            document_view::fetch(&transport, &action.id, &id, action.json),
+        )?;
+        if action.web {
+            context.write_stdout_with_policy(
+                format!("Opening {} in web browser\n", document.url()).as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+            crate::platform::opener::open(document.url(), false)?;
+            return Ok(ExitStatus::Success);
+        }
+        if action.json {
+            context.write_stdout_with_policy(&document.json()?, OutputPolicy::ConsoleLike)?;
+            return Ok(ExitStatus::Success);
+        }
+        let document = match document {
+            document_view::DocumentResult::Body(document) => document,
+            document_view::DocumentResult::WithComments(_) => {
+                return Err(AppError::new(
+                    AppErrorKind::Invariant,
+                    "Non-JSON document unexpectedly included comments",
+                ));
+            }
+        };
+        let mut content = document.content.clone();
+        if download && let Some(original) = content.as_deref().filter(|value| !value.is_empty()) {
+            let paths = block_on_network(markdown_assets::download_with(
+                original,
+                &cache_root,
+                |url| {
+                    let transport = &transport;
+                    async move { transport.download_markdown_image(&url).await }
+                },
+                |bytes| context.write_stderr(bytes),
+            ))?
+            .paths;
+            if !paths.is_empty() {
+                content = Some(markdown_ast::rewrite_with(
+                    original,
+                    &paths,
+                    markdown_serializer::serialize,
+                )?);
+            }
+        }
+        let output = if action.raw || !context.stdout_tty {
+            document_view::raw(content.as_deref())
+        } else {
+            let markdown = document_view::markdown(
+                &document,
+                content.as_deref(),
+                chrono::Utc::now(),
+                &chrono::Local,
+            );
+            let columns = crate::platform::pager::stdout_size()
+                .and_then(|size| std::num::NonZeroU16::new(size.columns))
+                .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
+            let options = markdown_terminal::RenderOptions::for_terminal(
+                columns,
+                context.startup.settings.no_color,
+                context.stdout_tty,
+                hyperlink.as_deref(),
+                markdown_terminal::HostSource::System,
+            );
+            format!("{}\n", markdown_terminal::render(&markdown, &options)?).into_bytes()
+        };
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context(document_view::CONTEXT))
+}
+
+fn document_fetch_with_spinner<T>(
+    context: &mut AppContext<'_>,
+    json: bool,
+    pending: impl std::future::Future<Output = Result<T, AppError>>,
+) -> Result<T, AppError> {
+    let enabled = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if !enabled {
+        return block_on_network(pending);
+    }
+    context.write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    let result = block_on_network(async {
+        tokio::pin!(pending);
+        let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+        ticks.tick().await;
+        let mut frame = 1;
+        loop {
+            tokio::select! {
+                biased;
+                result = &mut pending => break result,
+                _ = ticks.tick() => {
+                    context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                    frame = frame.wrapping_add(1);
+                }
+            }
+        }
+    });
+    context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    result
 }

@@ -1,0 +1,131 @@
+{
+  "id": "c051-config-no-download",
+  "route": "linear document view",
+  "reason": "config-no-download",
+  "argv": [
+    "document",
+    "view",
+    "d4b93e3b2695",
+    "--raw"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_DOWNLOAD_IMAGES": "false"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 131072,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "![pic](https://uploads.linear.app/private.png)\n[file](https://public.linear.app/file.pdf)\n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "dba57c1f61fcd137c023d8235edbdeaf60a485c1ea21101202d261a034d06a2d"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "document",
+            "operation": {
+              "document": "\n  query GetDocument($id: String!) {\n    document(id: $id) {\n      id\n      title\n      slugId\n      content\n      url\n      createdAt\n      updatedAt\n      creator {\n        name\n        email\n      }\n      project {\n        name\n        slugId\n      }\n      issue {\n        identifier\n        title\n      }\n      initiative {\n        name\n        slugId\n      }\n      team {\n        name\n        key\n      }\n      cycle {\n        name\n        number\n        team {\n          key\n        }\n      }\n      release {\n        name\n        version\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "d4b93e3b2695"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "document": {
+                  "id": "00000000-0000-4000-9000-000000000051",
+                  "title": "Document %s 界",
+                  "slugId": "d4b93e3b2695",
+                  "content": "![pic](https://uploads.linear.app/private.png)\n[file](https://public.linear.app/file.pdf)\n",
+                  "url": "https://linear.app/acme/document/fixture-d4b93e3b2695",
+                  "createdAt": "2020-01-02T00:00:00Z",
+                  "updatedAt": "2020-01-03T00:00:00Z",
+                  "creator": {
+                    "name": "Ada %s",
+                    "email": "ada@example.com"
+                  },
+                  "project": {
+                    "name": "Project %s",
+                    "slugId": "project-slug"
+                  },
+                  "issue": {
+                    "identifier": "ENG-7",
+                    "title": "Issue title"
+                  },
+                  "initiative": {
+                    "name": "Initiative",
+                    "slugId": "initiative-slug"
+                  },
+                  "team": {
+                    "name": "Engineering",
+                    "key": "ENG"
+                  },
+                  "cycle": {
+                    "name": "Sprint",
+                    "number": 7,
+                    "team": {
+                      "key": "ENG"
+                    }
+                  },
+                  "release": {
+                    "name": "Summer",
+                    "version": "2026.8"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -83,6 +83,8 @@ pub struct StartupConfig {
     pub ci: Option<String>,
     /// Process PAGER value; dotenv files cannot set it either.
     pub pager: Option<OsString>,
+    /// Snapshot of the source POSIX image-cache temp precedence.
+    pub image_cache_root: std::path::PathBuf,
 }
 
 impl fmt::Debug for StartupConfig {
@@ -422,6 +424,11 @@ pub fn load_startup(
             child_env,
             ci,
             pager,
+            image_cache_root: crate::platform::markdown_assets::cache_root(
+                process.inputs.env("TMPDIR"),
+                process.inputs.env("TMP"),
+                process.inputs.env("TEMP"),
+            ),
             transport_env: TransportEnvInputs::from_process(process),
         }),
     }

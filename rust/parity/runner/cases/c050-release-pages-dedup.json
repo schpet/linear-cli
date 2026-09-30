@@ -1,0 +1,175 @@
+{
+  "id": "c050-release-pages-dedup",
+  "route": "linear document list",
+  "reason": "release-pages-dedup",
+  "argv": [
+    "document",
+    "list",
+    "--release",
+    "2026.8",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 131072,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "1153f9e36f999e0bf3859ebaf2416f20fc5eefa77b6639063b4117e72b270a22"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "release-first",
+            "operation": {
+              "document": "\n    query ResolveReleases($input: String!, $after: String) {\n      releases(\n        filter: {\n          or: [\n            { name: { eqIgnoreCase: $input } }\n            { version: { eq: $input } }\n          ]\n        }\n        first: 100\n        after: $after\n      ) {\n        nodes {\n          id\n          name\n          version\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  ",
+              "variables": {
+                "input": "2026.8",
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "releases": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000050",
+                      "name": "Summer",
+                      "version": "2026.8"
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "release-next"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "release-next",
+            "operation": {
+              "document": "\n    query ResolveReleases($input: String!, $after: String) {\n      releases(\n        filter: {\n          or: [\n            { name: { eqIgnoreCase: $input } }\n            { version: { eq: $input } }\n          ]\n        }\n        first: 100\n        after: $after\n      ) {\n        nodes {\n          id\n          name\n          version\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  ",
+              "variables": {
+                "input": "2026.8",
+                "after": "release-next"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "releases": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000050",
+                      "name": "Summer",
+                      "version": "2026.8"
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "documents",
+            "operation": {
+              "document": "\n  query ListDocuments($filter: DocumentFilter, $first: Int) {\n    documents(filter: $filter, first: $first) {\n      nodes {\n        id\n        title\n        slugId\n        url\n        updatedAt\n        project {\n          name\n          slugId\n        }\n        issue {\n          identifier\n          title\n        }\n        initiative {\n          name\n          slugId\n        }\n        team {\n          name\n          key\n        }\n        cycle {\n          name\n          number\n          team {\n            key\n          }\n        }\n        release {\n          name\n          version\n        }\n        creator {\n          name\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n",
+              "variables": {
+                "first": 50,
+                "filter": {
+                  "release": {
+                    "id": {
+                      "eq": "00000000-0000-4000-9000-000000000050"
+                    }
+                  }
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "documents": {
+                  "nodes": [],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

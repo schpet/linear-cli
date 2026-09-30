@@ -1121,6 +1121,9 @@ fn build_client(config: &TransportConfig) -> Result<Client, TransportBuildError>
 fn build_signed_upload_client(config: &TransportConfig) -> Result<Client, TransportBuildError> {
     build_client_with_deadline(config, ClientDeadline::NoTotal)
 }
+fn build_markdown_download_client(config: &TransportConfig) -> Result<Client, TransportBuildError> {
+    build_client_with_deadline(config, ClientDeadline::NoTotal)
+}
 fn build_client_with_deadline(
     config: &TransportConfig,
     deadline: ClientDeadline,
@@ -1238,6 +1241,7 @@ async fn collect(
 pub struct GraphQlTransport {
     client: Client,
     signed_upload_client: Client,
+    markdown_download_client: Client,
     endpoint: EndpointUrl,
     api_key: ApiKey,
     deadline: Deadline,
@@ -1253,9 +1257,11 @@ impl GraphQlTransport {
     ) -> Result<Self, TransportBuildError> {
         let client = build_client(&config)?;
         let signed_upload_client = build_signed_upload_client(&config)?;
+        let markdown_download_client = build_markdown_download_client(&config)?;
         Ok(Self {
             client,
             signed_upload_client,
+            markdown_download_client,
             endpoint,
             api_key,
             deadline: config.deadline,
@@ -1265,6 +1271,129 @@ impl GraphQlTransport {
 
     pub fn endpoint(&self) -> &EndpointUrl {
         &self.endpoint
+    }
+
+    /// Ordinary Markdown images use Fetch-like GETs: arbitrary image hosts,
+    /// no total deadline/body cap, no automatic UA or compression negotiation.
+    /// Authentication is attached only to the initial private-upload host and
+    /// is permanently removed after any cross-origin redirect.
+    pub async fn download_markdown_image(&self, original: &str) -> Result<Vec<u8>, AppError> {
+        let mut url = Url::parse(original).map_err(|error| {
+            AppError::new(
+                AppErrorKind::Transport,
+                format!("Invalid URL: '{original}'"),
+            )
+            .with_source(error)
+        })?;
+        if url.scheme() == "data" {
+            let data = data_url::DataUrl::process(original).map_err(|error| {
+                AppError::new(
+                    AppErrorKind::Transport,
+                    "NetworkError when attempting to fetch resource",
+                )
+                .with_source(error)
+            })?;
+            return data
+                .decode_to_vec()
+                .map(|(bytes, _fragment)| bytes)
+                .map_err(|error| {
+                    AppError::new(
+                        AppErrorKind::Transport,
+                        "NetworkError when attempting to fetch resource",
+                    )
+                    .with_source(error)
+                });
+        }
+        if url.scheme() == "file" {
+            // Fetch reads an initial readable file URL. Decode its path through
+            // the typed URL boundary; cache creation/hit handling stays upstream.
+            let path = url.to_file_path().map_err(|()| {
+                AppError::new(
+                    AppErrorKind::Transport,
+                    "NetworkError when attempting to fetch resource",
+                )
+            })?;
+            return std::fs::read(path).map_err(|error| {
+                AppError::new(
+                    AppErrorKind::Transport,
+                    "NetworkError when attempting to fetch resource",
+                )
+                .with_source(error)
+            });
+        }
+        if !matches!(url.scheme(), "http" | "https") {
+            return Err(AppError::new(
+                AppErrorKind::Transport,
+                "NetworkError when attempting to fetch resource",
+            ));
+        }
+        let mut authenticated = url.host_str() == Some("uploads.linear.app");
+        let mut redirects = 0;
+        loop {
+            let mut request = self.markdown_download_client.get(url.clone());
+            if authenticated {
+                request = request.header(AUTHORIZATION, self.api_key.header_value());
+            }
+            let response = request.send().await.map_err(markdown_network_error)?;
+            let status = response.status();
+            if matches!(status.as_u16(), 301 | 302 | 303 | 307 | 308)
+                && let Some(location) = response.headers().get(LOCATION)
+            {
+                if redirects == 20 {
+                    return Err(AppError::new(
+                        AppErrorKind::Transport,
+                        "NetworkError when attempting to fetch resource",
+                    ));
+                }
+                let location = location.to_str().map_err(|error| {
+                    AppError::new(AppErrorKind::Transport, "Invalid image redirect Location")
+                        .with_source(error)
+                })?;
+                let next = url.join(location).map_err(|error| {
+                    AppError::new(AppErrorKind::Transport, "Invalid image redirect URL")
+                        .with_source(error)
+                })?;
+                if !matches!(next.scheme(), "http" | "https") {
+                    return Err(AppError::new(
+                        AppErrorKind::Transport,
+                        "NetworkError when attempting to fetch resource",
+                    ));
+                }
+                authenticated &= url.origin() == next.origin();
+                url = next;
+                redirects += 1;
+                continue;
+            }
+            if !status.is_success() {
+                let phrase = response
+                    .extensions()
+                    .get::<hyper::ext::ReasonPhrase>()
+                    .map(|phrase| {
+                        phrase
+                            .as_bytes()
+                            .iter()
+                            .copied()
+                            .map(char::from)
+                            .collect::<String>()
+                    })
+                    .unwrap_or_else(|| status.canonical_reason().unwrap_or("").to_owned());
+                return Err(AppError::new(
+                    AppErrorKind::Transport,
+                    format!("Failed to download image: {} {phrase}", status.as_u16()),
+                ));
+            }
+            let encoding = response
+                .headers()
+                .get(reqwest::header::CONTENT_ENCODING)
+                .map(|value| value.to_str().map(str::to_owned))
+                .transpose()
+                .map_err(|error| {
+                    AppError::new(AppErrorKind::Transport, "Invalid image Content-Encoding")
+                        .with_source(error)
+                })?;
+            let body = response.bytes().await.map_err(markdown_network_error)?;
+            return decode_markdown_image(encoding.as_deref(), body.to_vec());
+        }
     }
 
     /// Sends an arbitrary document (the raw `api` path) and returns the exact
@@ -1336,6 +1465,46 @@ impl GraphQlTransport {
             },
         }
     }
+}
+
+fn markdown_network_error(error: reqwest::Error) -> AppError {
+    AppError::new(
+        AppErrorKind::Transport,
+        "NetworkError when attempting to fetch resource",
+    )
+    .with_source(SanitizedReqwestError::new(error))
+}
+
+/// Decode explicitly; enabling reqwest's codec features would also change
+/// automatic Accept-Encoding headers on the already-qualified GraphQL client.
+pub fn decode_markdown_image(
+    encoding: Option<&str>,
+    mut body: Vec<u8>,
+) -> Result<Vec<u8>, AppError> {
+    for coding in encoding.unwrap_or("").split(',').rev().map(str::trim) {
+        let mut decoded = Vec::new();
+        let result = match coding.to_ascii_lowercase().as_str() {
+            "" | "identity" => continue,
+            "gzip" | "x-gzip" => {
+                flate2::read::MultiGzDecoder::new(body.as_slice()).read_to_end(&mut decoded)
+            }
+            "br" => brotli_decompressor::Decompressor::new(body.as_slice(), 4096)
+                .read_to_end(&mut decoded),
+            "deflate" => flate2::read::ZlibDecoder::new(body.as_slice()).read_to_end(&mut decoded),
+            _ => {
+                return Err(AppError::new(
+                    AppErrorKind::Transport,
+                    format!("Unsupported image Content-Encoding: {coding}"),
+                ));
+            }
+        };
+        result.map_err(|error| {
+            AppError::new(AppErrorKind::Transport, "Failed to decode image response")
+                .with_source(error)
+        })?;
+        body = decoded;
+    }
+    Ok(body)
 }
 
 // ---------------------------------------------------------------------------

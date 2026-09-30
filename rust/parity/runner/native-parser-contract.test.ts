@@ -47,7 +47,12 @@ Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound
     cases,
     NATIVE_PARSER_CONTRACTS,
     pins,
-    new Set(["c077-invalid-type", "c014-leaf-help"]),
+    new Set([
+      "c077-invalid-type",
+      "c014-leaf-help",
+      "c050-leaf-help",
+      "c051-leaf-help",
+    ]),
   )
   assertSameIds(Object.keys(nativeVersionSourcePins), [
     "p04a2-version-after4",

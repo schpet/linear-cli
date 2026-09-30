@@ -2431,7 +2431,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       !loaded.spec.id.startsWith("c027-") &&
       !loaded.spec.id.startsWith("c035-") &&
       !loaded.spec.id.startsWith("c037-") &&
-      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17|28|44|55|66|77|78|76|64|65|41|42|45|47|63|72|75|14)-/
+      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17|28|44|55|66|77|78|76|64|65|41|42|45|47|63|72|75|14|50|51)-/
         .test(
           loaded.spec.id,
         )

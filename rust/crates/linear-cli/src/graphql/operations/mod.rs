@@ -59,3 +59,6 @@ pub mod initiative_bulk;
 pub mod issue_comments;
 
 pub mod upload;
+
+pub mod documents;
+pub mod releases;

@@ -13193,8 +13193,8 @@
       "workItem": "C050",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "qaStatus": "passed",
+      "liveStatus": "passed"
     },
     {
       "path": "linear document view",
@@ -13338,8 +13338,8 @@
       "workItem": "C051",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "qaStatus": "passed",
+      "liveStatus": "passed"
     },
     {
       "path": "linear document create",

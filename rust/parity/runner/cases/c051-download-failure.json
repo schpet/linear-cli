@@ -1,0 +1,173 @@
+{
+  "id": "c051-download-failure",
+  "route": "linear document view",
+  "reason": "Failure logs and preserves remote URL while successful images still rewrite",
+  "argv": [
+    "document",
+    "view",
+    "probe-123",
+    "--raw"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_API_KEY": "lin_api_fake_probe",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "document",
+            "operation": {
+              "document": "query GetDocument($id: String!) { document(id: $id) { id title slugId content url createdAt updatedAt creator { name email } project { name slugId } issue { identifier title } initiative { name slugId } team { name key } cycle { name number team { key } } release { name version } } }",
+              "variables": {
+                "id": "probe-123"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_probe",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "document": {
+                  "id": "f0000000-0000-4000-8000-000000000001",
+                  "title": "Probe",
+                  "slugId": "probe-123",
+                  "content": "![private](https://uploads.linear.app/private.png?token=fake)\n![public](https://public.linear.app/public.png?token=fake)",
+                  "url": "https://linear.app/fake/document/probe",
+                  "createdAt": "2026-01-01T00:00:00Z",
+                  "updatedAt": "2026-01-01T00:00:00Z",
+                  "creator": null,
+                  "project": null,
+                  "issue": null,
+                  "initiative": null,
+                  "team": null,
+                  "cycle": null,
+                  "release": null
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "asset",
+            "id": "private-get",
+            "method": "GET",
+            "fixedHost": "uploads.linear.app",
+            "path": "/private.png?token=fake",
+            "requiredHeaders": {
+              "Authorization": "lin_api_fake_probe"
+            },
+            "forbiddenHeaders": [],
+            "body": {
+              "utf8": ""
+            },
+            "response": {
+              "status": 500,
+              "headers": {
+                "content-type": "image/png"
+              },
+              "body": {
+                "utf8": "FAIL"
+              }
+            }
+          },
+          {
+            "kind": "asset",
+            "id": "public-get",
+            "method": "GET",
+            "fixedHost": "public.linear.app",
+            "path": "/public.png?token=fake",
+            "requiredHeaders": {},
+            "forbiddenHeaders": [
+              "Authorization"
+            ],
+            "body": {
+              "utf8": ""
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "image/png"
+              },
+              "body": {
+                "utf8": "PUBLIC-PROBE-BYTES"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "![private](https://uploads.linear.app/private.png?token=fake)\n![public](/tmp/linear-cli-images/a4a51990d4000864/public)\n\n"
+    },
+    "stderr": {
+      "utf8": "Failed to download https://uploads.linear.app/private.png?token=fake: Failed to download image: 500 Internal Server Error\n"
+    },
+    "fileEffects": [
+      {
+        "path": "tmp/linear-cli-images",
+        "change": "created",
+        "kind": "directory"
+      },
+      {
+        "path": "tmp/linear-cli-images/57c89d19aa713f0e",
+        "change": "created",
+        "kind": "directory"
+      },
+      {
+        "path": "tmp/linear-cli-images/a4a51990d4000864",
+        "change": "created",
+        "kind": "directory"
+      },
+      {
+        "path": "tmp/linear-cli-images/a4a51990d4000864/public",
+        "change": "created",
+        "kind": "file",
+        "sha256": "fc83cdea86ca8470ffb1240866b6fea6bf49bed1b908dce013cc202bda0f9c3f"
+      }
+    ]
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "361ef9fa4c54e07721ae4a5a20928ab07b8c440a08ab5b21135a3e65cf0278a1"
+  }
+}

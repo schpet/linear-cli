@@ -1,0 +1,119 @@
+[
+  {
+    "id": "no-math-default",
+    "content": "$5 and $$ cash $$\n\n![a](https://public.linear.app/a.png)\n",
+    "replacements": [
+      [
+        "https://public.linear.app/a.png",
+        "/tmp/cache/a"
+      ]
+    ],
+    "images": [
+      {
+        "url": "https://public.linear.app/a.png",
+        "alt": "a"
+      }
+    ],
+    "links": [],
+    "rewritten": "$5 and $$ cash $$\n\n![a](/tmp/cache/a)\n"
+  },
+  {
+    "id": "parenthesized-task-marker",
+    "content": "1) [x] done\n2) [ ] open\n\n![a](https://public.linear.app/a.png)\n",
+    "replacements": [
+      [
+        "https://public.linear.app/a.png",
+        "/tmp/cache/a"
+      ]
+    ],
+    "images": [
+      {
+        "url": "https://public.linear.app/a.png",
+        "alt": "a"
+      }
+    ],
+    "links": [],
+    "rewritten": "1. [x] done\n2. [ ] open\n\n![a](/tmp/cache/a)\n"
+  },
+  {
+    "id": "emoji-table-utf16",
+    "content": "| 😀 | x |\n| -- | -- |\n| ![a](https://public.linear.app/a.png) | 😀 |\n",
+    "replacements": [
+      [
+        "https://public.linear.app/a.png",
+        "/tmp/cache/a"
+      ]
+    ],
+    "images": [
+      {
+        "url": "https://public.linear.app/a.png",
+        "alt": "a"
+      }
+    ],
+    "links": [],
+    "rewritten": "| 😀                 | x  |\n| ------------------ | -- |\n| ![a](/tmp/cache/a) | 😀 |\n"
+  },
+  {
+    "id": "email-autolink",
+    "content": "a@b.co and <a@b.co>\n\n![a](https://public.linear.app/a.png)\n",
+    "replacements": [
+      [
+        "https://public.linear.app/a.png",
+        "/tmp/cache/a"
+      ]
+    ],
+    "images": [
+      {
+        "url": "https://public.linear.app/a.png",
+        "alt": "a"
+      }
+    ],
+    "links": [],
+    "rewritten": "<a@b.co> and <a@b.co>\n\n![a](/tmp/cache/a)\n"
+  },
+  {
+    "id": "url-punctuation",
+    "content": "https://uploads.linear.app/a.png).\n\n(https://uploads.linear.app/a.png)\n\n![a](https://public.linear.app/a.png)\n",
+    "replacements": [
+      [
+        "https://public.linear.app/a.png",
+        "/tmp/cache/a"
+      ]
+    ],
+    "images": [
+      {
+        "url": "https://public.linear.app/a.png",
+        "alt": "a"
+      }
+    ],
+    "links": [
+      {
+        "url": "https://uploads.linear.app/a.png",
+        "text": "https://uploads.linear.app/a.png"
+      },
+      {
+        "url": "https://uploads.linear.app/a.png",
+        "text": "https://uploads.linear.app/a.png"
+      }
+    ],
+    "rewritten": "<https://uploads.linear.app/a.png>).\n\n(<https://uploads.linear.app/a.png>)\n\n![a](/tmp/cache/a)\n"
+  },
+  {
+    "id": "attention-adjacency",
+    "content": "**x**&#x62; *a* b\n\n*界*字 **a**b c**d**e\n\n![a](https://public.linear.app/a.png)\n",
+    "replacements": [
+      [
+        "https://public.linear.app/a.png",
+        "/tmp/cache/a"
+      ]
+    ],
+    "images": [
+      {
+        "url": "https://public.linear.app/a.png",
+        "alt": "a"
+      }
+    ],
+    "links": [],
+    "rewritten": "**x**b *a* b\n\n*界*字 **a**b c**d**e\n\n![a](/tmp/cache/a)\n"
+  }
+]

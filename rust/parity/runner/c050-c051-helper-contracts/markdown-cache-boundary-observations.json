@@ -1,0 +1,60 @@
+{
+  "paths": [
+    {
+      "root": "/tmp/",
+      "cacheRoot": "/tmp/linear-cli-images",
+      "hashDirectory": "/tmp/linear-cli-images/hash",
+      "emptyFilename": "/tmp/linear-cli-images/hash",
+      "filename": "/tmp/linear-cli-images/hash/x"
+    },
+    {
+      "root": "//x",
+      "cacheRoot": "/x/linear-cli-images",
+      "hashDirectory": "/x/linear-cli-images/hash",
+      "emptyFilename": "/x/linear-cli-images/hash",
+      "filename": "/x/linear-cli-images/hash/x"
+    },
+    {
+      "root": "a/../b",
+      "cacheRoot": "b/linear-cli-images",
+      "hashDirectory": "b/linear-cli-images/hash",
+      "emptyFilename": "b/linear-cli-images/hash",
+      "filename": "b/linear-cli-images/hash/x"
+    },
+    {
+      "root": "relative-tmp",
+      "cacheRoot": "relative-tmp/linear-cli-images",
+      "hashDirectory": "relative-tmp/linear-cli-images/hash",
+      "emptyFilename": "relative-tmp/linear-cli-images/hash",
+      "filename": "relative-tmp/linear-cli-images/hash/x"
+    },
+    {
+      "root": "/a/./x/../b",
+      "cacheRoot": "/a/b/linear-cli-images",
+      "hashDirectory": "/a/b/linear-cli-images/hash",
+      "emptyFilename": "/a/b/linear-cli-images/hash",
+      "filename": "/a/b/linear-cli-images/hash/x"
+    }
+  ],
+  "failures": [
+    "Failed to download foo.png: Invalid URL: 'foo.png'",
+    "Failed to download http://[bad: Invalid URL: 'http://[bad'"
+  ],
+  "successfulPaths": [],
+  "effects": [
+    {
+      "url": "foo.png",
+      "hash": "d3036d20a653e1a7",
+      "directory": "untracked/notebook/C050-C051-implementation/cache-boundary-effects/linear-cli-images/d3036d20a653e1a7",
+      "directoryCreated": true,
+      "entries": []
+    },
+    {
+      "url": "http://[bad",
+      "hash": "e0ad6fe0ae8d26b2",
+      "directory": "untracked/notebook/C050-C051-implementation/cache-boundary-effects/linear-cli-images/e0ad6fe0ae8d26b2",
+      "directoryCreated": true,
+      "entries": []
+    }
+  ]
+}

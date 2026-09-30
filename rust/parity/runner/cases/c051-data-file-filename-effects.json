@@ -1,0 +1,143 @@
+{
+  "id": "c051-data-file-filename-effects",
+  "route": "linear document view",
+  "reason": "data-file-filename-effects",
+  "argv": [
+    "document",
+    "view",
+    "probe-123",
+    "--raw"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "local-file",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_API_KEY": "lin_api_fake_probe",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "document",
+            "operation": {
+              "document": "query GetDocument($id: String!) { document(id: $id) { id title slugId content url createdAt updatedAt creator { name email } project { name slugId } issue { identifier title } initiative { name slugId } team { name key } cycle { name number team { key } } release { name version } } }",
+              "variables": {
+                "id": "probe-123"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake_probe",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "document": {
+                  "id": "f0000000-0000-4000-8000-000000000001",
+                  "title": "Probe",
+                  "slugId": "probe-123",
+                  "content": "![data](data:text/plain;base64,REFUQQ==)\n![local name (a)](file:///work/local.bin)\n![CON.txt](data:text/plain,not-fetched)\n![界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界](data:text/plain,long-filename)\n",
+                  "url": "https://linear.app/fake/document/probe",
+                  "createdAt": "2026-01-01T00:00:00Z",
+                  "updatedAt": "2026-01-01T00:00:00Z",
+                  "creator": null,
+                  "project": null,
+                  "issue": null,
+                  "initiative": null,
+                  "team": null,
+                  "cycle": null,
+                  "release": null
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "![data](/tmp/linear-cli-images/31e449360719406f/data)\n![local name (a)](file:///work/local.bin)\n![CON.txt](/tmp/linear-cli-images/8dc4d4db56e2d549)\n![界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界](/tmp/linear-cli-images/cb0fe88787126426/界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界)\n\n"
+    },
+    "stderr": {
+      "utf8": "Failed to download file:///work/local.bin: NetworkError when attempting to fetch resource\n"
+    },
+    "fileEffects": [
+      {
+        "path": "tmp/linear-cli-images",
+        "change": "created",
+        "kind": "directory"
+      },
+      {
+        "path": "tmp/linear-cli-images/31e449360719406f",
+        "change": "created",
+        "kind": "directory"
+      },
+      {
+        "path": "tmp/linear-cli-images/31e449360719406f/data",
+        "change": "created",
+        "kind": "file",
+        "sha256": "c97c29c7a71b392b437ee03fd17f09bb10b75e879466fc0eb757b2c4a78ac938"
+      },
+      {
+        "path": "tmp/linear-cli-images/8dc4d4db56e2d549",
+        "change": "created",
+        "kind": "directory"
+      },
+      {
+        "path": "tmp/linear-cli-images/cb0fe88787126426",
+        "change": "created",
+        "kind": "directory"
+      },
+      {
+        "path": "tmp/linear-cli-images/cb0fe88787126426/界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界",
+        "change": "created",
+        "kind": "file",
+        "sha256": "b0e52fc3ea7c8572ba3a71aba8635c3f8ee5f55904cc9e8747880c794f8f3b5c"
+      },
+      {
+        "path": "tmp/linear-cli-images/ee5e2532148264ab",
+        "change": "created",
+        "kind": "directory"
+      }
+    ]
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "ef22a8d95937d34157a5e224951bb32a4c08e49055459546d8c8f2c783c742ba"
+  }
+}

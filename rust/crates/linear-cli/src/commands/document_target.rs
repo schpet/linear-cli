@@ -1,0 +1,245 @@
+//! Document target cardinality, strict local preparation and six typed resolvers.
+use crate::cli::document::DocumentList;
+use crate::error::{AppError, AppErrorKind};
+use crate::graphql::envelope::{GraphQlRequest, is_not_found};
+use crate::graphql::operations::documents::*;
+use crate::graphql::operations::initiatives::IDComparator;
+use crate::graphql::transport::{GraphQlTransport, TransportFailure};
+use crate::refs::{
+    self, InitiativeReference, LinearUrlKind, LinearUrlRef, PreparedTeamLookup, ProjectReference,
+    WorkspaceScope,
+};
+use cynic::QueryBuilder;
+
+pub const TARGET_SUGGESTION: &str = "Pass exactly one of --project, --issue, --initiative, --team, --cycle, or --release. (--team combined with --cycle scopes the cycle lookup and does not count as a second target.)";
+#[derive(Debug, Clone, Copy)]
+pub enum Kind {
+    Project,
+    Issue,
+    Initiative,
+    Team,
+    Cycle,
+    Release,
+}
+pub enum PreparedTarget {
+    Project {
+        original: String,
+        reference: ProjectReference,
+    },
+    Issue {
+        original: String,
+        id: String,
+    },
+    Initiative {
+        original: String,
+        reference: InitiativeReference,
+    },
+    Team(PreparedTeamLookup),
+    Cycle {
+        team: PreparedTeamLookup,
+        reference: String,
+        url: Option<LinearUrlRef>,
+    },
+    Release(String),
+}
+pub fn prepare(
+    action: &DocumentList,
+    scope: &WorkspaceScope<'_>,
+    configured_team: Option<&str>,
+) -> Result<Option<PreparedTarget>, AppError> {
+    let mut flags = Vec::new();
+    if action.project.is_some() {
+        flags.push("--project");
+    }
+    if action.issue.is_some() {
+        flags.push("--issue");
+    }
+    if action.initiative.is_some() {
+        flags.push("--initiative");
+    }
+    if action.cycle.is_some() {
+        flags.push("--cycle");
+    } else if action.team.is_some() {
+        flags.push("--team");
+    }
+    if action.release.is_some() {
+        flags.push("--release");
+    }
+    if flags.len() > 1 {
+        return Err(AppError::new(
+            AppErrorKind::Validation,
+            format!(
+                "Only one attachment target may be set (got {})",
+                flags.join(", ")
+            ),
+        )
+        .with_suggestion(TARGET_SUGGESTION));
+    }
+    if let Some(original) = &action.project {
+        return Ok(Some(PreparedTarget::Project {
+            original: original.clone(),
+            reference: refs::prepare_project_lookup(original, scope)?,
+        }));
+    }
+    if let Some(original) = &action.issue {
+        let url = refs::expect_url_kind(
+            original,
+            LinearUrlKind::Issue,
+            "an issue URL, identifier like ENG-123, or UUID",
+            scope,
+        )?;
+        let id = match url {
+            Some(LinearUrlRef::Issue { identifier, .. }) => identifier,
+            Some(_) => {
+                return Err(AppError::new(
+                    AppErrorKind::Invariant,
+                    "issue URL preparation returned wrong kind",
+                ));
+            }
+            None if refs::is_linear_uuid(original) => original.clone(),
+            None => original.to_uppercase(),
+        };
+        return Ok(Some(PreparedTarget::Issue {
+            original: original.clone(),
+            id,
+        }));
+    }
+    if let Some(original) = &action.initiative {
+        return Ok(Some(PreparedTarget::Initiative {
+            original: original.clone(),
+            reference: refs::prepare_initiative_lookup(original, scope)?,
+        }));
+    }
+    if let Some(reference) = &action.cycle {
+        let configured = configured_team
+            .filter(|team| !team.is_empty())
+            .map(str::to_uppercase);
+        let team = action
+            .team
+            .as_deref()
+            .or(configured.as_deref())
+            .ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Validation,
+                    "--cycle requires a team to look the cycle up in",
+                )
+                .with_suggestion("Pass --team <key, name, or ID> or configure a default team.")
+            })?;
+        return Ok(Some(PreparedTarget::Cycle {
+            team: refs::prepare_team_lookup(team, scope)?,
+            reference: reference.clone(),
+            url: refs::expect_url_kind(
+                reference,
+                LinearUrlKind::Cycle,
+                "a cycle URL, number, or name",
+                scope,
+            )?,
+        }));
+    }
+    if let Some(team) = &action.team {
+        return Ok(Some(PreparedTarget::Team(refs::prepare_team_lookup(
+            team, scope,
+        )?)));
+    }
+    if let Some(original) = &action.release {
+        refs::reject_linear_url(original, "a release name, version, or UUID")?;
+        return Ok(Some(PreparedTarget::Release(original.clone())));
+    }
+    Ok(None)
+}
+pub async fn resolve(
+    target: &PreparedTarget,
+    transport: &GraphQlTransport,
+) -> Result<(Kind, String), AppError> {
+    match target {
+        PreparedTarget::Project {
+            original,
+            reference,
+        } => Ok((
+            Kind::Project,
+            refs::resolve_project_with_transport(reference, original, transport).await?,
+        )),
+        PreparedTarget::Initiative {
+            original,
+            reference,
+        } => Ok((
+            Kind::Initiative,
+            refs::resolve_initiative_with_transport(reference, original, transport).await?,
+        )),
+        PreparedTarget::Team(reference) => Ok((
+            Kind::Team,
+            refs::resolve_team_with_transport(reference, transport)
+                .await?
+                .id,
+        )),
+        PreparedTarget::Issue { original, id } => {
+            let query = GraphQlRequest::with_variables(GetIssueForDocumentTarget::build(
+                GetDocumentVariables { id: id.clone() },
+            ));
+            let not_found = || {
+                AppError::not_found("Issue", original)
+                    .with_suggestion("Provide a valid issue identifier (e.g., TC-123) or UUID.")
+            };
+            let data: GetIssueForDocumentTarget =
+                transport
+                    .execute(&query)
+                    .await
+                    .map_err(|failure| match &failure {
+                        TransportFailure::GraphQl { errors, .. } if is_not_found(errors) => {
+                            not_found()
+                        }
+                        _ => AppError::from(failure),
+                    })?;
+            Ok((
+                Kind::Issue,
+                data.issue.ok_or_else(not_found)?.id.into_inner(),
+            ))
+        }
+        PreparedTarget::Cycle {
+            team,
+            reference,
+            url,
+        } => {
+            let team = refs::resolve_team_with_transport(team, transport).await?;
+            let id = crate::commands::cycle_view::resolve_id_with(
+                &team.id,
+                reference,
+                url.as_ref(),
+                |query| async move { transport.execute(&query).await.map_err(AppError::from) },
+            )
+            .await?;
+            Ok((Kind::Cycle, id))
+        }
+        PreparedTarget::Release(original) => Ok((
+            Kind::Release,
+            crate::commands::release_lookup::resolve(transport, original).await?,
+        )),
+    }
+}
+pub fn filter(kind: Kind, id: String) -> DocumentFilter {
+    let id = IDComparator {
+        eq: Some(cynic::Id::new(id)),
+    };
+    let mut filter = DocumentFilter::default();
+    match kind {
+        Kind::Project => {
+            filter.project = Some(DocumentProjectFilter {
+                id: EntityIdentifierIDComparator { eq: id.eq },
+            })
+        }
+        Kind::Issue => {
+            filter.issue = Some(DocumentIssueFilter {
+                id: IssueIDComparator { eq: id.eq },
+            })
+        }
+        Kind::Initiative => {
+            filter.initiative = Some(DocumentInitiativeFilter {
+                id: EntityIdentifierIDComparator { eq: id.eq },
+            })
+        }
+        Kind::Team => filter.team = Some(DocumentTeamFilter { id }),
+        Kind::Cycle => filter.cycle = Some(DocumentCycleFilter { id }),
+        Kind::Release => filter.release = Some(DocumentReleaseFilter { id }),
+    }
+    filter
+}

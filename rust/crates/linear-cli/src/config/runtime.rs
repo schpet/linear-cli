@@ -281,6 +281,9 @@ fn relevant(name: &str, os: OsFamily) -> bool {
             key.as_str(),
             "NO_COLOR"
                 | "CI"
+                | "TMPDIR"
+                | "TMP"
+                | "TEMP"
                 | "HOME"
                 | "XDG_CONFIG_HOME"
                 | "APPDATA"
