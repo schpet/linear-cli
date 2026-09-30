@@ -1,4 +1,4 @@
-//! Reusable text and plain-list prompts for commands whose stdout is a terminal.
+//! Reusable text, confirmation, and plain-list prompts.
 //!
 //! The caller decides whether to prompt. A terminal stdin uses individual keys;
 //! a non-terminal stdin uses a deterministic, line-oriented script protocol.
@@ -523,13 +523,30 @@ impl<W: Write> PromptSession<io::Stdin, W> {
             )
             .with_suggestion("Use --force to skip confirmation."));
         }
+        Self::attended(writer, attended_key)
+    }
+
+    /// Choose attended keys or the script protocol from stdin alone. The caller
+    /// controls prompt eligibility; stdout and CI do not affect this constructor.
+    pub fn stdin_stdio(writer: W) -> Result<Self, AppError> {
+        if io::stdin().is_terminal() {
+            Self::attended(writer, attended_key)
+        } else {
+            Ok(Self::script(io::stdin(), writer))
+        }
+    }
+
+    fn attended(
+        writer: W,
+        next_key: impl FnMut() -> io::Result<PromptKey> + 'static,
+    ) -> Result<Self, AppError> {
         let (columns, rows) = terminal_size::terminal_size_of(io::stdin())
             .map(|(terminal_size::Width(w), terminal_size::Height(h))| {
                 (usize::from(w), usize::from(h))
             })
             .unwrap_or((80, 24));
-        let mut session = Self::keys(writer, columns, rows, confirmation_key)?;
-        session.raw = Some(RawPrompt::enter_confirmation()?);
+        let mut session = Self::keys(writer, columns, rows, next_key)?;
+        session.raw = Some(RawPrompt::enter_attended()?);
         Ok(session)
     }
 
@@ -569,11 +586,11 @@ impl<W: Write> PromptSession<io::Stdin, W> {
 }
 
 /// Read input independently of output using the maintained platform decoder.
-/// Existing text/select keep their console key source.
-fn confirmation_key() -> io::Result<PromptKey> {
-    use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
+/// The existing stdio constructor keeps its console key source.
+fn attended_key() -> io::Result<PromptKey> {
+    use crossterm::event::Event;
     loop {
-        if confirmation_input_ended()? {
+        if attended_input_ended()? {
             return Ok(PromptKey::EndOfInput);
         }
         if crossterm::event::poll(std::time::Duration::from_millis(100))? {
@@ -581,37 +598,51 @@ fn confirmation_key() -> io::Result<PromptKey> {
         }
     }
     match crossterm::event::read() {
-        Ok(Event::Key(key)) if key.kind != KeyEventKind::Release => Ok(match key.code {
-            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                PromptKey::Interrupt
-            }
-            KeyCode::Char(_)
-                if key
-                    .modifiers
-                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
-            {
-                PromptKey::Other
-            }
-            KeyCode::Char(character) => PromptKey::Character(character),
-            KeyCode::Backspace => PromptKey::Backspace,
-            KeyCode::Delete => PromptKey::Delete,
-            KeyCode::Left => PromptKey::Left,
-            KeyCode::Right => PromptKey::Right,
-            KeyCode::Home => PromptKey::Home,
-            KeyCode::End => PromptKey::End,
-            KeyCode::Enter => PromptKey::Enter,
-            _ => PromptKey::Other,
-        }),
+        Ok(Event::Key(key)) => Ok(attended_key_event(key)),
         Ok(_) => Ok(PromptKey::Other),
         Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(PromptKey::EndOfInput),
         Err(error) => Err(error),
     }
 }
 
+fn attended_key_event(key: crossterm::event::KeyEvent) -> PromptKey {
+    use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
+    if key.kind == KeyEventKind::Release {
+        return PromptKey::Other;
+    }
+    let control = key.modifiers.contains(KeyModifiers::CONTROL);
+    let alt = key.modifiers.contains(KeyModifiers::ALT);
+    match key.code {
+        KeyCode::Char('c') if control && !alt => PromptKey::Interrupt,
+        KeyCode::Char('h') if control && !alt => PromptKey::Backspace,
+        // Ctrl-D is a Select navigation key, never terminal EOF.
+        KeyCode::Char('d') if control && !alt => PromptKey::Character('\u{4}'),
+        KeyCode::Char(character)
+            if control && alt && !character.is_ascii_alphabetic() && !character.is_control() =>
+        {
+            PromptKey::Character(character)
+        }
+        KeyCode::Char(_) if control || alt => PromptKey::Other,
+        KeyCode::Char(character) => PromptKey::Character(character),
+        KeyCode::Backspace => PromptKey::Backspace,
+        KeyCode::Delete => PromptKey::Delete,
+        KeyCode::Left => PromptKey::Left,
+        KeyCode::Right => PromptKey::Right,
+        KeyCode::Up => PromptKey::Up,
+        KeyCode::Down => PromptKey::Down,
+        KeyCode::PageUp => PromptKey::PageUp,
+        KeyCode::PageDown => PromptKey::PageDown,
+        KeyCode::Home => PromptKey::Home,
+        KeyCode::End => PromptKey::End,
+        KeyCode::Enter => PromptKey::Enter,
+        _ => PromptKey::Other,
+    }
+}
+
 // A disconnected terminal must not enter the decoder's EOF polling loop.
 // The bounded library poll also lets us check a hangup arriving while waiting.
 #[cfg(all(unix, not(target_vendor = "apple")))]
-fn confirmation_input_ended() -> io::Result<bool> {
+fn attended_input_ended() -> io::Result<bool> {
     use rustix::event::{PollFd, PollFlags, poll};
     let input = io::stdin();
     let mut descriptors = [PollFd::new(&input, PollFlags::IN)];
@@ -630,7 +661,7 @@ fn confirmation_input_ended() -> io::Result<bool> {
 // Apple poll does not support some terminal descriptors. Let crossterm's
 // select backend read input there; terminal disconnect uses ordinary SIGHUP.
 #[cfg(any(not(unix), target_vendor = "apple"))]
-fn confirmation_input_ended() -> io::Result<bool> {
+fn attended_input_ended() -> io::Result<bool> {
     Ok(false)
 }
 
@@ -790,7 +821,7 @@ struct RawPrompt {
 
 #[cfg(unix)]
 impl RawPrompt {
-    fn enter_confirmation() -> Result<Self, AppError> {
+    fn enter_attended() -> Result<Self, AppError> {
         Self::enter()
     }
 
@@ -854,6 +885,70 @@ impl Drop for RawPrompt {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+
+    use super::{PromptKey, attended_key_event};
+
+    #[test]
+    fn attended_event_mapping_preserves_navigation_controls_and_altgr() {
+        let control_alt = KeyModifiers::CONTROL | KeyModifiers::ALT;
+        for (code, modifiers, expected) in [
+            (
+                KeyCode::Char('c'),
+                KeyModifiers::CONTROL,
+                PromptKey::Interrupt,
+            ),
+            (
+                KeyCode::Char('h'),
+                KeyModifiers::CONTROL,
+                PromptKey::Backspace,
+            ),
+            (
+                KeyCode::Char('d'),
+                KeyModifiers::CONTROL,
+                PromptKey::Character('\u{4}'),
+            ),
+            (KeyCode::Char('c'), control_alt, PromptKey::Other),
+            (KeyCode::Char('h'), control_alt, PromptKey::Other),
+            (KeyCode::Char('d'), control_alt, PromptKey::Other),
+            (
+                KeyCode::Char('J'),
+                KeyModifiers::SHIFT,
+                PromptKey::Character('J'),
+            ),
+            (KeyCode::Char('@'), control_alt, PromptKey::Character('@')),
+            (KeyCode::Char('é'), control_alt, PromptKey::Character('é')),
+            (KeyCode::Char('\u{4}'), control_alt, PromptKey::Other),
+            (KeyCode::Char('x'), KeyModifiers::ALT, PromptKey::Other),
+            (KeyCode::Char('x'), KeyModifiers::CONTROL, PromptKey::Other),
+            (KeyCode::Up, KeyModifiers::NONE, PromptKey::Up),
+            (KeyCode::Down, KeyModifiers::NONE, PromptKey::Down),
+            (KeyCode::PageUp, KeyModifiers::NONE, PromptKey::PageUp),
+            (KeyCode::PageDown, KeyModifiers::NONE, PromptKey::PageDown),
+            (KeyCode::Null, KeyModifiers::NONE, PromptKey::Other),
+        ] {
+            for kind in [KeyEventKind::Press, KeyEventKind::Repeat] {
+                assert_eq!(
+                    attended_key_event(KeyEvent::new_with_kind(code, modifiers, kind)),
+                    expected,
+                    "{code:?} {modifiers:?} {kind:?}"
+                );
+            }
+            assert_eq!(
+                attended_key_event(KeyEvent::new_with_kind(
+                    code,
+                    modifiers,
+                    KeyEventKind::Release
+                )),
+                PromptKey::Other,
+                "release {code:?} {modifiers:?}"
+            );
+        }
+    }
+}
+
 #[cfg(not(unix))]
 struct RawPrompt {
     confirmation: bool,
@@ -868,7 +963,7 @@ impl RawPrompt {
             active: false,
         })
     }
-    fn enter_confirmation() -> Result<Self, AppError> {
+    fn enter_attended() -> Result<Self, AppError> {
         crossterm::terminal::enable_raw_mode().map_err(|error| {
             AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
                 .with_source(error)

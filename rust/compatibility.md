@@ -659,3 +659,5 @@ Confirmation adds pinned crossterm 0.29.0 with default features disabled and onl
 - 2026-09-30 — C017 scoped8/8/actualQA10/10 on9b0c1b8d; strict-null-label/no-retry uncertainty recorded. Reviews/fullcheckpoint pending, live/platform/committedPTY gates pending. See [review](reviews/C017.md).
 
 2026-09-30 — C017 strict label decoder and existing prompt/native-clap differences qualified with source/candidate8, actualQA10 and Sol+ClaudeSHIP; forced full checkpoint1576pass/34unimplemented/zero failure/drift, Rust626 and Deno295+focused1 guard closure. No new surface emulation; see reviews/C017.md.
+
+2026-09-30 — ATTENDED-STDIN-KEYS: shared maintained crossterm source chooses stdinTTY independently of stdout/CI; CtrlH backspace, CtrlD Select-navigation (notEOF), CtrlC requires noAlt and printable AltGr accepted. Existing stdio eligibility and C039 script boundary remain. Helper qualification focused18/QA5/Sol+ClaudeSHIP/warm1610 replay; no new command leaf or JSON/API change. See reviews/ATTENDED-STDIN.md.

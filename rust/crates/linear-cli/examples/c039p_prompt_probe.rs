@@ -33,7 +33,17 @@ fn main() {
         option("Custom color", "__custom__", "custom"),
     ];
     let mut stdout = io::stdout().lock();
-    let mut session = match PromptSession::stdio(&mut stdout) {
+    let mut args = std::env::args().skip(1);
+    let input_constructor = args.next();
+    if args.next().is_some() {
+        exit_error("Expected at most one input constructor: stdio or stdin_stdio".to_owned());
+    }
+    let result = match input_constructor.as_deref() {
+        None | Some("stdio") => PromptSession::stdio(&mut stdout),
+        Some("stdin_stdio") => PromptSession::stdin_stdio(&mut stdout),
+        Some(_) => exit_error("Unknown input constructor; use stdio or stdin_stdio".to_owned()),
+    };
+    let mut session = match result {
         Ok(session) => session,
         Err(error) => exit_error(error.display_message()),
     };
