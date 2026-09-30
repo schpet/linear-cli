@@ -1,0 +1,142 @@
+{
+  "id": "c047-bulk-detail-fallback",
+  "route": "linear initiative delete",
+  "reason": "bulk-detail-fallback",
+  "argv": [
+    "initiative",
+    "delete",
+    "--force",
+    "--bulk",
+    "00000000-0000-4000-9000-000000004501"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Found 1 initiative(s) to delete.\n\n⚠️  This action is PERMANENT and cannot be undone.\n\n\n✓ Successfully deleted 1 initiative\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "66011a13dde97e966c0c75ea21be47e03ccac79b9ea73b9029717ec6a6f7f18c"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {
+      "Initiative:00000000-0000-4000-9000-000000004501": {
+        "state": "active"
+      }
+    },
+    "expectedRecords": {
+      "Initiative:00000000-0000-4000-9000-000000004501": {
+        "state": "deleted"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetInitiativeNameForBulkDelete($id: String!) { initiative(id: $id) { id name } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000004501"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"errors\": [{\"message\": \"detail failed\", \"extensions\": {\"userPresentableMessage\": \"detail friendly\"}}], \"data\": {\"initiative\": {\"id\": \"00000000-0000-4000-9000-000000004501\", \"name\": \"CORRUPT\", \"archivedAt\": \"already\"}}}"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "mutation",
+            "operation": {
+              "document": "mutation BulkDeleteInitiative($id: String!) { initiativeDelete(id: $id) { success } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000004501"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeDelete": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Initiative:00000000-0000-4000-9000-000000004501",
+                "before": {
+                  "value": {
+                    "state": "active"
+                  }
+                },
+                "after": {
+                  "state": "deleted"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

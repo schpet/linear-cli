@@ -1,0 +1,142 @@
+{
+  "id": "c045-uuid-force",
+  "route": "linear initiative archive",
+  "reason": "uuid-force",
+  "argv": [
+    "initiative",
+    "archive",
+    "00000000-0000-4000-9000-000000004501",
+    "-y"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Archived initiative: Fixture initiative\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "27913771ad2d5069b547ce3567f256786e32f7c87ebc1a89bb307c4d9b4dc710"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {
+      "Initiative:00000000-0000-4000-9000-000000004501": {
+        "state": "active"
+      }
+    },
+    "expectedRecords": {
+      "Initiative:00000000-0000-4000-9000-000000004501": {
+        "state": "archived"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetInitiativeForArchive($id: String!) { initiative(id: $id) { id slugId name archivedAt } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000004501"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiative": {
+                  "id": "00000000-0000-4000-9000-000000004501",
+                  "name": "Fixture initiative",
+                  "slugId": "fixture",
+                  "archivedAt": null
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "mutation",
+            "operation": {
+              "document": "mutation ArchiveInitiative($id: String!) { initiativeArchive(id: $id) { success } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000004501"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeArchive": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Initiative:00000000-0000-4000-9000-000000004501",
+                "before": {
+                  "value": {
+                    "state": "active"
+                  }
+                },
+                "after": {
+                  "state": "archived"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

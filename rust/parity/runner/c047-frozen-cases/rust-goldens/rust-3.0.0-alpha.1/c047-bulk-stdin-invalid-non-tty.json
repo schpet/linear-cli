@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c047-bulk-stdin-invalid-non-tty",
+  "deviationId": "INIT-BULK-UTF8",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Bulk stdin must be valid UTF-8\n  Provide UTF-8 text on stdin.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

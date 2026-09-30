@@ -1,0 +1,58 @@
+{
+  "id": "c047-bulk-file-missing",
+  "route": "linear initiative delete",
+  "reason": "bulk-file-missing",
+  "argv": [
+    "initiative",
+    "delete",
+    "--force",
+    "--bulk-file",
+    "missing.txt"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "referenceModuleUrl"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) NotFoundError: File not found: missing.txt\n      throw new NotFoundError(\"File\", filePath)\n            ^\n    at readIdsFromFile ({{referenceModuleUrl}}/src/utils/bulk.ts:80:13)\n    at async collectBulkIds ({{referenceModuleUrl}}/src/utils/bulk.ts:117:21)\n    at async handleBulkDelete ({{referenceModuleUrl}}/src/commands/initiative/initiative-delete.ts:195:15)\n    at async Command.<anonymous> ({{referenceModuleUrl}}/src/commands/initiative/initiative-delete.ts:49:9)\n    at async Command.execute (https://jsr.io/@cliffy/command/1.0.0/command.ts:2310:7)\n    at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0/command.ts:2126:14)\n    at async {{referenceModuleUrl}}/src/main.ts:4:3\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "INIT-CRUD-ERROR-DIAGNOSTIC",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "7dca5f25958a7520522897a1007d75bbdc968d1d4a38b06a86899a533bca0a6e"
+  },
+  "graphql": null
+}

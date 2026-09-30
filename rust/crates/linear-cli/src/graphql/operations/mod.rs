@@ -53,3 +53,5 @@ pub mod issue_link;
 pub mod issue_id;
 
 pub mod initiative_projects;
+
+pub mod initiative_bulk;

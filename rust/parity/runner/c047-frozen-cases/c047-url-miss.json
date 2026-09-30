@@ -1,0 +1,96 @@
+{
+  "id": "c047-url-miss",
+  "route": "linear initiative delete",
+  "reason": "url-miss",
+  "argv": [
+    "initiative",
+    "delete",
+    "https://linear.app/acme/initiative/fixture-000000004545",
+    "--force"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort",
+    "referenceModuleUrl"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) NotFoundError: Initiative not found: https://linear.app/acme/initiative/fixture-000000004545\n    throw new NotFoundError(\"Initiative\", initiativeId)\n          ^\n    at handleSingleDelete ({{referenceModuleUrl}}/src/commands/initiative/initiative-delete.ts:80:11)\n    at async Command.<anonymous> ({{referenceModuleUrl}}/src/commands/initiative/initiative-delete.ts:65:7)\n    at async Command.execute (https://jsr.io/@cliffy/command/1.0.0/command.ts:2310:7)\n    at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0/command.ts:2126:14)\n    at async {{referenceModuleUrl}}/src/main.ts:4:3\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "INIT-CRUD-ERROR-DIAGNOSTIC",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "757e40c90872a0291d90aad277792dd7b765402839a48898692257fd3f8df61e"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "url",
+            "operation": {
+              "document": "query ResolveInitiativeBySlug($slugId: String!, $includeArchived: Boolean) { initiatives(filter: { slugId: { eq: $slugId } }, includeArchived: $includeArchived) { nodes { id } } }",
+              "variables": {
+                "slugId": "000000004545",
+                "includeArchived": true
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": []
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

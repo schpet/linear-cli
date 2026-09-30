@@ -1,0 +1,177 @@
+{
+  "id": "c047-url-force",
+  "route": "linear initiative delete",
+  "reason": "url-force",
+  "argv": [
+    "initiative",
+    "delete",
+    "https://linear.app/acme/initiative/fixture-000000004545",
+    "--force"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "\n⚠️  Initiative \"Fixture initiative\" has 1 linked project(s).\nDeleting the initiative will unlink these projects.\n\n✓ Permanently deleted initiative: Fixture initiative\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "fb42322fec9a2c9c3150fc2ad42957a7c427c22302e1019d65d3a31cd91565b7"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {
+      "Initiative:00000000-0000-4000-9000-000000004501": {
+        "state": "active"
+      }
+    },
+    "expectedRecords": {
+      "Initiative:00000000-0000-4000-9000-000000004501": {
+        "state": "deleted"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "url",
+            "operation": {
+              "document": "query ResolveInitiativeBySlug($slugId: String!, $includeArchived: Boolean) { initiatives(filter: { slugId: { eq: $slugId } }, includeArchived: $includeArchived) { nodes { id } } }",
+              "variables": {
+                "slugId": "000000004545",
+                "includeArchived": true
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000004501"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetInitiativeForDelete($id: String!) { initiative(id: $id) { id slugId name projects { nodes { id } } } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000004501"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiative": {
+                  "id": "00000000-0000-4000-9000-000000004501",
+                  "name": "Fixture initiative",
+                  "slugId": "fixture",
+                  "projects": {
+                    "nodes": [
+                      {
+                        "id": "linked-project"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "mutation",
+            "operation": {
+              "document": "mutation DeleteInitiative($id: String!) { initiativeDelete(id: $id) { success } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000004501"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeDelete": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Initiative:00000000-0000-4000-9000-000000004501",
+                "before": {
+                  "value": {
+                    "state": "active"
+                  }
+                },
+                "after": {
+                  "state": "deleted"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

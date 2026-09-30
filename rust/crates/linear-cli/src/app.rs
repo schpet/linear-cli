@@ -12,12 +12,12 @@ use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, comment_add, cycle_list, cycle_view, document_comment_list,
-    initiative_comment_list, initiative_create, initiative_list, initiative_projects,
-    initiative_unarchive, initiative_update_list, initiative_view, issue_comment_delete,
-    issue_details, label_create, label_delete, label_list, milestone_create, milestone_delete,
-    milestone_list, milestone_update, milestone_view, project_comment_list, project_delete,
-    project_list, project_update_list, project_view, table, team_create, team_id, team_list,
-    team_members, team_states, template_list, template_view, user_list,
+    initiative_bulk, initiative_comment_list, initiative_create, initiative_list,
+    initiative_projects, initiative_unarchive, initiative_update_list, initiative_view,
+    issue_comment_delete, issue_details, label_create, label_delete, label_list, milestone_create,
+    milestone_delete, milestone_list, milestone_update, milestone_view, project_comment_list,
+    project_delete, project_list, project_update_list, project_view, table, team_create, team_id,
+    team_list, team_members, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -404,18 +404,40 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::initiative::InitiativeCommand::Create(action)) => {
                 dispatch_initiative_create(context, &action, workspace)
             }
-            Some(cli::initiative::InitiativeCommand::Archive(_)) => {
-                unsupported("linear initiative archive")
-            }
+            Some(cli::initiative::InitiativeCommand::Archive(action)) => dispatch_initiative_bulk(
+                context,
+                InitiativeAction {
+                    target: action.initiative_id.as_deref(),
+                    force: action.force,
+                    bulk: initiative_bulk::BulkInput {
+                        argv: action.bulk.as_deref(),
+                        file: action.bulk_file.as_deref().map(std::path::Path::new),
+                        stdin: action.bulk_stdin,
+                    },
+                },
+                initiative_bulk::Mode::Archive,
+                workspace,
+            ),
             Some(cli::initiative::InitiativeCommand::Update(_)) => {
                 unsupported("linear initiative update")
             }
             Some(cli::initiative::InitiativeCommand::Unarchive(action)) => {
                 dispatch_initiative_unarchive(context, &action, workspace)
             }
-            Some(cli::initiative::InitiativeCommand::Delete(_)) => {
-                unsupported("linear initiative delete")
-            }
+            Some(cli::initiative::InitiativeCommand::Delete(action)) => dispatch_initiative_bulk(
+                context,
+                InitiativeAction {
+                    target: action.initiative_id.as_deref(),
+                    force: action.force,
+                    bulk: initiative_bulk::BulkInput {
+                        argv: action.bulk.as_deref(),
+                        file: action.bulk_file.as_deref().map(std::path::Path::new),
+                        stdin: action.bulk_stdin,
+                    },
+                },
+                initiative_bulk::Mode::Delete,
+                workspace,
+            ),
             Some(cli::initiative::InitiativeCommand::AddProject(action)) => {
                 dispatch_initiative_projects(
                     context,
@@ -4230,5 +4252,265 @@ fn dispatch_agent_session_list(
     })()
     .map_err(|error: AppError| error.with_context(agent_session::LIST_CONTEXT))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+struct InitiativeAction<'a> {
+    target: Option<&'a str>,
+    force: bool,
+    bulk: initiative_bulk::BulkInput<'a>,
+}
+
+fn initiative_prompt_confirm(
+    context: &mut AppContext<'_>,
+    message: &str,
+    default: bool,
+) -> Result<crate::platform::prompt::PromptOutcome<bool>, AppError> {
+    use crate::platform::prompt::PromptSession;
+    if !context.stdin_tty {
+        return Err(AppError::new(
+            AppErrorKind::Validation,
+            "Interactive confirmation required. Use --force to skip.",
+        ));
+    }
+    let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+    let result = session.confirm(message, default);
+    session.finish_result(result)
+}
+
+fn initiative_prompt_stop<T>(
+    outcome: crate::platform::prompt::PromptOutcome<T>,
+) -> Result<T, AppError> {
+    use crate::platform::prompt::PromptOutcome;
+    match outcome {
+        PromptOutcome::Submitted(value) => Ok(value),
+        PromptOutcome::Interrupted => Err(AppError::new(AppErrorKind::Cancellation, "Interrupted")),
+        PromptOutcome::EndOfInput => Err(AppError::new(
+            AppErrorKind::Validation,
+            "unexpected EOF while prompting for confirmation",
+        )),
+    }
+}
+
+fn initiative_interrupt_status() -> Result<ExitStatus, AppError> {
+    Ok(ExitStatus::ChildCode(
+        std::num::NonZeroU8::new(130).ok_or_else(|| {
+            AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
+        })?,
+    ))
+}
+
+fn dispatch_initiative_bulk(
+    context: &mut AppContext<'_>,
+    action: InitiativeAction<'_>,
+    mode: initiative_bulk::Mode,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::platform::prompt::{PromptOutcome, PromptSession};
+    // Source constructs the client before reading or validating collected IDs.
+    let transport = {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?
+    };
+    if action.bulk.requested() {
+        let ids = initiative_bulk::collect_ids(&action.bulk, &mut std::io::stdin().lock())?;
+        if ids.is_empty() {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                format!("No initiative IDs provided for bulk {}.", mode.verb()),
+            ));
+        }
+        context.write_stdout_with_policy(
+            format!("Found {} initiative(s) to {}.\n", ids.len(), mode.verb()).as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        if mode == initiative_bulk::Mode::Delete {
+            context.write_stdout_with_policy(
+                "\n⚠️  This action is PERMANENT and cannot be undone.\n\n".as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+        }
+        if !action.force {
+            let message = match mode {
+                initiative_bulk::Mode::Archive => format!("Archive {} initiative(s)?", ids.len()),
+                initiative_bulk::Mode::Delete => {
+                    format!("Permanently delete {} initiative(s)?", ids.len())
+                }
+            };
+            let outcome = initiative_prompt_confirm(context, &message, false)?;
+            if matches!(outcome, PromptOutcome::Interrupted) {
+                return initiative_interrupt_status();
+            }
+            if !initiative_prompt_stop(outcome)? {
+                context
+                    .write_stdout_with_policy(mode.bulk_cancelled(), OutputPolicy::ConsoleLike)?;
+                return Ok(ExitStatus::Success);
+            }
+        }
+        let targets = {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let scope = WorkspaceScope::from_selection(&inputs, credentials);
+            ids.into_iter()
+                .map(|id| initiative_bulk::Target::prepare(id, &scope))
+                .collect()
+        };
+        let progress_enabled = spinner::enabled(
+            false,
+            context.stdout_tty,
+            context.startup.settings.no_color == NoColor::Absent,
+        );
+        let results = block_on_network(initiative_bulk::execute(
+            &transport,
+            targets,
+            mode,
+            |progress| {
+                if progress_enabled {
+                    context
+                        .write_stdout_with_policy(&progress.render(), OutputPolicy::ConsoleLike)?;
+                }
+                Ok(())
+            },
+        ))?;
+        if progress_enabled {
+            context.write_stdout_with_policy(
+                initiative_bulk::PROGRESS_CLEAR,
+                OutputPolicy::ConsoleLike,
+            )?;
+        }
+        let (output, failed) = initiative_bulk::summary(&results, mode);
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        return Ok(if failed {
+            ExitStatus::HandledFailure
+        } else {
+            ExitStatus::Success
+        });
+    }
+    let original = action
+        .target
+        .filter(|target| !target.is_empty())
+        .ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::Validation,
+                "Initiative ID required. Use --bulk for multiple initiatives.",
+            )
+        })?;
+    let target = {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        initiative_bulk::Target::prepare(
+            original.to_owned(),
+            &WorkspaceScope::from_selection(&inputs, credentials),
+        )
+    };
+    let id = block_on_network(initiative_bulk::resolve(
+        &transport,
+        &target.reference?,
+        mode,
+    ))?
+    .ok_or_else(|| AppError::not_found("Initiative", original))?;
+    let detail = block_on_network(initiative_bulk::fetch_single(&transport, &id, mode))?
+        .ok_or_else(|| AppError::not_found("Initiative", original))?;
+    if detail.already_archived() {
+        context.write_stdout_with_policy(
+            format!("Initiative \"{}\" is already archived.\n", detail.name()).as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        return Ok(ExitStatus::Success);
+    }
+    if let Some(warning) = detail.linked_warning() {
+        context.write_stdout_with_policy(&warning, OutputPolicy::ConsoleLike)?;
+    }
+    if !action.force {
+        // In source the nonTTY gate precedes the extra permanent warning.
+        if !context.stdin_tty {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                "Interactive confirmation required. Use --force to skip.",
+            ));
+        }
+        let (message, default) = match mode {
+            initiative_bulk::Mode::Archive => {
+                (format!("Archive initiative \"{}\"?", detail.name()), true)
+            }
+            initiative_bulk::Mode::Delete => {
+                context.write_stdout_with_policy(
+                    "\n⚠️  This action is PERMANENT and cannot be undone.\n\n".as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+                (
+                    format!(
+                        "Are you sure you want to permanently delete \"{}\"?",
+                        detail.name()
+                    ),
+                    false,
+                )
+            }
+        };
+        let outcome = initiative_prompt_confirm(context, &message, default)?;
+        if matches!(outcome, PromptOutcome::Interrupted) {
+            return initiative_interrupt_status();
+        }
+        if !initiative_prompt_stop(outcome)? {
+            context.write_stdout_with_policy(mode.single_cancelled(), OutputPolicy::ConsoleLike)?;
+            return Ok(ExitStatus::Success);
+        }
+        if mode == initiative_bulk::Mode::Delete {
+            // Keep raw input for JS trim semantics (FEFF yes, U+0085 no); the maintained
+            // prompt owns terminal handling and its native rendering.
+            let raw = std::cell::RefCell::new(String::new());
+            let outcome = {
+                let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+                let result = session.text(
+                    "Type the initiative name to confirm deletion:",
+                    0,
+                    |answer| {
+                        *raw.borrow_mut() = answer.to_owned();
+                        Ok(())
+                    },
+                );
+                session.finish_result(result)?
+            };
+            if matches!(outcome, PromptOutcome::Interrupted) {
+                return initiative_interrupt_status();
+            }
+            initiative_prompt_stop(outcome)?;
+            if raw.into_inner().trim_matches(crate::text::js_space) != detail.name() {
+                context.write_stdout_with_policy(
+                    b"Name does not match. Delete cancelled.\n",
+                    OutputPolicy::ConsoleLike,
+                )?;
+                return Ok(ExitStatus::Success);
+            }
+        }
+    }
+    let show_spinner = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = block_on_network(initiative_bulk::submit_single(
+        &transport,
+        &id,
+        detail.name(),
+        mode,
+    ));
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    context.write_stdout_with_policy(&result?, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

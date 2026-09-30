@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c045-bulk-thrown",
+  "deviationId": "INIT-BULK-ERRTEXT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": "Found 1 initiative(s) to archive.\n\n✗ Failed to archiv all 1 initiative\n\nFailed operations:\n  - 00000000-0000-4000-9000-000000004501: Friendly first\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}
