@@ -62,14 +62,21 @@ enum InputSource<R: Read> {
     Keys(Box<dyn FnMut() -> io::Result<PromptKey>>),
 }
 
-/// A prompt session must be closed before a command starts network work.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SessionState {
+    Active,
+    Suspended,
+    Closed,
+}
+
+/// Close or suspend a prompt session before starting network work.
 pub struct PromptSession<R: Read, W: Write> {
     input: InputSource<R>,
     output: W,
     columns: usize,
     rows: usize,
     raw: Option<RawPrompt>,
-    closed: bool,
+    state: SessionState,
 }
 
 impl<R: Read, W: Write> PromptSession<R, W> {
@@ -80,7 +87,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
             columns: 80,
             rows: 24,
             raw: None,
-            closed: false,
+            state: SessionState::Active,
         }
     }
 
@@ -102,7 +109,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
             columns,
             rows,
             raw: None,
-            closed: false,
+            state: SessionState::Active,
         })
     }
 
@@ -181,12 +188,38 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
+    /// Restore the terminal and cursor before network work, retaining unread
+    /// script bytes and the key source. A suspended session cannot prompt.
+    pub fn suspend(&mut self) -> Result<(), AppError> {
+        if self.state != SessionState::Active {
+            return Err(invariant("only an active prompt session can suspend"));
+        }
+        self.state = SessionState::Suspended;
+        self.restore_terminal()
+    }
+
+    /// Re-enter prompt mode after the network call, without replacing input.
+    pub fn resume(&mut self) -> Result<(), AppError> {
+        if self.state != SessionState::Suspended {
+            return Err(invariant("only a suspended prompt session can resume"));
+        }
+        if let Some(raw) = &mut self.raw {
+            raw.resume()?;
+        }
+        self.state = SessionState::Active;
+        Ok(())
+    }
+
     /// Explicitly restore terminal state. Cleanup errors override any prompt outcome.
     pub fn close(&mut self) -> Result<(), AppError> {
-        if self.closed {
+        if self.state == SessionState::Closed {
             return Ok(());
         }
-        self.closed = true;
+        self.state = SessionState::Closed;
+        self.restore_terminal()
+    }
+
+    fn restore_terminal(&mut self) -> Result<(), AppError> {
         let restore_error = self.raw.as_mut().and_then(|raw| raw.restore().err());
         let cursor_error = if self.raw.is_some() {
             self.write(b"\x1b[?25h").err()
@@ -242,7 +275,10 @@ impl<R: Read, W: Write> PromptSession<R, W> {
     }
 
     fn check_ready(&self, message: &str) -> Result<(), AppError> {
-        if self.closed || message.trim().is_empty() || message.chars().any(char::is_control) {
+        if self.state != SessionState::Active
+            || message.trim().is_empty()
+            || message.chars().any(char::is_control)
+        {
             return Err(invariant("prompt session and message must be valid"));
         }
         Ok(())
@@ -779,6 +815,19 @@ impl RawPrompt {
         })
     }
 
+    fn resume(&mut self) -> Result<(), AppError> {
+        let mut raw = self.original.clone();
+        raw.make_raw();
+        raw.output_modes = self.original.output_modes;
+        rustix::termios::tcsetattr(&self.input, rustix::termios::OptionalActions::Now, &raw)
+            .map_err(|error| {
+                AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
+                    .with_source(error)
+            })?;
+        self.restore_attempted = false;
+        Ok(())
+    }
+
     fn restore(&mut self) -> Result<(), AppError> {
         self.restore_attempted = true;
         rustix::termios::tcsetattr(
@@ -808,6 +857,7 @@ impl Drop for RawPrompt {
 #[cfg(not(unix))]
 struct RawPrompt {
     confirmation: bool,
+    active: bool,
 }
 
 #[cfg(not(unix))]
@@ -815,6 +865,7 @@ impl RawPrompt {
     fn enter() -> Result<Self, AppError> {
         Ok(Self {
             confirmation: false,
+            active: false,
         })
     }
     fn enter_confirmation() -> Result<Self, AppError> {
@@ -822,11 +873,24 @@ impl RawPrompt {
             AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
                 .with_source(error)
         })?;
-        Ok(Self { confirmation: true })
+        Ok(Self {
+            confirmation: true,
+            active: true,
+        })
+    }
+    fn resume(&mut self) -> Result<(), AppError> {
+        if self.confirmation {
+            crossterm::terminal::enable_raw_mode().map_err(|error| {
+                AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
+                    .with_source(error)
+            })?;
+            self.active = true;
+        }
+        Ok(())
     }
     fn restore(&mut self) -> Result<(), AppError> {
-        if self.confirmation {
-            self.confirmation = false;
+        if self.active {
+            self.active = false;
             crossterm::terminal::disable_raw_mode().map_err(|error| {
                 AppError::new(AppErrorKind::IoProcess, "failed to restore terminal input")
                     .with_source(error)

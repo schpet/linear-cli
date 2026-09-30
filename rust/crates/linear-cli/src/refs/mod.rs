@@ -7,8 +7,8 @@ mod workspace;
 
 pub use project::{ProjectReference, prepare_project_lookup, resolve_project_with_transport};
 pub use team::{
-    PreparedTeamLookup, ResolvedTeam, find_team, prepare_team_lookup, resolve_team,
-    resolve_team_with_transport,
+    PreparedTeamLookup, ResolvedTeam, fetch_all_teams, fetch_all_teams_with_transport, find_team,
+    prepare_team_lookup, resolve_team, resolve_team_with_transport,
 };
 pub use url::{CycleSelector, LinearUrlKind, LinearUrlParse, LinearUrlRef, parse_linear_url};
 pub use uuid::is_linear_uuid;

@@ -609,3 +609,26 @@ fn confirmation_output_failures_finish_without_consuming_keys() {
         assert!(error.message.contains("failed to flush prompt stdout"));
     }
 }
+
+#[test]
+fn suspension_is_bounded_and_keeps_buffered_answers() {
+    let mut session = PromptSession::script(Cursor::new("first\nsecond\n"), Vec::new());
+    assert!(session.resume().is_err());
+    assert_eq!(
+        session.text("First:", 0, |_| Ok(())).unwrap(),
+        PromptOutcome::Submitted("first".to_owned())
+    );
+    session.suspend().unwrap();
+    assert!(session.suspend().is_err());
+    assert!(session.text("Suspended:", 0, |_| Ok(())).is_err());
+    session.resume().unwrap();
+    assert!(session.resume().is_err());
+    assert_eq!(
+        session.text("Second:", 0, |_| Ok(())).unwrap(),
+        PromptOutcome::Submitted("second".to_owned())
+    );
+    session.close().unwrap();
+    assert!(session.resume().is_err());
+    assert!(session.suspend().is_err());
+    session.close().unwrap();
+}

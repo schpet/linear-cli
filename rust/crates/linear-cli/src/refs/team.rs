@@ -132,7 +132,7 @@ where
 pub async fn resolve_team<ResolveFetch, ResolveFuture, AllFetch, AllFuture>(
     prepared: &PreparedTeamLookup,
     resolve_fetch: ResolveFetch,
-    mut all_fetch: AllFetch,
+    all_fetch: AllFetch,
 ) -> Result<ResolvedTeam, AppError>
 where
     ResolveFetch: FnOnce(GraphQlRequest<ResolveTeamVariables>) -> ResolveFuture,
@@ -144,31 +144,7 @@ where
         return Ok(team);
     }
 
-    let mut teams = Vec::new();
-    let mut after = Edit::Unchanged;
-    let mut seen: HashSet<Option<String>> = HashSet::new();
-    let mut page = 1;
-    loop {
-        let request = GraphQlRequest::with_variables(GetAllTeams::build(GetAllTeamsVariables {
-            first: Some(100),
-            after,
-        }));
-        let response = all_fetch(request).await?;
-        teams.extend(response.teams.nodes.into_iter().map(ResolvedTeam::from));
-        if !response.teams.page_info.has_next_page {
-            break;
-        }
-        let cursor = response.teams.page_info.end_cursor;
-        if !seen.insert(cursor.clone()) {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("Linear repeated a team pagination cursor on page {page}"),
-            )
-            .with_suggestion("Retry the command."));
-        }
-        after = Edit::set_or_clear(cursor);
-        page += 1;
-    }
+    let mut teams = fetch_all_teams(all_fetch).await?;
 
     let suggestion = if teams.is_empty() {
         "This workspace has no teams you can access.".to_owned()
@@ -198,6 +174,54 @@ pub async fn resolve_team_with_transport(
     resolve_team(
         prepared,
         |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+    )
+    .await
+}
+
+/// Fetch all teams in source order: stable root collation of lowercased names.
+pub async fn fetch_all_teams<F, Fut>(mut all_fetch: F) -> Result<Vec<ResolvedTeam>, AppError>
+where
+    F: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> Fut,
+    Fut: Future<Output = Result<GetAllTeams, AppError>>,
+{
+    let mut teams = Vec::new();
+    let mut after = Edit::Unchanged;
+    let mut seen: HashSet<Option<String>> = HashSet::new();
+    let mut page = 1;
+    loop {
+        let request = GraphQlRequest::with_variables(GetAllTeams::build(GetAllTeamsVariables {
+            first: Some(100),
+            after,
+        }));
+        let response = all_fetch(request).await?;
+        teams.extend(response.teams.nodes.into_iter().map(ResolvedTeam::from));
+        if !response.teams.page_info.has_next_page {
+            break;
+        }
+        let cursor = response.teams.page_info.end_cursor;
+        if !seen.insert(cursor.clone()) {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                format!("Linear repeated a team pagination cursor on page {page}"),
+            )
+            .with_suggestion("Retry the command."));
+        }
+        after = Edit::set_or_clear(cursor);
+        page += 1;
+    }
+
+    let collator = collation::root()?;
+    teams.sort_by(|left, right| {
+        collator.compare(&left.name.to_lowercase(), &right.name.to_lowercase())
+    });
+    Ok(teams)
+}
+
+pub async fn fetch_all_teams_with_transport(
+    transport: &GraphQlTransport,
+) -> Result<Vec<ResolvedTeam>, AppError> {
+    fetch_all_teams(
         |request| async move { transport.execute(&request).await.map_err(AppError::from) },
     )
     .await

@@ -13,10 +13,11 @@ use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, cycle_view, document_comment_list,
     initiative_comment_list, initiative_create, initiative_list, initiative_update_list,
-    initiative_view, issue_comment_delete, issue_details, label_list, milestone_create,
-    milestone_delete, milestone_list, milestone_update, milestone_view, project_comment_list,
-    project_delete, project_list, project_update_list, project_view, table, team_create, team_id,
-    team_list, team_members, team_states, template_list, template_view, user_list,
+    initiative_view, issue_comment_delete, issue_details, label_create, label_list,
+    milestone_create, milestone_delete, milestone_list, milestone_update, milestone_view,
+    project_comment_list, project_delete, project_list, project_update_list, project_view, table,
+    team_create, team_id, team_list, team_members, team_states, template_list, template_view,
+    user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -443,7 +444,9 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::label::LabelCommand::List(action)) => {
                 dispatch_label_list(context, &action, workspace)
             }
-            Some(cli::label::LabelCommand::Create(_)) => unsupported("linear label create"),
+            Some(cli::label::LabelCommand::Create(action)) => {
+                dispatch_label_create(context, &action, workspace)
+            }
             Some(cli::label::LabelCommand::Delete(_)) => unsupported("linear label delete"),
         },
         Some(cli::RootCommand::Template(action)) => match action.command {
@@ -2000,6 +2003,130 @@ fn dispatch_team_list(
             error
         }
     })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_label_create(
+    context: &mut AppContext<'_>,
+    action: &cli::label::LabelCreate,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    // Source builds the transport even before validating required fields.
+    let transport = (|| {
+        let config = context.config()?;
+        client::prepare_transport(
+            &config.options,
+            context.credentials()?,
+            workspace,
+            &config.transport_env,
+        )
+    })()
+    .map_err(|error| error.with_context(label_create::CONTEXT))?;
+    let mut options = label_create::Options {
+        name: action.name.clone(),
+        color: action.color.clone(),
+        description: action.description.clone(),
+        team: action.team.clone(),
+        interactive: action.interactive,
+    };
+    if label_create::should_prompt(&options, context.stdout_tty) {
+        context.write_stdout_with_policy(label_create::PROMPT_HEADER, OutputPolicy::ConsoleLike)?;
+        let configured_key = configured_team_key(&context.config()?.options);
+        let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+        let prompted = (|| {
+            let outcome = label_create::prompt_fields(&mut options, &mut session)?;
+            match outcome {
+                crate::platform::prompt::PromptOutcome::Submitted(()) => {}
+                crate::platform::prompt::PromptOutcome::Interrupted => return Ok(outcome),
+                crate::platform::prompt::PromptOutcome::EndOfInput => return Ok(outcome),
+            }
+            if options.team.is_none() {
+                session.suspend()?;
+                let teams =
+                    block_on_network(crate::refs::fetch_all_teams_with_transport(&transport))
+                        .map_err(|error| error.with_context(label_create::CONTEXT))?;
+                session.resume()?;
+                label_create::prompt_team(
+                    &mut options,
+                    &mut session,
+                    &teams,
+                    configured_key.as_deref(),
+                )
+            } else {
+                Ok(crate::platform::prompt::PromptOutcome::Submitted(()))
+            }
+        })();
+        let outcome = session.finish_result(prompted)?;
+        match outcome {
+            crate::platform::prompt::PromptOutcome::Submitted(()) => {}
+            crate::platform::prompt::PromptOutcome::Interrupted => {
+                return Ok(ExitStatus::ChildCode(
+                    std::num::NonZeroU8::new(130).ok_or_else(|| {
+                        AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
+                    })?,
+                ));
+            }
+            crate::platform::prompt::PromptOutcome::EndOfInput => {
+                return Err(AppError::new(
+                    AppErrorKind::Validation,
+                    "unexpected EOF while prompting for label",
+                ));
+            }
+        }
+    }
+    label_create::validate(&options).map_err(|error| error.with_context(label_create::CONTEXT))?;
+    let team_id = match options.team.as_deref().filter(|team| !team.is_empty()) {
+        None => None,
+        Some(team) => {
+            let config = context.config()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let prepared = prepare_team_lookup(
+                team,
+                &WorkspaceScope::from_selection(&inputs, context.credentials()?),
+            )
+            .map_err(|error| error.with_context(label_create::CONTEXT))?;
+            Some(
+                block_on_network(resolve_team_with_transport(&prepared, &transport))
+                    .map_err(|error| error.with_context(label_create::CONTEXT))?
+                    .id,
+            )
+        }
+    };
+    let show_spinner = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let create = label_create::submit(&transport, &options, team_id);
+    let result = if show_spinner {
+        block_on_network(async {
+            tokio::pin!(create);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut create => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(create)
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = result.map_err(|error| error.with_context(label_create::CONTEXT))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

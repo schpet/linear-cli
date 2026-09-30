@@ -42,3 +42,5 @@ pub mod user_list;
 mod style;
 
 pub mod issue_details;
+
+pub mod label_create;

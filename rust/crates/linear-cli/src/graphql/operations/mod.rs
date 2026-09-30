@@ -39,3 +39,5 @@ pub mod templates;
 pub mod workflow_states;
 
 pub mod issue_details;
+
+pub mod label_create;
