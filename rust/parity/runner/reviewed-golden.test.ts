@@ -2102,7 +2102,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   // Update it when adding reviewed command cases.
   // C039/C048/C043/C054/C032/C033/C074 add 15/22/20/18/17/17/9 typed GraphQL
   // cases. C029/C034 add another 14/9 cases; C058/C059 add 5/3; C012/C017 add 5/5.
-  assertEquals(graphql.length, 991)
+  // C046 adds 18 typed GraphQL cases.
+  assertEquals(graphql.length, 1009)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -2315,6 +2316,34 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     "c038-slug-and-name-errors",
     "c038-slug-http-401-name-hit",
   ])
+  const c046Surfaces = new Map<string, string[]>([
+    ["c046-strict-nonenvelope", [
+      "stderr",
+      "graphql-user-agent",
+      "graphql-fixture",
+    ]],
+    ...[
+      "name-error-miss",
+      "url-miss",
+      "details-empty",
+      "non-tty-confirmation",
+      "strict-null-details",
+    ].map((suffix): [string, string[]] => [
+      `c046-${suffix}`,
+      ["stderr", "graphql-user-agent"],
+    ]),
+    ["c046-strict-later-node", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+      "graphql-fixture",
+    ]],
+  ])
+  const c046FixtureDeltas = new Set([
+    "c046-strict-later-node",
+    "c046-strict-nonenvelope",
+  ])
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -2385,6 +2414,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
           c021Surfaces.get(loaded.spec.id) ??
           c022Graphql.get(loaded.spec.id)?.[1] ??
           c016Surfaces.get(loaded.spec.id) ??
+          c046Surfaces.get(loaded.spec.id) ??
           (loaded.spec.id === "c019-transport-error"
             ? ["stderr", "graphql-user-agent"]
             : undefined) ??
@@ -2430,7 +2460,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       c031FixtureDeltas.has(loaded.spec.id) ||
       c027FixtureDeltas.has(loaded.spec.id) ||
       c035FixtureDeltas.has(loaded.spec.id) ||
-      c038FixtureDeltas.has(loaded.spec.id)
+      c038FixtureDeltas.has(loaded.spec.id) ||
+      c046FixtureDeltas.has(loaded.spec.id)
     ) {
       const delta = loaded.golden?.spec.candidate.graphql
       const group = expected.groups[0]

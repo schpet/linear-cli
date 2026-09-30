@@ -1,0 +1,181 @@
+{
+  "id": "c046-archived-url",
+  "route": "linear initiative unarchive",
+  "reason": "archived-url",
+  "argv": [
+    "initiative",
+    "unarchive",
+    "https://linear.app/acme/initiative/archived-000000004646",
+    "--force"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Unarchived initiative: After\nhttps://linear.app/acme/initiative/INI-46\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "7490517bc54cc7061d3ef6fa77b8e6b85ec499ccbb2dedaa7bcd36f8c21c14ca"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {
+      "Initiative:ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF": {
+        "archivedAt": "2026-09-01T00:00:00Z"
+      }
+    },
+    "expectedRecords": {
+      "Initiative:ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF": {
+        "archivedAt": null
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "url",
+            "operation": {
+              "document": "query ResolveInitiativeBySlug($slugId: String!, $includeArchived: Boolean) { initiatives(filter: { slugId: { eq: $slugId } }, includeArchived: $includeArchived) { nodes { id } } }",
+              "variables": {
+                "slugId": "000000004646",
+                "includeArchived": true
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetInitiativeForUnarchive($id: ID!) { initiatives(filter: { id: { eq: $id } }, includeArchived: true) { nodes { id slugId name archivedAt } } }",
+              "variables": {
+                "id": "ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000004602",
+                      "slugId": "INI-46",
+                      "name": "Before",
+                      "archivedAt": "2026-09-01T00:00:00Z"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "unarchive",
+            "operation": {
+              "document": "mutation UnarchiveInitiative($id: String!) { initiativeUnarchive(id: $id) { success entity { id slugId name url } } }",
+              "variables": {
+                "id": "ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeUnarchive": {
+                  "success": true,
+                  "entity": {
+                    "id": "00000000-0000-4000-9000-000000004602",
+                    "slugId": "INI-46",
+                    "name": "After",
+                    "url": "https://linear.app/acme/initiative/INI-46"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Initiative:ABCDEFAB-1234-5678-90AB-ABCDEFABCDEF",
+                "before": {
+                  "value": {
+                    "archivedAt": "2026-09-01T00:00:00Z"
+                  }
+                },
+                "after": {
+                  "archivedAt": null
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

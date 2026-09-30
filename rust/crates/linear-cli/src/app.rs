@@ -12,12 +12,12 @@ use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, cycle_view, document_comment_list,
-    initiative_comment_list, initiative_create, initiative_list, initiative_update_list,
-    initiative_view, issue_comment_delete, issue_details, label_create, label_list,
-    milestone_create, milestone_delete, milestone_list, milestone_update, milestone_view,
-    project_comment_list, project_delete, project_list, project_update_list, project_view, table,
-    team_create, team_id, team_list, team_members, team_states, template_list, template_view,
-    user_list,
+    initiative_comment_list, initiative_create, initiative_list, initiative_unarchive,
+    initiative_update_list, initiative_view, issue_comment_delete, issue_details, label_create,
+    label_list, milestone_create, milestone_delete, milestone_list, milestone_update,
+    milestone_view, project_comment_list, project_delete, project_list, project_update_list,
+    project_view, table, team_create, team_id, team_list, team_members, team_states, template_list,
+    template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -408,8 +408,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::initiative::InitiativeCommand::Update(_)) => {
                 unsupported("linear initiative update")
             }
-            Some(cli::initiative::InitiativeCommand::Unarchive(_)) => {
-                unsupported("linear initiative unarchive")
+            Some(cli::initiative::InitiativeCommand::Unarchive(action)) => {
+                dispatch_initiative_unarchive(context, &action, workspace)
             }
             Some(cli::initiative::InitiativeCommand::Delete(_)) => {
                 unsupported("linear initiative delete")
@@ -1103,6 +1103,96 @@ fn dispatch_initiative_update_list(
             error.with_context(initiative_update_list::CONTEXT)
         }
     })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_initiative_unarchive(
+    context: &mut AppContext<'_>,
+    action: &cli::initiative::InitiativeUnarchive,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::platform::prompt::{PromptOutcome, PromptSession};
+    let original = &action.initiative_id;
+    let config = context.config()?;
+    let credentials = context.credentials()?;
+    let inputs = client::selection_inputs(&config.options, workspace)
+        .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    let transport = client::prepare_transport_with_inputs(
+        &config.options,
+        credentials,
+        &inputs,
+        &config.transport_env,
+    )
+    .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    let reference = initiative_view::prepare_reference(
+        original,
+        &WorkspaceScope::from_selection(&inputs, credentials),
+    )
+    .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    let id = block_on_network(initiative_unarchive::resolve_reference(
+        &transport, &reference, original,
+    ))?;
+    let detail = block_on_network(initiative_unarchive::fetch_details(
+        &transport, &id, original,
+    ))?;
+    if let Some(output) = initiative_unarchive::active_output(&detail) {
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        return Ok(ExitStatus::Success);
+    }
+    if !action.force {
+        if !context.stdin_tty {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                "Interactive confirmation required. Use --force to skip.",
+            ));
+        }
+        let outcome = {
+            let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+            let result = session.confirm(
+                &format!("Are you sure you want to unarchive \"{}\"?", detail.name),
+                true,
+            );
+            session.finish_result(result)?
+        };
+        match outcome {
+            PromptOutcome::Submitted(true) => {}
+            PromptOutcome::Submitted(false) => {
+                context.write_stdout_with_policy(
+                    b"Unarchive cancelled.\n",
+                    OutputPolicy::ConsoleLike,
+                )?;
+                return Ok(ExitStatus::Success);
+            }
+            PromptOutcome::Interrupted => {
+                return Ok(ExitStatus::ChildCode(
+                    std::num::NonZeroU8::new(130).ok_or_else(|| {
+                        AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
+                    })?,
+                ));
+            }
+            PromptOutcome::EndOfInput => {
+                return Err(AppError::new(
+                    AppErrorKind::Validation,
+                    "unexpected EOF while prompting for confirmation",
+                ));
+            }
+        }
+    }
+    let show_spinner = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = block_on_network(initiative_unarchive::submit(&transport, &id));
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = result?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

@@ -37,3 +37,5 @@ mod template_view;
 mod user_list;
 
 mod issue_details;
+
+mod initiative_unarchive;
