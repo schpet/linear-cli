@@ -1,3 +1,10 @@
+import {
+  assertGoldenSha,
+  assertNativeCoverage,
+  assertNativeGoldenContract,
+  assertSameIds,
+  decodeGoldenPins,
+} from "./test-support/corpus-coverage.ts"
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -32,23 +39,41 @@ Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound
     undefined,
     RUST_CONTRACT,
   )
-  const pins =
-    (await Deno.readTextFile(join(root, "native-parser-goldens.sha256")))
-      .trimEnd().split("\n")
-  assertEquals(pins.length, 315)
-  assertEquals(NATIVE_PARSER_CONTRACTS.size, 315)
-  assertEquals(Object.keys(nativeVersionSourcePins).length, 6)
-  let count = 0
-  let versionCount = 0
+  const pins = decodeGoldenPins(
+    await Deno.readTextFile(join(root, "native-parser-goldens.sha256")),
+  )
+  // The separately frozen C077 enum-completion extension has its own cohort guard.
+  assertNativeCoverage(
+    cases,
+    NATIVE_PARSER_CONTRACTS,
+    pins,
+    new Set(["c077-invalid-type"]),
+  )
+  assertSameIds(Object.keys(nativeVersionSourcePins), [
+    "p04a2-version-after4",
+    "r02b3-env-warning-color-absent",
+    "r02b3-env-warning-color-empty",
+    "r02c2-absent-version",
+    "r02c2-inline-invalid-default-version",
+    "r02c2-inline-version",
+  ], "frozen version source pins")
+  for (const id of Object.keys(nativeVersionSourcePins)) {
+    assert(
+      NATIVE_PARSER_CONTRACTS.has(id),
+      `version source pin ${id} is outside native catalog`,
+    )
+  }
+  const matched: string[] = []
+  const matchedVersions: string[] = []
   for (const entry of cases) {
     const contract = NATIVE_PARSER_CONTRACTS.get(entry.spec.id)
     if (contract == null) continue
-    count++
+    matched.push(entry.spec.id)
     const versionPin = Object.entries(nativeVersionSourcePins).find(([id]) =>
       id === entry.spec.id
     )?.[1]
     if (versionPin != null) {
-      versionCount++
+      matchedVersions.push(entry.spec.id)
       assertEquals(
         await sha256Hex(
           new TextEncoder().encode(
@@ -60,12 +85,11 @@ Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound
     }
     const golden = entry.golden
     assert(golden != null)
-    assertEquals(golden.spec.deviationId, contract[0])
-    assertEquals(golden.spec.approvedSurfaces, contract[1])
+    assertNativeGoldenContract(entry.spec.id, golden.spec, contract)
     const bytes = await Deno.readFile(
       join(root, "cases/rust-goldens", RUST_CONTRACT, `${entry.spec.id}.json`),
     )
-    assert(pins.includes(`${await sha256Hex(bytes)}  ${entry.spec.id}.json`))
+    await assertGoldenSha(entry.spec.id, bytes, pins)
     const expected = golden.spec.candidate.expected
     assert(expected != null)
     assertEquals(expected.fileEffects, [])
@@ -102,8 +126,12 @@ Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound
       )
     } else assertEquals(golden.spec.candidate.graphql ?? null, null)
   }
-  assertEquals(count, 315)
-  assertEquals(versionCount, 6)
+  assertSameIds(matched, NATIVE_PARSER_CONTRACTS.keys(), "checked native cases")
+  assertSameIds(
+    matchedVersions,
+    Object.keys(nativeVersionSourcePins),
+    "checked version source pins",
+  )
 })
 
 Deno.test("Pinned native zero-request contracts reject source changes, non-parser outputs and post-load mutation", async () => {

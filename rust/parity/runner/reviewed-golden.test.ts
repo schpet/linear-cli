@@ -1,3 +1,8 @@
+import {
+  assertCaseCoverage,
+  assertSameIds,
+  caseDirectoryInventory,
+} from "./test-support/corpus-coverage.ts"
 import { nativeParserContract } from "./native-parser-contract.ts"
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { join } from "@std/path"
@@ -2098,15 +2103,18 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   const graphql = cases.filter((loaded) =>
     loaded.spec.graphql != null && !loaded.spec.id.startsWith("c002-")
   )
-  // This count also guards older GraphQL fixtures without cohort tests.
-  // Update it when adding reviewed command cases.
-  // C039/C048/C043/C054/C032/C033/C074 add 15/22/20/18/17/17/9 typed GraphQL
-  // cases. C029/C034 add another 14/9 cases; C058/C059 add 5/3; C012/C017 add 5/5.
-  // C046 adds 18 typed GraphQL cases.
-  // C018 adds 12 typed GraphQL cases; C028/C044/C055 add 9/8/8.
-  // C066/C077/C078/C076 + C065/C064 add 44 typed GraphQL cases.
-  // C041/C042 add 24 typed association GraphQL cases.
-  assertEquals(graphql.length, 1142)
+  const inventory = await caseDirectoryInventory(
+    new URL("./cases", import.meta.url).pathname,
+    routes,
+  )
+  assertCaseCoverage(cases, inventory)
+  assertSameIds(
+    graphql.map((entry) => entry.spec.id),
+    [...inventory.values()].filter((entry) =>
+      entry.kind === "graphql" && !entry.id.startsWith("c002-")
+    ).map((entry) => entry.id),
+    "reviewed GraphQL directory coverage",
+  )
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],

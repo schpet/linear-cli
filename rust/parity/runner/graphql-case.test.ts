@@ -1,3 +1,13 @@
+import legacyCoverage from "./test-support/legacy-case-coverage.json" with {
+  type: "json",
+}
+import {
+  assertCaseCoverage,
+  assertLegacyCoverage,
+  assertSameIds,
+  caseDirectoryInventory,
+  manifestRoutes,
+} from "./test-support/corpus-coverage.ts"
 import { assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { loadCases, resolveCase } from "./cases.ts"
 import { parseCase, SchemaError } from "./schema.ts"
@@ -86,15 +96,14 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   }
   assertEquals(resolveCase(parsed, values).graphql?.path, "/graphql")
   const caseDir = new URL("./cases", import.meta.url).pathname
-  const routes = new Set<string>()
-  for await (const entry of Deno.readDir(caseDir)) {
-    if (!entry.name.endsWith(".json")) continue
-    const value: unknown = JSON.parse(
-      await Deno.readTextFile(`${caseDir}/${entry.name}`),
-    )
-    routes.add(parseCase(value).route)
-  }
+  const rawManifest: unknown = JSON.parse(
+    await Deno.readTextFile(new URL("../manifest.json", import.meta.url)),
+  )
+  const routes = manifestRoutes(rawManifest)
+  const inventory = await caseDirectoryInventory(caseDir, routes)
+  await assertLegacyCoverage(inventory, legacyCoverage, rawManifest)
   const loaded = await loadCases(caseDir, routes)
+  assertCaseCoverage(loaded, inventory)
   const originalCaseIds = [
     "api-loopback-port-echo-200",
     "api-loopback-unauthorized-401",
@@ -135,20 +144,17 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   const c002 = (item: { spec: { id: string } }) =>
     item.spec.id.startsWith("c002-")
   const others = loaded.filter((item) => !c002(item))
-  // These corpus-wide counts also guard older fixtures without cohort tests.
-  // C033n adds 4 local positive-limit cases.
-  // Update them when adding reviewed command cases.
-  // C039/C048/C043/C054/C032/C033/C074 add 14/4/4/3/6/7/9 local and
-  // 15/22/20/18/17/17/9 GraphQL cases.
-  // C029/C034 add 18 local and 23 GraphQL cases across the two frozen cohorts.
-  // C057–C059/C012/C017 add 11/2/3 local and 8/5/5 GraphQL cases.
-  // C046 adds 18 GraphQL cases and no local cases.
-  // C018 adds 1 local and 12 GraphQL cases.
-  // C028/C044/C055 add 4/3/1 local and 9/8/8 GraphQL cases.
-  // C066/C077/C078/C076 + C065/C064 add 8 local and 44 GraphQL cases.
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 617)
-  // C041/C042 add 24 typed association GraphQL cases.
-  assertEquals(others.filter((item) => item.spec.graphql != null).length, 1142)
+  for (const kind of ["local", "graphql"]) {
+    assertSameIds(
+      others.filter((item) =>
+        (item.spec.graphql == null ? "local" : "graphql") === kind
+      ).map((item) => item.spec.id),
+      [...inventory.values()].filter((item) =>
+        !item.id.startsWith("c002-") && item.kind === kind
+      ).map((item) => item.id),
+      `other ${kind} corpus coverage`,
+    )
+  }
   assertEquals(loaded.filter(c002).length, 26)
 })
 
