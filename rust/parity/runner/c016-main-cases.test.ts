@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { sha256Hex } from "./bytes.ts"
@@ -9,7 +10,7 @@ const probeRoot = new URL("./c016-v3-probe-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "c3777e3d08fcd4307ec2e9795bc91f7838246b0901e4415d832d2f7da8c4b917"
+  "7f708e999f70e28b5172a365e253a5ddbc4cb18e84c5fff39ae42091308aa41e"
 const combinedEvidenceSha256 =
   "335409d87bbed9d698cacb622f6887e6f3de01cea3165c23334523880cf0efb8"
 const combinedCaseSha256 =
@@ -133,7 +134,7 @@ Deno.test("C016 reviewed v3 goldens have exact case pins and bundle digest", asy
     expectedNames.push(`${source.id}.json`)
     const hash = await sha256Hex(await Deno.readFile(join(corpusRoot, name)))
     assertEquals(hash, source.deviation.sha256, source.id)
-    lines.push([name, hash])
+    if (nativeParserContract(source.id) == null) lines.push([name, hash])
   }
   const actualNames: string[] = []
   for await (const entry of Deno.readDir(join(corpusRoot, goldenDir))) {

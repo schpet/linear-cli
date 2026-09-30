@@ -117,12 +117,20 @@ Deno.test("C033 decimal-parser mutation rejection pins source effects and reject
     }
     const wrongName = { ...golden, deviationId: "OTHER" }
     await write(wrongName)
-    await assertRejects(load, SchemaError, "exact C033 contract")
+    await assertRejects(
+      load,
+      SchemaError,
+      "native parser zero-request contract",
+    )
     const wrongExit = structuredClone(golden)
     assert(wrongExit.candidate.expected != null)
     wrongExit.candidate.expected.exit = { code: 0 }
     await write(wrongExit)
-    await assertRejects(load, SchemaError, "exact C033 contract")
+    await assertRejects(
+      load,
+      SchemaError,
+      "native parser zero-request contract",
+    )
     const writes = structuredClone(golden)
     assert(writes.candidate.expected != null)
     writes.candidate.expected.fileEffects = [{
@@ -131,12 +139,16 @@ Deno.test("C033 decimal-parser mutation rejection pins source effects and reject
       change: "created",
     }]
     await write(writes)
-    await assertRejects(load, SchemaError, "exact C033 contract")
+    await assertRejects(
+      load,
+      SchemaError,
+      "native parser zero-request contract",
+    )
     const alteredSource = structuredClone(source)
     assert(alteredSource.graphql != null)
     alteredSource.graphql.expectedRecords = { changed: true }
     await write(golden, alteredSource)
-    await assertRejects(load, SchemaError, "exact C033 contract")
+    await assertRejects(load, SchemaError, "source projection differs")
     assertThrows(
       () =>
         parseReviewedGolden({

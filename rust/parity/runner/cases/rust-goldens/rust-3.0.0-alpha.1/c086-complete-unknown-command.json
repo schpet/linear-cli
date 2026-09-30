@@ -15,7 +15,7 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "✗ Auto-completion failed. Unknown command \"nope\". Did you mean command \"mine\"?\n"
+        "utf8": "✗ Auto-completion failed. Unknown command \"nope\".\n"
       },
       "fileEffects": []
     }

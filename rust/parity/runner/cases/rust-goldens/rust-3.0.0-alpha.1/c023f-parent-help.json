@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c023f-parent-help",
-  "deviationId": "C023-V3-c023f-parent-help",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear project\nVersion: 3.0.0-alpha.1 \n\nDescription:\n\n  Manage Linear projects\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\nCommands:\n\n  list                  - List projects                  \n  view, v  [projectId]  - View project details           \n  create                - Create a new Linear project    \n  update   <projectId>  - Update a Linear project        \n  delete   <projectId>  - Delete (trash) a Linear project\n  comment               - Manage project comments        \n\n"
+        "utf8": "Manage Linear projects\n\nUsage: linear project [OPTIONS] [COMMAND]\n\nCommands:\n  list     List projects\n  view     View project details [alias: v]\n  create   Create a new Linear project\n  update   Update a Linear project\n  delete   Delete (trash) a Linear project\n  comment  Manage project comments\n  help     Print this message or the help of the given subcommand(s)\n\nOptions:\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

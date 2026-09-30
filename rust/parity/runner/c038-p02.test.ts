@@ -13,10 +13,9 @@ const CONTRACT = "rust-3.0.0-alpha.1"
 const USER_AGENT = "schpet-linear-cli/3.0.0-alpha.1"
 const ROUTE = "linear initiative view"
 const ID = "c038-empty-id"
-const DEVIATION = "C038P02-SYNTHETIC"
+const DEVIATION = "C038-EMPTY-INPUT"
 const SURFACES = [
   "exit",
-  "stdout",
   "stderr",
   "graphql-fixture",
   "graphql-user-agent",
@@ -72,15 +71,6 @@ async function withCorpus(
       new URL("./c038-frozen-cases/c038-empty-id.json", import.meta.url),
     ),
   )
-  source.expected = {
-    exit: { code: 0 },
-    stdout: { utf8: "baseline\n" },
-    stderr: { utf8: "" },
-    fileEffects: [],
-  }
-  source.substitutions = source.substitutions.filter((name: string) =>
-    name !== "referenceModuleUrl"
-  )
   const fixture = join(dir, "fixtures", "workspace-credential", "linear")
   await Deno.mkdir(fixture, { recursive: true })
   await Deno.copyFile(
@@ -131,7 +121,10 @@ function golden(): Record<string, unknown> {
       expected: {
         exit: { code: 2 },
         stdout: { utf8: "" },
-        stderr: { utf8: "error: Initiative reference cannot be empty.\n" },
+        stderr: {
+          utf8:
+            "error: invalid value '' for '<initiativeId>': expected a nonempty value\n\nFor more information, try '--help'.\n",
+        },
         fileEffects: [],
       },
       graphql: { steps: [] },
@@ -157,7 +150,8 @@ Deno.test("C038P02 derives zero requests only from the exact committed empty-ID 
     assertEquals(candidate.golden?.spec.approvedSurfaces, SURFACES)
     assertEquals(candidate.spec.expected.exit, { code: 2 })
     assertEquals(candidate.spec.expected.stderr, {
-      utf8: "error: Initiative reference cannot be empty.\n",
+      utf8:
+        "error: invalid value '' for '<initiativeId>': expected a nonempty value\n\nFor more information, try '--help'.\n",
     })
     assertEquals(
       resolveCase(candidate.spec, VALUES, USER_AGENT).graphql?.groups,
@@ -166,12 +160,11 @@ Deno.test("C038P02 derives zero requests only from the exact committed empty-ID 
     assertThrows(() => resolveCase(candidate.spec, VALUES))
     assertEquals(resolveCase(loaded.spec, VALUES).graphql?.expectedRequests, 2)
 
-    const rejection =
-      "zero-request GraphQL delta needs exactly one frozen query step"
+    const rejection = "source projection differs"
     const changes: Array<[(spec: Record<string, unknown>) => void, string]> = [
       [(s) => {
         s.id = "c038-other"
-      }, rejection],
+      }, "zero-request GraphQL delta needs exactly one frozen query step"],
       [(s) => {
         s.route = "linear initiative list"
       }, rejection],
@@ -303,7 +296,7 @@ Deno.test("C038P02 derives zero requests only from the exact committed empty-ID 
             before: { absent: true },
             after: { value: "x" },
           }]),
-        "effect-free query steps",
+        "source projection differs",
       ],
       [
         (s) => set(s, ["graphql", "expectedRequests"], 3),
@@ -336,7 +329,7 @@ Deno.test("C038P02 derives zero requests only from the exact committed empty-ID 
     const missingApproval = golden()
     set(missingApproval, ["approvedSurfaces"], ["graphql-fixture"])
     await write(missingApproval)
-    await assertRejects(load, SchemaError, "approvedSurfaces")
+    await assertRejects(load, SchemaError, "zero-request contract differs")
     const prefix = golden()
     set(prefix, ["candidate", "graphql", "steps"], [{ id: "slug" }])
     await write(prefix)
@@ -397,12 +390,18 @@ Deno.test("C038P02 confined candidate sends no request and unexpected requests f
             name === "baseline.sh" ? "schpet-linear-cli/2.6.0" : USER_AGENT
           }' --data-raw '${body}' "$LINEAR_GRAPHQL_ENDPOINT" >/dev/null`
         })
+        const stderr = candidate
+          ? "error: invalid value '' for '<initiativeId>': expected a nonempty value\n\nFor more information, try '--help'.\n"
+          : Reflect.get(at(source, ["expected", "stderr"]), "utf8")
+        assert(typeof stderr === "string")
+        const literal = stderr.replaceAll(
+          "{{referenceModuleUrl}}",
+          "file:///tmp/deno-compile-reference-linear",
+        ).replaceAll("'", "'\"'\"'")
         await Deno.writeTextFile(
           path,
-          `#!/bin/sh\n${lines.join("\n")}\n${
-            candidate
-              ? "printf 'error: Initiative reference cannot be empty.\\n' >&2\nexit 2"
-              : "printf 'baseline\\n'"
+          `#!/bin/sh\n${lines.join("\n")}\nprintf '%s' '${literal}' >&2\nexit ${
+            candidate ? 2 : 1
           }\n`,
           { mode: 0o755 },
         )
@@ -413,12 +412,15 @@ Deno.test("C038P02 confined candidate sends no request and unexpected requests f
       const slug = await script("slug.sh", ["slug"], true)
       const name = await script("name.sh", ["name"], true)
       const run = async (program: Program, base = baseline) => {
+        if (base.kind !== "executable") {
+          throw new Error("fixture baseline executable")
+        }
         const [result] = await runCorpus([loaded], base, {
           name: "synthetic C038 zero-request Rust candidate",
           contract: CONTRACT,
           program,
           implementedRoutes: new Set([ROUTE]),
-        }, ctx)
+        }, { ...ctx, referenceBinary: base.path })
         return result
       }
       const pass = await run(zero)

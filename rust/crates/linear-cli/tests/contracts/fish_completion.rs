@@ -241,7 +241,7 @@ fn fish_navigates_every_aliased_parent_and_its_enum_descendants() {
             continue;
         }
         aliased_parents += 1;
-        let expected_children = children
+        let mut expected_children = children
             .iter()
             .flat_map(|child| {
                 std::iter::once(child["name"].as_str().expect("child name").to_owned()).chain(
@@ -253,6 +253,7 @@ fn fish_navigates_every_aliased_parent_and_its_enum_descendants() {
                 )
             })
             .collect::<BTreeSet<_>>();
+        expected_children.insert("help".to_owned());
         for alias in aliases {
             let alias = alias.as_str().expect("parent alias");
             let (base, _) = path.rsplit_once(' ').expect("aliased parent has a parent");
@@ -346,4 +347,46 @@ fn fish_generator_rejects_trees_its_path_helper_cannot_model() {
         let error = fish_completion::script(tree(), name).expect_err(name);
         assert_eq!(error.kind, AppErrorKind::Invariant, "{name:?}");
     }
+}
+
+#[test]
+fn native_fish_drops_deep_options_and_confuses_actual_alias_paths() {
+    assert!(
+        fish_available(),
+        "R01D qualification requires installed fish"
+    );
+    let mut native_command = linear_cli::cli::command();
+    let mut native = Vec::new();
+    clap_complete::generate(
+        clap_complete::Shell::Fish,
+        &mut native_command,
+        "linear",
+        &mut native,
+    );
+    let custom = linear_cli::commands::completions::script(
+        linear_cli::commands::completions::CompletionShell::Fish,
+        None,
+    )
+    .unwrap();
+    let lines = vec![
+        "linear issue comment add -".to_owned(),
+        "linear project comment list -".to_owned(),
+        "linear p comment list -".to_owned(),
+    ];
+    let native_results = complete_lines(&native, &lines);
+    let custom_results = complete_lines(&custom, &lines);
+    eprintln!("native={native_results:?}; custom={custom_results:?}");
+    assert!(words(&custom_results[0]).contains("--reply-to"));
+    assert!(!words(&native_results[0]).contains("--reply-to"));
+    assert_eq!(
+        words(&custom_results[1]),
+        BTreeSet::from(["--help", "--json", "--workspace", "-h", "-j"])
+    );
+    assert!(words(&native_results[1]).contains("--web"));
+    assert!(!words(&custom_results[1]).contains("--web"));
+    assert_ne!(words(&native_results[1]), words(&custom_results[1]));
+    assert_ne!(words(&native_results[2]), words(&custom_results[2]));
+    eprintln!(
+        "native versus custom actual fish: {lines:?}; native={native_results:?}; custom={custom_results:?}"
+    );
 }

@@ -10,7 +10,7 @@ const frozenRoot = new URL("./c031-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "a5a52b4b87c5f8a501f640808be68192d0c1bded8957a297569f5549e7425173"
+  "e70f349b437aeacd59e472ef4ef9cb51f3fb500d84c20645e4a3232eb7fbbb80"
 const pointer =
   /"deviation": \{"id": "[A-Z0-9-]+", "contract": "rust-3\.0\.0-alpha\.1", "sha256": "[0-9a-f]{64}"\}/
 
@@ -224,7 +224,9 @@ Deno.test("C031 goldens bind only the predeclared v3 surfaces", async () => {
     const path = `${goldenDir}/${id}.json`
     const hash = await sha256Hex(await Deno.readFile(join(corpusRoot, path)))
     assertEquals(hash, entry.golden.sha256, id)
-    lines.push(`${hash}  ${path}\n`)
+    if (nativeParserContract(id) == null) {
+      lines.push(`${hash}  ${path}\n`)
+    }
     assertEquals(golden.candidate.argv ?? null, argv.get(id) ?? null, id)
     assertEquals(
       golden.candidate.graphql?.steps.map((step) => step.id) ?? null,
@@ -254,7 +256,7 @@ Deno.test("C031 goldens bind only the predeclared v3 surfaces", async () => {
       )
     }
   }
-  assertEquals(lines.length, 70)
+  assertEquals(lines.length, 60)
   const onDisk: string[] = []
   for await (const entry of Deno.readDir(join(corpusRoot, goldenDir))) {
     if (entry.isFile && entry.name.startsWith("c031-")) onDisk.push(entry.name)

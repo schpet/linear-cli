@@ -48,5 +48,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id": "C033-FINITE-DECIMAL-INPUT", "contract": "rust-3.0.0-alpha.1", "sha256": "f561858b4b25f0b2a35b876b325408597a9434a9b26c41cadd30bfc87ea69352"}
+  "deviation": {"id": "C033-FINITE-DECIMAL-INPUT", "contract": "rust-3.0.0-alpha.1", "sha256": "a09cab956ae5c570a2f52b6aca66fc775885978275403c4ca7dca6eb1843a8f2"}
 }

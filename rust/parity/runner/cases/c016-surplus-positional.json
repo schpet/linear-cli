@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-SURPLUS-POSITIONAL",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "8ecfdfd01cc911039f63ddfb7fdc8fe5043eebd9fe9d03fcd1ee5bf45facd08e"
-  },
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "b0f3843395adc4d12eba870ac830489d08ff7d5b530e3fcbd21a89c0f6d3f601"},
   "id": "c016-surplus-positional",
   "reason": "Surplus positional fails parser.",
   "argv": [

@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c030-help",
-  "deviationId": "C030-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear milestone list --project <project>\nVersion: 3.0.0-alpha.1                            \n\nDescription:\n\n  List milestones for a project\n\nOptions:\n\n  -h, --help              - Show this help.                                \n  --workspace  <slug>     - Target workspace (uses credentials)            \n  --project    <project>  - Project (UUID, slug ID, or name)     (required)\n  -j, --json              - Output as JSON                                 \n\n"
+        "utf8": "List milestones for a project\n\nUsage: linear milestone list [OPTIONS] --project <project>\n\nOptions:\n      --project <project>  Project (UUID, slug ID, or name)\n      --workspace <slug>   Target workspace (uses credentials)\n  -j, --json               Output as JSON\n  -h, --help               Print help\n"
       },
       "stderr": {
         "utf8": ""

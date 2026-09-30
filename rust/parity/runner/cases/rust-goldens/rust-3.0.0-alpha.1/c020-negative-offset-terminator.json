@@ -1,21 +1,23 @@
 {
   "formatVersion": 1,
   "caseId": "c020-negative-offset-terminator",
-  "deviationId": "C020-NEGATIVE-OFFSET-TERMINATOR",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "exit",
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
       "exit": {
-        "code": 2
+        "code": 1
       },
       "stdout": {
-        "utf8": "\nUsage:   linear cycle view <cycleRef>\nVersion: 3.0.0-alpha.1               \n\nDescription:\n\n  View cycle details\n\nOptions:\n\n  -h, --help           - Show this help.                                   \n  --workspace  <slug>  - Target workspace (uses credentials)               \n  --team       <team>  - Team key, name, or ID (defaults to current team)  \n  -j, --json           - Output as JSON                                    \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Missing argument(s): cycleRef\n\n"
+        "utf8": "✗ Failed to fetch cycle details: connection to https://api.linear.app failed: failed to lookup address information: Temporary failure in name resolution\n"
       },
       "fileEffects": []
     }

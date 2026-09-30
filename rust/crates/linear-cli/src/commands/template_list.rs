@@ -15,7 +15,7 @@ use crate::commands::client;
 use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::template_json;
 use crate::config::{ConfigOptions, TransportEnvInputs};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::AppError;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_resolver::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables,
@@ -43,27 +43,12 @@ pub enum TemplateType {
 }
 
 impl TemplateType {
-    pub const ALL: [Self; 3] = [Self::Issue, Self::Project, Self::Document];
-
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Issue => "issue",
             Self::Project => "project",
             Self::Document => "document",
         }
-    }
-
-    /// Convert a value the route's `template-type` enum already accepted.
-    pub fn from_route_value(value: &str) -> Result<Self, AppError> {
-        Self::ALL
-            .into_iter()
-            .find(|template_type| template_type.as_str() == value)
-            .ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    format!("template list received an unexpected --type value {value:?}"),
-                )
-            })
     }
 }
 

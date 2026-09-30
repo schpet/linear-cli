@@ -47,9 +47,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "C086-COMPLETE-ERROR",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "eb01065dcd54692b673acdcdbcba180118eaee79af905227a91f6eebdac963a9"
-  }
+  "deviation": {"id": "C086-COMPLETE-ERROR", "contract": "rust-3.0.0-alpha.1", "sha256": "604c320890ac1f9d106fa4699353b021df19383b19fca0f7992280383e4e2769"}
 }

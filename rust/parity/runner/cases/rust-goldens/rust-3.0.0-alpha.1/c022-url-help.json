@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c022-url-help",
-  "deviationId": "C022-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear template view <template>\nVersion: 3.0.0-alpha.1                  \n\nDescription:\n\n  Show a template and what it pre-fills. Pass its name or ID.\n\nOptions:\n\n  -h, --help           - Show this help.                                                                 \n  --workspace  <slug>  - Target workspace (uses credentials)                                             \n  -j, --json           - Output the template as JSON (templateData stays a JSON-encoded string; use `jq  \n                         '.templateData | fromjson'`)                                                    \n\n"
+        "utf8": "Show a template and what it pre-fills. Pass its name or ID.\n\nUsage: linear template view [OPTIONS] <template>\n\nArguments:\n  <template>  \n\nOptions:\n  -j, --json              Output the template as JSON (templateData stays a JSON-encoded string; use `jq '.templateData | fromjson'`)\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

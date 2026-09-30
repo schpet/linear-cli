@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-HELP",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "5885d4e6576099f962417838a283c8507d0d4286c1bb504ff1d3d50a60f0e358"
-  },
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "3b140ff9a2ab8fda809c59195bf24e3b05e91fb10c194ff4f818ecaae2baddf4"},
   "id": "c016-help",
   "reason": "Help reports frozen local flag and no request.",
   "argv": [

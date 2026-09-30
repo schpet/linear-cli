@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c027-leaf-help",
-  "deviationId": "C027-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear project comment list <project>\nVersion: 3.0.0-alpha.1                        \n\nDescription:\n\n  List comments on a project (by ID, slug, or name)\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n  -j, --json           - Output as JSON                       \n\n"
+        "utf8": "List comments on a project (by ID, slug, or name)\n\nUsage: linear project comment list [OPTIONS] <project>\n\nArguments:\n  <project>  \n\nOptions:\n  -j, --json              Output as JSON\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

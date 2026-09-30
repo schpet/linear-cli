@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c038-parent-help",
-  "deviationId": "C038-CLAP-PARSER",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear initiative\nVersion: 3.0.0-alpha.1    \n\nDescription:\n\n  Manage Linear initiatives\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\nCommands:\n\n  list, ls                                - List initiatives                      \n  view, v         <initiativeId>          - View initiative details               \n  create                                  - Create a new Linear initiative        \n  archive         [initiativeId]          - Archive a Linear initiative           \n  update          <initiativeId>          - Update a Linear initiative            \n  unarchive       <initiativeId>          - Unarchive a Linear initiative         \n  delete          [initiativeId]          - Permanently delete a Linear initiative\n  add-project     <initiative> <project>  - Link a project to an initiative       \n  remove-project  <initiative> <project>  - Unlink a project from an initiative   \n  comment                                 - Manage initiative comments            \n\n"
+        "utf8": "Manage Linear initiatives\n\nUsage: linear initiative [OPTIONS] [COMMAND]\n\nCommands:\n  list            List initiatives [alias: ls]\n  view            View initiative details [alias: v]\n  create          Create a new Linear initiative\n  archive         Archive a Linear initiative\n  update          Update a Linear initiative\n  unarchive       Unarchive a Linear initiative\n  delete          Permanently delete a Linear initiative\n  add-project     Link a project to an initiative\n  remove-project  Unlink a project from an initiative\n  comment         Manage initiative comments\n  help            Print this message or the help of the given subcommand(s)\n\nOptions:\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

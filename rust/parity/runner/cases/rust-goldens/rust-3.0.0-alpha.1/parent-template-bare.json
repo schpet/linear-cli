@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "parent-template-bare",
-  "deviationId": "R01V-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear template\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m  \n\n\u001b[1mDescription:\u001b[22m\n\n  Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                      \n  \u001b[94m--workspace\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)  \n\n\u001b[1mCommands:\u001b[22m\n\n  \u001b[94mlist\u001b[39m                 \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List templates. Without --team, every template in the workspace is shown.\n  \u001b[94mview\u001b[39m, \u001b[94mv\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mtemplate\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show a template and what it pre-fills. Pass its name or ID.              \n\n"
+        "utf8": "Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.\n\nUsage: linear template [OPTIONS] [COMMAND]\n\nCommands:\n  list  List templates. Without --team, every template in the workspace is shown.\n  view  Show a template and what it pre-fills. Pass its name or ID. [alias: v]\n  help  Print this message or the help of the given subcommand(s)\n\nOptions:\n      --workspace <slug>\n          Target workspace (uses credentials)\n\n  -h, --help\n          Print help\n"
       },
       "stderr": {
         "utf8": ""

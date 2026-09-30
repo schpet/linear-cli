@@ -47,5 +47,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id": "C020-NEGATIVE-OFFSET-TERMINATOR", "contract": "rust-3.0.0-alpha.1", "sha256": "232444d9268828ca3de01e5eec2a22d790145a2899185ddfec2c3cbc5a2183d6"}
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "6c50447a81b7a63230ab34c16f2044661cde539e1c8fa9cec5faa49d223755fa"}
 }

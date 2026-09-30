@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-LOCAL-WORKSPACE-VALUE",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "e47c65146798b4f7711273f479277e7b65afbe99745b678f25c9bc0fbff00a51"
-  },
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "9bec6c4ee16fd680643d9ebc61df8911534bd09ec4d13ef8d1bb7896863a33eb"},
   "id": "c016-local-workspace-value",
   "reason": "After-route valued workspace captures collision behavior.",
   "argv": [

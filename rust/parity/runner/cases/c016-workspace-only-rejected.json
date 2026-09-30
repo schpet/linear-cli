@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-WORKSPACE-ONLY-REJECTED",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "0ca0ca9a1fc43c0e2267897318c3419954cca333b8a24b29ea18d8fe382dbc2e"
-  },
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "ac7e68bada25c09c3543d489c7409d398b8d8a1d09faecb57e0702fcf7aa901f"},
   "id": "c016-workspace-only-rejected",
   "reason": "Frozen Deno rejects v3 workspace-only spelling.",
   "argv": [

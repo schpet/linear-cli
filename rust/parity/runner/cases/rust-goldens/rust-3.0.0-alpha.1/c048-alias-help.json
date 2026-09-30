@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c048-alias-help",
-  "deviationId": "C048-V3-HELP-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear initiative-update list <initiativeId>\nVersion: 3.0.0-alpha.1                               \n\nDescription:\n\n  List status updates for an initiative\n\nOptions:\n\n  -h, --help            - Show this help.                                   \n  --workspace  <slug>   - Target workspace (uses credentials)               \n  -j, --json            - Output as JSON                                    \n  --limit      <limit>  - Limit results                        (Default: \u001b[33m10\u001b[39m)\n\n"
+        "utf8": "List status updates for an initiative\n\nUsage: linear initiative-update list [OPTIONS] <initiativeId>\n\nArguments:\n  <initiativeId>  \n\nOptions:\n  -j, --json              Output as JSON\n      --workspace <slug>  Target workspace (uses credentials)\n      --limit <limit>     Limit results [default: 10]\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

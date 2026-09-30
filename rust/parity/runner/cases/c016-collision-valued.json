@@ -7,11 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {
-    "id": "C016-V3-COLLISION-VALUED",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "da14304633288675778f224c3a973c2a0b7148beffd951850f2bf77c325025be"
-  },
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "5cac31019f6cd86a0f507aa49661b44bd4243d6f1fcd57c69eabdbfba4b13c00"},
   "id": "c016-collision-valued",
   "reason": "Frozen local Boolean leaves value as surplus positional.",
   "argv": [

@@ -1,12 +1,21 @@
-import { assert, assertEquals } from "@std/assert"
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
 import { sha256Hex } from "./bytes.ts"
 import { candidateCaseView, loadCases } from "./cases.ts"
 import { NATIVE_PARSER_CONTRACTS } from "./native-parser-contract.ts"
-import { RUST_CONTRACT, RUST_USER_AGENT } from "./schema.ts"
+import nativeVersionSourcePins from "./native-version-source-pins.json" with {
+  type: "json",
+}
+import {
+  parseCase,
+  parseReviewedGolden,
+  RUST_CONTRACT,
+  RUST_USER_AGENT,
+  SchemaError,
+} from "./schema.ts"
 
-Deno.test("Native clap and strict numeric parser goldens form a closed SHA-bound cohort with no requests or effects", async () => {
+Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound cohort with no requests or effects", async () => {
   const root = new URL("./", import.meta.url).pathname
   const manifest = readManifest(
     JSON.parse(
@@ -26,13 +35,29 @@ Deno.test("Native clap and strict numeric parser goldens form a closed SHA-bound
   const pins =
     (await Deno.readTextFile(join(root, "native-parser-goldens.sha256")))
       .trimEnd().split("\n")
-  assertEquals(pins.length, 107)
-  assertEquals(NATIVE_PARSER_CONTRACTS.size, 107)
+  assertEquals(pins.length, 304)
+  assertEquals(NATIVE_PARSER_CONTRACTS.size, 304)
+  assertEquals(Object.keys(nativeVersionSourcePins).length, 6)
   let count = 0
+  let versionCount = 0
   for (const entry of cases) {
     const contract = NATIVE_PARSER_CONTRACTS.get(entry.spec.id)
     if (contract == null) continue
     count++
+    const versionPin = Object.entries(nativeVersionSourcePins).find(([id]) =>
+      id === entry.spec.id
+    )?.[1]
+    if (versionPin != null) {
+      versionCount++
+      assertEquals(
+        await sha256Hex(
+          new TextEncoder().encode(
+            JSON.stringify({ ...entry.spec, deviation: null }),
+          ),
+        ),
+        versionPin,
+      )
+    }
     const golden = entry.golden
     assert(golden != null)
     assertEquals(golden.spec.deviationId, contract[0])
@@ -43,12 +68,27 @@ Deno.test("Native clap and strict numeric parser goldens form a closed SHA-bound
     assert(pins.includes(`${await sha256Hex(bytes)}  ${entry.spec.id}.json`))
     const expected = golden.spec.candidate.expected
     assert(expected != null)
-    assertEquals(expected.exit, { code: 2 })
-    assertEquals(expected.stdout, { utf8: "" })
     assertEquals(expected.fileEffects, [])
-    assert(
-      "utf8" in expected.stderr && expected.stderr.utf8.startsWith("error: "),
-    )
+    assert("code" in expected.exit && [0, 1, 2].includes(expected.exit.code))
+    if (expected.exit.code === 2) {
+      assertEquals(expected.stdout, { utf8: "" })
+      assert(
+        "utf8" in expected.stderr && expected.stderr.utf8.startsWith("error: "),
+      )
+    }
+    if (expected.exit.code === 1) {
+      assert(
+        [
+          "c016-workspace-only-rejected",
+          "c016-collision-valued",
+          "c016-local-workspace-value",
+          "c020-negative-offset-terminator",
+        ].includes(entry.spec.id),
+      )
+      assertEquals(entry.spec.graphql ?? null, null)
+      assertEquals(expected.stdout, { utf8: "" })
+      assert("utf8" in expected.stderr && expected.stderr.utf8.startsWith("✗ "))
+    }
     assertEquals(golden.spec.candidate.argv ?? null, null)
     if (entry.spec.graphql != null) {
       assertEquals(golden.spec.candidate.graphqlUserAgent, RUST_USER_AGENT)
@@ -62,5 +102,74 @@ Deno.test("Native clap and strict numeric parser goldens form a closed SHA-bound
       )
     } else assertEquals(golden.spec.candidate.graphql ?? null, null)
   }
-  assertEquals(count, 107)
+  assertEquals(count, 304)
+  assertEquals(versionCount, 6)
+})
+
+Deno.test("Pinned native zero-request contracts reject source changes, non-parser outputs and post-load mutation", async () => {
+  const root = new URL("./cases/", import.meta.url).pathname
+  const id = "c033-sort-radix"
+  const source = parseCase(
+    JSON.parse(await Deno.readTextFile(join(root, `${id}.json`))),
+  )
+  const golden = parseReviewedGolden(
+    JSON.parse(
+      await Deno.readTextFile(
+        join(root, "rust-goldens", RUST_CONTRACT, `${id}.json`),
+      ),
+    ),
+  )
+  const dir = await Deno.makeTempDir({ prefix: "r01d-zero-control-" })
+  const goldenPath = join(dir, "rust-goldens", RUST_CONTRACT, `${id}.json`)
+  await Deno.mkdir(join(dir, "rust-goldens", RUST_CONTRACT), {
+    recursive: true,
+  })
+  async function write(
+    spec = structuredClone(source),
+    candidate = structuredClone(golden),
+  ) {
+    const bytes = new TextEncoder().encode(JSON.stringify(candidate))
+    await Deno.writeFile(goldenPath, bytes)
+    spec.deviation = {
+      id: candidate.deviationId,
+      contract: RUST_CONTRACT,
+      sha256: await sha256Hex(bytes),
+    }
+    await Deno.writeTextFile(join(dir, `${id}.json`), JSON.stringify(spec))
+  }
+  const routes = new Set(["linear milestone update"])
+  try {
+    await write()
+    const [loaded] = await loadCases(dir, routes, undefined, RUST_CONTRACT)
+    assertEquals(candidateCaseView(loaded).spec.graphql?.expectedRequests, 0)
+    loaded.spec.argv.push("changed-after-load")
+    assertThrows(() => candidateCaseView(loaded), SchemaError, "pinned source")
+    for (const change of ["argv", "initial-records", "expected-records"]) {
+      const spec = structuredClone(source)
+      if (change === "argv") spec.argv.push("changed-input")
+      else {
+        assert(spec.graphql != null)
+        if (change === "initial-records") {
+          spec.graphql.initialRecords["unexpected"] = { changed: true }
+        } else spec.graphql.expectedRecords["unexpected"] = { changed: true }
+      }
+      await write(spec)
+      await assertRejects(
+        () => loadCases(dir, routes, undefined, RUST_CONTRACT),
+        SchemaError,
+        "source projection differs",
+      )
+    }
+    const nonParser = structuredClone(golden)
+    assert(nonParser.candidate.expected != null)
+    nonParser.candidate.expected.exit = { code: 1 }
+    await write(structuredClone(source), nonParser)
+    await assertRejects(
+      () => loadCases(dir, routes, undefined, RUST_CONTRACT),
+      SchemaError,
+      "zero-request contract differs",
+    )
+  } finally {
+    await Deno.remove(dir, { recursive: true })
+  }
 })

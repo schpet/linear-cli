@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "parent-milestone-short-help",
-  "deviationId": "R01V-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear milestone\u001b[39m\n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m   \n\n\u001b[1mDescription:\u001b[22m\n\n  Manage Linear project milestones\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                      \n  \u001b[94m--workspace\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)  \n\n\u001b[1mCommands:\u001b[22m\n\n  \u001b[94mlist\u001b[39m                  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List milestones for a project                                                 \n  \u001b[94mview\u001b[39m, \u001b[94mv\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mmilestone\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m View milestone details. By default lists the first 10 attached issues from the\n                          first page of 50; use --all to paginate the full set.                         \n  \u001b[94mcreate\u001b[39m                \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Create a new project milestone                                                \n  \u001b[94mupdate\u001b[39m   \u001b[33m<\u001b[39m\u001b[95mid\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Update an existing project milestone                                          \n  \u001b[94mdelete\u001b[39m   \u001b[33m<\u001b[39m\u001b[95mid\u001b[39m\u001b[33m>\u001b[39m         \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Delete a project milestone                                                    \n\n"
+        "utf8": "Manage Linear project milestones\n\nUsage: linear milestone [OPTIONS] [COMMAND]\n\nCommands:\n  list    List milestones for a project\n  view    View milestone details. By default lists the first 10 attached issues from the first page of 50; use --all to paginate the full set. [alias: v]\n  create  Create a new project milestone\n  update  Update an existing project milestone\n  delete  Delete a project milestone\n  help    Print this message or the help of the given subcommand(s)\n\nOptions:\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

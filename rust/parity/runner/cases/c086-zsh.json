@@ -43,9 +43,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "C086-STATIC-SHELL-SCRIPT",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "caf88150901b2f225bb02a4388f26bf429af548a1a043b106e3af322d2467ed9"
-  }
+  "deviation": {"id": "C086-STATIC-SHELL-SCRIPT", "contract": "rust-3.0.0-alpha.1", "sha256": "f410621bc44c6c3e7b706836478118a1d29d816e205df1ccd1b76f170dd3157f"}
 }

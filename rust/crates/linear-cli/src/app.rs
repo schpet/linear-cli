@@ -7,8 +7,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::auth::{ApiKeyInput, CredentialSelectionInputs};
-use crate::cli::clap_input::{OptionValue, ParsedAction};
-use crate::cli::{self, DispatchAction};
+use crate::cli;
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
@@ -211,1282 +210,325 @@ pub fn run(argv: &[String], context: &mut AppContext<'_>) -> Result<ExitStatus, 
         return Err(error.app_error());
     }
     let os_argv = argv.iter().map(OsString::from).collect::<Vec<_>>();
-    match cli::clap_input::parse(&os_argv)? {
-        cli::clap_input::Invocation::Help { route, long } => {
-            let help = cli::render::help(route, context.help_color(), long)?;
-            write_stdout(context, help.as_bytes())?;
-            Ok(ExitStatus::Success)
-        }
-        cli::clap_input::Invocation::Version { long: false } => {
-            write_stdout(
-                context,
-                format!("{}\n", env!("CARGO_PKG_VERSION")).as_bytes(),
-            )?;
-            Ok(ExitStatus::Success)
-        }
-        cli::clap_input::Invocation::Version { long: true } => {
-            write_stdout(
-                context,
-                cli::render::long_version(context.help_color()).as_bytes(),
-            )?;
-            Ok(ExitStatus::Success)
-        }
-        cli::clap_input::Invocation::Action(action) => dispatch(action, context),
-    }
+    dispatch(cli::parse(&os_argv)?, context)
 }
 
-fn dispatch(
-    action: cli::clap_input::ParsedAction,
-    context: &mut AppContext<'_>,
-) -> Result<ExitStatus, AppError> {
-    let route = action.route;
-    match route.route.action() {
-        DispatchAction::Root => {
+fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
+    let workspace = cli.workspace.as_deref();
+    match cli.command {
+        None => {
             context.write_stdout_with_policy(
                 b"Use --help to see available commands\n",
                 OutputPolicy::ConsoleLike,
             )?;
             Ok(ExitStatus::Success)
         }
-        DispatchAction::AuthList => {
-            let config = context.config()?;
-            let rows = auth_list::classify(context.credentials()?);
-            let output = if rows.is_empty() {
-                auth_list::EMPTY_OUTPUT.as_bytes().to_vec()
-            } else {
-                let prepared = auth_list::prepare_transports(
-                    rows,
-                    config.options.endpoint().value(),
-                    &config.transport_env,
-                )
-                .map_err(|error| error.with_context(auth_list::CONTEXT))?;
-                let listed = block_on_network(auth_list::fetch(prepared))
-                    .map_err(|error| error.with_context(auth_list::CONTEXT))?;
-                auth_list::render(&listed, context.stdout_tty && !context.no_color())
-            };
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::AuthWhoami => {
-            let config = context.config()?;
-            let credentials = context.credentials()?;
-            let workspace = action
-                .global_workspace
-                .as_ref()
-                .map(|value| value.value.as_str());
-            let transport = auth_whoami::prepare_transport(
-                &config.options,
-                credentials,
-                workspace,
-                &config.transport_env,
-            )?;
-            let output = block_on_network(async move { auth_whoami::run(&transport).await })?;
-            write_stdout(context, &output)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::ProjectList => {
-            let options = project_list::Options {
-                team: action_string(&action, "team")?,
-                all_teams: action_switch(&action, "all-teams")?,
-                status: action_string(&action, "status")?,
-                web: action_switch(&action, "web")?,
-                app: action_switch(&action, "app")?,
-                json: action_switch(&action, "json")?,
-            };
-            let cli_workspace = action
-                .global_workspace
-                .as_ref()
-                .map(|value| value.value.as_str());
-            if options.web || options.app {
-                let config = context.config()?;
-                let credentials = context.credentials()?;
-                let configured_workspace = config
-                    .options
-                    .workspace()
-                    .map(|value| value.value().clone())
-                    .filter(|value| !value.is_empty());
-                let needs_viewer = configured_workspace.is_none();
-                let needs_team_lookup = !options.all_teams && options.team.is_some();
-                let configured_team = if options.all_teams {
-                    None
-                } else {
-                    configured_team_key(&config.options)
-                };
-                let (workspace, team_key) = if needs_viewer || needs_team_lookup {
-                    let inputs = client::selection_inputs(&config.options, cli_workspace)
-                        .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?;
-                    let transport = client::prepare_transport_with_inputs(
-                        &config.options,
-                        credentials,
-                        &inputs,
-                        &config.transport_env,
-                    )
-                    .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?;
-                    block_on_network(async {
-                        let workspace = match configured_workspace {
-                            Some(workspace) => workspace,
-                            None => project_list::viewer_workspace(&transport).await?,
-                        };
-                        let team_key = match options.team.as_deref() {
-                            Some(team) if needs_team_lookup => {
-                                let prepared = prepare_team_lookup(
-                                    team,
-                                    &WorkspaceScope::from_selection(&inputs, credentials),
-                                )?;
-                                Some(
-                                    resolve_team_with_transport(&prepared, &transport)
-                                        .await?
-                                        .key,
-                                )
-                            }
-                            Some(_) | None => configured_team,
-                        };
-                        Ok((workspace, team_key))
-                    })
-                    .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?
-                } else {
-                    let workspace = configured_workspace.ok_or_else(|| {
-                        AppError::new(
-                            AppErrorKind::Invariant,
-                            "project browser workspace was not resolved",
-                        )
-                    })?;
-                    (workspace, configured_team)
-                };
-                let (url, line) =
-                    project_list::opening(&workspace, team_key.as_deref(), options.app);
-                context.write_stdout_with_policy(&line, OutputPolicy::ConsoleLike)?;
-                project_list::open(&url, options.app)?;
-                return Ok(ExitStatus::Success);
+        Some(cli::RootCommand::Auth(action)) => match action.command {
+            None => parent_help(context, "linear auth"),
+            Some(cli::auth::AuthCommand::Login(_)) => unsupported("linear auth login"),
+            Some(cli::auth::AuthCommand::Logout(_)) => unsupported("linear auth logout"),
+            Some(cli::auth::AuthCommand::List(action)) => {
+                dispatch_auth_list(context, &action, workspace)
             }
-
-            let show_spinner = spinner::enabled(
-                options.json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            if show_spinner {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
+            Some(cli::auth::AuthCommand::Default(_)) => unsupported("linear auth default"),
+            Some(cli::auth::AuthCommand::Token(_)) => unsupported("linear auth token"),
+            Some(cli::auth::AuthCommand::Whoami(action)) => {
+                dispatch_auth_whoami(context, &action, workspace)
             }
-            let prepared = (|| {
-                project_list::check_conflicting_flags(&options)?;
-                let config = context.config()?;
-                let credentials = context.credentials()?;
-                let inputs = client::selection_inputs(&config.options, cli_workspace)?;
-                let team_lookup = if options.all_teams {
-                    None
-                } else {
-                    options
-                        .team
-                        .as_deref()
-                        .map(|team| {
-                            prepare_team_lookup(
-                                team,
-                                &WorkspaceScope::from_selection(&inputs, credentials),
-                            )
-                        })
-                        .transpose()?
-                };
-                let transport = client::prepare_transport_with_inputs(
-                    &config.options,
-                    credentials,
-                    &inputs,
-                    &config.transport_env,
-                )?;
-                Ok::<_, AppError>((team_lookup, transport))
-            })();
-            let (team_lookup, transport) = match prepared {
-                Ok(prepared) => prepared,
-                Err(error) => {
-                    if show_spinner {
-                        context
-                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-                    }
-                    return Err(error.with_context(project_list::FETCH_CONTEXT));
+            Some(cli::auth::AuthCommand::Migrate(_)) => unsupported("linear auth migrate"),
+        },
+        Some(cli::RootCommand::Issue(action)) => match action.command {
+            None => parent_help(context, "linear issue"),
+            Some(cli::issue::IssueCommand::Id(_)) => unsupported("linear issue id"),
+            Some(cli::issue::IssueCommand::Mine(_)) => unsupported("linear issue mine"),
+            Some(cli::issue::IssueCommand::Query(_)) => unsupported("linear issue query"),
+            Some(cli::issue::IssueCommand::Title(_)) => unsupported("linear issue title"),
+            Some(cli::issue::IssueCommand::Start(_)) => unsupported("linear issue start"),
+            Some(cli::issue::IssueCommand::View(_)) => unsupported("linear issue view"),
+            Some(cli::issue::IssueCommand::Url(_)) => unsupported("linear issue url"),
+            Some(cli::issue::IssueCommand::Describe(_)) => unsupported("linear issue describe"),
+            Some(cli::issue::IssueCommand::Commits(_)) => unsupported("linear issue commits"),
+            Some(cli::issue::IssueCommand::PullRequest(_)) => {
+                unsupported("linear issue pull-request")
+            }
+            Some(cli::issue::IssueCommand::Archive(_)) => unsupported("linear issue archive"),
+            Some(cli::issue::IssueCommand::Delete(_)) => unsupported("linear issue delete"),
+            Some(cli::issue::IssueCommand::Create(_)) => unsupported("linear issue create"),
+            Some(cli::issue::IssueCommand::Update(_)) => unsupported("linear issue update"),
+            Some(cli::issue::IssueCommand::Comment(action)) => match action.command {
+                None => parent_help(context, "linear issue comment"),
+                Some(cli::issue::IssueCommentCommand::Add(_)) => {
+                    unsupported("linear issue comment add")
                 }
-            };
-            let columns = crate::commands::table::stdout_columns(context.stdout_tty);
-            let color = context.stdout_tty && !context.no_color();
-            let configured_team = if options.all_teams {
-                None
-            } else {
-                configured_team_key(&context.config()?.options)
-            };
-            let pending = async {
-                let team_key = if options.all_teams {
-                    None
-                } else if let Some(prepared) = team_lookup.as_ref() {
-                    Some(resolve_team_with_transport(prepared, &transport).await?.key)
-                } else {
-                    configured_team
-                };
-                project_list::run(
-                    &transport,
-                    team_key.as_deref(),
-                    options.status.as_deref(),
-                    options.json,
-                    columns,
-                    color,
-                )
-                .await
-            };
-            let result = if show_spinner {
-                block_on_network(async {
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result,
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(pending)
-            };
-            if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-            }
-            let output = result.map_err(|error| {
-                if error.context.is_some() {
-                    error
-                } else {
-                    error.with_context(project_list::FETCH_CONTEXT)
+                Some(cli::issue::IssueCommentCommand::Delete(_)) => {
+                    unsupported("linear issue comment delete")
                 }
-            })?;
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::ProjectView => dispatch_project_view(context, &action),
-        DispatchAction::ProjectCommentList => dispatch_project_comment_list(context, &action),
-        DispatchAction::InitiativeCommentList => dispatch_initiative_comment_list(context, &action),
-        DispatchAction::DocumentCommentList => dispatch_document_comment_list(context, &action),
-        DispatchAction::ProjectUpdateList => dispatch_project_update_list(context, &action),
-        DispatchAction::InitiativeList => dispatch_initiative_list(context, &action),
-        DispatchAction::InitiativeView => dispatch_initiative_view(context, &action),
-        DispatchAction::InitiativeCreate => dispatch_initiative_create(context, &action),
-        DispatchAction::InitiativeUpdateList => dispatch_initiative_update_list(context, &action),
-        DispatchAction::MilestoneList => dispatch_milestone_list(context, &action),
-        DispatchAction::MilestoneView => dispatch_milestone_view(context, &action),
-        DispatchAction::MilestoneCreate => dispatch_milestone_create(context, &action),
-        DispatchAction::MilestoneUpdate => dispatch_milestone_update(context, &action),
-        DispatchAction::TeamList => {
-            let flags = team_list::Options {
-                json: action_switch(&action, "json")?,
-                web: action_switch(&action, "web")?,
-                app: action_switch(&action, "app")?,
-            };
-            if flags.web || flags.app {
-                let (url, opening) = team_list::web_opening(&context.config()?.options, flags.app)?;
-                context.write_stdout_with_policy(&opening, OutputPolicy::ConsoleLike)?;
-                team_list::open(&url, flags.app)?;
-                return Ok(ExitStatus::Success);
-            }
-            let spinner = spinner::enabled(
-                flags.json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            if spinner {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-            }
-            let prepared = (|| {
-                let config = context.config()?;
-                let credentials = context.credentials()?;
-                let workspace = action
-                    .global_workspace
-                    .as_ref()
-                    .map(|value| value.value.as_str());
-                client::prepare_transport(
-                    &config.options,
-                    credentials,
-                    workspace,
-                    &config.transport_env,
-                )
-                .map_err(|error| error.with_context("Failed to fetch teams"))
-            })();
-            let transport = match prepared {
-                Ok(transport) => transport,
-                Err(error) => {
-                    if spinner {
-                        context
-                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-                    }
-                    return Err(error);
+                Some(cli::issue::IssueCommentCommand::Update(_)) => {
+                    unsupported("linear issue comment update")
                 }
-            };
-            let columns = table::stdout_columns(context.stdout_tty);
-            let color = context.stdout_tty && !context.no_color();
-            let output_result = if spinner {
-                block_on_network(async {
-                    let pending = team_list::run(&transport, flags.json, columns, color);
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result,
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(
-                                    spinner::frame(frame).as_bytes(),
-                                    OutputPolicy::ConsoleLike,
-                                )?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(async {
-                    team_list::run(&transport, flags.json, columns, color).await
-                })
-            };
-            if spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-            }
-            let output = output_result.map_err(|error| {
-                if error.context.is_none() {
-                    error.with_context("Failed to fetch teams")
-                } else {
-                    error
+                Some(cli::issue::IssueCommentCommand::List(_)) => {
+                    unsupported("linear issue comment list")
                 }
-            })?;
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::LabelList => {
-            let flags = label_list::Options {
-                team: action_string(&action, "team")?,
-                workspace_only: action_switch(&action, "workspace")?,
-                all: action_switch(&action, "all")?,
-                json: action_switch(&action, "json")?,
-            };
-            let cli_workspace = action
-                .global_workspace
-                .as_ref()
-                .map(|value| value.value.as_str());
-            let show_spinner = spinner::enabled(
-                flags.json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            if show_spinner {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-            }
-            let prepared = (|| {
-                let config = context.config()?;
-                let credentials = context.credentials()?;
-                let inputs = client::selection_inputs(&config.options, cli_workspace)?;
-                let transport = client::prepare_transport_with_inputs(
-                    &config.options,
-                    credentials,
-                    &inputs,
-                    &config.transport_env,
-                )?;
-                let scope = WorkspaceScope::from_selection(&inputs, credentials);
-                let configured_team = configured_team_key(&config.options);
-                let selection = label_list::select(&flags, configured_team.as_deref(), &scope)?;
-                Ok::<_, AppError>((transport, selection))
-            })();
-            let (transport, selection) = match prepared {
-                Ok(prepared) => prepared,
-                Err(error) => {
-                    if show_spinner {
-                        context
-                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-                    }
-                    return Err(if error.context.is_none() {
-                        error.with_context(label_list::CONTEXT)
-                    } else {
-                        error
-                    });
+            },
+            Some(cli::issue::IssueCommand::Attach(_)) => unsupported("linear issue attach"),
+            Some(cli::issue::IssueCommand::Link(_)) => unsupported("linear issue link"),
+            Some(cli::issue::IssueCommand::Relation(action)) => match action.command {
+                None => parent_help(context, "linear issue relation"),
+                Some(cli::issue::IssueRelationCommand::Add(_)) => {
+                    unsupported("linear issue relation add")
                 }
-            };
-            let columns = table::stdout_columns(context.stdout_tty);
-            let color = context.stdout_tty && !context.no_color();
-            let output_result = if show_spinner {
-                block_on_network(async {
-                    let pending =
-                        label_list::run(&transport, selection, flags.json, columns, color);
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result,
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(
-                                    spinner::frame(frame).as_bytes(),
-                                    OutputPolicy::ConsoleLike,
-                                )?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(async {
-                    label_list::run(&transport, selection, flags.json, columns, color).await
-                })
-            };
-            if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-            }
-            let output = output_result.map_err(|error| {
-                if error.context.is_none() {
-                    error.with_context(label_list::CONTEXT)
-                } else {
-                    error
+                Some(cli::issue::IssueRelationCommand::Delete(_)) => {
+                    unsupported("linear issue relation delete")
                 }
-            })?;
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::UserList => {
-            let include_disabled = action_switch(&action, "all")?;
-            let json = action_switch(&action, "json")?;
-            let show_spinner = spinner::enabled(
-                json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            if show_spinner {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-            }
-            let prepared = (|| {
-                let config = context.config()?;
-                let credentials = context.credentials()?;
-                let workspace = action
-                    .global_workspace
-                    .as_ref()
-                    .map(|value| value.value.as_str());
-                client::prepare_transport(
-                    &config.options,
-                    credentials,
-                    workspace,
-                    &config.transport_env,
-                )
-                .map_err(|error| error.with_context(user_list::CONTEXT))
-            })();
-            let transport = match prepared {
-                Ok(transport) => transport,
-                Err(error) => {
-                    if show_spinner {
-                        context
-                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-                    }
-                    return Err(error);
+                Some(cli::issue::IssueRelationCommand::List(_)) => {
+                    unsupported("linear issue relation list")
                 }
-            };
-            let output_result = if show_spinner {
-                block_on_network(async {
-                    let pending = user_list::run(&transport, include_disabled, json);
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result,
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(
-                                    spinner::frame(frame).as_bytes(),
-                                    OutputPolicy::ConsoleLike,
-                                )?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(async { user_list::run(&transport, include_disabled, json).await })
-            };
-            if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-            }
-            let output = output_result.map_err(|error| {
-                if error.context.is_none() {
-                    error.with_context(user_list::CONTEXT)
-                } else {
-                    error
+            },
+            Some(cli::issue::IssueCommand::AgentSession(action)) => match action.command {
+                None => parent_help(context, "linear issue agent-session"),
+                Some(cli::issue::IssueAgentSessionCommand::List(_)) => {
+                    unsupported("linear issue agent-session list")
                 }
-            })?;
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::TeamStates => {
-            let json = action_switch(&action, "json")?;
-            let cli_workspace = action
-                .global_workspace
-                .as_ref()
-                .map(|value| value.value.as_str());
-            let explicit = action.positionals.first().filter(|value| !value.is_empty());
-            let prepared = if let Some(reference) = explicit {
-                let config = context.config()?;
-                let api_key = ApiKeyInput::from_options(&config.options).map_err(|error| {
-                    AppError::new(AppErrorKind::Invariant, error.to_string())
-                        .with_context(team_states::CONTEXT)
-                })?;
-                let inputs = CredentialSelectionInputs {
-                    api_key,
-                    cli_workspace,
-                    sourced_workspace: config
-                        .options
-                        .workspace()
-                        .map(|resolved| (resolved.value().as_str(), resolved.source().clone())),
-                };
-                let scope = WorkspaceScope::from_selection(&inputs, context.credentials()?);
-                Some(
-                    prepare_team_lookup(reference, &scope)
-                        .map_err(|error| error.with_context(team_states::CONTEXT))?,
-                )
-            } else {
-                None
-            };
-            let configured_key = if prepared.is_none() {
-                Some(
-                    configured_team_key(&context.config()?.options).ok_or_else(|| {
-                        AppError::new(
-                            AppErrorKind::Validation,
-                            "Could not determine team key from directory name",
-                        )
-                        .with_suggestion("Please specify a team key, name, or ID as an argument.")
-                        .with_context(team_states::CONTEXT)
-                    })?,
-                )
-            } else {
-                None
-            };
-            let spinner = spinner::enabled(
-                json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            if spinner && prepared.is_none() {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-            }
-            let transport = match (|| {
-                let config = context.config()?;
-                client::prepare_transport(
-                    &config.options,
-                    context.credentials()?,
-                    cli_workspace,
-                    &config.transport_env,
-                )
-            })() {
-                Ok(transport) => transport,
-                Err(error) => {
-                    if spinner && prepared.is_none() {
-                        context
-                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-                    }
-                    return Err(error.with_context(team_states::CONTEXT));
+                Some(cli::issue::IssueAgentSessionCommand::View(_)) => {
+                    unsupported("linear issue agent-session view")
                 }
-            };
-            let team_key = match prepared {
-                Some(prepared) => {
-                    block_on_network(async {
-                        resolve_team_with_transport(&prepared, &transport).await
-                    })
-                    .map_err(|error| error.with_context(team_states::CONTEXT))?
-                    .key
+            },
+        },
+        Some(cli::RootCommand::Team(action)) => match action.command {
+            None => parent_help(context, "linear team"),
+            Some(cli::team::TeamCommand::Create(_)) => unsupported("linear team create"),
+            Some(cli::team::TeamCommand::Delete(_)) => unsupported("linear team delete"),
+            Some(cli::team::TeamCommand::List(action)) => {
+                dispatch_team_list(context, &action, workspace)
+            }
+            Some(cli::team::TeamCommand::Id(action)) => {
+                dispatch_team_id(context, &action, workspace)
+            }
+            Some(cli::team::TeamCommand::Autolinks(_)) => unsupported("linear team autolinks"),
+            Some(cli::team::TeamCommand::Members(action)) => {
+                dispatch_team_members(context, &action, workspace)
+            }
+            Some(cli::team::TeamCommand::States(action)) => {
+                dispatch_team_states(context, &action, workspace)
+            }
+        },
+        Some(cli::RootCommand::User(action)) => match action.command {
+            None => parent_help(context, "linear user"),
+            Some(cli::user::UserCommand::List(action)) => {
+                dispatch_user_list(context, &action, workspace)
+            }
+        },
+        Some(cli::RootCommand::Project(action)) => match action.command {
+            None => parent_help(context, "linear project"),
+            Some(cli::project::ProjectCommand::List(action)) => {
+                dispatch_project_list(context, &action, workspace)
+            }
+            Some(cli::project::ProjectCommand::View(action)) => {
+                dispatch_project_view(context, &action, workspace)
+            }
+            Some(cli::project::ProjectCommand::Create(_)) => unsupported("linear project create"),
+            Some(cli::project::ProjectCommand::Update(_)) => unsupported("linear project update"),
+            Some(cli::project::ProjectCommand::Delete(_)) => unsupported("linear project delete"),
+            Some(cli::project::ProjectCommand::Comment(action)) => match action.command {
+                None => parent_help(context, "linear project comment"),
+                Some(cli::project::ProjectCommentCommand::Add(_)) => {
+                    unsupported("linear project comment add")
                 }
-                None => configured_key.ok_or_else(|| {
-                    AppError::new(AppErrorKind::Invariant, "configured team key disappeared")
-                })?,
-            };
-            if spinner && explicit.is_some() {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-            }
-            let color = context.stdout_tty && !context.no_color();
-            let output_result = if spinner {
-                block_on_network(async {
-                    let pending = team_states::run(&transport, team_key, json, color);
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result,
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(
-                                    spinner::frame(frame).as_bytes(),
-                                    OutputPolicy::ConsoleLike,
-                                )?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(async {
-                    team_states::run(&transport, team_key, json, color).await
-                })
-            };
-            if spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-            }
-            let output = output_result.map_err(|error| error.with_context(team_states::CONTEXT))?;
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::TemplateList => {
-            let json = action_switch(&action, "json")?;
-            let template_type = match action.option("type") {
-                None => None,
-                Some(option) => match &option.value.value {
-                    OptionValue::Enum(value) => {
-                        Some(template_list::TemplateType::from_route_value(value)?)
-                    }
-                    _ => {
-                        return Err(AppError::new(
-                            AppErrorKind::Invariant,
-                            "template list --type was not an enum",
-                        ));
-                    }
-                },
-            };
-            let team_reference = match action.option("team") {
-                None => None,
-                Some(option) => match &option.value.value {
-                    OptionValue::String(value) => Some(value.as_str()),
-                    _ => {
-                        return Err(AppError::new(
-                            AppErrorKind::Invariant,
-                            "template list --team was not a string",
-                        ));
-                    }
-                },
-            };
-            let show_spinner = spinner::enabled(
-                json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            if show_spinner {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-            }
-            let prepared = (|| {
-                let config = context.config()?;
-                let credentials = context.credentials()?;
-                let workspace = action
-                    .global_workspace
-                    .as_ref()
-                    .map(|value| value.value.as_str());
-                template_list::prepare(
-                    &config.options,
-                    credentials,
-                    workspace,
-                    &config.transport_env,
-                    team_reference,
-                )
-            })();
-            let prepared = match prepared {
-                Ok(prepared) => prepared,
-                Err(error) => {
-                    if show_spinner {
-                        context
-                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-                    }
-                    return Err(error);
+                Some(cli::project::ProjectCommentCommand::List(action)) => {
+                    dispatch_project_comment_list(context, &action, workspace)
                 }
-            };
-            let columns = table::stdout_columns(context.stdout_tty);
-            let color = context.stdout_tty && !context.no_color();
-            let options = template_list::Options {
-                template_type,
-                json,
-            };
-            let output_result = if show_spinner {
-                block_on_network(async {
-                    let pending = template_list::run(
-                        &prepared.transport,
-                        prepared.team.as_ref(),
-                        options,
-                        columns,
-                        color,
-                    );
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result,
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(
-                                    spinner::frame(frame).as_bytes(),
-                                    OutputPolicy::ConsoleLike,
-                                )?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(async {
-                    template_list::run(
-                        &prepared.transport,
-                        prepared.team.as_ref(),
-                        options,
-                        columns,
-                        color,
-                    )
-                    .await
-                })
-            };
-            if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            },
+        },
+        Some(cli::RootCommand::ProjectUpdate(action)) => match action.command {
+            None => parent_help(context, "linear project-update"),
+            Some(cli::project_update::ProjectUpdateCommand::Create(_)) => {
+                unsupported("linear project-update create")
             }
-            let output = output_result.map_err(|error| {
-                if error.context.is_none() {
-                    error.with_context(template_list::CONTEXT)
-                } else {
-                    error
+            Some(cli::project_update::ProjectUpdateCommand::List(action)) => {
+                dispatch_project_update_list(context, &action, workspace)
+            }
+        },
+        Some(cli::RootCommand::Cycle(action)) => match action.command {
+            None => parent_help(context, "linear cycle"),
+            Some(cli::cycle::CycleCommand::List(action)) => {
+                dispatch_cycle_list(context, &action, workspace)
+            }
+            Some(cli::cycle::CycleCommand::View(action)) => {
+                dispatch_cycle_view(context, &action, workspace)
+            }
+        },
+        Some(cli::RootCommand::Milestone(action)) => match action.command {
+            None => parent_help(context, "linear milestone"),
+            Some(cli::milestone::MilestoneCommand::List(action)) => {
+                dispatch_milestone_list(context, &action, workspace)
+            }
+            Some(cli::milestone::MilestoneCommand::View(action)) => {
+                dispatch_milestone_view(context, &action, workspace)
+            }
+            Some(cli::milestone::MilestoneCommand::Create(action)) => {
+                dispatch_milestone_create(context, &action, workspace)
+            }
+            Some(cli::milestone::MilestoneCommand::Update(action)) => {
+                dispatch_milestone_update(context, &action, workspace)
+            }
+            Some(cli::milestone::MilestoneCommand::Delete(_)) => {
+                unsupported("linear milestone delete")
+            }
+        },
+        Some(cli::RootCommand::Initiative(action)) => match action.command {
+            None => parent_help(context, "linear initiative"),
+            Some(cli::initiative::InitiativeCommand::List(action)) => {
+                dispatch_initiative_list(context, &action, workspace)
+            }
+            Some(cli::initiative::InitiativeCommand::View(action)) => {
+                dispatch_initiative_view(context, &action, workspace)
+            }
+            Some(cli::initiative::InitiativeCommand::Create(action)) => {
+                dispatch_initiative_create(context, &action, workspace)
+            }
+            Some(cli::initiative::InitiativeCommand::Archive(_)) => {
+                unsupported("linear initiative archive")
+            }
+            Some(cli::initiative::InitiativeCommand::Update(_)) => {
+                unsupported("linear initiative update")
+            }
+            Some(cli::initiative::InitiativeCommand::Unarchive(_)) => {
+                unsupported("linear initiative unarchive")
+            }
+            Some(cli::initiative::InitiativeCommand::Delete(_)) => {
+                unsupported("linear initiative delete")
+            }
+            Some(cli::initiative::InitiativeCommand::AddProject(_)) => {
+                unsupported("linear initiative add-project")
+            }
+            Some(cli::initiative::InitiativeCommand::RemoveProject(_)) => {
+                unsupported("linear initiative remove-project")
+            }
+            Some(cli::initiative::InitiativeCommand::Comment(action)) => match action.command {
+                None => parent_help(context, "linear initiative comment"),
+                Some(cli::initiative::InitiativeCommentCommand::Add(_)) => {
+                    unsupported("linear initiative comment add")
                 }
-            })?;
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::TemplateView => {
-            let json = action_switch(&action, "json")?;
-            let reference = action.positionals.first().ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "template view received no template reference",
-                )
-            })?;
-            // Deno starts this spinner before the URL check and credential
-            // selection, and stops it before reporting either failure.
-            let show_spinner = spinner::enabled(
-                json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            if show_spinner {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-            }
-            let prepared = (|| {
-                let config = context.config()?;
-                let credentials = context.credentials()?;
-                let workspace = action
-                    .global_workspace
-                    .as_ref()
-                    .map(|value| value.value.as_str());
-                template_view::prepare(
-                    &config.options,
-                    credentials,
-                    workspace,
-                    &config.transport_env,
-                    reference,
-                )
-            })();
-            let prepared = match prepared {
-                Ok(prepared) => prepared,
-                Err(error) => {
-                    if show_spinner {
-                        context
-                            .write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-                    }
-                    return Err(if error.context.is_none() {
-                        error.with_context(template_view::CONTEXT)
-                    } else {
-                        error
-                    });
+                Some(cli::initiative::InitiativeCommentCommand::List(action)) => {
+                    dispatch_initiative_comment_list(context, &action, workspace)
                 }
-            };
-            let zone = chrono::Local;
-            let output_result = if show_spinner {
-                block_on_network(async {
-                    let pending =
-                        template_view::run(&prepared.transport, &prepared.reference, json, &zone);
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result,
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(
-                                    spinner::frame(frame).as_bytes(),
-                                    OutputPolicy::ConsoleLike,
-                                )?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(async {
-                    template_view::run(&prepared.transport, &prepared.reference, json, &zone).await
-                })
-            };
-            if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            },
+        },
+        Some(cli::RootCommand::InitiativeUpdate(action)) => match action.command {
+            None => parent_help(context, "linear initiative-update"),
+            Some(cli::initiative_update::InitiativeUpdateCommand::Create(_)) => {
+                unsupported("linear initiative-update create")
             }
-            let output = output_result.map_err(|error| {
-                if error.context.is_none() {
-                    error.with_context(template_view::CONTEXT)
-                } else {
-                    error
+            Some(cli::initiative_update::InitiativeUpdateCommand::List(action)) => {
+                dispatch_initiative_update_list(context, &action, workspace)
+            }
+        },
+        Some(cli::RootCommand::Label(action)) => match action.command {
+            None => parent_help(context, "linear label"),
+            Some(cli::label::LabelCommand::List(action)) => {
+                dispatch_label_list(context, &action, workspace)
+            }
+            Some(cli::label::LabelCommand::Create(_)) => unsupported("linear label create"),
+            Some(cli::label::LabelCommand::Delete(_)) => unsupported("linear label delete"),
+        },
+        Some(cli::RootCommand::Template(action)) => match action.command {
+            None => parent_help(context, "linear template"),
+            Some(cli::template::TemplateCommand::List(action)) => {
+                dispatch_template_list(context, &action, workspace)
+            }
+            Some(cli::template::TemplateCommand::View(action)) => {
+                dispatch_template_view(context, &action, workspace)
+            }
+        },
+        Some(cli::RootCommand::Document(action)) => match action.command {
+            None => document_hint(context),
+            Some(cli::document::DocumentCommand::List(_)) => unsupported("linear document list"),
+            Some(cli::document::DocumentCommand::View(_)) => unsupported("linear document view"),
+            Some(cli::document::DocumentCommand::Create(_)) => {
+                unsupported("linear document create")
+            }
+            Some(cli::document::DocumentCommand::Update(_)) => {
+                unsupported("linear document update")
+            }
+            Some(cli::document::DocumentCommand::Delete(_)) => {
+                unsupported("linear document delete")
+            }
+            Some(cli::document::DocumentCommand::Comment(action)) => match action.command {
+                None => parent_help(context, "linear document comment"),
+                Some(cli::document::DocumentCommentCommand::Add(_)) => {
+                    unsupported("linear document comment add")
                 }
-            })?;
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::CycleView => {
-            let reference = action
-                .positionals
-                .first()
-                .ok_or_else(|| {
-                    AppError::new(AppErrorKind::Invariant, "cycle view reference disappeared")
-                })?
-                .clone();
-            let json = action_switch(&action, "json")?;
-            let explicit_team = action_string(&action, "team")?;
-            let selected = (|| {
-                let config = context.config()?;
-                let credentials = context.credentials()?;
-                let workspace = action
-                    .global_workspace
-                    .as_ref()
-                    .map(|value| value.value.as_str());
-                let inputs = client::selection_inputs(&config.options, workspace)?;
-                let scope = WorkspaceScope::from_selection(&inputs, credentials);
-                let url = crate::refs::expect_url_kind(
-                    &reference,
-                    crate::refs::LinearUrlKind::Cycle,
-                    "a cycle URL, number, or name",
-                    &scope,
-                )?;
-                let url_team = match &url {
-                    Some(crate::refs::LinearUrlRef::Cycle { team_key, .. }) => {
-                        Some(team_key.clone())
-                    }
-                    Some(_) => {
-                        return Err(AppError::new(AppErrorKind::Invariant, "expected cycle URL"));
-                    }
-                    None => None,
-                };
-                let team_reference = explicit_team
-                    .or(url_team)
-                    .or_else(|| configured_team_key(&config.options))
-                    .ok_or_else(|| {
-                        AppError::new(
-                            AppErrorKind::Validation,
-                            "Could not determine team key from directory name or team flag",
-                        )
-                    })?;
-                let prepared = prepare_team_lookup(&team_reference, &scope)?;
-                let transport = client::prepare_transport_with_inputs(
-                    &config.options,
-                    credentials,
-                    &inputs,
-                    &config.transport_env,
-                )?;
-                Ok::<_, AppError>((url, prepared, transport))
-            })()
-            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
-            let (url, prepared, transport) = selected;
-            let team = block_on_network(async {
-                resolve_team_with_transport(&prepared, &transport).await
-            })
-            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
-            let cycle_id = block_on_network(async {
-                cycle_view::resolve_id(&transport, &team.id, &reference, url.as_ref()).await
-            })
-            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
-            let show_spinner = spinner::enabled(
-                json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            if show_spinner {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-            }
-            let request = cycle_view::detail_request(&cycle_id);
-            let response = if show_spinner {
-                block_on_network(async {
-                    let pending = transport.send_request(&request);
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result.map_err(AppError::from),
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(
-                                    spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike,
-                                )?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(async {
-                    transport
-                        .send_request(&request)
-                        .await
-                        .map_err(AppError::from)
-                })
-            }
-            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
-            let details: Result<crate::graphql::operations::cycle_view::GetCycleDetails, _> =
-                crate::graphql::transport::classify_typed(response);
-            if show_spinner
-                && (details.is_ok()
-                    || matches!(
-                        &details,
-                        Err(crate::graphql::transport::TransportFailure::Response(
-                            crate::graphql::envelope::ResponseError::UnexpectedShape(_)
-                        ))
-                    ))
-            {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-            }
-            let details =
-                details.map_err(|error| AppError::from(error).with_context(cycle_view::CONTEXT))?;
-            let cycle = details.cycle.ok_or_else(|| {
-                AppError::not_found("Cycle", &reference).with_context(cycle_view::CONTEXT)
-            })?;
-            let output = if json {
-                cycle_view::json(&cycle).map_err(|error| error.with_context(cycle_view::CONTEXT))?
-            } else {
-                let markdown = cycle_view::markdown(&cycle, chrono::Utc::now(), &chrono::Local)
-                    .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
-                let rendered = if context.stdout_tty {
-                    use std::num::NonZeroU16;
-                    let columns = u16::try_from(table::stdout_columns(true))
-                        .ok()
-                        .and_then(NonZeroU16::new)
-                        .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
-                    let options = crate::platform::markdown_terminal::RenderOptions::for_terminal(
-                        columns,
-                        context.startup.settings.no_color,
-                        true,
-                        None,
-                        crate::platform::markdown_terminal::HostSource::System,
-                    );
-                    crate::platform::markdown_terminal::render(&markdown, &options)
-                        .map_err(|error| error.with_context(cycle_view::CONTEXT))?
-                } else {
-                    markdown
-                };
-                format!("{rendered}\n").into_bytes()
-            };
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::CycleList => {
-            let json = action_switch(&action, "json")?;
-            let team_reference = match action_string(&action, "team")? {
-                Some(explicit) => explicit,
-                None => configured_team_key(&context.config()?.options).ok_or_else(|| {
-                    AppError::new(
-                        AppErrorKind::Validation,
-                        "Could not determine team key from directory name or team flag",
-                    )
-                    .with_context(cycle_list::CONTEXT)
-                })?,
-            };
-            let selected = (|| {
-                let config = context.config()?;
-                let credentials = context.credentials()?;
-                let workspace = action
-                    .global_workspace
-                    .as_ref()
-                    .map(|value| value.value.as_str());
-                let inputs = client::selection_inputs(&config.options, workspace)?;
-                let scope = WorkspaceScope::from_selection(&inputs, credentials);
-                let prepared = prepare_team_lookup(&team_reference, &scope)?;
-                let transport = client::prepare_transport_with_inputs(
-                    &config.options,
-                    credentials,
-                    &inputs,
-                    &config.transport_env,
-                )?;
-                Ok::<_, AppError>((prepared, transport))
-            })()
-            .map_err(|error| error.with_context(cycle_list::CONTEXT))?;
-            let (prepared, transport) = selected;
-            let team = block_on_network(async {
-                resolve_team_with_transport(&prepared, &transport).await
-            })
-            .map_err(|error| error.with_context(cycle_list::CONTEXT))?;
-
-            // Deno starts this spinner after the team lookup, and its catch
-            // path leaves the last frame visible on a cycle-fetch error.
-            let show_spinner = spinner::enabled(
-                json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            if show_spinner {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-            }
-            let columns = table::stdout_columns(context.stdout_tty);
-            let color = !context.no_color();
-            let output = if show_spinner {
-                block_on_network(async {
-                    let pending = cycle_list::run(&transport, &team.id, json, columns, color);
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result,
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(
-                                    spinner::frame(frame).as_bytes(),
-                                    OutputPolicy::ConsoleLike,
-                                )?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(async {
-                    cycle_list::run(&transport, &team.id, json, columns, color).await
-                })
-            }
-            .map_err(|error| {
-                if error.context.is_none() {
-                    error.with_context(cycle_list::CONTEXT)
-                } else {
-                    error
+                Some(cli::document::DocumentCommentCommand::List(action)) => {
+                    dispatch_document_comment_list(context, &action, workspace)
                 }
-            })?;
-            if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            },
+        },
+        Some(cli::RootCommand::Completions(action)) => match action.command {
+            None => parent_help(context, "linear completions"),
+            Some(cli::completions::CompletionsCommand::Bash(action)) => {
+                write_completion_script(context, CompletionShell::Bash, action.name.as_deref())
             }
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::TeamMembers => {
-            let flags = team_members::Options {
-                all: action_switch(&action, "all")?,
-                json: action_switch(&action, "json")?,
-            };
-            let explicit = action.positionals.first().filter(|value| !value.is_empty());
-            let workspace = action
-                .global_workspace
-                .as_ref()
-                .map(|value| value.value.as_str());
-            let show_spinner = spinner::enabled(
-                flags.json,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
-            let mut spinner_started = false;
-            let fallback_key = if explicit.is_none() {
-                Some(
-                    crate::commands::team_key::configured_team_key(&context.config()?.options)
-                        .ok_or_else(|| missing_team_key().with_context(team_members::CONTEXT))?,
-                )
-            } else {
-                None
-            };
-            if show_spinner && fallback_key.is_some() {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-                spinner_started = true;
+            Some(cli::completions::CompletionsCommand::Fish(action)) => {
+                write_completion_script(context, CompletionShell::Fish, action.name.as_deref())
             }
-
-            // A missing local key fails before credential selection. Explicit
-            // references are locally prepared before transport, and resolved
-            // before the member-query spinner begins.
-            let selected = (|| {
-                let config = context.config()?;
-                if let Some(reference) = explicit {
-                    let credentials = context.credentials()?;
-                    let inputs = client::selection_inputs(&config.options, workspace)?;
-                    let scope = WorkspaceScope::from_selection(&inputs, credentials);
-                    let prepared = prepare_team_lookup(reference, &scope)?;
-                    let transport = client::prepare_transport_with_inputs(
-                        &config.options,
-                        credentials,
-                        &inputs,
-                        &config.transport_env,
-                    )?;
-                    let team = block_on_network(async {
-                        resolve_team_with_transport(&prepared, &transport).await
-                    })?;
-                    if team.key.is_empty() {
-                        return Err(missing_team_key());
-                    }
-                    Ok((team.key, transport))
-                } else {
-                    let key = fallback_key.ok_or_else(|| {
-                        AppError::new(AppErrorKind::Invariant, "configured team key was lost")
-                    })?;
-                    Ok((
-                        key,
-                        client::prepare_transport(
-                            &config.options,
-                            context.credentials()?,
-                            workspace,
-                            &config.transport_env,
-                        )?,
-                    ))
-                }
-            })();
-            let selected = selected.map_err(|error: AppError| {
-                if error.context.is_none() {
-                    error.with_context(team_members::CONTEXT)
-                } else {
-                    error
-                }
-            });
-            if selected.is_err() && spinner_started {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            Some(cli::completions::CompletionsCommand::Zsh(action)) => {
+                write_completion_script(context, CompletionShell::Zsh, action.name.as_deref())
             }
-            let (team_key, transport) = selected?;
-            if show_spinner && !spinner_started {
-                context.write_stdout_with_policy(
-                    spinner::frame(0).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-                spinner_started = true;
+            Some(cli::completions::CompletionsCommand::Complete(action)) => {
+                write_complete(context, &action)
             }
-            let output_result = if spinner_started {
-                block_on_network(async {
-                    let pending = team_members::run(&transport, &team_key, flags);
-                    tokio::pin!(pending);
-                    let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-                    ticks.tick().await;
-                    let mut frame = 1;
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut pending => break result,
-                            _ = ticks.tick() => {
-                                context.write_stdout_with_policy(
-                                    spinner::frame(frame).as_bytes(),
-                                    OutputPolicy::ConsoleLike,
-                                )?;
-                                frame = frame.wrapping_add(1);
-                            }
-                        }
-                    }
-                })
-            } else {
-                block_on_network(team_members::run(&transport, &team_key, flags))
-            };
-            if spinner_started {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
-            }
-            context.write_stdout_with_policy(&output_result?, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::Document => {
-            write_stdout(context, b"Use --help to see available subcommands\n")?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::ParentPending => {
-            write_stdout(
-                context,
-                cli::render::help(route, context.help_color(), false)?.as_bytes(),
-            )?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::Markdown => {
-            context.write_stdout_with_policy(
-                format!("{}\n", route.description).as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::TeamId => {
-            let text = team_id::render(context)?;
-            context.write_stdout_with_policy(text.as_bytes(), OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::Completions => {
-            context.write_stdout_with_policy(
-                cli::render::help(route, context.help_color(), false)?.as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::CompletionsBash => {
-            write_completion_script(context, CompletionShell::Bash, &action)
-        }
-        DispatchAction::CompletionsFish => {
-            write_completion_script(context, CompletionShell::Fish, &action)
-        }
-        DispatchAction::CompletionsZsh => {
-            write_completion_script(context, CompletionShell::Zsh, &action)
-        }
-        DispatchAction::CompletionsComplete => {
-            let output = completions::complete(&action)?;
-            // Cliffy's writeSync skips an empty result and fails on a closed pipe.
-            if !output.is_empty() {
-                context.write_stdout_with_policy(&output, OutputPolicy::Strict)?;
-            }
-            Ok(ExitStatus::Success)
-        }
-        DispatchAction::Unimplemented => Err(AppError::new(
-            AppErrorKind::Unimplemented,
-            format!(
-                "{} is registered, but this action is not implemented yet",
-                route.path
-            ),
-        )),
+        },
+        Some(cli::RootCommand::Config(_)) => unsupported("linear config"),
+        Some(cli::RootCommand::Schema(_)) => unsupported("linear schema"),
+        Some(cli::RootCommand::Api(_)) => unsupported("linear api"),
+        Some(cli::RootCommand::Markdown(_)) => markdown(context),
     }
+}
+fn unsupported(path: &str) -> Result<ExitStatus, AppError> {
+    Err(AppError::new(
+        AppErrorKind::Unimplemented,
+        format!("{path} is registered, but this action is not implemented yet"),
+    ))
+}
+
+fn parent_help(context: &mut AppContext<'_>, path: &str) -> Result<ExitStatus, AppError> {
+    let mut command = cli::command();
+    command.build();
+    let mut selected = &mut command;
+    for word in path.split_whitespace().skip(1) {
+        selected = selected.find_subcommand_mut(word).ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                format!("native command path missing: {path}"),
+            )
+        })?;
+    }
+    context.write_stdout_with_policy(
+        selected.render_long_help().to_string().as_bytes(),
+        OutputPolicy::ConsoleLike,
+    )?;
+    Ok(ExitStatus::Success)
+}
+
+fn document_hint(context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
+    write_stdout(context, b"Use --help to see available subcommands\n")?;
+    Ok(ExitStatus::Success)
+}
+
+fn markdown(context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
+    context.write_stdout_with_policy("Linear-flavored Markdown: mentions and collapsible sections\n\nThese rules apply to comment bodies, issue descriptions, document content,\nproject overviews, and status update bodies.\n\nMENTIONS\n\nA resource's plain Linear URL becomes a linked mention. A literal `@name`, an\n`@[Name](id)`, or a Markdown link such as `[Name](url)` does not — it stays\nplain text and notifies nobody. Put the bare URL in the body:\n\nhttps://linear.app/acme/profiles/someuser can you take a look?\n\nRESOLVING PEOPLE\n\nLook the person up in the relevant team first. The team can usually be\ninferred from the issue identifier or the current directory:\n\nlinear team members ENG --json\n\nPaste the selected member's `url` field verbatim. If the intended person is\nnot a member of that team, stop and confirm before searching the whole\nworkspace with `linear user list --json`; mentioning someone outside the team\nis likely accidental.\n\nTo mention an issue, use its URL the same way:\n\nlinear issue url ENG-123\n\nCOLLAPSIBLE SECTIONS\n\nOpen a section with `+++ [title]` and close it with `+++`:\n\n+++ [Server log]\n\nMarkdown content that is initially hidden.\n\n+++\n\nThe square brackets around the title and the closing `+++` are both required.\n".as_bytes(), OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn write_complete(
+    context: &mut AppContext<'_>,
+    action: &cli::completions::CompletionsComplete,
+) -> Result<ExitStatus, AppError> {
+    let output = completions::complete(action)?;
+    if !output.is_empty() {
+        context.write_stdout_with_policy(&output, OutputPolicy::Strict)?;
+    }
+    Ok(ExitStatus::Success)
 }
 
 fn missing_team_key() -> AppError {
@@ -1499,21 +541,18 @@ fn missing_team_key() -> AppError {
 
 fn dispatch_project_view(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::project::ProjectView,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
     use crate::platform::{markdown_terminal::HostSource, pager, selector};
     use crate::refs::is_linear_uuid;
 
-    let json = action_switch(action, "json")?;
-    let web = action_switch(action, "web")?;
-    let app = action_switch(action, "app")?;
-    // Negated switches already carry their positive state after clap extraction.
-    let pager_enabled = project_pager_enabled(action)?;
-    let explicit = action.positionals.first().map(String::as_str);
-    let cli_workspace = action
-        .global_workspace
-        .as_ref()
-        .map(|value| value.value.as_str());
+    let json = action.json;
+    let web = action.web;
+    let app = action.app;
+    let pager_enabled = !action.no_pager;
+    let explicit = action.project_id.as_deref();
+    let cli_workspace = workspace;
     let original = if let Some(reference) = explicit {
         reference.to_owned()
     } else {
@@ -1722,21 +761,13 @@ fn dispatch_project_view(
 
 fn dispatch_milestone_view(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::milestone::MilestoneView,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let json = action_switch(action, "json")?;
-    let all = action_switch(action, "all")?;
-    let original = action
-        .positionals
-        .first()
-        .ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "milestone view received no milestone",
-            )
-        })?
-        .clone();
-    let project = action_string(action, "project")?;
+    let json = action.json;
+    let all = action.all;
+    let original = action.milestone.clone();
+    let project = action.project.clone();
     let show_spinner = spinner::enabled(
         json,
         context.stdout_tty,
@@ -1749,10 +780,7 @@ fn dispatch_milestone_view(
     let prepared = (|| {
         let config = context.config()?;
         let credentials = context.credentials()?;
-        let workspace = action
-            .global_workspace
-            .as_ref()
-            .map(|value| value.value.as_str());
+
         let inputs = client::selection_inputs(&config.options, workspace)?;
         let reference = project
             .as_deref()
@@ -1856,31 +884,12 @@ fn dispatch_milestone_view(
 
 fn dispatch_project_update_list(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::project_update::ProjectUpdateList,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let json = action_switch(action, "json")?;
-    let first = match action.option("limit") {
-        None => 10,
-        Some(option) => match option.value.value {
-            OptionValue::PositiveInteger(value) => project_update_list::graphql_int(value)?,
-            _ => {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
-                    "project update limit was not a positive integer",
-                ));
-            }
-        },
-    };
-    let original = action
-        .positionals
-        .first()
-        .ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "project update list received no project",
-            )
-        })?
-        .clone();
+    let json = action.json;
+    let first = project_update_list::graphql_int(action.limit)?;
+    let original = action.project_id.clone();
     let show_spinner = spinner::enabled(
         json,
         context.stdout_tty,
@@ -1893,10 +902,7 @@ fn dispatch_project_update_list(
     let result = (|| {
         let config = context.config()?;
         let credentials = context.credentials()?;
-        let workspace = action
-            .global_workspace
-            .as_ref()
-            .map(|value| value.value.as_str());
+
         let inputs = client::selection_inputs(&config.options, workspace)?;
         let reference = prepare_project_lookup(
             &original,
@@ -1931,24 +937,22 @@ fn dispatch_project_update_list(
 
 fn dispatch_initiative_create(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::initiative::InitiativeCreate,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
     let mut options = initiative_create::Options {
-        name: action_string(action, "name")?,
-        description: action_string(action, "description")?,
-        status: action_string(action, "status")?,
-        owner: action_string(action, "owner")?,
-        target_date: action_string(action, "target-date")?,
-        color: action_string(action, "color")?,
-        icon: action_string(action, "icon")?,
-        interactive: action_switch(action, "interactive")?,
+        name: action.name.clone(),
+        description: action.description.clone(),
+        status: action.status.clone(),
+        owner: action.owner.clone(),
+        target_date: action.target_date.clone(),
+        color: action.color.clone(),
+        icon: action.icon.clone(),
+        interactive: action.interactive,
     };
     let config = context.config()?;
     let credentials = context.credentials()?;
-    let cli_workspace = action
-        .global_workspace
-        .as_ref()
-        .map(|value| value.value.as_str());
+    let cli_workspace = workspace;
     let inputs = client::selection_inputs(&config.options, cli_workspace)
         .map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
     let transport = client::prepare_transport_with_inputs(
@@ -2028,27 +1032,12 @@ fn dispatch_initiative_create(
 
 fn dispatch_initiative_update_list(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::initiative_update::InitiativeUpdateList,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let json = action_switch(action, "json")?;
-    let first = match action.option("limit") {
-        None => 10,
-        Some(option) => match option.value.value {
-            OptionValue::PositiveInteger(value) => initiative_update_list::graphql_int(value)?,
-            _ => {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
-                    "initiative update limit was not a positive integer",
-                ));
-            }
-        },
-    };
-    let original = action.positionals.first().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "initiative update list received no initiative",
-        )
-    })?;
+    let json = action.json;
+    let first = initiative_update_list::graphql_int(action.limit)?;
+    let original = &action.initiative_id;
     let show_spinner = spinner::enabled(
         json,
         context.stdout_tty,
@@ -2061,10 +1050,7 @@ fn dispatch_initiative_update_list(
     let result = (|| {
         let config = context.config()?;
         let credentials = context.credentials()?;
-        let workspace = action
-            .global_workspace
-            .as_ref()
-            .map(|value| value.value.as_str());
+
         let inputs = client::selection_inputs(&config.options, workspace)?;
         let reference = initiative_view::prepare_reference(
             original,
@@ -2105,23 +1091,16 @@ fn dispatch_initiative_update_list(
 
 fn dispatch_initiative_view(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::initiative::InitiativeView,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let original = action.positionals.first().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "initiative view received no reference",
-        )
-    })?;
-    let app = action_switch(action, "app")?;
-    let web = action_switch(action, "web")?;
-    let json = action_switch(action, "json")?;
+    let original = &action.initiative_id;
+    let app = action.app;
+    let web = action.web;
+    let json = action.json;
     let config = context.config()?;
     let credentials = context.credentials()?;
-    let cli_workspace = action
-        .global_workspace
-        .as_ref()
-        .map(|value| value.value.as_str());
+    let cli_workspace = workspace;
     let inputs = client::selection_inputs(&config.options, cli_workspace)
         .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
     let transport = client::prepare_transport_with_inputs(
@@ -2186,21 +1165,19 @@ fn dispatch_initiative_view(
 
 fn dispatch_initiative_list(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::initiative::InitiativeList,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
     let options = initiative_list::Options {
-        status: action_string(action, "status")?,
-        all_statuses: action_switch(action, "all-statuses")?,
-        owner: action_string(action, "owner")?,
-        web: action_switch(action, "web")?,
-        app: action_switch(action, "app")?,
-        json: action_switch(action, "json")?,
-        archived: action_switch(action, "archived")?,
+        status: action.status.clone(),
+        all_statuses: action.all_statuses,
+        owner: action.owner.clone(),
+        web: action.web,
+        app: action.app,
+        json: action.json,
+        archived: action.archived,
     };
-    let cli_workspace = action
-        .global_workspace
-        .as_ref()
-        .map(|value| value.value.as_str());
+    let cli_workspace = workspace;
     if options.web || options.app {
         let config = context.config()?;
         let workspace = match config
@@ -2274,21 +1251,14 @@ fn dispatch_initiative_list(
 
 fn dispatch_project_comment_list(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::project::ProjectCommentList,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let json = action_switch(action, "json")?;
-    let original = action.positionals.first().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "project comment list received no project",
-        )
-    })?;
+    let json = action.json;
+    let original = &action.project;
     let config = context.config()?;
     let credentials = context.credentials()?;
-    let workspace = action
-        .global_workspace
-        .as_ref()
-        .map(|value| value.value.as_str());
+
     let inputs = client::selection_inputs(&config.options, workspace)
         .map_err(|error| error.with_context(project_comment_list::CONTEXT))?;
     let reference = prepare_project_lookup(
@@ -2316,15 +1286,11 @@ fn dispatch_project_comment_list(
 
 fn dispatch_milestone_list(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::milestone::MilestoneList,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let json = action_switch(action, "json")?;
-    let original = action_string(action, "project")?.ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "milestone list received no --project value",
-        )
-    })?;
+    let json = action.json;
+    let original = action.project.clone();
     // Deno starts this spinner before config, credential and URL preparation,
     // and its catch path stops it before reporting any action error.
     let show_spinner = spinner::enabled(
@@ -2339,10 +1305,7 @@ fn dispatch_milestone_list(
     let prepared = (|| {
         let config = context.config()?;
         let credentials = context.credentials()?;
-        let workspace = action
-            .global_workspace
-            .as_ref()
-            .map(|value| value.value.as_str());
+
         let inputs = client::selection_inputs(&config.options, workspace)?;
         let reference = prepare_project_lookup(
             &original,
@@ -2408,21 +1371,14 @@ fn dispatch_milestone_list(
 
 fn dispatch_milestone_create(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::milestone::MilestoneCreate,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let required = |name: &str| {
-        action_string(action, name)?.ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                format!("milestone create received no --{name} value"),
-            )
-        })
-    };
-    let original = required("project")?;
+    let original = action.project.clone();
     let options = milestone_create::Options {
-        name: required("name")?,
-        description: action_string(action, "description")?,
-        target_date: action_string(action, "target-date")?,
+        name: action.name.clone(),
+        description: action.description.clone(),
+        target_date: action.target_date.clone(),
     };
     // Deno starts this spinner before config, credential and URL preparation,
     // and its catch path stops it before reporting any action error.
@@ -2438,10 +1394,7 @@ fn dispatch_milestone_create(
     let prepared = (|| {
         let config = context.config()?;
         let credentials = context.credentials()?;
-        let workspace = action
-            .global_workspace
-            .as_ref()
-            .map(|value| value.value.as_str());
+
         let inputs = client::selection_inputs(&config.options, workspace)?;
         let reference = prepare_project_lookup(
             &original,
@@ -2501,32 +1454,19 @@ fn dispatch_milestone_create(
 
 fn dispatch_milestone_update(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::milestone::MilestoneUpdate,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let id = action
-        .positionals
-        .first()
-        .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "milestone update received no id"))?;
+    let id = &action.id;
     crate::refs::reject_linear_url(id, "a milestone UUID")
         .map_err(|error| error.with_context(milestone_update::CONTEXT))?;
-    let sort_order = match action.option("sort-order") {
-        None => None,
-        Some(option) => match option.value.value {
-            OptionValue::Number(value) => Some(value),
-            _ => {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
-                    "milestone update sort-order was not a number",
-                ));
-            }
-        },
-    };
+    let sort_order = action.sort_order;
     let mut options = milestone_update::Options {
-        name: action_string(action, "name")?,
-        description: action_string(action, "description")?,
-        target_date: action_string(action, "target-date")?,
+        name: action.name.clone(),
+        description: action.description.clone(),
+        target_date: action.target_date.clone(),
         sort_order,
-        project_id: action_string(action, "project")?,
+        project_id: action.project.clone(),
     };
     // The source throws this outside its catch, before spinner/config/client.
     options.require_update()?;
@@ -2542,10 +1482,7 @@ fn dispatch_milestone_update(
     let prepared = (|| {
         let config = context.config()?;
         let credentials = context.credentials()?;
-        let workspace = action
-            .global_workspace
-            .as_ref()
-            .map(|value| value.value.as_str());
+
         let inputs = client::selection_inputs(&config.options, workspace)?;
         // Source constructs the client before validating an optional project.
         let transport = client::prepare_transport_with_inputs(
@@ -2620,42 +1557,12 @@ fn dispatch_milestone_update(
     Ok(ExitStatus::Success)
 }
 
-fn action_switch(action: &ParsedAction, name: &str) -> Result<bool, AppError> {
-    match action.option(name) {
-        None => Ok(false),
-        Some(option) => match &option.value.value {
-            OptionValue::Switch(value) => Ok(*value),
-            _ => Err(AppError::new(
-                AppErrorKind::Invariant,
-                format!("team list option {name} was not a switch"),
-            )),
-        },
-    }
-}
-
-fn project_pager_enabled(action: &ParsedAction) -> Result<bool, AppError> {
-    action_switch(action, "no-pager")
-}
-
-fn action_string(action: &ParsedAction, name: &str) -> Result<Option<String>, AppError> {
-    match action.option(name) {
-        None => Ok(None),
-        Some(option) => match &option.value.value {
-            OptionValue::String(value) => Ok(Some(value.clone())),
-            _ => Err(AppError::new(
-                AppErrorKind::Invariant,
-                format!("option {name} was not a string"),
-            )),
-        },
-    }
-}
-
 fn write_completion_script(
     context: &mut AppContext<'_>,
     shell: CompletionShell,
-    action: &cli::clap_input::ParsedAction,
+    name: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let script = completions::script(shell, action)?;
+    let script = completions::script(shell, name)?;
     context.write_stdout_with_policy(&script, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }
@@ -2692,9 +1599,6 @@ pub fn write_final_error(
             })?),
         });
     }
-    if let AppErrorKind::Usage { route } = error.kind {
-        return write_usage_error(context, error, route);
-    }
     let color = context.handled_color();
     let line = format!("✗ {}", error.display_message());
     if color {
@@ -2727,57 +1631,16 @@ pub fn write_final_error(
     Ok(ExitStatus::HandledFailure)
 }
 
-fn write_usage_error(
-    context: &mut AppContext<'_>,
-    error: &AppError,
-    route: cli::Route,
-) -> Result<ExitStatus, AppError> {
-    let metadata = cli::ROUTES
-        .iter()
-        .find(|candidate| candidate.route == route)
-        .ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "usage error route missing from inventory",
-            )
-        })?;
-    let help = cli::render::help(metadata, context.help_color(), false)?;
-    write_stdout(context, help.as_bytes())?;
-    if context.help_color() {
-        write_stderr(
-            context,
-            format!(
-                "\x1b[31m  \x1b[1merror\x1b[22m: {}\n\x1b[39m\n",
-                error.display_message()
-            )
-            .as_bytes(),
-        )?;
-    } else {
-        write_stderr(
-            context,
-            format!("  error: {}\n\n", error.display_message()).as_bytes(),
-        )?;
-    }
-    Ok(ExitStatus::UsageFailure)
-}
-
 fn dispatch_initiative_comment_list(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::initiative::InitiativeCommentList,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let json = action_switch(action, "json")?;
-    let original = action.positionals.first().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "initiative comment list received no initiative",
-        )
-    })?;
+    let json = action.json;
+    let original = &action.initiative;
     let config = context.config()?;
     let credentials = context.credentials()?;
-    let workspace = action
-        .global_workspace
-        .as_ref()
-        .map(|value| value.value.as_str());
+
     let inputs = client::selection_inputs(&config.options, workspace)
         .map_err(|error| error.with_context(initiative_comment_list::CONTEXT))?;
     let reference = prepare_initiative_lookup(
@@ -2805,21 +1668,14 @@ fn dispatch_initiative_comment_list(
 
 fn dispatch_document_comment_list(
     context: &mut AppContext<'_>,
-    action: &ParsedAction,
+    action: &cli::document::DocumentCommentList,
+    workspace: Option<&str>,
 ) -> Result<ExitStatus, AppError> {
-    let json = action_switch(action, "json")?;
-    let original = action.positionals.first().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "document comment list received no document",
-        )
-    })?;
+    let json = action.json;
+    let original = &action.document;
     let config = context.config()?;
     let credentials = context.credentials()?;
-    let workspace = action
-        .global_workspace
-        .as_ref()
-        .map(|value| value.value.as_str());
+
     let inputs = client::selection_inputs(&config.options, workspace)
         .map_err(|error| error.with_context(document_comment_list::CONTEXT))?;
     let reference = resolve_document_reference(
@@ -2842,65 +1698,1130 @@ fn dispatch_document_comment_list(
     Ok(ExitStatus::Success)
 }
 
-#[cfg(test)]
-mod project_view_flag_tests {
-    use super::project_pager_enabled;
-    use crate::cli::clap_input::{self, Invocation};
-    use crate::error::{AppError, AppErrorKind};
-
-    #[test]
-    fn negated_pager_flag_controls_the_action_setting() -> Result<(), AppError> {
-        for (flag, expected) in [(None, true), (Some("--no-pager"), false)] {
-            let mut args = vec!["project", "view", "00000000-0000-4000-8000-000000000001"];
-            if let Some(flag) = flag {
-                args.push(flag);
-            }
-            let words = args.into_iter().map(Into::into).collect::<Vec<_>>();
-            let Invocation::Action(action) = clap_input::parse(&words)? else {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
-                    "expected project view action",
-                ));
-            };
-            assert_eq!(project_pager_enabled(&action)?, expected);
-        }
-        Ok(())
-    }
+fn dispatch_auth_list(
+    context: &mut AppContext<'_>,
+    _action: &cli::auth::AuthList,
+    _workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let config = context.config()?;
+    let rows = auth_list::classify(context.credentials()?);
+    let output = if rows.is_empty() {
+        auth_list::EMPTY_OUTPUT.as_bytes().to_vec()
+    } else {
+        let prepared = auth_list::prepare_transports(
+            rows,
+            config.options.endpoint().value(),
+            &config.transport_env,
+        )
+        .map_err(|error| error.with_context(auth_list::CONTEXT))?;
+        let listed = block_on_network(auth_list::fetch(prepared))
+            .map_err(|error| error.with_context(auth_list::CONTEXT))?;
+        auth_list::render(&listed, context.stdout_tty && !context.no_color())
+    };
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
 }
 
-#[cfg(test)]
-mod network_runtime_tests {
-    use super::{block_on_network, block_on_network_with};
-    use crate::error::AppErrorKind;
-    use std::io;
-    use std::sync::mpsc;
-    use std::time::{Duration, Instant};
+fn dispatch_auth_whoami(
+    context: &mut AppContext<'_>,
+    _action: &cli::auth::AuthWhoami,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let config = context.config()?;
+    let credentials = context.credentials()?;
 
-    #[test]
-    fn runtime_build_failure_is_a_handled_io_error() {
-        let result = block_on_network_with(async { Ok::<(), _>(()) }, || {
-            Err(io::Error::other("synthetic runtime failure"))
-        });
-        assert!(
-            matches!(result, Err(ref error) if error.kind == AppErrorKind::IoProcess && error.display_message() == "could not start network runtime")
-        );
+    let transport = auth_whoami::prepare_transport(
+        &config.options,
+        credentials,
+        workspace,
+        &config.transport_env,
+    )?;
+    let output = block_on_network(async move { auth_whoami::run(&transport).await })?;
+    write_stdout(context, &output)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_team_list(
+    context: &mut AppContext<'_>,
+    action: &cli::team::TeamList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let flags = team_list::Options {
+        json: action.json,
+        web: action.web,
+        app: action.app,
+    };
+    if flags.web || flags.app {
+        let (url, opening) = team_list::web_opening(&context.config()?.options, flags.app)?;
+        context.write_stdout_with_policy(&opening, OutputPolicy::ConsoleLike)?;
+        team_list::open(&url, flags.app)?;
+        return Ok(ExitStatus::Success);
+    }
+    let spinner = spinner::enabled(
+        flags.json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+
+        client::prepare_transport(
+            &config.options,
+            credentials,
+            workspace,
+            &config.transport_env,
+        )
+        .map_err(|error| error.with_context("Failed to fetch teams"))
+    })();
+    let transport = match prepared {
+        Ok(transport) => transport,
+        Err(error) => {
+            if spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(error);
+        }
+    };
+    let columns = table::stdout_columns(context.stdout_tty);
+    let color = context.stdout_tty && !context.no_color();
+    let output_result = if spinner {
+        block_on_network(async {
+            let pending = team_list::run(&transport, flags.json, columns, color);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(async { team_list::run(&transport, flags.json, columns, color).await })
+    };
+    if spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = output_result.map_err(|error| {
+        if error.context.is_none() {
+            error.with_context("Failed to fetch teams")
+        } else {
+            error
+        }
+    })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_team_id(
+    context: &mut AppContext<'_>,
+    _action: &cli::team::TeamId,
+    _workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let text = team_id::render(context)?;
+    context.write_stdout_with_policy(text.as_bytes(), OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_team_members(
+    context: &mut AppContext<'_>,
+    action: &cli::team::TeamMembers,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let flags = team_members::Options {
+        all: action.all,
+        json: action.json,
+    };
+    let explicit = action.team.as_ref().filter(|value| !value.is_empty());
+
+    let show_spinner = spinner::enabled(
+        flags.json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    let mut spinner_started = false;
+    let fallback_key = if explicit.is_none() {
+        Some(
+            crate::commands::team_key::configured_team_key(&context.config()?.options)
+                .ok_or_else(|| missing_team_key().with_context(team_members::CONTEXT))?,
+        )
+    } else {
+        None
+    };
+    if show_spinner && fallback_key.is_some() {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        spinner_started = true;
     }
 
-    #[test]
-    fn runtime_shutdown_does_not_wait_forever_for_blocking_work() {
-        let (release, blocked) = mpsc::channel::<()>();
-        let started = Instant::now();
-        let result = block_on_network(async move {
-            let (ready, entered) = mpsc::channel();
-            tokio::task::spawn_blocking(move || {
-                let _ = ready.send(());
-                let _ = blocked.recv_timeout(Duration::from_secs(3));
+    // A missing local key fails before credential selection. Explicit
+    // references are locally prepared before transport, and resolved
+    // before the member-query spinner begins.
+    let selected = (|| {
+        let config = context.config()?;
+        if let Some(reference) = explicit {
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let scope = WorkspaceScope::from_selection(&inputs, credentials);
+            let prepared = prepare_team_lookup(reference, &scope)?;
+            let transport = client::prepare_transport_with_inputs(
+                &config.options,
+                credentials,
+                &inputs,
+                &config.transport_env,
+            )?;
+            let team = block_on_network(async {
+                resolve_team_with_transport(&prepared, &transport).await
+            })?;
+            if team.key.is_empty() {
+                return Err(missing_team_key());
+            }
+            Ok((team.key, transport))
+        } else {
+            let key = fallback_key.ok_or_else(|| {
+                AppError::new(AppErrorKind::Invariant, "configured team key was lost")
+            })?;
+            Ok((
+                key,
+                client::prepare_transport(
+                    &config.options,
+                    context.credentials()?,
+                    workspace,
+                    &config.transport_env,
+                )?,
+            ))
+        }
+    })();
+    let selected = selected.map_err(|error: AppError| {
+        if error.context.is_none() {
+            error.with_context(team_members::CONTEXT)
+        } else {
+            error
+        }
+    });
+    if selected.is_err() && spinner_started {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let (team_key, transport) = selected?;
+    if show_spinner && !spinner_started {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        spinner_started = true;
+    }
+    let output_result = if spinner_started {
+        block_on_network(async {
+            let pending = team_members::run(&transport, &team_key, flags);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(team_members::run(&transport, &team_key, flags))
+    };
+    if spinner_started {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    context.write_stdout_with_policy(&output_result?, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_team_states(
+    context: &mut AppContext<'_>,
+    action: &cli::team::TeamStates,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let json = action.json;
+    let cli_workspace = workspace;
+    let explicit = action.team.as_ref().filter(|value| !value.is_empty());
+    let prepared = if let Some(reference) = explicit {
+        let config = context.config()?;
+        let api_key = ApiKeyInput::from_options(&config.options).map_err(|error| {
+            AppError::new(AppErrorKind::Invariant, error.to_string())
+                .with_context(team_states::CONTEXT)
+        })?;
+        let inputs = CredentialSelectionInputs {
+            api_key,
+            cli_workspace,
+            sourced_workspace: config
+                .options
+                .workspace()
+                .map(|resolved| (resolved.value().as_str(), resolved.source().clone())),
+        };
+        let scope = WorkspaceScope::from_selection(&inputs, context.credentials()?);
+        Some(
+            prepare_team_lookup(reference, &scope)
+                .map_err(|error| error.with_context(team_states::CONTEXT))?,
+        )
+    } else {
+        None
+    };
+    let configured_key = if prepared.is_none() {
+        Some(
+            configured_team_key(&context.config()?.options).ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Validation,
+                    "Could not determine team key from directory name",
+                )
+                .with_suggestion("Please specify a team key, name, or ID as an argument.")
+                .with_context(team_states::CONTEXT)
+            })?,
+        )
+    } else {
+        None
+    };
+    let spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if spinner && prepared.is_none() {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let transport = match (|| {
+        let config = context.config()?;
+        client::prepare_transport(
+            &config.options,
+            context.credentials()?,
+            cli_workspace,
+            &config.transport_env,
+        )
+    })() {
+        Ok(transport) => transport,
+        Err(error) => {
+            if spinner && prepared.is_none() {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(error.with_context(team_states::CONTEXT));
+        }
+    };
+    let team_key = match prepared {
+        Some(prepared) => {
+            block_on_network(async { resolve_team_with_transport(&prepared, &transport).await })
+                .map_err(|error| error.with_context(team_states::CONTEXT))?
+                .key
+        }
+        None => configured_key.ok_or_else(|| {
+            AppError::new(AppErrorKind::Invariant, "configured team key disappeared")
+        })?,
+    };
+    if spinner && explicit.is_some() {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let color = context.stdout_tty && !context.no_color();
+    let output_result = if spinner {
+        block_on_network(async {
+            let pending = team_states::run(&transport, team_key, json, color);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(async { team_states::run(&transport, team_key, json, color).await })
+    };
+    if spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = output_result.map_err(|error| error.with_context(team_states::CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_user_list(
+    context: &mut AppContext<'_>,
+    action: &cli::user::UserList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let include_disabled = action.all;
+    let json = action.json;
+    let show_spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+
+        client::prepare_transport(
+            &config.options,
+            credentials,
+            workspace,
+            &config.transport_env,
+        )
+        .map_err(|error| error.with_context(user_list::CONTEXT))
+    })();
+    let transport = match prepared {
+        Ok(transport) => transport,
+        Err(error) => {
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(error);
+        }
+    };
+    let output_result = if show_spinner {
+        block_on_network(async {
+            let pending = user_list::run(&transport, include_disabled, json);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(async { user_list::run(&transport, include_disabled, json).await })
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = output_result.map_err(|error| {
+        if error.context.is_none() {
+            error.with_context(user_list::CONTEXT)
+        } else {
+            error
+        }
+    })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_project_list(
+    context: &mut AppContext<'_>,
+    action: &cli::project::ProjectList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let options = project_list::Options {
+        team: action.team.clone(),
+        all_teams: action.all_teams,
+        status: action.status.clone(),
+        web: action.web,
+        app: action.app,
+        json: action.json,
+    };
+    let cli_workspace = workspace;
+    if options.web || options.app {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let configured_workspace = config
+            .options
+            .workspace()
+            .map(|value| value.value().clone())
+            .filter(|value| !value.is_empty());
+        let needs_viewer = configured_workspace.is_none();
+        let needs_team_lookup = !options.all_teams && options.team.is_some();
+        let configured_team = if options.all_teams {
+            None
+        } else {
+            configured_team_key(&config.options)
+        };
+        let (workspace, team_key) = if needs_viewer || needs_team_lookup {
+            let inputs = client::selection_inputs(&config.options, cli_workspace)
+                .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?;
+            let transport = client::prepare_transport_with_inputs(
+                &config.options,
+                credentials,
+                &inputs,
+                &config.transport_env,
+            )
+            .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?;
+            block_on_network(async {
+                let workspace = match configured_workspace {
+                    Some(workspace) => workspace,
+                    None => project_list::viewer_workspace(&transport).await?,
+                };
+                let team_key = match options.team.as_deref() {
+                    Some(team) if needs_team_lookup => {
+                        let prepared = prepare_team_lookup(
+                            team,
+                            &WorkspaceScope::from_selection(&inputs, credentials),
+                        )?;
+                        Some(
+                            resolve_team_with_transport(&prepared, &transport)
+                                .await?
+                                .key,
+                        )
+                    }
+                    Some(_) | None => configured_team,
+                };
+                Ok((workspace, team_key))
+            })
+            .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?
+        } else {
+            let workspace = configured_workspace.ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Invariant,
+                    "project browser workspace was not resolved",
+                )
+            })?;
+            (workspace, configured_team)
+        };
+        let (url, line) = project_list::opening(&workspace, team_key.as_deref(), options.app);
+        context.write_stdout_with_policy(&line, OutputPolicy::ConsoleLike)?;
+        project_list::open(&url, options.app)?;
+        return Ok(ExitStatus::Success);
+    }
+
+    let show_spinner = spinner::enabled(
+        options.json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        project_list::check_conflicting_flags(&options)?;
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, cli_workspace)?;
+        let team_lookup = if options.all_teams {
+            None
+        } else {
+            options
+                .team
+                .as_deref()
+                .map(|team| {
+                    prepare_team_lookup(team, &WorkspaceScope::from_selection(&inputs, credentials))
+                })
+                .transpose()?
+        };
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        Ok::<_, AppError>((team_lookup, transport))
+    })();
+    let (team_lookup, transport) = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(error.with_context(project_list::FETCH_CONTEXT));
+        }
+    };
+    let columns = crate::commands::table::stdout_columns(context.stdout_tty);
+    let color = context.stdout_tty && !context.no_color();
+    let configured_team = if options.all_teams {
+        None
+    } else {
+        configured_team_key(&context.config()?.options)
+    };
+    let pending = async {
+        let team_key = if options.all_teams {
+            None
+        } else if let Some(prepared) = team_lookup.as_ref() {
+            Some(resolve_team_with_transport(prepared, &transport).await?.key)
+        } else {
+            configured_team
+        };
+        project_list::run(
+            &transport,
+            team_key.as_deref(),
+            options.status.as_deref(),
+            options.json,
+            columns,
+            color,
+        )
+        .await
+    };
+    let result = if show_spinner {
+        block_on_network(async {
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(pending)
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = result.map_err(|error| {
+        if error.context.is_some() {
+            error
+        } else {
+            error.with_context(project_list::FETCH_CONTEXT)
+        }
+    })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_cycle_list(
+    context: &mut AppContext<'_>,
+    action: &cli::cycle::CycleList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let json = action.json;
+    let team_reference = match action.team.clone() {
+        Some(explicit) => explicit,
+        None => configured_team_key(&context.config()?.options).ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::Validation,
+                "Could not determine team key from directory name or team flag",
+            )
+            .with_context(cycle_list::CONTEXT)
+        })?,
+    };
+    let selected = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let scope = WorkspaceScope::from_selection(&inputs, credentials);
+        let prepared = prepare_team_lookup(&team_reference, &scope)?;
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        Ok::<_, AppError>((prepared, transport))
+    })()
+    .map_err(|error| error.with_context(cycle_list::CONTEXT))?;
+    let (prepared, transport) = selected;
+    let team = block_on_network(async { resolve_team_with_transport(&prepared, &transport).await })
+        .map_err(|error| error.with_context(cycle_list::CONTEXT))?;
+
+    // Deno starts this spinner after the team lookup, and its catch
+    // path leaves the last frame visible on a cycle-fetch error.
+    let show_spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let columns = table::stdout_columns(context.stdout_tty);
+    let color = !context.no_color();
+    let output = if show_spinner {
+        block_on_network(async {
+            let pending = cycle_list::run(&transport, &team.id, json, columns, color);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(async {
+            cycle_list::run(&transport, &team.id, json, columns, color).await
+        })
+    }
+    .map_err(|error| {
+        if error.context.is_none() {
+            error.with_context(cycle_list::CONTEXT)
+        } else {
+            error
+        }
+    })?;
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_cycle_view(
+    context: &mut AppContext<'_>,
+    action: &cli::cycle::CycleView,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let reference = action.cycle_ref.clone();
+    let json = action.json;
+    let explicit_team = action.team.clone();
+    let selected = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let scope = WorkspaceScope::from_selection(&inputs, credentials);
+        let url = crate::refs::expect_url_kind(
+            &reference,
+            crate::refs::LinearUrlKind::Cycle,
+            "a cycle URL, number, or name",
+            &scope,
+        )?;
+        let url_team = match &url {
+            Some(crate::refs::LinearUrlRef::Cycle { team_key, .. }) => Some(team_key.clone()),
+            Some(_) => {
+                return Err(AppError::new(AppErrorKind::Invariant, "expected cycle URL"));
+            }
+            None => None,
+        };
+        let team_reference = explicit_team
+            .or(url_team)
+            .or_else(|| configured_team_key(&config.options))
+            .ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Validation,
+                    "Could not determine team key from directory name or team flag",
+                )
+            })?;
+        let prepared = prepare_team_lookup(&team_reference, &scope)?;
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        Ok::<_, AppError>((url, prepared, transport))
+    })()
+    .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+    let (url, prepared, transport) = selected;
+    let team = block_on_network(async { resolve_team_with_transport(&prepared, &transport).await })
+        .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+    let cycle_id = block_on_network(async {
+        cycle_view::resolve_id(&transport, &team.id, &reference, url.as_ref()).await
+    })
+    .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+    let show_spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let request = cycle_view::detail_request(&cycle_id);
+    let response = if show_spinner {
+        block_on_network(async {
+            let pending = transport.send_request(&request);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result.map_err(AppError::from),
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(async {
+            transport
+                .send_request(&request)
+                .await
+                .map_err(AppError::from)
+        })
+    }
+    .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+    let details: Result<crate::graphql::operations::cycle_view::GetCycleDetails, _> =
+        crate::graphql::transport::classify_typed(response);
+    if show_spinner
+        && (details.is_ok()
+            || matches!(
+                &details,
+                Err(crate::graphql::transport::TransportFailure::Response(
+                    crate::graphql::envelope::ResponseError::UnexpectedShape(_)
+                ))
+            ))
+    {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let details =
+        details.map_err(|error| AppError::from(error).with_context(cycle_view::CONTEXT))?;
+    let cycle = details.cycle.ok_or_else(|| {
+        AppError::not_found("Cycle", &reference).with_context(cycle_view::CONTEXT)
+    })?;
+    let output = if json {
+        cycle_view::json(&cycle).map_err(|error| error.with_context(cycle_view::CONTEXT))?
+    } else {
+        let markdown = cycle_view::markdown(&cycle, chrono::Utc::now(), &chrono::Local)
+            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+        let rendered = if context.stdout_tty {
+            use std::num::NonZeroU16;
+            let columns = u16::try_from(table::stdout_columns(true))
+                .ok()
+                .and_then(NonZeroU16::new)
+                .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
+            let options = crate::platform::markdown_terminal::RenderOptions::for_terminal(
+                columns,
+                context.startup.settings.no_color,
+                true,
+                None,
+                crate::platform::markdown_terminal::HostSource::System,
+            );
+            crate::platform::markdown_terminal::render(&markdown, &options)
+                .map_err(|error| error.with_context(cycle_view::CONTEXT))?
+        } else {
+            markdown
+        };
+        format!("{rendered}\n").into_bytes()
+    };
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_label_list(
+    context: &mut AppContext<'_>,
+    action: &cli::label::LabelList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let flags = label_list::Options {
+        team: action.team.clone(),
+        workspace_only: action.workspace_only,
+        all: action.all,
+        json: action.json,
+    };
+    let cli_workspace = workspace;
+    let show_spinner = spinner::enabled(
+        flags.json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, cli_workspace)?;
+        let transport = client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )?;
+        let scope = WorkspaceScope::from_selection(&inputs, credentials);
+        let configured_team = configured_team_key(&config.options);
+        let selection = label_list::select(&flags, configured_team.as_deref(), &scope)?;
+        Ok::<_, AppError>((transport, selection))
+    })();
+    let (transport, selection) = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(if error.context.is_none() {
+                error.with_context(label_list::CONTEXT)
+            } else {
+                error
             });
-            assert!(entered.recv_timeout(Duration::from_secs(1)).is_ok());
-            Ok::<(), crate::error::AppError>(())
-        });
-        assert!(result.is_ok());
-        assert!(started.elapsed() < Duration::from_secs(2));
-        assert!(release.send(()).is_ok());
+        }
+    };
+    let columns = table::stdout_columns(context.stdout_tty);
+    let color = context.stdout_tty && !context.no_color();
+    let output_result = if show_spinner {
+        block_on_network(async {
+            let pending = label_list::run(&transport, selection, flags.json, columns, color);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(async {
+            label_list::run(&transport, selection, flags.json, columns, color).await
+        })
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
     }
+    let output = output_result.map_err(|error| {
+        if error.context.is_none() {
+            error.with_context(label_list::CONTEXT)
+        } else {
+            error
+        }
+    })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_template_list(
+    context: &mut AppContext<'_>,
+    action: &cli::template::TemplateList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let json = action.json;
+    let template_type = action.r#type.map(|value| match value {
+        cli::TemplateType::Issue => template_list::TemplateType::Issue,
+        cli::TemplateType::Project => template_list::TemplateType::Project,
+        cli::TemplateType::Document => template_list::TemplateType::Document,
+    });
+    let team_reference = action.team.as_deref();
+    let show_spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+
+        template_list::prepare(
+            &config.options,
+            credentials,
+            workspace,
+            &config.transport_env,
+            team_reference,
+        )
+    })();
+    let prepared = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(error);
+        }
+    };
+    let columns = table::stdout_columns(context.stdout_tty);
+    let color = context.stdout_tty && !context.no_color();
+    let options = template_list::Options {
+        template_type,
+        json,
+    };
+    let output_result = if show_spinner {
+        block_on_network(async {
+            let pending = template_list::run(
+                &prepared.transport,
+                prepared.team.as_ref(),
+                options,
+                columns,
+                color,
+            );
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(async {
+            template_list::run(
+                &prepared.transport,
+                prepared.team.as_ref(),
+                options,
+                columns,
+                color,
+            )
+            .await
+        })
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = output_result.map_err(|error| {
+        if error.context.is_none() {
+            error.with_context(template_list::CONTEXT)
+        } else {
+            error
+        }
+    })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_template_view(
+    context: &mut AppContext<'_>,
+    action: &cli::template::TemplateView,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let json = action.json;
+    let reference = &action.template;
+    // Deno starts this spinner before the URL check and credential
+    // selection, and stops it before reporting either failure.
+    let show_spinner = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let prepared = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+
+        template_view::prepare(
+            &config.options,
+            credentials,
+            workspace,
+            &config.transport_env,
+            reference,
+        )
+    })();
+    let prepared = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            if show_spinner {
+                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            }
+            return Err(if error.context.is_none() {
+                error.with_context(template_view::CONTEXT)
+            } else {
+                error
+            });
+        }
+    };
+    let zone = chrono::Local;
+    let output_result = if show_spinner {
+        block_on_network(async {
+            let pending = template_view::run(&prepared.transport, &prepared.reference, json, &zone);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(
+                            spinner::frame(frame).as_bytes(),
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    } else {
+        block_on_network(async {
+            template_view::run(&prepared.transport, &prepared.reference, json, &zone).await
+        })
+    };
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let output = output_result.map_err(|error| {
+        if error.context.is_none() {
+            error.with_context(template_view::CONTEXT)
+        } else {
+            error
+        }
+    })?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
 }

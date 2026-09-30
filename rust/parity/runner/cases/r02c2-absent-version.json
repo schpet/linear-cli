@@ -41,9 +41,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "R02C2G-CREDENTIAL-STARTUP",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "80caab60cbb65cf07eb4bdf9945b40da916bd1a3f6037e9c3983711c68e7295b"
-  }
+  "deviation": {"id":"CLAP-NATIVE-CLI-SURFACE","contract":"rust-3.0.0-alpha.1","sha256":"09bee15b32e6d1846bd251dd7ac89c6198017d3699e747a0c58f3e90c5b87a85"}
 }

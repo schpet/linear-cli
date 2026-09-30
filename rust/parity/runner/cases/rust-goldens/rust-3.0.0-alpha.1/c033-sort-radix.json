@@ -19,13 +19,13 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "error: invalid value ' 0x10 ' for '--sort-order <value>': expected a finite decimal number, got \" 0x10 \"\n"
+        "utf8": "error: invalid value ' 0x10 ' for '--sort-order <value>': expected a finite decimal number, got \" 0x10 \"\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     },
-    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
     "graphql": {
       "steps": []
-    }
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
   }
 }

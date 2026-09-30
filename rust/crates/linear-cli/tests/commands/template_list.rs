@@ -220,11 +220,6 @@ fn strict_typed_boundary_and_empty_text_are_visible_through_public_api() {
         );
     }
     assert_eq!(render_text(&[], 120, false), "No templates found.\n");
-    assert_eq!(
-        TemplateType::from_route_value("issue").unwrap(),
-        TemplateType::Issue
-    );
-    assert!(TemplateType::from_route_value("Issue").is_err());
 }
 
 #[tokio::test]

@@ -16,7 +16,7 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "error: invalid value '0' for '--limit <limit>': expected a positive decimal integer between 1 and 4294967295, got \"0\"\n"
+        "utf8": "error: invalid value '0' for '--limit <limit>': expected a positive decimal integer between 1 and 4294967295, got \"0\"\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

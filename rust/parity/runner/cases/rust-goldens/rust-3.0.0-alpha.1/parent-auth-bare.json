@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "parent-auth-bare",
-  "deviationId": "R01V-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\n\u001b[1mUsage:\u001b[22m   \u001b[95mlinear auth\u001b[39m  \n\u001b[1mVersion:\u001b[22m \u001b[33m3.0.0-alpha.1\u001b[39m\n\n\u001b[1mDescription:\u001b[22m\n\n  Manage Linear authentication\n\n\u001b[1mOptions:\u001b[22m\n\n  \u001b[94m-h\u001b[39m, \u001b[94m--help\u001b[39m           \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Show this help.                      \n  \u001b[94m--workspace\u001b[39m  \u001b[33m<\u001b[39m\u001b[95mslug\u001b[39m\u001b[33m>\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Target workspace (uses credentials)  \n\n\u001b[1mCommands:\u001b[22m\n\n  \u001b[94mlogin\u001b[39m                 \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Add a workspace credential                     \n  \u001b[94mlogout\u001b[39m   \u001b[33m[\u001b[39m\u001b[95mworkspace\u001b[39m\u001b[33m]\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Remove a workspace credential                  \n  \u001b[94mlist\u001b[39m                  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m List configured workspaces                     \n  \u001b[94mdefault\u001b[39m  \u001b[33m[\u001b[39m\u001b[95mworkspace\u001b[39m\u001b[33m]\u001b[39m  \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Set the default workspace                      \n  \u001b[94mtoken\u001b[39m                 \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Print the configured API token                 \n  \u001b[94mwhoami\u001b[39m                \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Print information about the authenticated user \n  \u001b[94mmigrate\u001b[39m               \u001b[31m\u001b[1m-\u001b[22m\u001b[39m Migrate plaintext credentials to system keyring\n\n"
+        "utf8": "Manage Linear authentication\n\nUsage: linear auth [OPTIONS] [COMMAND]\n\nCommands:\n  login    Add a workspace credential\n  logout   Remove a workspace credential\n  list     List configured workspaces\n  default  Set the default workspace\n  token    Print the configured API token\n  whoami   Print information about the authenticated user\n  migrate  Migrate plaintext credentials to system keyring\n  help     Print this message or the help of the given subcommand(s)\n\nOptions:\n      --workspace <slug>\n          Target workspace (uses credentials)\n\n  -h, --help\n          Print help\n"
       },
       "stderr": {
         "utf8": ""

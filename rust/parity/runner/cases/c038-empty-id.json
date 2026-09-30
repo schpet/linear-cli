@@ -47,11 +47,7 @@
     },
     "fileEffects": []
   },
-  "deviation": {
-    "id": "C038-EMPTY-INPUT",
-    "contract": "rust-3.0.0-alpha.1",
-    "sha256": "e61421e71a3e013bdab048e3cc78017aec164dd58b81d4d7c91cef6c002fef6a"
-  },
+  "deviation": {"id": "C038-EMPTY-INPUT", "contract": "rust-3.0.0-alpha.1", "sha256": "8644ec0319f4fdf0376e74dba81c302ff6262b89287e26ad3d522d0b4de58233"},
   "configFixture": "workspace-credential",
   "graphql": {
     "path": "/graphql",

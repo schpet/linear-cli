@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c086-unknown-shell",
-  "deviationId": "C086-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear completions\nVersion: 3.0.0-alpha.1     \n\nDescription:\n\n  Generate shell completions.                                                                      \n                                                                                                   \n  To enable shell completions for this program add the following line to your ~/.bashrc or similar:\n                                                                                                   \n      source <(linear completions [shell])                                                         \n                                                                                                   \n      For more information run linear completions [shell] --help                                   \n\nOptions:\n\n  -h, --help  - Show this help.  \n\nCommands:\n\n  bash  - Generate shell completions for bash.\n  fish  - Generate shell completions for fish.\n  zsh   - Generate shell completions for zsh. \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Unknown command \"powershell\". Did you mean command \"bash\"?\n\n"
+        "utf8": "error: unrecognized subcommand 'powershell'\n\nUsage: linear completions [OPTIONS] [COMMAND]\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

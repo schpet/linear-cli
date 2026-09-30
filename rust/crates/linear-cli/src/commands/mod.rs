@@ -34,3 +34,5 @@ pub mod template_json;
 pub mod template_list;
 pub mod template_view;
 pub mod user_list;
+
+mod style;

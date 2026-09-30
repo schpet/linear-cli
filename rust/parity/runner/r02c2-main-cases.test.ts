@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assert, assertEquals } from "@std/assert"
 import { dirname, join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -156,10 +157,14 @@ Deno.test("R02C2G moves ten frozen cases without changing Deno fields or fixture
     assertEquals(item.spec.env.PATH, "{{bin}}", item.spec.id)
     assertEquals(item.spec.fixtureServer, null, item.spec.id)
     assertEquals(item.spec.graphql, undefined, item.spec.id)
-    assertEquals(item.spec.deviation?.id, deviationId, item.spec.id)
+    assertEquals(
+      item.spec.deviation?.id,
+      nativeParserContract(item.spec.id)?.[0] ?? deviationId,
+      item.spec.id,
+    )
     assertEquals(
       item.golden?.spec.approvedSurfaces,
-      surfaces.get(item.spec.id),
+      nativeParserContract(item.spec.id)?.[1] ?? surfaces.get(item.spec.id),
       item.spec.id,
     )
   }

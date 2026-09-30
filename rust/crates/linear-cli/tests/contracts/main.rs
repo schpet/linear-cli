@@ -1,17 +1,8 @@
-mod clap_args_b1;
-mod clap_args_b2;
-mod clap_args_b3;
-mod clap_input;
-mod clap_tree;
 mod completions;
 mod dispatch;
 mod fish_completion;
-mod golden;
-mod help;
-mod inventory;
 mod markdown_terminal;
 mod pager;
-mod parser;
 mod prompt;
 mod selector;
 mod spinner;
@@ -20,3 +11,5 @@ mod team_id;
 
 mod broken_pipe;
 mod output;
+
+mod typed_cli;

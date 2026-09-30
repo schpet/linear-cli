@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c020-offset-minus-zero",
-  "deviationId": "CLAP-NATIVE-PARSER",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout",
@@ -16,7 +16,7 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "error: unexpected argument '-0' found\n\n  tip: to pass '-0' as a value, use '-- -0'\n\nUsage: linear cycle view [OPTIONS] [cycleRef]\n"
+        "utf8": "error: unexpected argument '-0' found\n\n  tip: to pass '-0' as a value, use '-- -0'\n\nUsage: linear cycle view [OPTIONS] <cycleRef>\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

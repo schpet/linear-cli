@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 
 use cynic::QueryBuilder;
-use linear_cli::cli::clap_input::{self, Invocation};
+use linear_cli::cli;
 use linear_cli::commands::initiative_view::{markdown, render_json};
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::initiative_view::{
@@ -157,28 +157,13 @@ fn args(values: &[&str]) -> Vec<OsString> {
 }
 
 #[test]
-fn empty_reference_is_usage_after_help_precedence() {
-    let error = clap_input::parse(&args(&["initiative", "view", ""])).unwrap_err();
+fn empty_reference_is_native_usage_and_help_is_native() {
+    let error = cli::parse(&args(&["initiative", "view", ""])).unwrap_err();
+    assert_eq!(error.kind, linear_cli::error::AppErrorKind::Usage);
+    assert!(error.message.contains("expected a nonempty value"));
+    let error = cli::parse(&args(&["initiative", "view", "--help"])).unwrap_err();
     assert_eq!(
-        error.kind,
-        linear_cli::error::AppErrorKind::Usage {
-            route: linear_cli::cli::Route::InitiativeViewR71
-        }
-    );
-    assert_eq!(
-        error.message,
-        "Initiative reference cannot be empty. Provide an initiative URL, UUID, slug ID, or exact name."
-    );
-    for input in [
-        &["initiative", "view", "", "--help"][..],
-        &["initiative", "v", "", "-h"][..],
-    ] {
-        assert!(matches!(
-            clap_input::parse(&args(input)).unwrap(),
-            Invocation::Help { .. }
-        ));
-    }
-    assert!(
-        !matches!(clap_input::parse(&args(&["team", "members", ""])), Err(ref e) if e.message.starts_with("Initiative reference"))
+        error.native_parser_error().unwrap().kind(),
+        clap::error::ErrorKind::DisplayHelp
     );
 }

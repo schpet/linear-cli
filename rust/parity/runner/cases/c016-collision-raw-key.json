@@ -7,7 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "56725672a1024162384fb73815cdf56e3e5ad0bf52296380497684bad1cb8474"},
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "04eab4a2b57c471d6d7d2fa2acbebcd84a4aa9e71c1590ccdb124399bbed23d4"},
   "id": "c016-collision-raw-key",
   "reason": "Local Boolean workspace conflicts with raw environment key.",
   "argv": [

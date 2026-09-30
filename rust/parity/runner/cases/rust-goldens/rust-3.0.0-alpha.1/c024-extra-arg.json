@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c024-extra-arg",
-  "deviationId": "C024-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear project view [projectId]\nVersion: 3.0.0-alpha.1                  \n\nDescription:\n\n  View project details\n\nOptions:\n\n  -h, --help           - Show this help.                           \n  --workspace  <slug>  - Target workspace (uses credentials)       \n  -w, --web            - Open in web browser                       \n  -a, --app            - Open in Linear.app                        \n  -j, --json           - Output as JSON                            \n  --no-pager           - Disable automatic paging for long output  \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Too many arguments: other\n\n"
+        "utf8": "error: unexpected argument 'other' found\n\nUsage: linear project view [OPTIONS] [projectId]\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

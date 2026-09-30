@@ -111,7 +111,7 @@ Deno.test("C038 v1 candidate drops only source-only module URL in two real revie
       )
       assert(
         new TextDecoder().decode(resolved.expected.stderr).startsWith(
-          item.spec.id === "c038-empty-id" ? "  error:" : "✗ Failed",
+          item.spec.id === "c038-empty-id" ? "error:" : "✗ Failed",
         ),
       )
       assertEquals(resolved.env.HOME, "/home/test")

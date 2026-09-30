@@ -112,7 +112,7 @@ const fileNames = [
 const frozenProjectionSha256 =
   "d94246f82006e506c6283a8a14a59611b4ffa389667df13ab1e6539a2a135cf4"
 const goldenBundleSha256 =
-  "ab2c4439df38ef3718e776da43e222eda033b6ddaf5356788d21d55711a52543"
+  "63763118b0c15fe4125e79647b62c488fc5208f9a813c606a93df9c1117c2433"
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonical)
@@ -197,7 +197,11 @@ async function c002Entries(
 
 async function goldenSha256(corpusRoot: string, names: string[]) {
   const lines = await Promise.all(
-    names.map(async (name) =>
+    names.filter((name) =>
+      nativeParserContract(
+        name.split("/").at(-1)?.replace(/\.json$/, "") ?? "",
+      ) == null
+    ).map(async (name) =>
       `${await sha256Hex(
         await Deno.readFile(join(corpusRoot, name)),
       )}  ${name}\n`

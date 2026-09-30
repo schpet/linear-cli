@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c019-help",
-  "deviationId": "C019-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear cycle list\nVersion: 3.0.0-alpha.1    \n\nDescription:\n\n  List cycles for a team\n\nOptions:\n\n  -h, --help           - Show this help.                                   \n  --workspace  <slug>  - Target workspace (uses credentials)               \n  --team       <team>  - Team key, name, or ID (defaults to current team)  \n  -j, --json           - Output as JSON                                    \n\n"
+        "utf8": "List cycles for a team\n\nUsage: linear cycle list [OPTIONS]\n\nOptions:\n      --team <team>       Team key, name, or ID (defaults to current team)\n      --workspace <slug>  Target workspace (uses credentials)\n  -j, --json              Output as JSON\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

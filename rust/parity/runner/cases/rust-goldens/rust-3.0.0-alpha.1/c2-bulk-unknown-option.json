@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c2-bulk-unknown-option",
-  "deviationId": "CLAP-NATIVE-PARSER",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "exit",
@@ -16,7 +16,7 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "error: unexpected argument '--definitely-not-an-option' found\n\n  tip: to pass '--definitely-not-an-option' as a value, use '-- --definitely-not-an-option'\n\nUsage: linear issue archive --bulk <ids>... [issueId]\n"
+        "utf8": "error: unexpected argument '--definitely-not-an-option' found\n\n  tip: to pass '--definitely-not-an-option' as a value, use '-- --definitely-not-an-option'\n\nUsage: linear issue archive --bulk [<ids>...] [issueId]\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

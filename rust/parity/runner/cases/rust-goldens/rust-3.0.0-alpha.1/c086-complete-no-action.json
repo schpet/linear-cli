@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c086-complete-no-action",
-  "deviationId": "C086-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear completions complete <action> [command...]\nVersion: 3.0.0-alpha.1                                    \n\nDescription:\n\n  Get completions for given action from given command.\n\nOptions:\n\n  -h, --help  - Show this help.  \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Missing argument(s): action\n\n"
+        "utf8": "error: the following required arguments were not provided:\n  <action>\n\nUsage: linear completions complete <action> [command]... [-- <literal>...]\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

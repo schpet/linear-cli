@@ -91,7 +91,7 @@ fn partial_write_failure_reports_once_on_stderr() {
     let error = finalize(route_result, &mut context).expect_err("write failure wins");
     assert_io(&error, Stream::Stdout);
     drop(context);
-    assert_eq!(stdout.bytes, b"3");
+    assert_eq!(stdout.bytes, b"l");
     assert_eq!(stderr.writes, 1);
     assert_eq!(stderr.bytes, b"\xe2\x9c\x97 failed to write stdout\n");
 }
@@ -177,7 +177,7 @@ fn ordinary_version_output_and_usage_keep_their_status_and_bytes() {
     let result = run(&["-V".to_owned()], &mut context);
     assert_eq!(finalize(result, &mut context).unwrap(), ExitStatus::Success);
     drop(context);
-    assert_eq!(stdout.bytes, b"3.0.0-alpha.1\n");
+    assert_eq!(stdout.bytes, b"linear 3.0.0-alpha.1\n");
     assert!(stderr.bytes.is_empty());
 
     let mut stdout = Probe::default();
@@ -189,14 +189,11 @@ fn ordinary_version_output_and_usage_keep_their_status_and_bytes() {
         ExitStatus::UsageFailure
     );
     drop(context);
-    let expected_help =
-        linear_cli::cli::render::help(linear_cli::cli::root().expect("root route"), true, false)
-            .expect("root help");
-    assert_eq!(stdout.bytes, expected_help.as_bytes());
-    assert_eq!(
-        stderr.bytes,
-        b"\x1b[31m  \x1b[1merror\x1b[22m: Unknown command \"frobnicate\". Did you mean command \"project\"?\n\x1b[39m\n"
-    );
+    assert!(stdout.bytes.is_empty());
+    let native = linear_cli::cli::command()
+        .try_get_matches_from(["linear", "frobnicate"])
+        .unwrap_err();
+    assert_eq!(stderr.bytes, native.render().to_string().as_bytes());
 }
 
 #[test]
@@ -212,7 +209,7 @@ fn failed_stdout_and_stderr_stop_after_one_diagnostic_attempt() {
     let mut context = make_context(&mut stdout, &mut stderr);
     let result = run(&["-V".to_owned()], &mut context);
     let error = finalize(result, &mut context).expect_err("both streams fail");
-    assert_io(&error, Stream::Stderr);
+    assert_io(&error, Stream::Stdout);
     drop(context);
     assert_eq!(stdout.writes, 1);
     assert_eq!(stderr.writes, 1);
@@ -251,15 +248,15 @@ fn repeated_stdout_flush_failure_has_only_one_diagnostic() {
     let error = finalize(result, &mut context).expect_err("persistent flush failure");
     assert_io(&error, Stream::Stdout);
     drop(context);
-    assert_eq!(stdout.flushes, 2);
+    assert_eq!(stdout.flushes, 1);
     assert_eq!(stderr.writes, 1);
     assert_eq!(stderr.bytes, b"\xe2\x9c\x97 failed to flush stdout\n");
 }
 
 #[test]
-fn real_usage_error_then_second_stdout_flush_failure_reports_io_once() {
+fn native_usage_error_then_stdout_final_flush_failure_reports_io_once() {
     let mut stdout = Probe {
-        fail_flush_at: Some(2),
+        fail_flush_at: Some(1),
         ..Probe::default()
     };
     let mut stderr = Probe::default();
@@ -269,9 +266,9 @@ fn real_usage_error_then_second_stdout_flush_failure_reports_io_once() {
     assert_io(&error, Stream::Stdout);
     assert_eq!(error.message, "failed to flush stdout");
     drop(context);
-    assert_eq!(stdout.flushes, 2);
+    assert_eq!(stdout.flushes, 1);
     assert_eq!(stderr.writes, 2);
-    assert!(stderr.bytes.starts_with(b"\x1b[31m  \x1b[1merror"));
+    assert!(stderr.bytes.starts_with(b"error:"));
     assert!(
         stderr
             .bytes

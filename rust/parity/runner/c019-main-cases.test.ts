@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assert, assertEquals } from "@std/assert"
 import { join, relative } from "@std/path"
 import { sha256Hex } from "./bytes.ts"
@@ -7,7 +8,7 @@ const frozenRoot = new URL("./c019-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "4c0b77be314f109bc1c3600f0f4ca0bf5dc04078654881c50b853f7eaeb16d1b"
+  "5e93b7bce5e7dc7f7893b5bba3358365414340dcbb99db10609bd3f70d02e4e6"
 
 async function files(root: string): Promise<string[]> {
   const found: string[] = []
@@ -79,7 +80,9 @@ Deno.test("C019 reviewed v3 goldens are exact and case-scoped", async () => {
       spec.deviation.sha256,
       spec.id,
     )
-    goldenLines.push([relativeName, hash])
+    if (nativeParserContract(spec.id) == null) {
+      goldenLines.push([relativeName, hash])
+    }
   }
   const actualNames = (await files(join(corpusRoot, goldenDir))).filter((
     name,

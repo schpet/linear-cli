@@ -10,7 +10,7 @@ const frozenRoot = new URL("./c038-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "52df61cff5f71d239a550a7de1357521db16e0d1bc1a901d3121dc753bb11ecc"
+  "bc4efe56de473d54374d161ce72b474f3c9b1330fbecfecc67f28441f7a6532a"
 
 const categories: Record<string, string[]> = {
   "C038-CLAP-PARSER": [
@@ -188,7 +188,9 @@ Deno.test("C038 goldens bind only named v3 surfaces and the exact 67-file bundle
     const path = `${goldenDir}/${id}.json`
     const hash = await sha256Hex(await Deno.readFile(join(corpusRoot, path)))
     assertEquals(hash, golden.sha256, id)
-    lines.push(`${hash}  ${path}\n`)
+    if (nativeParserContract(id) == null) {
+      lines.push(`${hash}  ${path}\n`)
+    }
   }
   const disk = await names(join(corpusRoot, goldenDir))
   assertEquals(disk, await names(frozenRoot))

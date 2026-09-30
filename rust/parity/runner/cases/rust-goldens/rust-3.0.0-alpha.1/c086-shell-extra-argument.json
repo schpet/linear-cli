@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c086-shell-extra-argument",
-  "deviationId": "C086-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear completions bash\nVersion: 3.0.0-alpha.1          \n\nDescription:\n\n  Generate shell completions for bash.                                             \n                                                                                   \n  To enable bash completions for this program add following line to your ~/.bashrc:\n                                                                                   \n      source <(linear completions bash)                                            \n\nOptions:\n\n  -h, --help                  - Show this help.                \n  -n, --name  <command-name>  - The name of the main command.  \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: No arguments allowed for command \"linear completions bash\".\n\n"
+        "utf8": "error: unexpected argument 'extra' found\n\nUsage: linear completions bash [OPTIONS]\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

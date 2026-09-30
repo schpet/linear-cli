@@ -735,15 +735,9 @@ fn public_binary_debug_errors_are_exact_and_do_not_echo_the_key() {
 #[cfg(target_os = "linux")]
 #[test]
 fn public_binary_rejects_whoami_options_and_arguments_before_network() {
-    for (args, expected_error) in [
-        (
-            vec!["auth", "whoami", "--json"],
-            "error: unexpected argument '--json' found\n\n  tip: to pass '--json' as a value, use '-- --json'\n\nUsage: linear auth whoami [OPTIONS]\n",
-        ),
-        (
-            vec!["auth", "whoami", "extra"],
-            "  error: No arguments allowed for command \"linear auth whoami\".\n\n",
-        ),
+    for args in [
+        vec!["auth", "whoami", "--json"],
+        vec!["auth", "whoami", "extra"],
     ] {
         let output = run_public_binary(
             &args,
@@ -753,16 +747,15 @@ fn public_binary_rejects_whoami_options_and_arguments_before_network() {
             ],
         );
         assert_eq!(output.status.code(), Some(2), "{args:?}");
-        if args.contains(&"--json") {
-            assert!(output.stdout.is_empty(), "{args:?}");
-        } else {
-            assert!(
-                output
-                    .stdout
-                    .starts_with(b"\nUsage:   linear auth whoami\n")
-            );
-        }
-        assert_eq!(output.stderr, expected_error.as_bytes(), "{args:?}");
+        assert!(output.stdout.is_empty(), "{args:?}");
+        let native = linear_cli::cli::command()
+            .try_get_matches_from(std::iter::once("linear").chain(args.iter().copied()))
+            .unwrap_err();
+        assert_eq!(
+            output.stderr,
+            native.render().to_string().as_bytes(),
+            "{args:?}"
+        );
     }
 }
 

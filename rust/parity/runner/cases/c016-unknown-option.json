@@ -7,7 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "3856fd5bd3a84b0d88268df4a23877c6a69ddb1ddade2e5647efca08bd3390d1"},
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "5681febf0a1570c04d72bc4774550efaeaf79664ef55bdc8b948e97d41a38333"},
   "id": "c016-unknown-option",
   "reason": "Unknown local option fails parser.",
   "argv": [

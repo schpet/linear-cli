@@ -50,6 +50,6 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "6405aebd527b125f9de665c1bac2223d1ba5ee93bcaec7d3c0da5797497dbeee"},
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "1b22db4009f37517bfcf936646b12dc50453b6bb7003e8414c0f312a70ba2aa1"},
   "configFixture": "workspace-credential"
 }

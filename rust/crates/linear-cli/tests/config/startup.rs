@@ -522,7 +522,7 @@ fn binary_warning_color_and_offline_version_are_exact() {
         }
         let output = command.output().unwrap();
         assert_eq!(output.status.code(), Some(0));
-        assert_eq!(output.stdout, b"3.0.0-alpha.1\n");
+        assert_eq!(output.stdout, b"linear 3.0.0-alpha.1\n");
         assert_eq!(
             output.stderr,
             render_diagnostic(&diagnostic, color).as_bytes()

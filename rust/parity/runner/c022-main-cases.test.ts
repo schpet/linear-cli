@@ -9,7 +9,7 @@ const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const contract = "rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "2ebd0f258cf8ded5a68cd1a8c46fcf07cc6e0358209a403856c8e6a0c60bbc95"
+  "cc7b400f4b965a5a113fc57b28f220e78bde40210e9b536c5248f56a8e57c70e"
 const specific = new Map<string, [string, string[]]>([
   ["c022-alias-help", ["C022-CLI-VERSION", ["stdout"]]],
   ["c022-bad-option", ["C022-CLI-VERSION", ["stdout"]]],
@@ -188,7 +188,7 @@ Deno.test("C022 reviewed v3 goldens are exact and case-scoped", async () => {
       frozen.graphql == null ? undefined : "schpet-linear-cli/3.0.0-alpha.1",
       source.id,
     )
-    lines.push([goldenName, hash])
+    if (nativeParserContract(source.id) == null) lines.push([goldenName, hash])
   }
   const actualNames: string[] = []
   for await (const entry of Deno.readDir(join(corpusRoot, goldenDir))) {

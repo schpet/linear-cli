@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { readManifest } from "../verify.ts"
@@ -97,7 +98,13 @@ Deno.test("c033 promotion preserves frozen source bytes, write effects and narro
       source.graphql == null
         ? [null, null]
         : ["R01H-GRAPHQL-UA", ["graphql-user-agent"]]
-    if (narrow[source.id] != null) {
+    if (nativeParserContract(source.id) != null) {
+      const native = nativeParserContract(source.id)
+      if (native == null) {
+        throw new Error("native contract vanished")
+      }
+      ;[deviation, surfaces] = native
+    } else if (narrow[source.id] != null) {
       ;[deviation, surfaces] = narrow[source.id]
     }
     assertEquals(entry.spec.deviation?.id ?? null, deviation)

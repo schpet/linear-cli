@@ -1,3 +1,4 @@
+import { nativeParserContract } from "./native-parser-contract.ts"
 import { assertEquals } from "@std/assert"
 import { join } from "@std/path"
 import { sha256Hex } from "./bytes.ts"
@@ -11,7 +12,7 @@ const widthEvidenceSha256 =
 const widthCaseSha256 =
   "ac930d3d38d467ae8980e514088332505600ca16998b7d4aec153f64f580f2b8"
 const goldenBundleSha256 =
-  "e10099ca58bf6dd3b5bb65fa672a30382f11a80b44d3872dacee818d9edd9508"
+  "a5bc85fd5b1058539929ae7c6879cbd53e87099852b7a509350f9d2fc864de82"
 
 Deno.test("C011 main cases retain the frozen Deno inputs and both fixtures", async () => {
   const frozenNames: string[] = []
@@ -80,7 +81,7 @@ Deno.test("C011 reviewed v3 goldens are exact and case-scoped", async () => {
       await Deno.readFile(join(corpusRoot, goldenName)),
     )
     assertEquals(hash, source.deviation.sha256, source.id)
-    lines.push([goldenName, hash])
+    if (nativeParserContract(source.id) == null) lines.push([goldenName, hash])
   }
   const actualNames: string[] = []
   for await (const entry of Deno.readDir(join(corpusRoot, goldenDir))) {

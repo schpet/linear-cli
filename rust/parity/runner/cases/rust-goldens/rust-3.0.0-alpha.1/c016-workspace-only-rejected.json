@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c016-workspace-only-rejected",
-  "deviationId": "C016-V3-WORKSPACE-ONLY-REJECTED",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "exit",

@@ -7,7 +7,7 @@
   "timeoutMs": 30000,
   "outputCapBytes": 4194304,
   "fixtureServer": null,
-  "deviation": {"id": "CLAP-NATIVE-PARSER", "contract": "rust-3.0.0-alpha.1", "sha256": "7ec4f41c019d803d094ad136b9a97d2e0e0a528e50ad01f48580768a508e459b"},
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "31c524a8a25c9e8a801cd49c3c783c7144a9a15e9b9555faf26a270c0c59455f"},
   "id": "c016-root-local-duplicate",
   "reason": "Root workspace followed by local workspace Boolean reveals duplicate precedence.",
   "argv": [

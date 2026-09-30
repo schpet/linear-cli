@@ -26,11 +26,3 @@ pub(crate) fn positive_u32(value: &str) -> Result<NonZeroU32, String> {
         "expected a positive decimal integer between 1 and 4294967295, got {value:?}"
     ))
 }
-
-pub(crate) fn positive_limit(route: &str, option: &str) -> bool {
-    option == "limit"
-        && matches!(
-            route,
-            "linear document list" | "linear project-update list" | "linear initiative-update list"
-        )
-}

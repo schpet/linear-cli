@@ -54,9 +54,7 @@ fn collect_states<'a>(
     states: &mut Vec<State<'a>>,
 ) -> Result<(), AppError> {
     if command.is_hide_set() {
-        return Err(invariant(format!(
-            "fish completion tree has a hidden command: {path}"
-        )));
+        return Err(invariant("fish completion does not accept hidden commands"));
     }
     let children = command.get_subcommands().collect::<Vec<_>>();
     states.push(State {
@@ -340,10 +338,7 @@ fn state_lines(bin_name: &str, function: &str, state: &State<'_>) -> Result<Stri
     }
     for arg in options(state.command) {
         if arg.is_hide_set() {
-            return Err(invariant(format!(
-                "fish completion tree has a hidden option on {}",
-                state.path
-            )));
+            return Err(invariant("fish completion does not accept hidden options"));
         }
         let mut line = base.clone();
         for spelling in spellings(arg)? {

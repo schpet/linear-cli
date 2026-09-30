@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c021-help",
-  "deviationId": "C021-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear template list\nVersion: 3.0.0-alpha.1       \n\nDescription:\n\n  List templates. Without --team, every template in the workspace is shown.\n\nOptions:\n\n  -h, --help           - Show this help.                                                                                                       \n  --workspace  <slug>  - Target workspace (uses credentials)                                                                                   \n  --type       <type>  - Only templates of this type (issue, project, or document)                     (Values: \u001b[32m\"issue\"\u001b[39m, \u001b[32m\"project\"\u001b[39m, \u001b[32m\"document\"\u001b[39m)\n  --team       <team>  - Team key, name, or ID. Shows that team's templates plus workspace templates.                                          \n  -j, --json           - Output as JSON                                                                                                        \n\n"
+        "utf8": "List templates. Without --team, every template in the workspace is shown.\n\nUsage: linear template list [OPTIONS]\n\nOptions:\n      --type <type>       Only templates of this type (issue, project, or document) [possible values: issue, project, document]\n      --workspace <slug>  Target workspace (uses credentials)\n      --team <team>       Team key, name, or ID. Shows that team's templates plus workspace templates.\n  -j, --json              Output as JSON\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

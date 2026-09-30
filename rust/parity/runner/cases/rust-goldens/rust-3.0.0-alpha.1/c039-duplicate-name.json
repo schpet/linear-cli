@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c039-duplicate-name",
-  "deviationId": "CLAP-NATIVE-PARSER",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout",
@@ -16,7 +16,7 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "error: the argument '--name <name>' cannot be used multiple times\n\nUsage: linear initiative create [OPTIONS]\n"
+        "utf8": "error: the argument '--name <name>' cannot be used multiple times\n\nUsage: linear initiative create [OPTIONS]\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

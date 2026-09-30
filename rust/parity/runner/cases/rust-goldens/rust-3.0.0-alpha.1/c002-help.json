@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c002-help",
-  "deviationId": "C002-HELP-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear auth list\nVersion: 3.0.0-alpha.1   \n\nDescription:\n\n  List configured workspaces\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\n"
+        "utf8": "List configured workspaces\n\nUsage: linear auth list [OPTIONS]\n\nOptions:\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

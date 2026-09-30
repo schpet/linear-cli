@@ -1,10 +1,11 @@
 {
   "formatVersion": 1,
   "caseId": "c033-missing-id",
-  "deviationId": "C033-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout"
+    "stdout",
+    "stderr"
   ],
   "candidate": {
     "expected": {
@@ -12,10 +13,10 @@
         "code": 2
       },
       "stdout": {
-        "utf8": "\nUsage:   linear milestone update <id>\nVersion: 3.0.0-alpha.1               \n\nDescription:\n\n  Update an existing project milestone\n\nOptions:\n\n  -h, --help                    - Show this help.                                       \n  --workspace    <slug>         - Target workspace (uses credentials)                   \n  --name         <name>         - Milestone name                                        \n  --description  <description>  - Milestone description                                 \n  --target-date  <date>         - Target date (YYYY-MM-DD)                              \n  --sort-order   <value>        - Sort order relative to other milestones               \n  --project      <project>      - Move to a different project (UUID, slug ID, or name)  \n\n"
+        "utf8": ""
       },
       "stderr": {
-        "utf8": "  error: Missing argument(s): id\n\n"
+        "utf8": "error: the following required arguments were not provided:\n  <id>\n\nUsage: linear milestone update --name <name> <id>\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

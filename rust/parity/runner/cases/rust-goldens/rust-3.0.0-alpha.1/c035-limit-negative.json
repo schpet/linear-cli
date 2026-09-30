@@ -19,13 +19,13 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "error: invalid value '-1' for '--limit <limit>': expected a positive decimal integer between 1 and 4294967295, got \"-1\"\n"
+        "utf8": "error: unexpected argument '-1' found\n\n  tip: to pass '-1' as a value, use '-- -1'\n\nUsage: linear project-update list [OPTIONS] <projectId>\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     },
-    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
     "graphql": {
       "steps": []
-    }
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
   }
 }

@@ -10,7 +10,7 @@ const frozenRoot = new URL("./c037-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "384751ae388bcdd33de8ff04f92b5857cd3e770c5546616af473bace743bf34c"
+  "37044c7f0c8ee58a55466d85bcf336ec3890da723ea3b531a182fab25b879a3a"
 
 const pages = new Set([
   "c037-first-page-more-json",
@@ -182,7 +182,9 @@ Deno.test("C037 goldens bind named v3 changes and only four v2 page scripts", as
     const path = `${goldenDir}/${id}.json`
     const hash = await sha256Hex(await Deno.readFile(join(corpusRoot, path)))
     assertEquals(hash, golden.sha256, id)
-    lines.push(`${hash}  ${path}\n`)
+    if (nativeParserContract(id) == null) {
+      lines.push(`${hash}  ${path}\n`)
+    }
     if (pages.has(id)) {
       assertEquals(entry.goldenV2?.spec.formatVersion, 2, id)
       assertEquals(
@@ -202,15 +204,15 @@ Deno.test("C037 goldens bind named v3 changes and only four v2 page scripts", as
   }
   assertEquals(Object.fromEntries(categories), {
     "C037-ALL-PAGES": 4,
-    "C037-CLAP-PARSER": 5,
-    "CLAP-NATIVE-PARSER": 7,
+
+    "CLAP-NATIVE-CLI-SURFACE": 12,
     "C037-CURSOR-REJECT": 2,
     "C037-OPEN-DIAGNOSTIC": 13,
     "C037-STRICT-DECODE": 3,
     "C037-TYPED-JSON": 2,
     "R01H-GRAPHQL-UA": 41,
   })
-  assertEquals(lines.length, 77)
+  assertEquals(lines.length, 65)
   const onDisk: string[] = []
   for await (const entry of Deno.readDir(join(corpusRoot, goldenDir))) {
     if (entry.isFile && entry.name.startsWith("c037-")) onDisk.push(entry.name)

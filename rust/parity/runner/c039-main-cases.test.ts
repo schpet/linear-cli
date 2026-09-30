@@ -10,7 +10,7 @@ const frozenRoot = new URL("./c039-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "13951d1b99222c9e2cef7d2028c975d85f1904055e89421932a1b733c5c2dae4"
+  "53e211bf0439c79fd997a348f8fd5f07d4327b5feec5425f9c4c08c37b00df5d"
 
 const categories: Record<string, string[]> = {
   "R01H-GRAPHQL-UA": [
@@ -199,7 +199,9 @@ Deno.test("C039 goldens bind only diagnostics, help, and versioned User-Agent", 
     const path = `${goldenDir}/${id}.json`
     const hash = await sha256Hex(await Deno.readFile(join(corpusRoot, path)))
     assertEquals(hash, golden.sha256, id)
-    lines.push(`${hash}  ${path}\n`)
+    if (nativeParserContract(id) == null) {
+      lines.push(`${hash}  ${path}\n`)
+    }
   }
   assertEquals(
     await names(join(corpusRoot, goldenDir)),

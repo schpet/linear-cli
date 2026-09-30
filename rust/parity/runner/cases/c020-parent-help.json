@@ -43,5 +43,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id": "C020-PARENT-HELP", "contract": "rust-3.0.0-alpha.1", "sha256": "d30daaae57654c76a2d8b2b4ae2af1215ae4d0cee629d75f03459c23379e9d5d"}
+  "deviation": {"id": "CLAP-NATIVE-CLI-SURFACE", "contract": "rust-3.0.0-alpha.1", "sha256": "366580fbf004faa4c0cd51212408fc3104309688385037c98193c0d8296bf0a2"}
 }

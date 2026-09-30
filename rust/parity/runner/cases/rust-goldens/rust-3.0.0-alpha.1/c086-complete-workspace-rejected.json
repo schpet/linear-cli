@@ -1,22 +1,23 @@
 {
   "formatVersion": 1,
   "caseId": "c086-complete-workspace-rejected",
-  "deviationId": "CLAP-NATIVE-PARSER",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
+    "exit",
     "stdout",
     "stderr"
   ],
   "candidate": {
     "expected": {
       "exit": {
-        "code": 2
+        "code": 0
       },
       "stdout": {
-        "utf8": ""
+        "utf8": "manual\npriority"
       },
       "stderr": {
-        "utf8": "error: unexpected argument '--workspace' found\n\n  tip: to pass '--workspace' as a value, use '-- --workspace'\n\nUsage: linear completions complete <action> [command]...\n"
+        "utf8": ""
       },
       "fileEffects": []
     }

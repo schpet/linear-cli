@@ -63,12 +63,7 @@ fn inventory() -> Vec<Route> {
         if path == "linear" {
             offered_flags.extend(["-V".to_owned(), "--version".to_owned()]);
         }
-        let inherited = route["inheritedGlobalOptions"]
-            .as_array()
-            .expect("inherited options");
-        if path == "linear" || path == "linear label list" || !inherited.is_empty() {
-            offered_flags.insert("--workspace".to_owned());
-        }
+        offered_flags.insert("--workspace".to_owned());
         let types = route["localTypes"].as_array().expect("local types");
         let enums = types
             .iter()
@@ -261,8 +256,7 @@ fn unsafe_or_missing_names_fail_before_generation() {
         let output = run(args);
         assert_eq!(output.status.code(), Some(2), "{args:?}");
         let words = std::iter::once("linear").chain(args.iter().copied());
-        let native = linear_cli::cli::clap_tree::build()
-            .expect("clap tree")
+        let native = linear_cli::cli::command()
             .try_get_matches_from(words)
             .expect_err("native missing name");
         assert!(output.stdout.is_empty(), "{args:?}");
@@ -275,13 +269,21 @@ fn unsafe_or_missing_names_fail_before_generation() {
 }
 
 #[test]
-fn completions_parent_prints_help_and_rejects_workspace() {
+fn completions_parent_prints_native_help_and_inherits_workspace() {
     let help = run(&["completions", "--help"]);
     assert_success(&run(&["completions"]), &help.stdout, "bare parent");
-    for args in [
-        &["completions", "--workspace", "x"][..],
-        &["completions", "bash", "--workspace", "x"][..],
-        &[
+    assert_success(
+        &run(&["completions", "bash", "--workspace", "x"]),
+        BASH,
+        "global workspace",
+    );
+    assert_success(
+        &run(&["--workspace", "x", "completions", "bash"]),
+        BASH,
+        "root global workspace",
+    );
+    assert_success(
+        &run(&[
             "completions",
             "complete",
             "sort",
@@ -289,23 +291,10 @@ fn completions_parent_prints_help_and_rejects_workspace() {
             "mine",
             "--workspace",
             "x",
-        ][..],
-    ] {
-        let output = run(args);
-        assert_eq!(output.status.code(), Some(2), "{args:?}");
-        let native = linear_cli::cli::clap_tree::build()
-            .expect("clap tree")
-            .try_get_matches_from(std::iter::once("linear").chain(args.iter().copied()))
-            .expect_err("native unexpected workspace");
-        assert!(output.stdout.is_empty(), "{args:?}");
-        assert_eq!(
-            text(&output.stderr),
-            native.render().to_string(),
-            "{args:?}"
-        );
-    }
-    let root_workspace = run(&["--workspace", "x", "completions", "bash"]);
-    assert_success(&root_workspace, BASH, "root workspace before completions");
+        ]),
+        b"manual\npriority",
+        "hidden complete global workspace",
+    );
 }
 
 fn bash_function(words: &[&str]) -> String {
@@ -339,6 +328,9 @@ fn expected_bash_words<'a>(routes: &[&'a Route], route: &'a Route) -> BTreeSet<&
     for child in children(routes, route) {
         words.insert(&child.name);
         words.extend(child.aliases.iter().map(String::as_str));
+    }
+    if !children(routes, route).is_empty() {
+        words.insert("help");
     }
     words
 }
@@ -468,7 +460,7 @@ fn scripts_omit_hidden_routes_hidden_options_and_internal_ids() {
     let completions = &bash_arms(bash, &bash_function(&["completions"]))[0];
     assert_eq!(
         completions,
-        &BTreeSet::from(["-h", "--help", "bash", "fish", "zsh"])
+        &BTreeSet::from(["-h", "--help", "--workspace", "bash", "fish", "zsh", "help"])
     );
 }
 
@@ -549,14 +541,21 @@ fn flag_words(route: &Route) -> BTreeSet<&str> {
 
 /// Every command word a parent offers, with its first description line.
 fn child_candidates(routes: &[&Route], route: &Route) -> BTreeSet<Candidate> {
-    children(routes, route)
+    let mut candidates = children(routes, route)
         .into_iter()
         .flat_map(|child| {
             std::iter::once(&child.name)
                 .chain(&child.aliases)
                 .map(|word| (word.clone(), child.summary.clone()))
         })
-        .collect()
+        .collect::<BTreeSet<_>>();
+    if !children(routes, route).is_empty() {
+        candidates.insert((
+            "help".to_owned(),
+            "Print this message or the help of the given subcommand(s)".to_owned(),
+        ));
+    }
+    candidates
 }
 
 /// The command line that selects `words`, ending with a space.
@@ -753,7 +752,13 @@ fn fish_selects_exact_paths_at_collisions_values_and_boundaries() {
         ("linear completions complete -", owned(nothing.clone())),
         (
             "linear completions bash -",
-            owned(BTreeSet::from(["-h", "--help", "-n", "--name"])),
+            owned(BTreeSet::from([
+                "-h",
+                "--help",
+                "-n",
+                "--name",
+                "--workspace",
+            ])),
         ),
         (
             "linear label list --workspace",
@@ -825,18 +830,12 @@ fn hidden_complete_returns_every_manifest_enum_in_frozen_order() {
 #[test]
 fn hidden_complete_rejects_unknown_and_hidden_command_words() {
     for (args, message) in [
-        (
-            &["sort", "issue", "nope"][..],
-            "Unknown command \"nope\". Did you mean command \"mine\"?",
-        ),
+        (&["sort", "issue", "nope"][..], "Unknown command \"nope\"."),
         (
             &["sort", "completions", "complete"][..],
-            "Unknown command \"complete\". Did you mean command \"bash\"?",
+            "Unknown command \"complete\".",
         ),
-        (
-            &["sort", "iss"][..],
-            "Unknown command \"iss\". Did you mean command \"issue\"?",
-        ),
+        (&["sort", "iss"][..], "Unknown command \"iss\"."),
         (
             &["sort", "issue", "mine", "extra"][..],
             "Unknown command \"extra\".",
@@ -853,10 +852,10 @@ fn hidden_complete_rejects_unknown_and_hidden_command_words() {
     }
     let missing = complete(&[]);
     assert_eq!(missing.status.code(), Some(2));
-    assert_eq!(
-        text(&missing.stderr),
-        "  error: Missing argument(s): action\n\n"
-    );
+    let native = linear_cli::cli::command()
+        .try_get_matches_from(["linear", "completions", "complete"])
+        .unwrap_err();
+    assert_eq!(text(&missing.stderr), native.render().to_string());
 }
 
 fn with_credentials(fixture: &str, args: &[&str]) -> (Output, PathBuf) {

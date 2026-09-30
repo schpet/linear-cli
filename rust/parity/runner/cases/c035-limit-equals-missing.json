@@ -45,5 +45,5 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id": "RUST-POSITIVE-LIMIT-INPUT", "contract": "rust-3.0.0-alpha.1", "sha256": "998f4d8a33f29526b93a8a398a5f0b3f263c4b621b3fb30fd30ac2c99e3710d0"}
+  "deviation": {"id": "RUST-POSITIVE-LIMIT-INPUT", "contract": "rust-3.0.0-alpha.1", "sha256": "9e4b7cba35e2f3acb9e2d084a236fe37a56da502e43f10ce3e8d0796d5e9d373"}
 }

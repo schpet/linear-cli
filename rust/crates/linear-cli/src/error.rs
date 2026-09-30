@@ -1,4 +1,3 @@
-use crate::cli::Route;
 use std::error::Error;
 use std::fmt;
 use std::num::NonZeroU8;
@@ -25,7 +24,7 @@ impl ExitStatus {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AppErrorKind {
     Validation,
-    Usage { route: Route },
+    Usage,
     NotFound,
     Auth,
     GraphQl,
@@ -47,9 +46,6 @@ pub struct AppError {
 }
 
 impl AppError {
-    pub fn usage(route: Route, message: impl Into<String>) -> Self {
-        Self::new(AppErrorKind::Usage { route }, message)
-    }
     pub fn new(kind: AppErrorKind, message: impl Into<String>) -> Self {
         let suggestion = match kind {
             AppErrorKind::Auth => Some("Run `linear auth login` to authenticate.".to_owned()),
@@ -66,8 +62,8 @@ impl AppError {
     }
 
     /// Preserve clap's rendering, stream and exit code without rewording it.
-    pub fn native_parser(route: Route, error: clap::Error) -> Self {
-        Self::usage(route, error.to_string()).with_source(error)
+    pub fn native_parser(error: clap::Error) -> Self {
+        Self::new(AppErrorKind::Usage, error.to_string()).with_source(error)
     }
 
     pub fn native_parser_error(&self) -> Option<&clap::Error> {

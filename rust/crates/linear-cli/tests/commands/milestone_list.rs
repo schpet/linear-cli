@@ -4,8 +4,7 @@ use std::ffi::OsString;
 use std::future::ready;
 use std::rc::Rc;
 
-use linear_cli::cli::DispatchAction;
-use linear_cli::cli::clap_input::{self, Invocation, OptionValue};
+use linear_cli::cli::{self, Cli, RootCommand};
 use linear_cli::commands::milestone_list::{CONTEXT, render_text, request, run_with};
 use linear_cli::error::{AppError, AppErrorKind};
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
@@ -325,23 +324,22 @@ fn narrow_tables_follow_the_source_width_rules_and_header_style() {
     );
 }
 
-fn parse(args: &[&str]) -> Result<Invocation, AppError> {
+fn parse(args: &[&str]) -> Result<Cli, AppError> {
     let args: Vec<OsString> = args.iter().map(OsString::from).collect();
-    clap_input::parse(&args)
+    cli::parse(&args)
 }
 
 #[test]
 fn route_dispatches_and_requires_an_attached_hyphen_leading_project() {
-    let Invocation::Action(action) =
-        parse(&["milestone", "list", "--project=--json", "-j"]).expect("parse")
-    else {
-        panic!("expected an action");
+    let cli = parse(&["milestone", "list", "--project=--json", "-j"]).expect("parse");
+    let Some(RootCommand::Milestone(group)) = cli.command else {
+        panic!("group")
     };
-    assert_eq!(action.route.route.action(), DispatchAction::MilestoneList);
-    let project = action.option("project").expect("project option");
-    assert!(matches!(&project.value.value, OptionValue::String(value) if value == "--json"));
-    let json = action.option("json").expect("json option");
-    assert!(matches!(json.value.value, OptionValue::Switch(true)));
+    let Some(cli::milestone::MilestoneCommand::List(action)) = group.command else {
+        panic!("action")
+    };
+    assert_eq!(action.project, "--json");
+    assert!(action.json);
 
     for args in [
         ["milestone", "list", "--project", "--json"],
@@ -349,9 +347,8 @@ fn route_dispatches_and_requires_an_attached_hyphen_leading_project() {
         ["milestone", "list", "--project=", "--json"],
     ] {
         let error = parse(&args).expect_err("v3 rejects a pending hyphen value");
-        assert!(matches!(error.kind, AppErrorKind::Usage { .. }), "{args:?}");
-        let expected = linear_cli::cli::clap_tree::build()
-            .expect("clap tree")
+        assert!(matches!(error.kind, AppErrorKind::Usage), "{args:?}");
+        let expected = linear_cli::cli::command()
             .try_get_matches_from(std::iter::once("linear").chain(args.iter().copied()))
             .expect_err("native missing value");
         assert_eq!(error.message, expected.to_string(), "{args:?}");

@@ -831,15 +831,9 @@ fn public_binary_keyring_miss_and_failure_render_missing_rows_after_warning() {
 #[test]
 fn public_binary_rejects_list_options_and_arguments_before_network() {
     let sandbox = Sandbox::new(Some(b"one='lin_api_fake_1'\n"));
-    for (args, expected_error) in [
-        (
-            vec!["auth", "list", "--json"],
-            "error: unexpected argument '--json' found\n\n  tip: to pass '--json' as a value, use '-- --json'\n\nUsage: linear auth list [OPTIONS]\n",
-        ),
-        (
-            vec!["auth", "list", "extra"],
-            "  error: No arguments allowed for command \"linear auth list\".\n\n",
-        ),
+    for args in [
+        vec!["auth", "list", "--json"],
+        vec!["auth", "list", "extra"],
     ] {
         let output = sandbox.run(
             &args,
@@ -849,11 +843,14 @@ fn public_binary_rejects_list_options_and_arguments_before_network() {
             ],
         );
         assert_eq!(output.status.code(), Some(2), "{args:?}");
-        if args.contains(&"--json") {
-            assert!(output.stdout.is_empty(), "{args:?}");
-        } else {
-            assert!(output.stdout.starts_with(b"\nUsage:   linear auth list\n"));
-        }
-        assert_eq!(output.stderr, expected_error.as_bytes(), "{args:?}");
+        assert!(output.stdout.is_empty(), "{args:?}");
+        let native = linear_cli::cli::command()
+            .try_get_matches_from(std::iter::once("linear").chain(args.iter().copied()))
+            .unwrap_err();
+        assert_eq!(
+            output.stderr,
+            native.render().to_string().as_bytes(),
+            "{args:?}"
+        );
     }
 }

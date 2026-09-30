@@ -1,6 +1,6 @@
 //! Resource-independent comment JSON and thread rendering.
-use crate::cli::render::style::bold;
 use crate::commands::relative_time::format_relative_time;
+use crate::commands::style::bold;
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::operations::comments::{
     CommentBotActor, CommentExternalUser, CommentNode, CommentParent, CommentUser,

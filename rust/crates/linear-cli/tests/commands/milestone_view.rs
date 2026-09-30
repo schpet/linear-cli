@@ -14,8 +14,7 @@ use cynic::QueryBuilder;
 use linear_cli::app::{self, AppContext};
 use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
 use linear_cli::auth::keyring::UnsupportedKeyringReader;
-use linear_cli::cli::DispatchAction;
-use linear_cli::cli::clap_input::{self, Invocation};
+use linear_cli::cli::{self, RootCommand};
 use linear_cli::commands::milestone_view::{detail_request, fetch_with, json, markdown};
 use linear_cli::config::{
     FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot,
@@ -566,10 +565,14 @@ fn route_and_explicit_empty_project_follow_v3_usage_grammar() {
         .iter()
         .map(OsString::from)
         .collect();
-    let Invocation::Action(action) = clap_input::parse(&args).expect("parse") else {
+    let cli = cli::parse(&args).expect("parse");
+    let Some(RootCommand::Milestone(group)) = cli.command else {
+        panic!("group")
+    };
+    let Some(cli::milestone::MilestoneCommand::View(action)) = group.command else {
         panic!("action")
     };
-    assert_eq!(action.route.route.action(), DispatchAction::MilestoneView);
+    assert!(action.all && action.json);
     let invalid: [&[&str]; 4] = [
         &["milestone", "view", "--project=", INPUT],
         &["milestone", "view", INPUT, "--project="],
@@ -578,10 +581,9 @@ fn route_and_explicit_empty_project_follow_v3_usage_grammar() {
     ];
     for argv in invalid {
         let args: Vec<OsString> = argv.iter().map(OsString::from).collect();
-        let error = clap_input::parse(&args).expect_err("usage error");
-        assert!(matches!(error.kind, AppErrorKind::Usage { .. }));
-        let expected = linear_cli::cli::clap_tree::build()
-            .expect("clap tree")
+        let error = cli::parse(&args).expect_err("usage error");
+        assert!(matches!(error.kind, AppErrorKind::Usage));
+        let expected = linear_cli::cli::command()
             .try_get_matches_from(std::iter::once("linear").chain(argv.iter().copied()))
             .expect_err("native missing value");
         assert_eq!(error.message, expected.to_string(), "{argv:?}");

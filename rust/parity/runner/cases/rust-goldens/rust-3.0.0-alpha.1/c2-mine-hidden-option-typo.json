@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c2-mine-hidden-option-typo",
-  "deviationId": "CLAP-NATIVE-PARSER",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout",
@@ -16,7 +16,7 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "error: unexpected argument '--assigne' found\n\n  tip: to pass '--assigne' as a value, use '-- --assigne'\n\nUsage: linear issue mine [OPTIONS]\n"
+        "utf8": "error: unexpected argument '--assigne' found\n\n  tip: a similar argument exists: '--assignee'\n\nUsage: linear issue mine [OPTIONS]\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

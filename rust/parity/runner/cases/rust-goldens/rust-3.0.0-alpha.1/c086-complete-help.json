@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c086-complete-help",
-  "deviationId": "C086-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear completions complete <action> [command...]\nVersion: 3.0.0-alpha.1                                    \n\nDescription:\n\n  Get completions for given action from given command.\n\nOptions:\n\n  -h, --help  - Show this help.  \n\n"
+        "utf8": "Get completions for given action from given command.\n\nUsage: linear completions complete [OPTIONS] <action> [command]... [-- <literal>...]\n\nArguments:\n  <action>      \n  [command]...  \n  [literal]...  Literal words from saved scripts are not command-path words\n\nOptions:\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

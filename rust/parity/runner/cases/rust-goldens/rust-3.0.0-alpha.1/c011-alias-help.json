@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c011-alias-help",
-  "deviationId": "C011-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\nUsage:   linear team states [team]\nVersion: 3.0.0-alpha.1            \n\nDescription:\n\n  List workflow states for a team (by key, name, or ID)\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n  -j, --json           - Output as JSON                       \n\n"
+        "utf8": "List workflow states for a team (by key, name, or ID)\n\nUsage: linear team states [OPTIONS] [team]\n\nArguments:\n  [team]  \n\nOptions:\n  -j, --json              Output as JSON\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
       },
       "stderr": {
         "utf8": ""

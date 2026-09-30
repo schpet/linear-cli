@@ -8,7 +8,7 @@ const frozenRoot = new URL("./c020-frozen-cases/", import.meta.url).pathname
 const corpusRoot = new URL("./cases/", import.meta.url).pathname
 const goldenDir = "rust-goldens/rust-3.0.0-alpha.1"
 const goldenBundleSha256 =
-  "fff83dd803465ce864aa0978aa48bd6132450677a482ab94bd45b3b685d6905d"
+  "d74e30efcae2e745fc845307096fe586eaadc3523b0dbdc14e81cd2fc3dfebf7"
 const special = new Map<string, [string, string[]]>([
   ["c020-alias-help", ["C020-ALIAS-HELP", ["stdout"]]],
   ["c020-cycles-null-first", ["C020-CYCLES-NULL-FIRST", [
@@ -129,7 +129,9 @@ Deno.test("C020 v3 goldens bind exact cases, surfaces and bundle", async () => {
       (nativeParserContract(source.id) ?? special.get(source.id))?.[1] ??
         ["graphql-user-agent"],
     )
-    lines.push(`${hash}  ${path}\n`)
+    if (nativeParserContract(source.id) == null) {
+      lines.push(`${hash}  ${path}\n`)
+    }
   }
   const actual: string[] = []
   for await (const entry of Deno.readDir(join(corpusRoot, goldenDir))) {

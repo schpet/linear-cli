@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c024-unknown-flag",
-  "deviationId": "CLAP-NATIVE-PARSER",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout",
@@ -16,7 +16,7 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "error: unexpected argument '--whoops' found\n\n  tip: to pass '--whoops' as a value, use '-- --whoops'\n\nUsage: linear project view [OPTIONS] [projectId]\n"
+        "utf8": "error: unexpected argument '--whoops' found\n\n  tip: to pass '--whoops' as a value, use '-- --whoops'\n\nUsage: linear project view [OPTIONS] [projectId]\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     }

@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c035-json-equals-empty",
-  "deviationId": "CLAP-NATIVE-PARSER",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "exit",
@@ -19,13 +19,13 @@
         "utf8": ""
       },
       "stderr": {
-        "utf8": "error: unexpected value '' for '--json' found; no more were expected\n\nUsage: linear project-update list --json [projectId]\n"
+        "utf8": "error: unexpected value '' for '--json' found; no more were expected\n\nUsage: linear project-update list --json <projectId>\n\nFor more information, try '--help'.\n"
       },
       "fileEffects": []
     },
-    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
     "graphql": {
       "steps": []
-    }
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
   }
 }

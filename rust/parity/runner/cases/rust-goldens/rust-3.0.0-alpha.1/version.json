@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "version",
-  "deviationId": "R01V-CLI-VERSION",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "stdout"
@@ -12,7 +12,7 @@
         "code": 0
       },
       "stdout": {
-        "utf8": "\u001b[1mlinear\u001b[22m \u001b[94m3.0.0-alpha.1\u001b[39m\n"
+        "utf8": "linear 3.0.0-alpha.1\n"
       },
       "stderr": {
         "utf8": ""

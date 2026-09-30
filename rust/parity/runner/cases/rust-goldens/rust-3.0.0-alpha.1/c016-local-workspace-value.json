@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "caseId": "c016-local-workspace-value",
-  "deviationId": "C016-V3-LOCAL-WORKSPACE-VALUE",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
     "exit",
