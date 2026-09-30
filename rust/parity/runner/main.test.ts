@@ -65,3 +65,11 @@ Deno.test("a claimed candidate executable is checked before any case runs", asyn
     await Deno.remove(dir, { recursive: true })
   }
 })
+
+Deno.test("explicit baseline refresh flag is accepted", () => {
+  assertEquals(
+    parseOptions([...required, "--force-baseline"]).forceBaseline,
+    true,
+  )
+  assertEquals(parseOptions(required).forceBaseline, false)
+})

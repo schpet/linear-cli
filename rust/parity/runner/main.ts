@@ -18,6 +18,7 @@ import {
   verifyBaseline,
   verifySourceBinding,
 } from "../verify.ts"
+import { BaselineCache, baselineIdentity } from "./baseline-cache.ts"
 import { CASE_ROOT_PARENT, prepareConfinement, resolveBwrap } from "./bwrap.ts"
 import { encodeByteValue, sha256Hex } from "./bytes.ts"
 import { loadCases } from "./cases.ts"
@@ -64,6 +65,7 @@ interface Options {
   report?: string
   propose?: string
   selfCheck: boolean
+  forceBaseline: boolean
   requireComplete: boolean
   stageDir?: string
   restage: boolean
@@ -81,6 +83,7 @@ const USAGE =
   --filter <substring>           run only case ids containing the substring
   --report <file>                write the JSON report here
   --propose <dir>                write sanitized baseline observations for case authoring; never edits cases
+  --force-baseline               execute and replace every selected source observation (required for fresh freeze/P10 evidence)
   --self-check                   run identical-executable sanity and broken-candidate controls
   --require-complete             treat not-implemented as failure
   --stage-dir <dir>              staged reference module cache root (default: <cache home>/linear-parity/stage)
@@ -92,6 +95,7 @@ export function parseOptions(args: string[]): Options {
     referenceBinary: "",
     cases: join(runnerDir, "cases"),
     selfCheck: false,
+    forceBaseline: false,
     requireComplete: false,
     restage: false,
     inside: false,
@@ -155,6 +159,9 @@ export function parseOptions(args: string[]): Options {
           }
           options.stagedReused = value === "true"
         }
+        break
+      case "--force-baseline":
+        options.forceBaseline = true
         break
       case "--self-check":
         options.selfCheck = true
@@ -412,6 +419,7 @@ async function writeProposals(
       join(dir, `${result.id}.json`),
       JSON.stringify(
         {
+          baselineEvidence: result.baselineEvidence,
           exit: proposalExit(run.observation.targetExit),
           outerExit: run.observation.outerExit,
           stdout: proposalStdout(
@@ -508,13 +516,30 @@ async function innerInLane(
     console.log(
       `baseline: interpreted reference ${options.reference}\ncandidate: ${candidate.name}`,
     )
+    const baselineCache = new BaselineCache(
+      join(
+        fromFileUrl(new URL("../../../", import.meta.url)),
+        "untracked",
+        "parity-baseline-cache",
+      ),
+      await baselineIdentity(
+        pinned.baseline,
+        baseline,
+        ctx,
+        stageBefore.sha256,
+      ),
+      options.forceBaseline,
+    )
+    const corpusStarted = performance.now()
     const results = await runCorpus(
       cases,
       baseline,
       candidate,
       ctx,
       (result) => console.log(formatResultLine(result)),
+      baselineCache,
     )
+    const corpusElapsedMs = performance.now() - corpusStarted
     if (options.propose != null) {
       await writeProposals(options.propose, results, lane.statusHelper)
     }
@@ -549,6 +574,18 @@ async function innerInLane(
       lane,
       stagedDenoDirReused: options.stagedReused,
       stagedDenoDir,
+      baselineCache: {
+        ...baselineCache.metrics,
+        forced: options.forceBaseline,
+        corpusElapsedMs,
+        candidateExecutions: results.filter((result) =>
+          result.candidate != null
+        ).length,
+        candidateExecutionMs: results.reduce(
+          (total, result) => total + (result.candidateElapsedMs ?? 0),
+          0,
+        ),
+      },
       counts,
       reviewedDeviationPasses: countReviewedDeviationPasses(results),
       reviewedGraphqlUserAgentPasses: countReviewedGraphqlUserAgentPasses(
@@ -573,6 +610,15 @@ async function innerInLane(
     }
     console.log(
       `staged DENO_DIR unchanged: ${stagedDenoDir.entries} entries, sha256 ${stagedDenoDir.sha256After}`,
+    )
+    console.log(
+      `baseline cache: ${baselineCache.metrics.hits} hits, ${baselineCache.metrics.misses} misses, ${baselineCache.metrics.refreshes} refreshes; corpus ${
+        corpusElapsedMs.toFixed(0)
+      }ms, current baseline execution ${
+        baselineCache.metrics.baselineExecutionMs.toFixed(0)
+      }ms, historical cached subprocess ${
+        baselineCache.metrics.historicalCachedDurationMs.toFixed(0)
+      }ms`,
     )
     console.log(
       `parity: ${counts.pass} pass (${report.reviewedDeviationPasses} reviewed deviations), ${counts.fail} fail, ${

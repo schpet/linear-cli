@@ -3,6 +3,7 @@
 // lane is exercised by `deno task parity` itself.
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { join } from "@std/path"
+import { BaselineCache } from "./baseline-cache.ts"
 import { CASE_ROOT_PARENT, prepareConfinement } from "./bwrap.ts"
 import type { LoadedCase } from "./cases.ts"
 import { loadCases } from "./cases.ts"
@@ -576,4 +577,89 @@ Deno.test("the committed corpus loads against the manifest and rejects a broken 
   } finally {
     await Deno.remove(dir, { recursive: true })
   }
+})
+
+Deno.test("warm baseline proof skips source invocation, candidate executes and rejects broken controls with dynamic sandbox paths", async () => {
+  await withDir(async (dir, ctx) => {
+    const source = await script(dir, "cache-source", 'printf "%s\\n" "$PWD"')
+    const candidatePath = await script(
+      dir,
+      "cache-candidate",
+      'printf "%s\\n" "$PWD"',
+    )
+    const loaded = loadedCase({
+      substitutions: [...parseCase(validCase()).substitutions, "cwd"],
+      expected: {
+        ...parseCase(validCase()).expected,
+        stdout: { utf8: "{{cwd}}\n" },
+      },
+    })
+    loaded.file = join(dir, "cache-case.json")
+    await Deno.writeTextFile(loaded.file, JSON.stringify(loaded.spec))
+    const cache = new BaselineCache(join(dir, "cache"), "bound test source")
+    const baseline: Program = { kind: "executable", path: source }
+    const candidate = {
+      name: "candidate",
+      program: { kind: "executable", path: candidatePath },
+      implementedRoutes: new Set([loaded.spec.route]),
+    }
+    // Explicit Program type preserves strict discriminant typing.
+    const candidateProgram: Program = {
+      kind: "executable",
+      path: candidatePath,
+    }
+    const descriptor = { ...candidate, program: candidateProgram }
+    const [cold] = await runCorpus(
+      [loaded],
+      baseline,
+      descriptor,
+      ctx,
+      undefined,
+      cache,
+    )
+    assertEquals(cold.status, "pass")
+    await Deno.remove(source)
+    const [warm] = await runCorpus(
+      [loaded],
+      baseline,
+      descriptor,
+      ctx,
+      undefined,
+      cache,
+    )
+    assertEquals(warm.status, "pass")
+    assertEquals(warm.baseline, cold.baseline)
+    assertEquals(warm.baselineEvidence?.origin, "cache")
+    assert(warm.candidate != null)
+    // Candidate remains fresh and independently resolves its new sandbox path.
+    assert(
+      new TextDecoder().decode(warm.candidate.raw.stdout) !==
+        new TextDecoder().decode(warm.baseline.raw.stdout),
+    )
+    await script(dir, "cache-candidate", "printf broken")
+    const [negative] = await runCorpus(
+      [loaded],
+      baseline,
+      descriptor,
+      ctx,
+      undefined,
+      cache,
+    )
+    assertEquals(negative.status, "fail")
+    assertEquals(negative.candidate?.mismatches.map((m) => m.surface), [
+      "stdout",
+    ])
+    assertEquals(cache.metrics.baselineExecutions, 1)
+    assertEquals(cache.metrics.hits, 2)
+    await assertRejects(() =>
+      runCorpus(
+        [loaded],
+        baseline,
+        descriptor,
+        ctx,
+        undefined,
+        new BaselineCache(cache.directory, cache.identity, true),
+      )
+    )
+  })
 })

@@ -1,3 +1,4 @@
+import type { CacheMetrics } from "./baseline-cache.ts"
 import type { LaneRecord } from "./preflight.ts"
 import type { CaseResult, CaseRun, CaseStatus } from "./run.ts"
 import type { CandidateContract } from "./schema.ts"
@@ -8,6 +9,8 @@ export interface ReportCase {
   route: string
   status: CaseStatus
   baseline: Omit<CaseRun, "raw">
+  baselineEvidence?: CaseResult["baselineEvidence"]
+  candidateElapsedMs?: number
   candidate: Omit<CaseRun, "raw"> | null
   reviewedDeviation: CaseResult["reviewedDeviation"]
 }
@@ -31,6 +34,12 @@ export interface Report {
     sha256After: string
     unchanged: boolean
   }
+  baselineCache?: CacheMetrics & {
+    forced: boolean
+    corpusElapsedMs: number
+    candidateExecutions: number
+    candidateExecutionMs: number
+  }
   counts: Record<CaseStatus, number>
   reviewedDeviationPasses: number
   /** Passing cases whose only reviewed change is the exact GraphQL User-Agent. */
@@ -52,6 +61,8 @@ export function toReportCase(result: CaseResult): ReportCase {
     route: result.route,
     status: result.status,
     baseline: stripRaw(result.baseline),
+    baselineEvidence: result.baselineEvidence,
+    candidateElapsedMs: result.candidateElapsedMs,
     candidate: result.candidate == null ? null : stripRaw(result.candidate),
     reviewedDeviation: result.reviewedDeviation ?? null,
   }

@@ -2,6 +2,30 @@
 
 This specification tracks the harness in `rust/parity/`. P01 froze the command graph and P02 built the subprocess runner; later items expand its fixtures before porting production commands. Its first acceptance test is the pinned interpreted Deno CLI against its compiled Deno executable (plus identical-executable sanity checks); the second uses deliberately broken candidate executables to prove that discrepancies fail.
 
+## Baseline observation cache
+
+P05 caches successful, complete interpreted-source comparison proofs under ignored `untracked/parity-baseline-cache/`. Records contain actual stdout/stderr bytes, exit/status/closure observations, file effects, fixture summaries and the original empty mismatch proof. They are never seeded from expected outputs or aggregate reports. Strict versioned decoding and byte/proof hashes bind the observation and its timestamp; writes use a temporary file and atomic rename.
+
+Each key binds the case file hash, parsed spec, optional runtime user-agent, fixture/config paths, content, symlink targets, permission modes and effective limits. Invocation identity binds verified revision/reference-binary/lockfile/schema pins, actual source/config, source program kind/paths, Deno version/binary, staged modules and the actual runner/comparator/helper/config implementation. Administrative manifest status, candidate binaries/descriptors/goldens and unrelated new case files do not invalidate existing proofs. Changed keys execute the source again.
+
+The original source execution already compared dynamic sandbox paths and ports with its own resolved expectations. A hit reuses that proof; the implemented Rust candidate still executes in a fresh sandbox and receives the existing independent exact-byte/request/effect comparison. Self-checks remain fresh. Cache hits preserve raw proposal evidence and cannot hide candidate regressions.
+
+`--force-baseline` executes every selected source case and retires its previous record before execution. Use it for new/re-frozen source evidence, after runner/harness changes and at the final P10 audit. A newly frozen case also misses automatically because its identity is new. Drifting, incomplete or throwing source runs never create reusable passes; failed forced refresh cannot retain a previous pass. Malformed or corrupt records produce an explicit harness error with their path and the force-refresh recovery option.
+
+A warm hit does not re-observe changes outside the key, such as wall-clock time or host-kernel behavior. The forced final audit supplies fresh source evidence for those conditions. When authoring with `--propose`, include `--force-baseline` to produce fresh observations; an unforced hit remains explicitly labelled historical evidence.
+
+Reports and proposals include per-case `baselineEvidence`: origin, cache disposition, provenance timestamp, current elapsed time and original observed duration. Observation duration and target PIDs on a cache hit are historical evidence, not a fresh execution. Aggregate `baselineCache` reports hits/misses/refreshes/writes, current source execution and cache time, historical cached subprocess duration, fresh candidate execution count/time and current corpus time. Whole-invocation timings additionally include staging, loading and preflight. Record measured results in the item review rather than claiming the 1–2 minute target in advance.
+
+Wrap heavy jobs in `flock --close /home/exedev/buildprobe/heavy.lock`; the parent retains the lock without adding a descriptor to tested children. For timing, use `/usr/bin/time -f 'elapsedSeconds=%e exitCode=%x maxRssKiB=%M'` and redirect normal stderr into the job log. Do not use its `-o` option, which also changes child descriptor topology. Existing descriptor canaries caught both wrapper mistakes; the observer checks remain unchanged.
+
+Example fresh freeze/final audit invocation:
+
+```sh
+flock --close /home/exedev/buildprobe/heavy.lock deno task parity -- --reference /home/exedev/workspace/linear-cli --reference-binary untracked/notebook/2026-09-23-rust-port/P01/reference-linear --candidate <pinned-descriptor.json> --force-baseline --report <fresh-full-report.json>
+```
+
+Ordinary scoped and warm full replays use the same invocation without `--force-baseline`.
+
 ## Oracle and coverage
 
 Pin reference revision `d4fe6fa7358f018fd1da0c6b96ec2b022247e898`, Deno toolchain (CI currently 2.7.9), `deno.lock`, schema digest, build command and binary digest in `baseline.json`. The single working copy retains the original Deno `src`, lockfile and schema byte-for-byte; the runner verifies them against the frozen revision before interpreting source. It compares against the separately SHA-pinned compiled Deno binary, never a fresh build from the changing Rust tree. Warm dependencies/codegen in a build step, then deny external networking during tests. `--baseline` and `--candidate` are harness paths, not new application flags. Rust output binary remains `linear`; use an absolute path to keep the installed Deno CLI available.

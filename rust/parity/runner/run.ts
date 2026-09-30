@@ -9,6 +9,7 @@ import {
   programInvocation,
   runConfined,
 } from "./bwrap.ts"
+import type { BaselineCache, BaselineEvidence } from "./baseline-cache.ts"
 import { normalize, toFileUrl } from "@std/path"
 import { sha256Hex } from "./bytes.ts"
 import type { LoadedCase } from "./cases.ts"
@@ -155,6 +156,8 @@ export interface CaseResult {
   route: string
   status: CaseStatus
   baseline: CaseRun
+  baselineEvidence?: BaselineEvidence
+  candidateElapsedMs?: number
   candidate: CaseRun | null
   reviewedDeviation?: {
     id: string
@@ -401,6 +404,7 @@ export async function runCorpus(
   candidate: Candidate,
   ctx: RunContext,
   onResult?: (result: CaseResult) => void,
+  baselineCache?: BaselineCache,
 ): Promise<CaseResult[]> {
   const results: CaseResult[] = []
   for (const loaded of cases) {
@@ -409,7 +413,21 @@ export async function runCorpus(
         `case ${loaded.spec.id}: both reviewed golden versions are bound`,
       )
     }
-    const baselineRun = await executeCase(loaded, baseline, ctx)
+    const baselineStarted = performance.now()
+    const cached = baselineCache == null ? null : await baselineCache.run(
+      loaded,
+      ctx,
+      () => executeCase(loaded, baseline, ctx),
+    )
+    const baselineRun = cached?.run ?? await executeCase(loaded, baseline, ctx)
+    const baselineEvidence: BaselineEvidence = cached?.evidence ?? {
+      origin: "executed",
+      recordedAt: new Date().toISOString(),
+      cache: "disabled",
+      elapsedMs: performance.now() - baselineStarted,
+      observedDurationMs: baselineRun.observation.durationMs,
+    }
+    let candidateElapsedMs = 0
     let status: CaseStatus
     let candidateRun: CaseRun | null = null
     if (baselineRun.mismatches.length > 0) {
@@ -418,6 +436,7 @@ export async function runCorpus(
       // Decided solely by the descriptor; the candidate is never executed.
       status = "not-implemented"
     } else {
+      const candidateStarted = performance.now()
       candidateRun = await executeCase(
         candidate.contract === RUST_CONTRACT
           ? candidateCaseView(loaded)
@@ -425,6 +444,7 @@ export async function runCorpus(
         candidate.program,
         ctx,
       )
+      candidateElapsedMs = performance.now() - candidateStarted
       status = candidateRun.mismatches.length === 0 ? "pass" : "fail"
     }
     const reviewed = loaded.golden ?? loaded.goldenV2
@@ -433,6 +453,8 @@ export async function runCorpus(
       route: loaded.spec.route,
       status,
       baseline: baselineRun,
+      baselineEvidence,
+      candidateElapsedMs,
       candidate: candidateRun,
       reviewedDeviation:
         candidate.contract === RUST_CONTRACT && reviewed != null
