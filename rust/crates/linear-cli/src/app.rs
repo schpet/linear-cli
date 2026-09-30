@@ -300,11 +300,11 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             },
             Some(cli::issue::IssueCommand::AgentSession(action)) => match action.command {
                 None => parent_help(context, "linear issue agent-session"),
-                Some(cli::issue::IssueAgentSessionCommand::List(_)) => {
-                    unsupported("linear issue agent-session list")
+                Some(cli::issue::IssueAgentSessionCommand::List(action)) => {
+                    dispatch_agent_session_list(context, &action, workspace)
                 }
-                Some(cli::issue::IssueAgentSessionCommand::View(_)) => {
-                    unsupported("linear issue agent-session view")
+                Some(cli::issue::IssueAgentSessionCommand::View(action)) => {
+                    dispatch_agent_session_view(context, &action, workspace)
                 }
             },
         },
@@ -3970,5 +3970,112 @@ fn dispatch_issue_detail(
         IssueDetailField::Url => detail.url,
     };
     context.write_stdout_with_policy(format!("{value}\n").as_bytes(), OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn agent_session_network<T>(
+    context: &mut AppContext<'_>,
+    json: bool,
+    pending: impl Future<Output = Result<T, AppError>>,
+) -> Result<T, AppError> {
+    let enabled = spinner::enabled(
+        json,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if !enabled {
+        return block_on_network(pending);
+    }
+    context.write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    let result = block_on_network(async {
+        tokio::pin!(pending);
+        let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+        ticks.tick().await;
+        let mut frame = 1_usize;
+        loop {
+            tokio::select! {
+                biased;
+                result = &mut pending => break result,
+                _ = ticks.tick() => {
+                    context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                    frame = frame.wrapping_add(1);
+                }
+            }
+        }
+    });
+    context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    result
+}
+
+fn dispatch_agent_session_view(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueAgentSessionView,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::agent_session;
+    let output = (|| {
+        crate::refs::reject_linear_url(&action.session_id, "an agent session ID")?;
+        let transport = relation_transport(context, workspace)?;
+        let session = agent_session_network(
+            context,
+            action.json,
+            agent_session::view(&transport, &action.session_id),
+        )?;
+        if action.json {
+            return agent_session::json(&session);
+        }
+        let markdown = agent_session::markdown(&session, chrono::Utc::now(), &chrono::Local)?;
+        let rendered = if context.stdout_tty {
+            use std::num::NonZeroU16;
+            let columns = u16::try_from(table::stdout_columns(true))
+                .ok()
+                .and_then(NonZeroU16::new)
+                .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
+            let options = crate::platform::markdown_terminal::RenderOptions::for_terminal(
+                columns,
+                context.startup.settings.no_color,
+                true,
+                None,
+                crate::platform::markdown_terminal::HostSource::System,
+            );
+            crate::platform::markdown_terminal::render(&markdown, &options)?
+        } else {
+            markdown
+        };
+        Ok(format!("{rendered}\n").into_bytes())
+    })()
+    .map_err(|error: AppError| error.with_context(agent_session::VIEW_CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_agent_session_list(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueAgentSessionList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::agent_session;
+    let output = (|| {
+        let id =
+            resolve_relation_reference(context, action.issue_id.as_deref(), workspace, || {
+                issue_details::unresolved(false)
+            })?;
+        let transport = relation_transport(context, workspace)?;
+        let comments = agent_session_network(
+            context,
+            action.json,
+            agent_session::list(&transport, &id, action.status),
+        )?;
+        if action.json {
+            return agent_session::json(&comments);
+        }
+        Ok(agent_session::text(
+            &comments,
+            table::stdout_columns(context.stdout_tty),
+            !context.no_color(),
+        ))
+    })()
+    .map_err(|error: AppError| error.with_context(agent_session::LIST_CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

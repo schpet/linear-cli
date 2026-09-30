@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "caseId": "c065-empty-details",
+  "deviationId": "AGENT-SESSION-VIEW-TYPENAME",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

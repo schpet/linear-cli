@@ -1,0 +1,90 @@
+{
+  "data": {
+    "agentSession": {
+      "id": "00000000-0000-4000-9000-000000000065",
+      "status": "awaitingInput",
+      "type": "commentThread",
+      "createdAt": "2020-01-02T03:04:05Z",
+      "updatedAt": "2020-01-02T03:04:05Z",
+      "startedAt": "2020-01-02T03:04:05Z",
+      "endedAt": "2020-01-02T03:04:05Z",
+      "dismissedAt": "2020-01-02T03:04:05Z",
+      "summary": "**Strong** summary with a [link](https://example.com/guide) and `code`.\n\nSecond paragraph.",
+      "externalLink": "https://example.com/session",
+      "creator": {
+        "name": "Creator"
+      },
+      "appUser": {
+        "name": "代理 🤖"
+      },
+      "dismissedBy": {
+        "name": "Dismiss User"
+      },
+      "issue": {
+        "identifier": "ENG-1",
+        "title": "Issue title",
+        "url": "https://linear.app/acme/issue/ENG-1"
+      },
+      "activities": {
+        "nodes": [
+          {
+            "id": "a0",
+            "createdAt": "2020-01-02T03:04:05Z",
+            "content": {
+              "__typename": "AgentActivityThoughtContent",
+              "type": "thought",
+              "body": "line one\nline two"
+            }
+          },
+          {
+            "id": "a1",
+            "createdAt": "2020-01-02T03:04:05Z",
+            "content": {
+              "__typename": "AgentActivityActionContent",
+              "type": "action",
+              "action": "run",
+              "parameter": "",
+              "result": "JSON only"
+            }
+          },
+          {
+            "id": "a2",
+            "createdAt": "2020-01-02T03:04:05Z",
+            "content": {
+              "__typename": "AgentActivityResponseContent",
+              "type": "response",
+              "body": "line one\nline two"
+            }
+          },
+          {
+            "id": "a3",
+            "createdAt": "2020-01-02T03:04:05Z",
+            "content": {
+              "__typename": "AgentActivityPromptContent",
+              "type": "prompt",
+              "body": "line one\nline two"
+            }
+          },
+          {
+            "id": "a4",
+            "createdAt": "2020-01-02T03:04:05Z",
+            "content": {
+              "__typename": "AgentActivityErrorContent",
+              "type": "error",
+              "body": "line one\nline two"
+            }
+          },
+          {
+            "id": "a5",
+            "createdAt": "2020-01-02T03:04:05Z",
+            "content": {
+              "__typename": "AgentActivityElicitationContent",
+              "type": "elicitation",
+              "body": "line one\nline two"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -276,3 +276,58 @@ pub struct ElicitationContent {
 pub struct ActionResultData {
     pub result_data: Option<JsonObject>,
 }
+
+#[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
+pub struct GetIssueAgentSessionsVariables {
+    pub issue_id: String,
+}
+
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "GetIssueAgentSessionsVariables"
+)]
+pub struct GetIssueAgentSessions {
+    #[arguments(id: $issue_id)]
+    pub issue: SessionIssue,
+}
+
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "Issue")]
+pub struct SessionIssue {
+    #[arguments(first: 100)]
+    pub comments: SessionComments,
+}
+
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "CommentConnection")]
+#[serde(rename_all = "camelCase")]
+pub struct SessionComments {
+    pub nodes: Vec<SessionComment>,
+    pub page_info: crate::graphql::operations::teams::PageInfo,
+}
+
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "Comment")]
+#[serde(rename_all = "camelCase")]
+pub struct SessionComment {
+    pub agent_session: Option<ListSession>,
+}
+
+#[derive(cynic::QueryFragment, Serialize, Clone, Debug, PartialEq, Eq)]
+#[cynic(schema = "linear", graphql_type = "AgentSession")]
+#[serde(rename_all = "camelCase")]
+pub struct ListSession {
+    pub id: cynic::Id,
+    pub status: AgentSessionStatus,
+    #[cynic(rename = "type")]
+    #[serde(rename = "type")]
+    pub session_type: Option<AgentSessionType>,
+    pub created_at: DateTime,
+    pub started_at: Option<DateTime>,
+    pub ended_at: Option<DateTime>,
+    pub summary: Option<String>,
+    pub creator: Option<UserName>,
+    pub app_user: UserName,
+}

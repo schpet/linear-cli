@@ -1,0 +1,116 @@
+{
+  "data": {
+    "issue": {
+      "comments": {
+        "nodes": [
+          {
+            "agentSession": null
+          },
+          {
+            "agentSession": {
+              "id": "0",
+              "status": "pending",
+              "type": null,
+              "createdAt": "2020-01-02T03:04:05Z",
+              "startedAt": null,
+              "endedAt": null,
+              "summary": "",
+              "creator": null,
+              "appUser": {
+                "name": "Agent"
+              }
+            }
+          },
+          {
+            "agentSession": {
+              "id": "1",
+              "status": "active",
+              "type": "commentThread",
+              "createdAt": "2020-01-02T03:04:05Z",
+              "startedAt": null,
+              "endedAt": null,
+              "summary": "Long summary 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 \nline two",
+              "creator": {
+                "name": "Creator"
+              },
+              "appUser": {
+                "name": "代理 🤖"
+              }
+            }
+          },
+          {
+            "agentSession": {
+              "id": "2",
+              "status": "complete",
+              "type": null,
+              "createdAt": "2020-01-02T03:04:05Z",
+              "startedAt": null,
+              "endedAt": null,
+              "summary": "",
+              "creator": null,
+              "appUser": {
+                "name": "Agent"
+              }
+            }
+          },
+          {
+            "agentSession": {
+              "id": "3",
+              "status": "awaitingInput",
+              "type": "commentThread",
+              "createdAt": "2020-01-02T03:04:05Z",
+              "startedAt": null,
+              "endedAt": null,
+              "summary": "Long summary 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 \nline two",
+              "creator": {
+                "name": "Creator"
+              },
+              "appUser": {
+                "name": "代理 🤖"
+              }
+            }
+          },
+          {
+            "agentSession": {
+              "id": "4",
+              "status": "error",
+              "type": null,
+              "createdAt": "2020-01-02T03:04:05Z",
+              "startedAt": null,
+              "endedAt": null,
+              "summary": "",
+              "creator": null,
+              "appUser": {
+                "name": "Agent"
+              }
+            }
+          },
+          {
+            "agentSession": {
+              "id": "5",
+              "status": "stale",
+              "type": "commentThread",
+              "createdAt": "2020-01-02T03:04:05Z",
+              "startedAt": null,
+              "endedAt": null,
+              "summary": "Long summary 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 \nline two",
+              "creator": {
+                "name": "Creator"
+              },
+              "appUser": {
+                "name": "代理 🤖"
+              }
+            }
+          },
+          {
+            "agentSession": null
+          }
+        ],
+        "pageInfo": {
+          "hasNextPage": true,
+          "endCursor": "keep-original"
+        }
+      }
+    }
+  }
+}

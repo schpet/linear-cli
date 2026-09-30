@@ -1,0 +1,204 @@
+{
+  "id": "c064-all-json",
+  "route": "linear issue agent-session list",
+  "reason": "all-json",
+  "argv": [
+    "issue",
+    "agent-session",
+    "list",
+    "eng-1",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"agentSession\": null\n    },\n    {\n      \"agentSession\": {\n        \"id\": \"0\",\n        \"status\": \"pending\",\n        \"type\": null,\n        \"createdAt\": \"2020-01-02T03:04:05Z\",\n        \"startedAt\": null,\n        \"endedAt\": null,\n        \"summary\": \"\",\n        \"creator\": null,\n        \"appUser\": {\n          \"name\": \"Agent\"\n        }\n      }\n    },\n    {\n      \"agentSession\": {\n        \"id\": \"1\",\n        \"status\": \"active\",\n        \"type\": \"commentThread\",\n        \"createdAt\": \"2020-01-02T03:04:05Z\",\n        \"startedAt\": null,\n        \"endedAt\": null,\n        \"summary\": \"Long summary 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 \\nline two\",\n        \"creator\": {\n          \"name\": \"Creator\"\n        },\n        \"appUser\": {\n          \"name\": \"代理 🤖\"\n        }\n      }\n    },\n    {\n      \"agentSession\": {\n        \"id\": \"2\",\n        \"status\": \"complete\",\n        \"type\": null,\n        \"createdAt\": \"2020-01-02T03:04:05Z\",\n        \"startedAt\": null,\n        \"endedAt\": null,\n        \"summary\": \"\",\n        \"creator\": null,\n        \"appUser\": {\n          \"name\": \"Agent\"\n        }\n      }\n    },\n    {\n      \"agentSession\": {\n        \"id\": \"3\",\n        \"status\": \"awaitingInput\",\n        \"type\": \"commentThread\",\n        \"createdAt\": \"2020-01-02T03:04:05Z\",\n        \"startedAt\": null,\n        \"endedAt\": null,\n        \"summary\": \"Long summary 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 \\nline two\",\n        \"creator\": {\n          \"name\": \"Creator\"\n        },\n        \"appUser\": {\n          \"name\": \"代理 🤖\"\n        }\n      }\n    },\n    {\n      \"agentSession\": {\n        \"id\": \"4\",\n        \"status\": \"error\",\n        \"type\": null,\n        \"createdAt\": \"2020-01-02T03:04:05Z\",\n        \"startedAt\": null,\n        \"endedAt\": null,\n        \"summary\": \"\",\n        \"creator\": null,\n        \"appUser\": {\n          \"name\": \"Agent\"\n        }\n      }\n    },\n    {\n      \"agentSession\": {\n        \"id\": \"5\",\n        \"status\": \"stale\",\n        \"type\": \"commentThread\",\n        \"createdAt\": \"2020-01-02T03:04:05Z\",\n        \"startedAt\": null,\n        \"endedAt\": null,\n        \"summary\": \"Long summary 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 \\nline two\",\n        \"creator\": {\n          \"name\": \"Creator\"\n        },\n        \"appUser\": {\n          \"name\": \"代理 🤖\"\n        }\n      }\n    },\n    {\n      \"agentSession\": null\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": true,\n    \"endCursor\": \"keep-original\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "d580ac5969ed76133c355d9a1099231e53ce069a31c1fe58be747569be744134"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "read",
+            "operation": {
+              "document": "\n  query GetIssueAgentSessions($issueId: String!) {\n    issue(id: $issueId) {\n      comments(first: 100) {\n        nodes {\n          agentSession {\n            id\n            status\n            type\n            createdAt\n            startedAt\n            endedAt\n            summary\n            creator {\n              name\n            }\n            appUser {\n              name\n            }\n          }\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "issueId": "ENG-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "comments": {
+                    "nodes": [
+                      {
+                        "agentSession": null
+                      },
+                      {
+                        "agentSession": {
+                          "id": "0",
+                          "status": "pending",
+                          "type": null,
+                          "createdAt": "2020-01-02T03:04:05Z",
+                          "startedAt": null,
+                          "endedAt": null,
+                          "summary": "",
+                          "creator": null,
+                          "appUser": {
+                            "name": "Agent"
+                          }
+                        }
+                      },
+                      {
+                        "agentSession": {
+                          "id": "1",
+                          "status": "active",
+                          "type": "commentThread",
+                          "createdAt": "2020-01-02T03:04:05Z",
+                          "startedAt": null,
+                          "endedAt": null,
+                          "summary": "Long summary 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 \nline two",
+                          "creator": {
+                            "name": "Creator"
+                          },
+                          "appUser": {
+                            "name": "代理 🤖"
+                          }
+                        }
+                      },
+                      {
+                        "agentSession": {
+                          "id": "2",
+                          "status": "complete",
+                          "type": null,
+                          "createdAt": "2020-01-02T03:04:05Z",
+                          "startedAt": null,
+                          "endedAt": null,
+                          "summary": "",
+                          "creator": null,
+                          "appUser": {
+                            "name": "Agent"
+                          }
+                        }
+                      },
+                      {
+                        "agentSession": {
+                          "id": "3",
+                          "status": "awaitingInput",
+                          "type": "commentThread",
+                          "createdAt": "2020-01-02T03:04:05Z",
+                          "startedAt": null,
+                          "endedAt": null,
+                          "summary": "Long summary 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 \nline two",
+                          "creator": {
+                            "name": "Creator"
+                          },
+                          "appUser": {
+                            "name": "代理 🤖"
+                          }
+                        }
+                      },
+                      {
+                        "agentSession": {
+                          "id": "4",
+                          "status": "error",
+                          "type": null,
+                          "createdAt": "2020-01-02T03:04:05Z",
+                          "startedAt": null,
+                          "endedAt": null,
+                          "summary": "",
+                          "creator": null,
+                          "appUser": {
+                            "name": "Agent"
+                          }
+                        }
+                      },
+                      {
+                        "agentSession": {
+                          "id": "5",
+                          "status": "stale",
+                          "type": "commentThread",
+                          "createdAt": "2020-01-02T03:04:05Z",
+                          "startedAt": null,
+                          "endedAt": null,
+                          "summary": "Long summary 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 界 \nline two",
+                          "creator": {
+                            "name": "Creator"
+                          },
+                          "appUser": {
+                            "name": "代理 🤖"
+                          }
+                        }
+                      },
+                      {
+                        "agentSession": null
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "keep-original"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

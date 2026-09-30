@@ -1,0 +1,50 @@
+{
+  "id": "c065-url-rejected",
+  "route": "linear issue agent-session view",
+  "reason": "url-rejected",
+  "argv": [
+    "issue",
+    "agent-session",
+    "view",
+    "https://linear.app/acme/issue/ENG-1"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to fetch agent session details: \"https://linear.app/acme/issue/ENG-1\" is a Linear URL, and this command does not take one.\n  Pass an agent session ID.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": null
+}

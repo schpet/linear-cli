@@ -1,0 +1,27 @@
+{
+  "formatVersion": 1,
+  "caseId": "c065-required-shape",
+  "deviationId": "AGENT-SESSION-VIEW-REQUIRED-SHAPE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to fetch agent session details: response JSON did not match the expected operation shape: missing field `appUser`\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}
