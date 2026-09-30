@@ -12,7 +12,9 @@ pub use team::{
 };
 pub use url::{CycleSelector, LinearUrlKind, LinearUrlParse, LinearUrlRef, parse_linear_url};
 pub use uuid::is_linear_uuid;
-pub use workspace::{WorkspaceScope, expect_team_url, expect_url_kind, reject_linear_url};
+pub use workspace::{
+    WorkspaceScope, expect_team_url, expect_url_kind, reject_comment_url, reject_linear_url,
+};
 mod document;
 mod initiative;
 pub use document::resolve_document_reference;

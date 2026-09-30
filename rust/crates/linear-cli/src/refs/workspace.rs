@@ -111,6 +111,28 @@ pub fn reject_linear_url(input: &str, entity_label: &str) -> Result<(), AppError
     .with_suggestion(format!("Pass {entity_label}.")))
 }
 
+/// Reject an issue comment link in any workspace: its anchor carries only the
+/// first eight characters of the comment id. Other URLs, including issue URLs
+/// with a non-comment anchor, are left to `reject_linear_url`.
+pub fn reject_comment_url(input: &str) -> Result<(), AppError> {
+    if !matches!(
+        parse_linear_url(input),
+        LinearUrlParse::Known(LinearUrlRef::Issue {
+            comment_id_prefix: Some(_),
+            ..
+        })
+    ) {
+        return Ok(());
+    }
+    Err(AppError::new(
+        AppErrorKind::Validation,
+        format!(
+            "\"{input}\" links to a comment, but a comment URL only carries the first eight characters of its ID."
+        ),
+    )
+    .with_suggestion("Pass the comment's full UUID, from `linear issue comment list <issue> --json`."))
+}
+
 /// Prepare a team URL for the later GraphQL resolver without selecting credentials.
 pub fn expect_team_url(
     input: &str,

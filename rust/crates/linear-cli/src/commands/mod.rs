@@ -12,6 +12,7 @@ pub mod initiative_create;
 pub mod initiative_list;
 pub mod initiative_update_list;
 pub mod initiative_view;
+pub mod issue_comment_delete;
 pub mod label_list;
 pub mod milestone_create;
 pub mod milestone_list;

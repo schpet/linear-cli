@@ -1,0 +1,54 @@
+{
+  "id": "c074-missing-id",
+  "route": "linear issue comment delete",
+  "reason": "required commentId is a parser error",
+  "argv": [
+    "issue",
+    "comment",
+    "delete"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear issue comment delete <commentId>\nVersion: 2.6.0                                  \n\nDescription:\n\n  Delete a comment\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Missing argument(s): commentId\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "CLAP-NATIVE-CLI-SURFACE",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "f96a78d0c30f2f13317b10a6b90d7c3a0686850bbdd9ca6be4ef5e2f27291d93"
+  }
+}

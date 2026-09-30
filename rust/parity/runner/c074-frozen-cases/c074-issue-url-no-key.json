@@ -1,0 +1,50 @@
+{
+  "id": "c074-issue-url-no-key",
+  "route": "linear issue comment delete",
+  "reason": "issue URL without anchor falls through to generic rejection before missing-key",
+  "argv": [
+    "issue",
+    "comment",
+    "delete",
+    "https://linear.app/acme/issue/ENG-1/fix-login"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to delete comment: \"https://linear.app/acme/issue/ENG-1/fix-login\" is a Linear URL, and this command does not take one.\n  Pass a comment UUID.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

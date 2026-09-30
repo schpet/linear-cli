@@ -13,9 +13,10 @@ use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, cycle_view, document_comment_list,
     initiative_comment_list, initiative_create, initiative_list, initiative_update_list,
-    initiative_view, label_list, milestone_create, milestone_list, milestone_update,
-    milestone_view, project_comment_list, project_list, project_update_list, project_view, table,
-    team_id, team_list, team_members, team_states, template_list, template_view, user_list,
+    initiative_view, issue_comment_delete, label_list, milestone_create, milestone_list,
+    milestone_update, milestone_view, project_comment_list, project_list, project_update_list,
+    project_view, table, team_id, team_list, team_members, team_states, template_list,
+    template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -260,8 +261,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 Some(cli::issue::IssueCommentCommand::Add(_)) => {
                     unsupported("linear issue comment add")
                 }
-                Some(cli::issue::IssueCommentCommand::Delete(_)) => {
-                    unsupported("linear issue comment delete")
+                Some(cli::issue::IssueCommentCommand::Delete(action)) => {
+                    dispatch_issue_comment_delete(context, &action, workspace)
                 }
                 Some(cli::issue::IssueCommentCommand::Update(_)) => {
                     unsupported("linear issue comment update")
@@ -1553,6 +1554,34 @@ fn dispatch_milestone_update(
         context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
     }
     let output = result.map_err(|error| error.with_context(milestone_update::CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_issue_comment_delete(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueCommentDelete,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let id = &action.comment_id;
+    // Both URL checks precede config and credentials, as in the source.
+    crate::refs::reject_comment_url(id)
+        .and_then(|()| crate::refs::reject_linear_url(id, "a comment UUID"))
+        .map_err(|error| error.with_context(issue_comment_delete::CONTEXT))?;
+    let transport = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        client::prepare_transport_with_inputs(
+            &config.options,
+            credentials,
+            &inputs,
+            &config.transport_env,
+        )
+    })()
+    .map_err(|error| error.with_context(issue_comment_delete::CONTEXT))?;
+    let output = block_on_network(issue_comment_delete::submit(&transport, id))
+        .map_err(|error| error.with_context(issue_comment_delete::CONTEXT))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }
