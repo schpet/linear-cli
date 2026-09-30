@@ -1,6 +1,7 @@
 mod auth_list;
 mod auth_whoami;
 mod client;
+mod comment_add;
 mod cycle_list;
 mod cycle_view;
 mod delete_server;

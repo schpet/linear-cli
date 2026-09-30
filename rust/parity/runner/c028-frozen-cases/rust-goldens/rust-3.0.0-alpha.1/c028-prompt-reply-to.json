@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c028-prompt-reply-to",
+  "deviationId": "COMMENT-PROMPT-RENDERING",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "? Comment body\n? Comment body › Prompted body\n✓ Comment added to project Roadmap\nhttps://linear.app/acme/comment/c0de\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

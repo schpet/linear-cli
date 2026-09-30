@@ -74,8 +74,13 @@ pub async fn resolve_project_with_transport(
                     "Pass the project's UUID or slug ID instead. `linear project list` shows both.",
                 ));
             }
-            if let Some(found) = matches.into_iter().next() {
-                return Ok(found.id.into_inner());
+            if let Some(id) = matches
+                .into_iter()
+                .next()
+                .map(|project| project.id.into_inner())
+                .filter(|id| !id.is_empty())
+            {
+                return Ok(id);
             }
             find_slug(name, transport)
                 .await?
@@ -94,7 +99,8 @@ async fn find_slug(slug: &str, transport: &GraphQlTransport) -> Result<Option<St
         .nodes
         .into_iter()
         .next()
-        .map(|project| project.id.into_inner()))
+        .map(|project| project.id.into_inner())
+        .filter(|id| !id.is_empty()))
 }
 
 fn not_found(original: &str) -> AppError {

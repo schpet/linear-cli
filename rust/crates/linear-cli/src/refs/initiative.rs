@@ -68,8 +68,15 @@ where
         }),
     ))
     .await?;
-    if let Some(found) = data.initiatives.nodes.into_iter().next() {
-        return Ok(found.id.into_inner());
+    if let Some(id) = data
+        .initiatives
+        .nodes
+        .into_iter()
+        .next()
+        .map(|initiative| initiative.id.into_inner())
+        .filter(|id| matches!(reference, InitiativeReference::UrlSlug(_)) || !id.is_empty())
+    {
+        return Ok(id);
     }
     if matches!(reference, InitiativeReference::UrlSlug(_)) {
         return Err(AppError::not_found("Initiative", original).with_suggestion("The initiative in that URL may have been deleted, or be in a workspace this key cannot see."));

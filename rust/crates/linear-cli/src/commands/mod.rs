@@ -1,6 +1,7 @@
 pub mod auth_list;
 pub mod auth_whoami;
 pub mod client;
+pub mod comment_add;
 pub mod comments;
 pub mod completions;
 pub mod cycle_list;

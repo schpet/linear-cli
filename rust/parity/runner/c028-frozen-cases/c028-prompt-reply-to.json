@@ -1,0 +1,155 @@
+{
+  "id": "c028-prompt-reply-to",
+  "route": "linear project comment add",
+  "reason": "prompt-reply-to",
+  "argv": [
+    "project",
+    "comment",
+    "add",
+    "Roadmap",
+    "--reply-to",
+    "00000000-0000-4000-9000-0000000000aa"
+  ],
+  "stdin": {
+    "utf8": "Prompted body\n"
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "? Comment body () › \u001b[21G\u001b[G\u001b[0J? Comment body () › Prompted\u001b[29G\u001b[G\u001b[0J? Comment body () › Prompted body\n\u001b[?25h\u001b[?25h✓ Comment added to project Roadmap\nhttps://linear.app/acme/comment/c0de\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "COMMENT-PROMPT-RENDERING",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "1f3552cce06ce9667729d40dd777deccae9a871ba378d8cbe35699135bfa3371"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {
+      "Comment:00000000-0000-4000-9000-00000000c0de": {
+        "id": "00000000-0000-4000-9000-00000000c0de",
+        "url": "https://linear.app/acme/comment/c0de",
+        "body": "Prompted body",
+        "projectId": "00000000-0000-4000-9000-000000002801",
+        "parentId": "00000000-0000-4000-9000-0000000000aa"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "name",
+            "operation": {
+              "document": "query GetProjectIdByName($name: String!) { projects(filter: { name: { eq: $name } }) { nodes { id } } }",
+              "variables": {
+                "name": "Roadmap"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000002801"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation AddComment($input: CommentCreateInput!) { commentCreate(input: $input) { success comment { id url } } }",
+              "variables": {
+                "input": {
+                  "body": "Prompted body",
+                  "parentId": "00000000-0000-4000-9000-0000000000aa",
+                  "projectId": "00000000-0000-4000-9000-000000002801"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "commentCreate": {
+                  "success": true,
+                  "comment": {
+                    "id": "00000000-0000-4000-9000-00000000c0de",
+                    "url": "https://linear.app/acme/comment/c0de"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Comment:00000000-0000-4000-9000-00000000c0de",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-00000000c0de",
+                  "url": "https://linear.app/acme/comment/c0de",
+                  "body": "Prompted body",
+                  "projectId": "00000000-0000-4000-9000-000000002801",
+                  "parentId": "00000000-0000-4000-9000-0000000000aa"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

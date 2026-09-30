@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "caseId": "c044-url-surrogate-utf8",
+  "deviationId": "COMMENT-BODY-FILE-UTF8",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr",
+    "graphql-user-agent",
+    "graphql-fixture"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "graphql": {
+      "steps": []
+    },
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to add comment: Body file must be valid UTF-8\n  Re-save surrogate.md as UTF-8 text, or use --body.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

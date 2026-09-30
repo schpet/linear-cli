@@ -11,7 +11,7 @@ use crate::cli;
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, cycle_list, cycle_view, document_comment_list,
+    auth_list, auth_whoami, client, comment_add, cycle_list, cycle_view, document_comment_list,
     initiative_comment_list, initiative_create, initiative_list, initiative_unarchive,
     initiative_update_list, initiative_view, issue_comment_delete, issue_details, label_create,
     label_delete, label_list, milestone_create, milestone_delete, milestone_list, milestone_update,
@@ -24,9 +24,9 @@ use crate::error::{AppError, AppErrorKind, ExitStatus};
 use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
 use crate::platform::spinner;
 use crate::refs::{
-    WorkspaceScope, prepare_initiative_lookup, prepare_project_lookup, prepare_team_lookup,
-    resolve_document_reference, resolve_initiative_with_transport, resolve_project_with_transport,
-    resolve_team_with_transport,
+    InitiativeReference, ProjectReference, WorkspaceScope, prepare_initiative_lookup,
+    prepare_project_lookup, prepare_team_lookup, resolve_document_reference,
+    resolve_initiative_with_transport, resolve_project_with_transport, resolve_team_with_transport,
 };
 use crate::startup::{AppStartupReport, render_startup_diagnostic};
 
@@ -347,8 +347,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             }
             Some(cli::project::ProjectCommand::Comment(action)) => match action.command {
                 None => parent_help(context, "linear project comment"),
-                Some(cli::project::ProjectCommentCommand::Add(_)) => {
-                    unsupported("linear project comment add")
+                Some(cli::project::ProjectCommentCommand::Add(action)) => {
+                    dispatch_project_comment_add(context, &action, workspace)
                 }
                 Some(cli::project::ProjectCommentCommand::List(action)) => {
                     dispatch_project_comment_list(context, &action, workspace)
@@ -422,8 +422,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             }
             Some(cli::initiative::InitiativeCommand::Comment(action)) => match action.command {
                 None => parent_help(context, "linear initiative comment"),
-                Some(cli::initiative::InitiativeCommentCommand::Add(_)) => {
-                    unsupported("linear initiative comment add")
+                Some(cli::initiative::InitiativeCommentCommand::Add(action)) => {
+                    dispatch_initiative_comment_add(context, &action, workspace)
                 }
                 Some(cli::initiative::InitiativeCommentCommand::List(action)) => {
                     dispatch_initiative_comment_list(context, &action, workspace)
@@ -475,8 +475,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             }
             Some(cli::document::DocumentCommand::Comment(action)) => match action.command {
                 None => parent_help(context, "linear document comment"),
-                Some(cli::document::DocumentCommentCommand::Add(_)) => {
-                    unsupported("linear document comment add")
+                Some(cli::document::DocumentCommentCommand::Add(action)) => {
+                    dispatch_document_comment_add(context, &action, workspace)
                 }
                 Some(cli::document::DocumentCommentCommand::List(action)) => {
                     dispatch_document_comment_list(context, &action, workspace)
@@ -2019,6 +2019,221 @@ pub fn write_final_error(
         }
     }
     Ok(ExitStatus::HandledFailure)
+}
+
+/// Source order: body flags, project reference (a UUID needs no client), the
+/// omitted-body prompt, then client construction before parent validation.
+fn dispatch_project_comment_add(
+    context: &mut AppContext<'_>,
+    action: &cli::project::ProjectCommentAdd,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let original = &action.project;
+    let result = (|| {
+        let body = comment_add::resolve_body(action.body.as_deref(), action.body_file.as_deref())?;
+        let project_id = {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let reference = prepare_project_lookup(
+                original,
+                &WorkspaceScope::from_selection(&inputs, credentials),
+            )?;
+            match &reference {
+                ProjectReference::Id(id) => id.clone(),
+                ProjectReference::NameOrSlug(_) | ProjectReference::Slug(_) => {
+                    let transport = client::prepare_transport_with_inputs(
+                        &config.options,
+                        credentials,
+                        &inputs,
+                        &config.transport_env,
+                    )?;
+                    block_on_network(resolve_project_with_transport(
+                        &reference, original, &transport,
+                    ))?
+                }
+            }
+        };
+        let body = match body {
+            Some(body) => body,
+            None => match prompt_comment_body(context)? {
+                Ok(body) => body,
+                Err(status) => return Ok(Err(status)),
+            },
+        };
+        submit_comment(
+            context,
+            workspace,
+            comment_add::CommentTarget::Project { project_id },
+            body,
+            action.parent.as_deref(),
+        )
+        .map(|comment| Ok(comment_add::output("project", original, &comment)))
+    })();
+    finish_comment_add(context, result)
+}
+
+/// Source order: body flags, initiative reference (a UUID needs no client),
+/// the omitted-body prompt, then client construction before parent validation.
+fn dispatch_initiative_comment_add(
+    context: &mut AppContext<'_>,
+    action: &cli::initiative::InitiativeCommentAdd,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let original = &action.initiative;
+    let result = (|| {
+        let body = comment_add::resolve_body(action.body.as_deref(), action.body_file.as_deref())?;
+        let initiative_id = {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let reference = prepare_initiative_lookup(
+                original,
+                &WorkspaceScope::from_selection(&inputs, credentials),
+            )?;
+            match &reference {
+                InitiativeReference::Id(id) => id.clone(),
+                InitiativeReference::NameOrSlug(_) | InitiativeReference::UrlSlug(_) => {
+                    let transport = client::prepare_transport_with_inputs(
+                        &config.options,
+                        credentials,
+                        &inputs,
+                        &config.transport_env,
+                    )?;
+                    block_on_network(resolve_initiative_with_transport(
+                        &reference, original, &transport,
+                    ))?
+                }
+            }
+        };
+        let body = match body {
+            Some(body) => body,
+            None => match prompt_comment_body(context)? {
+                Ok(body) => body,
+                Err(status) => return Ok(Err(status)),
+            },
+        };
+        submit_comment(
+            context,
+            workspace,
+            comment_add::CommentTarget::Initiative { initiative_id },
+            body,
+            action.parent.as_deref(),
+        )
+        .map(|comment| Ok(comment_add::output("initiative", original, &comment)))
+    })();
+    finish_comment_add(context, result)
+}
+
+/// Source order: local document URL reduction, body flags, then the content
+/// record lookup for every reference (UUIDs included), the omitted-body
+/// prompt, and a second client before parent validation.
+fn dispatch_document_comment_add(
+    context: &mut AppContext<'_>,
+    action: &cli::document::DocumentCommentAdd,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let result = (|| {
+        let document = {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            resolve_document_reference(
+                &action.document,
+                &WorkspaceScope::from_selection(&inputs, credentials),
+            )?
+        };
+        let body = comment_add::resolve_body(action.body.as_deref(), action.body_file.as_deref())?;
+        let document_content_id = {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let transport = client::prepare_transport_with_inputs(
+                &config.options,
+                credentials,
+                &inputs,
+                &config.transport_env,
+            )?;
+            block_on_network(comment_add::document_content_id(&transport, &document))?
+        };
+        let body = match body {
+            Some(body) => body,
+            None => match prompt_comment_body(context)? {
+                Ok(body) => body,
+                Err(status) => return Ok(Err(status)),
+            },
+        };
+        submit_comment(
+            context,
+            workspace,
+            comment_add::CommentTarget::Document {
+                document_content_id,
+            },
+            body,
+            action.parent.as_deref(),
+        )
+        .map(|comment| Ok(comment_add::output("document", &document, &comment)))
+    })();
+    finish_comment_add(context, result)
+}
+
+/// The source always prompts for an omitted body. Terminal cleanup completes
+/// before any outcome, and a blank answer fails after submission.
+fn prompt_comment_body(
+    context: &mut AppContext<'_>,
+) -> Result<Result<String, ExitStatus>, AppError> {
+    use crate::platform::prompt::{PromptOutcome, PromptSession};
+    let outcome = {
+        let mut session = PromptSession::stdin_stdio(&mut *context.stdout)?;
+        let result = comment_add::prompt_body(&mut session);
+        session.finish_result(result)?
+    };
+    match outcome {
+        PromptOutcome::Submitted(body) => comment_add::require_prompted(body).map(Ok),
+        PromptOutcome::Interrupted => Ok(Err(ExitStatus::ChildCode(
+            std::num::NonZeroU8::new(130).ok_or_else(|| {
+                AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
+            })?,
+        ))),
+        PromptOutcome::EndOfInput => Err(AppError::new(
+            AppErrorKind::Validation,
+            "unexpected EOF while prompting for comment body",
+        )),
+    }
+}
+
+/// `createComment` constructs its client before building the input.
+fn submit_comment(
+    context: &AppContext<'_>,
+    workspace: Option<&str>,
+    target: comment_add::CommentTarget,
+    body: String,
+    parent: Option<&str>,
+) -> Result<crate::graphql::operations::comment_create::CreatedComment, AppError> {
+    let config = context.config()?;
+    let credentials = context.credentials()?;
+    let inputs = client::selection_inputs(&config.options, workspace)?;
+    let transport = client::prepare_transport_with_inputs(
+        &config.options,
+        credentials,
+        &inputs,
+        &config.transport_env,
+    )?;
+    let input = comment_add::build_input(target, body, parent, None)?;
+    block_on_network(comment_add::create(&transport, input))
+}
+
+fn finish_comment_add(
+    context: &mut AppContext<'_>,
+    result: Result<Result<Vec<u8>, ExitStatus>, AppError>,
+) -> Result<ExitStatus, AppError> {
+    match result.map_err(|error| error.with_context(comment_add::CONTEXT))? {
+        Ok(output) => {
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+            Ok(ExitStatus::Success)
+        }
+        Err(status) => Ok(status),
+    }
 }
 
 fn dispatch_initiative_comment_list(

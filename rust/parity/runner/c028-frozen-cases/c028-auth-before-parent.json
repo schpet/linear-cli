@@ -1,0 +1,54 @@
+{
+  "id": "c028-auth-before-parent",
+  "route": "linear project comment add",
+  "reason": "auth-before-parent",
+  "argv": [
+    "project",
+    "comment",
+    "add",
+    "00000000-0000-4000-9000-000000002801",
+    "-b",
+    "Hi",
+    "-p",
+    "https://linear.app/acme/issue/ENG-1#comment-abcdef12"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to add comment: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": null
+}

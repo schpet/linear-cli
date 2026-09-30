@@ -1,0 +1,96 @@
+{
+  "id": "c028-url-truncated-utf8",
+  "route": "linear project comment add",
+  "reason": "url-truncated-utf8",
+  "argv": [
+    "project",
+    "comment",
+    "add",
+    "https://linear.app/acme/project/roadmap-0000000028ff",
+    "--body-file",
+    "truncated.md"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "comment-body-files",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to add comment: Project not found: https://linear.app/acme/project/roadmap-0000000028ff\n  Pass a project UUID, slug ID (from `linear project list`), or exact project name.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "COMMENT-BODY-FILE-UTF8",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "3b37843fdc56726d54550f7cf94f4e33e59889f1c6cd940c12059abf566b8a87"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "slug",
+            "operation": {
+              "document": "query GetProjectIdBySlugId($slugId: String!) { projects(filter: { slugId: { eq: $slugId } }) { nodes { id } } }",
+              "variables": {
+                "slugId": "0000000028ff"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": []
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

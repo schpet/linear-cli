@@ -2103,8 +2103,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   // C039/C048/C043/C054/C032/C033/C074 add 15/22/20/18/17/17/9 typed GraphQL
   // cases. C029/C034 add another 14/9 cases; C058/C059 add 5/3; C012/C017 add 5/5.
   // C046 adds 18 typed GraphQL cases.
-  // C018 adds 12 typed GraphQL cases.
-  assertEquals(graphql.length, 1021)
+  // C018 adds 12 typed GraphQL cases; C028/C044/C055 add 9/8/8.
+  assertEquals(graphql.length, 1046)
   const c011Surfaces = new Map<string, string[]>([
     ["c011-infinite-position", ["stderr", "graphql-user-agent"]],
     ["c011-null-position-pair", ["stderr", "graphql-user-agent"]],
@@ -2350,6 +2350,12 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     ]],
   ])
   const c018FixtureDeltas = new Set(["c018-strict-null-uuid"])
+  // Each comment-add caller retains none of its one frozen source query.
+  const commentAddFixtureDeltas = new Set([
+    "c028-url-truncated-utf8",
+    "c044-url-surrogate-utf8",
+    "c055-null-content-overlong-utf8",
+  ])
   const c046FixtureDeltas = new Set([
     "c046-strict-later-node",
     "c046-strict-nonenvelope",
@@ -2415,7 +2421,9 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       !loaded.spec.id.startsWith("c027-") &&
       !loaded.spec.id.startsWith("c035-") &&
       !loaded.spec.id.startsWith("c037-") &&
-      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17)-/.test(loaded.spec.id)
+      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17|28|44|55)-/.test(
+        loaded.spec.id,
+      )
     ) {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
@@ -2473,7 +2481,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       c035FixtureDeltas.has(loaded.spec.id) ||
       c038FixtureDeltas.has(loaded.spec.id) ||
       c046FixtureDeltas.has(loaded.spec.id) ||
-      c018FixtureDeltas.has(loaded.spec.id)
+      c018FixtureDeltas.has(loaded.spec.id) ||
+      commentAddFixtureDeltas.has(loaded.spec.id)
     ) {
       const delta = loaded.golden?.spec.candidate.graphql
       const group = expected.groups[0]
@@ -2495,7 +2504,9 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
         (c031FixtureDeltas.has(loaded.spec.id) ||
           c027FixtureDeltas.has(loaded.spec.id) ||
           c035FixtureDeltas.has(loaded.spec.id) ||
-          c038FixtureDeltas.has(loaded.spec.id)) && delta.steps.length === 0
+          c038FixtureDeltas.has(loaded.spec.id) ||
+          commentAddFixtureDeltas.has(loaded.spec.id)) &&
+        delta.steps.length === 0
       ) {
         expected.groups = []
       }

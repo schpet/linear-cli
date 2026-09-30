@@ -1,0 +1,124 @@
+{
+  "id": "c028-uuid-literal-body",
+  "route": "linear project comment add",
+  "reason": "uuid-literal-body",
+  "argv": [
+    "project",
+    "comment",
+    "add",
+    "00000000-0000-4000-9000-000000002801",
+    "-b",
+    "  **Bold** `code`\nline two ☃\t "
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Comment added to project 00000000-0000-4000-9000-000000002801\nhttps://linear.app/acme/comment/c0de\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "ffc2ad4b7dcb70f6c52316b49dd05d7f3501454267534cc1f420c7327b5fdb8e"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {
+      "Comment:00000000-0000-4000-9000-00000000c0de": {
+        "id": "00000000-0000-4000-9000-00000000c0de",
+        "url": "https://linear.app/acme/comment/c0de",
+        "body": "  **Bold** `code`\nline two ☃\t ",
+        "projectId": "00000000-0000-4000-9000-000000002801"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation AddComment($input: CommentCreateInput!) { commentCreate(input: $input) { success comment { id url } } }",
+              "variables": {
+                "input": {
+                  "body": "  **Bold** `code`\nline two ☃\t ",
+                  "projectId": "00000000-0000-4000-9000-000000002801"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "commentCreate": {
+                  "success": true,
+                  "comment": {
+                    "id": "00000000-0000-4000-9000-00000000c0de",
+                    "url": "https://linear.app/acme/comment/c0de"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Comment:00000000-0000-4000-9000-00000000c0de",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-00000000c0de",
+                  "url": "https://linear.app/acme/comment/c0de",
+                  "body": "  **Bold** `code`\nline two ☃\t ",
+                  "projectId": "00000000-0000-4000-9000-000000002801"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
