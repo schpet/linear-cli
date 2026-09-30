@@ -45,3 +45,9 @@ pub mod label_create;
 pub mod label_delete;
 
 pub mod initiative_unarchive;
+
+pub mod issue_relations;
+
+pub mod issue_link;
+
+pub mod issue_id;

@@ -1,0 +1,172 @@
+{
+  "id": "c077-related-identical",
+  "route": "linear issue relation add",
+  "reason": "related-identical",
+  "argv": [
+    "issue",
+    "relation",
+    "add",
+    "ENG-1",
+    "related",
+    "ENG-1"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Created relation: ENG-1 related ENG-1\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "b51c957d9e7a838ba3c62b3f20f52026f79f9d4339b083273b19109120015098"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {
+      "Relation:00000000-0000-4000-9000-000000000077": {
+        "id": "00000000-0000-4000-9000-000000000077",
+        "issueId": "00000000-0000-4000-9000-000000000001",
+        "relatedIssueId": "00000000-0000-4000-9000-000000000001",
+        "type": "related"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "lookup-a",
+            "operation": {
+              "document": "query GetIssueId($id: String!) { issue(id:$id) { id } }",
+              "variables": {
+                "id": "ENG-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "id": "00000000-0000-4000-9000-000000000001"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "lookup-b",
+            "operation": {
+              "document": "query GetIssueId($id: String!) { issue(id:$id) { id } }",
+              "variables": {
+                "id": "ENG-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "id": "00000000-0000-4000-9000-000000000001"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation CreateIssueRelation($input: IssueRelationCreateInput!) { issueRelationCreate(input:$input) { success issueRelation { id } } }",
+              "variables": {
+                "input": {
+                  "issueId": "00000000-0000-4000-9000-000000000001",
+                  "relatedIssueId": "00000000-0000-4000-9000-000000000001",
+                  "type": "related"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issueRelationCreate": {
+                  "success": true,
+                  "issueRelation": {
+                    "id": "00000000-0000-4000-9000-000000000077"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Relation:00000000-0000-4000-9000-000000000077",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-000000000077",
+                  "issueId": "00000000-0000-4000-9000-000000000001",
+                  "relatedIssueId": "00000000-0000-4000-9000-000000000001",
+                  "type": "related"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

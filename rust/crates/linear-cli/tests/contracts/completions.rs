@@ -325,6 +325,14 @@ fn expected_bash_words<'a>(routes: &[&'a Route], route: &'a Route) -> BTreeSet<&
         .iter()
         .map(String::as_str)
         .collect::<BTreeSet<_>>();
+    // Relation type is a v3 native positional enum. Source registers strings,
+    // but the action domain independently establishes these four spellings.
+    if matches!(
+        route.path.as_str(),
+        "linear issue relation add" | "linear issue relation delete"
+    ) {
+        words.extend(["blocks", "blocked-by", "related", "duplicate"]);
+    }
     for child in children(routes, route) {
         words.insert(&child.name);
         words.extend(child.aliases.iter().map(String::as_str));

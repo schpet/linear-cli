@@ -283,17 +283,19 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 }
             },
             Some(cli::issue::IssueCommand::Attach(_)) => unsupported("linear issue attach"),
-            Some(cli::issue::IssueCommand::Link(_)) => unsupported("linear issue link"),
+            Some(cli::issue::IssueCommand::Link(action)) => {
+                dispatch_issue_link(context, &action, workspace)
+            }
             Some(cli::issue::IssueCommand::Relation(action)) => match action.command {
                 None => parent_help(context, "linear issue relation"),
-                Some(cli::issue::IssueRelationCommand::Add(_)) => {
-                    unsupported("linear issue relation add")
+                Some(cli::issue::IssueRelationCommand::Add(action)) => {
+                    dispatch_issue_relation_add(context, &action, workspace)
                 }
-                Some(cli::issue::IssueRelationCommand::Delete(_)) => {
-                    unsupported("linear issue relation delete")
+                Some(cli::issue::IssueRelationCommand::Delete(action)) => {
+                    dispatch_issue_relation_delete(context, &action, workspace)
                 }
-                Some(cli::issue::IssueRelationCommand::List(_)) => {
-                    unsupported("linear issue relation list")
+                Some(cli::issue::IssueRelationCommand::List(action)) => {
+                    dispatch_issue_relation_list(context, &action, workspace)
                 }
             },
             Some(cli::issue::IssueCommand::AgentSession(action)) => match action.command {
@@ -1915,6 +1917,186 @@ fn dispatch_milestone_delete(
         context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
     }
     let output = result.map_err(|error| error.with_context(milestone_delete::CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+/// These leaves have distinct unresolved diagnostics, while sharing the
+/// maintained reference and real VCS inference implementation.
+fn resolve_relation_reference(
+    context: &AppContext<'_>,
+    input: Option<&str>,
+    workspace: Option<&str>,
+    unresolved: impl FnOnce() -> AppError,
+) -> Result<String, AppError> {
+    let reference = match input {
+        None => crate::refs::IssueReference::Inferred,
+        Some(_) => {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let team = configured_team_key(&config.options);
+            crate::refs::prepare_issue_reference(
+                input,
+                team.as_deref(),
+                &WorkspaceScope::from_selection(&inputs, credentials),
+            )?
+        }
+    };
+    let identifier = match reference {
+        crate::refs::IssueReference::Identifier(id) => Some(id),
+        crate::refs::IssueReference::Unresolved => None,
+        crate::refs::IssueReference::Inferred => inferred_issue(context)?,
+    };
+    identifier.ok_or_else(unresolved)
+}
+
+fn relation_transport(
+    context: &AppContext<'_>,
+    workspace: Option<&str>,
+) -> Result<crate::graphql::transport::GraphQlTransport, AppError> {
+    let config = context.config()?;
+    client::prepare_transport(
+        &config.options,
+        context.credentials()?,
+        workspace,
+        &config.transport_env,
+    )
+}
+
+/// Source relations use a spinner; URL links do not. Clear it on every network
+/// result before displaying the result or returning its contextual error.
+fn relation_network(
+    context: &mut AppContext<'_>,
+    pending: impl std::future::Future<Output = Result<Vec<u8>, AppError>>,
+) -> Result<Vec<u8>, AppError> {
+    let enabled = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if !enabled {
+        return block_on_network(pending);
+    }
+    context.write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    let result = block_on_network(async {
+        tokio::pin!(pending);
+        let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+        ticks.tick().await;
+        let mut frame = 1_usize;
+        loop {
+            tokio::select! {
+                biased;
+                result = &mut pending => break result,
+                _ = ticks.tick() => {
+                    context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                    frame = frame.wrapping_add(1);
+                }
+            }
+        }
+    });
+    context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    result
+}
+
+fn dispatch_issue_relation_list(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueRelationList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::issue_relations;
+    let output = (|| {
+        let identifier =
+            resolve_relation_reference(context, action.issue_id.as_deref(), workspace, || {
+                issue_details::unresolved(false)
+            })?;
+        let transport = relation_transport(context, workspace)?;
+        relation_network(context, issue_relations::list(&transport, &identifier))
+    })()
+    .map_err(|error| error.with_context(issue_relations::LIST_CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn prepare_relation_pair(
+    context: &AppContext<'_>,
+    a: &str,
+    b: &str,
+    workspace: Option<&str>,
+) -> Result<(String, String), AppError> {
+    let resolve = |input| {
+        resolve_relation_reference(context, Some(input), workspace, || {
+            AppError::new(
+                AppErrorKind::Validation,
+                format!("Could not resolve issue identifier: {input}"),
+            )
+        })
+    };
+    // Validate both references before creating the transport or looking up A.
+    let a = resolve(a)?;
+    let b = resolve(b)?;
+    Ok((a, b))
+}
+fn dispatch_issue_relation_add(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueRelationAdd,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::issue_relations;
+    let output = (|| {
+        let (a, b) = prepare_relation_pair(
+            context,
+            &action.issue_id,
+            &action.related_issue_id,
+            workspace,
+        )?;
+        let transport = relation_transport(context, workspace)?;
+        relation_network(
+            context,
+            issue_relations::add(&transport, action.relation_type, &a, &b),
+        )
+    })()
+    .map_err(|error| error.with_context(issue_relations::ADD_CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+fn dispatch_issue_relation_delete(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueRelationDelete,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::issue_relations;
+    let output = (|| {
+        let (a, b) = prepare_relation_pair(
+            context,
+            &action.issue_id,
+            &action.related_issue_id,
+            workspace,
+        )?;
+        let transport = relation_transport(context, workspace)?;
+        relation_network(
+            context,
+            issue_relations::delete(&transport, action.relation_type, &a, &b),
+        )
+    })()
+    .map_err(|error| error.with_context(issue_relations::DELETE_CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+fn dispatch_issue_link(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueLink,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::issue_link;
+    let output = (|| {
+        let (input, url) = issue_link::inputs(&action.url_or_issue_id, action.url.as_deref())?;
+        let identifier = resolve_relation_reference(context, input, workspace, ||
+            AppError::new(AppErrorKind::Validation, "Could not determine issue ID").with_suggestion(
+                "Please provide an issue ID like 'ENG-123', or run from a branch that contains an issue identifier."))?;
+        let transport = relation_transport(context, workspace)?;
+        block_on_network(issue_link::submit(&transport, &identifier, url, action.title.as_deref()))
+    })().map_err(|error| error.with_context(issue_link::CONTEXT))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

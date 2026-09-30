@@ -44,5 +44,9 @@
     },
     "fileEffects": []
   },
-  "deviation": {"id":"C086-SCRIPT-AND-STARTUP-WARNING","contract":"rust-3.0.0-alpha.1","sha256":"0b56419d8a876ff110a446e29bdf3a9e9086d29cb780a825006b7884da935e79"}
+  "deviation": {
+    "id": "C086-SCRIPT-AND-STARTUP-WARNING",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "a7e50ed6cdd494d124bffc2e658e17a55937a83d79891e9bba0e1b8b1d5f4890"
+  }
 }

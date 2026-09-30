@@ -41,3 +41,6 @@ mod user_list;
 mod issue_details;
 
 mod initiative_unarchive;
+
+mod issue_link;
+mod issue_relations;

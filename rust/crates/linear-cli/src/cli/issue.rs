@@ -1,4 +1,4 @@
-use clap::{Args, Subcommand};
+use clap::{Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Args)]
 pub struct Issue {
@@ -537,12 +537,32 @@ pub enum IssueRelationCommand {
     List(IssueRelationList),
 }
 
+/// The CLI's four accepted spellings; the API direction is modeled separately.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub enum RelationType {
+    Blocks,
+    BlockedBy,
+    Related,
+    Duplicate,
+}
+
+impl RelationType {
+    pub fn spelling(self) -> &'static str {
+        match self {
+            Self::Blocks => "blocks",
+            Self::BlockedBy => "blocked-by",
+            Self::Related => "related",
+            Self::Duplicate => "duplicate",
+        }
+    }
+}
+
 #[derive(Debug, Args)]
 pub struct IssueRelationAdd {
     #[arg(value_name = "issueId")]
     pub issue_id: String,
-    #[arg(value_name = "relationType")]
-    pub relation_type: String,
+    #[arg(value_name = "relationType", value_enum, ignore_case = true)]
+    pub relation_type: RelationType,
     #[arg(value_name = "relatedIssueId")]
     pub related_issue_id: String,
 }
@@ -551,8 +571,8 @@ pub struct IssueRelationAdd {
 pub struct IssueRelationDelete {
     #[arg(value_name = "issueId")]
     pub issue_id: String,
-    #[arg(value_name = "relationType")]
-    pub relation_type: String,
+    #[arg(value_name = "relationType", value_enum, ignore_case = true)]
+    pub relation_type: RelationType,
     #[arg(value_name = "relatedIssueId")]
     pub related_issue_id: String,
 }

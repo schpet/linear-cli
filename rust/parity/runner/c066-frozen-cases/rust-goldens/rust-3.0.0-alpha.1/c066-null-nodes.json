@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "caseId": "c066-null-nodes",
+  "deviationId": "C066-STRICT-RELATION-DECODE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to list relations: response JSON did not match the expected operation shape: invalid type: null, expected a sequence\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

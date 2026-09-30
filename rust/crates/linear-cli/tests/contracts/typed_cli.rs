@@ -60,7 +60,21 @@ fn derived_grammar_conforms_to_all_source_capabilities() {
                 "{path} {name}"
             );
             if arg.is_required_set() {
-                argv.push("value".to_owned());
+                // The source action restricts relationType to these spellings;
+                // v3 puts that independent domain in the native parser.
+                let value = if name == "relationType" {
+                    let choices = arg
+                        .get_value_parser()
+                        .possible_values()
+                        .unwrap()
+                        .map(|value| value.get_name().to_owned())
+                        .collect::<Vec<_>>();
+                    assert_eq!(choices, ["blocks", "blocked-by", "related", "duplicate"]);
+                    "blocks"
+                } else {
+                    "value"
+                };
+                argv.push(value.to_owned());
             }
         }
         for option in route["localOptions"].as_array().unwrap() {

@@ -708,7 +708,7 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 ':issue_id:_default' \
-':relation_type:_default' \
+':relation_type:(blocks blocked-by related duplicate)' \
 ':related_issue_id:_default' \
 && ret=0
 ;;
@@ -718,7 +718,7 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 ':issue_id:_default' \
-':relation_type:_default' \
+':relation_type:(blocks blocked-by related duplicate)' \
 ':related_issue_id:_default' \
 && ret=0
 ;;
@@ -1602,7 +1602,7 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 ':issue_id:_default' \
-':relation_type:_default' \
+':relation_type:(blocks blocked-by related duplicate)' \
 ':related_issue_id:_default' \
 && ret=0
 ;;
@@ -1612,7 +1612,7 @@ _arguments "${_arguments_options[@]}" : \
 '-h[Print help]' \
 '--help[Print help]' \
 ':issue_id:_default' \
-':relation_type:_default' \
+':relation_type:(blocks blocked-by related duplicate)' \
 ':related_issue_id:_default' \
 && ret=0
 ;;

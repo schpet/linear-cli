@@ -6724,7 +6724,7 @@ _linear() {
             return 0
             ;;
         linear__subcmd__issue__subcmd__relation__subcmd__add)
-            opts="-h --workspace --help"
+            opts="-h --workspace --help blocks blocked-by related duplicate"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -6742,7 +6742,7 @@ _linear() {
             return 0
             ;;
         linear__subcmd__issue__subcmd__relation__subcmd__delete)
-            opts="-h --workspace --help"
+            opts="-h --workspace --help blocks blocked-by related duplicate"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

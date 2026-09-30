@@ -1,0 +1,154 @@
+{
+  "id": "c078-no-match",
+  "route": "linear issue relation delete",
+  "reason": "no-match",
+  "argv": [
+    "issue",
+    "relation",
+    "delete",
+    "ENG-1",
+    "blocked-by",
+    "ENG-2"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to delete relation: Relation not found: blocked-by between ENG-1 and ENG-2\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "b818cc1f1b9e741030b18dedc8208f80adac879c56e44c6b34dbce76fb40e3b1"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "lookup-a",
+            "operation": {
+              "document": "query GetIssueId($id: String!) { issue(id:$id) { id } }",
+              "variables": {
+                "id": "ENG-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "id": "00000000-0000-4000-9000-000000000001"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "lookup-b",
+            "operation": {
+              "document": "query GetIssueId($id: String!) { issue(id:$id) { id } }",
+              "variables": {
+                "id": "ENG-2"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "id": "00000000-0000-4000-9000-000000000002"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "find",
+            "operation": {
+              "document": "query FindIssueRelation($issueId: String!) { issue(id:$issueId) { relations { nodes { id type relatedIssue { id } } } } }",
+              "variables": {
+                "issueId": "00000000-0000-4000-9000-000000000002"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "relations": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000000077",
+                        "type": "related",
+                        "relatedIssue": {
+                          "id": "00000000-0000-4000-9000-000000000001"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

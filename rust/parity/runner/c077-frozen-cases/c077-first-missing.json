@@ -1,0 +1,101 @@
+{
+  "id": "c077-first-missing",
+  "route": "linear issue relation add",
+  "reason": "first-missing",
+  "argv": [
+    "issue",
+    "relation",
+    "add",
+    "ENG-1",
+    "blocks",
+    "ENG-2"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to create relation: Issue not found: ENG-1\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "be8a7e2db1cb626672e9e7ef2a5f075774ad65f69e9dc83b96e465405e7ed4c7"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "lookup-a",
+            "operation": {
+              "document": "query GetIssueId($id: String!) { issue(id:$id) { id } }",
+              "variables": {
+                "id": "ENG-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "graphqlErrors",
+              "status": 200,
+              "data": null,
+              "errors": [
+                {
+                  "message": "Entity not found: Issue",
+                  "extensions": {
+                    "userPresentableMessage": "Could not find referenced Issue."
+                  }
+                }
+              ]
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

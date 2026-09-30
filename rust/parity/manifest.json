@@ -5021,7 +5021,7 @@
       "workItem": "C076",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {
@@ -5177,7 +5177,7 @@
       "workItem": "C077",
       "sourceKind": "shared_command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {
@@ -5257,7 +5257,7 @@
       "workItem": "C078",
       "sourceKind": "shared_command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {
@@ -5321,8 +5321,8 @@
       "workItem": "C066",
       "sourceKind": "shared_command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "qaStatus": "passed",
+      "liveStatus": "passed"
     },
     {
       "path": "linear issue agent-session",
