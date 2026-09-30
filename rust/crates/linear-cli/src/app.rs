@@ -14,10 +14,11 @@ use crate::commands::{
     auth_list, auth_whoami, client, comment_add, cycle_list, cycle_view, document_comment_list,
     initiative_bulk, initiative_comment_list, initiative_create, initiative_list,
     initiative_projects, initiative_unarchive, initiative_update_list, initiative_view,
-    issue_comment_delete, issue_details, label_create, label_delete, label_list, milestone_create,
-    milestone_delete, milestone_list, milestone_update, milestone_view, project_comment_list,
-    project_delete, project_list, project_update_list, project_view, table, team_create, team_id,
-    team_list, team_members, team_states, template_list, template_view, user_list,
+    issue_comment_delete, issue_comment_list, issue_details, label_create, label_delete,
+    label_list, milestone_create, milestone_delete, milestone_list, milestone_update,
+    milestone_view, project_comment_list, project_delete, project_list, project_update_list,
+    project_view, table, team_create, team_id, team_list, team_members, team_states, template_list,
+    template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -278,8 +279,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 Some(cli::issue::IssueCommentCommand::Update(_)) => {
                     unsupported("linear issue comment update")
                 }
-                Some(cli::issue::IssueCommentCommand::List(_)) => {
-                    unsupported("linear issue comment list")
+                Some(cli::issue::IssueCommentCommand::List(action)) => {
+                    dispatch_issue_comment_list(context, &action, workspace)
                 }
             },
             Some(cli::issue::IssueCommand::Attach(_)) => unsupported("linear issue attach"),
@@ -2272,6 +2273,32 @@ fn dispatch_issue_link(
         let transport = relation_transport(context, workspace)?;
         block_on_network(issue_link::submit(&transport, &identifier, url, action.title.as_deref()))
     })().map_err(|error| error.with_context(issue_link::CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_issue_comment_list(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueCommentList,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let id = resolve_issue(context, action.issue_id.as_deref(), workspace)
+        .map_err(|error| error.with_context(issue_comment_list::CONTEXT))?;
+    let config = context.config()?;
+    let transport = client::prepare_transport(
+        &config.options,
+        context.credentials()?,
+        workspace,
+        &config.transport_env,
+    )
+    .map_err(|error| error.with_context(issue_comment_list::CONTEXT))?;
+    let output = block_on_network(issue_comment_list::run(
+        &transport,
+        &id,
+        &id,
+        action.json,
+        !context.no_color(),
+    ))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

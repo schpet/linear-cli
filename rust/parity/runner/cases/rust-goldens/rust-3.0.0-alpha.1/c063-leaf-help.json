@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c063-leaf-help",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "List comments for an issue\n\nUsage: linear issue comment list [OPTIONS] [issueId]\n\nArguments:\n  [issueId]  \n\nOptions:\n  -j, --json              Output as JSON\n      --workspace <slug>  Target workspace (uses credentials)\n  -h, --help              Print help\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

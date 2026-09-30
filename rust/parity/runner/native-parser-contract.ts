@@ -2902,6 +2902,8 @@ export const NATIVE_PARSER_CONTRACTS = new Map<string, [string, string[]]>([
   ["c034-extra-argument", ["CLAP-NATIVE-CLI-SURFACE", ["stdout", "stderr"]]],
   ["c034-leaf-help", ["CLAP-NATIVE-CLI-SURFACE", ["stdout"]]],
   ["c034-missing-id", ["CLAP-NATIVE-CLI-SURFACE", ["stdout", "stderr"]]],
+  ["c063-leaf-help", ["CLAP-NATIVE-CLI-SURFACE", ["stdout"]]],
+  ["c063-unknown-flag", ["CLAP-NATIVE-CLI-SURFACE", ["stdout", "stderr"]]],
 ])
 
 export function nativeParserContract(

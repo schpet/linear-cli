@@ -146,9 +146,9 @@ Deno.test("P02 cases remain loadable and GraphQL case resolves", async () => {
   // C018 adds 1 local and 12 GraphQL cases.
   // C028/C044/C055 add 4/3/1 local and 9/8/8 GraphQL cases.
   // C066/C077/C078/C076 + C065/C064 add 8 local and 44 GraphQL cases.
-  assertEquals(others.filter((item) => item.spec.graphql == null).length, 614)
+  assertEquals(others.filter((item) => item.spec.graphql == null).length, 617)
   // C041/C042 add 24 typed association GraphQL cases.
-  assertEquals(others.filter((item) => item.spec.graphql != null).length, 1135)
+  assertEquals(others.filter((item) => item.spec.graphql != null).length, 1142)
   assertEquals(loaded.filter(c002).length, 26)
 })
 

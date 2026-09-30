@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c063-unknown-flag",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "error: unexpected argument '--sort' found\n\n  tip: to pass '--sort' as a value, use '-- --sort'\n\nUsage: linear issue comment list <issueId>\n\nFor more information, try '--help'.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

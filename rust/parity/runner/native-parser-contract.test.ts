@@ -35,8 +35,8 @@ Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound
   const pins =
     (await Deno.readTextFile(join(root, "native-parser-goldens.sha256")))
       .trimEnd().split("\n")
-  assertEquals(pins.length, 313)
-  assertEquals(NATIVE_PARSER_CONTRACTS.size, 313)
+  assertEquals(pins.length, 315)
+  assertEquals(NATIVE_PARSER_CONTRACTS.size, 315)
   assertEquals(Object.keys(nativeVersionSourcePins).length, 6)
   let count = 0
   let versionCount = 0
@@ -102,7 +102,7 @@ Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound
       )
     } else assertEquals(golden.spec.candidate.graphql ?? null, null)
   }
-  assertEquals(count, 313)
+  assertEquals(count, 315)
   assertEquals(versionCount, 6)
 })
 

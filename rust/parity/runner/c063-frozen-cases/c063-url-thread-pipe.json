@@ -1,0 +1,166 @@
+{
+  "id": "c063-url-thread-pipe",
+  "route": "linear issue comment list",
+  "reason": "url-thread-pipe",
+  "argv": [
+    "issue",
+    "comment",
+    "list",
+    "https://linear.app/acme/issue/eng-7/comment-fixture"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "@github commented 1/4/2020 [00000000-0000-4000-9000-000000000003]\nRoot C\n\n@user1 commented 1/2/2020 [00000000-0000-4000-9000-000000000001]\n> Quoted **Markdown**\nsecond quote\n# Heading\n\n*bold* and `inline` %% %s 界\nline two\n\n  @Guest replied 1/3/2020 [00000000-0000-4000-9000-000000000002]\n  > \n  Reply\n  second reply line\n\n  @Unknown replied to [gone-root] 1/3/2020 [orphan]\n  > \n  Orphan\n  continued\n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "comments",
+            "operation": {
+              "document": "query GetIssueComments($id: String!, $after: String) { issue(id: $id) { comments(first: 50, after: $after, orderBy: createdAt) { nodes { ...CommentListFields } pageInfo { hasNextPage endCursor } } } }\nfragment CommentListFields on Comment { id body quotedText createdAt updatedAt editedAt url user { id name displayName } externalUser { id name displayName } botActor { id name type subType } parent { id } }",
+              "variables": {
+                "id": "ENG-7",
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "comments": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000000001",
+                        "body": "# Heading\n\n*bold* and `inline` %% %s 界\nline two",
+                        "quotedText": "Quoted **Markdown**\nsecond quote",
+                        "createdAt": "2020-01-02T12:00:00Z",
+                        "updatedAt": "2020-02-01T00:00:00Z",
+                        "editedAt": null,
+                        "url": "https://linear.app/alpha/project/mobile-app-abc123def456/activity#00000000-0000-4000-9000-000000000001",
+                        "user": {
+                          "id": "00000000-0000-4000-9000-000000000101",
+                          "name": "user1",
+                          "displayName": ""
+                        },
+                        "externalUser": null,
+                        "botActor": null,
+                        "parent": null
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000002",
+                        "body": "Reply\nsecond reply line",
+                        "quotedText": "",
+                        "createdAt": "2020-01-03T12:00:00Z",
+                        "updatedAt": "2020-02-01T00:00:00Z",
+                        "editedAt": null,
+                        "url": "https://linear.app/alpha/project/mobile-app-abc123def456/activity#00000000-0000-4000-9000-000000000002",
+                        "user": null,
+                        "externalUser": {
+                          "id": "external",
+                          "name": "External",
+                          "displayName": "Guest"
+                        },
+                        "botActor": null,
+                        "parent": {
+                          "id": "00000000-0000-4000-9000-000000000001"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000000003",
+                        "body": "Root C",
+                        "quotedText": null,
+                        "createdAt": "2020-01-04T12:00:00Z",
+                        "updatedAt": "2020-02-01T00:00:00Z",
+                        "editedAt": null,
+                        "url": "https://linear.app/alpha/project/mobile-app-abc123def456/activity#00000000-0000-4000-9000-000000000003",
+                        "user": null,
+                        "externalUser": null,
+                        "botActor": {
+                          "id": null,
+                          "name": null,
+                          "type": "github",
+                          "subType": null
+                        },
+                        "parent": null
+                      },
+                      {
+                        "id": "orphan",
+                        "body": "Orphan\ncontinued",
+                        "quotedText": "",
+                        "createdAt": "2020-01-03T12:00:00Z",
+                        "updatedAt": "2020-02-01T00:00:00Z",
+                        "editedAt": null,
+                        "url": "https://linear.app/alpha/project/mobile-app-abc123def456/activity#00000000-0000-4000-9000-000000000002",
+                        "user": null,
+                        "externalUser": null,
+                        "botActor": null,
+                        "parent": {
+                          "id": "gone-root"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}
