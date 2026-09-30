@@ -5,6 +5,10 @@ import { fromFileUrl, join } from "@std/path"
 import * as v from "valibot"
 import { decodeByteValue, encodeByteValue, sha256Hex } from "./bytes.ts"
 import type { LoadedCase } from "./cases.ts"
+import {
+  nativeParserContract,
+  type NativeParserContractLookup,
+} from "./native-parser-contract.ts"
 import type { Program } from "./program.ts"
 import type { CaseRun, RunContext } from "./run.ts"
 import { ByteValueSchema, FileEffectSchema } from "./schema.ts"
@@ -115,7 +119,8 @@ export async function harnessDigest(
   for await (const entry of Deno.readDir(runner)) {
     if (
       entry.isFile && /\.(ts|json)$/.test(entry.name) &&
-      !entry.name.endsWith(".test.ts")
+      !entry.name.endsWith(".test.ts") &&
+      entry.name !== "native-parser-contracts.json"
     ) {
       inputs.push([
         entry.name,
@@ -174,6 +179,7 @@ export class BaselineCache {
     readonly directory: string,
     readonly identity: string,
     readonly force = false,
+    readonly contractLookup: NativeParserContractLookup = nativeParserContract,
   ) {}
 
   async key(
@@ -182,6 +188,7 @@ export class BaselineCache {
   ): Promise<string> {
     return await digest({
       identity: this.identity,
+      nativeParserContract: this.contractLookup(loaded.spec.id) ?? null,
       file: loaded.file,
       fileSha256: await sha256Hex(await Deno.readFile(loaded.file)),
       spec: loaded.spec,

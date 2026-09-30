@@ -94,7 +94,7 @@ Deno.test("c033 promotion preserves frozen source bytes, write effects and narro
         )
       }
     }
-    let [deviation, surfaces]: [string | null, string[] | null] =
+    let [deviation, surfaces]: [string | null, readonly string[] | null] =
       source.graphql == null
         ? [null, null]
         : ["R01H-GRAPHQL-UA", ["graphql-user-agent"]]

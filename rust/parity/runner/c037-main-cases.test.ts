@@ -50,7 +50,7 @@ function approvedSurfaces(
   id: string,
   category: string,
   graphql: boolean,
-): string[] {
+): readonly string[] {
   const native = nativeParserContract(id)
   if (native != null) return native[1]
   const ua = ["graphql-user-agent"]

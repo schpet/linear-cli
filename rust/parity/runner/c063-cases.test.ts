@@ -36,7 +36,9 @@ Deno.test("C063 preserves actual frozen source, nested issue selection, read-onl
     let deviation: string | null = source.graphql == null
       ? null
       : "R01H-GRAPHQL-UA"
-    let surfaces = source.graphql == null ? null : ["graphql-user-agent"]
+    let surfaces: readonly string[] | null = source.graphql == null
+      ? null
+      : ["graphql-user-agent"]
     if (entry.spec.id === "c063-missing-required-body") {
       deviation = "C063-STRICT-COMMENT-DECODE"
       surfaces = ["exit", "stdout", "stderr", "graphql-user-agent"]

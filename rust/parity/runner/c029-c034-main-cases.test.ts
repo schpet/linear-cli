@@ -89,7 +89,7 @@ for (
       }
       const suffix = entry.spec.id.substring(5)
       let id: string | null = source.graphql == null ? null : "R01H-GRAPHQL-UA"
-      let surfaces: string[] | null = source.graphql == null
+      let surfaces: readonly string[] | null = source.graphql == null
         ? null
         : ["graphql-user-agent"]
       const native = nativeParserContract(entry.spec.id)

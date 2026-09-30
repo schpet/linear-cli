@@ -13,6 +13,10 @@ import {
 } from "./baseline-cache.ts"
 import { sha256Hex } from "./bytes.ts"
 import type { LoadedCase } from "./cases.ts"
+import {
+  decodeNativeParserContracts,
+  nativeParserContract,
+} from "./native-parser-contract.ts"
 import type { Program } from "./program.ts"
 import type { CaseRun, RunContext } from "./run.ts"
 import { parseCase, RUST_USER_AGENT } from "./schema.ts"
@@ -297,7 +301,7 @@ Deno.test("drift, incomplete observations and execution errors never become reus
 })
 
 Deno.test("actual identity collection binds pinned source/reference/lock/schema/runtime and runner code without manifest/golden churn", async () => {
-  await withCase(async (dir, _loaded) => {
+  await withCase(async (dir, loaded) => {
     const workspace = join(dir, "source")
     await Deno.mkdir(join(workspace, "src"), { recursive: true })
     await Deno.writeTextFile(join(workspace, "src", "main.ts"), "source")
@@ -381,7 +385,58 @@ Deno.test("actual identity collection binds pinned source/reference/lock/schema/
     ) await Deno.writeTextFile(join(parity, name), name)
     const comparator = join(runner, "compare.ts")
     await Deno.writeTextFile(comparator, "compare-one")
+    const catalog = join(runner, "native-parser-contracts.json")
+    await Deno.writeTextFile(catalog, "[]")
+    const wrapper = join(runner, "native-parser-contract.ts")
+    await Deno.writeTextFile(wrapper, "strict decoder and lookup")
     const harness = await harnessDigest(runner)
+    let executions = 0
+    const execute = async () => {
+      executions++
+      return await proof()
+    }
+    const directory = join(dir, "harness-cache")
+    const cache = new BaselineCache(directory, harness)
+    assertEquals((await cache.run(loaded, {}, execute)).evidence.cache, "miss")
+    await Deno.writeTextFile(
+      catalog,
+      JSON.stringify([["unrelated", ["native", ["stdout"]]]]),
+    )
+    assertEquals(await harnessDigest(runner), harness)
+    const afterCatalog = new BaselineCache(
+      directory,
+      await harnessDigest(runner),
+    )
+    assertEquals(
+      (await afterCatalog.run(loaded, {}, execute)).evidence.cache,
+      "hit",
+    )
+    assertEquals(executions, 1)
+    for (
+      const name of [
+        "native-parser-contract.json",
+        "native-parser-source-pins.json",
+        "native-version-source-pins.json",
+      ]
+    ) {
+      await Deno.writeTextFile(join(runner, name), "changed sibling")
+      assertNotEquals(await harnessDigest(runner), harness)
+      await Deno.remove(join(runner, name))
+      assertEquals(await harnessDigest(runner), harness)
+    }
+    await Deno.writeTextFile(wrapper, "changed executable decoder")
+    assertNotEquals(await harnessDigest(runner), harness)
+    const afterRuntime = new BaselineCache(
+      directory,
+      await harnessDigest(runner),
+    )
+    assertEquals(
+      (await afterRuntime.run(loaded, {}, execute)).evidence.cache,
+      "miss",
+    )
+    assertEquals(executions, 2)
+    await Deno.writeTextFile(wrapper, "strict decoder and lookup")
+    assertEquals(await harnessDigest(runner), harness)
     await Deno.writeTextFile(
       join(parity, "manifest.json"),
       "administrative status change",
@@ -399,5 +454,118 @@ Deno.test("actual identity collection binds pinned source/reference/lock/schema/
     assertEquals(await harnessDigest(runner), harness)
     await Deno.writeTextFile(comparator, "compare-two")
     assertNotEquals(await harnessDigest(runner), harness)
+  })
+})
+
+Deno.test("cache binds only its relevant native contract; unrelated catalog additions reuse the proof", async () => {
+  await withCase(async (dir, loaded) => {
+    for (const initiallyPresent of [false, true]) {
+      const original = decodeNativeParserContracts(
+        initiallyPresent ? [[loaded.spec.id, ["native", ["stdout"]]]] : [],
+      )
+      const lookup = (id: string) => original.get(id)
+      const identity = "same executable harness/source identity"
+      const cache = new BaselineCache(
+        join(dir, String(initiallyPresent)),
+        identity,
+        false,
+        lookup,
+      )
+      let executions = 0
+      const execute = async () => {
+        executions++
+        return await proof()
+      }
+      const first = await cache.run(loaded, {}, execute)
+      assertEquals(first.evidence.cache, "miss")
+      const extended = decodeNativeParserContracts([
+        ...original,
+        ["unrelated-native-case", ["unrelated", ["stderr", "stdout"]]],
+      ])
+      const unrelated = new BaselineCache(
+        cache.directory,
+        identity,
+        false,
+        (id) => extended.get(id),
+      )
+      assertEquals(await unrelated.key(loaded, {}), await cache.key(loaded, {}))
+      assertEquals(
+        (await unrelated.run(loaded, {}, execute)).evidence.cache,
+        "hit",
+      )
+      assertEquals(executions, 1)
+      const changed = decodeNativeParserContracts([[loaded.spec.id, [
+        "changed",
+        ["stderr", "stdout"],
+      ]]])
+      const relevant = new BaselineCache(
+        cache.directory,
+        identity,
+        false,
+        (id) => changed.get(id),
+      )
+      assertNotEquals(
+        await relevant.key(loaded, {}),
+        await cache.key(loaded, {}),
+      )
+      assertEquals(
+        (await relevant.run(loaded, {}, execute)).evidence.cache,
+        "miss",
+      )
+      assertEquals(executions, 2)
+      const reordered = decodeNativeParserContracts([[loaded.spec.id, [
+        "changed",
+        ["stdout", "stderr"],
+      ]]])
+      const order = new BaselineCache(
+        cache.directory,
+        identity,
+        false,
+        (id) => reordered.get(id),
+      )
+      assertNotEquals(
+        await order.key(loaded, {}),
+        await relevant.key(loaded, {}),
+      )
+      assertEquals(
+        (await order.run(loaded, {}, execute)).evidence.cache,
+        "miss",
+      )
+      assertEquals(executions, 3)
+      const removed = new BaselineCache(
+        cache.directory,
+        identity,
+        false,
+        () => undefined,
+      )
+      assertNotEquals(
+        await removed.key(loaded, {}),
+        await relevant.key(loaded, {}),
+      )
+      const removal = await removed.run(loaded, {}, execute)
+      assertEquals(removal.evidence.cache, initiallyPresent ? "miss" : "hit")
+      assertEquals(executions, initiallyPresent ? 4 : 3)
+      const runtimeChange = new BaselineCache(
+        cache.directory,
+        "changed executable harness/source identity",
+        false,
+        lookup,
+      )
+      assertEquals(
+        (await runtimeChange.run(loaded, {}, execute)).evidence.cache,
+        "miss",
+      )
+      assertEquals(executions, initiallyPresent ? 5 : 4)
+    }
+    const native = { ...loaded, spec: { ...loaded.spec, id: "c063-leaf-help" } }
+    assertEquals(
+      await new BaselineCache(dir, "default lookup").key(native, {}),
+      await new BaselineCache(
+        dir,
+        "default lookup",
+        false,
+        nativeParserContract,
+      ).key(native, {}),
+    )
   })
 })

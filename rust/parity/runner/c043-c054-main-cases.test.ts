@@ -51,7 +51,9 @@ for (const [prefix, count, entity] of leaves) {
       let deviation: string | null = source.graphql == null
         ? null
         : "R01H-GRAPHQL-UA"
-      let surfaces = source.graphql == null ? null : ["graphql-user-agent"]
+      let surfaces: readonly string[] | null = source.graphql == null
+        ? null
+        : ["graphql-user-agent"]
       if (source.id.endsWith("-leaf-help") || source.id === "c043-missing") {
         deviation = `${prefix.toUpperCase()}-CLI-VERSION`
         surfaces = ["stdout"]

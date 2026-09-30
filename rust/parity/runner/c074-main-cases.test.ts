@@ -86,7 +86,7 @@ Deno.test("c074 promotion preserves frozen source bytes, delete effects and narr
       delete kept[effect.record]
       assertEquals(expected, kept)
     }
-    let [deviation, surfaces]: [string | null, string[] | null] =
+    let [deviation, surfaces]: [string | null, readonly string[] | null] =
       source.graphql == null
         ? [null, null]
         : ["R01H-GRAPHQL-UA", ["graphql-user-agent"]]

@@ -59,7 +59,7 @@ const hex64 = v.pipe(
   v.string(),
   v.regex(/^[0-9a-f]{64}$/, "expected sha256 hex"),
 )
-const nonEmpty = v.pipe(v.string(), v.minLength(1, "must not be empty"))
+export const nonEmpty = v.pipe(v.string(), v.minLength(1, "must not be empty"))
 
 export const ByteValueSchema = v.union([
   v.strictObject({ utf8: v.string() }),
