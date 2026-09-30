@@ -1,0 +1,186 @@
+{
+  "id": "c075-create-false-after-upload",
+  "route": "linear issue attach",
+  "reason": "create-false-after-upload",
+  "argv": [
+    "issue",
+    "attach",
+    "ABC-1",
+    "note.txt"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "upload-files",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 45000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 4,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "lookup",
+            "operation": {
+              "document": "query GetIssueId($id: String!) { issue(id: $id) { id } }",
+              "variables": {
+                "id": "ABC-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "id": "issue-fake-uuid"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "upload-note.txt",
+            "operation": {
+              "document": "mutation FileUpload($contentType: String!, $filename: String!, $size: Int!, $makePublic: Boolean) { fileUpload(contentType: $contentType, filename: $filename, size: $size, makePublic: $makePublic) { success uploadFile { assetUrl uploadUrl headers { key value } } } }",
+              "variables": {
+                "contentType": "text/plain",
+                "filename": "note.txt",
+                "size": 13,
+                "makePublic": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "fileUpload": {
+                  "success": true,
+                  "uploadFile": {
+                    "assetUrl": "https://uploads.linear.app/fake/note.txt",
+                    "uploadUrl": "http://127.0.0.1:{{fixturePort}}/signed/note.txt?token=fake",
+                    "headers": [
+                      {
+                        "key": "content-type",
+                        "value": "application/x-signed"
+                      },
+                      {
+                        "key": "x-upload-token",
+                        "value": "fake"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "asset",
+            "id": "put-note.txt",
+            "method": "PUT",
+            "path": "/signed/note.txt?token=fake",
+            "requiredHeaders": {
+              "content-type": "application/x-signed",
+              "x-upload-token": "fake"
+            },
+            "forbiddenHeaders": [
+              "Authorization"
+            ],
+            "body": {
+              "base64": "aGVsbG8gdXBsb2FkCg=="
+            },
+            "response": {
+              "status": 200,
+              "headers": {},
+              "body": {
+                "utf8": ""
+              }
+            }
+          },
+          {
+            "kind": "graphql",
+            "id": "attachment-create",
+            "operation": {
+              "document": "mutation AttachmentCreate($input: AttachmentCreateInput!) { attachmentCreate(input: $input) { success attachment { id url title } } }",
+              "variables": {
+                "input": {
+                  "issueId": "issue-fake-uuid",
+                  "title": "note.txt",
+                  "url": "https://uploads.linear.app/fake/note.txt"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "attachmentCreate": {
+                  "success": false,
+                  "attachment": {
+                    "id": "attachment-created",
+                    "url": "https://uploads.linear.app/fake/note.txt",
+                    "title": "note.txt"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "✓ Uploaded note.txt\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to attach file: Failed to create attachment\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

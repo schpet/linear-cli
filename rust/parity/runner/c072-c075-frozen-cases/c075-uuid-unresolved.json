@@ -1,0 +1,50 @@
+{
+  "id": "c075-uuid-unresolved",
+  "route": "linear issue attach",
+  "reason": "uuid-unresolved",
+  "argv": [
+    "issue",
+    "attach",
+    "123e4567-e89b-42d3-a456-426614174000",
+    "note.txt"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "upload-files",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 45000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to attach file: Could not determine issue ID\n  Please provide an issue ID like 'ENG-123'.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

@@ -270,8 +270,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::issue::IssueCommand::Update(_)) => unsupported("linear issue update"),
             Some(cli::issue::IssueCommand::Comment(action)) => match action.command {
                 None => parent_help(context, "linear issue comment"),
-                Some(cli::issue::IssueCommentCommand::Add(_)) => {
-                    unsupported("linear issue comment add")
+                Some(cli::issue::IssueCommentCommand::Add(action)) => {
+                    dispatch_issue_comment_add(context, &action, workspace)
                 }
                 Some(cli::issue::IssueCommentCommand::Delete(action)) => {
                     dispatch_issue_comment_delete(context, &action, workspace)
@@ -283,7 +283,9 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                     dispatch_issue_comment_list(context, &action, workspace)
                 }
             },
-            Some(cli::issue::IssueCommand::Attach(_)) => unsupported("linear issue attach"),
+            Some(cli::issue::IssueCommand::Attach(action)) => {
+                dispatch_issue_attach(context, &action, workspace)
+            }
             Some(cli::issue::IssueCommand::Link(action)) => {
                 dispatch_issue_link(context, &action, workspace)
             }
@@ -4540,4 +4542,158 @@ fn dispatch_initiative_bulk(
     }
     context.write_stdout_with_policy(&result?, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
+}
+
+use crate::commands::{issue_upload, upload};
+/// Issue source order: hidden id, body flags, identifier, all-file prevalidation,
+/// sequential uploads with immediate output, line prompt only with no links,
+/// client then parent validation then AddComment. No pre-target API lookup.
+fn dispatch_issue_comment_add(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueCommentAdd,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let result = (|| {
+        issue_upload::validate_comment_id(action.id.as_deref())?;
+        let text = comment_add::resolve_body(action.body.as_deref(), action.body_file.as_deref())?;
+        let identifier = resolve_relation_reference(
+            context,
+            action.issue_id.as_deref(),
+            workspace,
+            issue_upload::unresolved,
+        )?;
+        if action.public && action.attach.is_empty() {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                "--public requires at least one --attach",
+            )
+            .with_suggestion("Add --attach <file> to upload, or remove --public."));
+        }
+        upload::prevalidate(&action.attach, action.public)?;
+        let mut files = Vec::with_capacity(action.attach.len());
+        let mut upload_transport = None;
+        for path in &action.attach {
+            files.push(upload_issue_file(
+                context,
+                workspace,
+                path,
+                action.public,
+                &mut upload_transport,
+            )?);
+        }
+        let text = if text.is_none() && files.is_empty() {
+            match prompt_comment_body(context)? {
+                Ok(body) => Some(body),
+                Err(status) => return Ok(Err(status)),
+            }
+        } else {
+            text
+        };
+        let body = issue_upload::compose_body(text.as_deref(), &files);
+        // `createComment` constructs its client BEFORE parent URL validation.
+        let transport = match upload_transport {
+            Some(transport) => transport,
+            None => relation_transport(context, workspace)?,
+        };
+        let input = comment_add::build_input(
+            comment_add::CommentTarget::Issue {
+                issue_id: identifier.clone(),
+            },
+            body,
+            action.parent.as_deref(),
+            action.id.as_deref(),
+        )?;
+        let comment = block_on_network(comment_add::create(&transport, input))?;
+        Ok(Ok(issue_upload::comment_output(&identifier, &comment.url)))
+    })();
+    finish_comment_add(context, result)
+}
+fn dispatch_issue_attach(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueAttach,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let output = (|| {
+        let identifier = resolve_relation_reference(
+            context,
+            Some(&action.issue_id),
+            workspace,
+            issue_upload::unresolved,
+        )?;
+        upload::validate_file(std::path::Path::new(&action.filepath))?;
+        let transport = relation_transport(context, workspace)?;
+        let issue_uuid = block_on_network(issue_upload::lookup(&transport, &identifier))?;
+        // Source public eligibility and size checks occur AFTER the UUID lookup.
+        let mut upload_transport = Some(transport);
+        let file = upload_issue_file(
+            context,
+            workspace,
+            &action.filepath,
+            action.public,
+            &mut upload_transport,
+        )?;
+        let Some(transport) = upload_transport.as_ref() else {
+            unreachable!("lookup established transport");
+        };
+        let attachment = block_on_network(issue_upload::attach(
+            transport,
+            &issue_uuid,
+            &file,
+            action.title.as_deref(),
+            action.comment.as_deref(),
+        ))?;
+        Ok(issue_upload::attach_output(
+            &attachment,
+            &identifier,
+            &action.filepath,
+            &file,
+        ))
+    })()
+    .map_err(|error: AppError| error.with_context(issue_upload::ATTACH_CONTEXT))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+/// File metadata/public validation before client/spinner; spinner only encloses
+/// FileUpload+PUT. Every completed file is printed before later failures.
+fn upload_issue_file(
+    context: &mut AppContext<'_>,
+    workspace: Option<&str>,
+    path: &str,
+    public: bool,
+    transport_slot: &mut Option<crate::graphql::transport::GraphQlTransport>,
+) -> Result<upload::UploadedFile, AppError> {
+    let path = std::path::Path::new(path);
+    let file = upload::prepare(path, public)?;
+    if transport_slot.is_none() {
+        *transport_slot = Some(relation_transport(context, workspace)?);
+    }
+    let Some(transport) = transport_slot.as_ref() else {
+        unreachable!("transport initialized after metadata checks");
+    };
+    let show_spinner = context.stdout_tty && context.startup.settings.no_color == NoColor::Absent;
+    let filename = file.filename.clone();
+    let pending = upload::upload(transport, path, file);
+    let uploaded = if show_spinner {
+        // Source frames clear the line and reset color before the message.
+        let frame = |tick: usize| format!("{}Uploading {filename}...", spinner::frame(tick));
+        context.write_stdout_with_policy(frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        let result = block_on_network(async {
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut tick = 1;
+            loop {
+                tokio::select! {biased;result=&mut pending=>break result,_=ticks.tick()=>{context.write_stdout_with_policy(frame(tick).as_bytes(),OutputPolicy::ConsoleLike)?;tick=tick.wrapping_add(1);}}
+            }
+        });
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        result?
+    } else {
+        block_on_network(pending)?
+    };
+    context.write_stdout_with_policy(&upload::output(&uploaded), OutputPolicy::ConsoleLike)?;
+    if let Some(warning) = upload::warning(&uploaded) {
+        write_stderr(context, &warning)?;
+    }
+    Ok(uploaded)
 }

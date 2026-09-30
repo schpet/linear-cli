@@ -4491,8 +4491,8 @@
       "source": "src/commands/issue/issue-comment-add.ts",
       "workItem": "C072",
       "sourceKind": "command_implementation",
-      "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "fixtureStatus": "passed",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {
@@ -4906,8 +4906,8 @@
       "source": "src/commands/issue/issue-attach.ts",
       "workItem": "C075",
       "sourceKind": "command_implementation",
-      "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "fixtureStatus": "passed",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {

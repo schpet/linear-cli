@@ -1,0 +1,187 @@
+{
+  "id": "c072-public-image-reply",
+  "route": "linear issue comment add",
+  "reason": "public-image-reply",
+  "argv": [
+    "issue",
+    "comment",
+    "add",
+    "ABC-1",
+    "--body",
+    "Caption",
+    "--public",
+    "--attach",
+    "Picture.PNG",
+    "--parent",
+    "parent-fake"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "upload-files",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 45000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {},
+    "expectedRecords": {
+      "Comment:created": {
+        "id": "comment-created",
+        "url": "https://linear.app/fake/comment-created",
+        "body": "Caption\n\n![Picture.PNG](https://uploads.linear.app/fake/Picture.PNG)"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "upload-Picture.PNG",
+            "operation": {
+              "document": "mutation FileUpload($contentType: String!, $filename: String!, $size: Int!, $makePublic: Boolean) { fileUpload(contentType: $contentType, filename: $filename, size: $size, makePublic: $makePublic) { success uploadFile { assetUrl uploadUrl headers { key value } } } }",
+              "variables": {
+                "contentType": "image/png",
+                "filename": "Picture.PNG",
+                "size": 12,
+                "makePublic": true
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "fileUpload": {
+                  "success": true,
+                  "uploadFile": {
+                    "assetUrl": "https://uploads.linear.app/fake/Picture.PNG",
+                    "uploadUrl": "http://127.0.0.1:{{fixturePort}}/signed/Picture.PNG?token=fake",
+                    "headers": [
+                      {
+                        "key": "content-type",
+                        "value": "application/x-signed"
+                      },
+                      {
+                        "key": "x-upload-token",
+                        "value": "fake"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "asset",
+            "id": "put-Picture.PNG",
+            "method": "PUT",
+            "path": "/signed/Picture.PNG?token=fake",
+            "requiredHeaders": {
+              "content-type": "application/x-signed",
+              "x-upload-token": "fake"
+            },
+            "forbiddenHeaders": [
+              "Authorization"
+            ],
+            "body": {
+              "base64": "iVBORw0KAP9mYWtl"
+            },
+            "response": {
+              "status": 200,
+              "headers": {},
+              "body": {
+                "utf8": ""
+              }
+            }
+          },
+          {
+            "kind": "graphql",
+            "id": "comment-create",
+            "operation": {
+              "document": "mutation AddComment($input: CommentCreateInput!) { commentCreate(input: $input) { success comment { id url } } }",
+              "variables": {
+                "input": {
+                  "body": "Caption\n\n![Picture.PNG](https://uploads.linear.app/fake/Picture.PNG)",
+                  "issueId": "ABC-1",
+                  "parentId": "parent-fake"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "commentCreate": {
+                  "success": true,
+                  "comment": {
+                    "id": "comment-created",
+                    "url": "https://linear.app/fake/comment-created"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Comment:created",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "id": "comment-created",
+                  "url": "https://linear.app/fake/comment-created",
+                  "body": "Caption\n\n![Picture.PNG](https://uploads.linear.app/fake/Picture.PNG)"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Uploaded Picture.PNG\n✓ Comment added to ABC-1\nhttps://linear.app/fake/comment-created\n"
+    },
+    "stderr": {
+      "utf8": "⚠ Uploaded to a public URL readable by anyone: https://uploads.linear.app/fake/Picture.PNG\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

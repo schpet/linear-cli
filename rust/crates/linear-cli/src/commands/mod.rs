@@ -62,3 +62,7 @@ pub mod initiative_projects;
 pub mod initiative_bulk;
 
 pub mod issue_comment_list;
+
+pub mod issue_upload;
+
+pub mod upload;

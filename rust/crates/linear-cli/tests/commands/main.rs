@@ -52,3 +52,5 @@ mod initiative_projects;
 mod initiative_bulk;
 
 mod issue_comment_list;
+
+mod issue_upload;

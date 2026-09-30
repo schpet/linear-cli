@@ -1110,13 +1110,31 @@ pub fn classify_typed<T: DeserializeOwned>(
 /// [`TransportConfig`] share identical proxy and CA settings. `proxy()` and
 /// `no_proxy()` each clear reqwest's ambient-variable lookup, so the client
 /// routes only as configured.
+/// Explicit total-deadline choice; only signed upload exchanges omit it.
+enum ClientDeadline {
+    Total(Deadline),
+    NoTotal,
+}
 fn build_client(config: &TransportConfig) -> Result<Client, TransportBuildError> {
+    build_client_with_deadline(config, ClientDeadline::Total(config.deadline))
+}
+fn build_signed_upload_client(config: &TransportConfig) -> Result<Client, TransportBuildError> {
+    build_client_with_deadline(config, ClientDeadline::NoTotal)
+}
+fn build_client_with_deadline(
+    config: &TransportConfig,
+    deadline: ClientDeadline,
+) -> Result<Client, TransportBuildError> {
     let mut builder = Client::builder()
         .http1_only()
         .redirect(Policy::none())
         .referer(false)
-        .timeout(config.deadline.duration())
         .retry(reqwest::retry::never());
+    builder = match deadline {
+        ClientDeadline::Total(deadline) => builder.timeout(deadline.duration()),
+        // reqwest defaults to no total request timeout. No MAX/floor-budget hack.
+        ClientDeadline::NoTotal => builder,
+    };
     builder = match &config.proxy {
         ProxyMode::Direct => builder.no_proxy(),
         ProxyMode::HttpsConnect {
@@ -1219,6 +1237,7 @@ async fn collect(
 #[derive(Clone, Debug)]
 pub struct GraphQlTransport {
     client: Client,
+    signed_upload_client: Client,
     endpoint: EndpointUrl,
     api_key: ApiKey,
     deadline: Deadline,
@@ -1233,8 +1252,10 @@ impl GraphQlTransport {
         config: TransportConfig,
     ) -> Result<Self, TransportBuildError> {
         let client = build_client(&config)?;
+        let signed_upload_client = build_signed_upload_client(&config)?;
         Ok(Self {
             client,
+            signed_upload_client,
             endpoint,
             api_key,
             deadline: config.deadline,
@@ -1728,6 +1749,143 @@ impl AssetHttpTransport {
                 phase,
                 source,
             },
+        }
+    }
+}
+
+// Append inside transport.rs: dedicated signed client reuses the explicit
+// proxy/CA/HTTP policy, with no total upload deadline (source Fetch semantics).
+// Error bodies remain capped; network errors sanitized; no ambient config.
+impl GraphQlTransport {
+    /// Signed upload requests carry ONLY their returned headers, never the CLI
+    /// API key or GraphQL User-Agent. Fetch-compatible redirects are bounded20.
+    pub async fn put_signed(
+        &self,
+        url: &str,
+        headers: HeaderMap,
+        body: Vec<u8>,
+    ) -> Result<(), AppError> {
+        // Fetch accepts HTTP(S) fragments but excludes them from the request.
+        // Keep GraphQL endpoint validation unchanged; normalize only uploads.
+        let mut initial_url = Url::parse(url)
+            .map_err(|_| AppError::new(AppErrorKind::Validation, "Invalid signed upload URL"))?;
+        initial_url.set_fragment(None);
+        let initial = EndpointUrl::from_url(initial_url)
+            .map_err(|_| AppError::new(AppErrorKind::Validation, "Invalid signed upload URL"))?;
+        let origin = initial.origin().to_owned();
+        let exchange = async {
+            let mut url = initial.url().clone();
+            let mut headers = headers;
+            let mut method = reqwest::Method::PUT;
+            let template = self
+                .signed_upload_client
+                .put(url.clone())
+                .body(body)
+                .build()
+                .map_err(|e| self.upload_failure(classify_network(e), &origin))?;
+            let mut include_body = true;
+            for redirects in 0..=20 {
+                // Request cloning shares reqwest's in-memory bytes across hops.
+                let Some(mut request) = template.try_clone() else {
+                    unreachable!("in-memory upload request is cloneable");
+                };
+                *request.method_mut() = method.clone();
+                *request.url_mut() = url.clone();
+                *request.headers_mut() = headers.clone();
+                if !include_body {
+                    *request.body_mut() = None;
+                }
+                let response = self
+                    .signed_upload_client
+                    .execute(request)
+                    .await
+                    .map_err(|e| self.upload_failure(classify_network(e), &origin))?;
+                let status = response.status();
+                if let Some(location) = response.headers().get(LOCATION)
+                    && matches!(status.as_u16(), 301 | 302 | 303 | 307 | 308)
+                {
+                    if redirects == 20 {
+                        return Err(AppError::new(
+                            AppErrorKind::Transport,
+                            "Too many signed upload redirects; object may already be stored remotely; no comment or attachment was created",
+                        ));
+                    }
+                    let location = location.to_str()
+                        .map_err(|_| {
+                            AppError::new(AppErrorKind::Transport, "Invalid signed upload redirect; object may already be stored remotely; no comment or attachment was created")
+                        })?;
+                    let mut next = url.join(location).map_err(|_| {
+                        AppError::new(AppErrorKind::Transport, "Invalid signed upload redirect; object may already be stored remotely; no comment or attachment was created")
+                    })?;
+                    next.set_fragment(None);
+                    let next = EndpointUrl::from_url(next)
+                        .map_err(|_| {
+                            AppError::new(AppErrorKind::Transport, "Invalid signed upload redirect; object may already be stored remotely; no comment or attachment was created")
+                        })?
+                        .url;
+                    if url.origin() != next.origin() {
+                        headers.remove(AUTHORIZATION);
+                        headers.remove("proxy-authorization");
+                        headers.remove("www-authenticate");
+                    }
+                    if status.as_u16() == 303
+                        && method != reqwest::Method::GET
+                        && method != reqwest::Method::HEAD
+                    {
+                        method = reqwest::Method::GET;
+                        include_body = false;
+                        for name in [
+                            "content-type",
+                            "content-length",
+                            "content-encoding",
+                            "content-language",
+                            "content-location",
+                        ] {
+                            headers.remove(name);
+                        }
+                    }
+                    url = next;
+                    drop(response);
+                    continue;
+                }
+                if status.is_success() {
+                    drop(response);
+                    return Ok(());
+                }
+                let response = collect(response, self.max_response_bytes)
+                    .await
+                    .map_err(|e| self.upload_failure(e, &origin))?;
+                return Err(AppError::new(
+                    AppErrorKind::Transport,
+                    format!(
+                        "Failed to upload file: {} {} - {}",
+                        response.status.as_u16(),
+                        response.status.canonical_reason().unwrap_or(""),
+                        String::from_utf8_lossy(&response.body)
+                    ),
+                ));
+            }
+            unreachable!("redirect loop returns on final iteration")
+        };
+        // Deliberately no client or outer total deadline for upload bodies.
+        // GraphQL metadata/final mutations retain their ordinary total deadline.
+        exchange.await
+    }
+    fn upload_failure(&self, failure: ExchangeFailure, origin: &str) -> AppError {
+        match failure {
+            ExchangeFailure::ResponseTooLarge { limit, .. } => AppError::new(
+                AppErrorKind::Transport,
+                format!("Signed upload response exceeded {} bytes; object may already be stored remotely; no comment or attachment was created", limit.bytes()),
+            ),
+            ExchangeFailure::Timeout => AppError::new(
+                AppErrorKind::Transport,
+                format!("Signed upload timed out at {origin}; object may already be stored remotely; no comment or attachment was created"),
+            ),
+            ExchangeFailure::Network { source, .. } => AppError::new(
+                AppErrorKind::Transport,
+                format!("Signed upload failed at {origin}; object may already be stored remotely; no comment or attachment was created"),
+            )
+            .with_source(source),
         }
     }
 }
