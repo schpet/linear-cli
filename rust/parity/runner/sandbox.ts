@@ -36,6 +36,104 @@ export function gitProbeExpected(
   }
 }
 
+/** Closed read-only VCS fixtures; wrong argv is always fatal. */
+export function vcsProbeDefinition(probe: NonNullable<CaseSpec["vcsProbe"]>): {
+  program: "git" | "jj"
+  args: string[]
+  code: number
+  stdout: string
+  stderr: string
+} {
+  switch (probe) {
+    case "git-branch":
+      return {
+        program: "git",
+        args: ["symbolic-ref", "--short", "HEAD"],
+        code: 0,
+        stdout: "feature/eng-7-x\n",
+        stderr: "",
+      }
+    case "git-detached":
+      return {
+        program: "git",
+        args: ["symbolic-ref", "--short", "HEAD"],
+        code: 128,
+        stdout: "",
+        stderr: "fatal: ref HEAD is not a symbolic ref\n",
+      }
+    case "git-fatal":
+      return {
+        program: "git",
+        args: ["symbolic-ref", "--short", "HEAD"],
+        code: 128,
+        stdout: "",
+        stderr: OUTSIDE_REPO_STDERR,
+      }
+    case "jj-trailers":
+      return {
+        program: "jj",
+        args: [
+          "log",
+          "-r",
+          "::@",
+          "-T",
+          'trailers.map(|t| if(t.key() == "Linear-issue", t.value(), ""))',
+          "--no-graph",
+        ],
+        code: 0,
+        stdout: "Fixes ABC-123Fixes DEF-456",
+        stderr: "",
+      }
+    case "jj-fail":
+      return {
+        program: "jj",
+        args: [
+          "log",
+          "-r",
+          "::@",
+          "-T",
+          'trailers.map(|t| if(t.key() == "Linear-issue", t.value(), ""))',
+          "--no-graph",
+        ],
+        code: 1,
+        stdout: "",
+        stderr: "Error: There is no jj repo in .\n",
+      }
+  }
+}
+function shellLiteral(value: string): string {
+  return "'" + value.replaceAll("'", "'\\''") + "'"
+}
+export function vcsProbeScript(
+  probe: NonNullable<CaseSpec["vcsProbe"]>,
+): string {
+  const fixture = vcsProbeDefinition(probe)
+  const checks = fixture.args.map((arg, i) =>
+    `[ "$${i + 1}" != ${shellLiteral(arg)} ]`
+  )
+  return `#!/bin/sh\nif [ "$#" -ne ${fixture.args.length} ] || ${
+    checks.join(" || ")
+  }; then\n  exit 129\nfi\nprintf '%s' ${
+    shellLiteral(fixture.stdout)
+  }\nprintf '%s' ${shellLiteral(fixture.stderr)} >&2\nexit ${fixture.code}\n`
+}
+export async function vcsHelperIntegrity(
+  sandbox: Sandbox,
+  probe: CaseSpec["vcsProbe"],
+): Promise<string | null> {
+  if (probe == null || sandbox.vcsHelperPath == null) return null
+  const info = await Deno.lstat(sandbox.vcsHelperPath).catch(() => null)
+  if (
+    info == null || !info.isFile || info.isSymlink || info.mode == null ||
+    (info.mode & 0o777) !== GIT_HELPER_MODE
+  ) return "private VCS probe helper type or mode changed"
+  const actual = await sha256Hex(await Deno.readFile(sandbox.vcsHelperPath))
+  const expected = await sha256Hex(
+    new TextEncoder().encode(vcsProbeScript(probe)),
+  )
+  return actual === expected ? null : "private VCS probe helper content changed"
+}
+
 export interface Sandbox {
   root: string
   home: string
@@ -44,6 +142,7 @@ export interface Sandbox {
   invocationCwd: string
   bin: string
   gitHelperPath: string | null
+  vcsHelperPath: string | null
   /** Bound to /tmp inside the sandbox, so implicit temp writes are file effects. */
   tmp: string
   remove(): Promise<void>
@@ -55,9 +154,13 @@ export async function createSandbox(
   configFixtureDir: string | null = null,
   gitProbe: CaseSpec["gitProbe"] = undefined,
   cwdSubdir: CaseSpec["cwdSubdir"] = undefined,
+  vcsProbe: CaseSpec["vcsProbe"] = undefined,
 ): Promise<Sandbox> {
   if ((gitProbe == null) !== (cwdSubdir == null)) {
     throw new Error("gitProbe and cwdSubdir must be specified together")
+  }
+  if (vcsProbe != null && gitProbe != null) {
+    throw new Error("vcsProbe cannot be combined with gitProbe")
   }
   const root = await Deno.makeTempDir({
     dir: parent,
@@ -70,6 +173,9 @@ export async function createSandbox(
   const tmp = join(root, "tmp")
   const invocationCwd = cwdSubdir == null ? cwd : join(cwd, cwdSubdir)
   const gitHelperPath = gitProbe == null ? null : join(bin, "git")
+  const vcsHelperPath = vcsProbe == null
+    ? null
+    : join(bin, vcsProbeDefinition(vcsProbe).program)
   try {
     for (const dir of [home, bin, tmp]) await Deno.mkdir(dir)
     if (configFixtureDir == null) await Deno.mkdir(configHome)
@@ -82,6 +188,10 @@ export async function createSandbox(
       else if (info.isSymlink || !info.isDirectory) {
         throw new Error("cwdSubdir must be a real directory")
       }
+    }
+    if (vcsProbe != null && vcsHelperPath != null) {
+      await Deno.writeTextFile(vcsHelperPath, vcsProbeScript(vcsProbe))
+      await Deno.chmod(vcsHelperPath, GIT_HELPER_MODE)
     }
     if (gitProbe != null && gitHelperPath != null) {
       await Deno.writeTextFile(gitHelperPath, gitProbeScript(gitProbe))
@@ -106,6 +216,7 @@ export async function createSandbox(
     invocationCwd,
     bin,
     gitHelperPath,
+    vcsHelperPath,
     tmp,
     remove: () => Deno.remove(root, { recursive: true }),
   }

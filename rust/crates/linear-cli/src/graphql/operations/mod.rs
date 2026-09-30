@@ -36,3 +36,5 @@ pub mod team_resolver;
 pub mod teams;
 pub mod templates;
 pub mod workflow_states;
+
+pub mod issue_details;

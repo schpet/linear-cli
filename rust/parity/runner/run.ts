@@ -40,6 +40,8 @@ import {
   gitProbeExpected,
   hashTree,
   UnsupportedSandboxEntryError,
+  vcsHelperIntegrity,
+  vcsProbeDefinition,
 } from "./sandbox.ts"
 import type {
   CandidateContract,
@@ -197,6 +199,7 @@ export async function executeCase(
     loaded.configFixtureDir,
     loaded.spec.gitProbe,
     loaded.spec.cwdSubdir,
+    loaded.spec.vcsProbe,
   )
   let server: FixtureServer | null = null
   let graphqlServer: GraphQLServer | null = null
@@ -293,6 +296,38 @@ export async function executeCase(
         )
       }
     }
+    if (loaded.spec.vcsProbe != null) {
+      const helper = sandbox.vcsHelperPath
+      if (helper == null) {
+        throw new ConfinementError("VCS probe helper is absent")
+      }
+      const expected = vcsProbeDefinition(loaded.spec.vcsProbe)
+      const probe = await runConfined(ctx.confinement, {
+        executable: "/bin/sh",
+        args: ["-c", 'exec "$@"', "vcs-probe", helper, ...expected.args],
+        readOnly: [],
+        caseRoot: sandbox.root,
+        cwd: sandbox.invocationCwd,
+        tmp: sandbox.tmp,
+        env: childEnv,
+        stdin: new Uint8Array(),
+        timeoutMs: 5_000,
+        outputCapBytes: 4_096,
+        signal: ctx.signal,
+      })
+      const code = probe.targetExit != null && "code" in probe.targetExit
+        ? probe.targetExit.code
+        : null
+      if (
+        probe.timedOut || probe.truncated || code !== expected.code ||
+        new TextDecoder().decode(probe.stdout) !== expected.stdout ||
+        new TextDecoder().decode(probe.stderr) !== expected.stderr
+      ) {
+        throw new ConfinementError(
+          `private VCS probe failed its confined execution check for ${loaded.spec.vcsProbe}`,
+        )
+      }
+    }
     const before = await hashTree(sandbox.root)
     const observation = await runConfined(ctx.confinement, {
       ...programInvocation(program, resolved.argv),
@@ -328,6 +363,10 @@ export async function executeCase(
     const gitIntegrity = await gitHelperIntegrity(sandbox, loaded.spec.gitProbe)
     if (gitIntegrity != null) {
       mismatches.push({ surface: "files", detail: gitIntegrity })
+    }
+    const vcsIntegrity = await vcsHelperIntegrity(sandbox, loaded.spec.vcsProbe)
+    if (vcsIntegrity != null) {
+      mismatches.push({ surface: "files", detail: vcsIntegrity })
     }
     if (server != null && loaded.spec.fixtureServer != null) {
       mismatches.push(...compareFixture(loaded.spec.fixtureServer, server))

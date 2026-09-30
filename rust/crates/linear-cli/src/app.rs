@@ -13,10 +13,10 @@ use crate::commands::team_key::configured_team_key;
 use crate::commands::{
     auth_list, auth_whoami, client, cycle_list, cycle_view, document_comment_list,
     initiative_comment_list, initiative_create, initiative_list, initiative_update_list,
-    initiative_view, issue_comment_delete, label_list, milestone_create, milestone_delete,
-    milestone_list, milestone_update, milestone_view, project_comment_list, project_delete,
-    project_list, project_update_list, project_view, table, team_id, team_list, team_members,
-    team_states, template_list, template_view, user_list,
+    initiative_view, issue_comment_delete, issue_details, label_list, milestone_create,
+    milestone_delete, milestone_list, milestone_update, milestone_view, project_comment_list,
+    project_delete, project_list, project_update_list, project_view, table, team_id, team_list,
+    team_members, team_states, template_list, template_view, user_list,
 };
 use crate::config::{NoColor, StartupConfig};
 use crate::error::{AppError, AppErrorKind, ExitStatus};
@@ -240,13 +240,23 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
         },
         Some(cli::RootCommand::Issue(action)) => match action.command {
             None => parent_help(context, "linear issue"),
-            Some(cli::issue::IssueCommand::Id(_)) => unsupported("linear issue id"),
+            Some(cli::issue::IssueCommand::Id(_)) => dispatch_issue_id(context),
             Some(cli::issue::IssueCommand::Mine(_)) => unsupported("linear issue mine"),
             Some(cli::issue::IssueCommand::Query(_)) => unsupported("linear issue query"),
-            Some(cli::issue::IssueCommand::Title(_)) => unsupported("linear issue title"),
+            Some(cli::issue::IssueCommand::Title(action)) => dispatch_issue_detail(
+                context,
+                action.issue_id.as_deref(),
+                cli.workspace.as_deref(),
+                IssueDetailField::Title,
+            ),
             Some(cli::issue::IssueCommand::Start(_)) => unsupported("linear issue start"),
             Some(cli::issue::IssueCommand::View(_)) => unsupported("linear issue view"),
-            Some(cli::issue::IssueCommand::Url(_)) => unsupported("linear issue url"),
+            Some(cli::issue::IssueCommand::Url(action)) => dispatch_issue_detail(
+                context,
+                action.issue_id.as_deref(),
+                cli.workspace.as_deref(),
+                IssueDetailField::Url,
+            ),
             Some(cli::issue::IssueCommand::Describe(_)) => unsupported("linear issue describe"),
             Some(cli::issue::IssueCommand::Commits(_)) => unsupported("linear issue commits"),
             Some(cli::issue::IssueCommand::PullRequest(_)) => {
@@ -2988,5 +2998,121 @@ fn dispatch_template_view(
         }
     })?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn inferred_issue(context: &AppContext<'_>) -> Result<Option<String>, AppError> {
+    let vcs = context
+        .config()?
+        .options
+        .vcs()
+        .map(|v| *v.value())
+        .unwrap_or(crate::config::Vcs::Git);
+    crate::platform::vcs::infer_issue(vcs, &context.cwd)
+}
+
+fn dispatch_issue_id(context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
+    let id = inferred_issue(context)
+        .and_then(|id| id.ok_or_else(|| issue_details::unresolved(true)))
+        .map_err(|e| e.with_context("Failed to get issue ID"))?;
+    context.write_stdout_with_policy(format!("{id}\n").as_bytes(), OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+#[derive(Clone, Copy)]
+enum IssueDetailField {
+    Title,
+    Url,
+}
+impl IssueDetailField {
+    fn context(self) -> &'static str {
+        match self {
+            Self::Title => "Failed to get issue title",
+            Self::Url => "Failed to get issue URL",
+        }
+    }
+}
+
+fn resolve_issue(
+    context: &AppContext<'_>,
+    input: Option<&str>,
+    workspace: Option<&str>,
+) -> Result<String, AppError> {
+    let reference = if input.is_none() {
+        crate::refs::IssueReference::Inferred
+    } else {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let team = configured_team_key(&config.options);
+        crate::refs::prepare_issue_reference(
+            input,
+            team.as_deref(),
+            &WorkspaceScope::from_selection(&inputs, credentials),
+        )?
+    };
+    let id = match reference {
+        crate::refs::IssueReference::Identifier(id) => Some(id),
+        crate::refs::IssueReference::Unresolved => None,
+        crate::refs::IssueReference::Inferred => inferred_issue(context)?,
+    };
+    id.ok_or_else(|| issue_details::unresolved(false))
+}
+
+fn dispatch_issue_detail(
+    context: &mut AppContext<'_>,
+    input: Option<&str>,
+    workspace: Option<&str>,
+    field: IssueDetailField,
+) -> Result<ExitStatus, AppError> {
+    let id =
+        resolve_issue(context, input, workspace).map_err(|e| e.with_context(field.context()))?;
+    let show_spinner = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if show_spinner {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = (|| {
+        let config = context.config()?;
+        let transport = client::prepare_transport(
+            &config.options,
+            context.credentials()?,
+            workspace,
+            &config.transport_env,
+        )?;
+        if !show_spinner {
+            return block_on_network(issue_details::fetch(&transport, id));
+        }
+        block_on_network(async {
+            let pending = issue_details::fetch(&transport, id);
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1_usize;
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    })();
+    if show_spinner {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let detail = result.map_err(|e| e.with_context(field.context()))?;
+    let value = match field {
+        IssueDetailField::Title => detail.title,
+        IssueDetailField::Url => detail.url,
+    };
+    context.write_stdout_with_policy(format!("{value}\n").as_bytes(), OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

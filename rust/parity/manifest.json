@@ -753,8 +753,8 @@
       "workItem": "C057",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "qaStatus": "passed",
+      "liveStatus": "not_applicable"
     },
     {
       "path": "linear issue mine",
@@ -1932,8 +1932,8 @@
       "workItem": "C058",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "qaStatus": "passed",
+      "liveStatus": "passed"
     },
     {
       "path": "linear issue start",
@@ -2356,8 +2356,8 @@
       "workItem": "C059",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
-      "liveStatus": "pending"
+      "qaStatus": "passed",
+      "liveStatus": "passed"
     },
     {
       "path": "linear issue describe",

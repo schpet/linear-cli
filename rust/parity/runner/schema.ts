@@ -648,6 +648,15 @@ export const CaseSchema = v.pipe(
     // One closed opt-in process probe for Git-root config discovery. This is
     // deliberately narrower than an arbitrary executable fixture.
     gitProbe: v.optional(v.picklist(["parent-root", "outside-repo"])),
+    vcsProbe: v.optional(
+      v.picklist([
+        "git-branch",
+        "git-detached",
+        "git-fatal",
+        "jj-trailers",
+        "jj-fail",
+      ]),
+    ),
     cwdSubdir: v.optional(v.literal("subdir")),
     env: EnvSchema,
     substitutions: v.pipe(
@@ -686,6 +695,10 @@ export const CaseSchema = v.pipe(
   v.check(
     (spec) => (spec.gitProbe == null) === (spec.cwdSubdir == null),
     "gitProbe and cwdSubdir must be specified together",
+  ),
+  v.check(
+    (spec) => spec.vcsProbe == null || spec.gitProbe == null,
+    "vcsProbe cannot be combined with gitProbe",
   ),
   v.check(
     (spec) => !spec.substitutions.includes("cwdRoot") || spec.cwdSubdir != null,

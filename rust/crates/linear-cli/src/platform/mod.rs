@@ -6,3 +6,5 @@ pub mod pager;
 pub mod prompt;
 pub mod selector;
 pub mod spinner;
+
+pub mod vcs;

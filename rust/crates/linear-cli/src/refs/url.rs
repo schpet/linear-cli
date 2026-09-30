@@ -164,7 +164,7 @@ fn slug_id(segment: &str) -> Option<String> {
         .then(|| candidate.to_owned())
 }
 
-fn issue_identifier(segment: &str) -> Option<String> {
+pub(crate) fn issue_identifier(segment: &str) -> Option<String> {
     let (team, number) = segment.split_once('-')?;
     if team.is_empty()
         || !team.bytes().all(|b| b.is_ascii_alphanumeric())

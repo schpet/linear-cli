@@ -22,3 +22,6 @@ pub use initiative::{
     InitiativeReference, prepare_initiative_lookup, resolve_initiative_with,
     resolve_initiative_with_transport,
 };
+
+mod issue;
+pub use issue::{IssueReference, find_issue_identifier, prepare_issue_reference};

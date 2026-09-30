@@ -11,6 +11,8 @@ import {
   gitProbeExpected,
   gitProbeScript,
   hashTree,
+  vcsHelperIntegrity,
+  vcsProbeDefinition,
 } from "./sandbox.ts"
 
 Deno.test("sandbox copies the cwd fixture, hashes the tree and reports exact file effects", async () => {
@@ -308,5 +310,54 @@ Deno.test("Git probe pairing and nested cwd type fail without leaked sandboxes",
   } finally {
     await Deno.remove(parent, { recursive: true })
     await Deno.remove(fixture, { recursive: true })
+  }
+})
+
+Deno.test("closed VCS helpers preserve exact argv and detect modification", async () => {
+  const fixtures: NonNullable<CaseSpec["vcsProbe"]>[] = [
+    "git-branch",
+    "git-detached",
+    "git-fatal",
+    "jj-trailers",
+    "jj-fail",
+  ]
+  for (const fixture of fixtures) {
+    const sandbox = await createSandbox(
+      undefined,
+      null,
+      null,
+      undefined,
+      undefined,
+      fixture,
+    )
+    try {
+      const expected = vcsProbeDefinition(fixture)
+      const helper = sandbox.vcsHelperPath
+      if (helper == null) throw new Error("VCS helper absent")
+      const output = await new Deno.Command(helper, { args: expected.args })
+        .output()
+      assertEquals(output.code, expected.code)
+      assertEquals(new TextDecoder().decode(output.stdout), expected.stdout)
+      assertEquals(new TextDecoder().decode(output.stderr), expected.stderr)
+      assertEquals(
+        (await new Deno.Command(helper, { args: ["wrong"] }).output()).code,
+        129,
+      )
+      assertEquals(await vcsHelperIntegrity(sandbox, fixture), null)
+      await Deno.chmod(helper, 0o700)
+      assertEquals(
+        await vcsHelperIntegrity(sandbox, fixture),
+        "private VCS probe helper type or mode changed",
+      )
+      await Deno.chmod(helper, 0o700)
+      await Deno.writeTextFile(helper, "#!/bin/sh\nexit 0\n")
+      await Deno.chmod(helper, 0o500)
+      assertEquals(
+        await vcsHelperIntegrity(sandbox, fixture),
+        "private VCS probe helper content changed",
+      )
+    } finally {
+      await sandbox.remove()
+    }
   }
 })
