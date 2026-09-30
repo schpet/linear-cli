@@ -20,6 +20,8 @@ import {
 import * as v from "valibot"
 import { decodeByteValue } from "./bytes.ts"
 import { matchGraphQL } from "./graphql-match.ts"
+import { withoutFrozenLabelTeamDeclaration } from "./frozen-label-name.ts"
+import { FROZEN_USER_AGENT } from "./schema.ts"
 import { GraphQLState } from "./graphql-state.ts"
 import { assetResponse, matchAssetRequest } from "./http-assets.ts"
 import { LaneScheduler } from "./lane-scheduler.ts"
@@ -512,11 +514,18 @@ export function startGraphQLServer(
       if (step.response.kind === "validationErrors") {
         return parsed.query.trim() === step.operation.document.trim()
       }
-      const result = matchGraphQL(step.operation, {
+      const actual = {
         document: parsed.query,
         operationName: parsed.operationName,
         variables: parsed.variables,
-      }, schema)
+      }
+      const result = matchGraphQL(
+        step.operation,
+        step.identity.userAgent === FROZEN_USER_AGENT
+          ? withoutFrozenLabelTeamDeclaration(actual)
+          : actual,
+        schema,
+      )
       if (!result.matches) mismatchReason = result.reason
       return result.matches
     }
