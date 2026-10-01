@@ -36,7 +36,7 @@ futures-util = { version = "=0.3.34", default-features = false, features = ["std
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.189"
-rustix = { version = "=1.1.5", default-features = false, features = ["std", "termios", "event"] }
+rustix = { version = "=1.1.5", default-features = false, features = ["std", "termios", "event", "fs"] }
 
 [dev-dependencies]
 tokio = { version = "=1.47.4", default-features = false, features = ["process", "io-util"] }

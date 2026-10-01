@@ -1,0 +1,291 @@
+{
+  "id": "c079-bulk-mixed-raw-exceptions-effects",
+  "route": "linear issue archive",
+  "reason": "bulk-mixed-raw-exceptions-effects",
+  "argv": [
+    "issue",
+    "archive",
+    "--confirm",
+    "--bulk",
+    "ENG-1",
+    "ENG-2",
+    "ENG-3",
+    "ENG-4",
+    "ENG-5"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Found 5 issue(s) to archive.\n\nCompleted: 1/5 issues archived\n  ✓ Succeeded: 1\n  ✗ Failed: 4\n\nFailed operations:\n  - ENG-2: Issue not found\n  - ENG-3: Entity not found: Issue\r\nRAW: {\"response\":{\"errors\":[{\"message\":\"Entity not found: Issue\\r\\nRAW\",\"extensions\":{\"2\":\"two\",\"10\":\"ten\",\"userPresentableMessage\":\"Denied\",\"z\":0}}],\"status\":200,\"headers\":{},\"body\":\"{\\\"errors\\\": [{\\\"message\\\": \\\"Entity not found: Issue\\\\r\\\\nRAW\\\", \\\"extensions\\\": {\\\"userPresentableMessage\\\": \\\"Denied\\\", \\\"z\\\": -0.0, \\\"10\\\": \\\"ten\\\", \\\"2\\\": \\\"two\\\"}}]}\"},\"request\":{\"query\":\"query GetIssueDetailsForBulkArchive($id: String!) {\\n  issue(id: $id) {\\n    identifier\\n    title\\n    archivedAt\\n  }\\n}\",\"variables\":{\"id\":\"ENG-3\"}}}\n  - ENG-4 (DISPLAY-4: Fixture title 界): Archive operation failed\n  - ENG-5: raw\r\nmutation: {\"response\":{\"errors\":[{\"message\":\"raw\\r\\nmutation\",\"extensions\":{\"2\":\"two\",\"10\":\"ten\",\"userPresentableMessage\":\"Do not flatten\",\"z\":0}}],\"status\":200,\"headers\":{},\"body\":\"{\\\"errors\\\": [{\\\"message\\\": \\\"raw\\\\r\\\\nmutation\\\", \\\"extensions\\\": {\\\"userPresentableMessage\\\": \\\"Do not flatten\\\", \\\"z\\\": -0.0, \\\"10\\\": \\\"ten\\\", \\\"2\\\": \\\"two\\\"}}]}\"},\"request\":{\"query\":\"mutation BulkArchiveIssue($id: String!) {\\n  issueArchive(id: $id) {\\n    success\\n  }\\n}\",\"variables\":{\"id\":\"ENG-5\"}}}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 7,
+    "initialRecords": {
+      "Issue:ENG-4": {
+        "state": "active"
+      },
+      "Issue:ENG-5": {
+        "state": "active"
+      }
+    },
+    "expectedRecords": {
+      "Issue:ENG-4": {
+        "state": "active"
+      },
+      "Issue:ENG-5": {
+        "state": "active"
+      }
+    },
+    "groups": [
+      {
+        "mode": "lanes",
+        "timeoutMs": 10000,
+        "lanes": [
+          {
+            "id": "ENG-1",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-ENG-1",
+                "operation": {
+                  "document": "query GetIssueDetailsForBulkArchive($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+                  "variables": {
+                    "id": "ENG-1"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issue": {
+                      "identifier": "DISPLAY-1",
+                      "title": "Fixture title 界",
+                      "archivedAt": "2026-01-01T00:00:00Z"
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "ENG-2",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-ENG-2",
+                "operation": {
+                  "document": "query GetIssueDetailsForBulkArchive($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+                  "variables": {
+                    "id": "ENG-2"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "transport",
+                  "status": 200,
+                  "headers": {
+                    "content-type": "application/json"
+                  },
+                  "body": {
+                    "utf8": "{\"errors\": [{\"message\": \"Entity not found: Issue\", \"extensions\": {\"userPresentableMessage\": \"Could not find referenced Issue.\", \"z\": -0.0, \"10\": \"ten\", \"2\": \"two\"}}]}"
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "ENG-3",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-ENG-3",
+                "operation": {
+                  "document": "query GetIssueDetailsForBulkArchive($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+                  "variables": {
+                    "id": "ENG-3"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "transport",
+                  "status": 200,
+                  "headers": {
+                    "content-type": "application/json"
+                  },
+                  "body": {
+                    "utf8": "{\"errors\": [{\"message\": \"Entity not found: Issue\\r\\nRAW\", \"extensions\": {\"userPresentableMessage\": \"Denied\", \"z\": -0.0, \"10\": \"ten\", \"2\": \"two\"}}]}"
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "ENG-4",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-ENG-4",
+                "operation": {
+                  "document": "query GetIssueDetailsForBulkArchive($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+                  "variables": {
+                    "id": "ENG-4"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issue": {
+                      "identifier": "DISPLAY-4",
+                      "title": "Fixture title 界",
+                      "archivedAt": null
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "mutation-ENG-4",
+                "operation": {
+                  "document": "mutation BulkArchiveIssue($id: String!) { issueArchive(id: $id) { success } }",
+                  "variables": {
+                    "id": "ENG-4"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issueArchive": {
+                      "success": false
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "ENG-5",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-ENG-5",
+                "operation": {
+                  "document": "query GetIssueDetailsForBulkArchive($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+                  "variables": {
+                    "id": "ENG-5"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issue": {
+                      "identifier": "DISPLAY-5",
+                      "title": "Fixture title 界",
+                      "archivedAt": null
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "mutation-ENG-5",
+                "operation": {
+                  "document": "mutation BulkArchiveIssue($id: String!) { issueArchive(id: $id) { success } }",
+                  "variables": {
+                    "id": "ENG-5"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "transport",
+                  "status": 200,
+                  "headers": {
+                    "content-type": "application/json"
+                  },
+                  "body": {
+                    "utf8": "{\"errors\": [{\"message\": \"raw\\r\\nmutation\", \"extensions\": {\"userPresentableMessage\": \"Do not flatten\", \"z\": -0.0, \"10\": \"ten\", \"2\": \"two\"}}]}"
+                  }
+                },
+                "effects": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

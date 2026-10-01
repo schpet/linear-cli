@@ -1,0 +1,137 @@
+{
+  "id": "c079-url-resolved-id-returned-display",
+  "route": "linear issue archive",
+  "reason": "url-resolved-id-returned-display",
+  "argv": [
+    "issue",
+    "archive",
+    "https://linear.app/acme/issue/eng-1/some-title",
+    "-y"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Successfully archived issue: RETURNED-99: Fixture title 界\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {
+      "Issue:ENG-1": {
+        "state": "active"
+      }
+    },
+    "expectedRecords": {
+      "Issue:ENG-1": {
+        "state": "archived"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details-ENG-1",
+            "operation": {
+              "document": "query GetIssueArchiveDetails($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+              "variables": {
+                "id": "ENG-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "identifier": "RETURNED-99",
+                  "title": "Fixture title 界",
+                  "archivedAt": null
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "mutation-ENG-1",
+            "operation": {
+              "document": "mutation ArchiveIssue($id: String!) { issueArchive(id: $id) { success } }",
+              "variables": {
+                "id": "ENG-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issueArchive": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Issue:ENG-1",
+                "before": {
+                  "value": {
+                    "state": "active"
+                  }
+                },
+                "after": {
+                  "state": "archived"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

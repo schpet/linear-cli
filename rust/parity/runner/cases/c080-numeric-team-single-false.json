@@ -1,0 +1,123 @@
+{
+  "id": "c080-numeric-team-single-false",
+  "route": "linear issue delete",
+  "reason": "numeric-team-single-false",
+  "argv": [
+    "issue",
+    "delete",
+    "7",
+    "--confirm"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "issue-archive-delete-team",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to delete issue: Failed to delete issue\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "c0fd01ad45fb62948c07172b58911a51e53356877353e1d40652ed8b92b87368"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details-ENG-7",
+            "operation": {
+              "document": "query GetIssueDeleteDetails($id: String!) { issue(id: $id) { title identifier } }",
+              "variables": {
+                "id": "ENG-7"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "identifier": "RETURNED-99",
+                  "title": "Fixture title 界"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "mutation-ENG-7",
+            "operation": {
+              "document": "mutation DeleteIssue($id: String!) { issueDelete(id: $id) { success entity { identifier title } } }",
+              "variables": {
+                "id": "ENG-7"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issueDelete": {
+                  "success": false,
+                  "entity": {
+                    "identifier": "ENTITY-88",
+                    "title": "Mutation entity ignored"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

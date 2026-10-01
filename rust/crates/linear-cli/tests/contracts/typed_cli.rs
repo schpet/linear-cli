@@ -376,3 +376,34 @@ fn empty_default_references_are_preserved_for_business_resolution() {
         .is_err()
     );
 }
+
+#[test]
+fn issue_bulk_rejects_empty_values_before_action_but_retains_bare_and_literal_text() {
+    for leaf in ["archive", "delete"] {
+        for tail in [vec![""], vec!["A", "", "B"]] {
+            let mut words = vec!["issue", leaf, "--bulk"];
+            words.extend(tail);
+            let error = cli::parse(&words.iter().map(Into::into).collect::<Vec<_>>())
+                .expect_err("empty bulk value must stop before action/auth");
+            let native = error.native_parser_error().expect("native clap failure");
+            assert_eq!(native.exit_code(), 2);
+            assert!(native.to_string().contains("expected a nonempty value"));
+        }
+        for (tail, expected) in [
+            (vec![], vec![]),
+            (vec![" A ", "B"], vec![" A ".to_owned(), "B".to_owned()]),
+        ] {
+            let mut words = vec!["issue", leaf, "--bulk"];
+            words.extend(tail);
+            let actual = match parse(&words).command.unwrap() {
+                RootCommand::Issue(group) => match group.command.unwrap() {
+                    cli::issue::IssueCommand::Archive(args) => args.bulk,
+                    cli::issue::IssueCommand::Delete(args) => args.bulk,
+                    _ => panic!("unexpected issue command"),
+                },
+                _ => panic!("unexpected root command"),
+            };
+            assert_eq!(actual, Some(expected));
+        }
+    }
+}

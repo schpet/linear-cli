@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c080-leaf-help",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "Delete an issue\n\nUsage: linear issue delete [OPTIONS] [issueId]\n\nArguments:\n  [issueId]  \n\nOptions:\n      --workspace <slug>  Target workspace (uses credentials)\n  -y, --confirm           Skip confirmation prompt\n      --bulk [<ids>...]   Delete multiple issues by identifier (e.g., TC-123 TC-124)\n      --bulk-file <file>  Read issue identifiers from a file (one per line)\n      --bulk-stdin        Read issue identifiers from stdin\n  -h, --help              Print help\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

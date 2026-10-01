@@ -1,0 +1,122 @@
+{
+  "id": "c079-single-mutation-error-friendly",
+  "route": "linear issue archive",
+  "reason": "single-mutation-error-friendly",
+  "argv": [
+    "issue",
+    "archive",
+    "ENG-4",
+    "--confirm"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to archive issue: Friendly failure\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "6c4ba93a2561b98a1a146c5d225b4943ab434fb06a3dfdbbfc50e832c4bd136e"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details-ENG-4",
+            "operation": {
+              "document": "query GetIssueArchiveDetails($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+              "variables": {
+                "id": "ENG-4"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "identifier": "RETURNED-99",
+                  "title": "Fixture title 界",
+                  "archivedAt": null
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "mutation-ENG-4",
+            "operation": {
+              "document": "mutation ArchiveIssue($id: String!) { issueArchive(id: $id) { success } }",
+              "variables": {
+                "id": "ENG-4"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"errors\": [{\"message\": \"raw\\nerror\", \"extensions\": {\"userPresentableMessage\": \"Friendly failure\", \"z\": -0.0, \"10\": \"ten\", \"2\": \"two\"}}]}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

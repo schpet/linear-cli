@@ -1,0 +1,374 @@
+{
+  "id": "c079-bulk-additive-lossy-effects",
+  "route": "linear issue archive",
+  "reason": "bulk-additive-lossy-effects",
+  "argv": [
+    "issue",
+    "archive",
+    "--confirm",
+    "--bulk-file",
+    "ids.txt",
+    "--bulk-stdin",
+    "--bulk",
+    "ENG-1",
+    " Raw, argv "
+  ],
+  "stdin": {
+    "base64": "RU5HLTUsRU5HLTMs/wo="
+  },
+  "cwdFixture": "issue-archive-delete-inputs",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "Found 7 issue(s) to archive.\n\nCompleted: 4/7 issues archived\n  ✓ Succeeded: 4\n  ✗ Failed: 3\n\nFailed operations:\n  -  Raw, argv : Issue not found\n  - ENG-4part: Issue not found\n  - �: Issue not found\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "290ef7219a53069f409f7d408d17dc92c24fd344b0f5f1e871d5998a2b08bd89"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 8,
+    "initialRecords": {
+      "Issue:ENG-1": {
+        "state": "active"
+      },
+      "Issue:ENG-3": {
+        "state": "active"
+      },
+      "Issue:ENG-4": {
+        "state": "active"
+      },
+      "Issue:ENG-5": {
+        "state": "active"
+      }
+    },
+    "expectedRecords": {
+      "Issue:ENG-1": {
+        "state": "archived"
+      },
+      "Issue:ENG-3": {
+        "state": "archived"
+      },
+      "Issue:ENG-4": {
+        "state": "archived"
+      },
+      "Issue:ENG-5": {
+        "state": "archived"
+      }
+    },
+    "groups": [
+      {
+        "mode": "lanes",
+        "timeoutMs": 10000,
+        "lanes": [
+          {
+            "id": "ENG-1",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-ENG-1",
+                "operation": {
+                  "document": "query GetIssueDetailsForBulkArchive($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+                  "variables": {
+                    "id": "ENG-1"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issue": {
+                      "identifier": "ENG-1",
+                      "title": "Fixture title 界",
+                      "archivedAt": null
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "mutation-ENG-1",
+                "operation": {
+                  "document": "mutation BulkArchiveIssue($id: String!) { issueArchive(id: $id) { success } }",
+                  "variables": {
+                    "id": "ENG-1"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issueArchive": {
+                      "success": true
+                    }
+                  }
+                },
+                "effects": [
+                  {
+                    "kind": "put",
+                    "record": "Issue:ENG-1",
+                    "before": {
+                      "value": {
+                        "state": "active"
+                      }
+                    },
+                    "after": {
+                      "state": "archived"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ENG-3",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-ENG-3",
+                "operation": {
+                  "document": "query GetIssueDetailsForBulkArchive($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+                  "variables": {
+                    "id": "ENG-3"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issue": {
+                      "identifier": "ENG-3",
+                      "title": "Fixture title 界",
+                      "archivedAt": null
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "mutation-ENG-3",
+                "operation": {
+                  "document": "mutation BulkArchiveIssue($id: String!) { issueArchive(id: $id) { success } }",
+                  "variables": {
+                    "id": "ENG-3"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issueArchive": {
+                      "success": true
+                    }
+                  }
+                },
+                "effects": [
+                  {
+                    "kind": "put",
+                    "record": "Issue:ENG-3",
+                    "before": {
+                      "value": {
+                        "state": "active"
+                      }
+                    },
+                    "after": {
+                      "state": "archived"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "ENG-4",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-ENG-4",
+                "operation": {
+                  "document": "query GetIssueDetailsForBulkArchive($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+                  "variables": {
+                    "id": "ENG-4"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issue": {
+                      "identifier": "ENG-4",
+                      "title": "Fixture title 界",
+                      "archivedAt": null
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "mutation-ENG-4",
+                "operation": {
+                  "document": "mutation BulkArchiveIssue($id: String!) { issueArchive(id: $id) { success } }",
+                  "variables": {
+                    "id": "ENG-4"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "issueArchive": {
+                      "success": true
+                    }
+                  }
+                },
+                "effects": [
+                  {
+                    "kind": "put",
+                    "record": "Issue:ENG-4",
+                    "before": {
+                      "value": {
+                        "state": "active"
+                      }
+                    },
+                    "after": {
+                      "state": "archived"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details-ENG-5",
+            "operation": {
+              "document": "query GetIssueDetailsForBulkArchive($id: String!) { issue(id: $id) { identifier title archivedAt } }",
+              "variables": {
+                "id": "ENG-5"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issue": {
+                  "identifier": "ENG-5",
+                  "title": "Fixture title 界",
+                  "archivedAt": null
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "mutation-ENG-5",
+            "operation": {
+              "document": "mutation BulkArchiveIssue($id: String!) { issueArchive(id: $id) { success } }",
+              "variables": {
+                "id": "ENG-5"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issueArchive": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Issue:ENG-5",
+                "before": {
+                  "value": {
+                    "state": "active"
+                  }
+                },
+                "after": {
+                  "state": "archived"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

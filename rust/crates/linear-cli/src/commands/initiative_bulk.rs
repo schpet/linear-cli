@@ -76,6 +76,20 @@ fn parse_ids(text: &str) -> impl Iterator<Item = &str> {
 /// Read and decode every selected source before printing a count or dispatching requests.
 /// argv tokens deliberately remain unsplit and untrimmed.
 pub fn collect_ids(input: &BulkInput<'_>, stdin: &mut impl Read) -> Result<Vec<String>, AppError> {
+    collect_ids_with_policy(input, stdin, TextPolicy::Strict)
+}
+
+#[derive(Clone, Copy)]
+pub enum TextPolicy {
+    Strict,
+    Lossy,
+}
+/// Explicit opt-in source text policy; every existing caller stays strict.
+pub fn collect_ids_with_policy(
+    input: &BulkInput<'_>,
+    stdin: &mut impl Read,
+    policy: TextPolicy,
+) -> Result<Vec<String>, AppError> {
     let mut ids = input.argv.unwrap_or_default().to_vec();
     if let Some(path) = input.file {
         let bytes = std::fs::read(path).map_err(|error| {
@@ -89,14 +103,17 @@ pub fn collect_ids(input: &BulkInput<'_>, stdin: &mut impl Read) -> Result<Vec<S
                 .with_source(error)
             }
         })?;
-        let text = String::from_utf8(bytes).map_err(|error| {
-            AppError::new(
-                AppErrorKind::Validation,
-                format!("Bulk file must be valid UTF-8: {}", path.display()),
-            )
-            .with_suggestion("Re-save the file as UTF-8 text.")
-            .with_source(error)
-        })?;
+        let text = match policy {
+            TextPolicy::Lossy => String::from_utf8_lossy(&bytes).into_owned(),
+            TextPolicy::Strict => String::from_utf8(bytes).map_err(|error| {
+                AppError::new(
+                    AppErrorKind::Validation,
+                    format!("Bulk file must be valid UTF-8: {}", path.display()),
+                )
+                .with_suggestion("Re-save the file as UTF-8 text.")
+                .with_source(error)
+            })?,
+        };
         ids.extend(parse_ids(&text).map(str::to_owned));
     }
     if input.stdin {
@@ -104,11 +121,14 @@ pub fn collect_ids(input: &BulkInput<'_>, stdin: &mut impl Read) -> Result<Vec<S
         stdin.read_to_end(&mut bytes).map_err(|error| {
             AppError::new(AppErrorKind::IoProcess, "Failed to read bulk stdin").with_source(error)
         })?;
-        let text = String::from_utf8(bytes).map_err(|error| {
-            AppError::new(AppErrorKind::Validation, "Bulk stdin must be valid UTF-8")
-                .with_suggestion("Provide UTF-8 text on stdin.")
-                .with_source(error)
-        })?;
+        let text = match policy {
+            TextPolicy::Lossy => String::from_utf8_lossy(&bytes).into_owned(),
+            TextPolicy::Strict => String::from_utf8(bytes).map_err(|error| {
+                AppError::new(AppErrorKind::Validation, "Bulk stdin must be valid UTF-8")
+                    .with_suggestion("Provide UTF-8 text on stdin.")
+                    .with_source(error)
+            })?,
+        };
         ids.extend(parse_ids(&text).map(str::to_owned));
     }
     let mut seen = HashSet::new();

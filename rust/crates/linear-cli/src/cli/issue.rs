@@ -288,7 +288,7 @@ pub struct IssueArchive {
     pub issue_id: Option<String>,
     #[arg(long = "confirm", short = 'y', help = "Skip confirmation prompt")]
     pub confirm: bool,
-    #[arg(long = "bulk", help = "Archive multiple issues by identifier (e.g., TC-123 TC-124)", value_name = "ids", value_parser = super::nonempty_string, num_args = 0..)]
+    #[arg(long = "bulk", help = "Archive multiple issues by identifier (e.g., TC-123 TC-124)", value_name = "ids", num_args = 0.., value_parser = super::nonempty_string)]
     pub bulk: Option<Vec<String>>,
     #[arg(long = "bulk-file", help = "Read issue identifiers from a file (one per line)", value_name = "file", value_parser = super::nonempty_string)]
     pub bulk_file: Option<String>,
@@ -302,7 +302,7 @@ pub struct IssueDelete {
     pub issue_id: Option<String>,
     #[arg(long = "confirm", short = 'y', help = "Skip confirmation prompt")]
     pub confirm: bool,
-    #[arg(long = "bulk", help = "Delete multiple issues by identifier (e.g., TC-123 TC-124)", value_name = "ids", value_parser = super::nonempty_string, num_args = 0..)]
+    #[arg(long = "bulk", help = "Delete multiple issues by identifier (e.g., TC-123 TC-124)", value_name = "ids", num_args = 0.., value_parser = super::nonempty_string)]
     pub bulk: Option<Vec<String>>,
     #[arg(long = "bulk-file", help = "Read issue identifiers from a file (one per line)", value_name = "file", value_parser = super::nonempty_string)]
     pub bulk_file: Option<String>,

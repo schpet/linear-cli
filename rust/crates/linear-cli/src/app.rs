@@ -266,8 +266,36 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::issue::IssueCommand::PullRequest(_)) => {
                 unsupported("linear issue pull-request")
             }
-            Some(cli::issue::IssueCommand::Archive(_)) => unsupported("linear issue archive"),
-            Some(cli::issue::IssueCommand::Delete(_)) => unsupported("linear issue delete"),
+            Some(cli::issue::IssueCommand::Archive(action)) => dispatch_issue_archive_delete(
+                context,
+                IssueArchiveDeleteAction {
+                    target: action.issue_id.as_deref(),
+                    confirm: action.confirm,
+                    bulk: initiative_bulk::BulkInput {
+                        argv: action.bulk.as_deref(),
+                        file: action.bulk_file.as_deref().map(std::path::Path::new),
+                        stdin: action.bulk_stdin,
+                    },
+                },
+                crate::commands::issue_archive_delete::Mode::Archive,
+                workspace,
+            )
+            .map_err(|error| error.with_context("Failed to archive issue")),
+            Some(cli::issue::IssueCommand::Delete(action)) => dispatch_issue_archive_delete(
+                context,
+                IssueArchiveDeleteAction {
+                    target: action.issue_id.as_deref(),
+                    confirm: action.confirm,
+                    bulk: initiative_bulk::BulkInput {
+                        argv: action.bulk.as_deref(),
+                        file: action.bulk_file.as_deref().map(std::path::Path::new),
+                        stdin: action.bulk_stdin,
+                    },
+                },
+                crate::commands::issue_archive_delete::Mode::Delete,
+                workspace,
+            )
+            .map_err(|error| error.with_context("Failed to delete issue")),
             Some(cli::issue::IssueCommand::Create(_)) => unsupported("linear issue create"),
             Some(cli::issue::IssueCommand::Update(_)) => unsupported("linear issue update"),
             Some(cli::issue::IssueCommand::Comment(action)) => match action.command {
@@ -5784,5 +5812,170 @@ fn dispatch_project_update(
         &command::output(project.as_ref()),
         OutputPolicy::ConsoleLike,
     )?;
+    Ok(ExitStatus::Success)
+}
+
+struct IssueArchiveDeleteAction<'a> {
+    target: Option<&'a str>,
+    confirm: bool,
+    bulk: initiative_bulk::BulkInput<'a>,
+}
+fn issue_archive_delete_confirm(
+    context: &mut AppContext<'_>,
+    message: &str,
+) -> Result<crate::platform::prompt::PromptOutcome<bool>, AppError> {
+    use crate::platform::prompt::PromptSession;
+    if !context.stdin_tty {
+        return Err(AppError::new(
+            AppErrorKind::Validation,
+            "Interactive confirmation required",
+        )
+        .with_suggestion("Use --confirm to skip."));
+    }
+    if crate::commands::issue_archive_delete::stdout_is_pipe()? {
+        return Err(AppError::new(
+            AppErrorKind::Validation,
+            "Cannot confirm while stdout is a pipe; pass --confirm to continue.",
+        ));
+    }
+    let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+    let result = session.confirm(message, false);
+    session.finish_result(result)
+}
+fn dispatch_issue_archive_delete(
+    context: &mut AppContext<'_>,
+    action: IssueArchiveDeleteAction<'_>,
+    mode: crate::commands::issue_archive_delete::Mode,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::issue_archive_delete as command;
+    use crate::platform::prompt::PromptOutcome;
+    // Both source leaves construct the client before any local collection/resolution.
+    let transport = relation_transport(context, workspace)?;
+    if action.bulk.requested() {
+        if mode == command::Mode::Archive && action.target.is_some() {
+            return Err(AppError::new(AppErrorKind::Validation,"Cannot combine a positional issue ID with --bulk").with_suggestion("Pass every identifier through --bulk (or --bulk-file / --bulk-stdin), or drop the positional one."));
+        }
+        let ids = initiative_bulk::collect_ids_with_policy(
+            &action.bulk,
+            &mut std::io::stdin().lock(),
+            initiative_bulk::TextPolicy::Lossy,
+        )?;
+        if ids.is_empty() {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                format!("No issue identifiers provided for bulk {}", mode.verb()),
+            ));
+        }
+        context.write_stdout_with_policy(
+            format!("Found {} issue(s) to {}.\n", ids.len(), mode.verb()).as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        if !action.confirm {
+            let outcome = issue_archive_delete_confirm(
+                context,
+                &format!(
+                    "{} {} issue(s)?",
+                    match mode {
+                        command::Mode::Archive => "Archive",
+                        command::Mode::Delete => "Delete",
+                    },
+                    ids.len()
+                ),
+            )?;
+            if matches!(outcome, PromptOutcome::Interrupted) {
+                return initiative_interrupt_status();
+            }
+            if !initiative_prompt_stop(outcome)? {
+                context.write_stdout_with_policy(
+                    format!("Bulk {} cancelled.\n", mode.verb()).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+                return Ok(ExitStatus::Success);
+            }
+        }
+        let targets = {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let scope = WorkspaceScope::from_selection(&inputs, credentials);
+            let team = configured_team_key(&config.options);
+            ids.into_iter()
+                .map(|id| command::Target::prepare(id, team.as_deref(), &scope))
+                .collect()
+        };
+        let progress_enabled = spinner::enabled(
+            false,
+            context.stdout_tty,
+            context.startup.settings.no_color == NoColor::Absent,
+        );
+        let results = block_on_network(command::execute(&transport, targets, mode, |progress| {
+            if progress_enabled {
+                context.write_stdout_with_policy(&progress.render(), OutputPolicy::ConsoleLike)?;
+            }
+            Ok(())
+        }))?;
+        if progress_enabled {
+            context.write_stdout_with_policy(
+                initiative_bulk::PROGRESS_CLEAR,
+                OutputPolicy::ConsoleLike,
+            )?;
+        }
+        let (output, failed) = command::summary(&results, mode);
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        return Ok(if failed {
+            ExitStatus::HandledFailure
+        } else {
+            ExitStatus::Success
+        });
+    }
+    if mode == command::Mode::Delete && action.target.is_none_or(str::is_empty) {
+        return Err(AppError::new(AppErrorKind::Validation, "Issue ID required")
+            .with_suggestion("Use --bulk for multiple issues."));
+    }
+    let id = resolve_relation_reference(context, action.target, workspace, || match mode {
+        command::Mode::Archive => {
+            AppError::new(AppErrorKind::Validation, "Could not determine issue ID")
+                .with_suggestion("Please provide an issue ID like 'ENG-123'.")
+        }
+        command::Mode::Delete => AppError::not_found("Issue", action.target.unwrap_or_default()),
+    })?;
+    let details = block_on_network(command::single_details(&transport, &id, mode))?;
+    if details.already_archived {
+        context.write_stdout_with_policy(
+            format!("Issue \"{}\" is already archived.\n", details.name()).as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        return Ok(ExitStatus::Success);
+    }
+    if !action.confirm {
+        let outcome = issue_archive_delete_confirm(
+            context,
+            &format!(
+                "Are you sure you want to {} \"{}\"?",
+                mode.verb(),
+                details.name()
+            ),
+        )?;
+        if matches!(outcome, PromptOutcome::Interrupted) {
+            return initiative_interrupt_status();
+        }
+        if !initiative_prompt_stop(outcome)? {
+            context.write_stdout_with_policy(
+                format!(
+                    "{} cancelled.\n",
+                    match mode {
+                        command::Mode::Archive => "Archive",
+                        command::Mode::Delete => "Delete",
+                    }
+                )
+                .as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+            return Ok(ExitStatus::Success);
+        }
+    }
+    let output = block_on_network(command::submit_single(&transport, &id, &details, mode))?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
 }

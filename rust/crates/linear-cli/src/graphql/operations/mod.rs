@@ -69,3 +69,5 @@ pub mod team_delete;
 pub mod document_write;
 
 pub mod project_write;
+
+pub mod issue_archive_delete;
