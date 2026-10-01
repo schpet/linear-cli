@@ -65,3 +65,5 @@ pub mod releases;
 
 pub mod document_delete;
 pub mod team_delete;
+
+pub mod document_write;

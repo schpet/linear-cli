@@ -518,11 +518,11 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::document::DocumentCommand::View(action)) => {
                 dispatch_document_view(context, &action, workspace)
             }
-            Some(cli::document::DocumentCommand::Create(_)) => {
-                unsupported("linear document create")
+            Some(cli::document::DocumentCommand::Create(action)) => {
+                dispatch_document_create(context, &action, workspace)
             }
-            Some(cli::document::DocumentCommand::Update(_)) => {
-                unsupported("linear document update")
+            Some(cli::document::DocumentCommand::Update(action)) => {
+                dispatch_document_update(context, &action, workspace)
             }
             Some(cli::document::DocumentCommand::Delete(action)) => {
                 dispatch_document_delete(context, &action, workspace)
@@ -5359,4 +5359,247 @@ fn dispatch_document_delete(
         Ok(ExitStatus::Success)
     })();
     result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+}
+
+fn document_write_target(
+    context: &AppContext<'_>,
+    target: crate::commands::document_target::TargetOptions<'_>,
+    workspace: Option<&str>,
+) -> Result<
+    (
+        crate::graphql::transport::GraphQlTransport,
+        Option<crate::commands::document_target::PreparedTarget>,
+    ),
+    AppError,
+> {
+    let config = context.config()?;
+    let credentials = context.credentials()?;
+    let inputs = client::selection_inputs(&config.options, workspace)?;
+    let team = configured_team_key(&config.options);
+    let prepared = crate::commands::document_target::prepare_options(
+        target,
+        &WorkspaceScope::from_selection(&inputs, credentials),
+        team.as_deref(),
+    )?;
+    let transport = client::prepare_transport_with_inputs(
+        &config.options,
+        credentials,
+        &inputs,
+        &config.transport_env,
+    )?;
+    Ok((transport, prepared))
+}
+fn document_prompt_exit(
+    outcome: crate::platform::prompt::PromptOutcome<crate::commands::document_write::Fields>,
+) -> Result<Result<crate::commands::document_write::Fields, ExitStatus>, AppError> {
+    use crate::platform::prompt::PromptOutcome;
+    match outcome {
+        PromptOutcome::Submitted(fields) => Ok(Ok(fields)),
+        PromptOutcome::Interrupted => Ok(Err(ExitStatus::ChildCode(
+            std::num::NonZeroU8::new(130).ok_or_else(|| {
+                AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
+            })?,
+        ))),
+        PromptOutcome::EndOfInput => Err(AppError::new(
+            AppErrorKind::Validation,
+            "unexpected EOF while prompting for document",
+        )),
+    }
+}
+fn dispatch_document_create(
+    context: &mut AppContext<'_>,
+    action: &cli::document::DocumentCreate,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::{
+        document_content, document_target::TargetOptions, document_write as command,
+    };
+    let result = (|| {
+        let target = TargetOptions {
+            project: action.project.as_deref(),
+            issue: action.issue.as_deref(),
+            initiative: action.initiative.as_deref(),
+            team: action.team.as_deref(),
+            cycle: action.cycle.as_deref(),
+            release: action.release.as_deref(),
+        };
+        let interactive = context.stdout_tty
+            && (action.interactive
+                || (action.title.is_none()
+                    && action.content.is_none()
+                    && action.content_file.is_none()
+                    && action.icon.is_none()
+                    && !target.any()));
+        let root = std::env::temp_dir();
+        let fields = if interactive {
+            if target.any() {
+                return Err(AppError::new(AppErrorKind::Validation,"Attachment target flags cannot be combined with interactive mode").with_suggestion("Drop the target flags to choose the attachment interactively, or drop -i/--interactive to use the flags."));
+            }
+            let config = context.config()?;
+            let env = config.child_env.clone();
+            let default_team = configured_team_key(&config.options);
+            crate::platform::prompt_text::TextOptions {
+                minimum_utf16_length: 0,
+                default: default_team.as_deref(),
+            }
+            .preflight()
+            .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+            let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+            let prompted = command::prompt(
+                &mut session,
+                &mut *context.stderr,
+                command::PromptSettings {
+                    env: &env,
+                    temp_root: &root,
+                    default_team: default_team.as_deref(),
+                },
+            );
+            let outcome = session.finish_result(prompted)?;
+            match document_prompt_exit(outcome)? {
+                Ok(fields) => fields,
+                Err(exit) => return Ok(exit),
+            }
+        } else {
+            let title = action.title.clone().ok_or_else(|| {
+                AppError::new(AppErrorKind::Validation, "Title is required")
+                    .with_suggestion("Use --title or run with -i for interactive mode.")
+            })?;
+            target.cardinality(true)?;
+            let content = if let Some(content) = &action.content {
+                Some(content.clone())
+            } else if let Some(path) = &action.content_file {
+                Some(command::file(path, false)?)
+            } else if !context.stdin_tty {
+                document_content::optional_stdin(std::io::stdin())?
+            } else if context.stdout_tty {
+                context.write_stdout_with_policy(
+                    b"Opening editor for document content...\n",
+                    OutputPolicy::ConsoleLike,
+                )?;
+                let env = context.config()?.child_env.clone();
+                let content = command::optional_editor(&env, &root, &mut *context.stderr)?;
+                if content.is_none() {
+                    context.write_stdout_with_policy(
+                        b"No content entered. Creating document without content.\n",
+                        OutputPolicy::ConsoleLike,
+                    )?;
+                }
+                content
+            } else {
+                None
+            };
+            command::Fields {
+                title: Some(title),
+                content,
+                icon: action.icon.clone(),
+                project: action.project.clone(),
+                issue: action.issue.clone(),
+                initiative: action.initiative.clone(),
+                team: action.team.clone(),
+                cycle: action.cycle.clone(),
+                release: action.release.clone(),
+            }
+        };
+        let (transport, target) = document_write_target(context, fields.target(), workspace)?;
+        let mut input = command::input(None, fields.icon);
+        input.content = fields.content;
+        let output = block_on_network(async {
+            if let Some(target) = target {
+                let (kind, id) =
+                    crate::commands::document_target::resolve(&target, &transport).await?;
+                command::attach(&mut input, kind, id);
+            }
+            let title = fields
+                .title
+                .filter(|title| !title.is_empty())
+                .ok_or_else(|| AppError::new(AppErrorKind::Validation, "Title is required"))?;
+            command::create(&transport, title, input).await
+        })?;
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context("Failed to create document"))
+}
+fn dispatch_document_update(
+    context: &mut AppContext<'_>,
+    action: &cli::document::DocumentUpdate,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::{
+        document_content, document_target::TargetOptions, document_write as command,
+    };
+    let result = (|| {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let id = resolve_document_reference(
+            &action.document_id,
+            &WorkspaceScope::from_selection(&inputs, credentials),
+        )?;
+        let target = TargetOptions {
+            project: action.project.as_deref(),
+            issue: action.issue.as_deref(),
+            initiative: action.initiative.as_deref(),
+            team: action.team.as_deref(),
+            cycle: action.cycle.as_deref(),
+            release: action.release.as_deref(),
+        };
+        target.cardinality(false)?;
+        let (transport, target) = document_write_target(context, target, workspace)?;
+        let mut input = command::input(action.title.clone(), action.icon.clone());
+        if let Some(target) = target {
+            let (kind, id) = block_on_network(crate::commands::document_target::resolve(
+                &target, &transport,
+            ))?;
+            command::attach(&mut input, kind, id);
+        }
+        input.content = if let Some(content) = &action.content {
+            Some(content.clone())
+        } else if let Some(path) = &action.content_file {
+            Some(command::file(path, false)?)
+        } else if action.edit {
+            let document = block_on_network(command::for_edit(&transport, &id))?;
+            let seed = document.content.unwrap_or_default();
+            context.write_stdout_with_policy(
+                format!("Opening {} in editor...\n", document.title).as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+            let content = command::required_editor(
+                &context.config()?.child_env,
+                &std::env::temp_dir(),
+                &seed,
+            )?;
+            let Some(content) = content else {
+                context.write_stdout_with_policy(
+                    b"No changes made, update cancelled.\n",
+                    OutputPolicy::ConsoleLike,
+                )?;
+                return Ok(ExitStatus::Success);
+            };
+            if content == seed {
+                context.write_stdout_with_policy(
+                    b"No changes detected, update cancelled.\n",
+                    OutputPolicy::ConsoleLike,
+                )?;
+                return Ok(ExitStatus::Success);
+            }
+            Some(content)
+        } else if !context.stdin_tty && !command::has_fields(&input) {
+            document_content::optional_stdin(std::io::stdin())?
+        } else {
+            None
+        };
+        if !command::has_fields(&input) {
+            return Err(AppError::new(AppErrorKind::Validation,"No update fields provided").with_suggestion("Use --title, --content, --content-file, --icon, --edit, or re-point the attachment with --project, --issue, --initiative, --team, --cycle, or --release."));
+        }
+        let output = block_on_network(async {
+            if input.content.is_some() && !action.force {
+                command::guard(&transport, &id).await?;
+            }
+            command::update(&transport, &id, input).await
+        })?;
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context("Failed to update document"))
 }

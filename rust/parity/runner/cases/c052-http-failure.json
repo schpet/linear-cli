@@ -1,0 +1,100 @@
+{
+  "id": "c052-http-failure",
+  "route": "linear document create",
+  "reason": "http-failure",
+  "argv": [
+    "document",
+    "create",
+    "--title",
+    "Requested",
+    "--project",
+    "00000000-0000-4000-9000-000000000050"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to create document: GraphQL Error (Code: 500): {\"response\":{\"status\":500,\"headers\":{},\"body\":\"controlled create failure\"},\"request\":{\"query\":\"mutation CreateDocument($input: DocumentCreateInput!) {\\n  documentCreate(input: $input) {\\n    success\\n    document {\\n      id\\n      slugId\\n      title\\n      url\\n    }\\n  }\\n}\",\"variables\":{\"input\":{\"title\":\"Requested\",\"projectId\":\"00000000-0000-4000-9000-000000000050\"}}}}\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "DOC-WRITE-HTTP-DIAGNOSTIC",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "2cb42fa2fb824a37504bb91442dce8ac586e9158414b844ca461bf0eaf07b0ba"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "\n    mutation CreateDocument($input: DocumentCreateInput!) {\n      documentCreate(input: $input) {\n        success\n        document {\n          id\n          slugId\n          title\n          url\n        }\n      }\n    }\n  ",
+              "variables": {
+                "input": {
+                  "title": "Requested",
+                  "projectId": "00000000-0000-4000-9000-000000000050"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 500,
+              "headers": {
+                "content-type": "text/plain"
+              },
+              "body": {
+                "utf8": "controlled create failure"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

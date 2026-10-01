@@ -64,3 +64,5 @@ mod markdown_download;
 mod auth_local;
 
 mod delete_pair;
+
+mod document_write;

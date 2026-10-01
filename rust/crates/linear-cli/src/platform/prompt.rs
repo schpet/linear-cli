@@ -137,6 +137,41 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
+    /// Document opt-in ECMAScript trim/minimum/default semantics; other callers
+    /// retain the existing text method unchanged.
+    pub fn text_with_options(
+        &mut self,
+        message: &str,
+        options: crate::platform::prompt_text::TextOptions<'_>,
+    ) -> Result<PromptOutcome<String>, AppError> {
+        self.check_ready(message)?;
+        options
+            .preflight()
+            .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+        let header = match options.default {
+            Some(value) => format!("{message} ({value})"),
+            None => message.to_owned(),
+        };
+        match &mut self.input {
+            InputSource::Script(_) => {
+                self.write(format!("? {header}\n").as_bytes())?;
+                self.flush()?;
+                let Some(raw) = self.read_script_line()? else {
+                    return Ok(PromptOutcome::EndOfInput);
+                };
+                let answer = options
+                    .answer(&raw)
+                    .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+                self.write(format!("? {message} › {answer}\n").as_bytes())?;
+                Ok(PromptOutcome::Submitted(answer))
+            }
+            InputSource::Keys(_) => self.edit_keys(&header, message, |raw| {
+                let answer = options.answer(raw)?;
+                Ok((answer.clone(), answer))
+            }),
+        }
+    }
+
     /// Confirm a destructive action. Only an exactly empty answer takes the
     /// default; explicit whitespace and padded answers are invalid.
     pub fn confirm(
@@ -272,6 +307,12 @@ impl<R: Read, W: Write> PromptSession<R, W> {
     pub fn into_output(mut self) -> Result<W, AppError> {
         self.close()?;
         Ok(self.output)
+    }
+
+    /// Write a command's ordinary status line while retaining the session input.
+    pub fn print_line(&mut self, line: &str) -> Result<(), AppError> {
+        self.write(format!("{line}\n").as_bytes())?;
+        self.flush()
     }
 
     fn check_ready(&self, message: &str) -> Result<(), AppError> {

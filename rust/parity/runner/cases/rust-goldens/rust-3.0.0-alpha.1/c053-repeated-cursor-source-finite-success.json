@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "caseId": "c053-repeated-cursor-source-finite-success",
+  "deviationId": "DOC-GUARD-PAGINATION",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "exit",
+    "stdout",
+    "stderr",
+    "graphql-fixture",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "✗ Failed to update document: Document comments pagination cursor did not advance\n"
+      },
+      "fileEffects": []
+    },
+    "graphql": {
+      "steps": [
+        {
+          "id": "first"
+        },
+        {
+          "id": "second"
+        }
+      ]
+    }
+  }
+}

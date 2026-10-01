@@ -186,6 +186,12 @@ function isC038EmptyIdSource(spec: CaseSpec): boolean {
     same(spec.graphql, C038_EMPTY_ID_FROZEN_GRAPHQL)
 }
 
+// One approved malformed-cursor boundary preserves the complete source success
+// and mutation effects. Only its SHA-checked candidate stops after two queries.
+const checkedDocumentGuardSources = new WeakMap<CaseSpec, string>()
+const DOCUMENT_GUARD_SOURCE_SHA =
+  "c666702dc4796c36ca889e8cc7d2c6124541108081bf7b18f35cfbcb72c76546"
+
 /** Derive only the reviewed candidate request script; never mutate the frozen fixture. */
 function applyGraphQLDelta(
   spec: CaseSpec,
@@ -198,6 +204,48 @@ function applyGraphQLDelta(
     throw new SchemaError(
       `case ${spec.id}: GraphQL delta needs a GraphQL fixture`,
     )
+  }
+  if (spec.id === "c053-repeated-cursor-source-finite-success") {
+    if (
+      checkedDocumentGuardSources.get(spec) !==
+        JSON.stringify({ ...spec, deviation: null }) ||
+      golden?.deviationId !== "DOC-GUARD-PAGINATION" ||
+      golden.candidate.argv != null ||
+      golden.candidate.graphqlUserAgent !== RUST_USER_AGENT ||
+      !same(golden.approvedSurfaces, [
+        "exit",
+        "stdout",
+        "stderr",
+        "graphql-fixture",
+        "graphql-user-agent",
+      ]) ||
+      !same(golden.candidate.expected, {
+        exit: { code: 1 },
+        stdout: { utf8: "" },
+        stderr: {
+          utf8:
+            "✗ Failed to update document: Document comments pagination cursor did not advance\n",
+        },
+        fileEffects: [],
+      }) ||
+      !same(delta, { steps: [{ id: "first" }, { id: "second" }] })
+    ) {
+      throw new SchemaError(
+        `case ${spec.id}: pinned document guard boundary differs`,
+      )
+    }
+    const group = fixture.groups[0]
+    if (fixture.groups.length !== 1 || group.mode !== "ordered") {
+      throw new SchemaError(
+        `case ${spec.id}: pinned document guard group differs`,
+      )
+    }
+    return {
+      ...fixture,
+      expectedRequests: 2,
+      groups: [{ mode: "ordered", steps: group.steps.slice(0, 2) }],
+      expectedRecords: structuredClone(fixture.initialRecords),
+    }
   }
   const nativePin = nativeParserSourcePin(spec.id)
   if (nativePin != null && delta.steps.length === 0) {
@@ -778,6 +826,20 @@ async function loadReviewedBinding(
       )
     }
     checkedNativeParserSources.set(spec, projection)
+  }
+  if (
+    delta != null && spec.id === "c053-repeated-cursor-source-finite-success"
+  ) {
+    const projection = JSON.stringify({ ...spec, deviation: null })
+    if (
+      await sha256Hex(new TextEncoder().encode(projection)) !==
+        DOCUMENT_GUARD_SOURCE_SHA
+    ) {
+      throw new SchemaError(
+        `case ${spec.id}: document guard source success differs from its SHA pin`,
+      )
+    }
+    checkedDocumentGuardSources.set(spec, projection)
   }
   const candidateGraphql = applyGraphQLDelta(spec, delta, golden)
   const actual = changedSurfaces(spec, golden)

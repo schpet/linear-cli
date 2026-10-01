@@ -42,42 +42,91 @@ pub enum PreparedTarget {
     },
     Release(String),
 }
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TargetOptions<'a> {
+    pub project: Option<&'a str>,
+    pub issue: Option<&'a str>,
+    pub initiative: Option<&'a str>,
+    pub team: Option<&'a str>,
+    pub cycle: Option<&'a str>,
+    pub release: Option<&'a str>,
+}
+impl<'a> From<&'a DocumentList> for TargetOptions<'a> {
+    fn from(action: &'a DocumentList) -> Self {
+        Self {
+            project: action.project.as_deref(),
+            issue: action.issue.as_deref(),
+            initiative: action.initiative.as_deref(),
+            team: action.team.as_deref(),
+            cycle: action.cycle.as_deref(),
+            release: action.release.as_deref(),
+        }
+    }
+}
+impl TargetOptions<'_> {
+    pub fn any(self) -> bool {
+        self.project.is_some()
+            || self.issue.is_some()
+            || self.initiative.is_some()
+            || self.team.is_some()
+            || self.cycle.is_some()
+            || self.release.is_some()
+    }
+    pub fn cardinality(self, required: bool) -> Result<(), AppError> {
+        let mut flags = Vec::new();
+        if self.project.is_some() {
+            flags.push("--project");
+        }
+        if self.issue.is_some() {
+            flags.push("--issue");
+        }
+        if self.initiative.is_some() {
+            flags.push("--initiative");
+        }
+        if self.cycle.is_some() {
+            flags.push("--cycle");
+        } else if self.team.is_some() {
+            flags.push("--team");
+        }
+        if self.release.is_some() {
+            flags.push("--release");
+        }
+        if flags.len() > 1 {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                format!(
+                    "Only one attachment target may be set (got {})",
+                    flags.join(", ")
+                ),
+            )
+            .with_suggestion(TARGET_SUGGESTION));
+        }
+        if required && flags.is_empty() {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                "A document attachment target is required",
+            )
+            .with_suggestion(TARGET_SUGGESTION));
+        }
+        Ok(())
+    }
+}
 pub fn prepare(
     action: &DocumentList,
     scope: &WorkspaceScope<'_>,
     configured_team: Option<&str>,
 ) -> Result<Option<PreparedTarget>, AppError> {
-    let mut flags = Vec::new();
-    if action.project.is_some() {
-        flags.push("--project");
-    }
-    if action.issue.is_some() {
-        flags.push("--issue");
-    }
-    if action.initiative.is_some() {
-        flags.push("--initiative");
-    }
-    if action.cycle.is_some() {
-        flags.push("--cycle");
-    } else if action.team.is_some() {
-        flags.push("--team");
-    }
-    if action.release.is_some() {
-        flags.push("--release");
-    }
-    if flags.len() > 1 {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!(
-                "Only one attachment target may be set (got {})",
-                flags.join(", ")
-            ),
-        )
-        .with_suggestion(TARGET_SUGGESTION));
-    }
+    prepare_options(action.into(), scope, configured_team)
+}
+pub fn prepare_options(
+    action: TargetOptions<'_>,
+    scope: &WorkspaceScope<'_>,
+    configured_team: Option<&str>,
+) -> Result<Option<PreparedTarget>, AppError> {
+    action.cardinality(false)?;
     if let Some(original) = &action.project {
         return Ok(Some(PreparedTarget::Project {
-            original: original.clone(),
+            original: (*original).to_owned(),
             reference: refs::prepare_project_lookup(original, scope)?,
         }));
     }
@@ -96,17 +145,17 @@ pub fn prepare(
                     "issue URL preparation returned wrong kind",
                 ));
             }
-            None if refs::is_linear_uuid(original) => original.clone(),
+            None if refs::is_linear_uuid(original) => (*original).to_owned(),
             None => original.to_uppercase(),
         };
         return Ok(Some(PreparedTarget::Issue {
-            original: original.clone(),
+            original: (*original).to_owned(),
             id,
         }));
     }
     if let Some(original) = &action.initiative {
         return Ok(Some(PreparedTarget::Initiative {
-            original: original.clone(),
+            original: (*original).to_owned(),
             reference: refs::prepare_initiative_lookup(original, scope)?,
         }));
     }
@@ -114,20 +163,16 @@ pub fn prepare(
         let configured = configured_team
             .filter(|team| !team.is_empty())
             .map(str::to_uppercase);
-        let team = action
-            .team
-            .as_deref()
-            .or(configured.as_deref())
-            .ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Validation,
-                    "--cycle requires a team to look the cycle up in",
-                )
-                .with_suggestion("Pass --team <key, name, or ID> or configure a default team.")
-            })?;
+        let team = action.team.or(configured.as_deref()).ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::Validation,
+                "--cycle requires a team to look the cycle up in",
+            )
+            .with_suggestion("Pass --team <key, name, or ID> or configure a default team.")
+        })?;
         return Ok(Some(PreparedTarget::Cycle {
             team: refs::prepare_team_lookup(team, scope)?,
-            reference: reference.clone(),
+            reference: (*reference).to_owned(),
             url: refs::expect_url_kind(
                 reference,
                 LinearUrlKind::Cycle,
@@ -143,7 +188,7 @@ pub fn prepare(
     }
     if let Some(original) = &action.release {
         refs::reject_linear_url(original, "a release name, version, or UUID")?;
-        return Ok(Some(PreparedTarget::Release(original.clone())));
+        return Ok(Some(PreparedTarget::Release((*original).to_owned())));
     }
     Ok(None)
 }

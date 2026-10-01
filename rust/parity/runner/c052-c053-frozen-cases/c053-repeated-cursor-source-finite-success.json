@@ -1,0 +1,229 @@
+{
+  "id": "c053-repeated-cursor-source-finite-success",
+  "route": "linear document update",
+  "reason": "repeated-cursor-source-finite-success",
+  "argv": [
+    "document",
+    "update",
+    "d4b93e3b2695",
+    "--content",
+    "new body"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Updated document: Server document %s 界\nhttps://linear.app/acme/document/fake-d4b93e3b2695\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 4,
+    "initialRecords": {
+      "Document:00000000-0000-4000-9000-000000000051": {
+        "id": "00000000-0000-4000-9000-000000000051",
+        "title": "Before",
+        "content": "before",
+        "projectId": "old-project"
+      }
+    },
+    "expectedRecords": {
+      "Document:00000000-0000-4000-9000-000000000051": {
+        "id": "00000000-0000-4000-9000-000000000051",
+        "title": "Before",
+        "content": "new body",
+        "projectId": "old-project"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "first",
+            "operation": {
+              "document": "\n  query DocumentInlineCommentGuard($id: String!, $after: String) {\n    document(id: $id) {\n      id\n      comments(first: 50, after: $after, orderBy: createdAt) {\n        nodes {\n          id\n          quotedText\n          resolvedAt\n          archivedAt\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "d4b93e3b2695",
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "document": {
+                  "id": "00000000-0000-4000-9000-000000000051",
+                  "comments": {
+                    "nodes": [],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "same"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "second",
+            "operation": {
+              "document": "\n  query DocumentInlineCommentGuard($id: String!, $after: String) {\n    document(id: $id) {\n      id\n      comments(first: 50, after: $after, orderBy: createdAt) {\n        nodes {\n          id\n          quotedText\n          resolvedAt\n          archivedAt\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "d4b93e3b2695",
+                "after": "same"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "document": {
+                  "id": "00000000-0000-4000-9000-000000000051",
+                  "comments": {
+                    "nodes": [],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "same"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "third",
+            "operation": {
+              "document": "\n  query DocumentInlineCommentGuard($id: String!, $after: String) {\n    document(id: $id) {\n      id\n      comments(first: 50, after: $after, orderBy: createdAt) {\n        nodes {\n          id\n          quotedText\n          resolvedAt\n          archivedAt\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "d4b93e3b2695",
+                "after": "same"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "document": {
+                  "id": "00000000-0000-4000-9000-000000000051",
+                  "comments": {
+                    "nodes": [],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "update",
+            "operation": {
+              "document": "\n        mutation UpdateDocument($id: String!, $input: DocumentUpdateInput!) {\n          documentUpdate(id: $id, input: $input) {\n            success\n            document {\n              id\n              slugId\n              title\n              url\n              updatedAt\n            }\n          }\n        }\n      ",
+              "variables": {
+                "id": "d4b93e3b2695",
+                "input": {
+                  "content": "new body"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "documentUpdate": {
+                  "success": true,
+                  "document": {
+                    "id": "00000000-0000-4000-9000-000000000051",
+                    "slugId": "d4b93e3b2695",
+                    "title": "Server document %s 界",
+                    "url": "https://linear.app/acme/document/fake-d4b93e3b2695",
+                    "updatedAt": "2026-01-02T00:00:00Z"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Document:00000000-0000-4000-9000-000000000051",
+                "before": {
+                  "value": {
+                    "id": "00000000-0000-4000-9000-000000000051",
+                    "title": "Before",
+                    "content": "before",
+                    "projectId": "old-project"
+                  }
+                },
+                "after": {
+                  "id": "00000000-0000-4000-9000-000000000051",
+                  "title": "Before",
+                  "content": "new body",
+                  "projectId": "old-project"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

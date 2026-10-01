@@ -1,0 +1,119 @@
+{
+  "id": "c053-active-empty-quote-blocks-before-next-page",
+  "route": "linear document update",
+  "reason": "active-empty-quote-blocks-before-next-page",
+  "argv": [
+    "document",
+    "update",
+    "d4b93e3b2695",
+    "--content",
+    "new body"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to update document: Refusing to update document content because this document has inline comments.\n  Updating Markdown content can detach or hide Linear document comments. First review comment active quoting \"\", then rerun with --force if you accept that risk.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {
+      "Document:00000000-0000-4000-9000-000000000051": {
+        "id": "00000000-0000-4000-9000-000000000051",
+        "title": "Before",
+        "content": "before",
+        "projectId": "old-project"
+      }
+    },
+    "expectedRecords": {
+      "Document:00000000-0000-4000-9000-000000000051": {
+        "id": "00000000-0000-4000-9000-000000000051",
+        "title": "Before",
+        "content": "before",
+        "projectId": "old-project"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "guard",
+            "operation": {
+              "document": "\n  query DocumentInlineCommentGuard($id: String!, $after: String) {\n    document(id: $id) {\n      id\n      comments(first: 50, after: $after, orderBy: createdAt) {\n        nodes {\n          id\n          quotedText\n          resolvedAt\n          archivedAt\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }\n",
+              "variables": {
+                "id": "d4b93e3b2695",
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "document": {
+                  "id": "00000000-0000-4000-9000-000000000051",
+                  "comments": {
+                    "nodes": [
+                      {
+                        "id": "active",
+                        "quotedText": "",
+                        "resolvedAt": null,
+                        "archivedAt": null
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

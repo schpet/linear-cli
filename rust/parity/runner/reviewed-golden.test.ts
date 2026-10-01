@@ -2431,7 +2431,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       !loaded.spec.id.startsWith("c027-") &&
       !loaded.spec.id.startsWith("c035-") &&
       !loaded.spec.id.startsWith("c037-") &&
-      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17|28|44|55|66|77|78|76|64|65|41|42|45|47|63|72|75|14|50|51|03|04|13|56)-/
+      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17|28|44|55|66|77|78|76|64|65|41|42|45|47|63|72|75|14|50|51|03|04|13|56|52|53)-/
         .test(
           loaded.spec.id,
         )
@@ -2473,6 +2473,19 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       assertEquals(
         candidate.spec.graphql?.expectedRecords,
         loaded.spec.graphql.initialRecords,
+      )
+      continue
+    }
+    if (loaded.spec.id === "c053-repeated-cursor-source-finite-success") {
+      // The independently pinned command cohort checks the source SUCCESS,
+      // two-query native cursor refusal and omitted mutation/record effects.
+      const candidate = candidateCaseView(loaded)
+      assertEquals(loaded.spec.expected.exit, { code: 0 })
+      assertEquals(candidate.spec.expected.exit, { code: 1 })
+      assertEquals(candidate.spec.graphql?.expectedRequests, 2)
+      assertEquals(
+        candidate.spec.graphql?.expectedRecords,
+        loaded.spec.graphql?.initialRecords,
       )
       continue
     }
