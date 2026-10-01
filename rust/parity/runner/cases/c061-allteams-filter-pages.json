@@ -1,0 +1,306 @@
+{
+  "id": "c061-allteams-filter-pages",
+  "route": "linear issue query",
+  "reason": "allteams-filter-pages",
+  "argv": [
+    "issue",
+    "query",
+    "--all-teams",
+    "--all-states",
+    "--json",
+    "--limit",
+    "0",
+    "--include-archived"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_TEAM_ID": "ENG"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [\n    {\n      \"id\": \"f0000000-0000-4000-8000-000000000002\",\n      \"identifier\": \"ENG-2\",\n      \"title\": \"Issue 2 \u754c title\",\n      \"url\": \"https://linear.app/fake/issue/ENG-2\",\n      \"priority\": 2,\n      \"priorityLabel\": \"Low\",\n      \"estimate\": 2,\n      \"createdAt\": \"2000-01-01T00:00:00Z\",\n      \"updatedAt\": \"2000-01-01T00:00:00Z\",\n      \"state\": {\n        \"id\": \"state-started\",\n        \"name\": \"Started\",\n        \"color\": \"#112233\",\n        \"type\": \"started\",\n        \"position\": 1\n      },\n      \"assignee\": {\n        \"id\": \"user\",\n        \"name\": \"Dummy\",\n        \"displayName\": \"Dummy Person\",\n        \"initials\": \"DP\"\n      },\n      \"team\": {\n        \"id\": \"team-ENG\",\n        \"key\": \"ENG\",\n        \"name\": \"ENG Team\",\n        \"cyclesEnabled\": false,\n        \"activeCycle\": null\n      },\n      \"project\": null,\n      \"projectMilestone\": null,\n      \"cycle\": null,\n      \"labels\": {\n        \"nodes\": [\n          {\n            \"id\": \"label\",\n            \"name\": \"Bug \u754c\",\n            \"color\": \"#ff00ff\"\n          }\n        ]\n      },\n      \"inverseRelations\": {\n        \"nodes\": [\n          {\n            \"id\": \"relation\",\n            \"type\": \"blocks\",\n            \"issue\": {\n              \"id\": \"blocked\",\n              \"identifier\": \"ENG-999\",\n              \"state\": {\n                \"type\": \"started\"\n              }\n            }\n          }\n        ]\n      }\n    },\n    {\n      \"id\": \"f0000000-0000-4000-8000-000000000003\",\n      \"identifier\": \"OPS-3\",\n      \"title\": \"Issue 3 \u754c title\",\n      \"url\": \"https://linear.app/fake/issue/OPS-3\",\n      \"priority\": 3,\n      \"priorityLabel\": \"Low\",\n      \"estimate\": 2,\n      \"createdAt\": \"2000-01-01T00:00:00Z\",\n      \"updatedAt\": \"2000-01-01T00:00:00Z\",\n      \"state\": {\n        \"id\": \"state-started\",\n        \"name\": \"Started\",\n        \"color\": \"#112233\",\n        \"type\": \"started\",\n        \"position\": 99\n      },\n      \"assignee\": {\n        \"id\": \"user\",\n        \"name\": \"Dummy\",\n        \"displayName\": \"Dummy Person\",\n        \"initials\": \"DP\"\n      },\n      \"team\": {\n        \"id\": \"team-OPS\",\n        \"key\": \"OPS\",\n        \"name\": \"OPS Team\",\n        \"cyclesEnabled\": false,\n        \"activeCycle\": null\n      },\n      \"project\": null,\n      \"projectMilestone\": null,\n      \"cycle\": null,\n      \"labels\": {\n        \"nodes\": []\n      },\n      \"inverseRelations\": {\n        \"nodes\": []\n      }\n    },\n    {\n      \"id\": \"f0000000-0000-4000-8000-000000000001\",\n      \"identifier\": \"OPS-1\",\n      \"title\": \"Issue 1 \u754c title\",\n      \"url\": \"https://linear.app/fake/issue/OPS-1\",\n      \"priority\": 1,\n      \"priorityLabel\": \"Low\",\n      \"estimate\": null,\n      \"createdAt\": \"2000-01-01T00:00:00Z\",\n      \"updatedAt\": \"2000-01-01T00:00:00Z\",\n      \"state\": {\n        \"id\": \"state-completed\",\n        \"name\": \"Completed\",\n        \"color\": \"#112233\",\n        \"type\": \"completed\",\n        \"position\": 2\n      },\n      \"assignee\": null,\n      \"team\": {\n        \"id\": \"team-OPS\",\n        \"key\": \"OPS\",\n        \"name\": \"OPS Team\",\n        \"cyclesEnabled\": false,\n        \"activeCycle\": null\n      },\n      \"project\": null,\n      \"projectMilestone\": null,\n      \"cycle\": null,\n      \"labels\": {\n        \"nodes\": []\n      },\n      \"inverseRelations\": {\n        \"nodes\": []\n      }\n    }\n  ],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "8026075988cf20a5c764483b92d697bc7aa306824dfea84eff9c66c2225f1e8b"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "p1",
+            "operation": {
+              "document": "query GetIssuesForQuery( $sort: [IssueSortInput!] $filter: IssueFilter $first: Int $after: String $includeArchived: Boolean ) { issues( filter: $filter sort: $sort first: $first after: $after includeArchived: $includeArchived ) { nodes { id identifier title url priority priorityLabel estimate createdAt updatedAt state { id name color type position } assignee { id name displayName initials } team { id key name cyclesEnabled activeCycle { number } } project { id name } projectMilestone { id name } cycle { id number name isActive isNext isPrevious isFuture isPast } labels { nodes { id name color } } inverseRelations(first: 100) { nodes { id type issue { id identifier state { type } } } } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "sort": [
+                  {
+                    "workflowState": {
+                      "order": "Ascending"
+                    }
+                  },
+                  {
+                    "priority": {
+                      "nulls": "last",
+                      "order": "Descending"
+                    }
+                  },
+                  {
+                    "manual": {
+                      "nulls": "last",
+                      "order": "Ascending"
+                    }
+                  }
+                ],
+                "first": 100,
+                "includeArchived": true
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issues": {
+                  "nodes": [
+                    {
+                      "id": "f0000000-0000-4000-8000-000000000001",
+                      "identifier": "OPS-1",
+                      "title": "Issue 1 \u754c title",
+                      "url": "https://linear.app/fake/issue/OPS-1",
+                      "priority": 1,
+                      "priorityLabel": "Low",
+                      "estimate": null,
+                      "createdAt": "2000-01-01T00:00:00Z",
+                      "updatedAt": "2000-01-01T00:00:00Z",
+                      "state": {
+                        "id": "state-completed",
+                        "name": "Completed",
+                        "color": "#112233",
+                        "type": "completed",
+                        "position": 2
+                      },
+                      "assignee": null,
+                      "team": {
+                        "id": "team-OPS",
+                        "key": "OPS",
+                        "name": "OPS Team",
+                        "cyclesEnabled": false,
+                        "activeCycle": null
+                      },
+                      "project": null,
+                      "projectMilestone": null,
+                      "cycle": null,
+                      "labels": {
+                        "nodes": []
+                      },
+                      "inverseRelations": {
+                        "nodes": []
+                      }
+                    },
+                    {
+                      "id": "f0000000-0000-4000-8000-000000000002",
+                      "identifier": "ENG-2",
+                      "title": "Issue 2 \u754c title",
+                      "url": "https://linear.app/fake/issue/ENG-2",
+                      "priority": 2,
+                      "priorityLabel": "Low",
+                      "estimate": 2,
+                      "createdAt": "2000-01-01T00:00:00Z",
+                      "updatedAt": "2000-01-01T00:00:00Z",
+                      "state": {
+                        "id": "state-started",
+                        "name": "Started",
+                        "color": "#112233",
+                        "type": "started",
+                        "position": 1
+                      },
+                      "assignee": {
+                        "id": "user",
+                        "name": "Dummy",
+                        "displayName": "Dummy Person",
+                        "initials": "DP"
+                      },
+                      "team": {
+                        "id": "team-ENG",
+                        "key": "ENG",
+                        "name": "ENG Team",
+                        "cyclesEnabled": false,
+                        "activeCycle": null
+                      },
+                      "project": null,
+                      "projectMilestone": null,
+                      "cycle": null,
+                      "labels": {
+                        "nodes": [
+                          {
+                            "id": "label",
+                            "name": "Bug \u754c",
+                            "color": "#ff00ff"
+                          }
+                        ]
+                      },
+                      "inverseRelations": {
+                        "nodes": [
+                          {
+                            "id": "relation",
+                            "type": "blocks",
+                            "issue": {
+                              "id": "blocked",
+                              "identifier": "ENG-999",
+                              "state": {
+                                "type": "started"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "query-next"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "p2",
+            "operation": {
+              "document": "query GetIssuesForQuery( $sort: [IssueSortInput!] $filter: IssueFilter $first: Int $after: String $includeArchived: Boolean ) { issues( filter: $filter sort: $sort first: $first after: $after includeArchived: $includeArchived ) { nodes { id identifier title url priority priorityLabel estimate createdAt updatedAt state { id name color type position } assignee { id name displayName initials } team { id key name cyclesEnabled activeCycle { number } } project { id name } projectMilestone { id name } cycle { id number name isActive isNext isPrevious isFuture isPast } labels { nodes { id name color } } inverseRelations(first: 100) { nodes { id type issue { id identifier state { type } } } } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "sort": [
+                  {
+                    "workflowState": {
+                      "order": "Ascending"
+                    }
+                  },
+                  {
+                    "priority": {
+                      "nulls": "last",
+                      "order": "Descending"
+                    }
+                  },
+                  {
+                    "manual": {
+                      "nulls": "last",
+                      "order": "Ascending"
+                    }
+                  }
+                ],
+                "first": 100,
+                "after": "query-next",
+                "includeArchived": true
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issues": {
+                  "nodes": [
+                    {
+                      "id": "f0000000-0000-4000-8000-000000000003",
+                      "identifier": "OPS-3",
+                      "title": "Issue 3 \u754c title",
+                      "url": "https://linear.app/fake/issue/OPS-3",
+                      "priority": 3,
+                      "priorityLabel": "Low",
+                      "estimate": 2,
+                      "createdAt": "2000-01-01T00:00:00Z",
+                      "updatedAt": "2000-01-01T00:00:00Z",
+                      "state": {
+                        "id": "state-started",
+                        "name": "Started",
+                        "color": "#112233",
+                        "type": "started",
+                        "position": 99
+                      },
+                      "assignee": {
+                        "id": "user",
+                        "name": "Dummy",
+                        "displayName": "Dummy Person",
+                        "initials": "DP"
+                      },
+                      "team": {
+                        "id": "team-OPS",
+                        "key": "OPS",
+                        "name": "OPS Team",
+                        "cyclesEnabled": false,
+                        "activeCycle": null
+                      },
+                      "project": null,
+                      "projectMilestone": null,
+                      "cycle": null,
+                      "labels": {
+                        "nodes": []
+                      },
+                      "inverseRelations": {
+                        "nodes": []
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

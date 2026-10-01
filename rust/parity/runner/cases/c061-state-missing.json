@@ -1,0 +1,108 @@
+{
+  "id": "c061-state-missing",
+  "route": "linear issue query",
+  "reason": "state-missing",
+  "argv": [
+    "issue",
+    "query",
+    "--all-teams",
+    "--state",
+    "Absent"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_TEAM_ID": "ENG"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "\u2717 Failed to query issues: Workflow state not found: 'Absent' in any team\n  Valid states: \"Ready\" (unstarted, ENG). State types: triage, backlog, unstarted, started, completed, canceled. Run `linear team states <team>` to list a team's states.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "ad7217b48f2bff1386f1269915d5ee1d01439496333350d934c985f2d57b61eb"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "getworkflowstatesinscope",
+            "operation": {
+              "document": "query GetWorkflowStatesInScope( $filter: WorkflowStateFilter $first: Int $after: String ) { workflowStates(filter: $filter, first: $first, after: $after) { nodes { id name type team { key } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "first": 250
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "workflowStates": {
+                  "nodes": [
+                    {
+                      "id": "state-ready",
+                      "name": "Ready",
+                      "type": "unstarted",
+                      "team": {
+                        "key": "ENG"
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

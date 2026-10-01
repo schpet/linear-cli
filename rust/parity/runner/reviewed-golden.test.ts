@@ -2370,6 +2370,34 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     "c046-strict-later-node",
     "c046-strict-nonenvelope",
   ])
+  // These exact reviewed cases add output channels; their independently pinned
+  // cohort guards also bind the source bytes, candidate bytes and file effects.
+  const recentOutputContracts = new Map<string, [string, string[]]>([
+    ...[
+      "c040-null-details",
+      "c040-owner-missing-after-details",
+      "c040-resolver-errors-no-details",
+      "c040-url-miss-no-name",
+    ].map((id): [string, [string, string[]]] => [
+      id,
+      ["C040-UNCAUGHT-TYPED", ["stderr", "graphql-user-agent"]],
+    ]),
+    ...[
+      "c073-empty-file-prompts-default",
+      "c073-no-body-default-accepted",
+      "c073-null-get-prompts-new",
+      "c073-prompt-blank-rejected",
+    ].map((id): [string, [string, string[]]] => [
+      id,
+      ["C073-PROMPT-RENDER", ["stdout", "graphql-user-agent"]],
+    ]),
+    ["c062-json-null-issue", ["ISSUE-READ-UNEXPECTED-SHAPE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
+  ])
   const substitutions = {
     home: "h",
     configHome: "c",
@@ -2421,6 +2449,15 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     if (loaded.spec.id.startsWith("f06e0-")) {
       assertEquals(loaded.spec.deviation?.id, "R01H-GRAPHQL-UA", loaded.spec.id)
     }
+    const outputContract = recentOutputContracts.get(loaded.spec.id)
+    if (outputContract != null) {
+      assertEquals(loaded.spec.deviation?.id, outputContract[0], loaded.spec.id)
+      assertEquals(
+        loaded.golden?.spec.deviationId,
+        outputContract[0],
+        loaded.spec.id,
+      )
+    }
     // These cohorts pin their approved surfaces in their own corpus guards.
     if (
       !loaded.spec.id.startsWith("c023") &&
@@ -2438,7 +2475,8 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
     ) {
       assertEquals(
         loaded.golden?.spec.approvedSurfaces,
-        c011Surfaces.get(loaded.spec.id) ??
+        outputContract?.[1] ??
+          c011Surfaces.get(loaded.spec.id) ??
           c010Graphql.get(loaded.spec.id)?.[1] ??
           c021Surfaces.get(loaded.spec.id) ??
           c022Graphql.get(loaded.spec.id)?.[1] ??
@@ -2455,6 +2493,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
             : loaded.spec.id === "c008-raw-null-name"
             ? ["exit", "stdout", "stderr", "graphql-user-agent"]
             : ["graphql-user-agent"]),
+        loaded.spec.id,
       )
     }
     if (loaded.spec.id.startsWith("c037-")) {

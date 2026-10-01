@@ -203,7 +203,48 @@ pub fn load_with_phase_timeout(
     keyring: &impl KeyringReader,
     phase_timeout: Duration,
 ) -> AppStartupReport {
-    let config_report = load_startup(process, files, git);
+    load_with_policy(
+        process,
+        files,
+        git,
+        credential_files,
+        keyring,
+        phase_timeout,
+        false,
+    )
+}
+/// Source mine/query defer sort until the resolver pipeline reaches it.
+pub fn load_for_issue_reads(
+    process: &ProcessEnvSnapshot,
+    files: &impl FileSource,
+    git: &impl GitRootProbe,
+    credential_files: &impl CredentialFileSource,
+    keyring: &impl KeyringReader,
+) -> AppStartupReport {
+    load_with_policy(
+        process,
+        files,
+        git,
+        credential_files,
+        keyring,
+        DEFAULT_PHASE_TIMEOUT,
+        true,
+    )
+}
+fn load_with_policy(
+    process: &ProcessEnvSnapshot,
+    files: &impl FileSource,
+    git: &impl GitRootProbe,
+    credential_files: &impl CredentialFileSource,
+    keyring: &impl KeyringReader,
+    phase_timeout: Duration,
+    defer: bool,
+) -> AppStartupReport {
+    let config_report = if defer {
+        crate::config::load_startup_with_issue_read_sort(process, files, git, true)
+    } else {
+        load_startup(process, files, git)
+    };
     let mut diagnostics = config_report
         .diagnostics
         .into_iter()

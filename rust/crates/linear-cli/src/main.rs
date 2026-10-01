@@ -93,7 +93,25 @@ fn main() -> ExitCode {
     let keyring = LinuxKeyringReader::new();
     #[cfg(not(target_os = "linux"))]
     let keyring = UnsupportedKeyringReader;
-    let startup = load(
+    // Use the native parsed command to choose the one explicit startup exception.
+    let parsed = linear_cli::cli::parse(&argv.iter().map(OsString::from).collect::<Vec<_>>());
+    let defer_sort = matches!(
+        parsed.as_ref().ok().and_then(|cli| cli.command.as_ref()),
+        Some(linear_cli::cli::RootCommand::Issue(
+            linear_cli::cli::issue::Issue {
+                command: Some(
+                    linear_cli::cli::issue::IssueCommand::Mine(_)
+                        | linear_cli::cli::issue::IssueCommand::Query(_)
+                )
+            }
+        ))
+    );
+    let startup_loader = if defer_sort {
+        linear_cli::startup::load_for_issue_reads
+    } else {
+        load
+    };
+    let startup = startup_loader(
         &environment,
         &RealFileSource,
         &git,

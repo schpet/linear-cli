@@ -1,0 +1,122 @@
+{
+  "id": "c061-project-default-no-note",
+  "route": "linear issue query",
+  "reason": "project-default-no-note",
+  "argv": [
+    "issue",
+    "query",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "query-project",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"nodes\": [],\n  \"pageInfo\": {\n    \"hasNextPage\": false,\n    \"endCursor\": null\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "eee59c32e12b898038ff97de0ad9151f25d760507d294dd9a9f2fc9bc118ecb3"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "issues",
+            "operation": {
+              "document": "query GetIssuesForQuery( $sort: [IssueSortInput!] $filter: IssueFilter $first: Int $after: String $includeArchived: Boolean ) { issues( filter: $filter sort: $sort first: $first after: $after includeArchived: $includeArchived ) { nodes { id identifier title url priority priorityLabel estimate createdAt updatedAt state { id name color type position } assignee { id name displayName initials } team { id key name cyclesEnabled activeCycle { number } } project { id name } projectMilestone { id name } cycle { id number name isActive isNext isPrevious isFuture isPast } labels { nodes { id name color } } inverseRelations(first: 100) { nodes { id type issue { id identifier state { type } } } } } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "sort": [
+                  {
+                    "workflowState": {
+                      "order": "Ascending"
+                    }
+                  },
+                  {
+                    "priority": {
+                      "nulls": "last",
+                      "order": "Descending"
+                    }
+                  },
+                  {
+                    "manual": {
+                      "nulls": "last",
+                      "order": "Ascending"
+                    }
+                  }
+                ],
+                "first": 50,
+                "filter": {
+                  "team": {
+                    "key": {
+                      "eq": "ENG"
+                    }
+                  }
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issues": {
+                  "nodes": [],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

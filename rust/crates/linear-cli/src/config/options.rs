@@ -224,6 +224,7 @@ pub struct OptionInputs<'a> {
     pub global: Option<&'a ConfigTier>,
 }
 
+#[derive(Clone, Copy)]
 enum Raw<'a> {
     Text(&'a str),
     Toml(&'a ConfigValue),
@@ -431,6 +432,7 @@ pub struct ConfigOptions {
     api_key: Option<Resolved<ConfigSecret>>,
     workspace: Option<Resolved<String>>,
     issue_sort: Option<Resolved<IssueSort>>,
+    deferred_issue_sort: Option<Resolved<DeferredIssueSort>>,
     issue_create_ask_project: Option<Resolved<bool>>,
     issue_create_assign_self: Option<Resolved<AssignSelf>>,
     vcs: Option<Resolved<Vcs>>,
@@ -479,8 +481,42 @@ impl fmt::Debug for PrTemplatePath {
     }
 }
 
+// Only mine/query select this policy; other commands retain startup validation.
+#[derive(Clone, Debug)]
+enum DeferredIssueSort {
+    Parsed(IssueSort),
+    Invalid(serde_json::Value),
+}
+fn sort_raw_value(raw: Raw<'_>) -> serde_json::Value {
+    fn value(v: &ConfigValue) -> serde_json::Value {
+        match v {
+            ConfigValue::String(v) | ConfigValue::Datetime(v) => {
+                serde_json::Value::String(v.clone())
+            }
+            ConfigValue::Integer(v) => serde_json::Value::Number((*v).into()),
+            ConfigValue::Float(v) => serde_json::Number::from_f64(*v)
+                .map_or(serde_json::Value::Null, serde_json::Value::Number),
+            ConfigValue::Boolean(v) => serde_json::Value::Bool(*v),
+            ConfigValue::Array(v) => serde_json::Value::Array(v.iter().map(value).collect()),
+            ConfigValue::Table(v) => {
+                serde_json::Value::Object(v.iter().map(|(k, v)| (k.clone(), value(v))).collect())
+            }
+        }
+    }
+    match raw {
+        Raw::Text(v) => serde_json::Value::String(v.to_owned()),
+        Raw::Toml(v) => value(v),
+    }
+}
 impl ConfigOptions {
     pub fn from_inputs(inputs: OptionInputs<'_>) -> Result<Self, ConfigOptionError> {
+        Self::from_inputs_with_issue_read_sort(inputs, false)
+    }
+    /// Explicit command policy: defer only the sort value consumed by mine/query.
+    pub(crate) fn from_inputs_with_issue_read_sort(
+        inputs: OptionInputs<'_>,
+        defer: bool,
+    ) -> Result<Self, ConfigOptionError> {
         if !inputs.env.cwd.is_absolute() {
             return Err(error(
                 None,
@@ -494,7 +530,17 @@ impl ConfigOptions {
             text(raw).map(ConfigSecret)
         })?;
         let workspace = select(&inputs, OptionKey::Workspace, text)?;
-        let issue_sort = select(&inputs, OptionKey::IssueSort, issue_sort)?;
+        let (issue_sort, deferred_issue_sort) = if defer {
+            let selected = select(&inputs, OptionKey::IssueSort, |raw| {
+                Ok(match issue_sort(raw) {
+                    Ok(value) => DeferredIssueSort::Parsed(value),
+                    Err(_) => DeferredIssueSort::Invalid(sort_raw_value(raw)),
+                })
+            })?;
+            (None, selected)
+        } else {
+            (select(&inputs, OptionKey::IssueSort, issue_sort)?, None)
+        };
         let issue_create_ask_project = select(&inputs, OptionKey::IssueCreateAskProject, boolean)?;
         let issue_create_assign_self =
             select(&inputs, OptionKey::IssueCreateAssignSelf, assign_self)?;
@@ -512,6 +558,7 @@ impl ConfigOptions {
             api_key,
             workspace,
             issue_sort,
+            deferred_issue_sort,
             issue_create_ask_project,
             issue_create_assign_self,
             vcs,
@@ -565,6 +612,30 @@ impl ConfigOptions {
     }
 
     /// Only commands with a registered `--sort` can supply this typed override.
+    /// Source failure stage is the command's filter pipeline, never startup.
+    pub fn issue_read_sort(
+        &self,
+        cli: Option<IssueSort>,
+    ) -> Result<IssueSort, crate::error::AppError> {
+        if let Some(cli) = cli {
+            return Ok(cli);
+        }
+        match self.deferred_issue_sort.as_ref().map(|v| v.value()) {
+            Some(DeferredIssueSort::Parsed(value)) => Ok(*value),
+            Some(DeferredIssueSort::Invalid(raw)) => {
+                let text = serde_json::to_string(&crate::graphql::bulk_error::JsValue(raw))
+                    .map_err(|e| {
+                        crate::error::AppError::new(
+                            crate::error::AppErrorKind::Invariant,
+                            "could not format issue sort input",
+                        )
+                        .with_source(e)
+                    })?;
+                Err(crate::error::AppError::new(crate::error::AppErrorKind::Validation,format!("Invalid issue sort: {text}")).with_suggestion("Use one of: manual, priority (via --sort, the issue_sort config option, or the LINEAR_ISSUE_SORT environment variable)"))
+            }
+            None => Ok(self.issue_sort(None).0),
+        }
+    }
     pub fn issue_sort(&self, cli: Option<IssueSort>) -> (IssueSort, Option<OptionSource>) {
         match cli {
             Some(value) => (value, Some(OptionSource::Cli)),

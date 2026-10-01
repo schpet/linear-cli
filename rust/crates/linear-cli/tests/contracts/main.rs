@@ -15,3 +15,5 @@ mod output;
 mod typed_cli;
 
 mod config_generate;
+
+mod issue_reads;

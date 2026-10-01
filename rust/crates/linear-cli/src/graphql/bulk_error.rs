@@ -30,7 +30,7 @@ fn strict(message: &str) -> BulkExchangeFailure {
     BulkExchangeFailure::Strict(AppError::new(AppErrorKind::GraphQl, message))
 }
 /// JS property enumeration and binary64 JSON numbers, including integer-backed values.
-struct JsValue<'a>(&'a Value);
+pub(crate) struct JsValue<'a>(pub(crate) &'a Value);
 fn index(key: &str) -> Option<u32> {
     let value = key.parse::<u32>().ok()?;
     (value != u32::MAX && value.to_string() == key).then_some(value)

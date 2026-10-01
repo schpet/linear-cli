@@ -227,3 +227,78 @@ async fn readable_file_url_decodes_path_and_returns_exact_bytes_while_missing_fi
     );
     std::fs::remove_dir(&private).unwrap();
 }
+
+#[tokio::test]
+async fn issue_attachment_get_has_exact_caller_prefix_and_same_uncapped_header_free_bytes() {
+    let (url, server) = serve("200 OK", vec![0, 255, 7], Duration::from_millis(50));
+    assert_eq!(
+        transport(&url)
+            .download_issue_attachment(&url)
+            .await
+            .unwrap(),
+        [0, 255, 7]
+    );
+    let request = server.join().unwrap().to_ascii_lowercase();
+    assert!(
+        !request.contains("user-agent:")
+            && !request.contains("accept-encoding:")
+            && !request.contains("authorization:")
+    );
+    let (url, server) = serve("500 Fixture download failed", vec![], Duration::ZERO);
+    assert_eq!(
+        transport(&url)
+            .download_issue_attachment(&url)
+            .await
+            .unwrap_err()
+            .message,
+        "Failed to download: 500 Fixture download failed"
+    );
+    server.join().unwrap();
+}
+
+#[tokio::test]
+async fn both_fetch_callers_allow_twenty_redirects_and_refuse_the_twenty_first() {
+    for attachment in [false, true] {
+        for redirects in [20, 21] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            let url = format!("{base}/hop/0");
+            let worker = thread::spawn(move || {
+                for index in 0..=20 {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(2)))
+                        .unwrap();
+                    let mut request = Vec::new();
+                    while !request.ends_with(b"\r\n\r\n") {
+                        let mut byte = [0];
+                        stream.read_exact(&mut byte).unwrap();
+                        request.push(byte[0]);
+                    }
+                    let request = String::from_utf8(request).unwrap();
+                    assert!(request.starts_with(&format!("GET /hop/{index} HTTP/1.1\r\n")));
+                    if index < redirects {
+                        write!(stream,"HTTP/1.1 302 Found\r\nLocation: {base}/hop/{}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",index+1).unwrap();
+                    } else {
+                        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\nConnection: close\r\n\r\nFAKE").unwrap();
+                    }
+                }
+            });
+            let client = transport(&url);
+            let result = if attachment {
+                client.download_issue_attachment(&url).await
+            } else {
+                client.download_markdown_image(&url).await
+            };
+            if redirects == 20 {
+                assert_eq!(result.unwrap(), b"FAKE");
+            } else {
+                assert_eq!(
+                    result.unwrap_err().message,
+                    "NetworkError when attempting to fetch resource"
+                );
+            }
+            worker.join().unwrap();
+        }
+    }
+}

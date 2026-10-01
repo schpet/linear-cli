@@ -33,3 +33,5 @@ pub use startup::{
     load_startup, render_diagnostic,
 };
 pub use transport::{TransportEnvError, TransportEnvInputs};
+
+pub(crate) use startup::load_startup_with_issue_read_sort;

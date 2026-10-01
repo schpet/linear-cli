@@ -1,0 +1,257 @@
+{
+  "id": "c060-combined-filters",
+  "route": "linear issue mine",
+  "reason": "combined-filters",
+  "argv": [
+    "issue",
+    "mine",
+    "--project",
+    "f0000000-0000-4000-8000-000000000002",
+    "--milestone",
+    "f0000000-0000-4000-8000-000000000003",
+    "--label",
+    "Bug",
+    "--label",
+    "UI",
+    "--created-after",
+    "2024-01-01",
+    "--updated-after",
+    "2024-01-02T03:00:00Z",
+    "--limit",
+    "1"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_TEAM_ID": "ENG"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "◌   ID    TITLE            LABELS B E STATE     UPDATED \n⚠⚠⚠ ENG-1 Issue 1 界 title          - Unstarted just now\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "issues",
+            "operation": {
+              "document": "query GetIssuesForState($sort: [IssueSortInput!], $filter: IssueFilter!, $first: Int, $after: String) { issues(filter: $filter, sort: $sort, first: $first, after: $after) { nodes { id identifier title priority estimate assignee { initials } state { id name color type position } cycle { id number name isActive isNext isPrevious isFuture isPast } team { id key cyclesEnabled activeCycle { number } } labels { nodes { id name color } } inverseRelations(first: 100) { nodes { id type issue { id identifier state { type } } } } updatedAt } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "sort": [
+                  {
+                    "workflowState": {
+                      "order": "Ascending"
+                    }
+                  },
+                  {
+                    "priority": {
+                      "nulls": "last",
+                      "order": "Descending"
+                    }
+                  },
+                  {
+                    "manual": {
+                      "nulls": "last",
+                      "order": "Ascending"
+                    }
+                  }
+                ],
+                "filter": {
+                  "team": {
+                    "key": {
+                      "eq": "ENG"
+                    }
+                  },
+                  "state": {
+                    "type": {
+                      "in": [
+                        "unstarted"
+                      ]
+                    }
+                  },
+                  "assignee": {
+                    "isMe": {
+                      "eq": true
+                    }
+                  },
+                  "project": {
+                    "id": {
+                      "eq": "f0000000-0000-4000-8000-000000000002"
+                    }
+                  },
+                  "projectMilestone": {
+                    "id": {
+                      "eq": "f0000000-0000-4000-8000-000000000003"
+                    }
+                  },
+                  "labels": {
+                    "and": [
+                      {
+                        "some": {
+                          "name": {
+                            "eqIgnoreCase": "Bug"
+                          }
+                        }
+                      },
+                      {
+                        "some": {
+                          "name": {
+                            "eqIgnoreCase": "UI"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "createdAt": {
+                    "gte": "2024-01-01T00:00:00.000Z"
+                  },
+                  "updatedAt": {
+                    "gte": "2024-01-02T03:00:00.000Z"
+                  }
+                },
+                "first": 1
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issues": {
+                  "nodes": [
+                    {
+                      "id": "f0000000-0000-4000-8000-000000000001",
+                      "identifier": "ENG-1",
+                      "title": "Issue 1 界 title",
+                      "priority": 1,
+                      "estimate": null,
+                      "updatedAt": "2999-01-01T00:00:00.000Z",
+                      "state": {
+                        "id": "state-unstarted",
+                        "name": "Unstarted",
+                        "color": "#112233",
+                        "type": "unstarted",
+                        "position": 1
+                      },
+                      "assignee": null,
+                      "team": {
+                        "id": "team-ENG",
+                        "key": "ENG",
+                        "cyclesEnabled": false,
+                        "activeCycle": null
+                      },
+                      "cycle": null,
+                      "labels": {
+                        "nodes": []
+                      },
+                      "inverseRelations": {
+                        "nodes": []
+                      }
+                    },
+                    {
+                      "id": "f0000000-0000-4000-8000-000000000002",
+                      "identifier": "ENG-2",
+                      "title": "Issue 2 界 title",
+                      "priority": 2,
+                      "estimate": 2,
+                      "updatedAt": "2999-01-01T00:00:00.000Z",
+                      "state": {
+                        "id": "state-started",
+                        "name": "Started",
+                        "color": "#112233",
+                        "type": "started",
+                        "position": 1
+                      },
+                      "assignee": {
+                        "initials": "DP"
+                      },
+                      "team": {
+                        "id": "team-ENG",
+                        "key": "ENG",
+                        "cyclesEnabled": false,
+                        "activeCycle": null
+                      },
+                      "cycle": null,
+                      "labels": {
+                        "nodes": [
+                          {
+                            "id": "label",
+                            "name": "Bug 界",
+                            "color": "#ff00ff"
+                          }
+                        ]
+                      },
+                      "inverseRelations": {
+                        "nodes": [
+                          {
+                            "id": "relation",
+                            "type": "blocks",
+                            "issue": {
+                              "id": "blocked",
+                              "identifier": "ENG-999",
+                              "state": {
+                                "type": "started"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": false,
+                    "endCursor": null
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c060-help",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "List your issues\n\nUsage: linear issue mine [OPTIONS]\n\nOptions:\n  -s, --state <state>                 Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states) [default: unstarted]\n      --workspace <slug>              Target workspace (uses credentials)\n      --all-states                    Show issues from all states\n      --sort <sort>                   Sort order (default: priority, can also be set via LINEAR_ISSUE_SORT) [possible values: manual, priority]\n      --team <team>                   Team key, name, or ID to list issues for (if not your default team)\n      --project <project>             Filter by project (UUID, slug ID, or name)\n      --project-label <projectLabel>  Filter by project label name (shows issues from all projects with this label)\n      --cycle <cycle>                 Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1\n      --milestone <milestone>         Filter by project milestone (UUID, or name when --project is set)\n  -l, --label <label>                 Filter by label name (can be repeated for multiple labels)\n      --limit <limit>                 Maximum number of issues to fetch (default: 50, use 0 for unlimited) [default: 50]\n      --created-after <date>          Filter issues created after this date (ISO 8601 or YYYY-MM-DD)\n      --updated-after <date>          Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)\n  -w, --web                           Open in web browser\n  -a, --app                           Open in Linear.app\n      --no-pager                      Disable automatic paging for long output\n  -h, --help                          Print help\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

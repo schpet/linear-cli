@@ -245,8 +245,12 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
         Some(cli::RootCommand::Issue(action)) => match action.command {
             None => parent_help(context, "linear issue"),
             Some(cli::issue::IssueCommand::Id(_)) => dispatch_issue_id(context),
-            Some(cli::issue::IssueCommand::Mine(_)) => unsupported("linear issue mine"),
-            Some(cli::issue::IssueCommand::Query(_)) => unsupported("linear issue query"),
+            Some(cli::issue::IssueCommand::Mine(action)) => {
+                dispatch_issue_mine(context, &action, workspace)
+            }
+            Some(cli::issue::IssueCommand::Query(action)) => {
+                dispatch_issue_query(context, &action, workspace)
+            }
             Some(cli::issue::IssueCommand::Title(action)) => dispatch_issue_detail(
                 context,
                 action.issue_id.as_deref(),
@@ -254,7 +258,9 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 IssueDetailField::Title,
             ),
             Some(cli::issue::IssueCommand::Start(_)) => unsupported("linear issue start"),
-            Some(cli::issue::IssueCommand::View(_)) => unsupported("linear issue view"),
+            Some(cli::issue::IssueCommand::View(action)) => {
+                dispatch_issue_view(context, &action, workspace)
+            }
             Some(cli::issue::IssueCommand::Url(action)) => dispatch_issue_detail(
                 context,
                 action.issue_id.as_deref(),
@@ -6407,4 +6413,838 @@ fn dispatch_config_generate(
         Ok(ExitStatus::Success)
     })();
     result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+}
+
+// Source resolver order belongs to these commands; the helpers return owned data
+// before prompts or stream output borrow the application context.
+fn issue_read_transport(
+    context: &AppContext<'_>,
+    workspace: Option<&str>,
+) -> Result<crate::graphql::transport::GraphQlTransport, AppError> {
+    let config = context.config()?;
+    client::prepare_transport(
+        &config.options,
+        context.credentials()?,
+        workspace,
+        &config.transport_env,
+    )
+}
+fn issue_read_team(
+    context: &AppContext<'_>,
+    transport: &crate::graphql::transport::GraphQlTransport,
+    value: &str,
+    workspace: Option<&str>,
+) -> Result<crate::refs::ResolvedTeam, AppError> {
+    let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+    let prepared = prepare_team_lookup(
+        value,
+        &WorkspaceScope::from_selection(&inputs, context.credentials()?),
+    )?;
+    block_on_network(crate::refs::resolve_team(
+        &prepared,
+        |request| async move { crate::commands::issue_read::exchange(transport, &request).await },
+        |request| async move { crate::commands::issue_read::exchange(transport, &request).await },
+    ))
+}
+fn issue_read_project(
+    context: &mut AppContext<'_>,
+    transport: &crate::graphql::transport::GraphQlTransport,
+    value: Option<&str>,
+    workspace: Option<&str>,
+) -> Result<Option<String>, AppError> {
+    use crate::commands::issue_read as command;
+    use crate::graphql::{
+        envelope::GraphQlRequest,
+        operations::issue_read::{GetProjectIdOptionsByName, GetProjectIdOptionsByNameVariables},
+    };
+    use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
+    use cynic::QueryBuilder;
+    let Some(value) = value else { return Ok(None) };
+    let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+    let reference = prepare_project_lookup(
+        value,
+        &WorkspaceScope::from_selection(&inputs, context.credentials()?),
+    )?;
+    if let Some(id) = block_on_network(command::project_id(transport, &reference))? {
+        return Ok(Some(id));
+    }
+    let data: GetProjectIdOptionsByName = block_on_network(command::exchange(
+        transport,
+        &GraphQlRequest::with_variables(GetProjectIdOptionsByName::build(
+            GetProjectIdOptionsByNameVariables {
+                name: value.to_owned(),
+            },
+        )),
+    ))?;
+    let mut rows = vec![];
+    for row in data.projects.nodes {
+        if let Some(existing) = rows
+            .iter_mut()
+            .find(|r: &&mut (String, String)| r.0 == row.id.inner())
+        {
+            existing.1 = row.name;
+        } else {
+            rows.push((row.id.into_inner(), row.name));
+        }
+    }
+    if rows.is_empty() {
+        return Err(AppError::not_found("Project", value));
+    }
+    if !context.stdin_tty {
+        return Err(AppError::new(
+            AppErrorKind::Validation,
+            format!(
+                "Project \"{value}\" not found. Similar projects: {}",
+                rows.iter()
+                    .map(|r| r.1.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        ));
+    }
+    let single = rows.len() == 1;
+    let message = if single {
+        format!(
+            "Project named {value} does not exist, but {} exists. Is this what you meant?",
+            rows.first()
+                .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "Empty project menu"))?
+                .1
+        )
+    } else {
+        format!(
+            "Project with {value} does not exist, but the following exist. Is any of these what you meant?"
+        )
+    };
+    let mut options = rows
+        .iter()
+        .enumerate()
+        .map(|(index, (_, name))| PlainOption {
+            label: if single {
+                "yes".to_owned()
+            } else {
+                name.clone()
+            },
+            value: index.to_string(),
+            script_token: index.to_string(),
+        })
+        .collect::<Vec<_>>();
+    options.push(PlainOption {
+        label: if single {
+            "no".to_owned()
+        } else {
+            "none of the above".to_owned()
+        },
+        value: "none".to_owned(),
+        script_token: "none".to_owned(),
+    });
+    command::project_menu_text(
+        &message,
+        &options
+            .iter()
+            .map(|option| option.label.as_str())
+            .collect::<Vec<_>>(),
+    )?;
+    let mut session = PromptSession::stdin_stdio(&mut *context.stdout)?;
+    let result = session.select(&PlainSelect {
+        message: &message,
+        options: &options,
+        default_index: 0,
+        default_hint: None,
+    })?;
+    let result = session.finish(result)?;
+    match result {
+        PromptOutcome::Submitted(selected) if selected == "none" => Ok(None),
+        PromptOutcome::Submitted(selected) => selected
+            .parse::<usize>()
+            .ok()
+            .and_then(|index| rows.get(index))
+            .map(|r| Some(r.0.clone()))
+            .ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Invariant,
+                    "Project menu returned unknown selection",
+                )
+            }),
+        PromptOutcome::Interrupted => Err(AppError::new(AppErrorKind::Cancellation, "Interrupted")),
+        PromptOutcome::EndOfInput => Err(AppError::new(
+            AppErrorKind::Validation,
+            "unexpected EOF while selecting project",
+        )),
+    }
+}
+fn issue_read_cycle(
+    context: &AppContext<'_>,
+    transport: &crate::graphql::transport::GraphQlTransport,
+    value: Option<&str>,
+    team_key: Option<&str>,
+    team_id: Option<&str>,
+    workspace: Option<&str>,
+) -> Result<Option<String>, AppError> {
+    let Some(value) = value else { return Ok(None) };
+    let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+    let id = match team_id {
+        Some(id) => id.to_owned(),
+        None => {
+            issue_read_team(
+                context,
+                transport,
+                team_key.ok_or_else(|| {
+                    AppError::new(
+                        AppErrorKind::Validation,
+                        "--cycle requires a single team scope",
+                    )
+                })?,
+                workspace,
+            )?
+            .id
+        }
+    };
+    let url = crate::refs::expect_url_kind(
+        value,
+        crate::refs::LinearUrlKind::Cycle,
+        "a cycle URL, number, or name",
+        &WorkspaceScope::from_selection(&inputs, context.credentials()?),
+    )?;
+    block_on_network(cycle_view::resolve_id_with(
+        &id,
+        value,
+        url.as_ref(),
+        |request| async move { crate::commands::issue_read::exchange(transport, &request).await },
+    ))
+    .map(Some)
+}
+fn issue_read_sort(context: &AppContext<'_>, sort: Option<cli::Sort>) -> Result<bool, AppError> {
+    use crate::config::IssueSort;
+    let value = sort.map(|v| match v {
+        cli::Sort::Manual => IssueSort::Manual,
+        cli::Sort::Priority => IssueSort::Priority,
+    });
+    Ok(context.config()?.options.issue_read_sort(value)? == IssueSort::Priority)
+}
+fn issue_read_output(
+    context: &mut AppContext<'_>,
+    output: &str,
+    pager_enabled: bool,
+) -> Result<ExitStatus, AppError> {
+    use crate::platform::pager;
+    if !context.stdout_tty {
+        context.write_stdout_with_policy(
+            format!("{output}\n").as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        return Ok(ExitStatus::Success);
+    }
+    let config = context.config()?;
+    let env = config.child_env.clone();
+    let pager = config.pager.clone();
+    let mut runner = pager::ProcessPagerRunner::inheriting(env.iter());
+    let request = pager::PagerRequest {
+        enabled: pager_enabled,
+        stdout_tty: true,
+        size: pager::stdout_size(),
+        pager: pager.as_deref(),
+        os: pager::HOST_OS,
+    };
+    pager::show(output, &request, &mut runner, context.stdout).map(|_| ExitStatus::Success)
+}
+fn issue_read_project_conflict(project: Option<&str>, label: Option<&str>) -> Result<(), AppError> {
+    if project.is_some() && label.is_some() {
+        return Err(AppError::new(AppErrorKind::Validation,"Cannot use --project and --project-label together").with_suggestion("Use --project to filter by a single project, or --project-label to filter by all projects with a given label."));
+    }
+    Ok(())
+}
+fn issue_read_milestone_conflict(
+    milestone: Option<&str>,
+    project_label: Option<&str>,
+) -> Result<(), AppError> {
+    if milestone.is_some() && project_label.is_some() {
+        return Err(AppError::new(
+            AppErrorKind::Validation,
+            "--milestone cannot be used with --project-label",
+        )
+        .with_suggestion(
+            "Use --project to specify a single project when filtering by milestone.",
+        ));
+    }
+    Ok(())
+}
+fn dispatch_issue_mine(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueMine,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::issue_read as command;
+    if action.web || action.app {
+        let Some(team) = configured_team_key(&context.config()?.options) else {
+            context.write_stderr(
+                b"Could not determine team id from configuration or directory name.\n",
+            )?;
+            return Ok(ExitStatus::HandledFailure);
+        };
+        let Some(workspace) = workspace.or(context
+            .config()?
+            .options
+            .workspace()
+            .map(|v| v.value().as_str())
+            .filter(|v| !v.is_empty()))
+        else {
+            context.write_stderr(
+                b"workspace is not set via command line, configuration file, or environment.\n",
+            )?;
+            return Ok(ExitStatus::HandledFailure);
+        };
+        let filter = "eyJhbmQiOlt7ImFzc2lnbmVlIjp7Im9yIjpbeyJpc01lIjp7ImVxIjp0cnVlfX1dfX1dfQ";
+        crate::platform::opener::open(
+            &format!("https://linear.app/{workspace}/team/{team}/active?filter={filter}"),
+            action.app,
+        )?;
+        return Ok(ExitStatus::Success);
+    }
+    let result = (|| {
+        if action.assignee.is_some() || action.all_assignees || action.unassigned {
+            let flag = if action.assignee.is_some() {
+                "--assignee"
+            } else if action.all_assignees {
+                "--all-assignees"
+            } else {
+                "--unassigned"
+            };
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                format!("{flag} has been removed from 'issue mine'"),
+            )
+            .with_suggestion(format!(
+                "Use 'linear issue query {flag}' for assignee filtering."
+            )));
+        }
+        if action.all_states
+            && (action.state.len() != 1
+                || action.state.first().map(String::as_str) != Some("unstarted"))
+        {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                "Cannot use --all-states with --state flag",
+            ));
+        }
+        let priority = issue_read_sort(context, action.sort)?;
+        if action.team.is_none() && configured_team_key(&context.config()?.options).is_none() {
+            let inside = std::process::Command::new("git")
+                .args(["rev-parse", "--is-inside-work-tree"])
+                .current_dir(&context.cwd)
+                .stdin(std::process::Stdio::null())
+                .envs(context.config()?.child_env.iter())
+                .output()
+                .is_ok_and(|o| o.status.success());
+            return Err(AppError::new(AppErrorKind::Validation, "No default team configured and no team scope provided").with_suggestion(if inside { "Use --team <key, name, or ID> to specify a team, or run `linear config` to link this repository to a team." } else { "Use --team <key, name, or ID> to specify a team." }));
+        }
+        let transport = issue_read_transport(context, workspace)?;
+        let explicit = action
+            .team
+            .as_deref()
+            .map(|team| issue_read_team(context, &transport, team, workspace))
+            .transpose()?;
+        let team = explicit
+            .as_ref()
+            .map(|t| t.key.clone())
+            .or_else(|| configured_team_key(&context.config().ok()?.options));
+        let team = team.ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                "Validated issue team scope is absent",
+            )
+        })?;
+        issue_read_project_conflict(action.project.as_deref(), action.project_label.as_deref())?;
+        let project =
+            issue_read_project(context, &transport, action.project.as_deref(), workspace)?;
+        let cycle = issue_read_cycle(
+            context,
+            &transport,
+            action.cycle.as_deref(),
+            Some(&team),
+            explicit.as_ref().map(|t| t.id.as_str()),
+            workspace,
+        )?;
+        issue_read_milestone_conflict(
+            action.milestone.as_deref(),
+            action.project_label.as_deref(),
+        )?;
+        if action
+            .milestone
+            .as_deref()
+            .is_some_and(|m| !crate::refs::is_linear_uuid(m))
+            && project.is_none()
+        {
+            return Err(AppError::new(AppErrorKind::Validation,"--milestone requires --project to be set").with_suggestion("Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly."));
+        }
+        let milestone = action
+            .milestone
+            .as_deref()
+            .map(|m| block_on_network(command::milestone_id(&transport, m, project.as_deref())))
+            .transpose()?;
+        let rows = agent_session_network(context, false, async {
+            let mut filter = crate::graphql::operations::issue_read::IssueFilter {
+                team: Some(command::team_filter(std::slice::from_ref(&team), true)),
+                state: if action.all_states {
+                    None
+                } else {
+                    command::state_filter(
+                        &transport,
+                        &action.state,
+                        Some(std::slice::from_ref(&team)),
+                    )
+                    .await?
+                },
+                assignee: command::assignee_filter(&transport, None, false, true).await?,
+                ..Default::default()
+            };
+            command::entity_filters(
+                &mut filter,
+                project,
+                action.project_label.as_deref(),
+                cycle,
+                milestone,
+                &action.label,
+            );
+            command::apply_dates(
+                &mut filter,
+                action.created_after.as_deref(),
+                action.updated_after.as_deref(),
+            )?;
+            command::mine(&transport, filter, priority, action.limit).await
+        })?;
+        let table = command::table(
+            &rows
+                .into_iter()
+                .map(command::TableRow::from)
+                .collect::<Vec<_>>(),
+            true,
+            false,
+            false,
+            if context.stdout_tty {
+                crate::platform::pager::stdout_size().map_or(80, |s| usize::from(s.columns))
+            } else {
+                120
+            },
+            !context.no_color(),
+            std::time::SystemTime::now(),
+        )?;
+        issue_read_output(context, &table, !action.no_pager)
+    })();
+    result.map_err(|e: AppError| e.with_context("Failed to list issues"))
+}
+fn dispatch_issue_query(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueQuery,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::issue_read as command;
+    use crate::graphql::operations::issue_read::IssueFilter;
+    let result = (|| {
+        let err = |m: &str| AppError::new(AppErrorKind::Validation, m);
+        if !action.team.is_empty() && action.all_teams {
+            return Err(err("Cannot use both --team and --all-teams flags"));
+        }
+        if usize::from(action.assignee.is_some())
+            + usize::from(action.all_assignees)
+            + usize::from(action.unassigned)
+            > 1
+        {
+            return Err(err(
+                "Cannot specify multiple assignee filters (--assignee, --all-assignees, --unassigned)",
+            ));
+        }
+        if action.all_states && !action.state.is_empty() {
+            return Err(err("Cannot use --all-states with --state flag"));
+        }
+        issue_read_project_conflict(action.project.as_deref(), action.project_label.as_deref())?;
+        if action
+            .milestone
+            .as_deref()
+            .is_some_and(|m| !crate::refs::is_linear_uuid(m))
+            && action.project.is_none()
+        {
+            return Err(err("--milestone requires --project to be set").with_suggestion("Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly."));
+        }
+        issue_read_milestone_conflict(
+            action.milestone.as_deref(),
+            action.project_label.as_deref(),
+        )?;
+        if action.search_comments && action.search.is_none() {
+            return Err(err("--search-comments requires --search to be set").with_suggestion("Use --search to provide a search term, e.g. --search \"oauth timeout\" --search-comments."));
+        }
+        if action.sort.is_some() && action.search.is_some() {
+            return Err(err("--sort cannot be used with --search").with_suggestion(
+                "Search results use relevance ordering. Remove --sort when using --search.",
+            ));
+        }
+        if action.limit < 0.0 {
+            return Err(err("--limit must be 0 or greater"));
+        }
+        let default_team = if !action.all_teams && action.team.is_empty() {
+            let team = configured_team_key(&context.config()?.options).ok_or_else(||err("No default team configured and no team scope provided").with_suggestion("Use --team <key, name, or ID> to specify a team, or --all-teams to query the whole workspace."))?;
+            if context.config()?.options.team_id().is_some_and(|v| {
+                matches!(
+                    v.source(),
+                    crate::config::OptionSource::Env
+                        | crate::config::OptionSource::GlobalConfig { .. }
+                )
+            }) {
+                context.write_stderr(format!("Note: using default team {team}. Pass --team <key, name, or ID> or --all-teams to be explicit.\n").as_bytes())?;
+            }
+            Some(team)
+        } else {
+            None
+        };
+        let transport = issue_read_transport(context, workspace)?;
+        let (keys, multi, explicit_id) = if action.all_teams {
+            (None, true, None)
+        } else if !action.team.is_empty() {
+            let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+            let scope = WorkspaceScope::from_selection(&inputs, context.credentials()?);
+            let prepared = action
+                .team
+                .iter()
+                .map(|t| prepare_team_lookup(t, &scope))
+                .collect::<Result<Vec<_>, _>>()?;
+            let resolved = block_on_network(async {
+                futures_util::future::try_join_all(prepared.iter().map(|p| {
+                    let transport = &transport;
+                    crate::refs::resolve_team(
+                        p,
+                        move |r| async move { command::exchange(transport, &r).await },
+                        move |r| async move { command::exchange(transport, &r).await },
+                    )
+                }))
+                .await
+            })?;
+            let mut rows = vec![];
+            for r in resolved {
+                if !rows
+                    .iter()
+                    .any(|t: &crate::refs::ResolvedTeam| t.id == r.id)
+                {
+                    rows.push(r);
+                }
+            }
+            let id = if rows.len() == 1 {
+                rows.first().map(|t| t.id.clone())
+            } else {
+                None
+            };
+            (
+                Some(rows.iter().map(|t| t.key.clone()).collect::<Vec<_>>()),
+                rows.len() > 1,
+                id,
+            )
+        } else {
+            let team = default_team.ok_or_else(|| {
+                AppError::new(
+                    AppErrorKind::Invariant,
+                    "default issue team was not prepared",
+                )
+            })?;
+            (Some(vec![team]), false, None)
+        };
+        let state = block_on_network(command::state_filter(
+            &transport,
+            &action.state,
+            keys.as_deref(),
+        ))?;
+        let project =
+            issue_read_project(context, &transport, action.project.as_deref(), workspace)?;
+        if action.cycle.is_some() && (multi || keys.as_ref().is_none_or(|k| k.len() != 1)) {
+            return Err(err("--cycle requires a single team scope").with_suggestion("Use --team <key, name, or ID> to specify exactly one team when filtering by cycle."));
+        }
+        let cycle = issue_read_cycle(
+            context,
+            &transport,
+            action.cycle.as_deref(),
+            keys.as_ref().and_then(|k| k.first()).map(String::as_str),
+            explicit_id.as_deref(),
+            workspace,
+        )?;
+        let milestone = action
+            .milestone
+            .as_deref()
+            .map(|m| block_on_network(command::milestone_id(&transport, m, project.as_deref())))
+            .transpose()?;
+        let priority = if action.search.is_none() {
+            issue_read_sort(context, action.sort).map(Some)
+        } else {
+            Ok(None)
+        };
+        let columns = if context.stdout_tty {
+            crate::platform::pager::stdout_size().map_or(80, |s| usize::from(s.columns))
+        } else {
+            120
+        };
+        let color = !context.no_color();
+        let output = agent_session_network(context, action.json, async {
+            let priority = priority?;
+            let term = action
+                .search
+                .as_deref()
+                .map(|s| s.trim_matches(crate::text::js_space).to_owned());
+            if term.as_ref().is_some_and(String::is_empty) {
+                return Err(err("--search term cannot be empty"));
+            }
+            let mut filter = IssueFilter {
+                team: keys.as_deref().map(command::query_team_filter),
+                state,
+                assignee: command::assignee_filter(
+                    &transport,
+                    action.assignee.as_deref(),
+                    action.unassigned,
+                    false,
+                )
+                .await?,
+                ..Default::default()
+            };
+            command::entity_filters(
+                &mut filter,
+                project,
+                action.project_label.as_deref(),
+                cycle,
+                if term.is_some() { None } else { milestone },
+                &action.label,
+            );
+            command::apply_dates(
+                &mut filter,
+                action.created_after.as_deref(),
+                action.updated_after.as_deref(),
+            )?;
+            let filter = if serde_json::to_value(&filter)
+                .map_err(|e| {
+                    AppError::new(AppErrorKind::Invariant, "could not inspect typed filter")
+                        .with_source(e)
+                })?
+                .as_object()
+                .is_some_and(|m| m.is_empty())
+            {
+                None
+            } else {
+                Some(filter)
+            };
+            if let Some(term) = term {
+                let data = command::search(
+                    &transport,
+                    filter,
+                    term,
+                    action.limit,
+                    action.include_archived,
+                    action.search_comments,
+                )
+                .await?;
+                if action.json {
+                    issue_read_json(&data)
+                } else {
+                    command::table(
+                        &data
+                            .nodes
+                            .into_iter()
+                            .map(command::TableRow::from)
+                            .collect::<Vec<_>>(),
+                        false,
+                        multi,
+                        action.assignee.is_none() && !action.unassigned,
+                        columns,
+                        color,
+                        std::time::SystemTime::now(),
+                    )
+                }
+            } else {
+                let data = command::query(
+                    &transport,
+                    filter,
+                    priority.ok_or_else(|| err("Missing issue sort"))?,
+                    action.limit,
+                    action.include_archived,
+                )
+                .await?;
+                if action.json {
+                    issue_read_json(&data)
+                } else {
+                    command::table(
+                        &data
+                            .nodes
+                            .into_iter()
+                            .map(command::TableRow::from)
+                            .collect::<Vec<_>>(),
+                        false,
+                        multi,
+                        action.assignee.is_none() && !action.unassigned,
+                        columns,
+                        color,
+                        std::time::SystemTime::now(),
+                    )
+                }
+            }
+        })?;
+        if action.json {
+            context.write_stdout_with_policy(
+                format!("{output}\n").as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+            Ok(ExitStatus::Success)
+        } else {
+            issue_read_output(context, &output, !action.no_pager)
+        }
+    })();
+    result.map_err(|e: AppError| e.with_context("Failed to query issues"))
+}
+fn issue_read_json(value: &impl serde::Serialize) -> Result<String, AppError> {
+    serde_json::to_string_pretty(value).map_err(|e| {
+        AppError::new(AppErrorKind::Invariant, "could not serialize issue output").with_source(e)
+    })
+}
+fn dispatch_issue_view(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueView,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::issue_view as command;
+    use crate::platform::{markdown_assets, markdown_terminal, pager};
+    if action.web || action.app {
+        let id = match resolve_issue(context, action.issue_id.as_deref(), workspace) {
+            Ok(id) => id,
+            Err(e) if e.message == "Could not determine issue ID" => {
+                let message = match context
+                    .config()?
+                    .options
+                    .vcs()
+                    .map(|v| *v.value())
+                    .unwrap_or(crate::config::Vcs::Git)
+                {
+                    crate::config::Vcs::Git => {
+                        "The current branch does not contain a valid linear issue id.\n"
+                    }
+                    crate::config::Vcs::Jj => {
+                        "No Linear-issue trailer found in current or ancestor commits.\n"
+                    }
+                };
+                context.write_stderr(message.as_bytes())?;
+                return Ok(ExitStatus::HandledFailure);
+            }
+            Err(e) => return Err(e),
+        };
+        let configured = workspace
+            .or_else(|| {
+                context
+                    .config()
+                    .ok()?
+                    .options
+                    .workspace()
+                    .map(|v| v.value().as_str())
+            })
+            .filter(|s| !s.is_empty());
+        let Some(workspace) = configured else {
+            context.write_stderr(
+                b"workspace is not set via command line, configuration file, or environment.\n",
+            )?;
+            return Ok(ExitStatus::HandledFailure);
+        };
+        let url = format!("https://linear.app/{workspace}/issue/{id}");
+        context.write_stdout_with_policy(
+            format!(
+                "Opening {url} in {}\n",
+                if action.app {
+                    "Linear.app"
+                } else {
+                    "web browser"
+                }
+            )
+            .as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        crate::platform::opener::open(&url, action.app)?;
+        return Ok(ExitStatus::Success);
+    }
+    let result = (|| {
+        let id = resolve_issue(context, action.issue_id.as_deref(), workspace)?;
+        let transport = issue_read_transport(context, workspace)?;
+        let fetched = agent_session_network(
+            context,
+            action.json,
+            command::fetch(&transport, id, !action.no_comments),
+        )?;
+        if action.json {
+            context.write_stdout_with_policy(
+                format!("{}\n", fetched.json()?).as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+            return Ok(ExitStatus::Success);
+        }
+        let config = context.config()?;
+        let download =
+            !action.no_download && config.options.download_images().is_none_or(|v| *v.value());
+        let attachments = download
+            && config
+                .options
+                .auto_download_attachments()
+                .is_none_or(|v| *v.value());
+        let image_root = config.image_cache_root.clone();
+        let attachment_root = config
+            .options
+            .attachment_dir()
+            .map(|v| v.value().clone())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| {
+                markdown_assets::posix_join(&[
+                    image_root
+                        .parent()
+                        .and_then(|p| p.to_str())
+                        .unwrap_or("/tmp"),
+                    "linear-cli-attachments",
+                ])
+            });
+        let hyperlink = config.options.hyperlink_format().map(|v| v.value().clone());
+        let mut issue = fetched.into_issue();
+        if download {
+            block_on_network(command::download_images(
+                &transport,
+                &mut issue,
+                &image_root,
+                |bytes| context.write_stderr(bytes),
+            ))?;
+        }
+        let paths = if attachments {
+            block_on_network(command::download_attachments(
+                &transport,
+                &issue,
+                &attachment_root,
+                |bytes| context.write_stderr(bytes),
+            ))?
+        } else {
+            std::collections::HashMap::new()
+        };
+        let output = if context.stdout_tty {
+            let columns = pager::stdout_size()
+                .and_then(|s| std::num::NonZeroU16::new(s.columns))
+                .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
+            let options = markdown_terminal::RenderOptions::for_terminal(
+                columns,
+                context.startup.settings.no_color,
+                true,
+                hyperlink.as_deref(),
+                markdown_terminal::HostSource::System,
+            );
+            command::terminal(
+                &issue,
+                &paths,
+                action.show_resolved_threads,
+                chrono::Utc::now(),
+                &options,
+                context.startup.settings.no_color == NoColor::Absent,
+            )?
+        } else {
+            command::markdown(
+                &issue,
+                &paths,
+                action.show_resolved_threads,
+                chrono::Utc::now(),
+            )?
+        };
+        issue_read_output(context, &output, !action.no_pager)
+    })();
+    result.map_err(|e: AppError| e.with_context("Failed to view issue"))
 }

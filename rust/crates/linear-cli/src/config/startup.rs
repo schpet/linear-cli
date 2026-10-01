@@ -360,6 +360,14 @@ pub fn load_startup(
     files: &impl FileSource,
     git: &impl GitRootProbe,
 ) -> StartupReport {
+    load_startup_with_issue_read_sort(process, files, git, false)
+}
+pub(crate) fn load_startup_with_issue_read_sort(
+    process: &ProcessEnvSnapshot,
+    files: &impl FileSource,
+    git: &impl GitRootProbe,
+    defer: bool,
+) -> StartupReport {
     let initial_settings = settings(process, None);
     let git = MemoGit {
         git,
@@ -389,12 +397,15 @@ pub fn load_startup(
         Ok(project) => project,
         Err(error) => return fail(display, diagnostics, error),
     };
-    let options = match ConfigOptions::from_inputs(OptionInputs {
-        env: &process.inputs,
-        dotenv: &dotenv,
-        project: project.as_ref(),
-        global: global.as_ref(),
-    }) {
+    let options = match ConfigOptions::from_inputs_with_issue_read_sort(
+        OptionInputs {
+            env: &process.inputs,
+            dotenv: &dotenv,
+            project: project.as_ref(),
+            global: global.as_ref(),
+        },
+        defer,
+    ) {
         Ok(options) => options,
         Err(error) => return fail(display, diagnostics, option_error(error)),
     };

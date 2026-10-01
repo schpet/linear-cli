@@ -123,6 +123,21 @@ pub struct Downloaded {
 pub async fn download_with<F, Fut, E>(
     content: &str,
     root: &Path,
+    fetch: F,
+    emit_failure: E,
+) -> Result<Downloaded, AppError>
+where
+    F: FnMut(String) -> Fut,
+    Fut: Future<Output = Result<Vec<u8>, AppError>>,
+    E: FnMut(&[u8]) -> Result<(), AppError>,
+{
+    download_sources_with(&[content], root, fetch, emit_failure).await
+}
+/// Source array semantics: each body contributes its images then upload links,
+/// with URL deduplication across bodies retaining the first label.
+pub async fn download_sources_with<F, Fut, E>(
+    sources: &[&str],
+    root: &Path,
     mut fetch: F,
     mut emit_failure: E,
 ) -> Result<Downloaded, AppError>
@@ -131,8 +146,17 @@ where
     Fut: Future<Output = Result<Vec<u8>, AppError>>,
     E: FnMut(&[u8]) -> Result<(), AppError>,
 {
+    let mut assets = Vec::new();
+    let mut seen = HashSet::new();
+    for source in sources {
+        for asset in ordered_assets(source)? {
+            if seen.insert(asset.url.clone()) {
+                assets.push(asset);
+            }
+        }
+    }
     let mut paths = HashMap::new();
-    for asset in ordered_assets(content)? {
+    for asset in assets {
         // Source directory creation happens before stat and URL/fetch parsing.
         let result = async {
             let (directory, path) = cache_location(root, &asset)?;
@@ -164,4 +188,13 @@ where
 }
 fn io_error(error: std::io::Error) -> AppError {
     AppError::new(AppErrorKind::IoProcess, error.to_string()).with_source(error)
+}
+
+/// Attachments sanitize the supplied title without the image alt fallback.
+pub fn sanitized_attachment_filename(title: &str) -> String {
+    if title.is_empty() {
+        String::new()
+    } else {
+        sanitized_filename(Some(title))
+    }
 }

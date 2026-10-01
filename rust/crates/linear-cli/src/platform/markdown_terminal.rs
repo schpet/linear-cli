@@ -757,7 +757,7 @@ fn replace_first(text: &str, pattern: &str, replacement: &str) -> String {
     text.replacen(pattern, replacement, 1)
 }
 
-fn hyperlink(text: &str, url: &str) -> String {
+pub(crate) fn hyperlink(text: &str, url: &str) -> String {
     format!("\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\")
 }
 

@@ -79,3 +79,5 @@ pub mod initiative_update;
 pub mod comment_update;
 
 pub mod config_generate;
+
+pub mod issue_read;

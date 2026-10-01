@@ -1278,6 +1278,19 @@ impl GraphQlTransport {
     /// Authentication is attached only to the initial private-upload host and
     /// is permanently removed after any cross-origin redirect.
     pub async fn download_markdown_image(&self, original: &str) -> Result<Vec<u8>, AppError> {
+        self.download_fetch_asset(original, "Failed to download image")
+            .await
+    }
+    /// Issue attachments use the same Fetch behavior with their source error prefix.
+    pub async fn download_issue_attachment(&self, original: &str) -> Result<Vec<u8>, AppError> {
+        self.download_fetch_asset(original, "Failed to download")
+            .await
+    }
+    async fn download_fetch_asset(
+        &self,
+        original: &str,
+        failure_prefix: &str,
+    ) -> Result<Vec<u8>, AppError> {
         let mut url = Url::parse(original).map_err(|error| {
             AppError::new(
                 AppErrorKind::Transport,
@@ -1379,7 +1392,7 @@ impl GraphQlTransport {
                     .unwrap_or_else(|| status.canonical_reason().unwrap_or("").to_owned());
                 return Err(AppError::new(
                     AppErrorKind::Transport,
-                    format!("Failed to download image: {} {phrase}", status.as_u16()),
+                    format!("{failure_prefix}: {} {phrase}", status.as_u16()),
                 ));
             }
             let encoding = response

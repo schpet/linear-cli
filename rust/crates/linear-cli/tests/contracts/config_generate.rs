@@ -1,4 +1,4 @@
-//! Prospective public contracts; ignored draft, not compiled or executed.
+//! Public configuration contracts qualified with synthetic inputs.
 use linear_cli::{
     auth::{CredentialStore, hydrate, parse_credentials},
     commands::config_generate as command,
