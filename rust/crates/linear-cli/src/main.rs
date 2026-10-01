@@ -17,10 +17,7 @@ use std::process::ExitCode;
 
 use linear_cli::app::{AppContext, finalize, report_bootstrap_error, run};
 use linear_cli::auth::file::RealCredentialFileSource;
-#[cfg(target_os = "linux")]
-use linear_cli::auth::keyring::LinuxKeyringReader;
-#[cfg(not(target_os = "linux"))]
-use linear_cli::auth::keyring::UnsupportedKeyringReader;
+use linear_cli::auth::keyring::RoutedKeyringReader;
 use linear_cli::config::{
     OsFamily, ProcessEnvError, ProcessEnvSnapshot, RealFileSource, RealGitRootProbe,
 };
@@ -89,12 +86,11 @@ fn main() -> ExitCode {
     };
     let cwd = environment.inputs.cwd.clone();
     let git = RealGitRootProbe::new(cwd.clone());
-    #[cfg(target_os = "linux")]
-    let keyring = LinuxKeyringReader::new();
-    #[cfg(not(target_os = "linux"))]
-    let keyring = UnsupportedKeyringReader;
     // Use the native parsed command to choose the one explicit startup exception.
     let parsed = linear_cli::cli::parse(&argv.iter().map(OsString::from).collect::<Vec<_>>());
+    let keyring = RoutedKeyringReader::new(linear_cli::auth::keyring::native_auth_route(
+        parsed.as_ref().ok().and_then(|cli| cli.command.as_ref()),
+    ));
     let defer_sort = matches!(
         parsed.as_ref().ok().and_then(|cli| cli.command.as_ref()),
         Some(linear_cli::cli::RootCommand::Issue(

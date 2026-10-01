@@ -1235,6 +1235,40 @@ async fn collect(
 // ---------------------------------------------------------------------------
 // Transport
 
+// Narrow transport insertion. Normal ApiKey::new remains NONEMPTY and unchanged.
+#[derive(Clone)]
+pub struct LoginCredentialCandidate {
+    value: HeaderValue,
+}
+impl LoginCredentialCandidate {
+    pub fn new(text: &str) -> Result<Self, ApiKeyError> {
+        if let Some(index) = text.bytes().position(|byte| !(0x20..=0x7e).contains(&byte)) {
+            return Err(ApiKeyError::InvalidByte { index });
+        }
+        let mut value = HeaderValue::from_str(text).map_err(|_| ApiKeyError::Unrepresentable)?;
+        value.set_sensitive(true);
+        Ok(Self { value })
+    }
+}
+impl fmt::Debug for LoginCredentialCandidate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LoginCredentialCandidate(<redacted>)")
+    }
+}
+#[derive(Clone, Debug)]
+enum RequestCredential {
+    Startup(ApiKey),
+    Login(LoginCredentialCandidate),
+}
+impl RequestCredential {
+    fn header_value(&self) -> HeaderValue {
+        match self {
+            Self::Startup(key) => key.header_value(),
+            Self::Login(candidate) => candidate.value.clone(),
+        }
+    }
+}
+
 /// One configured HTTP client bound to an endpoint and key.
 #[derive(Clone, Debug)]
 pub struct GraphQlTransport {
@@ -1242,7 +1276,7 @@ pub struct GraphQlTransport {
     signed_upload_client: Client,
     markdown_download_client: Client,
     endpoint: EndpointUrl,
-    api_key: ApiKey,
+    api_key: RequestCredential,
     deadline: Deadline,
     max_response_bytes: ResponseCap,
 }
@@ -1252,6 +1286,21 @@ impl GraphQlTransport {
     pub fn new(
         endpoint: EndpointUrl,
         api_key: ApiKey,
+        config: TransportConfig,
+    ) -> Result<Self, TransportBuildError> {
+        Self::build(endpoint, RequestCredential::Startup(api_key), config)
+    }
+    /// Only login can carry a source-cleaned empty header candidate.
+    pub fn new_login(
+        endpoint: EndpointUrl,
+        candidate: LoginCredentialCandidate,
+        config: TransportConfig,
+    ) -> Result<Self, TransportBuildError> {
+        Self::build(endpoint, RequestCredential::Login(candidate), config)
+    }
+    fn build(
+        endpoint: EndpointUrl,
+        api_key: RequestCredential,
         config: TransportConfig,
     ) -> Result<Self, TransportBuildError> {
         let client = build_client(&config)?;

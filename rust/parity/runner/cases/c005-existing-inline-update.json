@@ -1,0 +1,103 @@
+{
+  "id": "c005-existing-inline-update",
+  "route": "linear auth login",
+  "reason": "frozen-auth-c005-existing-inline-update",
+  "argv": [
+    "auth",
+    "login",
+    "--key",
+    "lin_api_fake_input"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "configFixture": "c005-c007-inline",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 45000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "authenticate",
+            "operation": {
+              "document": "query AuthLoginViewer {\n  viewer {\n    name\n    email\n    organization {\n      name\n      urlKey\n    }\n  }\n}",
+              "operationName": "AuthLoginViewer"
+            },
+            "identity": {
+              "authorization": "lin_api_fake_input",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "viewer": {
+                  "name": "DUMMY User",
+                  "email": "dummy@example.invalid",
+                  "organization": {
+                    "name": "DUMMY Organization",
+                    "urlKey": "alpha"
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Updated credentials for workspace: DUMMY Organization (alpha)\n  User: DUMMY User <dummy@example.invalid>\nNote: Credential stored as plaintext to match existing format.\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": [
+      {
+        "path": "config/linear/credentials.toml",
+        "change": "modified",
+        "kind": "file",
+        "sha256": "7355fdb007d980a59849067e4375d049a99e54461b38a354f51d18ce27fcfee9"
+      }
+    ]
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "2884728616d911653c7954f3948be88cc4ba51cd0ea0f1b44c8e2ab4266cb93f"
+  }
+}

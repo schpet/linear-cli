@@ -55,6 +55,7 @@ pub struct LinuxKeyringReader {
     executable: OsString,
     environment: Environment,
     timeout: Duration,
+    macos: bool,
 }
 
 impl Default for LinuxKeyringReader {
@@ -69,9 +70,19 @@ impl LinuxKeyringReader {
             executable: OsString::from("secret-tool"),
             environment: Environment::Inherit,
             timeout: DEFAULT_TIMEOUT,
+            macos: false,
         }
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn macos() -> Self {
+        Self {
+            executable: OsString::from("/usr/bin/security"),
+            environment: Environment::Inherit,
+            timeout: DEFAULT_TIMEOUT,
+            macos: true,
+        }
+    }
     /// Confine a test to its private executable and complete private environment.
     #[doc(hidden)]
     pub fn with_test_environment(
@@ -83,6 +94,7 @@ impl LinuxKeyringReader {
             executable,
             environment: Environment::Replace(environment),
             timeout,
+            macos: false,
         }
     }
 
@@ -102,12 +114,19 @@ impl LinuxKeyringReader {
         workspace: &str,
     ) -> Result<Option<ConfigSecret>, LinuxLookupFailure> {
         let mut command = Command::new(&self.executable);
+        if self.macos {
+            command.args([
+                "find-generic-password",
+                "-a",
+                workspace,
+                "-s",
+                "linear-cli",
+                "-w",
+            ]);
+        } else {
+            command.args(["lookup", "service", "linear-cli", "account", workspace]);
+        }
         command
-            .arg("lookup")
-            .arg("service")
-            .arg("linear-cli")
-            .arg("account")
-            .arg(workspace)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -180,6 +199,11 @@ impl LinuxKeyringReader {
                 stdout.drain(..3);
             }
             let stdout = String::from_utf8(stdout).map_err(|_| LinuxLookupFailure::InvalidUtf8)?;
+            let stdout = if self.macos {
+                crate::text::js_trim(&stdout).to_owned()
+            } else {
+                stdout
+            };
             return if stdout.is_empty() {
                 Ok(None)
             } else {
@@ -189,7 +213,9 @@ impl LinuxKeyringReader {
         let stderr_is_empty = String::from_utf8(stderr)
             .ok()
             .is_some_and(|stderr| stderr.trim_matches(js_space).is_empty());
-        if status.code() == Some(1) && stderr_is_empty {
+        if (self.macos && status.code() == Some(44))
+            || (!self.macos && status.code() == Some(1) && stderr_is_empty)
+        {
             Ok(None)
         } else {
             Err(LinuxLookupFailure::ExitFailure)

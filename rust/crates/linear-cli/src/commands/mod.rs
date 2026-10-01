@@ -107,3 +107,7 @@ pub mod issue_view;
 
 pub mod api;
 pub mod schema;
+
+pub mod auth_login;
+pub mod auth_logout;
+pub mod auth_migrate;

@@ -9,3 +9,5 @@ mod resolve;
 mod write;
 
 mod source_properties;
+
+mod auth_mutation;

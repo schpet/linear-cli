@@ -345,6 +345,39 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
+    // Insert inside impl<R: Read, W: Write> PromptSession, opt-in only.
+    pub fn secret(
+        &mut self,
+        message: &str,
+        hint: &str,
+    ) -> Result<PromptOutcome<crate::config::ConfigSecret>, AppError> {
+        self.check_ready(message)?;
+        let parse = |raw: &str| {
+            let value = crate::text::js_trim(raw).to_owned();
+            let mask = "*".repeat(value.chars().count());
+            Ok((crate::config::ConfigSecret::new(value), mask))
+        };
+        let header = format!("{message} ({hint})");
+        match &mut self.input {
+            InputSource::Script(_) => {
+                self.write(format!("? {header}\n").as_bytes())?;
+                self.flush()?;
+                let Some(raw) = self.read_script_line()? else {
+                    return Ok(PromptOutcome::EndOfInput);
+                };
+                let (answer, mask) = parse(&raw)
+                    .map_err(|reason: String| AppError::new(AppErrorKind::Validation, reason))?;
+                self.write(format!("? {message} › {mask}\n").as_bytes())?;
+                Ok(PromptOutcome::Submitted(answer))
+            }
+            InputSource::Keys(_) => {
+                self.edit_keys_with_display(&header, message, parse, |value, cursor| {
+                    (vec!['*'; value.len()], cursor)
+                })
+            }
+        }
+    }
+
     /// Confirm a destructive action. Only an exactly empty answer takes the
     /// default; explicit whitespace and padded answers are invalid.
     pub fn confirm(
@@ -659,6 +692,18 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         message: &str,
         parse: impl Fn(&str) -> Result<(T, String), String>,
     ) -> Result<PromptOutcome<T>, AppError> {
+        self.edit_keys_with_display(header, message, parse, |value, cursor| {
+            (value.to_vec(), cursor)
+        })
+    }
+
+    fn edit_keys_with_display<T>(
+        &mut self,
+        header: &str,
+        message: &str,
+        parse: impl Fn(&str) -> Result<(T, String), String>,
+        display: impl Fn(&[char], usize) -> (Vec<char>, usize),
+    ) -> Result<PromptOutcome<T>, AppError> {
         let mut value = Vec::<char>::new();
         let mut cursor = 0_usize;
         let mut drawn = false;
@@ -668,7 +713,8 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 self.write(b"\r\x1b[J")?;
             }
             let raw: String = value.iter().collect();
-            let (line, cursor_column) = text_line(header, &value, cursor, self.columns - 1);
+            let (shown, shown_cursor) = display(&value, cursor);
+            let (line, cursor_column) = text_line(header, &shown, shown_cursor, self.columns - 1);
             self.write(format!("{line}\n").as_bytes())?;
             let mut lines = 1_usize;
             if let Some(error) = &error_message {

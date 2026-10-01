@@ -257,6 +257,23 @@ impl fmt::Debug for CredentialStore {
     }
 }
 impl CredentialStore {
+    // Insert inside impl CredentialStore. Owned handoff; no new parse/reload.
+    pub(crate) fn mutation_parts(
+        &self,
+    ) -> (
+        CredentialFormat,
+        Vec<String>,
+        Option<String>,
+        BTreeMap<String, ConfigSecret>,
+    ) {
+        (
+            self.format,
+            self.workspaces.clone(),
+            self.default.clone(),
+            self.keys.clone(),
+        )
+    }
+
     pub fn format(&self) -> CredentialFormat {
         self.format
     }

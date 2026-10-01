@@ -1,0 +1,49 @@
+{
+  "id": "c007-unavailable",
+  "route": "linear auth migrate",
+  "reason": "frozen-auth-c007-unavailable",
+  "argv": [
+    "auth",
+    "migrate"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "configFixture": "c005-c007-inline",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 45000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "\u2717 Failed to migrate credentials: No system keyring found. Cannot migrate credentials.\n  Install libsecret (e.g. `apt install libsecret-tools` or `pacman -S libsecret`), or set `LINEAR_API_KEY` instead.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

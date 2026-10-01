@@ -19,3 +19,7 @@ mod config_generate;
 mod issue_reads;
 
 mod api_schema;
+
+mod auth_secret;
+
+mod auth_mutation_cli;

@@ -1,0 +1,58 @@
+{
+  "id": "c006-inline-remove-default",
+  "route": "linear auth logout",
+  "reason": "frozen-auth-c006-inline-remove-default",
+  "argv": [
+    "auth",
+    "logout",
+    "zeta",
+    "--force"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "configFixture": "c005-c007-inline",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 45000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Removed credentials for workspace: zeta\n  Default workspace is now: alpha\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": [
+      {
+        "path": "config/linear/credentials.toml",
+        "change": "modified",
+        "kind": "file",
+        "sha256": "ce7a521a76b5f1cba51c8daa3078dcc950e72364cc2779976a710fb801bb9e4f"
+      }
+    ]
+  },
+  "deviation": null
+}
