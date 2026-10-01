@@ -318,7 +318,9 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::team::TeamCommand::Create(action)) => {
                 dispatch_team_create(context, &action, workspace)
             }
-            Some(cli::team::TeamCommand::Delete(_)) => unsupported("linear team delete"),
+            Some(cli::team::TeamCommand::Delete(action)) => {
+                dispatch_team_delete(context, &action, workspace)
+            }
             Some(cli::team::TeamCommand::List(action)) => {
                 dispatch_team_list(context, &action, workspace)
             }
@@ -522,8 +524,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::document::DocumentCommand::Update(_)) => {
                 unsupported("linear document update")
             }
-            Some(cli::document::DocumentCommand::Delete(_)) => {
-                unsupported("linear document delete")
+            Some(cli::document::DocumentCommand::Delete(action)) => {
+                dispatch_document_delete(context, &action, workspace)
             }
             Some(cli::document::DocumentCommand::Comment(action)) => match action.command {
                 None => parent_help(context, "linear document comment"),
@@ -4993,4 +4995,368 @@ fn document_fetch_with_spinner<T>(
     });
     context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
     result
+}
+
+fn delete_confirmation(
+    context: &mut AppContext<'_>,
+    message: &str,
+    flag: &str,
+) -> Result<crate::platform::prompt::PromptOutcome<bool>, AppError> {
+    if !context.stdin_tty {
+        return Err(AppError::new(
+            AppErrorKind::Validation,
+            "Interactive confirmation required",
+        )
+        .with_suggestion(format!("Use --{flag} to skip.")));
+    }
+    let mut session =
+        crate::platform::prompt::PromptSession::confirmation_stdio(&mut *context.stdout)?;
+    let outcome = session.confirm(message, false);
+    session.finish_result(outcome)
+}
+fn dispatch_team_delete(
+    context: &mut AppContext<'_>,
+    action: &cli::team::TeamDelete,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::{
+        commands::team_delete,
+        graphql::operations::team_delete::GetTeamDetails,
+        platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession},
+    };
+    let result = (|| {
+        let transport = relation_transport(context, workspace)?;
+        let prepared = {
+            let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+            prepare_team_lookup(
+                &action.team,
+                &WorkspaceScope::from_selection(&inputs, context.credentials()?),
+            )?
+        };
+        let source = block_on_network(resolve_team_with_transport(&prepared, &transport))?;
+        let details: GetTeamDetails = block_on_network(async {
+            transport
+                .execute(&team_delete::details_request(&source.id))
+                .await
+                .map_err(AppError::from)
+        })?;
+        let team = details
+            .team
+            .ok_or_else(|| AppError::not_found("Team", &action.team))?;
+        let count = team.issues.nodes.len();
+        if count > 0 {
+            let target = match action.move_issues.as_deref().filter(|s| !s.is_empty()) {
+                Some(reference) => {
+                    let prepared = {
+                        let inputs =
+                            client::selection_inputs(&context.config()?.options, workspace)?;
+                        prepare_team_lookup(
+                            reference,
+                            &WorkspaceScope::from_selection(&inputs, context.credentials()?),
+                        )?
+                    };
+                    let target =
+                        block_on_network(resolve_team_with_transport(&prepared, &transport))?;
+                    if target.id == source.id {
+                        return Err(AppError::new(
+                            AppErrorKind::Validation,
+                            "Cannot move issues to the same team",
+                        ));
+                    }
+                    target.id
+                }
+                None => {
+                    context.write_stdout_with_policy(
+                        &team_delete::warning(&team),
+                        OutputPolicy::ConsoleLike,
+                    )?;
+                    if !context.stdin_tty {
+                        return Err(AppError::new(
+                            AppErrorKind::Validation,
+                            "Interactive selection required",
+                        )
+                        .with_suggestion("Use --move-issues <teamKey> to specify target team."));
+                    }
+                    let teams =
+                        block_on_network(crate::refs::fetch_all_teams_with_transport(&transport))?;
+                    let options: Vec<_> = teams
+                        .into_iter()
+                        .filter(|t| t.id != source.id)
+                        .map(|t| PlainOption {
+                            label: format!("{} ({})", t.name, t.key),
+                            script_token: t.id.clone(),
+                            value: t.id,
+                        })
+                        .collect();
+                    if options.is_empty() {
+                        return Err(AppError::new(
+                            AppErrorKind::GraphQl,
+                            "No other teams available to move issues to",
+                        ));
+                    }
+                    let outcome = {
+                        let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+                        let result = session.select(&PlainSelect {
+                            message: "Select a team to move issues to:",
+                            options: &options,
+                            default_index: 0,
+                            default_hint: None,
+                        });
+                        session.finish_result(result)?
+                    };
+                    match outcome {
+                        PromptOutcome::Submitted(id) => {
+                            if !options.iter().any(|o| o.value == id) {
+                                return Err(AppError::new(
+                                    AppErrorKind::Invariant,
+                                    "selected target team is missing",
+                                ));
+                            }
+                            id
+                        }
+                        PromptOutcome::Interrupted => return initiative_interrupt_status(),
+                        PromptOutcome::EndOfInput => {
+                            return Err(AppError::new(
+                                AppErrorKind::Validation,
+                                "unexpected EOF while selecting a team",
+                            ));
+                        }
+                    }
+                }
+            };
+            team_delete_moves(context, &transport, &source.id, &target, count)
+                .map_err(|e| e.with_context(team_delete::MOVE_CONTEXT))?;
+        }
+        if !action.force {
+            match delete_confirmation(
+                context,
+                &format!(
+                    "Are you sure you want to delete team \"{}: {}\"?",
+                    team.key, team.name
+                ),
+                "force",
+            )? {
+                PromptOutcome::Submitted(true) => {}
+                PromptOutcome::Submitted(false) => {
+                    context.write_stdout_with_policy(
+                        b"Delete cancelled.\n",
+                        OutputPolicy::ConsoleLike,
+                    )?;
+                    return Ok(ExitStatus::Success);
+                }
+                PromptOutcome::Interrupted => return initiative_interrupt_status(),
+                PromptOutcome::EndOfInput => {
+                    return Err(AppError::new(
+                        AppErrorKind::Validation,
+                        "unexpected EOF while prompting for confirmation",
+                    ));
+                }
+            }
+        }
+        let result: crate::graphql::operations::team_delete::DeleteTeam =
+            block_on_network(async {
+                transport
+                    .execute(&team_delete::delete_request(&source.id))
+                    .await
+                    .map_err(AppError::from)
+            })?;
+        if !result.team_delete.success {
+            return Err(AppError::new(
+                AppErrorKind::GraphQl,
+                "Failed to delete team",
+            ));
+        }
+        context
+            .write_stdout_with_policy(&team_delete::deleted(&team), OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| {
+        if error.context.as_deref() == Some(team_delete::MOVE_CONTEXT) {
+            error
+        } else {
+            error.with_context(team_delete::CONTEXT)
+        }
+    })
+}
+fn team_delete_moves(
+    context: &mut AppContext<'_>,
+    transport: &crate::graphql::transport::GraphQlTransport,
+    source: &str,
+    target: &str,
+    count: usize,
+) -> Result<(), AppError> {
+    use crate::commands::team_delete;
+    let show = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    let message = std::cell::RefCell::new(format!("Moving {count} issue(s) to target team..."));
+    let pending = async {
+        let issues = team_delete::all_issues(source, |request| async move {
+            transport.execute(&request).await.map_err(AppError::from)
+        })
+        .await?;
+        team_delete::move_all(
+            &issues,
+            target,
+            |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+            |moved, total| {
+                *message.borrow_mut() = format!("Moving issues... ({moved}/{total})");
+                Ok(())
+            },
+        )
+        .await
+    };
+    let result = if show {
+        context.write_stdout_with_policy(
+            format!("{}{}", spinner::frame(0), message.borrow()).as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        block_on_network(async {
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1;
+            loop {
+                tokio::select! {biased;result=&mut pending=>break result,_=ticks.tick()=>{context.write_stdout_with_policy(format!("{}{}",spinner::frame(frame),message.borrow()).as_bytes(),OutputPolicy::ConsoleLike)?;frame=frame.wrapping_add(1);}}
+            }
+        })
+    } else {
+        block_on_network(pending)
+    };
+    if show {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?
+    }
+    let moved = result?;
+    context.write_stdout_with_policy(
+        format!("✓ Moved {moved} issue(s) to target team\n").as_bytes(),
+        OutputPolicy::ConsoleLike,
+    )
+}
+fn dispatch_document_delete(
+    context: &mut AppContext<'_>,
+    action: &cli::document::DocumentDelete,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::{commands::document_delete as command, platform::prompt::PromptOutcome};
+    let result = (|| {
+        let transport = relation_transport(context, workspace)?;
+        let input = initiative_bulk::BulkInput {
+            argv: action.bulk.as_deref(),
+            file: action.bulk_file.as_deref().map(std::path::Path::new),
+            stdin: action.bulk_stdin,
+        };
+        if input.requested() {
+            let ids = initiative_bulk::collect_ids(&input, &mut std::io::stdin().lock())?;
+            if ids.is_empty() {
+                return Err(AppError::new(
+                    AppErrorKind::Validation,
+                    "No document IDs provided for bulk delete",
+                ));
+            }
+            context.write_stdout_with_policy(
+                format!("Found {} document(s) to delete.\n", ids.len()).as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+            if !action.yes {
+                match delete_confirmation(
+                    context,
+                    &format!("Delete {} document(s)?", ids.len()),
+                    "yes",
+                )? {
+                    PromptOutcome::Submitted(true) => {}
+                    PromptOutcome::Submitted(false) => {
+                        context.write_stdout_with_policy(
+                            b"Bulk delete cancelled.\n",
+                            OutputPolicy::ConsoleLike,
+                        )?;
+                        return Ok(ExitStatus::Success);
+                    }
+                    PromptOutcome::Interrupted => return initiative_interrupt_status(),
+                    PromptOutcome::EndOfInput => {
+                        return Err(AppError::new(
+                            AppErrorKind::Validation,
+                            "unexpected EOF while prompting for confirmation",
+                        ));
+                    }
+                }
+            }
+            let targets = {
+                let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+                let scope = WorkspaceScope::from_selection(&inputs, context.credentials()?);
+                ids.into_iter()
+                    .map(|id| command::Target::prepare(id, &scope))
+                    .collect()
+            };
+            let show = spinner::enabled(
+                false,
+                context.stdout_tty,
+                context.startup.settings.no_color == NoColor::Absent,
+            );
+            let results = block_on_network(command::execute(&transport, targets, |progress| {
+                if show {
+                    context
+                        .write_stdout_with_policy(&progress.render(), OutputPolicy::ConsoleLike)?
+                }
+                Ok(())
+            }));
+            if show {
+                context.write_stdout_with_policy(
+                    initiative_bulk::PROGRESS_CLEAR,
+                    OutputPolicy::ConsoleLike,
+                )?
+            }
+            let (output, failed) = command::summary(&results?);
+            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+            return Ok(if failed {
+                ExitStatus::HandledFailure
+            } else {
+                ExitStatus::Success
+            });
+        }
+        let original = action
+            .document_id
+            .as_deref()
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| {
+                AppError::new(AppErrorKind::Validation, "Document ID required")
+                    .with_suggestion("Use --bulk for multiple documents.")
+            })?;
+        let id = {
+            let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+            resolve_document_reference(
+                original,
+                &WorkspaceScope::from_selection(&inputs, context.credentials()?),
+            )?
+        };
+        let document = block_on_network(command::single_details(&transport, original, &id))?;
+        if !action.yes {
+            match delete_confirmation(
+                context,
+                &format!("Are you sure you want to delete \"{}\"?", document.title),
+                "yes",
+            )? {
+                PromptOutcome::Submitted(true) => {}
+                PromptOutcome::Submitted(false) => {
+                    context.write_stdout_with_policy(
+                        b"Delete cancelled.\n",
+                        OutputPolicy::ConsoleLike,
+                    )?;
+                    return Ok(ExitStatus::Success);
+                }
+                PromptOutcome::Interrupted => return initiative_interrupt_status(),
+                PromptOutcome::EndOfInput => {
+                    return Err(AppError::new(
+                        AppErrorKind::Validation,
+                        "unexpected EOF while prompting for confirmation",
+                    ));
+                }
+            }
+        }
+        let output = block_on_network(command::submit_single(&transport, &document))?;
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
 }

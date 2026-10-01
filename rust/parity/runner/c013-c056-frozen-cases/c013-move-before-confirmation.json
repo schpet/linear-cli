@@ -1,0 +1,246 @@
+{
+  "id": "c013-move-before-confirmation",
+  "route": "linear team delete",
+  "reason": "move-before-confirmation",
+  "argv": [
+    "team",
+    "delete",
+    "SRC",
+    "--move-issues",
+    "DEST"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "✓ Moved 1 issue(s) to target team\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to delete team: Interactive confirmation required\n  Use --force to skip.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 5,
+    "initialRecords": {
+      "Issue:00000000-0000-4000-9000-000000001311": {
+        "team": "00000000-0000-4000-9000-000000001301"
+      }
+    },
+    "expectedRecords": {
+      "Issue:00000000-0000-4000-9000-000000001311": {
+        "team": "00000000-0000-4000-9000-000000001302"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "resolve",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) { teams(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] }) { nodes { id key name } } teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) { nodes { id key name } } }",
+              "variables": {
+                "reference": "SRC",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000001301",
+                      "key": "SRC",
+                      "name": "Source"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetTeamDetails($id: String!) { team(id: $id) { id key name issues { nodes { id } } } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000001301"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "team": {
+                  "id": "00000000-0000-4000-9000-000000001301",
+                  "key": "SRC",
+                  "name": "Source",
+                  "issues": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000001311"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "target",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) { teams(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] }) { nodes { id key name } } teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) { nodes { id key name } } }",
+              "variables": {
+                "reference": "DEST",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000001302",
+                      "key": "DEST",
+                      "name": "Destination"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "issues-None",
+            "operation": {
+              "document": "query GetTeamIssuesForMove($teamId: String!, $first: Int, $after: String) { team(id: $teamId) { issues(first: $first, after: $after) { nodes { id identifier } pageInfo { hasNextPage endCursor } } } }",
+              "variables": {
+                "teamId": "00000000-0000-4000-9000-000000001301",
+                "first": 100
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "team": {
+                  "issues": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000001311",
+                        "identifier": "SRC-1"
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "move-00000000-0000-4000-9000-000000001311",
+            "operation": {
+              "document": "mutation MoveIssueToTeam($id: String!, $teamId: String!) { issueUpdate(id: $id, input: { teamId: $teamId }) { success } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000001311",
+                "teamId": "00000000-0000-4000-9000-000000001302"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issueUpdate": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Issue:00000000-0000-4000-9000-000000001311",
+                "before": {
+                  "value": {
+                    "team": "00000000-0000-4000-9000-000000001301"
+                  }
+                },
+                "after": {
+                  "team": "00000000-0000-4000-9000-000000001302"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

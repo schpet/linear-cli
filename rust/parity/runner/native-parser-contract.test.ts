@@ -56,6 +56,8 @@ Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound
       "c003-leaf-help",
       "c004-extra-positional",
       "c004-leaf-help",
+      "c013-leaf-help",
+      "c056-leaf-help",
     ]),
   )
   assertSameIds(Object.keys(nativeVersionSourcePins), [

@@ -2431,7 +2431,7 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       !loaded.spec.id.startsWith("c027-") &&
       !loaded.spec.id.startsWith("c035-") &&
       !loaded.spec.id.startsWith("c037-") &&
-      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17|28|44|55|66|77|78|76|64|65|41|42|45|47|63|72|75|14|50|51|03|04)-/
+      !/^c0(38|39|48|43|54|32|33|74|29|34|58|59|17|28|44|55|66|77|78|76|64|65|41|42|45|47|63|72|75|14|50|51|03|04|13|56)-/
         .test(
           loaded.spec.id,
         )
@@ -2461,6 +2461,19 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
       // C037's four v2 cases append one or two pages (2-3 requests total).
       // Its guard pins exact surfaces, no argv, and the sole allowed empty
       // v1 GraphQL delta; P02's focused tests verify page projection.
+      continue
+    }
+    if (loaded.spec.id === "c056-bulk-invalid-utf8") {
+      assert(loaded.spec.graphql != null)
+      // This independently frozen cohort proves the existing zero-query adapter.
+      const candidate = candidateCaseView(loaded)
+      assertEquals(loaded.spec.deviation?.id, "DOC-DELETE-STRICT-UTF8")
+      assertEquals(candidate.spec.graphql?.expectedRequests, 0)
+      assertEquals(candidate.spec.graphql?.groups, [])
+      assertEquals(
+        candidate.spec.graphql?.expectedRecords,
+        loaded.spec.graphql.initialRecords,
+      )
       continue
     }
     const frozen = resolveCase(loaded.spec, substitutions).graphql

@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c056-leaf-help",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "Delete a document (moves to trash)\n\nUsage: linear document delete [OPTIONS] [documentId]\n\nArguments:\n  [documentId]  \n\nOptions:\n      --workspace <slug>  Target workspace (uses credentials)\n  -y, --yes               Skip confirmation prompt\n      --bulk [<ids>...]   Delete multiple documents by slug or ID\n      --bulk-file <file>  Read document slugs/IDs from a file (one per line)\n      --bulk-stdin        Read document slugs/IDs from stdin\n  -h, --help              Print help\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

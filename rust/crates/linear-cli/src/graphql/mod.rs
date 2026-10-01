@@ -17,3 +17,5 @@ pub mod transport;
 /// The module must be reachable as `schema` from every derive site; operation
 /// modules import it with `use crate::graphql::schema;`.
 pub use linear_schema::schema;
+
+pub mod bulk_error;

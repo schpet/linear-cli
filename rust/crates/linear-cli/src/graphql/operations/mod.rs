@@ -62,3 +62,6 @@ pub mod upload;
 
 pub mod documents;
 pub mod releases;
+
+pub mod document_delete;
+pub mod team_delete;

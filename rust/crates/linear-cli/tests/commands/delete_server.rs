@@ -10,6 +10,13 @@ use std::{
 };
 
 pub fn serve(body: &'static str) -> (GraphQlTransport, thread::JoinHandle<serde_json::Value>) {
+    serve_with_content_type(body, "application/json")
+}
+
+pub fn serve_with_content_type(
+    body: &'static str,
+    content_type: &'static str,
+) -> (GraphQlTransport, thread::JoinHandle<serde_json::Value>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = format!("http://{}/graphql", listener.local_addr().unwrap());
     let server = thread::spawn(move || {
@@ -39,7 +46,7 @@ pub fn serve(body: &'static str) -> (GraphQlTransport, thread::JoinHandle<serde_
                 }
             }
         };
-        write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+        write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: {content_type}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
         drop(stream);
         thread::sleep(Duration::from_millis(50));
         listener.set_nonblocking(true).unwrap();

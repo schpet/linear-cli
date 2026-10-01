@@ -76,3 +76,6 @@ pub mod release_lookup;
 pub mod auth_token;
 
 pub mod auth_default;
+
+pub mod document_delete;
+pub mod team_delete;

@@ -1,0 +1,138 @@
+{
+  "id": "c013-issues-require-selection",
+  "route": "linear team delete",
+  "reason": "issues-require-selection",
+  "argv": [
+    "team",
+    "delete",
+    "SRC",
+    "--force"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "\n⚠️  Team SRC (Source) has 2 issue(s).\nYou must move these issues to another team before deletion.\n\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to delete team: Interactive selection required\n  Use --move-issues <teamKey> to specify target team.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "e77e1ae684e9a52d9b91ce001b7d63d10ce6d87e69f5eb7bba09d8e92c7735f0"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "resolve",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) { teams(filter: { or: [{ key: { eqIgnoreCase: $reference } }, { name: { eqIgnoreCase: $reference } }] }) { nodes { id key name } } teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) { nodes { id key name } } }",
+              "variables": {
+                "reference": "SRC",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000001301",
+                      "key": "SRC",
+                      "name": "Source"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "details",
+            "operation": {
+              "document": "query GetTeamDetails($id: String!) { team(id: $id) { id key name issues { nodes { id } } } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000001301"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "team": {
+                  "id": "00000000-0000-4000-9000-000000001301",
+                  "key": "SRC",
+                  "name": "Source",
+                  "issues": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000001311"
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000001312"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

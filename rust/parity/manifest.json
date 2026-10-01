@@ -5968,7 +5968,7 @@
       "workItem": "C013",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {
@@ -14238,7 +14238,7 @@
       "workItem": "C056",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {

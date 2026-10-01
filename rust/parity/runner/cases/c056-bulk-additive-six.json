@@ -1,0 +1,523 @@
+{
+  "id": "c056-bulk-additive-six",
+  "route": "linear document delete",
+  "reason": "bulk-additive-six",
+  "argv": [
+    "document",
+    "delete",
+    "ignored-positional",
+    "--yes",
+    "--bulk-file",
+    "ids.txt",
+    "--bulk-stdin",
+    "--bulk",
+    "A",
+    " Raw, argv "
+  ],
+  "stdin": {
+    "utf8": "F,A\n"
+  },
+  "cwdFixture": "c013-c056-bulk-inputs",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Found 6 document(s) to delete.\n\n✓ Successfully deleted 6 documents\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "27ef47c8b5ba43c092b820d33b6b4a844cc39b2bc06b8b5b1ff231fb326658f2"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 12,
+    "initialRecords": {
+      "Document:00000000-0000-4000-9000-000000005620": {
+        "state": "active"
+      },
+      "Document:00000000-0000-4000-9000-000000005621": {
+        "state": "active"
+      },
+      "Document:00000000-0000-4000-9000-000000005622": {
+        "state": "active"
+      },
+      "Document:00000000-0000-4000-9000-000000005623": {
+        "state": "active"
+      },
+      "Document:00000000-0000-4000-9000-000000005624": {
+        "state": "active"
+      },
+      "Document:00000000-0000-4000-9000-000000005625": {
+        "state": "active"
+      }
+    },
+    "expectedRecords": {
+      "Document:00000000-0000-4000-9000-000000005620": {
+        "state": "trash"
+      },
+      "Document:00000000-0000-4000-9000-000000005621": {
+        "state": "trash"
+      },
+      "Document:00000000-0000-4000-9000-000000005622": {
+        "state": "trash"
+      },
+      "Document:00000000-0000-4000-9000-000000005623": {
+        "state": "trash"
+      },
+      "Document:00000000-0000-4000-9000-000000005624": {
+        "state": "trash"
+      },
+      "Document:00000000-0000-4000-9000-000000005625": {
+        "state": "trash"
+      }
+    },
+    "groups": [
+      {
+        "mode": "lanes",
+        "timeoutMs": 15000,
+        "lanes": [
+          {
+            "id": "item-0",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-A",
+                "operation": {
+                  "document": "query GetDocumentForBulkDelete($id: String!) { document(id: $id) { id slugId title } }",
+                  "variables": {
+                    "id": "A"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "document": {
+                      "id": "00000000-0000-4000-9000-000000005620",
+                      "slugId": "fixture-doc",
+                      "title": "Doc A"
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "delete-00000000-0000-4000-9000-000000005620",
+                "operation": {
+                  "document": "mutation BulkDeleteDocument($id: String!) { documentDelete(id: $id) { success } }",
+                  "variables": {
+                    "id": "00000000-0000-4000-9000-000000005620"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "documentDelete": {
+                      "success": true
+                    }
+                  }
+                },
+                "effects": [
+                  {
+                    "kind": "put",
+                    "record": "Document:00000000-0000-4000-9000-000000005620",
+                    "before": {
+                      "value": {
+                        "state": "active"
+                      }
+                    },
+                    "after": {
+                      "state": "trash"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "item-1",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details- Raw, argv ",
+                "operation": {
+                  "document": "query GetDocumentForBulkDelete($id: String!) { document(id: $id) { id slugId title } }",
+                  "variables": {
+                    "id": " Raw, argv "
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "document": {
+                      "id": "00000000-0000-4000-9000-000000005621",
+                      "slugId": "fixture-doc",
+                      "title": "Doc  Raw, argv "
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "delete-00000000-0000-4000-9000-000000005621",
+                "operation": {
+                  "document": "mutation BulkDeleteDocument($id: String!) { documentDelete(id: $id) { success } }",
+                  "variables": {
+                    "id": "00000000-0000-4000-9000-000000005621"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "documentDelete": {
+                      "success": true
+                    }
+                  }
+                },
+                "effects": [
+                  {
+                    "kind": "put",
+                    "record": "Document:00000000-0000-4000-9000-000000005621",
+                    "before": {
+                      "value": {
+                        "state": "active"
+                      }
+                    },
+                    "after": {
+                      "state": "trash"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "item-2",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-C",
+                "operation": {
+                  "document": "query GetDocumentForBulkDelete($id: String!) { document(id: $id) { id slugId title } }",
+                  "variables": {
+                    "id": "C"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "document": {
+                      "id": "00000000-0000-4000-9000-000000005622",
+                      "slugId": "fixture-doc",
+                      "title": "Doc C"
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "delete-00000000-0000-4000-9000-000000005622",
+                "operation": {
+                  "document": "mutation BulkDeleteDocument($id: String!) { documentDelete(id: $id) { success } }",
+                  "variables": {
+                    "id": "00000000-0000-4000-9000-000000005622"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "documentDelete": {
+                      "success": true
+                    }
+                  }
+                },
+                "effects": [
+                  {
+                    "kind": "put",
+                    "record": "Document:00000000-0000-4000-9000-000000005622",
+                    "before": {
+                      "value": {
+                        "state": "active"
+                      }
+                    },
+                    "after": {
+                      "state": "trash"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "item-3",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-DJoined",
+                "operation": {
+                  "document": "query GetDocumentForBulkDelete($id: String!) { document(id: $id) { id slugId title } }",
+                  "variables": {
+                    "id": "DJoined"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "document": {
+                      "id": "00000000-0000-4000-9000-000000005623",
+                      "slugId": "fixture-doc",
+                      "title": "Doc DJoined"
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "delete-00000000-0000-4000-9000-000000005623",
+                "operation": {
+                  "document": "mutation BulkDeleteDocument($id: String!) { documentDelete(id: $id) { success } }",
+                  "variables": {
+                    "id": "00000000-0000-4000-9000-000000005623"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "documentDelete": {
+                      "success": true
+                    }
+                  }
+                },
+                "effects": [
+                  {
+                    "kind": "put",
+                    "record": "Document:00000000-0000-4000-9000-000000005623",
+                    "before": {
+                      "value": {
+                        "state": "active"
+                      }
+                    },
+                    "after": {
+                      "state": "trash"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "item-4",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "details-E",
+                "operation": {
+                  "document": "query GetDocumentForBulkDelete($id: String!) { document(id: $id) { id slugId title } }",
+                  "variables": {
+                    "id": "E"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "document": {
+                      "id": "00000000-0000-4000-9000-000000005624",
+                      "slugId": "fixture-doc",
+                      "title": "Doc E"
+                    }
+                  }
+                },
+                "effects": []
+              },
+              {
+                "kind": "graphql",
+                "id": "delete-00000000-0000-4000-9000-000000005624",
+                "operation": {
+                  "document": "mutation BulkDeleteDocument($id: String!) { documentDelete(id: $id) { success } }",
+                  "variables": {
+                    "id": "00000000-0000-4000-9000-000000005624"
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "documentDelete": {
+                      "success": true
+                    }
+                  }
+                },
+                "effects": [
+                  {
+                    "kind": "put",
+                    "record": "Document:00000000-0000-4000-9000-000000005624",
+                    "before": {
+                      "value": {
+                        "state": "active"
+                      }
+                    },
+                    "after": {
+                      "state": "trash"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "details-F",
+            "operation": {
+              "document": "query GetDocumentForBulkDelete($id: String!) { document(id: $id) { id slugId title } }",
+              "variables": {
+                "id": "F"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "document": {
+                  "id": "00000000-0000-4000-9000-000000005625",
+                  "slugId": "fixture-doc",
+                  "title": "Doc F"
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "delete-00000000-0000-4000-9000-000000005625",
+            "operation": {
+              "document": "mutation BulkDeleteDocument($id: String!) { documentDelete(id: $id) { success } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000005625"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "documentDelete": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Document:00000000-0000-4000-9000-000000005625",
+                "before": {
+                  "value": {
+                    "state": "active"
+                  }
+                },
+                "after": {
+                  "state": "trash"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

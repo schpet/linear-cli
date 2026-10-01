@@ -1,0 +1,52 @@
+{
+  "id": "c056-wrong-url",
+  "route": "linear document delete",
+  "reason": "wrong-url",
+  "argv": [
+    "document",
+    "delete",
+    "https://linear.app/acme/issue/SRC-1/example",
+    "--yes"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to delete document: \"https://linear.app/acme/issue/SRC-1/example\" is an issue URL, not a document URL.\n  Pass a document URL, UUID, or slug ID.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": null
+}
