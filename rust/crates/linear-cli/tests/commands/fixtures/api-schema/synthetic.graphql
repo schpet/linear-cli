@@ -1,0 +1,44 @@
+schema {
+  query: Root
+  mutation: Mutation
+}
+
+directive @mark(a: String = "hi", z: Int = 2) on FIELD_DEFINITION | OBJECT
+
+type Alpha implements Node {
+  id: ID!
+}
+
+union Choice = Alpha | Zebra
+
+scalar Dummy
+
+input Input {
+  labels: [String!] = ["x"]
+  n: Int = 1
+  tone: Tone = ZETA
+}
+
+type Mutation {
+  touch(id: ID!): Boolean!
+}
+
+interface Node {
+  id: ID!
+}
+
+"""A dummy schema with sorting, defaults and descriptions."""
+type Root {
+  alpha(input: Input = {labels: ["one", "two"], n: 2, tone: ZETA}): Node
+  zeta: Choice
+}
+
+enum Tone {
+  ALPHA @deprecated
+  ZETA
+}
+
+type Zebra implements Node {
+  id: ID!
+  name: String @deprecated(reason: "Old field")
+}

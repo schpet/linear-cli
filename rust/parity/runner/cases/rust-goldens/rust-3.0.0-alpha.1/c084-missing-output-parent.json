@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c084-missing-output-parent",
+  "deviationId": "SCHEMA-OUTPUT-OS-TEXT",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stderr",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "\u2717 Failed to fetch schema: Failed to write schema: {{cwd}}/missing/schema.graphql: No such file or directory (os error 2)\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

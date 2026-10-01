@@ -1,0 +1,125 @@
+{
+  "id": "c083-paginate-second-nonjson-drops-prior-nodes",
+  "route": "linear api",
+  "reason": "paginate-second-nonjson-drops-prior-nodes",
+  "argv": [
+    "api",
+    "query Pages($after: String) { issues(first: 2, after: $after) { nodes { identifier } pageInfo { hasNextPage endCursor } } }",
+    "--paginate"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "SECOND not JSON\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "6129b81e21543680aaf65a965782c93bd396353bf03e91bf4ad557fae14d1c77"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "p1",
+            "operation": {
+              "document": "query Pages($after: String) { issues(first: 2, after: $after) { nodes { identifier } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "issues": {
+                  "nodes": [
+                    {
+                      "identifier": "ENG-1"
+                    }
+                  ],
+                  "pageInfo": {
+                    "hasNextPage": true,
+                    "endCursor": "next"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "p2",
+            "operation": {
+              "document": "query Pages($after: String) { issues(first: 2, after: $after) { nodes { identifier } pageInfo { hasNextPage endCursor } } }",
+              "variables": {
+                "after": "next"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "text/plain"
+              },
+              "body": {
+                "utf8": "SECOND not JSON"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -104,3 +104,6 @@ pub mod config_generate;
 pub mod issue_read;
 
 pub mod issue_view;
+
+pub mod api;
+pub mod schema;

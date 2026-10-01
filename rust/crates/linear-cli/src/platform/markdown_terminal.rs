@@ -6,6 +6,7 @@
 //! are not reflowed because the terminal wraps them. Width only sizes thematic
 //! breaks. Deliberate differences are recorded in `rust/compatibility.md`.
 
+use crate::text::js_trim;
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::iter::Peekable;
@@ -20,7 +21,6 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::config::NoColor;
 use crate::error::{AppError, AppErrorKind};
-use crate::text::js_space;
 
 /// Renderer width when a terminal reports no usable size.
 pub const FALLBACK_COLUMNS: NonZeroU16 = NonZeroU16::MIN.saturating_add(79);
@@ -731,10 +731,6 @@ fn visible(rendered: &str) -> String {
 
 fn width(text: &str) -> usize {
     UnicodeWidthStr::width(visible(text).as_str())
-}
-
-fn js_trim(text: &str) -> &str {
-    text.trim_matches(js_space)
 }
 
 /// ECMAScript `encodeURI`, then the source's `#` to `%23` escape.

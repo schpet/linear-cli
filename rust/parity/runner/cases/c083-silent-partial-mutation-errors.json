@@ -1,0 +1,124 @@
+{
+  "id": "c083-silent-partial-mutation-errors",
+  "route": "linear api",
+  "reason": "silent-partial-mutation-errors",
+  "argv": [
+    "api",
+    "mutation DummyArchive($id: String!) { issueArchive(id: $id) { success } }",
+    "--variable",
+    "id=ENG-1",
+    "--silent"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "58283c20a47587a5a427f26a4f0da8191f774b3761ba03b9a85d61189b497429"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {
+      "dummyIssue": {
+        "state": "active"
+      }
+    },
+    "expectedRecords": {
+      "dummyIssue": {
+        "state": "archived"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "request",
+            "operation": {
+              "document": "mutation DummyArchive($id: String!) { issueArchive(id: $id) { success } }",
+              "variables": {
+                "id": "ENG-1"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "graphqlErrors",
+              "status": 200,
+              "data": {
+                "issueArchive": {
+                  "success": true
+                }
+              },
+              "errors": [
+                {
+                  "message": "Raw API failure",
+                  "extensions": {
+                    "userPresentableMessage": "Friendly should remain full JSON"
+                  }
+                }
+              ]
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "dummyIssue",
+                "before": {
+                  "value": {
+                    "state": "active"
+                  }
+                },
+                "after": {
+                  "state": "archived"
+                }
+              }
+            ],
+            "partialEffects": true
+          }
+        ]
+      }
+    ]
+  }
+}

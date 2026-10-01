@@ -82,3 +82,5 @@ mod initiative_update;
 mod issue_comment_update;
 
 mod issue_read;
+
+mod api_schema;

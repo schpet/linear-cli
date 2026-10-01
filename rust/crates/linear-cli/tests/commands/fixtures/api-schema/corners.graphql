@@ -1,0 +1,40 @@
+schema {
+  query: Root
+}
+
+directive @mark(a: ID = 123, z: Tone = B) on FIELD_DEFINITION | OBJECT
+
+input Input {
+  label: String = "\b😀🙂"
+  nested: [Int] = [1]
+  z: Float = 2
+}
+
+"""Escaped triple quotes: \""" inside."""
+type Root {
+  t1: T1
+  t2: T2
+  t10(input: Input = {label: "x", nested: [2], z: 2}): T10
+}
+
+type T01 {
+  n: Int
+}
+
+type T1 {
+  n: Int
+}
+
+type T2 {
+  n: Int
+}
+
+type T10 {
+  n: Int
+}
+
+""""""
+enum Tone {
+  A
+  B @deprecated(reason: "\u0085")
+}

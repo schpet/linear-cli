@@ -1,0 +1,64 @@
+{
+  "id": "c083-paginate-multiple-refusal",
+  "route": "linear api",
+  "reason": "paginate-multiple-refusal",
+  "argv": [
+    "api",
+    "query Multiple { one: issues(first: 1) { nodes { identifier } pageInfo { hasNextPage endCursor } } two: issues(first: 1) { nodes { identifier } pageInfo { hasNextPage endCursor } } }",
+    "--paginate"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": {
+    "path": "/graphql",
+    "responses": [
+      {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "utf8": "{\"data\":{\"one\":{\"nodes\":[{\"identifier\":\"ENG-1\"}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}},\"two\":{\"nodes\":[{\"identifier\":\"ENG-1\"}],\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null}}}}"
+        }
+      }
+    ],
+    "expectedRequests": 1,
+    "expectedAuthorization": "lin_api_fake"
+  },
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ API request failed: --paginate does not support queries with multiple paginated connections\n  Use cursor-based pagination manually with $after and pageInfo { hasNextPage endCursor }.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

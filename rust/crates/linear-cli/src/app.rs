@@ -613,8 +613,12 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             }
         },
         Some(cli::RootCommand::Config(_)) => dispatch_config_generate(context, workspace),
-        Some(cli::RootCommand::Schema(_)) => unsupported("linear schema"),
-        Some(cli::RootCommand::Api(_)) => unsupported("linear api"),
+        Some(cli::RootCommand::Schema(action)) => {
+            schema_action(&action, cli.workspace.as_deref(), context)
+        }
+        Some(cli::RootCommand::Api(action)) => {
+            api_action(&action, cli.workspace.as_deref(), context)
+        }
         Some(cli::RootCommand::Markdown(_)) => markdown(context),
     }
 }
@@ -7247,4 +7251,80 @@ fn dispatch_issue_view(
         issue_read_output(context, &output, !action.no_pager)
     })();
     result.map_err(|e: AppError| e.with_context("Failed to view issue"))
+}
+
+fn api_action(
+    action: &cli::api::Api,
+    workspace: Option<&str>,
+    context: &mut AppContext<'_>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::api;
+    let result = (|| {
+        let query = api::resolve_query(action.graphql_document.as_deref(), context.stdin_tty)?;
+        let variables = api::variables(action)?;
+        let config = context.config()?;
+        let transport=client::prepare_transport(&config.options,context.credentials()?,workspace,&config.transport_env).map_err(|error| {
+            if error.message=="No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`." {AppError::new(AppErrorKind::Validation,"No API key configured").with_suggestion("Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.")}else{error}
+        })?;
+        let output = block_on_network(api::execute(
+            &transport,
+            &query,
+            variables,
+            action.paginate,
+            action.silent,
+            context.stdout_tty,
+        ))?;
+        if !output.stdout.is_empty() {
+            context
+                .write_stdout_with_policy(
+                    output.stdout.as_bytes(),
+                    if output.console {
+                        OutputPolicy::ConsoleLike
+                    } else {
+                        OutputPolicy::Strict
+                    },
+                )
+                .map_err(api::source_output_error)?;
+        }
+        if !output.stderr.is_empty() {
+            write_stderr(context, output.stderr.as_bytes())?;
+        }
+        Ok(output.status)
+    })();
+    result.map_err(|error: AppError| error.with_context(api::CONTEXT))
+}
+fn schema_action(
+    action: &cli::schema::Schema,
+    workspace: Option<&str>,
+    context: &mut AppContext<'_>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::schema;
+    let result = (|| {
+        let config = context.config()?;
+        let transport = client::prepare_transport(
+            &config.options,
+            context.credentials()?,
+            workspace,
+            &config.transport_env,
+        )?;
+        let value = block_on_network(schema::fetch(&transport))?;
+        let content = format!("{}\n", schema::content(&value, action.json)?);
+        if let Some(path) = &action.output {
+            std::fs::write(path, content).map_err(|e| {
+                AppError::new(
+                    AppErrorKind::IoProcess,
+                    format!("Failed to write schema: {path}: {e}"),
+                )
+                .with_source(e)
+            })?;
+            context.write_stdout_with_policy(
+                format!("Schema written to {path}\n").as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+        } else {
+            context.write_stdout_with_policy(content.as_bytes(), OutputPolicy::ConsoleLike)?;
+        }
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context(schema::CONTEXT))
 }

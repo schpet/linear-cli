@@ -1,0 +1,89 @@
+{
+  "id": "c083-merge-coerce-document-verbatim",
+  "route": "linear api",
+  "reason": "merge-coerce-document-verbatim",
+  "argv": [
+    "api",
+    "query UserDocument { viewer { id } }",
+    "--variables-json",
+    "{\"base\":{\"nested\":[true,null,2]},\"replace\":\"old\",\"constructor\":\"own\",\"__proto__\":{\"ignored\":true},\"10\":\"ten\",\"2\":\"two\"}",
+    "--variable",
+    "replace=new=tail",
+    "--variable",
+    "replace=final",
+    "--variable",
+    "bool=true",
+    "--variable",
+    "false=false",
+    "--variable",
+    "nothing=null",
+    "--variable",
+    "num=1.5",
+    "--variable",
+    "leading=01",
+    "--variable",
+    "exponent=1e3",
+    "--variable",
+    "minus=-0",
+    "--variable",
+    "nonfinite=Infinity",
+    "--variable",
+    "=empty-key",
+    "--variable",
+    "empty="
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": {
+    "path": "/graphql",
+    "responses": [
+      {
+        "status": 200,
+        "headers": {
+          "content-type": "application/json"
+        },
+        "body": {
+          "utf8": "{\"data\":{\"viewer\":{\"id\":\"dummy\"}},\"extensions\":{\"fixture\":\"dynamic\"}}"
+        }
+      }
+    ],
+    "expectedRequests": 1,
+    "expectedAuthorization": "lin_api_fake"
+  },
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\"data\":{\"viewer\":{\"id\":\"dummy\"}},\"extensions\":{\"fixture\":\"dynamic\"}}"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null
+}

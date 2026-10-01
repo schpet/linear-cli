@@ -17,3 +17,5 @@ mod typed_cli;
 mod config_generate;
 
 mod issue_reads;
+
+mod api_schema;

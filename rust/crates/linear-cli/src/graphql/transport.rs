@@ -10,10 +10,9 @@
 //! never reads the environment. [`ConfinedTransportEnv`] only parses values a
 //! test-only caller has already read from the confined parity lane.
 //!
-//! Every response is captured first (status, headers, exact body bytes up to a
-//! finite cap) and classified afterwards, so the raw `api` command can
-//! reproduce its own handling of any status while typed built-ins get the
-//! F02A envelope classification. GraphQL `errors` win over HTTP status; a
+//! Built-in responses are captured first (status, headers, exact body bytes up
+//! to a finite cap) and then receive F02A envelope classification. The API
+//! command separately opts into uncapped Fetch `fetch_api`. GraphQL `errors` win over HTTP status; a
 //! non-2xx body without GraphQL errors is an HTTP failure that keeps its bytes.
 //!
 //! Secrets: every stored `reqwest::Error` goes through
@@ -1409,8 +1408,85 @@ impl GraphQlTransport {
         }
     }
 
-    /// Sends an arbitrary document (the raw `api` path) and returns the exact
-    /// response without classifying it. `variables` is sent only when present.
+    /// Opt-in Fetch POST: no GraphQL MIME/envelope assumptions, deadline or body cap.
+    /// The existing asset client retains its headers, GET policy and callers.
+    pub async fn fetch_api(&self, body: String) -> Result<(u16, String), AppError> {
+        let mut url = self.endpoint.url.clone();
+        let mut authenticated = true;
+        let mut method = reqwest::Method::POST;
+        let mut redirects = 0;
+        loop {
+            let mut request = self
+                .markdown_download_client
+                .request(method.clone(), url.clone())
+                .header(USER_AGENT, HeaderValue::from_static(USER_AGENT_VALUE))
+                .header(reqwest::header::ACCEPT_ENCODING, "gzip, br");
+            if authenticated {
+                request = request.header(AUTHORIZATION, self.api_key.header_value());
+            }
+            if method == reqwest::Method::POST {
+                request = request
+                    .header(CONTENT_TYPE, HeaderValue::from_static(CONTENT_TYPE_VALUE))
+                    .body(body.clone());
+            }
+            let response = request.send().await.map_err(markdown_network_error)?;
+            let status = response.status().as_u16();
+            if matches!(status, 301 | 302 | 303 | 307 | 308)
+                && let Some(location) = response.headers().get(LOCATION)
+            {
+                if redirects == 20 {
+                    return Err(AppError::new(
+                        AppErrorKind::Transport,
+                        "NetworkError when attempting to fetch resource",
+                    ));
+                }
+                let location = location.to_str().map_err(|e| {
+                    AppError::new(AppErrorKind::Transport, "Invalid API redirect Location")
+                        .with_source(e)
+                })?;
+                let next = url.join(location).map_err(|e| {
+                    AppError::new(AppErrorKind::Transport, "Invalid API redirect URL")
+                        .with_source(e)
+                })?;
+                if !matches!(next.scheme(), "http" | "https") {
+                    return Err(AppError::new(
+                        AppErrorKind::Transport,
+                        "NetworkError when attempting to fetch resource",
+                    ));
+                }
+                authenticated &= url.origin() == next.origin();
+                if matches!(status, 301..=303) && method == reqwest::Method::POST {
+                    method = reqwest::Method::GET;
+                }
+                url = next;
+                redirects += 1;
+                continue;
+            }
+            let encoding = response.headers().get(reqwest::header::CONTENT_ENCODING)
+                .map(|v| v.to_str().map(str::to_owned)).transpose()
+                .map_err(|e| AppError::new(AppErrorKind::Transport,"Failed to decode API response; request sent, any effects unknown; do not retry automatically").with_source(e))?;
+            let bytes = response.bytes().await.map_err(|e| AppError::new(AppErrorKind::Transport,"Failed to read API response; request sent, any effects unknown; do not retry automatically").with_source(e))?;
+            let supported = encoding.as_deref().unwrap_or("").split(',').all(|coding| {
+                matches!(
+                    coding.trim().to_ascii_lowercase().as_str(),
+                    "" | "identity" | "gzip" | "x-gzip" | "br" | "deflate"
+                )
+            });
+            // Fetch leaves an unknown content encoding's body untouched. Keep
+            // the existing decoder and its failures for supported encodings.
+            let decoded = if supported { decode_markdown_image(encoding.as_deref(),bytes.to_vec()) } else { Ok(bytes.to_vec()) }
+                .map_err(|e| AppError::new(AppErrorKind::Transport,"Failed to decode API response; request sent, any effects unknown; do not retry automatically").with_source(e))?;
+            let text = String::from_utf8_lossy(&decoded);
+            return Ok((
+                status,
+                text.strip_prefix('\u{feff}').unwrap_or(&text).to_owned(),
+            ));
+        }
+    }
+
+    /// Sends an arbitrary document through the bounded built-in GraphQL client
+    /// and returns the response without classifying it. `variables` is sent
+    /// only when present. The API command uses opt-in Fetch `fetch_api` instead.
     pub async fn send_raw(
         &self,
         document: &str,
