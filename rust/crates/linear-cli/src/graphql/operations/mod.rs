@@ -77,3 +77,5 @@ pub mod update_create;
 pub mod initiative_update;
 
 pub mod comment_update;
+
+pub mod config_generate;

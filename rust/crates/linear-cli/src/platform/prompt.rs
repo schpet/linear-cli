@@ -88,6 +88,127 @@ pub struct PromptSession<R: Read, W: Write> {
 }
 
 impl<R: Read, W: Write> PromptSession<R, W> {
+    /// C082 owned searchable opt-in. It uses the existing Selector state/match/rank,
+    /// with source-valid value refusals preflighted by the command before raw mode.
+    /// Old selector::run gating and old plain/text callers are unchanged.
+    pub fn searchable_select(
+        &mut self,
+        message: &str,
+        search_label: &str,
+        options: &[crate::platform::selector::SelectOption],
+    ) -> Result<PromptOutcome<String>, AppError> {
+        use crate::platform::selector::{Key, Selection, Selector};
+        self.check_ready(message)?;
+        self.check_ready(search_label)?;
+        let mut selector = Selector::new(options).map_err(|error| {
+            AppError::new(AppErrorKind::Validation, error.to_string()).with_source(error)
+        })?;
+        match &mut self.input {
+            InputSource::Script(_) => {
+                self.write(format!("? {message}\n{search_label}:\n").as_bytes())?;
+                self.flush()?;
+                let Some(query) = self.read_script_line()? else {
+                    return Ok(PromptOutcome::EndOfInput);
+                };
+                for character in query.chars() {
+                    selector.on_key(Key::Character(character));
+                }
+                match selector.on_key(Key::Enter) {
+                    Some(Selection::Selected(value)) => {
+                        let label = selector
+                            .active_label()
+                            .ok_or_else(|| invariant("selected searchable label vanished"))?;
+                        self.write(
+                            format!("? {message} › {}\n", escaped_display(label)).as_bytes(),
+                        )?;
+                        Ok(PromptOutcome::Submitted(value))
+                    }
+                    None => Err(AppError::new(
+                        AppErrorKind::Validation,
+                        "C082-SEARCH-PROTOCOL: no teams match submitted search query",
+                    )),
+                    Some(Selection::Interrupted | Selection::EndOfInput) => {
+                        Err(invariant("script Enter produced non-selection control"))
+                    }
+                }
+            }
+            InputSource::Keys(_) => {
+                let mut previous_lines = 0_usize;
+                let visible = MAX_OPTIONS_VISIBLE.min(self.rows.saturating_sub(3)).max(1);
+                loop {
+                    self.clear_frame(previous_lines)?;
+                    let header = format!(
+                        "? {message}  {search_label}: {}",
+                        escaped_display(selector.query())
+                    );
+                    self.write(format!("{}\n", clip(&header, self.columns - 1)).as_bytes())?;
+                    previous_lines = 1;
+                    let active = selector.active_index();
+                    let start = active.saturating_sub(visible - 1);
+                    let mut shown = 0;
+                    for (offset, option) in selector.visible().skip(start).take(visible).enumerate()
+                    {
+                        let marker = if start + offset == active { '❯' } else { ' ' };
+                        self.write(
+                            format!(
+                                "{}\n",
+                                clip(
+                                    &format!("{marker} {}", escaped_display(&option.label)),
+                                    self.columns - 1
+                                )
+                            )
+                            .as_bytes(),
+                        )?;
+                        previous_lines += 1;
+                        shown += 1;
+                    }
+                    if shown == 0 {
+                        self.write(b"  No matches\n")?;
+                        previous_lines += 1;
+                    }
+                    let key = match self.next_key()? {
+                        PromptKey::Character(c) => Key::Character(c),
+                        PromptKey::Backspace => Key::Backspace,
+                        PromptKey::Up => Key::Up,
+                        PromptKey::Down => Key::Down,
+                        PromptKey::Enter => Key::Enter,
+                        PromptKey::Interrupt => Key::Interrupt,
+                        PromptKey::EndOfInput => Key::EndOfInput,
+                        PromptKey::Left
+                        | PromptKey::Right
+                        | PromptKey::PageUp
+                        | PromptKey::PageDown
+                        | PromptKey::Home
+                        | PromptKey::End
+                        | PromptKey::Delete
+                        | PromptKey::Other => Key::Other,
+                    };
+                    match selector.on_key(key) {
+                        Some(Selection::Selected(value)) => {
+                            let label = selector
+                                .active_label()
+                                .ok_or_else(|| invariant("selected searchable label vanished"))?;
+                            self.clear_frame(previous_lines)?;
+                            self.write(
+                                format!("? {message} › {}\n", escaped_display(label)).as_bytes(),
+                            )?;
+                            return Ok(PromptOutcome::Submitted(value));
+                        }
+                        Some(Selection::Interrupted) => {
+                            self.clear_frame(previous_lines)?;
+                            return Ok(PromptOutcome::Interrupted);
+                        }
+                        Some(Selection::EndOfInput) => {
+                            self.clear_frame(previous_lines)?;
+                            return Ok(PromptOutcome::EndOfInput);
+                        }
+                        None => {} // Enter with no match cannot finish; Backspace can recover.
+                    }
+                }
+            }
+        }
+    }
+
     pub fn script(reader: R, writer: W) -> Self {
         Self {
             input: InputSource::Script(BufReader::new(reader)),

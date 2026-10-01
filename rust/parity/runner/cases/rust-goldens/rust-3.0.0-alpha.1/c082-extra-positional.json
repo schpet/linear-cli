@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c082-extra-positional",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "error: unexpected argument 'extra' found\n\nUsage: linear config [OPTIONS]\n\nFor more information, try '--help'.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

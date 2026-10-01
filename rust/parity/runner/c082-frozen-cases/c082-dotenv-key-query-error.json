@@ -1,0 +1,87 @@
+{
+  "id": "c082-dotenv-key-query-error",
+  "route": "linear config",
+  "reason": "dotenv-key-query-error",
+  "argv": [
+    "config"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "config-dotenv",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "\n██      ██ ███    ██ ███████  █████  ██████      ██████ ██      ██\n██      ██ ████   ██ ██      ██   ██ ██   ██    ██      ██      ██\n██      ██ ██ ██  ██ █████   ███████ ██████     ██      ██      ██\n██      ██ ██  ██ ██ ██      ██   ██ ██   ██    ██      ██      ██\n███████ ██ ██   ████ ███████ ██   ██ ██   ██     ██████ ███████ ██\n\n"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to generate configuration: Friendly configuration error\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "config",
+            "operation": {
+              "document": "query Config { viewer { organization { urlKey } } teams { nodes { id key name } } }"
+            },
+            "identity": {
+              "authorization": "lin_api_fake_dotenv",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "graphqlErrors",
+              "status": 200,
+              "data": null,
+              "errors": [
+                {
+                  "message": "Raw config error",
+                  "extensions": {
+                    "userPresentableMessage": "Friendly configuration error"
+                  }
+                }
+              ]
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "configFixture": "config-two"
+}

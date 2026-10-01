@@ -99,6 +99,12 @@ impl<'a> Selector<'a> {
             .map(|option| option.value.as_str())
     }
 
+    /// Expose the owned selector cursor for PromptSession's escaped renderer.
+    /// Matching, ranking, option validation and legacy standalone callers stay unchanged.
+    pub fn active_index(&self) -> usize {
+        self.active
+    }
+
     pub fn active_label(&self) -> Option<&str> {
         self.filtered
             .get(self.active)

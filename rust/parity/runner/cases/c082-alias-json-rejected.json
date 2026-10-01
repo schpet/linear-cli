@@ -1,0 +1,53 @@
+{
+  "id": "c082-alias-json-rejected",
+  "route": "linear config",
+  "reason": "alias-json-rejected",
+  "argv": [
+    "configure",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear config\nVersion: 2.6.0        \n\nDescription:\n\n  Interactively generate .linear.toml configuration\n\nOptions:\n\n  -h, --help           - Show this help.                      \n  --workspace  <slug>  - Target workspace (uses credentials)  \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Unknown option \"--json\". Did you mean option \"--help\"?\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "CLAP-NATIVE-CLI-SURFACE",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "4d118d03d686a43d2132f07d3ec3670e902e9a4ed05974505f843ea6336f9717"
+  },
+  "graphql": null
+}

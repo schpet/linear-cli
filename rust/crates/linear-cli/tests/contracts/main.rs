@@ -13,3 +13,5 @@ mod broken_pipe;
 mod output;
 
 mod typed_cli;
+
+mod config_generate;

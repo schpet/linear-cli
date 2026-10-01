@@ -606,7 +606,7 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 write_complete(context, &action)
             }
         },
-        Some(cli::RootCommand::Config(_)) => unsupported("linear config"),
+        Some(cli::RootCommand::Config(_)) => dispatch_config_generate(context, workspace),
         Some(cli::RootCommand::Schema(_)) => unsupported("linear schema"),
         Some(cli::RootCommand::Api(_)) => unsupported("linear api"),
         Some(cli::RootCommand::Markdown(_)) => markdown(context),
@@ -6238,6 +6238,171 @@ fn dispatch_issue_comment_update(
             )
         })?;
         let output = block_on_network(command::submit(&transport, &action.comment_id, body))?;
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+}
+
+fn dispatch_config_generate(
+    context: &mut AppContext<'_>,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::{
+        commands::config_generate as command,
+        platform::prompt::{PlainSelect, PromptOutcome, PromptSession},
+    };
+    let result = (|| {
+        context.write_stdout_with_policy(command::BANNER.as_bytes(), OutputPolicy::ConsoleLike)?;
+        // Borrow disjoint startup/stdout fields, not a full-context reference held by the session.
+        let loaded = context.startup.result.as_ref().map_err(|_| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                "config action reached failed startup",
+            )
+        })?;
+        let config = &loaded.config;
+        let credentials = &loaded.credentials;
+        let choice = command::workspace_choice(&config.options, credentials, workspace)?;
+        let mut session = None;
+        let mut prompt_output = Some(&mut *context.stdout);
+        let answers = (|| {
+            let selected = match choice {
+                command::WorkspaceChoice::Existing => workspace.map(str::to_owned),
+                command::WorkspaceChoice::Only(name) => Some(name),
+                command::WorkspaceChoice::Menu {
+                    options,
+                    default_index,
+                } => {
+                    if context.stdin_tty {
+                        command::check_prompt_topology(true, command::stdout_is_fifo()?)?;
+                    }
+                    let current = PromptSession::stdin_stdio_cr_or_lf(
+                        prompt_output.take().ok_or_else(|| {
+                            AppError::new(
+                                AppErrorKind::Invariant,
+                                "config prompt output already owned",
+                            )
+                        })?,
+                    )?;
+                    session = Some(current);
+                    let current = session.as_mut().ok_or_else(|| {
+                        AppError::new(AppErrorKind::Invariant, "workspace session absent")
+                    })?;
+                    let answer = command::stage(
+                        current.select(&PlainSelect {
+                            message: "Select workspace:",
+                            options: &options,
+                            default_index,
+                            default_hint: credentials.default(),
+                        })?,
+                        "workspace",
+                    )?;
+                    match answer {
+                        PromptOutcome::Submitted(name) => Some(name),
+                        PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
+                        PromptOutcome::EndOfInput => {
+                            return Err(AppError::new(
+                                AppErrorKind::Invariant,
+                                "workspace EOF conversion absent",
+                            ));
+                        }
+                    }
+                }
+            };
+            if let Some(current) = session.as_mut() {
+                current.suspend()?;
+            }
+            let transport = crate::commands::client::prepare_transport(
+                &config.options,
+                credentials,
+                selected.as_deref(),
+                &config.transport_env,
+            )?;
+            let data = block_on_network(command::fetch(&transport))?;
+            // Validate all selectable IDs before team raw mode resumes/starts.
+            let teams = command::prepare_teams(data.teams.nodes)?;
+            if context.stdin_tty {
+                command::check_prompt_topology(true, command::stdout_is_fifo()?)?;
+            }
+            match session.as_mut() {
+                Some(current) => current.resume()?,
+                None => {
+                    session = Some(PromptSession::stdin_stdio_cr_or_lf(
+                        prompt_output.take().ok_or_else(|| {
+                            AppError::new(
+                                AppErrorKind::Invariant,
+                                "config prompt output already owned",
+                            )
+                        })?,
+                    )?)
+                }
+            }
+            let current = session
+                .as_mut()
+                .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "team session absent"))?;
+            let choices = command::team_options(&teams);
+            let id = match command::stage(
+                current.searchable_select("Select a team:", "Search teams", &choices)?,
+                "team",
+            )? {
+                PromptOutcome::Submitted(id) => id,
+                PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
+                PromptOutcome::EndOfInput => {
+                    return Err(AppError::new(
+                        AppErrorKind::Invariant,
+                        "team EOF conversion absent",
+                    ));
+                }
+            };
+            let key = command::team_key(&teams, &id)?.to_owned();
+            let sort = match command::stage(command::sort_prompt(current)?, "sort order")? {
+                PromptOutcome::Submitted(sort) => sort,
+                PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
+                PromptOutcome::EndOfInput => {
+                    return Err(AppError::new(
+                        AppErrorKind::Invariant,
+                        "sort EOF conversion absent",
+                    ));
+                }
+            };
+            Ok(PromptOutcome::Submitted((
+                data.viewer.organization.url_key,
+                key,
+                sort,
+            )))
+        })();
+        // Always finish immediately after sort/control/error, before late Git and local IO.
+        let answers = match session.as_mut() {
+            Some(current) => current.finish_result(answers)?,
+            None => answers?,
+        };
+        drop(session);
+        let (written_workspace, key, sort) = match answers {
+            PromptOutcome::Submitted(values) => values,
+            PromptOutcome::Interrupted => return initiative_interrupt_status(),
+            PromptOutcome::EndOfInput => {
+                return Err(AppError::new(
+                    AppErrorKind::Invariant,
+                    "config stage EOF conversion absent",
+                ));
+            }
+        };
+        let root = block_on_network(command::late_root(
+            &context.cwd,
+            &config.child_env,
+            command::GitLimits::default(),
+        ))?;
+        let path = command::destination(&root, |path| {
+            let absolute = if path.is_absolute() {
+                path.to_owned()
+            } else {
+                context.cwd.join(path)
+            };
+            std::fs::metadata(absolute).is_ok() // follows symlinks, any stat success, ordinary errors fallback.
+        });
+        let content = command::template(&written_workspace, &key, sort);
+        let output = command::write_config(&context.cwd, &path, &content)?;
         context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
         Ok(ExitStatus::Success)
     })();
