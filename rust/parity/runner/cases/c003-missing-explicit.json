@@ -1,0 +1,51 @@
+{
+  "id": "c003-missing-explicit",
+  "route": "linear auth token",
+  "reason": "missing-explicit",
+  "argv": [
+    "auth",
+    "token",
+    "--workspace",
+    "ghost"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 45000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to get API token: Workspace \"ghost\" not found in credentials. Run `linear auth login` to add it, or `linear auth list` to see configured workspaces.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "configFixture": "auth-pair-inline"
+}

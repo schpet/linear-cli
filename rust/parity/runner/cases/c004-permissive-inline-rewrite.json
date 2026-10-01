@@ -1,0 +1,61 @@
+{
+  "id": "c004-permissive-inline-rewrite",
+  "route": "linear auth default",
+  "reason": "permissive-inline-rewrite",
+  "argv": [
+    "auth",
+    "default",
+    "alpha"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 45000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Default workspace set to: alpha\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": [
+      {
+        "path": "config/linear/credentials.toml",
+        "change": "modified",
+        "kind": "file",
+        "sha256": "f894cc76cf33f8d9ae4a37ac77ecc53f4a787e2e93238c3bb427b655dcf17cc8"
+      }
+    ]
+  },
+  "deviation": {
+    "id": "R02C2G-CREDENTIAL-STARTUP",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "0cf5b16b8dafa7b000dd6c4b2d71cfed7753015d18746e8be252832459d4380c"
+  },
+  "configFixture": "auth-pair-inline-ignored"
+}

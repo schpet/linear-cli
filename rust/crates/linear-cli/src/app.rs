@@ -11,11 +11,11 @@ use crate::cli;
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_list, auth_whoami, client, comment_add, cycle_list, cycle_view, document_comment_list,
-    initiative_bulk, initiative_comment_list, initiative_create, initiative_list,
-    initiative_projects, initiative_unarchive, initiative_update_list, initiative_view,
-    issue_comment_delete, issue_comment_list, issue_details, label_create, label_delete,
-    label_list, milestone_create, milestone_delete, milestone_list, milestone_update,
+    auth_default, auth_list, auth_token, auth_whoami, client, comment_add, cycle_list, cycle_view,
+    document_comment_list, initiative_bulk, initiative_comment_list, initiative_create,
+    initiative_list, initiative_projects, initiative_unarchive, initiative_update_list,
+    initiative_view, issue_comment_delete, issue_comment_list, issue_details, label_create,
+    label_delete, label_list, milestone_create, milestone_delete, milestone_list, milestone_update,
     milestone_view, project_comment_list, project_delete, project_list, project_update_list,
     project_view, table, team_create, team_id, team_list, team_members, team_states, template_list,
     template_view, user_list,
@@ -233,8 +233,10 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::auth::AuthCommand::List(action)) => {
                 dispatch_auth_list(context, &action, workspace)
             }
-            Some(cli::auth::AuthCommand::Default(_)) => unsupported("linear auth default"),
-            Some(cli::auth::AuthCommand::Token(_)) => unsupported("linear auth token"),
+            Some(cli::auth::AuthCommand::Default(action)) => {
+                dispatch_auth_default(context, &action)
+            }
+            Some(cli::auth::AuthCommand::Token(_)) => dispatch_auth_token(context, workspace),
             Some(cli::auth::AuthCommand::Whoami(action)) => {
                 dispatch_auth_whoami(context, &action, workspace)
             }
@@ -2694,6 +2696,97 @@ fn dispatch_document_comment_list(
     })?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
+}
+
+fn dispatch_auth_token(
+    context: &mut AppContext<'_>,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    let output = auth_token::run(
+        &context.config()?.options,
+        context.credentials()?,
+        workspace,
+    )?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
+}
+
+fn dispatch_auth_default(
+    context: &mut AppContext<'_>,
+    action: &cli::auth::AuthDefault,
+) -> Result<ExitStatus, AppError> {
+    use crate::auth::write::RealCredentialFileWriter;
+    use crate::commands::auth_default::DefaultAction;
+    use crate::platform::prompt::{PlainSelect, PromptOutcome, PromptSession};
+    use std::io::IsTerminal;
+
+    let result = (|| {
+        let prepared =
+            auth_default::prepare(context.credentials()?, action.workspace_name.as_deref())?;
+        let selected = match prepared {
+            DefaultAction::Select(options) => {
+                // stdin_stdio otherwise falls back to the line-script protocol.
+                if !io::stdin().is_terminal() {
+                    return Err(auth_default::non_tty_error());
+                }
+                let outcome = {
+                    let mut session = PromptSession::stdin_stdio(&mut *context.stdout)?;
+                    let prompted = session.select(&PlainSelect {
+                        message: "Select default workspace",
+                        options: &options,
+                        default_index: 0,
+                        default_hint: None,
+                    });
+                    session.finish_result(prompted)?
+                };
+                match outcome {
+                    PromptOutcome::Submitted(workspace) => {
+                        auth_default::prepare(context.credentials()?, Some(&workspace))?
+                    }
+                    PromptOutcome::Interrupted => {
+                        return Ok(ExitStatus::ChildCode(
+                            std::num::NonZeroU8::new(130).ok_or_else(|| {
+                                AppError::new(
+                                    AppErrorKind::Invariant,
+                                    "exit code 130 must be nonzero",
+                                )
+                            })?,
+                        ));
+                    }
+                    PromptOutcome::EndOfInput => {
+                        return Err(AppError::new(
+                            AppErrorKind::Validation,
+                            "unexpected EOF while selecting a default workspace",
+                        ));
+                    }
+                }
+            }
+            other => other,
+        };
+        let output = match selected {
+            DefaultAction::Output(bytes) => bytes,
+            DefaultAction::Save(workspace) => {
+                let startup = context.startup.result.as_ref().map_err(|_| {
+                    AppError::new(AppErrorKind::Invariant, "default save after failed startup")
+                })?;
+                auth_default::save(
+                    &startup.credentials,
+                    &workspace,
+                    startup.credentials_path.as_deref(),
+                    &RealCredentialFileWriter,
+                )?
+            }
+            DefaultAction::Select(_) => {
+                return Err(AppError::new(
+                    AppErrorKind::Invariant,
+                    "submitted workspace did not resolve to a default action",
+                ));
+            }
+        };
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error| error.with_context(auth_default::CONTEXT))
 }
 
 fn dispatch_auth_list(

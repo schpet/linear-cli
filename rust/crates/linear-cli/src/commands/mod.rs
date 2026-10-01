@@ -72,3 +72,7 @@ pub mod document_list;
 pub mod document_target;
 pub mod document_view;
 pub mod release_lookup;
+
+pub mod auth_token;
+
+pub mod auth_default;

@@ -107,7 +107,7 @@ impl CredentialManifest {
     }
 }
 
-fn js_index(name: &str) -> Option<u32> {
+pub(crate) fn js_index(name: &str) -> Option<u32> {
     if name.is_empty()
         || (name.len() > 1 && name.starts_with('0'))
         || !name.bytes().all(|byte| byte.is_ascii_digit())
@@ -129,7 +129,14 @@ fn js_entry_order(entries: Vec<(String, ConfigValue)>) -> Vec<(String, ConfigVal
 /// Parse the already bounded, owned TOML tree. No keyring lookup occurs.
 pub fn parse_credentials(tier: ConfigTier) -> Result<CredentialManifest, CredentialFormatError> {
     let ConfigTier { path, entries } = tier;
-    let entries = js_entry_order(entries);
+    // Original TOML block parsing deepMerge omits this own property before
+    // credential format detection. Metadata array values remain untouched.
+    let entries = js_entry_order(
+        entries
+            .into_iter()
+            .filter(|(name, _)| name != "__proto__")
+            .collect(),
+    );
     let fail = |kind| CredentialFormatError {
         path: path.clone(),
         kind,

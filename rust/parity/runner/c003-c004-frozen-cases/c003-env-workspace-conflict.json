@@ -1,0 +1,52 @@
+{
+  "id": "c003-env-workspace-conflict",
+  "route": "linear auth token",
+  "reason": "env-workspace-conflict",
+  "argv": [
+    "auth",
+    "token",
+    "--workspace",
+    "alpha"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "auth-pair-project-key",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake_raw"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 45000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "graphql": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to get API token: Cannot use --workspace flag when LINEAR_API_KEY environment variable is set. Either unset LINEAR_API_KEY or remove the --workspace flag.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "configFixture": "auth-pair-inline"
+}

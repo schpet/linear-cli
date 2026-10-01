@@ -60,3 +60,5 @@ mod document_reads;
 mod markdown_assets;
 
 mod markdown_download;
+
+mod auth_local;

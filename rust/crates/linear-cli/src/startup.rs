@@ -23,6 +23,7 @@ const MAX_WORKERS: usize = 8;
 pub struct AppStartupConfig {
     pub config: StartupConfig,
     pub credentials: CredentialStore,
+    pub credentials_path: Option<PathBuf>,
 }
 
 impl fmt::Debug for AppStartupConfig {
@@ -218,12 +219,13 @@ pub fn load_with_phase_timeout(
             };
         }
     };
-    let manifest = match credentials_path(
+    let credentials_path = credentials_path(
         process.inputs.os,
         process.inputs.env("XDG_CONFIG_HOME"),
         process.inputs.env("HOME"),
         process.inputs.env("APPDATA"),
-    ) {
+    );
+    let manifest = match credentials_path.clone() {
         Some(path) => match credential_files.read_credentials(&path) {
             Ok(Some(bytes)) => {
                 let tier = match parse_config_tier(RawConfigFile {
@@ -300,6 +302,7 @@ pub fn load_with_phase_timeout(
         result: Ok(AppStartupConfig {
             config,
             credentials,
+            credentials_path,
         }),
     }
 }

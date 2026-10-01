@@ -15,3 +15,5 @@ pub use path::credentials_path;
 pub use resolve::{
     ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialSource, resolve,
 };
+
+pub mod write;

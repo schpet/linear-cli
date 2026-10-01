@@ -5,3 +5,7 @@ mod header;
 mod keyring;
 mod path;
 mod resolve;
+
+mod write;
+
+mod source_properties;
