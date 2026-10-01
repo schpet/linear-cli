@@ -384,21 +384,11 @@ pub async fn template(
             }
             Err(error) => return Err(AppError::from(error)),
         };
-        if data.template.template_type != "project" {
-            return Err(wrong_type(&data.template));
-        }
-        if !template_available(&data.template, team_ids) {
-            let team = data.template.team.as_ref().ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "unavailable project template has no team",
-                )
-            })?;
-            return Err(wrong_team(
-                &data.template.name,
-                std::slice::from_ref(&team.key),
-            ));
-        }
+        super::issue_template_scope::assert_scope(
+            &data.template,
+            team_ids,
+            super::issue_template_scope::TemplateScope::Project,
+        )?;
         data.template
     } else {
         let query = GraphQlRequest::without_variables(GetTemplates::build(()));

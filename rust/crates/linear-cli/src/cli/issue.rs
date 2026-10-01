@@ -342,42 +342,99 @@ pub struct IssueDelete {
 pub struct IssueCreate {
     #[arg(long = "start", help = "Start the issue after creation")]
     pub start: bool,
-    #[arg(long = "assignee", short = 'a', help = "Assign the issue to 'self' or someone (by username or name)", value_name = "assignee", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "assignee",
+        short = 'a',
+        help = "Assign the issue to 'self' or someone (by username or name)",
+        value_name = "assignee"
+    )]
     pub assignee: Option<String>,
-    #[arg(long = "due-date", help = "Due date of the issue", value_name = "dueDate", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "due-date",
+        help = "Due date of the issue",
+        value_name = "dueDate"
+    )]
     pub due_date: Option<String>,
-    #[arg(long = "parent", help = "Parent issue (if any) as a team_number code", value_name = "parent", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "parent",
+        help = "Parent issue (if any) as a team_number code",
+        value_name = "parent"
+    )]
     pub parent: Option<String>,
     #[arg(long = "priority", short = 'p', help = "Priority of the issue (1-4, descending priority)", value_name = "priority", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true)]
     pub priority: Option<f64>,
     #[arg(long = "estimate", help = "Points estimate of the issue", value_name = "estimate", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true)]
     pub estimate: Option<f64>,
-    #[arg(long = "description", short = 'd', help = "Description of the issue", value_name = "description", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "description",
+        short = 'd',
+        help = "Description of the issue",
+        value_name = "description"
+    )]
     pub description: Option<String>,
-    #[arg(long = "description-file", help = "Read description from a file (preferred for markdown content)", value_name = "path", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "description-file",
+        help = "Read description from a file (preferred for markdown content)",
+        value_name = "path"
+    )]
     pub description_file: Option<String>,
-    #[arg(long = "label", short = 'l', help = "Issue label associated with the issue. May be repeated.", value_name = "label", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "label",
+        short = 'l',
+        help = "Issue label associated with the issue. May be repeated.",
+        value_name = "label"
+    )]
     pub label: Vec<String>,
-    #[arg(long = "team", help = "Team (key, name, or ID) for the issue, if not your default team", value_name = "team", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "team",
+        help = "Team (key, name, or ID) for the issue, if not your default team",
+        value_name = "team"
+    )]
     pub team: Option<String>,
-    #[arg(long = "project", help = "Project for the issue (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "project",
+        help = "Project for the issue (UUID, slug ID, or name)",
+        value_name = "project"
+    )]
     pub project: Option<String>,
-    #[arg(long = "state", short = 's', help = "Workflow state for the issue (by name or type)", value_name = "state", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "state",
+        short = 's',
+        help = "Workflow state for the issue (by name or type)",
+        value_name = "state"
+    )]
     pub state: Option<String>,
-    #[arg(long = "milestone", help = "Project milestone (UUID, or name when --project is set)", value_name = "milestone", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "milestone",
+        help = "Project milestone (UUID, or name when --project is set)",
+        value_name = "milestone"
+    )]
     pub milestone: Option<String>,
-    #[arg(long = "cycle", help = "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives)", value_name = "cycle", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "cycle",
+        help = "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives)",
+        value_name = "cycle"
+    )]
     pub cycle: Option<String>,
     #[arg(
         long = "no-use-default-template",
         help = "Do not use default template for the issue"
     )]
     pub no_use_default_template: bool,
-    #[arg(long = "template", help = "Issue template to apply, by name or ID (the team's templates plus workspace ones). Takes the place of the team's default template. The template fills in anything you do not pass: explicit flags override it, --label merges with the template's labels, and --description replaces the template body (omit it to keep the body). Makes --title optional.", value_name = "template", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "template",
+        help = "Issue template to apply, by name or ID (the team's templates plus workspace ones). Takes the place of the team's default template. The template fills in anything you do not pass: explicit flags override it, --label merges with the template's labels, and --description replaces the template body (omit it to keep the body). Makes --title optional.",
+        value_name = "template"
+    )]
     pub template: Option<String>,
     #[arg(long = "no-interactive", help = "Disable interactive prompts")]
     pub no_interactive: bool,
-    #[arg(long = "title", short = 't', help = "Title of the issue", value_name = "title", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "title",
+        short = 't',
+        help = "Title of the issue",
+        value_name = "title"
+    )]
     pub title: Option<String>,
 }
 
@@ -385,21 +442,34 @@ pub struct IssueCreate {
 pub struct IssueUpdate {
     #[arg(value_name = "issueId")]
     pub issue_id: Option<String>,
-    #[arg(long = "assignee", short = 'a', help = "Assign the issue to 'self' or someone (by username or name)", value_name = "assignee", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "assignee",
+        short = 'a',
+        help = "Assign the issue to 'self' or someone (by username or name)",
+        value_name = "assignee"
+    )]
     pub assignee: Option<String>,
     #[arg(
         long = "unassign",
         help = "Clear the issue's assignee (cannot be combined with --assignee)"
     )]
     pub unassign: bool,
-    #[arg(long = "due-date", help = "Due date of the issue. Use --clear-due-date to remove it", value_name = "dueDate", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "due-date",
+        help = "Due date of the issue. Use --clear-due-date to remove it",
+        value_name = "dueDate"
+    )]
     pub due_date: Option<String>,
     #[arg(
         long = "clear-due-date",
         help = "Remove the issue's due date (cannot be combined with --due-date)"
     )]
     pub clear_due_date: bool,
-    #[arg(long = "parent", help = "Parent issue (if any) as a team_number code. Use --clear-parent to remove it", value_name = "parent", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "parent",
+        help = "Parent issue (if any) as a team_number code. Use --clear-parent to remove it",
+        value_name = "parent"
+    )]
     pub parent: Option<String>,
     #[arg(
         long = "clear-parent",
@@ -415,39 +485,87 @@ pub struct IssueUpdate {
         help = "Remove the issue's estimate (cannot be combined with --estimate)"
     )]
     pub clear_estimate: bool,
-    #[arg(long = "description", short = 'd', help = "Description of the issue", value_name = "description", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "description",
+        short = 'd',
+        help = "Description of the issue",
+        value_name = "description"
+    )]
     pub description: Option<String>,
-    #[arg(long = "description-file", help = "Read description from a file (preferred for markdown content)", value_name = "path", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "description-file",
+        help = "Read description from a file (preferred for markdown content)",
+        value_name = "path"
+    )]
     pub description_file: Option<String>,
-    #[arg(long = "label", short = 'l', help = "Issue label associated with the issue; replaces the issue's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.", value_name = "label", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "label",
+        short = 'l',
+        help = "Issue label associated with the issue; replaces the issue's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.",
+        value_name = "label"
+    )]
     pub label: Vec<String>,
-    #[arg(long = "add-label", help = "Add a label to the issue, keeping its existing labels. May be repeated.", value_name = "label", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "add-label",
+        help = "Add a label to the issue, keeping its existing labels. May be repeated.",
+        value_name = "label"
+    )]
     pub add_label: Vec<String>,
-    #[arg(long = "remove-label", help = "Remove a label from the issue, keeping its other labels (does not delete the label from the team). May be repeated.", value_name = "label", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "remove-label",
+        help = "Remove a label from the issue, keeping its other labels (does not delete the label from the team). May be repeated.",
+        value_name = "label"
+    )]
     pub remove_label: Vec<String>,
-    #[arg(long = "team", help = "Team (key, name, or ID) to move the issue to", value_name = "team", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "team",
+        help = "Team (key, name, or ID) to move the issue to",
+        value_name = "team"
+    )]
     pub team: Option<String>,
-    #[arg(long = "project", help = "Project to assign the issue to (UUID, slug ID, or name). Use --clear-project to remove it", value_name = "project", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "project",
+        help = "Project to assign the issue to (UUID, slug ID, or name). Use --clear-project to remove it",
+        value_name = "project"
+    )]
     pub project: Option<String>,
     #[arg(
         long = "clear-project",
         help = "Remove the issue from its project (cannot be combined with --project or --milestone)"
     )]
     pub clear_project: bool,
-    #[arg(long = "state", short = 's', help = "Workflow state for the issue (by name or type)", value_name = "state", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "state",
+        short = 's',
+        help = "Workflow state for the issue (by name or type)",
+        value_name = "state"
+    )]
     pub state: Option<String>,
-    #[arg(long = "milestone", help = "Project milestone (UUID, or name when --project is set or the issue already has a project). Use --clear-milestone to remove it", value_name = "milestone", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "milestone",
+        help = "Project milestone (UUID, or name when --project is set or the issue already has a project). Use --clear-milestone to remove it",
+        value_name = "milestone"
+    )]
     pub milestone: Option<String>,
     #[arg(
         long = "clear-milestone",
         help = "Remove the issue from its project milestone (cannot be combined with --milestone)"
     )]
     pub clear_milestone: bool,
-    #[arg(long = "cycle", help = "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives). Use --clear-cycle to remove the issue from its cycle", value_name = "cycle", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "cycle",
+        help = "Cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1 (use --cycle=-1 for negatives). Use --clear-cycle to remove the issue from its cycle",
+        value_name = "cycle"
+    )]
     pub cycle: Option<String>,
     #[arg(long = "clear-cycle", help = "Remove the issue from its cycle")]
     pub clear_cycle: bool,
-    #[arg(long = "title", short = 't', help = "Title of the issue", value_name = "title", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "title",
+        short = 't',
+        help = "Title of the issue",
+        value_name = "title"
+    )]
     pub title: Option<String>,
 }
 

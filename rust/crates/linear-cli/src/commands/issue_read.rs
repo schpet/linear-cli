@@ -501,9 +501,31 @@ pub async fn assignee_filter(
         ..Default::default()
     }))
 }
+fn issue_write_query_ending<V>(
+    mut request: GraphQlRequest<V>,
+    terminal_lf: bool,
+) -> GraphQlRequest<V> {
+    if !terminal_lf {
+        request.query = crate::graphql::source_query::printed_builtin(&request.query);
+    }
+    request
+}
 pub async fn project_id(
     transport: &GraphQlTransport,
     reference: &ProjectReference,
+) -> Result<Option<String>, AppError> {
+    project_id_query_ending(transport, reference, true).await
+}
+pub async fn project_id_without_terminal_lf(
+    transport: &GraphQlTransport,
+    reference: &ProjectReference,
+) -> Result<Option<String>, AppError> {
+    project_id_query_ending(transport, reference, false).await
+}
+async fn project_id_query_ending(
+    transport: &GraphQlTransport,
+    reference: &ProjectReference,
+    terminal_lf: bool,
 ) -> Result<Option<String>, AppError> {
     use crate::graphql::operations::project_view::{
         GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
@@ -514,9 +536,12 @@ pub async fn project_id(
         ProjectReference::NameOrSlug(name) => {
             let data: GetProjectIdByName = exchange(
                 transport,
-                &GraphQlRequest::with_variables(GetProjectIdByName::build(
-                    ProjectReferenceVariables { name: name.clone() },
-                )),
+                &issue_write_query_ending(
+                    GraphQlRequest::with_variables(GetProjectIdByName::build(
+                        ProjectReferenceVariables { name: name.clone() },
+                    )),
+                    terminal_lf,
+                ),
             )
             .await?;
             if data.projects.nodes.len() > 1 {
@@ -534,7 +559,13 @@ pub async fn project_id(
                     "Pass the project's UUID or slug ID instead. `linear project list` shows both.",
                 ));
             }
-            if let Some(project) = data.projects.nodes.into_iter().next() {
+            if let Some(project) = data
+                .projects
+                .nodes
+                .into_iter()
+                .next()
+                .filter(|project| !project.id.inner().is_empty())
+            {
                 return Ok(Some(project.id.into_inner()));
             }
             name
@@ -542,9 +573,12 @@ pub async fn project_id(
     };
     let data: GetProjectIdBySlugId = exchange(
         transport,
-        &GraphQlRequest::with_variables(GetProjectIdBySlugId::build(ProjectSlugVariables {
-            slug_id: slug.clone(),
-        })),
+        &issue_write_query_ending(
+            GraphQlRequest::with_variables(GetProjectIdBySlugId::build(ProjectSlugVariables {
+                slug_id: slug.clone(),
+            })),
+            terminal_lf,
+        ),
     )
     .await?;
     Ok(data
@@ -559,6 +593,21 @@ pub async fn milestone_id(
     value: &str,
     project: Option<&str>,
 ) -> Result<String, AppError> {
+    milestone_id_query_ending(transport, value, project, true).await
+}
+pub async fn milestone_id_without_terminal_lf(
+    transport: &GraphQlTransport,
+    value: &str,
+    project: Option<&str>,
+) -> Result<String, AppError> {
+    milestone_id_query_ending(transport, value, project, false).await
+}
+async fn milestone_id_query_ending(
+    transport: &GraphQlTransport,
+    value: &str,
+    project: Option<&str>,
+    terminal_lf: bool,
+) -> Result<String, AppError> {
     if is_linear_uuid(value) {
         return Ok(value.to_owned());
     }
@@ -569,9 +618,12 @@ pub async fn milestone_id(
     };
     let result: GetProjectMilestonesForLookup = exchange(
         transport,
-        &GraphQlRequest::with_variables(GetProjectMilestonesForLookup::build(LookupVariables {
-            project_id: project.to_owned(),
-        })),
+        &issue_write_query_ending(
+            GraphQlRequest::with_variables(GetProjectMilestonesForLookup::build(LookupVariables {
+                project_id: project.to_owned(),
+            })),
+            terminal_lf,
+        ),
     )
     .await?;
     let rows = result

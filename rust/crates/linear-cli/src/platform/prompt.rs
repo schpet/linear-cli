@@ -88,6 +88,170 @@ pub struct PromptSession<R: Read, W: Write> {
 }
 
 impl<R: Read, W: Write> PromptSession<R, W> {
+    //! Insert this opt-in method inside PromptSession's existing impl. It shares
+    //! reader/key source/raw ownership; old methods remain byte/decision unchanged.
+    pub fn checkbox(
+        &mut self,
+        message: &str,
+        options: &[PlainOption],
+        searchable: bool,
+    ) -> Result<PromptOutcome<Vec<String>>, AppError> {
+        self.check_ready(message)?;
+        // Existing strict member/token domain, no implicit sanitizer of raw values.
+        if options.is_empty() {
+            return Ok(PromptOutcome::Submitted(Vec::new()));
+        }
+        validate_select(&PlainSelect {
+            message,
+            options,
+            default_index: 0,
+            default_hint: None,
+        })?;
+        let mut selected = vec![false; options.len()];
+        if matches!(&self.input, InputSource::Script(_)) {
+            self.write(format!("? {message}\n").as_bytes())?;
+            self.flush()?;
+            let Some(line) = self.read_script_line()? else {
+                return Ok(PromptOutcome::EndOfInput);
+            };
+            // Native declared comma-separated tokens. Exactly empty means none;
+            // whitespace or unknown tokens refuse rather than select a default.
+            if !line.is_empty() {
+                for token in line.split(',') {
+                    let index = options
+                        .iter()
+                        .position(|o| o.script_token == token)
+                        .ok_or_else(|| {
+                            AppError::new(
+                                AppErrorKind::Validation,
+                                format!("Unknown checkbox member: {}", escaped_display(token)),
+                            )
+                        })?;
+                    let member = selected
+                        .get_mut(index)
+                        .unwrap_or_else(|| unreachable!("option index is within selection"));
+                    if *member {
+                        return Err(AppError::new(
+                            AppErrorKind::Validation,
+                            "Checkbox member was submitted more than once",
+                        ));
+                    }
+                    *member = true;
+                }
+            }
+        } else {
+            let mut search = String::new();
+            let mut cursor = 0_usize;
+            let mut old_lines = 0_usize;
+            loop {
+                let visible: Vec<usize> = options
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, o)| o.label.to_lowercase().contains(&search.to_lowercase()))
+                    .map(|(index, _)| index)
+                    .collect();
+                cursor = cursor.min(visible.len().saturating_sub(1));
+                self.clear_frame(old_lines)?;
+                let count = MAX_OPTIONS_VISIBLE.min(self.rows.saturating_sub(3)).max(1);
+                let start = cursor.saturating_sub(count.saturating_sub(1));
+                let rows: Vec<_> = visible.iter().skip(start).take(count).copied().collect();
+                self.write(format!("? {}\n", escaped_display(message)).as_bytes())?;
+                old_lines = 1;
+                if searchable {
+                    self.write(format!("Search: {}\n", escaped_display(&search)).as_bytes())?;
+                    old_lines += 1;
+                }
+                if rows.is_empty() {
+                    self.write(b"No matching options\n")?;
+                    old_lines += 1;
+                }
+                for (offset, index) in rows.iter().enumerate() {
+                    self.write(
+                        format!(
+                            "{} [{}] {}\n",
+                            if start + offset == cursor { "›" } else { " " },
+                            if *selected.get(*index).unwrap_or_else(|| unreachable!(
+                                "visible option is within selection"
+                            )) {
+                                "x"
+                            } else {
+                                " "
+                            },
+                            escaped_display(
+                                &options
+                                    .get(*index)
+                                    .unwrap_or_else(|| unreachable!(
+                                        "visible option is within options"
+                                    ))
+                                    .label
+                            )
+                        )
+                        .as_bytes(),
+                    )?;
+                    old_lines += 1;
+                }
+                match self.next_key()? {
+                    PromptKey::Interrupt => {
+                        self.clear_frame(old_lines)?;
+                        return Ok(PromptOutcome::Interrupted);
+                    }
+                    PromptKey::EndOfInput => {
+                        self.clear_frame(old_lines)?;
+                        return Ok(PromptOutcome::EndOfInput);
+                    }
+                    PromptKey::Enter => {
+                        self.clear_frame(old_lines)?;
+                        break;
+                    }
+                    PromptKey::Character(' ') => {
+                        if let Some(index) = visible.get(cursor) {
+                            let member = selected.get_mut(*index).unwrap_or_else(|| {
+                                unreachable!("visible option is within selection")
+                            });
+                            *member = !*member;
+                        }
+                    }
+                    PromptKey::Up => cursor = cursor.saturating_sub(1),
+                    PromptKey::Down => cursor = (cursor + 1).min(visible.len().saturating_sub(1)),
+                    PromptKey::Home => cursor = 0,
+                    PromptKey::End => cursor = visible.len().saturating_sub(1),
+                    PromptKey::Backspace if searchable => {
+                        search.pop();
+                        cursor = 0
+                    }
+                    PromptKey::Character(character) if searchable && !character.is_control() => {
+                        search.push(character);
+                        cursor = 0
+                    }
+                    PromptKey::Character(_)
+                    | PromptKey::Left
+                    | PromptKey::Right
+                    | PromptKey::PageUp
+                    | PromptKey::PageDown
+                    | PromptKey::Backspace
+                    | PromptKey::Delete
+                    | PromptKey::Other => (),
+                }
+            }
+        }
+        let labels = options
+            .iter()
+            .zip(&selected)
+            .filter(|(_, on)| **on)
+            .map(|(option, _)| escaped_display(&option.label))
+            .collect::<Vec<_>>();
+        self.write(format!("? {message} › {}\n", labels.join(", ")).as_bytes())?;
+        self.flush()?;
+        Ok(PromptOutcome::Submitted(
+            options
+                .iter()
+                .zip(selected)
+                .filter(|(_, on)| *on)
+                .map(|(option, _)| option.value.clone())
+                .collect(),
+        ))
+    }
+
     /// C082 owned searchable opt-in. It uses the existing Selector state/match/rank,
     /// with source-valid value refusals preflighted by the command before raw mode.
     /// Old selector::run gating and old plain/text callers are unchanged.
@@ -96,6 +260,22 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         message: &str,
         search_label: &str,
         options: &[crate::platform::selector::SelectOption],
+    ) -> Result<PromptOutcome<String>, AppError> {
+        self.searchable_select_with_no_match(
+            message,
+            search_label,
+            options,
+            "C082-SEARCH-PROTOCOL: no teams match submitted search query",
+        )
+    }
+
+    /// Command-specific message; existing matching and ranking remain unchanged.
+    pub fn searchable_select_with_no_match(
+        &mut self,
+        message: &str,
+        search_label: &str,
+        options: &[crate::platform::selector::SelectOption],
+        no_match: &str,
     ) -> Result<PromptOutcome<String>, AppError> {
         use crate::platform::selector::{Key, Selection, Selector};
         self.check_ready(message)?;
@@ -123,10 +303,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                         )?;
                         Ok(PromptOutcome::Submitted(value))
                     }
-                    None => Err(AppError::new(
-                        AppErrorKind::Validation,
-                        "C082-SEARCH-PROTOCOL: no teams match submitted search query",
-                    )),
+                    None => Err(AppError::new(AppErrorKind::Validation, no_match)),
                     Some(Selection::Interrupted | Selection::EndOfInput) => {
                         Err(invariant("script Enter produced non-selection control"))
                     }

@@ -1,0 +1,618 @@
+use super::{
+    issue_create::{Input, Templates},
+    issue_write::{self as domain, Backend, Created, Label, Named, Parent, State, Team, Updated},
+};
+use crate::{
+    config::ConfigOptions,
+    error::{AppError, AppErrorKind},
+    graphql::{
+        bulk_error, envelope::GraphQlRequest, operations::issue_write as ops,
+        transport::GraphQlTransport,
+    },
+    refs,
+};
+use cynic::{MutationBuilder, QueryBuilder};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+
+#[derive(Clone)]
+pub struct NetworkBackend {
+    pub transport: GraphQlTransport,
+    pub options: ConfigOptions,
+    pub cli_workspace: Option<String>,
+    pub default_workspace: Option<String>,
+}
+fn request<F, V: Serialize>(operation: cynic::Operation<F, V>) -> GraphQlRequest<V> {
+    let mut request = GraphQlRequest::with_variables(operation);
+    request.query = crate::graphql::source_query::printed_builtin(&request.query);
+    request
+}
+async fn fetch<T: DeserializeOwned, V: Serialize>(
+    transport: &GraphQlTransport,
+    request: &GraphQlRequest<V>,
+) -> Result<T, AppError> {
+    bulk_error::execute_observed(transport, request)
+        .await
+        .map_err(|failure| match failure {
+            bulk_error::ObservedExchangeFailure::Strict(error) => error,
+            bulk_error::ObservedExchangeFailure::Ordinary(error) => AppError::new(
+                AppErrorKind::GraphQl,
+                error.preferred_message.unwrap_or(error.message),
+            ),
+        })
+}
+fn sorted_names(mut rows: Vec<Named>) -> Result<Vec<Named>, AppError> {
+    let collator = crate::platform::collation::root()?;
+    rows.sort_by(|left, right| {
+        collator.compare(&left.name.to_lowercase(), &right.name.to_lowercase())
+    });
+    Ok(rows)
+}
+impl NetworkBackend {
+    fn scope<'a>(&'a self, key: &'a crate::auth::ApiKeyInput<'a>) -> refs::WorkspaceScope<'a> {
+        refs::WorkspaceScope {
+            cli_workspace: self.cli_workspace.as_deref(),
+            sourced_workspace: self.options.workspace().map(|v| v.value().as_str()),
+            default_workspace: self.default_workspace.as_deref(),
+            api_key: key,
+        }
+    }
+    async fn parent_reference(&self, reference: &str) -> Result<String, AppError> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options)
+            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+        let team = crate::commands::team_key::configured_team_key(&self.options);
+        match refs::prepare_issue_reference(Some(reference), team.as_deref(), &self.scope(&key))? {
+            refs::IssueReference::Identifier(id) => Ok(id),
+            refs::IssueReference::Unresolved | refs::IssueReference::Inferred => {
+                Err(domain::validation(format!(
+                    "Could not resolve parent issue identifier: {reference}"
+                )))
+            }
+        }
+    }
+}
+impl Backend for NetworkBackend {
+    async fn team(&self, reference: String) -> Result<Team, AppError> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options)
+            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+        let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
+        let team = refs::resolve_team(
+            &prepared,
+            |mut req| {
+                req.query = crate::graphql::source_query::printed_builtin(&req.query);
+                async move { fetch(&self.transport, &req).await }
+            },
+            |mut req| {
+                req.query = crate::graphql::source_query::printed_builtin(&req.query);
+                async move { fetch(&self.transport, &req).await }
+            },
+        )
+        .await?;
+        Ok(Team {
+            id: team.id,
+            key: team.key,
+            name: team.name,
+        })
+    }
+    async fn find_team(&self, reference: String) -> Result<Option<Team>, AppError> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options)
+            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+        let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
+        Ok(refs::find_team(&prepared, |mut req| {
+            req.query = crate::graphql::source_query::printed_builtin(&req.query);
+            async move { fetch(&self.transport, &req).await }
+        })
+        .await?
+        .map(|team| Team {
+            id: team.id,
+            key: team.key,
+            name: team.name,
+        }))
+    }
+    async fn teams(&self) -> Result<Vec<Team>, AppError> {
+        Ok(refs::fetch_all_teams(|mut req| {
+            req.query = crate::graphql::source_query::printed_builtin(&req.query);
+            async move { fetch(&self.transport, &req).await }
+        })
+        .await?
+        .into_iter()
+        .map(|team| Team {
+            id: team.id,
+            key: team.key,
+            name: team.name,
+        })
+        .collect())
+    }
+    async fn team_options(&self, reference: String) -> Result<Vec<Named>, AppError> {
+        let data: ops::GetTeamIdOptionsByKey = fetch(
+            &self.transport,
+            &request(ops::GetTeamIdOptionsByKey::build(ops::TeamSubstring {
+                team: reference,
+            })),
+        )
+        .await?;
+        let mut teams = data.teams.nodes;
+        let collator = crate::platform::collation::root()?;
+        teams.sort_by(|a, b| collator.compare(&a.key.to_lowercase(), &b.key.to_lowercase()));
+        Ok(teams
+            .into_iter()
+            .map(|team| Named {
+                id: team.id.into_inner(),
+                name: format!("{} ({})", team.name, team.key),
+            })
+            .collect())
+    }
+    async fn viewer(&self) -> Result<String, AppError> {
+        use crate::graphql::operations::initiatives::{GetViewerId, GetViewerIdVariables};
+        let data: GetViewerId = fetch(
+            &self.transport,
+            &request(GetViewerId::build(GetViewerIdVariables {})),
+        )
+        .await?;
+        Ok(data.viewer.id.into_inner())
+    }
+    async fn auto_assign(&self) -> Result<bool, AppError> {
+        let data: ops::GetUserSettings = fetch(&self.transport, &{
+            let mut request = GraphQlRequest::without_variables(ops::GetUserSettings::build(()));
+            request.query = crate::graphql::source_query::printed_builtin(&request.query);
+            request
+        })
+        .await?;
+        Ok(data.user_settings.auto_assign_to_self)
+    }
+    async fn user(&self, reference: String) -> Result<String, AppError> {
+        refs::reject_linear_url(&reference, "an email, username, display name, or @me")?;
+        if reference == "self" || reference == "@me" {
+            return self.viewer().await;
+        }
+        use crate::graphql::operations::initiatives::{LookupUser, LookupUserVariables};
+        let data: LookupUser = fetch(
+            &self.transport,
+            &request(LookupUser::build(LookupUserVariables {
+                input: reference.clone(),
+            })),
+        )
+        .await?;
+        crate::commands::initiative_list::select_owner(&data.users.nodes, &reference)
+            .map(cynic::Id::into_inner)
+            .ok_or_else(|| AppError::not_found("User", &reference))
+    }
+    async fn states(&self, team_key: String) -> Result<Vec<State>, AppError> {
+        use crate::graphql::operations::workflow_states::{
+            GetWorkflowStates, GetWorkflowStatesVariables,
+        };
+        let data: GetWorkflowStates = fetch(
+            &self.transport,
+            &request(GetWorkflowStates::build(GetWorkflowStatesVariables {
+                team_key,
+            })),
+        )
+        .await?;
+        let mut states = data.team.states.nodes;
+        crate::workflow_states::sort(&mut states)?;
+        Ok(states
+            .into_iter()
+            .map(|s| State {
+                id: s.id.into_inner(),
+                name: s.name,
+                kind: s.state_type,
+                position: s.position,
+            })
+            .collect())
+    }
+    async fn state(&self, team_key: String, reference: String) -> Result<String, AppError> {
+        let states = self.states(team_key.clone()).await?;
+        refs::reject_linear_url(&reference, "a workflow state name or type")?;
+        if let Some(state) = states
+            .iter()
+            .find(|s| s.name.to_lowercase() == reference.to_lowercase())
+        {
+            return Ok(state.id.clone());
+        }
+        let mut lowest: Option<&State> = None;
+        for state in states.iter().filter(|s| s.kind == reference.to_lowercase()) {
+            if lowest.is_none_or(|old| state.position < old.position) {
+                lowest = Some(state)
+            }
+        }
+        if let Some(state) = lowest {
+            return Ok(state.id.clone());
+        }
+        let suggestion = if states.is_empty() {
+            format!("Team {team_key} has no workflow states. Run `linear team states {team_key}`.")
+        } else {
+            format!(
+                "Valid states: {}. Run `linear team states {team_key}` to list them.",
+                states
+                    .iter()
+                    .map(|s| format!(
+                        "{} ({})",
+                        serde_json::to_string(&s.name)
+                            .unwrap_or_else(|_| unreachable!("string serialization cannot fail")),
+                        s.kind
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        };
+        Err(AppError::not_found(
+            "Workflow state",
+            &format!("'{reference}' for team {team_key}"),
+        )
+        .with_suggestion(suggestion))
+    }
+    async fn label(&self, team_key: String, reference: String) -> Result<Option<String>, AppError> {
+        refs::reject_linear_url(&reference, "a label name")?;
+        let data: ops::GetIssueLabelIdByNameForTeam = fetch(
+            &self.transport,
+            &request(ops::GetIssueLabelIdByNameForTeam::build(
+                ops::LabelVariables {
+                    name: reference,
+                    team_key,
+                },
+            )),
+        )
+        .await?;
+        Ok(data
+            .issue_labels
+            .nodes
+            .into_iter()
+            .next()
+            .map(|l| l.id.into_inner()))
+    }
+    async fn label_options(
+        &self,
+        team_key: String,
+        reference: String,
+    ) -> Result<Vec<Named>, AppError> {
+        let data: ops::GetIssueLabelIdOptionsByNameForTeam = fetch(
+            &self.transport,
+            &request(ops::GetIssueLabelIdOptionsByNameForTeam::build(
+                ops::LabelVariables {
+                    name: reference,
+                    team_key,
+                },
+            )),
+        )
+        .await?;
+        sorted_names(
+            data.issue_labels
+                .nodes
+                .into_iter()
+                .map(|l| Named {
+                    id: l.id.into_inner(),
+                    name: l.name,
+                })
+                .collect(),
+        )
+    }
+    async fn labels(&self, team_key: String) -> Result<Vec<Label>, AppError> {
+        let data: ops::GetLabelsForTeam = fetch(
+            &self.transport,
+            &request(ops::GetLabelsForTeam::build(ops::TeamKey { team_key })),
+        )
+        .await?;
+        let mut labels = data.team.map(|t| t.labels.nodes).unwrap_or_default();
+        let collator = crate::platform::collation::root()?;
+        labels.sort_by(|a, b| collator.compare(&a.name.to_lowercase(), &b.name.to_lowercase()));
+        Ok(labels
+            .into_iter()
+            .map(|l| Label {
+                id: l.id.into_inner(),
+                name: l.name,
+                color: l.color,
+            })
+            .collect())
+    }
+    async fn project(&self, reference: String) -> Result<Option<String>, AppError> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options)
+            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+        let prepared = refs::prepare_project_lookup(&reference, &self.scope(&key))?;
+        // Existing source-compatible helper has full exact-name ambiguity and slug fallback.
+        // Its exchange is the same captured handled Client policy, not friendly transport.
+        crate::commands::issue_read::project_id_without_terminal_lf(&self.transport, &prepared)
+            .await
+    }
+    async fn project_options(&self, reference: String) -> Result<Vec<Named>, AppError> {
+        use crate::graphql::operations::issue_read::{
+            GetProjectIdOptionsByName, GetProjectIdOptionsByNameVariables,
+        };
+        let data: GetProjectIdOptionsByName = fetch(
+            &self.transport,
+            &request(GetProjectIdOptionsByName::build(
+                GetProjectIdOptionsByNameVariables { name: reference },
+            )),
+        )
+        .await?;
+        Ok(data
+            .projects
+            .nodes
+            .into_iter()
+            .map(|p| Named {
+                id: p.id.into_inner(),
+                name: p.name,
+            })
+            .collect())
+    }
+    async fn projects(&self, team_key: String) -> Result<Vec<Named>, AppError> {
+        use crate::graphql::operations::{
+            projects::{ProjectFilter, TeamCollectionFilter},
+            teams::{StringComparator, TeamFilter},
+        };
+        let filter = ProjectFilter {
+            accessible_teams: Some(TeamCollectionFilter {
+                some: Some(TeamFilter {
+                    key: Some(StringComparator {
+                        eq: Some(team_key),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            }),
+            ..Default::default()
+        };
+        let mut after = crate::graphql::edit::Edit::Unchanged;
+        let mut seen = std::collections::HashSet::new();
+        let mut rows = Vec::new();
+        loop {
+            let data: ops::GetProjectsForTeam = fetch(
+                &self.transport,
+                &request(ops::GetProjectsForTeam::build(ops::ProjectsVariables {
+                    filter: Some(filter.clone()),
+                    first: Some(100),
+                    after,
+                })),
+            )
+            .await?;
+            rows.extend(data.projects.nodes.into_iter().map(|p| Named {
+                id: p.id.into_inner(),
+                name: p.name,
+            }));
+            if !data.projects.page_info.has_next_page {
+                break;
+            }
+            let cursor = data.projects.page_info.end_cursor.ok_or_else(|| {
+                domain::validation(
+                    "Linear reported more projects but returned no pagination cursor",
+                )
+            })?;
+            if !seen.insert(cursor.clone()) {
+                return Err(domain::validation(
+                    "Linear repeated a project pagination cursor",
+                ));
+            }
+            after = crate::graphql::edit::Edit::Set(cursor);
+        }
+        sorted_names(rows)
+    }
+    async fn milestone(&self, project_id: String, reference: String) -> Result<String, AppError> {
+        crate::commands::issue_read::milestone_id_without_terminal_lf(
+            &self.transport,
+            &reference,
+            Some(project_id.as_str()).filter(|project| !project.is_empty()),
+        )
+        .await
+    }
+    async fn cycle(&self, team_id: String, reference: String) -> Result<String, AppError> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options)
+            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+        let url = refs::expect_url_kind(
+            &reference,
+            refs::LinearUrlKind::Cycle,
+            "a cycle URL, number, or name",
+            &self.scope(&key),
+        )?;
+        crate::commands::cycle_view::resolve_id_with(
+            &team_id,
+            &reference,
+            url.as_ref(),
+            |mut req| {
+                req.query = crate::graphql::source_query::printed_builtin(&req.query);
+                async move { fetch(&self.transport, &req).await }
+            },
+        )
+        .await
+    }
+    async fn parent_id(&self, reference: String) -> Result<String, AppError> {
+        let identifier = self.parent_reference(&reference).await?;
+        // Object-only optional selected shape: reuse the already approved pattern,
+        // but return its ID rather than committing the old strict GetIssueId model.
+        let mut request = crate::commands::issue_id::request(&identifier);
+        request.query = crate::graphql::source_query::printed_builtin(&request.query);
+        let data: OptionalIssue = fetch(&self.transport, &request).await?;
+        data.issue
+            .and_then(|i| i.id)
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| AppError::not_found("Parent issue", &identifier))
+    }
+    async fn parent_metadata(&self, id: String) -> Result<Option<Parent>, AppError> {
+        let req = request(ops::GetParentIssueData::build(ops::IssueVariables { id }));
+        // Only request/network and source SDK exceptions are optional. Schema
+        // failures never become absence; API0/Create0 is not invented.
+        let response = match self.transport.send_request(&req).await {
+            Ok(response) => response,
+            Err(_) => return Ok(None),
+        };
+        match bulk_error::observe_source_error(&response, &req) {
+            Ok(Some(_)) => return Ok(None),
+            Ok(None) => (),
+            Err(_error) => return Ok(None),
+        }
+        let data: OptionalParent =
+            crate::graphql::transport::classify_typed(response).map_err(|error| {
+                AppError::new(
+                    AppErrorKind::GraphQl,
+                    "Linear returned parent issue metadata with an unexpected shape",
+                )
+                .with_source(error)
+            })?;
+        let Some(data) = data.issue else {
+            return Ok(None);
+        };
+        Ok(Some(Parent {
+            title: data.title,
+            identifier: data.identifier,
+            project_id: data
+                .project
+                .map(|p| p.id.into_inner())
+                .filter(|id| !id.is_empty()),
+        }))
+    }
+    async fn issue_project(&self, id: String) -> Result<Option<String>, AppError> {
+        let data: ops::GetIssueProjectId = fetch(
+            &self.transport,
+            &request(ops::GetIssueProjectId::build(ops::IssueVariables { id })),
+        )
+        .await?;
+        Ok(data
+            .issue
+            .and_then(|i| i.project)
+            .map(|p| p.id.into_inner()))
+    }
+    async fn create(&self, input: Input) -> Result<Created, AppError> {
+        use crate::graphql::operations::issue_create::{CreateIssue, CreateIssueVariables};
+        let data: CreateIssue = fetch(
+            &self.transport,
+            &request(CreateIssue::build(CreateIssueVariables { input })),
+        )
+        .await?;
+        if !data.issue_create.success {
+            return Err(AppError::new(
+                AppErrorKind::GraphQl,
+                "Issue creation failed",
+            ));
+        }
+        let issue = data.issue_create.issue.ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::GraphQl,
+                "Issue creation failed - no issue returned",
+            )
+        })?;
+        Ok(Created {
+            id: issue.id.into_inner(),
+            identifier: issue.identifier,
+            url: issue.url,
+            team_key: issue.team.key,
+        })
+    }
+    async fn update(
+        &self,
+        id: String,
+        input: crate::graphql::operations::issue_update::IssueUpdateInput,
+    ) -> Result<Updated, AppError> {
+        use crate::graphql::operations::issue_update::{UpdateIssue, UpdateIssueVariables};
+        let data: UpdateIssue = fetch(
+            &self.transport,
+            &request(UpdateIssue::build(UpdateIssueVariables { id, input })),
+        )
+        .await?;
+        if !data.issue_update.success {
+            return Err(AppError::new(AppErrorKind::GraphQl, "Issue update failed"));
+        }
+        let issue = data.issue_update.issue.ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::GraphQl,
+                "Issue update failed - no issue returned",
+            )
+        })?;
+        Ok(Updated {
+            identifier: issue.identifier,
+            title: issue.title,
+            url: issue.url,
+        })
+    }
+}
+#[derive(serde::Deserialize)]
+struct OptionalParent {
+    #[serde(default)]
+    issue: Option<ops::ParentIssue>,
+}
+// Command-local object-only nullable/missing selected observation, source NotFound.
+#[derive(serde::Deserialize)]
+struct OptionalIssue {
+    #[serde(default)]
+    issue: Option<OptionalId>,
+}
+struct OptionalId {
+    id: Option<String>,
+}
+impl<'de> serde::Deserialize<'de> for OptionalId {
+    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        struct Object;
+        impl<'de> serde::de::Visitor<'de> for Object {
+            type Value = OptionalId;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("an issue object")
+            }
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                map: M,
+            ) -> Result<Self::Value, M::Error> {
+                #[derive(serde::Deserialize)]
+                struct Fields {
+                    #[serde(default)]
+                    id: Option<String>,
+                }
+                let fields =
+                    Fields::deserialize(serde::de::value::MapAccessDeserializer::new(map))?;
+                Ok(OptionalId { id: fields.id })
+            }
+        }
+        de.deserialize_map(Object)
+    }
+}
+impl Templates for NetworkBackend {
+    async fn issue_template(&self, reference: String, team_id: String) -> Result<String, AppError> {
+        use super::issue_template_scope::{self, TemplateScope};
+        use crate::graphql::operations::templates::{
+            GetTemplate, GetTemplateVariables, GetTemplates,
+        };
+        refs::reject_linear_url(&reference, "a template name or UUID")?;
+        let team_ids = [team_id];
+        let template = if refs::is_linear_uuid(&reference) {
+            let req = request(GetTemplate::build(GetTemplateVariables {
+                id: reference.clone(),
+            }));
+            let response = self
+                .transport
+                .send_request(&req)
+                .await
+                .map_err(AppError::from)?;
+            let observed = bulk_error::observe_source_error(&response, &req)
+                .map_err(bulk_error::BulkExchangeFailure::into_error)?;
+            let typed: Result<GetTemplate, _> = crate::graphql::transport::classify_typed(response);
+            match typed {
+                Err(crate::graphql::transport::TransportFailure::GraphQl {
+                    ref errors, ..
+                }) if errors
+                    .iter()
+                    .any(|e| e.message.to_lowercase().contains("no template found")) =>
+                {
+                    return Err(AppError::not_found("Template", &reference)
+                        .with_suggestion("Run `linear template list` to see every template."));
+                }
+                other => {
+                    if let Some(error) = observed {
+                        return Err(AppError::new(
+                            AppErrorKind::GraphQl,
+                            error.preferred_message.unwrap_or(error.message),
+                        ));
+                    }
+                    let template = other.map_err(AppError::from)?.template;
+                    issue_template_scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
+                    template
+                }
+            }
+        } else {
+            let mut req = GraphQlRequest::without_variables(GetTemplates::build(()));
+            req.query = crate::graphql::source_query::printed_builtin(&req.query);
+            let data: GetTemplates = fetch(&self.transport, &req).await?;
+            issue_template_scope::select(
+                &reference,
+                data.templates,
+                &team_ids,
+                TemplateScope::Issue,
+            )?
+        };
+        Ok(template.id.into_inner())
+    }
+}

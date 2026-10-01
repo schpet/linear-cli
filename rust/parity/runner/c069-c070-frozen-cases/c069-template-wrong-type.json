@@ -1,0 +1,123 @@
+{
+  "id": "c069-template-wrong-type",
+  "route": "linear issue create",
+  "reason": "template-wrong-type",
+  "argv": [
+    "issue",
+    "create",
+    "--template",
+    "00000000-0000-4000-8000-000000000010",
+    "--no-interactive"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "NO_COLOR": "1",
+    "LINEAR_TEAM_ID": "ENG"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to create issue: Template \"DUMMY template\" is a project template, not an issue template\n  Run `linear template list --type issue` to see the issue templates.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "request-0",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n  teams(\n    filter: {or: [{key: {eqIgnoreCase: $reference}}, {name: {eqIgnoreCase: $reference}}]}\n  ) {\n    nodes {\n      id\n      key\n      name\n    }\n  }\n  teamById: teams(filter: {id: {eq: $id}}) @include(if: $isUuid) {\n    nodes {\n      id\n      key\n      name\n    }\n  }\n}",
+              "operationName": "ResolveTeam",
+              "variables": {
+                "reference": "ENG",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\": {\"teams\": {\"nodes\": [{\"id\": \"00000000-0000-4000-8000-000000000001\", \"key\": \"ENG\", \"name\": \"DUMMY Engineering\"}]}}}"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "request-1",
+            "operation": {
+              "document": "query GetTemplate($id: String!) {\n  template(id: $id) {\n    id\n    name\n    description\n    type\n    icon\n    color\n    hasFormFields\n    lastAppliedAt\n    sortOrder\n    createdAt\n    updatedAt\n    team {\n      id\n      key\n      name\n    }\n    inheritedFrom {\n      id\n      name\n    }\n    creator {\n      id\n      name\n    }\n    templateData\n  }\n}",
+              "operationName": "GetTemplate",
+              "variables": {
+                "id": "00000000-0000-4000-8000-000000000010"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\": {\"template\": {\"id\": \"00000000-0000-4000-8000-000000000010\", \"name\": \"DUMMY template\", \"description\": null, \"type\": \"project\", \"icon\": null, \"color\": null, \"hasFormFields\": false, \"lastAppliedAt\": null, \"sortOrder\": 0, \"createdAt\": \"2020-01-01T00:00:00.000Z\", \"updatedAt\": \"2020-01-01T00:00:00.000Z\", \"team\": null, \"inheritedFrom\": null, \"creator\": null, \"templateData\": \"DUMMY not parsed JSON\"}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

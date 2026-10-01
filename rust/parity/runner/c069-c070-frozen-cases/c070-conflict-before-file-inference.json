@@ -1,0 +1,55 @@
+{
+  "id": "c070-conflict-before-file-inference",
+  "route": "linear issue update",
+  "reason": "conflict-before-file-inference",
+  "argv": [
+    "issue",
+    "update",
+    "--estimate",
+    "0",
+    "--clear-estimate",
+    "--description-file",
+    "missing.md"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "NO_COLOR": "1",
+    "LINEAR_TEAM_ID": "ENG"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to update issue: Cannot specify both --estimate and --clear-estimate\n  Use --estimate <points> to set an estimate, or --clear-estimate on its own to remove it.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": null
+}

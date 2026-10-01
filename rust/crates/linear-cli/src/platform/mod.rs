@@ -19,3 +19,5 @@ pub mod prompt_text;
 pub mod vcs_script;
 
 pub mod gh_script;
+
+pub mod network_owner;

@@ -1,0 +1,184 @@
+{
+  "id": "c069-parent-metadata-error",
+  "route": "linear issue create",
+  "reason": "parent-metadata-error",
+  "argv": [
+    "issue",
+    "create",
+    "-t",
+    "DUMMY",
+    "--parent",
+    "ENG-9"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "NO_COLOR": "1",
+    "LINEAR_TEAM_ID": "ENG"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Creating issue in ENG\n\nhttps://linear.app/fake/issue/ENG-99/dummy\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 4,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "request-0",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n  teams(\n    filter: {or: [{key: {eqIgnoreCase: $reference}}, {name: {eqIgnoreCase: $reference}}]}\n  ) {\n    nodes {\n      id\n      key\n      name\n    }\n  }\n  teamById: teams(filter: {id: {eq: $id}}) @include(if: $isUuid) {\n    nodes {\n      id\n      key\n      name\n    }\n  }\n}",
+              "operationName": "ResolveTeam",
+              "variables": {
+                "reference": "ENG",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\": {\"teams\": {\"nodes\": [{\"id\": \"00000000-0000-4000-8000-000000000001\", \"key\": \"ENG\", \"name\": \"DUMMY Engineering\"}]}}}"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "request-1",
+            "operation": {
+              "document": "query GetIssueId($id: String!) {\n  issue(id: $id) {\n    id\n  }\n}",
+              "operationName": "GetIssueId",
+              "variables": {
+                "id": "ENG-9"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\": {\"issue\": {\"id\": \"00000000-0000-4000-8000-000000000009\"}}}"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "request-2",
+            "operation": {
+              "document": "query GetParentIssueData($id: String!) {\n  issue(id: $id) {\n    title\n    identifier\n    project {\n      id\n    }\n  }\n}",
+              "operationName": "GetParentIssueData",
+              "variables": {
+                "id": "00000000-0000-4000-8000-000000000009"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"errors\": [{\"message\": \"DUMMY optional metadata failed\"}]}"
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "request-3",
+            "operation": {
+              "document": "mutation CreateIssue($input: IssueCreateInput!) {\n  issueCreate(input: $input) {\n    success\n    issue {\n      id\n      identifier\n      url\n      team {\n        key\n      }\n    }\n  }\n}",
+              "operationName": "CreateIssue",
+              "variables": {
+                "input": {
+                  "title": "DUMMY",
+                  "parentId": "00000000-0000-4000-8000-000000000009",
+                  "labelIds": [],
+                  "teamId": "00000000-0000-4000-8000-000000000001",
+                  "useDefaultTemplate": true
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "transport",
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": {
+                "utf8": "{\"data\": {\"issueCreate\": {\"success\": true, \"issue\": {\"id\": \"00000000-0000-4000-8000-000000000099\", \"identifier\": \"ENG-99\", \"url\": \"https://linear.app/fake/issue/ENG-99/dummy\", \"team\": {\"key\": \"ENG\"}}}}}"
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

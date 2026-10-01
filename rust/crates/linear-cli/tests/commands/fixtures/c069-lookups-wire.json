@@ -1,0 +1,26 @@
+[
+  {
+    "query": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n  teams(\n    filter: {or: [{key: {eqIgnoreCase: $reference}}, {name: {eqIgnoreCase: $reference}}]}\n  ) {\n    nodes {\n      id\n      key\n      name\n    }\n  }\n  teamById: teams(filter: {id: {eq: $id}}) @include(if: $isUuid) {\n    nodes {\n      id\n      key\n      name\n    }\n  }\n}",
+    "variables": {
+      "reference": "ENG",
+      "id": null,
+      "isUuid": false
+    },
+    "operationName": "ResolveTeam"
+  },
+  {
+    "query": "query LookupUser($input: String!) {\n  users(\n    filter: {or: [{email: {eqIgnoreCase: $input}}, {displayName: {eqIgnoreCase: $input}}, {name: {containsIgnoreCaseAndAccent: $input}}]}\n  ) {\n    nodes {\n      id\n      email\n      displayName\n      name\n    }\n  }\n}",
+    "variables": {
+      "input": "DUMMY other"
+    },
+    "operationName": "LookupUser"
+  },
+  {
+    "query": "query GetIssueLabelIdByNameForTeam($name: String!, $teamKey: String!) {\n  issueLabels(\n    filter: {name: {eqIgnoreCase: $name}, or: [{team: {key: {eq: $teamKey}}}, {team: {null: true}}]}\n  ) {\n    nodes {\n      id\n      name\n    }\n  }\n}",
+    "variables": {
+      "name": "DUMMY label",
+      "teamKey": "ENG"
+    },
+    "operationName": "GetIssueLabelIdByNameForTeam"
+  }
+]

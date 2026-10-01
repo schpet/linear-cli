@@ -118,3 +118,15 @@ pub mod issue_describe;
 
 pub mod issue_pull_request;
 pub mod issue_start;
+
+pub mod issue_write;
+
+pub mod issue_create;
+
+pub mod issue_create_prompt;
+
+pub mod issue_update;
+
+pub mod issue_write_network;
+
+pub mod issue_template_scope;

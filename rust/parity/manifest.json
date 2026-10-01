@@ -3581,7 +3581,7 @@
       "workItem": "C069",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {
@@ -4210,7 +4210,7 @@
       "workItem": "C070",
       "sourceKind": "command_implementation",
       "fixtureStatus": "pending",
-      "qaStatus": "pending",
+      "qaStatus": "passed",
       "liveStatus": "pending"
     },
     {

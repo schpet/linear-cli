@@ -85,3 +85,7 @@ pub mod issue_read;
 pub mod auth_login_viewer;
 
 pub mod issue_start_state;
+
+pub mod issue_create;
+
+pub mod issue_write;
