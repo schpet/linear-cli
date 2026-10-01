@@ -4,7 +4,7 @@ use crate::{
     error::{AppError, AppErrorKind},
     graphql::{
         envelope::GraphQlRequest,
-        transport::{GraphQlTransport, RawHttpResponse, TransportFailure, classify_typed},
+        transport::{GraphQlTransport, RawHttpResponse, TransportFailure},
     },
 };
 use serde::{
@@ -107,25 +107,19 @@ pub fn source_error<V: Serialize>(
     response: &RawHttpResponse,
     request: &GraphQlRequest<V>,
 ) -> Result<Option<String>, BulkExchangeFailure> {
-    let decoded = String::from_utf8_lossy(&response.body);
-    let body = decoded.strip_prefix('\u{feff}').unwrap_or(&decoded);
-    let mime = response
-        .headers
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    let json =
-        mime.contains("application/json") || mime.contains("application/graphql-response+json");
-    let parsed = if json {
-        serde_json::from_str::<Value>(body).ok()
-    } else {
-        None
-    };
+    let source = super::source_response::SourceResponse::classify(response);
+    source_error_classified(response, request, &source)
+}
+fn source_error_classified<V: Serialize>(
+    response: &RawHttpResponse,
+    request: &GraphQlRequest<V>,
+    source: &super::source_response::SourceResponse,
+) -> Result<Option<String>, BulkExchangeFailure> {
+    let body = source.text.as_str();
+    let json = source.is_json();
+    let parsed = source.parsed();
     if response.status.is_success() && !json {
-        return Ok(Some(format!(
-            "Invalid execution result: result is not object or array. \nGot:\n{body}"
-        )));
+        return Ok(Some(source.invalid_execution_message()));
     }
     if response.status.is_success() && parsed.is_none() {
         return Err(strict(
@@ -137,7 +131,7 @@ pub fn source_error<V: Serialize>(
             "native-bulk-single-response-envelope: expected one response object, got an array",
         ));
     }
-    let object = parsed.as_ref().and_then(Value::as_object);
+    let object = parsed.and_then(Value::as_object);
     if object
         .and_then(|o| o.get("errors"))
         .is_some_and(Value::is_object)
@@ -225,8 +219,9 @@ pub async fn execute<T: DeserializeOwned, V: Serialize>(
         .send_request(request)
         .await
         .map_err(|e| BulkExchangeFailure::Ordinary(AppError::from(e).to_string()))?;
-    let message = source_error(&response, request)?;
-    let result = classify_typed(response);
+    let source = super::source_response::SourceResponse::classify(&response);
+    let message = source_error_classified(&response, request, &source)?;
+    let result = super::transport::classify_typed_classified(response, source);
     if let Some(message) = message {
         return Err(BulkExchangeFailure::Ordinary(message));
     }
@@ -279,52 +274,49 @@ pub fn observe_source_error<V: Serialize>(
     response: &RawHttpResponse,
     request: &GraphQlRequest<V>,
 ) -> Result<Option<SourceException>, BulkExchangeFailure> {
-    let Some(message) = source_error(response, request)? else {
+    let source = super::source_response::SourceResponse::classify(response);
+    observe_source_error_classified(response, request, &source)
+}
+fn observe_source_error_classified<V: Serialize>(
+    response: &RawHttpResponse,
+    request: &GraphQlRequest<V>,
+    source: &super::source_response::SourceResponse,
+) -> Result<Option<SourceException>, BulkExchangeFailure> {
+    let Some(message) = source_error_classified(response, request, source)? else {
         return Ok(None);
     };
-    let mime = response
-        .headers
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    let json =
-        mime.contains("application/json") || mime.contains("application/graphql-response+json");
+    let json = source.is_json();
     let kind = if !response.status.is_success() || json {
         SourceExceptionKind::Client
     } else {
         SourceExceptionKind::Plain
     };
     let mut preferred_message = None;
-    if kind == SourceExceptionKind::Client && json {
-        let decoded = String::from_utf8_lossy(&response.body);
-        if let Ok(parsed) =
-            serde_json::from_str::<Value>(decoded.strip_prefix('\u{feff}').unwrap_or(&decoded))
-            && let Some(first) = parsed
-                .get("errors")
-                .and_then(Value::as_array)
-                .and_then(|errors| errors.first())
-        {
-            if let Some(extensions) = first.get("extensions") {
-                let extensions = extensions.as_object().ok_or_else(|| {
-                    strict(
-                        "native-bulk-not-found-metadata-shape: error extensions must be an object",
-                    )
-                })?;
-                if let Some(value) = extensions.get("userPresentableMessage") {
-                    let value = value.as_str().ok_or_else(|| strict("native-bulk-not-found-metadata-shape: presentable message must be a string"))?;
-                    if !value.is_empty() {
-                        preferred_message = Some(value.to_owned());
-                    }
+    if kind == SourceExceptionKind::Client
+        && json
+        && let Some(parsed) = source.parsed()
+        && let Some(first) = parsed
+            .get("errors")
+            .and_then(Value::as_array)
+            .and_then(|errors| errors.first())
+    {
+        if let Some(extensions) = first.get("extensions") {
+            let extensions = extensions.as_object().ok_or_else(|| {
+                strict("native-bulk-not-found-metadata-shape: error extensions must be an object")
+            })?;
+            if let Some(value) = extensions.get("userPresentableMessage") {
+                let value = value.as_str().ok_or_else(|| strict("native-bulk-not-found-metadata-shape: presentable message must be a string"))?;
+                if !value.is_empty() {
+                    preferred_message = Some(value.to_owned());
                 }
             }
-            if preferred_message.is_none() {
-                preferred_message = first
-                    .get("message")
-                    .and_then(Value::as_str)
-                    .filter(|value| !value.is_empty())
-                    .map(str::to_owned);
-            }
+        }
+        if preferred_message.is_none() {
+            preferred_message = first
+                .get("message")
+                .and_then(Value::as_str)
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned);
         }
     }
     Ok(Some(SourceException {
@@ -344,21 +336,24 @@ pub async fn execute_observed<T: DeserializeOwned, V: Serialize>(
             preferred_message: None,
         })
     })?;
+    let source = super::source_response::SourceResponse::classify(&response);
     let observation =
-        observe_source_error(&response, request).map_err(|failure| match failure {
-            BulkExchangeFailure::Strict(error) => ObservedExchangeFailure::Strict(error),
-            BulkExchangeFailure::Ordinary(message) => {
-                ObservedExchangeFailure::Ordinary(SourceException {
-                    kind: SourceExceptionKind::Plain,
-                    message,
-                    preferred_message: None,
-                })
+        observe_source_error_classified(&response, request, &source).map_err(|failure| {
+            match failure {
+                BulkExchangeFailure::Strict(error) => ObservedExchangeFailure::Strict(error),
+                BulkExchangeFailure::Ordinary(message) => {
+                    ObservedExchangeFailure::Ordinary(SourceException {
+                        kind: SourceExceptionKind::Plain,
+                        message,
+                        preferred_message: None,
+                    })
+                }
             }
         })?;
     if let Some(error) = observation {
         return Err(ObservedExchangeFailure::Ordinary(error));
     }
-    classify_typed(response).map_err(|error| match error {
+    super::transport::classify_typed_classified(response, source).map_err(|error| match error {
         TransportFailure::Response(_) | TransportFailure::RequestBody(_) => {
             ObservedExchangeFailure::Strict(AppError::from(error))
         }

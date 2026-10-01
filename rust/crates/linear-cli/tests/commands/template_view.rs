@@ -151,7 +151,10 @@ fn typed_list(templates: Vec<Value>) -> GetTemplates {
 fn failure(status: u16, body: Value) -> TransportFailure {
     classify_typed::<GetTemplate>(RawHttpResponse {
         status: StatusCode::from_u16(status).expect("status"),
-        headers: HeaderMap::new(),
+        headers: HeaderMap::from_iter([(
+            reqwest::header::CONTENT_TYPE,
+            reqwest::header::HeaderValue::from_static("application/json"),
+        )]),
         body: body.to_string().into_bytes(),
     })
     .expect_err("classified failure")

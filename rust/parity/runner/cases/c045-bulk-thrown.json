@@ -50,9 +50,9 @@
     "fileEffects": []
   },
   "deviation": {
-    "id": "INIT-BULK-ERRTEXT",
+    "id": "R01H-GRAPHQL-UA",
     "contract": "rust-3.0.0-alpha.1",
-    "sha256": "0f4770f35ac06bb6750b13e83ff17f9164ae4ff4d1c0700bdcf361c77589a2d1"
+    "sha256": "ec93edc03636ae89499c66e372afb4c34eaece592698a964032396861b7d02e9"
   },
   "graphql": {
     "path": "/graphql",

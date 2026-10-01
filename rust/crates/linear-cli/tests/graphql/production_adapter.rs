@@ -424,7 +424,7 @@ fn render_graphql_failure(debug: Option<&str>) -> String {
     let startup = empty_startup(&snapshot);
     let response = RawHttpResponse {
         status: StatusCode::BAD_REQUEST,
-        headers: HeaderMap::new(),
+        headers: HeaderMap::from_iter([(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"))]),
         body: b"{\"errors\":[{\"message\":\"Backend failed\",\"extensions\":{\"userPresentableMessage\":\"Try again\"}}]}".to_vec(),
     };
     let failure = classify_typed::<serde_json::Value>(response).expect_err("GraphQL errors");

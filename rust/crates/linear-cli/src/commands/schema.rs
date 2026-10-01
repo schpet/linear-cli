@@ -20,13 +20,7 @@ pub async fn fetch(transport: &GraphQlTransport) -> Result<JsValue, AppError> {
     // SDK JSON is decoded before its execution result is handled. Preserve its
     // malformed-error stage, but classify source-valid unsupported codec input
     // using the same whole-text RawValue boundary as the dynamic API command.
-    let mime = response
-        .headers
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    if mime.contains("application/json") || mime.contains("application/graphql-response+json") {
+    if crate::graphql::source_response::has_json_mime(&response.headers) {
         let text = String::from_utf8_lossy(&response.body);
         let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
         let _ = crate::commands::api::decode(text, true)?;

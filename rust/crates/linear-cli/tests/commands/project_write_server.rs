@@ -1,4 +1,4 @@
-//! public-test fixture; no network run during preparation.
+//! Bounded loopback fixture shared by public command tests.
 use linear_cli::graphql::transport::{
     ApiKey, CaMode, Deadline, EndpointUrl, GraphQlTransport, ProxyMode, ResponseCap,
     TransportConfig,
@@ -8,15 +8,49 @@ use std::{
     io::{Read, Write},
     net::TcpListener,
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 pub fn serve(replies: Vec<String>) -> (GraphQlTransport, thread::JoinHandle<Vec<Value>>) {
+    serve_with_content_types(
+        replies
+            .into_iter()
+            .map(|body| (Some("application/json"), body))
+            .collect(),
+    )
+}
+pub fn serve_with_content_types(
+    replies: Vec<(Option<&'static str>, String)>,
+) -> (GraphQlTransport, thread::JoinHandle<Vec<Value>>) {
+    let count = replies.len();
+    let mut replies = replies.into_iter();
+    serve_responses(count, move |_| {
+        replies.next().expect("one reply per expected request")
+    })
+}
+pub fn serve_responses(
+    count: usize,
+    mut reply: impl FnMut(&Value) -> (Option<&'static str>, String) + Send + 'static,
+) -> (GraphQlTransport, thread::JoinHandle<Vec<Value>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
     let address = listener.local_addr().unwrap();
     let thread = thread::spawn(move || {
         let mut requests = Vec::new();
-        for body in replies {
-            let (mut socket, _) = listener.accept().unwrap();
+        for _ in 0..count {
+            let start = Instant::now();
+            let mut socket = loop {
+                match listener.accept() {
+                    Ok((socket, _)) => break socket,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(
+                            start.elapsed() < Duration::from_secs(4),
+                            "expected request did not arrive"
+                        );
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("fixture accept failed: {error}"),
+                }
+            };
             socket
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
@@ -41,8 +75,13 @@ pub fn serve(replies: Vec<String>) -> (GraphQlTransport, thread::JoinHandle<Vec<
                 .unwrap();
             bytes.resize(boundary + length, 0);
             socket.read_exact(&mut bytes[boundary..]).unwrap();
-            requests.push(serde_json::from_slice(&bytes[boundary..]).unwrap());
-            write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
+            let request = serde_json::from_slice(&bytes[boundary..]).unwrap();
+            let (mime, body) = reply(&request);
+            requests.push(request);
+            let content_type = mime
+                .map(|value| format!("Content-Type: {value}\r\n"))
+                .unwrap_or_default();
+            write!(socket,"HTTP/1.1 200 OK\r\n{content_type}Content-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
         }
         requests
     });

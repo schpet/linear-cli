@@ -958,6 +958,7 @@ async fn body_exactly_at_the_cap_is_kept_intact() {
 fn failure_debug_prints_header_counts_not_header_values() {
     let secret_headers = || {
         let mut headers = HeaderMap::new();
+        headers.insert("content-type", HeaderValue::from_static("application/json"));
         headers.insert(
             "set-cookie",
             HeaderValue::from_static("session=COOKIE-SECRET-VALUE; HttpOnly"),
@@ -984,11 +985,11 @@ fn failure_debug_prints_header_counts_not_header_values() {
     .expect_err("errors array");
     let debug = format!("{failure:?}");
     assert!(
-        matches!(&failure, TransportFailure::GraphQl { headers, .. } if headers.len() == 2),
+        matches!(&failure, TransportFailure::GraphQl { headers, .. } if headers.len() == 3),
         "{debug}"
     );
     assert!(
-        debug.starts_with("GraphQl { status: 401, headers: <2 headers>, errors: ["),
+        debug.starts_with("GraphQl { status: 401, headers: <3 headers>, errors: ["),
         "{debug}"
     );
     assert!(debug.contains("Authentication required"), "{debug}");
@@ -1016,7 +1017,7 @@ fn failure_debug_prints_header_counts_not_header_values() {
     );
     assert!(
         debug.starts_with(
-            "Http { response: RawHttpResponse { status: 502, headers: <2 headers>, body: <6 bytes> }, body: Unusable("
+            "Http { response: RawHttpResponse { status: 502, headers: <3 headers>, body: <6 bytes> }, body: Unusable("
         ),
         "{debug}"
     );
@@ -1373,7 +1374,7 @@ fn http_failures_keep_raw_bytes_and_redirects_are_never_followed() {
         assert!(
             matches!(
                 body,
-                HttpBodyShape::Unusable(ResponseError::MalformedJson(_))
+                HttpBodyShape::Unusable(ResponseError::NonJsonExecution(_))
             ),
             "{body:?}"
         );
@@ -1400,7 +1401,7 @@ fn http_failures_keep_raw_bytes_and_redirects_are_never_followed() {
         assert_eq!(response.body, b"<html><body>bad gateway</body></html>");
         assert!(matches!(
             body,
-            HttpBodyShape::Unusable(ResponseError::MalformedJson(_))
+            HttpBodyShape::Unusable(ResponseError::NonJsonExecution(_))
         ));
 
         let failure = transport

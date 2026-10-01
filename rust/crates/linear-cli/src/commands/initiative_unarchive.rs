@@ -26,7 +26,8 @@ fn text_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, AppE
             | TransportFailure::Timeout { .. }
             | TransportFailure::ResponseTooLarge { .. }
             | TransportFailure::Response(
-                ResponseError::MalformedJson(_)
+                ResponseError::NonJsonExecution(_)
+                | ResponseError::MalformedJson(_)
                 | ResponseError::MissingData
                 | ResponseError::GraphQl { .. },
             ),

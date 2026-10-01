@@ -40,7 +40,7 @@ use serde_json::{Map, Value};
 
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::{
-    GraphQlRequest, ResponseError, ResponseGraphQlError, graphql_message, parse_response,
+    GraphQlRequest, ResponseError, ResponseGraphQlError, graphql_message, parse_response_value,
 };
 
 /// The `User-Agent` sent on every request, derived from the Rust package
@@ -1064,12 +1064,29 @@ impl From<TransportFailure> for AppError {
 
 /// Classifies a captured response for a typed operation.
 ///
-/// Order: GraphQL errors first (any status), then non-2xx as HTTP failure,
-/// then the F02A envelope classification of a 2xx body.
+/// Fetch-like text/BOM and source MIME admission precede syntax and full typed
+/// decoding. Admitted GraphQL errors take precedence at any status; other
+/// non-2xx responses remain HTTP failures, while 2xx retains its exact body class.
 pub fn classify_typed<T: DeserializeOwned>(
     response: RawHttpResponse,
 ) -> Result<T, TransportFailure> {
-    let parsed = parse_response::<T>(&response.body);
+    let source = super::source_response::SourceResponse::classify(&response);
+    classify_typed_classified(response, source)
+}
+
+pub(crate) fn classify_typed_classified<T: DeserializeOwned>(
+    response: RawHttpResponse,
+    source: super::source_response::SourceResponse,
+) -> Result<T, TransportFailure> {
+    let parsed = match source.body {
+        super::source_response::SourceBody::Text => Err(ResponseError::NonJsonExecution(
+            super::source_response::invalid_execution(&source.text),
+        )),
+        super::source_response::SourceBody::Json(Err(error)) => {
+            Err(ResponseError::MalformedJson(error))
+        }
+        super::source_response::SourceBody::Json(Ok(value)) => parse_response_value::<T>(value),
+    };
     let success = response.status.is_success();
     match (parsed, success) {
         (Ok(data), true) => Ok(data),

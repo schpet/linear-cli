@@ -1409,6 +1409,20 @@ impl Drop for RawPrompt {
     }
 }
 
+/// Escape control characters for human prompt display only, preserving raw values.
+pub fn escaped_display(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| {
+            if c.is_control() {
+                c.escape_default().collect::<String>()
+            } else {
+                c.to_string()
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -1526,18 +1540,4 @@ impl Drop for RawPrompt {
             let _ = writeln!(io::stderr(), "failed to restore terminal input: {error}");
         }
     }
-}
-
-/// Escape control characters for human prompt display only, preserving raw values.
-pub fn escaped_display(value: &str) -> String {
-    value
-        .chars()
-        .map(|c| {
-            if c.is_control() {
-                c.escape_default().collect::<String>()
-            } else {
-                c.to_string()
-            }
-        })
-        .collect()
 }

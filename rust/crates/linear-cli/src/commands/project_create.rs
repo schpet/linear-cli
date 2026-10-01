@@ -344,13 +344,7 @@ pub fn client_error_branch(response: &crate::graphql::transport::RawHttpResponse
     if !response.status.is_success() {
         return true;
     }
-    let mime = response
-        .headers
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    mime.contains("application/json") || mime.contains("application/graphql-response+json")
+    crate::graphql::source_response::has_json_mime(&response.headers)
 }
 pub async fn join(transport: &GraphQlTransport, input: InitiativeLinkInput) -> JoinOutcome {
     let request =

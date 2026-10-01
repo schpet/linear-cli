@@ -520,10 +520,19 @@ async fn seven_items_prove_five_barrier_order_progress_counts_and_exact_effects(
                 .collect::<BTreeMap<_, _>>()
         );
         assert_eq!(results[6].name, None);
+        let BulkOutcome::Failed(message) = &results[6].outcome else {
+            panic!("seventh item must preserve the thrown source error");
+        };
+        let metadata: Value = serde_json::from_str(message.strip_prefix("raw: ").unwrap()).unwrap();
         assert_eq!(
-            results[6].outcome,
-            BulkOutcome::Failed("Human line  next".into())
+            metadata["response"]["errors"][0]["extensions"]["userPresentableMessage"],
+            "Human line\r\nnext"
         );
+        assert_eq!(
+            metadata["response"]["data"]["initiative"]["name"],
+            "CORRUPT"
+        );
+        assert_eq!(metadata["request"]["variables"]["id"], ids[6]);
         assert_eq!(
             results.iter().filter(|row| row.succeeded()).count(),
             if mode == Mode::Archive { 6 } else { 5 }
@@ -531,15 +540,20 @@ async fn seven_items_prove_five_barrier_order_progress_counts_and_exact_effects(
         let (output, failed) = command::summary(&results, mode);
         assert!(failed);
         let output = String::from_utf8(output).unwrap();
-        assert!(output.contains("Human line  next"));
-        assert!(!output.contains("CORRUPT"));
-        assert!(!output.contains("duplicate"));
+        assert!(output.contains(&format!("  - {}: raw: ", ids[6])));
+        // The optional display name stays absent; partial fields survive only
+        // inside the source SDK metadata attached to the thrown mutation.
+        assert!(!output.contains("  - CORRUPT:"));
+        assert!(output.contains("Human line\\r\\nnext"));
         if mode == Mode::Delete {
             assert_eq!(
                 results[5].outcome,
                 BulkOutcome::Failed("Delete operation failed".into())
             );
-            assert!(output.find("Name 6").unwrap() < output.find("Human line").unwrap());
+            assert!(
+                output.find("Name 6").unwrap()
+                    < output.find(&format!("  - {}: raw:", ids[6])).unwrap()
+            );
         }
     }
 }
@@ -575,7 +589,17 @@ async fn bulk_false_uses_resolved_id_but_thrown_row_keeps_input_without_name() {
             if throws {
                 assert_eq!(row.id, "Original input");
                 assert_eq!(row.name, None);
-                assert_eq!(row.outcome, BulkOutcome::Failed("Friendly".into()));
+                let BulkOutcome::Failed(message) = &row.outcome else {
+                    panic!("thrown mutation must fail the original input row");
+                };
+                let metadata: Value =
+                    serde_json::from_str(message.strip_prefix("raw: ").unwrap()).unwrap();
+                assert_eq!(
+                    metadata["response"]["errors"][0]["extensions"]["userPresentableMessage"],
+                    "Friendly"
+                );
+                assert_eq!(metadata["response"]["data"], json!({"partial":"duplicate"}));
+                assert_eq!(metadata["request"]["variables"]["id"], id);
             } else {
                 assert_eq!(row.id, id);
                 assert_eq!(row.name, Some("Display name".into()));
@@ -593,5 +617,51 @@ async fn bulk_false_uses_resolved_id_but_thrown_row_keeps_input_without_name() {
             }
             assert_eq!(worker.join().unwrap().len(), 3);
         }
+    }
+}
+
+// Reuses the original frozen source controls and the bounded fake server.
+#[tokio::test]
+async fn initiative_bulk_thrown_stdout_preserves_existing_source_sdk_metadata_and_crlf() {
+    for (mode, captured) in [
+        (
+            Mode::Archive,
+            include_str!("../../../../parity/runner/cases/c045-bulk-thrown.json"),
+        ),
+        (
+            Mode::Delete,
+            include_str!("../../../../parity/runner/cases/c047-bulk-thrown.json"),
+        ),
+    ] {
+        let case: Value = serde_json::from_str(captured).unwrap();
+        let steps = case["graphql"]["groups"][0]["steps"].as_array().unwrap();
+        let detail = steps[0]["response"]["data"].clone();
+        let raw = steps[1]["response"]["body"]["utf8"].as_str().unwrap();
+        let id = steps[1]["operation"]["variables"]["id"].as_str().unwrap();
+        let (transport, handle) = server(
+            vec![
+                Reply::data(json!({"data":detail})),
+                Reply {
+                    status: 200,
+                    body: raw.into(),
+                    delay: Duration::ZERO,
+                },
+            ],
+            Duration::from_secs(2),
+            65536,
+        );
+        let row = command::run_item(&transport, target(id), mode).await;
+        assert_eq!(row.id, id);
+        assert_eq!(row.name, None); // source wrapper drops resolved name on a thrown exception.
+        assert!(!row.succeeded());
+        let (summary, failed) = command::summary(&[row], mode);
+        assert!(failed);
+        let stdout = case["expected"]["stdout"]["utf8"].as_str().unwrap();
+        let start = stdout.find("\n✗ Failed to ").unwrap();
+        assert_eq!(summary, stdout.as_bytes()[start..]);
+        let sent = handle.join().unwrap();
+        assert_eq!(sent.len(), 2);
+        assert_eq!(sent[0]["variables"], steps[0]["operation"]["variables"]);
+        assert_eq!(sent[1]["variables"], steps[1]["operation"]["variables"]);
     }
 }

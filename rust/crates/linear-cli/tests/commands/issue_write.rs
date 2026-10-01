@@ -334,8 +334,7 @@ async fn update_label_dedupe_overlap_stops_before_project_parent_and_mutation() 
     };
     let error = update::input(&backend, "ENG-1", &fields, None)
         .await
-        .err()
-        .expect("overlap");
+        .map_or_else(std::convert::identity, |_| panic!("overlap"));
     assert_eq!(
         error.message,
         "Cannot add and remove the same label in one update"
@@ -449,10 +448,21 @@ fn network(
     linear_cli::commands::issue_write_network::NetworkBackend,
     std::thread::JoinHandle<Vec<serde_json::Value>>,
 ) {
+    network_with_content_types(
+        replies
+            .into_iter()
+            .map(|value| (Some("application/json"), value.to_string()))
+            .collect(),
+    )
+}
+pub(super) fn network_with_content_types(
+    replies: Vec<(Option<&'static str>, String)>,
+) -> (
+    linear_cli::commands::issue_write_network::NetworkBackend,
+    std::thread::JoinHandle<Vec<serde_json::Value>>,
+) {
     use linear_cli::config::{ConfigInputs, ConfigOptions, OptionInputs, OsFamily, SelectedEnv};
-    let (transport, server) = super::project_write_server::serve(
-        replies.into_iter().map(|value| value.to_string()).collect(),
-    );
+    let (transport, server) = super::project_write_server::serve_with_content_types(replies);
     let env = ConfigInputs {
         cwd: "/fake-issue-write".into(),
         os: OsFamily::Unix,
@@ -842,8 +852,9 @@ async fn update_empty_returned_label_ids_stop_at_each_label_prefix() {
         }
         let error = update::input(&backend, "ENG-7", &fields, None)
             .await
-            .err()
-            .expect("empty returned label must be NotFound");
+            .map_or_else(std::convert::identity, |_| {
+                panic!("empty returned label must be NotFound")
+            });
         assert_eq!(
             error.message, "Issue label not found: DUMMY label",
             "{mode}"
@@ -885,8 +896,9 @@ async fn update_empty_returned_assignee_ids_stop_before_labels_or_mutation() {
         };
         let error = update::input(&backend, "ENG-7", &fields, None)
             .await
-            .err()
-            .expect("empty returned user must be NotFound");
+            .map_or_else(std::convert::identity, |_| {
+                panic!("empty returned user must be NotFound")
+            });
         assert_eq!(error.message, format!("User not found: {reference}"));
         assert!(error.suggestion.is_none());
         let sent = server.join().unwrap();
@@ -934,8 +946,9 @@ async fn m2_empty_project_name_continues_slug_before_create_or_update() {
                 None,
             )
             .await
-            .err()
-            .expect("expected prefix refusal")
+            .map_or_else(std::convert::identity, |_| {
+                panic!("expected prefix refusal")
+            })
         };
         assert_eq!(error.message, "Project not found: Name");
         let sent = server.join().unwrap();
@@ -970,8 +983,9 @@ async fn m2_empty_existing_project_stops_update_before_milestone_lookup() {
         None,
     )
     .await
-    .err()
-    .expect("expected prefix refusal");
+    .map_or_else(std::convert::identity, |_| {
+        panic!("expected prefix refusal")
+    });
     assert_eq!(
         error.message,
         "Cannot resolve milestone \"Name\" without --project"

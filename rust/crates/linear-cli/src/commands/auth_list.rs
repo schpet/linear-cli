@@ -242,7 +242,8 @@ pub fn row_error(failure: &TransportFailure) -> RowError {
             RowError::Failure("response did not match the expected viewer shape".to_owned())
         }
         TransportFailure::Response(
-            error @ (ResponseError::GraphQl { .. }
+            error @ (ResponseError::NonJsonExecution(_)
+            | ResponseError::GraphQl { .. }
             | ResponseError::MissingData
             | ResponseError::MutationRejected
             | ResponseError::MissingPayloadEntity),

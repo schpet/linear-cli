@@ -1,25 +1,12 @@
 {
   "formatVersion": 1,
   "caseId": "c047-bulk-thrown",
-  "deviationId": "INIT-BULK-ERRTEXT",
+  "deviationId": "R01H-GRAPHQL-UA",
   "contract": "rust-3.0.0-alpha.1",
   "approvedSurfaces": [
-    "stdout",
     "graphql-user-agent"
   ],
   "candidate": {
-    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1",
-    "expected": {
-      "exit": {
-        "code": 1
-      },
-      "stdout": {
-        "utf8": "Found 1 initiative(s) to delete.\n\n⚠️  This action is PERMANENT and cannot be undone.\n\n\n✗ Failed to delet all 1 initiative\n\nFailed operations:\n  - 00000000-0000-4000-9000-000000004501: Friendly first\n"
-      },
-      "stderr": {
-        "utf8": ""
-      },
-      "fileEffects": []
-    }
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
   }
 }

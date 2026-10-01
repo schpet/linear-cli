@@ -71,10 +71,11 @@ struct ResponseEnvelope {
 }
 
 /// Why a response body did not yield usable operation data.
-#[derive(Debug)]
 pub enum ResponseError {
     /// The body was not syntactically valid JSON (or was truncated).
     MalformedJson(serde_json::Error),
+    /// Source SDK treats a non-JSON MIME 2xx response as a plain execution error.
+    NonJsonExecution(String),
     /// The body was valid JSON but did not match the envelope or the
     /// operation's schema-checked types (wrong type, missing non-null field,
     /// unknown enum variant, non-object top level).
@@ -96,10 +97,36 @@ pub enum ResponseError {
     MissingPayloadEntity,
 }
 
+impl fmt::Debug for ResponseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MalformedJson(source) => f.debug_tuple("MalformedJson").field(source).finish(),
+            // Display intentionally retains Fetch's execution diagnostic. Debug
+            // follows RawHttpResponse's contract of omitting response text.
+            Self::NonJsonExecution(_) => f.write_str("NonJsonExecution(<response text>)"),
+            Self::UnexpectedShape(source) => {
+                f.debug_tuple("UnexpectedShape").field(source).finish()
+            }
+            Self::GraphQl {
+                errors,
+                partial_data,
+            } => f
+                .debug_struct("GraphQl")
+                .field("errors", errors)
+                .field("partial_data", partial_data)
+                .finish(),
+            Self::MissingData => f.write_str("MissingData"),
+            Self::MutationRejected => f.write_str("MutationRejected"),
+            Self::MissingPayloadEntity => f.write_str("MissingPayloadEntity"),
+        }
+    }
+}
+
 impl fmt::Display for ResponseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::MalformedJson(source) => write!(f, "response body is not valid JSON: {source}"),
+            Self::NonJsonExecution(message) => f.write_str(message),
             Self::UnexpectedShape(source) => write!(
                 f,
                 "response JSON did not match the expected operation shape: {source}"
@@ -119,7 +146,8 @@ impl Error for ResponseError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::MalformedJson(source) | Self::UnexpectedShape(source) => Some(source),
-            Self::GraphQl { .. }
+            Self::NonJsonExecution(_)
+            | Self::GraphQl { .. }
             | Self::MissingData
             | Self::MutationRejected
             | Self::MissingPayloadEntity => None,
@@ -134,6 +162,7 @@ impl From<ResponseError> for AppError {
             ResponseError::MalformedJson(source) => {
                 AppError::new(AppErrorKind::Transport, message).with_source(source)
             }
+            ResponseError::NonJsonExecution(_) => AppError::new(AppErrorKind::Transport, message),
             // Valid JSON that contradicts the schema the types were compiled
             // against is a broken contract, not a transport or GraphQL failure.
             ResponseError::UnexpectedShape(source) => {
@@ -157,6 +186,16 @@ impl From<ResponseError> for AppError {
 /// is decoded into `T` only when there are no errors.
 pub fn parse_response<T: DeserializeOwned>(body: &[u8]) -> Result<T, ResponseError> {
     let envelope: ResponseEnvelope = serde_json::from_slice(body).map_err(classify_json_error)?;
+    decode_envelope(envelope)
+}
+
+/// Typed decode of an already syntax-classified JSON value; errors still precede data.
+pub(crate) fn parse_response_value<T: DeserializeOwned>(value: Value) -> Result<T, ResponseError> {
+    let envelope: ResponseEnvelope =
+        serde_json::from_value(value).map_err(ResponseError::UnexpectedShape)?;
+    decode_envelope(envelope)
+}
+fn decode_envelope<T: DeserializeOwned>(envelope: ResponseEnvelope) -> Result<T, ResponseError> {
     let errors = envelope.errors.unwrap_or_default();
     if !errors.is_empty() {
         return Err(ResponseError::GraphQl {

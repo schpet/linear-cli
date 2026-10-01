@@ -3,6 +3,7 @@ use crate::{
     commands::initiative_view::{Reference, prepare_reference},
     error::{AppError, AppErrorKind},
     graphql::{
+        bulk_error,
         envelope::GraphQlRequest,
         operations::{
             initiative_bulk::*,
@@ -203,6 +204,19 @@ pub async fn resolve(
     reference: &Reference,
     mode: Mode,
 ) -> Result<Option<String>, AppError> {
+    resolve_with_errors(transport, reference, mode, ResolutionErrors::SingleFriendly).await
+}
+#[derive(Clone, Copy)]
+enum ResolutionErrors {
+    SingleFriendly,
+    BulkSourceMessage,
+}
+async fn resolve_with_errors(
+    transport: &GraphQlTransport,
+    reference: &Reference,
+    mode: Mode,
+    errors: ResolutionErrors,
+) -> Result<Option<String>, AppError> {
     match reference {
         Reference::Id(id) => Ok(Some(id.clone())),
         Reference::NameOrSlug(token) => Ok(resolve_text(transport, token, mode).await),
@@ -212,8 +226,14 @@ pub async fn resolve(
                     slug_id: slug.clone(),
                     include_archived: Some(mode == Mode::Delete),
                 }));
-            let data: ResolveInitiativeBySlug =
-                transport.execute(&request).await.map_err(AppError::from)?;
+            let data: ResolveInitiativeBySlug = match errors {
+                ResolutionErrors::SingleFriendly => {
+                    transport.execute(&request).await.map_err(AppError::from)?
+                }
+                ResolutionErrors::BulkSourceMessage => bulk_error::execute(transport, &request)
+                    .await
+                    .map_err(bulk_error::BulkExchangeFailure::into_error)?,
+            };
             let Some(id) = data
                 .initiatives
                 .nodes
@@ -342,16 +362,20 @@ impl BulkResult {
         matches!(self.outcome, BulkOutcome::Succeeded)
     }
 }
-fn single_line(error: &AppError) -> String {
-    error.to_string().replace(['\r', '\n'], " ")
-}
 async fn run_resolved(
     transport: &GraphQlTransport,
     original: &str,
     reference: &Reference,
     mode: Mode,
 ) -> Result<BulkResult, AppError> {
-    let Some(id) = resolve(transport, reference, mode).await? else {
+    let Some(id) = resolve_with_errors(
+        transport,
+        reference,
+        mode,
+        ResolutionErrors::BulkSourceMessage,
+    )
+    .await?
+    else {
         return Ok(BulkResult {
             id: original.to_owned(),
             name: Some(original.to_owned()),
@@ -394,20 +418,20 @@ async fn run_resolved(
     }
     let variables = IdVariables { id: id.clone() };
     let success = match mode {
-        Mode::Archive => transport
-            .execute::<BulkArchiveInitiative, _>(&GraphQlRequest::with_variables(
-                BulkArchiveInitiative::build(variables),
-            ))
-            .await
-            .map(|data| data.initiative_archive.success),
-        Mode::Delete => transport
-            .execute::<BulkDeleteInitiative, _>(&GraphQlRequest::with_variables(
-                BulkDeleteInitiative::build(variables),
-            ))
-            .await
-            .map(|data| data.initiative_delete.success),
+        Mode::Archive => bulk_error::execute::<BulkArchiveInitiative, _>(
+            transport,
+            &GraphQlRequest::with_variables(BulkArchiveInitiative::build(variables)),
+        )
+        .await
+        .map(|data| data.initiative_archive.success),
+        Mode::Delete => bulk_error::execute::<BulkDeleteInitiative, _>(
+            transport,
+            &GraphQlRequest::with_variables(BulkDeleteInitiative::build(variables)),
+        )
+        .await
+        .map(|data| data.initiative_delete.success),
     }
-    .map_err(AppError::from)?;
+    .map_err(bulk_error::BulkExchangeFailure::into_error)?;
     Ok(BulkResult {
         id,
         name: Some(name),
@@ -432,7 +456,7 @@ pub async fn run_item(transport: &GraphQlTransport, target: Target, mode: Mode) 
     result.unwrap_or_else(|error| BulkResult {
         id: target.original,
         name: None,
-        outcome: BulkOutcome::Failed(single_line(&error)),
+        outcome: BulkOutcome::Failed(error.to_string()),
     })
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

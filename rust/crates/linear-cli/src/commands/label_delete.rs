@@ -41,7 +41,8 @@ fn lookup_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, Ap
             | TransportFailure::Timeout { .. }
             | TransportFailure::ResponseTooLarge { .. }
             | TransportFailure::Response(
-                ResponseError::MalformedJson(_)
+                ResponseError::NonJsonExecution(_)
+                | ResponseError::MalformedJson(_)
                 | ResponseError::MissingData
                 | ResponseError::GraphQl { .. },
             ),

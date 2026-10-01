@@ -10,13 +10,13 @@ const cohorts: readonly (readonly [string, string, number, string])[] = [
     "c045",
     "linear initiative archive",
     13,
-    "d2371a62aa2c064de7257bdc1ad0a228c13aaacbbbabbc6f9fd1ba73c75e6892",
+    "32e0876703b316f890f44ea7fa384c26c2d20ceaec9eb2e6491a2ff5056aeeb3",
   ],
   [
     "c047",
     "linear initiative delete",
     12,
-    "1753e835ba496743f0a03c35f2bf4929f2786ec25b1b2bb9a2462d408eb23fd6",
+    "ee36b2d748d04063a40f278b7d72db9ded78754bdd1ff1b72210f170e0df9adb",
   ],
 ]
 for (const [leaf, route, count, pin] of cohorts) {
@@ -73,13 +73,6 @@ for (const [leaf, route, count, pin] of cohorts) {
           assertEquals(
             candidate.spec.expected.stdout,
             entry.spec.expected.stdout,
-          )
-        } else if (suffix === "bulk-thrown") {
-          deviation = "INIT-BULK-ERRTEXT"
-          surfaces = ["stdout"]
-          assertEquals(
-            candidate.spec.expected.stderr,
-            entry.spec.expected.stderr,
           )
         } else if (suffix === "bulk-stdin-invalid-non-tty") {
           deviation = "INIT-BULK-UTF8"

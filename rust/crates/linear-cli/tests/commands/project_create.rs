@@ -97,6 +97,16 @@ fn source_client_error_envelope_and_plain_nonjson_class_are_distinct() {
         reqwest::header::HeaderValue::from_static("application/json"),
     );
     assert!(create::client_error_branch(&response));
+    response.headers.clear();
+    response.headers.insert(
+        reqwest::header::CONTENT_TYPE,
+        reqwest::header::HeaderValue::from_static("text/plain"),
+    );
+    response.headers.append(
+        reqwest::header::CONTENT_TYPE,
+        reqwest::header::HeaderValue::from_bytes(b"Application/JSON; note=\xff").unwrap(),
+    );
+    assert!(create::client_error_branch(&response));
     response.status = reqwest::StatusCode::BAD_GATEWAY;
     response.headers.clear();
     assert!(create::client_error_branch(&response));
