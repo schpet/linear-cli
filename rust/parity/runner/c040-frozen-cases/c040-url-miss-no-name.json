@@ -1,0 +1,100 @@
+{
+  "id": "c040-url-miss-no-name",
+  "route": "linear initiative update",
+  "reason": "url-miss-no-name",
+  "argv": [
+    "initiative",
+    "update",
+    "https://linear.app/acme/initiative/title-d4b93e3b2695",
+    "-n",
+    "new"
+  ],
+  "stdin": {
+    "utf8": "ignored pipe markdown"
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort",
+    "referenceModuleUrl"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "error: Uncaught (in promise) NotFoundError: Initiative not found: https://linear.app/acme/initiative/title-d4b93e3b2695\n        throw new NotFoundError(\"Initiative\", initiativeId)\n              ^\n    at Command.<anonymous> ({{referenceModuleUrl}}/src/commands/initiative/initiative-update.ts:90:15)\n    at async Command.execute (https://jsr.io/@cliffy/command/1.0.0/command.ts:2310:7)\n    at async Command.parseCommand (https://jsr.io/@cliffy/command/1.0.0/command.ts:2126:14)\n    at async {{referenceModuleUrl}}/src/main.ts:4:3\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {
+      "Initiative:00000000-0000-4000-9000-000000000040": {
+        "name": "Before"
+      }
+    },
+    "expectedRecords": {
+      "Initiative:00000000-0000-4000-9000-000000000040": {
+        "name": "Before"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "slug",
+            "operation": {
+              "document": "query ResolveInitiativeBySlug($slugId: String!, $includeArchived: Boolean) { initiatives(filter: { slugId: { eq: $slugId } } includeArchived: $includeArchived) { nodes { id } } }",
+              "variables": {
+                "slugId": "d4b93e3b2695",
+                "includeArchived": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": []
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "id": "c040-owner-email-wins-display-first",
+  "route": "linear initiative update",
+  "reason": "owner-email-wins-display-first",
+  "argv": [
+    "initiative",
+    "update",
+    "00000000-0000-4000-9000-000000000040",
+    "--owner",
+    "chosen@invalid.test"
+  ],
+  "stdin": {
+    "utf8": "ignored pipe markdown"
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Updated initiative: RETURNED 界 %s\nhttps://example.invalid/updated-initiative\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "eb3b4f750f3b7977dceb16eb70b41f1e0535b193b1453f20fd336fd6539e6880"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 3,
+    "initialRecords": {
+      "Initiative:00000000-0000-4000-9000-000000000040": {
+        "name": "Before"
+      }
+    },
+    "expectedRecords": {
+      "Initiative:00000000-0000-4000-9000-000000000040": {
+        "input": {
+          "ownerId": "00000000-0000-4000-9000-000000000008"
+        }
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "detail",
+            "operation": {
+              "document": "query GetInitiativeForUpdate($id: String!) { initiative(id: $id) { id slugId name description status targetDate color icon owner { id displayName } } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000000040"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiative": {
+                  "id": "00000000-0000-4000-9000-000000000040",
+                  "slugId": "d4b93e3b2695",
+                  "name": "Before",
+                  "description": "Before body",
+                  "status": "Active",
+                  "targetDate": "2026-10-01",
+                  "color": "#5E6AD2",
+                  "icon": "target",
+                  "owner": {
+                    "id": "00000000-0000-4000-9000-000000000008",
+                    "displayName": "Existing owner"
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "owner",
+            "operation": {
+              "document": "query LookupUser($input: String!) { users(filter: { or: [{ email: { eqIgnoreCase: $input } }, { displayName: { eqIgnoreCase: $input } }, { name: { containsIgnoreCaseAndAccent: $input } }] }) { nodes { id email displayName name } } }",
+              "variables": {
+                "input": "chosen@invalid.test"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "users": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000041",
+                      "email": "first@invalid.test",
+                      "displayName": "chosen@invalid.test",
+                      "name": "first"
+                    },
+                    {
+                      "id": "00000000-0000-4000-9000-000000000008",
+                      "email": "CHOSEN@INVALID.TEST",
+                      "displayName": "Other",
+                      "name": "second"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "update",
+            "operation": {
+              "document": "mutation UpdateInitiative($id: String!, $input: InitiativeUpdateInput!) { initiativeUpdate(id: $id, input: $input) { success initiative { id slugId name url } } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000000040",
+                "input": {
+                  "ownerId": "00000000-0000-4000-9000-000000000008"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeUpdate": {
+                  "success": true,
+                  "initiative": {
+                    "id": "00000000-0000-4000-9000-000000000041",
+                    "slugId": "returned-slug",
+                    "name": "RETURNED 界 %s",
+                    "url": "https://example.invalid/updated-initiative"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Initiative:00000000-0000-4000-9000-000000000040",
+                "before": {
+                  "value": {
+                    "name": "Before"
+                  }
+                },
+                "after": {
+                  "input": {
+                    "ownerId": "00000000-0000-4000-9000-000000000008"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

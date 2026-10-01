@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c040-leaf-help",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "Update a Linear initiative\n\nUsage: linear initiative update [OPTIONS] <initiativeId>\n\nArguments:\n  <initiativeId>  \n\nOptions:\n  -n, --name <name>                New name for the initiative\n      --workspace <slug>           Target workspace (uses credentials)\n  -d, --description <description>  New description\n      --status <status>            New status (planned, active, completed, paused)\n      --owner <owner>              New owner (username, email, or @me)\n      --target-date <targetDate>   Target completion date (YYYY-MM-DD)\n      --color <color>              Initiative color (hex, e.g., #5E6AD2)\n      --icon <icon>                Initiative icon name\n  -i, --interactive                Interactive mode for updates\n  -h, --help                       Print help\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

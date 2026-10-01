@@ -93,8 +93,15 @@ pub async fn resolve_owner(
         input: input.to_owned(),
     }));
     let result: LookupUser = transport.execute(&request).await.map_err(AppError::from)?;
+    select_owner(&result.users.nodes, input).ok_or_else(|| AppError::not_found("Owner", input))
+}
+
+/// Shared source selection only; callers retain their own transport/error scopes.
+pub fn select_owner(
+    users: &[crate::graphql::operations::initiatives::LookupUserNode],
+    input: &str,
+) -> Option<cynic::Id> {
     let target = input.to_lowercase();
-    let users = &result.users.nodes;
     let selected = users
         .iter()
         .find(|user| user.email.to_lowercase() == target)
@@ -104,9 +111,7 @@ pub async fn resolve_owner(
                 .find(|user| user.display_name.to_lowercase() == target)
         })
         .or_else(|| users.first());
-    selected
-        .map(|user| user.id.clone())
-        .ok_or_else(|| AppError::not_found("Owner", input))
+    selected.map(|user| user.id.clone())
 }
 
 fn filter(status: Option<&str>, owner: Option<cynic::Id>) -> Option<InitiativeFilter> {

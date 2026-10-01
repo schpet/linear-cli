@@ -471,8 +471,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 initiative_bulk::Mode::Archive,
                 workspace,
             ),
-            Some(cli::initiative::InitiativeCommand::Update(_)) => {
-                unsupported("linear initiative update")
+            Some(cli::initiative::InitiativeCommand::Update(action)) => {
+                dispatch_initiative_update(context, &action, workspace)
             }
             Some(cli::initiative::InitiativeCommand::Unarchive(action)) => {
                 dispatch_initiative_unarchive(context, &action, workspace)
@@ -6128,4 +6128,70 @@ fn dispatch_update_create(
         Ok(ExitStatus::Success)
     })();
     result.map_err(|error: AppError| error.with_context(mode.context()))
+}
+
+fn dispatch_initiative_update(
+    context: &mut AppContext<'_>,
+    action: &cli::initiative::InitiativeUpdate,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::initiative_update as command;
+    use crate::platform::prompt::{PromptOutcome, PromptSession, escaped_display};
+    let transport = relation_transport(context, workspace)?;
+    let reference = {
+        let config = context.config()?;
+        let credentials = context.credentials()?;
+        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let scope = WorkspaceScope::from_selection(&inputs, credentials);
+        initiative_view::prepare_reference(&action.initiative_id, &scope)?
+    };
+    let id = block_on_network(command::resolve(
+        &transport,
+        &reference,
+        &action.initiative_id,
+    ))?;
+    let current = block_on_network(command::details(&transport, &id, &action.initiative_id))?;
+    let mut fields = command::Fields {
+        name: action.name.clone(),
+        description: action.description.clone(),
+        status: action.status.clone(),
+        owner: action.owner.clone(),
+        target_date: action.target_date.clone(),
+        color: action.color.clone(),
+        icon: action.icon.clone(),
+    };
+    if fields.should_prompt(action.interactive, context.stdout_tty) {
+        context.write_stdout_with_policy(
+            format!(
+                "\nUpdating initiative: {}\n\n",
+                escaped_display(&current.name)
+            )
+            .as_bytes(),
+            OutputPolicy::ConsoleLike,
+        )?;
+        let mut session = PromptSession::stdio_cr_or_lf(&mut *context.stdout)?;
+        let prompted = command::prompt(&mut session, &current);
+        fields = match session.finish_result(prompted)? {
+            PromptOutcome::Submitted(fields) => fields,
+            PromptOutcome::Interrupted => return initiative_interrupt_status(),
+            PromptOutcome::EndOfInput => {
+                return Err(AppError::new(
+                    AppErrorKind::Validation,
+                    "unexpected EOF while updating initiative",
+                ));
+            }
+        };
+    }
+    let owner_id = block_on_network(command::owner(&transport, fields.owner.as_deref()))?;
+    if fields.empty() {
+        context.write_stdout_with_policy(b"No changes specified\n", OutputPolicy::ConsoleLike)?;
+        return Ok(ExitStatus::Success);
+    }
+    let output = document_fetch_with_spinner(
+        context,
+        false,
+        command::submit(&transport, &id, fields.input(owner_id)),
+    )?;
+    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+    Ok(ExitStatus::Success)
 }

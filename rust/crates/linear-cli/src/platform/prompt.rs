@@ -57,6 +57,12 @@ pub struct PlainSelect<'a> {
     pub default_hint: Option<&'a str>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ScriptFraming {
+    LfOnly,
+    CrOrLf,
+}
+
 enum InputSource<R: Read> {
     Script(BufReader<R>),
     Keys(Box<dyn FnMut() -> io::Result<PromptKey>>),
@@ -77,6 +83,8 @@ pub struct PromptSession<R: Read, W: Write> {
     rows: usize,
     raw: Option<RawPrompt>,
     state: SessionState,
+    framing: ScriptFraming,
+    pending_optional_lf: bool,
 }
 
 impl<R: Read, W: Write> PromptSession<R, W> {
@@ -88,7 +96,16 @@ impl<R: Read, W: Write> PromptSession<R, W> {
             rows: 24,
             raw: None,
             state: SessionState::Active,
+            framing: ScriptFraming::LfOnly,
+            pending_optional_lf: false,
         }
+    }
+
+    /// C040 opt-in only: CR submits immediately, optional LF is deferred to next read.
+    pub fn script_cr_or_lf(reader: R, writer: W) -> Self {
+        let mut session = Self::script(reader, writer);
+        session.framing = ScriptFraming::CrOrLf;
+        session
     }
 
     /// Injectable key source for public state-machine tests and confined QA.
@@ -110,6 +127,8 @@ impl<R: Read, W: Write> PromptSession<R, W> {
             rows,
             raw: None,
             state: SessionState::Active,
+            framing: ScriptFraming::LfOnly,
+            pending_optional_lf: false,
         })
     }
 
@@ -168,6 +187,39 @@ impl<R: Read, W: Write> PromptSession<R, W> {
             InputSource::Keys(_) => self.edit_keys(&header, message, |raw| {
                 let answer = options.answer(raw)?;
                 Ok((answer.clone(), answer))
+            }),
+        }
+    }
+
+    /// C040 opt-in: raw defaults retain semantics; only displayed controls are escaped.
+    /// Existing text/default preflight and edited-answer checks remain unchanged.
+    pub fn text_with_display_default(
+        &mut self,
+        message: &str,
+        options: crate::platform::prompt_text::TextOptions<'_>,
+    ) -> Result<PromptOutcome<String>, AppError> {
+        self.check_ready(message)?;
+        let header = match options.default {
+            Some(value) => format!("{message} ({})", escaped_display(value)),
+            None => message.to_owned(),
+        };
+        match &mut self.input {
+            InputSource::Script(_) => {
+                self.write(format!("? {header}\n").as_bytes())?;
+                self.flush()?;
+                let Some(raw) = self.read_script_line()? else {
+                    return Ok(PromptOutcome::EndOfInput);
+                };
+                let answer = options
+                    .answer(&raw)
+                    .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+                self.write(format!("? {message} › {}\n", escaped_display(&answer)).as_bytes())?;
+                Ok(PromptOutcome::Submitted(answer))
+            }
+            InputSource::Keys(_) => self.edit_keys(&header, message, |raw| {
+                let answer = options.answer(raw)?;
+                let display = escaped_display(&answer);
+                Ok((answer, display))
             }),
         }
     }
@@ -340,6 +392,9 @@ impl<R: Read, W: Write> PromptSession<R, W> {
     }
 
     fn read_script_line(&mut self) -> Result<Option<String>, AppError> {
+        if self.framing == ScriptFraming::CrOrLf {
+            return self.read_script_cr_or_lf();
+        }
         let InputSource::Script(reader) = &mut self.input else {
             return Err(invariant("script read requires script input"));
         };
@@ -373,6 +428,64 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         bytes.pop();
         if bytes.last() == Some(&b'\r') {
             bytes.pop();
+        }
+        let value = String::from_utf8(bytes).map_err(|error| {
+            AppError::new(AppErrorKind::Validation, "prompt script line is not UTF-8")
+                .with_source(error)
+        })?;
+        if value
+            .chars()
+            .any(|character| character <= '\u{1f}' || character == '\u{7f}')
+        {
+            return Err(AppError::new(
+                AppErrorKind::Validation,
+                "prompt script line contains a control character",
+            ));
+        }
+        Ok(Some(value))
+    }
+
+    fn read_script_cr_or_lf(&mut self) -> Result<Option<String>, AppError> {
+        let InputSource::Script(reader) = &mut self.input else {
+            return Err(invariant("script read requires script input"));
+        };
+        let mut bytes = Vec::new();
+        loop {
+            let mut byte = [0];
+            let count = reader.read(&mut byte).map_err(|error| {
+                AppError::new(AppErrorKind::IoProcess, "failed to read prompt stdin")
+                    .with_source(error)
+            })?;
+            if count == 0 {
+                return if bytes.is_empty() {
+                    Ok(None)
+                } else {
+                    Err(AppError::new(
+                        AppErrorKind::Validation,
+                        "incomplete prompt script line at EOF",
+                    ))
+                };
+            }
+            if self.pending_optional_lf {
+                self.pending_optional_lf = false;
+                if byte[0] == b'\n' {
+                    continue;
+                }
+            }
+            if bytes.len() + 1 > MAX_LINE_BYTES {
+                return Err(AppError::new(
+                    AppErrorKind::Validation,
+                    "prompt script line exceeds 65536 bytes",
+                ));
+            }
+            match byte[0] {
+                b'\r' => {
+                    self.pending_optional_lf = true;
+                    break;
+                }
+                b'\n' => break,
+                value => bytes.push(value),
+            }
         }
         let value = String::from_utf8(bytes).map_err(|error| {
             AppError::new(AppErrorKind::Validation, "prompt script line is not UTF-8")
@@ -588,6 +701,13 @@ impl<W: Write> PromptSession<io::Stdin, W> {
             .unwrap_or((80, 24));
         let mut session = Self::keys(writer, columns, rows, next_key)?;
         session.raw = Some(RawPrompt::enter_attended()?);
+        Ok(session)
+    }
+
+    /// C040 stdout-gated caller owns whether prompting is permitted.
+    pub fn stdio_cr_or_lf(writer: W) -> Result<Self, AppError> {
+        let mut session = Self::stdio(writer)?;
+        session.framing = ScriptFraming::CrOrLf;
         Ok(session)
     }
 
@@ -1043,4 +1163,18 @@ impl Drop for RawPrompt {
             let _ = writeln!(io::stderr(), "failed to restore terminal input: {error}");
         }
     }
+}
+
+/// Escape control characters for human prompt display only, preserving raw values.
+pub fn escaped_display(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| {
+            if c.is_control() {
+                c.escape_default().collect::<String>()
+            } else {
+                c.to_string()
+            }
+        })
+        .collect()
 }

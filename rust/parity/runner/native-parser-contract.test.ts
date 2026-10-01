@@ -64,6 +64,8 @@ Deno.test("Native clap surfaces and strict input goldens form a closed SHA-bound
       "c080-leaf-help",
       "c049-empty-body-falls-file-health",
       "c036-leaf-help",
+      "c040-leaf-help",
+      "c040-json-rejected",
       "c036-empty-body-falls-file-health",
       "c049-leaf-help",
       "c049-inline-wins-json-raw",

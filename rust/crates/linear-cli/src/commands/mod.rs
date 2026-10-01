@@ -94,3 +94,5 @@ pub mod project_collections;
 pub mod issue_archive_delete;
 
 pub mod update_create;
+
+pub mod initiative_update;

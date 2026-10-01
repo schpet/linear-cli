@@ -1,0 +1,54 @@
+{
+  "id": "c040-leaf-help",
+  "route": "linear initiative update",
+  "reason": "leaf-help",
+  "argv": [
+    "initiative",
+    "update",
+    "--help"
+  ],
+  "stdin": {
+    "utf8": "ignored pipe markdown"
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear initiative update <initiativeId>\nVersion: 2.6.0                                  \n\nDescription:\n\n  Update a Linear initiative\n\nOptions:\n\n  -h, --help                        - Show this help.                                  \n  --workspace        <slug>         - Target workspace (uses credentials)              \n  -n, --name         <name>         - New name for the initiative                      \n  -d, --description  <description>  - New description                                  \n  --status           <status>       - New status (planned, active, completed, paused)  \n  --owner            <owner>        - New owner (username, email, or @me)              \n  --target-date      <targetDate>   - Target completion date (YYYY-MM-DD)              \n  --color            <color>        - Initiative color (hex, e.g., #5E6AD2)            \n  --icon             <icon>         - Initiative icon name                             \n  -i, --interactive                 - Interactive mode for updates                     \n\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "CLAP-NATIVE-CLI-SURFACE",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "dcf0f9ac74b79267da3e14164871ee245e87a17062f3a7403db72f215d65360a"
+  },
+  "graphql": null
+}

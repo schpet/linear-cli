@@ -76,3 +76,5 @@ mod project_write_server;
 mod issue_archive_delete;
 
 mod update_create;
+
+mod initiative_update;
