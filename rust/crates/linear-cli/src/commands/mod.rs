@@ -111,3 +111,7 @@ pub mod schema;
 pub mod auth_login;
 pub mod auth_logout;
 pub mod auth_migrate;
+
+pub mod issue_commits;
+
+pub mod issue_describe;

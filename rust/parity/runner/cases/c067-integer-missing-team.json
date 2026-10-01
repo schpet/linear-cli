@@ -1,0 +1,50 @@
+{
+  "id": "c067-integer-missing-team",
+  "route": "linear issue commits",
+  "reason": "integer-missing-team",
+  "argv": [
+    "issue",
+    "commits",
+    "1"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "c067-vcs-jj",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "NO_COLOR": "1"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to show commits: an integer id was provided, but no team is set\n  Run `linear config` to set a team.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": null
+}

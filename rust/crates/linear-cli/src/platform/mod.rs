@@ -15,3 +15,5 @@ pub mod markdown_serializer;
 
 pub mod editor;
 pub mod prompt_text;
+
+pub mod vcs_script;

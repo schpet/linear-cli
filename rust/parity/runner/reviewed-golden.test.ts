@@ -2373,6 +2373,12 @@ Deno.test("all committed GraphQL cases bind exact Rust User-Agent without changi
   // These exact reviewed cases add output channels; their independently pinned
   // cohort guards also bind the source bytes, candidate bytes and file effects.
   const recentOutputContracts = new Map<string, [string, string[]]>([
+    ["c068-minimal-source-success", ["ISSUE-DESCRIBE-RESPONSE-SHAPE", [
+      "exit",
+      "stdout",
+      "stderr",
+      "graphql-user-agent",
+    ]]],
     ["c084-missing-output-parent", ["SCHEMA-OUTPUT-OS-TEXT", [
       "stderr",
       "graphql-user-agent",

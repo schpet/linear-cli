@@ -267,8 +267,12 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 cli.workspace.as_deref(),
                 IssueDetailField::Url,
             ),
-            Some(cli::issue::IssueCommand::Describe(_)) => unsupported("linear issue describe"),
-            Some(cli::issue::IssueCommand::Commits(_)) => unsupported("linear issue commits"),
+            Some(cli::issue::IssueCommand::Describe(action)) => {
+                dispatch_issue_describe(context, &action, workspace)
+            }
+            Some(cli::issue::IssueCommand::Commits(action)) => {
+                dispatch_issue_commits(context, &action, workspace)
+            }
             Some(cli::issue::IssueCommand::PullRequest(_)) => {
                 unsupported("linear issue pull-request")
             }
@@ -7600,4 +7604,112 @@ fn dispatch_auth_migrate(context: &mut AppContext<'_>) -> Result<ExitStatus, App
     .map_err(|error| error.with_context(command::CONTEXT))?;
     context.write_stdout_with_policy(&bytes, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
+}
+
+// Source-compatible issue resolution with explicit child stdin and environment.
+fn resolve_script_issue(
+    context: &AppContext<'_>,
+    input: Option<&str>,
+    workspace: Option<&str>,
+    runner: &mut impl crate::platform::vcs_script::ProcessRunner,
+) -> Result<String, AppError> {
+    let config = context.config()?;
+    let reference = match input {
+        None => crate::refs::IssueReference::Inferred,
+        Some(_) => {
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let team = configured_team_key(&config.options);
+            crate::refs::prepare_issue_reference(
+                input,
+                team.as_deref(),
+                &WorkspaceScope::from_selection(&inputs, context.credentials()?),
+            )?
+        }
+    };
+    let identifier = match reference {
+        crate::refs::IssueReference::Identifier(identifier) => Some(identifier),
+        crate::refs::IssueReference::Unresolved => None,
+        crate::refs::IssueReference::Inferred => crate::platform::vcs_script::infer_issue(
+            runner,
+            config
+                .options
+                .vcs()
+                .map(|value| *value.value())
+                .unwrap_or(crate::config::Vcs::Git),
+            &context.cwd,
+            &config.child_env,
+        )?,
+    };
+    identifier.ok_or_else(|| issue_details::unresolved(false))
+}
+fn dispatch_issue_commits(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueCommits,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::{commands::issue_commits as command, platform::vcs_script::NativeProcessRunner};
+    let result = (|| {
+        let config = context.config()?;
+        command::check_vcs(
+            config
+                .options
+                .vcs()
+                .map(|value| *value.value())
+                .unwrap_or(crate::config::Vcs::Git),
+        )?;
+        let mut runner = NativeProcessRunner;
+        // Gate then inference; missing key must NOT preempt the inference child.
+        let identifier =
+            resolve_script_issue(context, action.issue_id.as_deref(), workspace, &mut runner)?;
+        let config = context.config()?;
+        let transport = client::prepare_transport(
+            &config.options,
+            context.credentials()?,
+            workspace,
+            &config.transport_env,
+        )?;
+        block_on_network(command::lookup(&transport, &identifier))?;
+        // The final child writes actual inherited descriptors, not AppContext.
+        command::show(&mut runner, &identifier, &context.cwd, &config.child_env)
+    })();
+    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+}
+fn dispatch_issue_describe(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueDescribe,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::{commands::issue_describe as command, platform::vcs_script::NativeProcessRunner};
+    let result = (|| {
+        let identifier = resolve_script_issue(
+            context,
+            action.issue_id.as_deref(),
+            workspace,
+            &mut NativeProcessRunner,
+        )?;
+        let enabled = spinner::enabled(
+            false,
+            context.stdout_tty,
+            context.startup.settings.no_color == NoColor::Absent,
+        );
+        if enabled {
+            context.write_stdout_with_policy(
+                spinner::frame(0).as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+        }
+        // Source starts spinner BEFORE building client, including missing-key failure.
+        let fetched = (|| {
+            let transport = relation_transport(context, workspace)?;
+            project_ticks(context, command::fetch(&transport, &identifier), enabled)
+        })();
+        if enabled {
+            context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        }
+        let detail = fetched?;
+        let bytes = command::format(&identifier, &detail.title, &detail.url, action.references);
+        context.write_stdout_with_policy(&bytes, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
 }

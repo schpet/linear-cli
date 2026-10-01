@@ -23,3 +23,7 @@ mod api_schema;
 mod auth_secret;
 
 mod auth_mutation_cli;
+
+mod vcs_script;
+
+mod issue_commits_describe_cli;

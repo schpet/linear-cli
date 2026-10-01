@@ -84,3 +84,5 @@ mod issue_comment_update;
 mod issue_read;
 
 mod api_schema;
+
+mod issue_commits_describe;
