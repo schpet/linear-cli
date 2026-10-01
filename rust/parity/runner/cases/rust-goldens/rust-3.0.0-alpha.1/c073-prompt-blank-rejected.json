@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "caseId": "c073-prompt-blank-rejected",
+  "deviationId": "C073-PROMPT-RENDER",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "graphql-user-agent"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 1
+      },
+      "stdout": {
+        "utf8": "? New comment body (Existing body)\n? New comment body › \n"
+      },
+      "stderr": {
+        "utf8": "✗ Failed to update comment: Comment body cannot be empty\n"
+      },
+      "fileEffects": []
+    },
+    "graphqlUserAgent": "schpet-linear-cli/3.0.0-alpha.1"
+  }
+}

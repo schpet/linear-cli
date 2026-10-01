@@ -306,8 +306,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 Some(cli::issue::IssueCommentCommand::Delete(action)) => {
                     dispatch_issue_comment_delete(context, &action, workspace)
                 }
-                Some(cli::issue::IssueCommentCommand::Update(_)) => {
-                    unsupported("linear issue comment update")
+                Some(cli::issue::IssueCommentCommand::Update(action)) => {
+                    dispatch_issue_comment_update(context, &action, workspace)
                 }
                 Some(cli::issue::IssueCommentCommand::List(action)) => {
                     dispatch_issue_comment_list(context, &action, workspace)
@@ -6194,4 +6194,52 @@ fn dispatch_initiative_update(
     )?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
+}
+
+fn dispatch_issue_comment_update(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueCommentUpdate,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::{
+        commands::issue_comment_update as command,
+        platform::prompt::{PromptOutcome, PromptSession},
+    };
+    let result = (|| {
+        let mut body = command::prepare_body(
+            &action.comment_id,
+            action.body.as_deref(),
+            action.body_file.as_deref(),
+        )?;
+        let transport = relation_transport(context, workspace)?;
+        if command::needs_prompt(body.as_deref()) {
+            let existing =
+                block_on_network(command::existing_body(&transport, &action.comment_id))?;
+            if context.stdin_tty {
+                command::check_prompt_topology(true, command::stdout_is_fifo()?)?;
+            }
+            let mut session = PromptSession::stdin_stdio_cr_or_lf(&mut *context.stdout)?;
+            let prompted = command::prompt_body(&mut session, &existing);
+            body = match session.finish_result(prompted)? {
+                PromptOutcome::Submitted(body) => Some(body),
+                PromptOutcome::Interrupted => return initiative_interrupt_status(),
+                PromptOutcome::EndOfInput => {
+                    return Err(AppError::new(
+                        AppErrorKind::Invariant,
+                        "comment prompt must convert EOF to its text-specific error",
+                    ));
+                }
+            };
+        }
+        let body = body.ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                "comment update body absent after prompt",
+            )
+        })?;
+        let output = block_on_network(command::submit(&transport, &action.comment_id, body))?;
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
 }

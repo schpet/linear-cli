@@ -1,0 +1,93 @@
+{
+  "id": "c073-prompt-blank-rejected",
+  "route": "linear issue comment update",
+  "reason": "prompt-blank-rejected",
+  "argv": [
+    "issue",
+    "comment",
+    "update",
+    "00000000-0000-4000-9000-000000000073"
+  ],
+  "stdin": {
+    "utf8": " \r"
+  },
+  "cwdFixture": "comment-files",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": "? New comment body (Existing body) › \u001b[38G\u001b[G\u001b[0J? New comment body (Existing body) › \n\u001b[?25h\u001b[?25h"
+    },
+    "stderr": {
+      "utf8": "✗ Failed to update comment: Comment body cannot be empty\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "C073-PROMPT-RENDER",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "89f7938646b893593e787b628aeee8887419294ad4696dc6339f239518edd012"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "get-comment",
+            "operation": {
+              "document": "query GetComment($id: String!) { comment(id: $id) { body } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000000073"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "comment": {
+                  "body": "Existing body"
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

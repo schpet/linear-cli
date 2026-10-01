@@ -690,6 +690,14 @@ impl<W: Write> PromptSession<io::Stdin, W> {
         }
     }
 
+    /// Ungated stdin-owned prompts with CR-or-LF script framing. Output topology
+    /// does not select the attended decoder; older constructors are unchanged.
+    pub fn stdin_stdio_cr_or_lf(writer: W) -> Result<Self, AppError> {
+        let mut session = Self::stdin_stdio(writer)?;
+        session.framing = ScriptFraming::CrOrLf;
+        Ok(session)
+    }
+
     fn attended(
         writer: W,
         next_key: impl FnMut() -> io::Result<PromptKey> + 'static,

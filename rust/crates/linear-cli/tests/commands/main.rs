@@ -78,3 +78,5 @@ mod issue_archive_delete;
 mod update_create;
 
 mod initiative_update;
+
+mod issue_comment_update;

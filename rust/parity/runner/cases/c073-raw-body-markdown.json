@@ -1,0 +1,129 @@
+{
+  "id": "c073-raw-body-markdown",
+  "route": "linear issue comment update",
+  "reason": "raw-body-markdown",
+  "argv": [
+    "issue",
+    "comment",
+    "update",
+    "00000000-0000-4000-9000-000000000073",
+    "--body",
+    " ﻿# Markdown\n\n+++ [Detail]\n\nBody 界 %s\n+++\n "
+  ],
+  "stdin": {
+    "utf8": "ignored input\n"
+  },
+  "cwdFixture": "comment-files",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Comment updated\nhttps://example.invalid/comment-updated\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "507a6dd7e7c0970738f93ba693fc8f2347c8486832849c13907bdc7cb9b0e123"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {
+      "Comment:00000000-0000-4000-9000-000000000073": {
+        "body": "Before"
+      }
+    },
+    "expectedRecords": {
+      "Comment:00000000-0000-4000-9000-000000000073": {
+        "body": " ﻿# Markdown\n\n+++ [Detail]\n\nBody 界 %s\n+++\n "
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "update-comment",
+            "operation": {
+              "document": "mutation UpdateComment($id: String!, $input: CommentUpdateInput!) { commentUpdate(id: $id, input: $input) { success comment { id body updatedAt url user { name displayName } } } }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000000073",
+                "input": {
+                  "body": " ﻿# Markdown\n\n+++ [Detail]\n\nBody 界 %s\n+++\n "
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "commentUpdate": {
+                  "success": true,
+                  "comment": {
+                    "id": "00000000-0000-4000-9000-000000000074",
+                    "body": "SERVER Body",
+                    "updatedAt": "2026-09-30T10:11:12.000Z",
+                    "url": "https://example.invalid/comment-updated",
+                    "user": {
+                      "name": "SERVER user",
+                      "displayName": "Returned 界"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Comment:00000000-0000-4000-9000-000000000073",
+                "before": {
+                  "value": {
+                    "body": "Before"
+                  }
+                },
+                "after": {
+                  "body": " ﻿# Markdown\n\n+++ [Detail]\n\nBody 界 %s\n+++\n "
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
