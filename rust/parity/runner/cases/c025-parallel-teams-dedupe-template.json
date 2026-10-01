@@ -1,0 +1,302 @@
+{
+  "id": "c025-parallel-teams-dedupe-template",
+  "route": "linear project create",
+  "reason": "parallel-teams-dedupe-template",
+  "argv": [
+    "project",
+    "create",
+    "--name",
+    "Template",
+    "--team",
+    "SRC",
+    "--team",
+    "src",
+    "--team",
+    "OTHER",
+    "--template",
+    "kickoff",
+    "--json"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "{\n  \"success\": true,\n  \"project\": {\n    \"id\": \"00000000-0000-4000-9000-000000002508\",\n    \"slugId\": \"fixture-project\",\n    \"name\": \"Fixture project\",\n    \"url\": \"https://linear.app/acme/project/fixture-project\"\n  }\n}\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "f62246bdc6e9fded81fe1ba0ffc9d817872c94f7bd15c5f761dfba9a510aa29b"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 5,
+    "initialRecords": {},
+    "expectedRecords": {
+      "Project:00000000-0000-4000-9000-000000002508": {
+        "name": "Fixture project"
+      }
+    },
+    "groups": [
+      {
+        "mode": "lanes",
+        "timeoutMs": 15000,
+        "lanes": [
+          {
+            "id": "0",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "12-ResolveTeam",
+                "operation": {
+                  "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }",
+                  "variables": {
+                    "reference": "SRC",
+                    "id": null,
+                    "isUuid": false
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "teams": {
+                      "nodes": [
+                        {
+                          "id": "00000000-0000-4000-9000-000000002501",
+                          "key": "SRC",
+                          "name": "Team SRC"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "1",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "13-ResolveTeam",
+                "operation": {
+                  "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }",
+                  "variables": {
+                    "reference": "src",
+                    "id": null,
+                    "isUuid": false
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "teams": {
+                      "nodes": [
+                        {
+                          "id": "00000000-0000-4000-9000-000000002501",
+                          "key": "SRC",
+                          "name": "Team SRC"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          },
+          {
+            "id": "2",
+            "steps": [
+              {
+                "kind": "graphql",
+                "id": "14-ResolveTeam",
+                "operation": {
+                  "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }",
+                  "variables": {
+                    "reference": "OTHER",
+                    "id": null,
+                    "isUuid": false
+                  }
+                },
+                "identity": {
+                  "authorization": "lin_api_fake",
+                  "userAgent": "schpet-linear-cli/2.6.0",
+                  "headers": {}
+                },
+                "response": {
+                  "kind": "data",
+                  "data": {
+                    "teams": {
+                      "nodes": [
+                        {
+                          "id": "00000000-0000-4000-9000-000000002502",
+                          "key": "OTHER",
+                          "name": "Team OTHER"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "effects": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "15-GetTemplates",
+            "operation": {
+              "document": "query GetTemplates {\n    templates {\n      id\n      name\n      description\n      type\n      icon\n      color\n      hasFormFields\n      lastAppliedAt\n      sortOrder\n      createdAt\n      updatedAt\n      team {\n        id\n        key\n        name\n      }\n      inheritedFrom {\n        id\n        name\n      }\n      creator {\n        id\n        name\n      }\n      templateData\n    }\n  }"
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "templates": [
+                  {
+                    "id": "00000000-0000-4000-9000-000000002512",
+                    "name": "Kickoff",
+                    "description": null,
+                    "type": "project",
+                    "icon": null,
+                    "color": null,
+                    "hasFormFields": false,
+                    "lastAppliedAt": null,
+                    "sortOrder": 1,
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "updatedAt": "2026-01-01T00:00:00Z",
+                    "team": null,
+                    "inheritedFrom": null,
+                    "creator": null,
+                    "templateData": "{\"name\":\"not locally merged\"}"
+                  },
+                  {
+                    "id": "00000000-0000-4000-9000-000000002599",
+                    "name": "Kickoff",
+                    "description": null,
+                    "type": "issue",
+                    "icon": null,
+                    "color": null,
+                    "hasFormFields": false,
+                    "lastAppliedAt": null,
+                    "sortOrder": 1,
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "updatedAt": "2026-01-01T00:00:00Z",
+                    "team": null,
+                    "inheritedFrom": null,
+                    "creator": null,
+                    "templateData": "{\"name\":\"not locally merged\"}"
+                  }
+                ]
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "16-CreateProject",
+            "operation": {
+              "document": "mutation CreateProject($input: ProjectCreateInput!) {\n    projectCreate(input: $input) {\n      success\n      project {\n        id\n        slugId\n        name\n        url\n      }\n    }\n  }",
+              "variables": {
+                "input": {
+                  "name": "Template",
+                  "teamIds": [
+                    "00000000-0000-4000-9000-000000002501",
+                    "00000000-0000-4000-9000-000000002502"
+                  ],
+                  "templateId": "00000000-0000-4000-9000-000000002512"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projectCreate": {
+                  "success": true,
+                  "project": {
+                    "id": "00000000-0000-4000-9000-000000002508",
+                    "slugId": "fixture-project",
+                    "name": "Fixture project",
+                    "url": "https://linear.app/acme/project/fixture-project"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Project:00000000-0000-4000-9000-000000002508",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "name": "Fixture project"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

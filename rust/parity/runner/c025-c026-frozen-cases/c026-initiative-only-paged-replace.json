@@ -1,0 +1,316 @@
+{
+  "id": "c026-initiative-only-paged-replace",
+  "route": "linear project update",
+  "reason": "initiative-only-paged-replace",
+  "argv": [
+    "project",
+    "update",
+    "00000000-0000-4000-9000-000000002508",
+    "--initiative",
+    "00000000-0000-4000-9000-000000002510"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Updated project: Linked project\nhttps://linear.app/acme/project/linked-project\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 6,
+    "initialRecords": {
+      "Link:00000000-0000-4000-9000-000000002513": {
+        "state": "linked"
+      },
+      "Link:00000000-0000-4000-9000-000000002514": {
+        "state": "linked"
+      }
+    },
+    "expectedRecords": {
+      "Link:00000000-0000-4000-9000-000000002513": {
+        "state": "deleted"
+      },
+      "Link:00000000-0000-4000-9000-000000002514": {
+        "state": "deleted"
+      },
+      "Join:00000000-0000-4000-9000-000000002510:00000000-0000-4000-9000-000000002508": {
+        "state": "linked"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "71-GetInitiativeByIdForUpdate",
+            "operation": {
+              "document": "query GetInitiativeByIdForUpdate($id: ID!) {\n    initiatives(filter: { id: { eq: $id } }) {\n      nodes {\n        id\n        name\n      }\n    }\n  }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000002510"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiatives": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000002510",
+                      "name": "New initiative"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "72-GetProjectInitiativeLinksForUpdate",
+            "operation": {
+              "document": "query GetProjectInitiativeLinksForUpdate($id: String!, $after: String) {\n    project(id: $id) {\n      id\n      name\n      url\n      initiativeToProjects(first: 250, after: $after) {\n        nodes {\n          id\n          initiative {\n            id\n            name\n          }\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000002508",
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "00000000-0000-4000-9000-000000002508",
+                  "name": "Linked project",
+                  "url": "https://linear.app/acme/project/linked-project",
+                  "initiativeToProjects": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000002513",
+                        "initiative": {
+                          "id": "00000000-0000-4000-9000-000000002509",
+                          "name": "Old"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "j2"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "73-GetProjectInitiativeLinksForUpdate",
+            "operation": {
+              "document": "query GetProjectInitiativeLinksForUpdate($id: String!, $after: String) {\n    project(id: $id) {\n      id\n      name\n      url\n      initiativeToProjects(first: 250, after: $after) {\n        nodes {\n          id\n          initiative {\n            id\n            name\n          }\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000002508",
+                "after": "j2"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "id": "00000000-0000-4000-9000-000000002508",
+                  "name": "Linked project",
+                  "url": "https://linear.app/acme/project/linked-project",
+                  "initiativeToProjects": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000002513",
+                        "initiative": {
+                          "id": "00000000-0000-4000-9000-000000002509",
+                          "name": "duplicate"
+                        }
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000002514",
+                        "initiative": {
+                          "id": "00000000-0000-4000-9000-000000002509",
+                          "name": "Old again"
+                        }
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "74-RemoveProjectFromInitiativeForUpdate",
+            "operation": {
+              "document": "mutation RemoveProjectFromInitiativeForUpdate($id: String!) {\n    initiativeToProjectDelete(id: $id) {\n      success\n    }\n  }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000002513"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeToProjectDelete": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Link:00000000-0000-4000-9000-000000002513",
+                "before": {
+                  "value": {
+                    "state": "linked"
+                  }
+                },
+                "after": {
+                  "state": "deleted"
+                }
+              }
+            ]
+          },
+          {
+            "kind": "graphql",
+            "id": "75-RemoveProjectFromInitiativeForUpdate",
+            "operation": {
+              "document": "mutation RemoveProjectFromInitiativeForUpdate($id: String!) {\n    initiativeToProjectDelete(id: $id) {\n      success\n    }\n  }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000002514"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeToProjectDelete": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Link:00000000-0000-4000-9000-000000002514",
+                "before": {
+                  "value": {
+                    "state": "linked"
+                  }
+                },
+                "after": {
+                  "state": "deleted"
+                }
+              }
+            ]
+          },
+          {
+            "kind": "graphql",
+            "id": "76-AddProjectToInitiativeForUpdate",
+            "operation": {
+              "document": "mutation AddProjectToInitiativeForUpdate($input: InitiativeToProjectCreateInput!) {\n    initiativeToProjectCreate(input: $input) {\n      success\n    }\n  }",
+              "variables": {
+                "input": {
+                  "initiativeId": "00000000-0000-4000-9000-000000002510",
+                  "projectId": "00000000-0000-4000-9000-000000002508"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "initiativeToProjectCreate": {
+                  "success": true
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Join:00000000-0000-4000-9000-000000002510:00000000-0000-4000-9000-000000002508",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "state": "linked"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

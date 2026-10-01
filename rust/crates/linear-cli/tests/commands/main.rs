@@ -66,3 +66,9 @@ mod auth_local;
 mod delete_pair;
 
 mod document_write;
+
+mod project_create;
+
+mod project_update;
+
+mod project_write_server;

@@ -978,6 +978,7 @@ dependencies = [
  "cynic-codegen",
  "data-url",
  "flate2",
+ "futures-util",
  "gethostname",
  "hyper",
  "icu_collator",

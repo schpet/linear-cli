@@ -352,8 +352,12 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::project::ProjectCommand::View(action)) => {
                 dispatch_project_view(context, &action, workspace)
             }
-            Some(cli::project::ProjectCommand::Create(_)) => unsupported("linear project create"),
-            Some(cli::project::ProjectCommand::Update(_)) => unsupported("linear project update"),
+            Some(cli::project::ProjectCommand::Create(action)) => {
+                dispatch_project_create(context, &action, workspace)
+            }
+            Some(cli::project::ProjectCommand::Update(action)) => {
+                dispatch_project_update(context, &action, workspace)
+            }
             Some(cli::project::ProjectCommand::Delete(action)) => {
                 dispatch_project_delete(context, &action, workspace)
             }
@@ -5602,4 +5606,183 @@ fn dispatch_document_update(
         Ok(ExitStatus::Success)
     })();
     result.map_err(|error: AppError| error.with_context("Failed to update document"))
+}
+
+fn project_ticks<T>(
+    context: &mut AppContext<'_>,
+    pending: impl std::future::Future<Output = Result<T, AppError>>,
+    enabled: bool,
+) -> Result<T, AppError> {
+    if !enabled {
+        return block_on_network(pending);
+    }
+    block_on_network(async {
+        tokio::pin!(pending);
+        let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+        ticks.tick().await;
+        let mut frame = 1_usize;
+        loop {
+            tokio::select! {biased;result=&mut pending=>break result,_=ticks.tick()=>{context.write_stdout_with_policy(spinner::frame(frame).as_bytes(),OutputPolicy::ConsoleLike)?;frame=frame.wrapping_add(1);}}
+        }
+    })
+}
+fn dispatch_project_create(
+    context: &mut AppContext<'_>,
+    action: &cli::project::ProjectCreate,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::project_create as command;
+    let result = (|| {
+        // Original content/priority validation before authentication.
+        let mut fields = command::local(action)?;
+        let (options, default_workspace, transport) = {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let options = config.options.clone();
+            let inputs = client::selection_inputs(&options, workspace)?;
+            let transport = client::prepare_transport_with_inputs(
+                &options,
+                credentials,
+                &inputs,
+                &config.transport_env,
+            )?;
+            (options, credentials.default().map(str::to_owned), transport)
+        };
+        let inputs = client::selection_inputs(&options, workspace)?;
+        let scope = WorkspaceScope {
+            cli_workspace: inputs.cli_workspace,
+            sourced_workspace: inputs.sourced_workspace.as_ref().map(|(value, _)| *value),
+            default_workspace: default_workspace.as_deref(),
+            api_key: &inputs.api_key,
+        };
+        let default_team = configured_team_key(&options);
+        if command::interactive(&fields, action.interactive, context.stdout_tty) {
+            // Stdout-only source gate. Genuine stdin-pipe qualification/refusal remains
+            // pending; never inherit doc's body-stdin/editor branches or CI gate.
+            context.write_stdout_with_policy(
+                b"\nCreate a new project\n\n",
+                OutputPolicy::ConsoleLike,
+            )?;
+            let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+            let prompted = block_on_network(command::prompt(
+                &mut session,
+                &transport,
+                fields,
+                default_team.as_deref(),
+            ));
+            let outcome = session.finish_result(prompted)?;
+            fields = match outcome {
+                crate::platform::prompt::PromptOutcome::Submitted(fields) => fields,
+                crate::platform::prompt::PromptOutcome::Interrupted => {
+                    return initiative_interrupt_status();
+                }
+                crate::platform::prompt::PromptOutcome::EndOfInput => {
+                    return Err(AppError::new(
+                        AppErrorKind::Validation,
+                        "unexpected EOF while prompting for project",
+                    ));
+                }
+            };
+        }
+        let input = block_on_network(command::input(
+            &transport,
+            &scope,
+            &fields,
+            default_team.as_deref(),
+        ))?;
+        let enabled = spinner::enabled(
+            action.json,
+            context.stdout_tty,
+            context.startup.settings.no_color == NoColor::Absent,
+        );
+        if enabled {
+            context.write_stdout_with_policy(
+                spinner::frame(0).as_bytes(),
+                OutputPolicy::ConsoleLike,
+            )?;
+        }
+        let created = project_ticks(context, command::submit(&transport, input), enabled);
+        if enabled {
+            context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        }
+        let payload = created?;
+        // Spinner has stopped BEFORE postcreate initiative resolution/join/output.
+        let output = block_on_network(command::followup_and_output(
+            &transport,
+            &scope,
+            &payload,
+            fields.initiative.as_deref(),
+            action.json,
+        ))?;
+        context.write_stderr(&output.stderr)?;
+        context.write_stdout_with_policy(&output.stdout, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context("Failed to create project"))
+}
+fn dispatch_project_update(
+    context: &mut AppContext<'_>,
+    action: &cli::project::ProjectUpdate,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::project_update as command;
+    let options = command::Options::from_cli(action);
+    // Local input/files/date checks before spinner and client, with source order.
+    let local =
+        command::local(&options).map_err(|error| error.with_context("Failed to update project"))?;
+    let enabled = spinner::enabled(
+        false,
+        context.stdout_tty,
+        context.startup.settings.no_color == NoColor::Absent,
+    );
+    if enabled {
+        context
+            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    }
+    let result = (|| {
+        let (config_options, default_workspace, transport) = {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let config_options = config.options.clone();
+            let inputs = client::selection_inputs(&config_options, workspace)?;
+            let transport = client::prepare_transport_with_inputs(
+                &config_options,
+                credentials,
+                &inputs,
+                &config.transport_env,
+            )?;
+            (
+                config_options,
+                credentials.default().map(str::to_owned),
+                transport,
+            )
+        };
+        let inputs = client::selection_inputs(&config_options, workspace)?;
+        let scope = WorkspaceScope {
+            cli_workspace: inputs.cli_workspace,
+            sourced_workspace: inputs.sourced_workspace.as_ref().map(|(value, _)| *value),
+            default_workspace: default_workspace.as_deref(),
+            api_key: &inputs.api_key,
+        };
+        project_ticks(
+            context,
+            async {
+                let plan =
+                    command::plan(&transport, &scope, &action.project_id, &options, local).await?;
+                command::submit(&transport, plan).await
+            },
+            enabled,
+        )
+    })();
+    // Every setup/lookup/write failure clears, and success clears BEFORE printing.
+    if enabled {
+        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    }
+    let project =
+        result.map_err(|error: AppError| error.with_context("Failed to update project"))?;
+    context.write_stdout_with_policy(
+        &command::output(project.as_ref()),
+        OutputPolicy::ConsoleLike,
+    )?;
+    Ok(ExitStatus::Success)
 }

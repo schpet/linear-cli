@@ -1,0 +1,276 @@
+{
+  "id": "c026-teams-paged-incremental",
+  "route": "linear project update",
+  "reason": "teams-paged-incremental",
+  "argv": [
+    "project",
+    "update",
+    "00000000-0000-4000-9000-000000002508",
+    "--add-team",
+    "NEW",
+    "--remove-team",
+    "SRC"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "✓ Updated project: Fixture project\nhttps://linear.app/acme/project/fixture-project\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 5,
+    "initialRecords": {
+      "Project:00000000-0000-4000-9000-000000002508": {
+        "name": "Old"
+      }
+    },
+    "expectedRecords": {
+      "Project:00000000-0000-4000-9000-000000002508": {
+        "name": "New"
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "55-ResolveTeam",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }",
+              "variables": {
+                "reference": "NEW",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000002503",
+                      "key": "NEW",
+                      "name": "Team NEW"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "56-ResolveTeam",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }",
+              "variables": {
+                "reference": "SRC",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000002501",
+                      "key": "SRC",
+                      "name": "Team SRC"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "57-GetProjectTeamsForUpdate",
+            "operation": {
+              "document": "query GetProjectTeamsForUpdate($id: String!, $after: String) {\n    project(id: $id) {\n      teams(first: 250, after: $after) {\n        nodes {\n          id\n          key\n          name\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000002508",
+                "after": null
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "teams": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000002501",
+                        "key": "SRC",
+                        "name": "Team SRC"
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000002502",
+                        "key": "OTHER",
+                        "name": "Team OTHER"
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": true,
+                      "endCursor": "p2"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "58-GetProjectTeamsForUpdate",
+            "operation": {
+              "document": "query GetProjectTeamsForUpdate($id: String!, $after: String) {\n    project(id: $id) {\n      teams(first: 250, after: $after) {\n        nodes {\n          id\n          key\n          name\n        }\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n      }\n    }\n  }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000002508",
+                "after": "p2"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "project": {
+                  "teams": {
+                    "nodes": [
+                      {
+                        "id": "00000000-0000-4000-9000-000000002502",
+                        "key": "DUP",
+                        "name": "Team DUP"
+                      },
+                      {
+                        "id": "00000000-0000-4000-9000-000000002503",
+                        "key": "NEW",
+                        "name": "Team NEW"
+                      }
+                    ],
+                    "pageInfo": {
+                      "hasNextPage": false,
+                      "endCursor": null
+                    }
+                  }
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "59-UpdateProject",
+            "operation": {
+              "document": "mutation UpdateProject($id: String!, $input: ProjectUpdateInput!) {\n    projectUpdate(id: $id, input: $input) {\n      success\n      project {\n        id\n        slugId\n        name\n        description\n        url\n        updatedAt\n      }\n    }\n  }",
+              "variables": {
+                "id": "00000000-0000-4000-9000-000000002508",
+                "input": {
+                  "teamIds": [
+                    "00000000-0000-4000-9000-000000002502",
+                    "00000000-0000-4000-9000-000000002503"
+                  ]
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projectUpdate": {
+                  "success": true,
+                  "project": {
+                    "id": "00000000-0000-4000-9000-000000002508",
+                    "slugId": "fixture-project",
+                    "name": "Fixture project",
+                    "url": "https://linear.app/acme/project/fixture-project",
+                    "description": "returned",
+                    "updatedAt": "2026-09-30T00:00:00Z"
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "Project:00000000-0000-4000-9000-000000002508",
+                "before": {
+                  "value": {
+                    "name": "Old"
+                  }
+                },
+                "after": {
+                  "name": "New"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

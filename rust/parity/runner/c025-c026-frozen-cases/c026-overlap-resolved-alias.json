@@ -1,0 +1,133 @@
+{
+  "id": "c026-overlap-resolved-alias",
+  "route": "linear project update",
+  "reason": "overlap-resolved-alias",
+  "argv": [
+    "project",
+    "update",
+    "00000000-0000-4000-9000-000000002508",
+    "--add-team",
+    "SRC",
+    "--remove-team",
+    "src"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to update project: Cannot add and remove the same team in one update\n  Remove the duplicate team from either --add-team or --remove-team.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "67-ResolveTeam",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }",
+              "variables": {
+                "reference": "SRC",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000002501",
+                      "key": "SRC",
+                      "name": "Team SRC"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "68-ResolveTeam",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }",
+              "variables": {
+                "reference": "src",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000002501",
+                      "key": "SRC",
+                      "name": "Team SRC"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

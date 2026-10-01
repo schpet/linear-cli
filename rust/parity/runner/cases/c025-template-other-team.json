@@ -1,0 +1,147 @@
+{
+  "id": "c025-template-other-team",
+  "route": "linear project create",
+  "reason": "template-other-team",
+  "argv": [
+    "project",
+    "create",
+    "--name",
+    "X",
+    "--team",
+    "SRC",
+    "--template",
+    "Kickoff"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 20000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to create project: Template \"Kickoff\" belongs to team OTHER and cannot be applied here\n  Pass --team OTHER, or pick a workspace template or one from the target team with `linear template list --type project --team <team>`.\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "cb97a9bd1d8d1c597bdbfcd138996fb7dd4f74c55bfc8e3fedc2a4116eb09a29"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "21-ResolveTeam",
+            "operation": {
+              "document": "query ResolveTeam($reference: String!, $id: ID, $isUuid: Boolean!) {\n      teams(\n        filter: {\n          or: [\n            { key: { eqIgnoreCase: $reference } }\n            { name: { eqIgnoreCase: $reference } }\n          ]\n        }\n      ) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n      teamById: teams(filter: { id: { eq: $id } }) @include(if: $isUuid) {\n        nodes {\n          id\n          key\n          name\n        }\n      }\n    }",
+              "variables": {
+                "reference": "SRC",
+                "id": null,
+                "isUuid": false
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "teams": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000002501",
+                      "key": "SRC",
+                      "name": "Team SRC"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "22-GetTemplates",
+            "operation": {
+              "document": "query GetTemplates {\n    templates {\n      id\n      name\n      description\n      type\n      icon\n      color\n      hasFormFields\n      lastAppliedAt\n      sortOrder\n      createdAt\n      updatedAt\n      team {\n        id\n        key\n        name\n      }\n      inheritedFrom {\n        id\n        name\n      }\n      creator {\n        id\n        name\n      }\n      templateData\n    }\n  }"
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "templates": [
+                  {
+                    "id": "00000000-0000-4000-9000-000000002512",
+                    "name": "Kickoff",
+                    "description": null,
+                    "type": "project",
+                    "icon": null,
+                    "color": null,
+                    "hasFormFields": false,
+                    "lastAppliedAt": null,
+                    "sortOrder": 1,
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "updatedAt": "2026-01-01T00:00:00Z",
+                    "team": {
+                      "id": "00000000-0000-4000-9000-000000002502",
+                      "key": "OTHER",
+                      "name": "Other"
+                    },
+                    "inheritedFrom": null,
+                    "creator": null,
+                    "templateData": "{\"name\":\"not locally merged\"}"
+                  }
+                ]
+              }
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  }
+}

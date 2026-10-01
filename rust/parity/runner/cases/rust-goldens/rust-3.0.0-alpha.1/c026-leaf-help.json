@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "caseId": "c026-leaf-help",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 0
+      },
+      "stdout": {
+        "utf8": "Update a Linear project\n\nLinear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,\nand `[Name](url)` do not. Get a person's URL from the `url` field of\n`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\nRun `linear markdown` for collapsible sections and the full reference.\n\nUsage: linear project update [OPTIONS] <projectId>\n\nArguments:\n  <projectId>\n          \n\nOptions:\n  -n, --name <name>\n          Project name\n\n      --workspace <slug>\n          Target workspace (uses credentials)\n\n  -d, --description <description>\n          Project description (max 255 characters, enforced by Linear's API)\n\n  -f, --description-file <path>\n          Read project description from file (still subject to the 255-character API limit)\n\n      --content <markdown>\n          Project overview markdown\n\n      --content-file <path>\n          Read project overview markdown from a file\n\n  -s, --status <status>\n          Status (planned, started, paused, completed, canceled, backlog)\n\n  -l, --lead <lead>\n          Project lead (username, email, or @me). Use --clear-lead to remove it\n\n      --clear-lead\n          Remove the project's lead (cannot be combined with --lead)\n\n      --start-date <startDate>\n          Start date (YYYY-MM-DD). Use --clear-start-date to remove it\n\n      --clear-start-date\n          Remove the project's start date (cannot be combined with --start-date)\n\n      --target-date <targetDate>\n          Target date (YYYY-MM-DD). Use --clear-target-date to remove it\n\n      --clear-target-date\n          Remove the project's target date (cannot be combined with --target-date)\n\n  -t, --team <team>\n          Team key, name, or ID; replaces the project's entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.\n\n      --add-team <team>\n          Add a team to the project, keeping its existing teams. May be repeated.\n\n      --remove-team <team>\n          Remove a team from the project, keeping its other teams. May be repeated.\n\n      --label <label>\n          Project label; replaces the project's entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.\n\n      --add-label <label>\n          Add a label to the project, keeping its existing labels. May be repeated.\n\n      --remove-label <label>\n          Remove a label from the project, keeping its other labels (does not delete the label). May be repeated.\n\n      --initiative <initiative>\n          Initiative ID, slug, or name; replaces the project's entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.\n\n      --add-initiative <initiative>\n          Add the project to an initiative, keeping its existing initiatives. May be repeated.\n\n      --remove-initiative <initiative>\n          Remove the project from an initiative, keeping its other initiatives (does not delete the initiative). May be repeated.\n\n  -h, --help\n          Print help (see a summary with '-h')\n"
+      },
+      "stderr": {
+        "utf8": ""
+      },
+      "fileEffects": []
+    }
+  }
+}

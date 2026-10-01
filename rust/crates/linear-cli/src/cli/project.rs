@@ -64,11 +64,20 @@ pub struct ProjectView {
 pub struct ProjectCreate {
     #[arg(long = "name", short = 'n', help = "Project name (required)", value_name = "name", value_parser = super::nonempty_string)]
     pub name: Option<String>,
-    #[arg(long = "description", short = 'd', help = "Project description (max 255 characters, enforced by Linear's API)", value_name = "description", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "description",
+        short = 'd',
+        help = "Project description (max 255 characters, enforced by Linear's API)",
+        value_name = "description"
+    )]
     pub description: Option<String>,
     #[arg(long = "description-file", short = 'f', help = "Read project description from file (still subject to the 255-character API limit)", value_name = "path", value_parser = super::nonempty_string)]
     pub description_file: Option<String>,
-    #[arg(long = "content", help = "Project overview markdown", value_name = "markdown", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "content",
+        help = "Project overview markdown",
+        value_name = "markdown"
+    )]
     pub content: Option<String>,
     #[arg(long = "content-file", help = "Read project overview markdown from a file", value_name = "path", value_parser = super::nonempty_string)]
     pub content_file: Option<String>,
@@ -88,9 +97,13 @@ pub struct ProjectCreate {
     pub label: Vec<String>,
     #[arg(long = "member", help = "Project member (username, email, display name, or @me). May be repeated.", value_name = "user", value_parser = super::nonempty_string)]
     pub member: Vec<String>,
-    #[arg(long = "icon", help = "Project icon", value_name = "icon", value_parser = super::nonempty_string)]
+    #[arg(long = "icon", help = "Project icon", value_name = "icon")]
     pub icon: Option<String>,
-    #[arg(long = "color", help = "Project color as a HEX string", value_name = "color", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "color",
+        help = "Project color as a HEX string",
+        value_name = "color"
+    )]
     pub color: Option<String>,
     #[arg(long = "initiative", help = "Add to initiative immediately (ID, slug, or name)", value_name = "initiative", value_parser = super::nonempty_string)]
     pub initiative: Option<String>,
@@ -112,11 +125,20 @@ pub struct ProjectUpdate {
     pub project_id: String,
     #[arg(long = "name", short = 'n', help = "Project name", value_name = "name", value_parser = super::nonempty_string)]
     pub name: Option<String>,
-    #[arg(long = "description", short = 'd', help = "Project description (max 255 characters, enforced by Linear's API)", value_name = "description", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "description",
+        short = 'd',
+        help = "Project description (max 255 characters, enforced by Linear's API)",
+        value_name = "description"
+    )]
     pub description: Option<String>,
     #[arg(long = "description-file", short = 'f', help = "Read project description from file (still subject to the 255-character API limit)", value_name = "path", value_parser = super::nonempty_string)]
     pub description_file: Option<String>,
-    #[arg(long = "content", help = "Project overview markdown", value_name = "markdown", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "content",
+        help = "Project overview markdown",
+        value_name = "markdown"
+    )]
     pub content: Option<String>,
     #[arg(long = "content-file", help = "Read project overview markdown from a file", value_name = "path", value_parser = super::nonempty_string)]
     pub content_file: Option<String>,
