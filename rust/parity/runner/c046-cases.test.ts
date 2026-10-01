@@ -46,7 +46,7 @@ Deno.test("C046 freezes eighteen archived resolver and unarchive contracts", asy
   const pins = await Deno.readFile(new URL("c046-inputs.sha256", frozen))
   assertEquals(
     await digest(pins),
-    "222dcbfeac705e8908fdbd5fda285e209a3f1ee03565e25eae62404246fb27ae",
+    "fbde9ec34347b2ea342a42e421b574072d5c40d164f13493e60e4ffa06e78528",
   )
   const rows = new TextDecoder().decode(pins).trimEnd().split("\n")
   assertEquals(rows.length, 18)

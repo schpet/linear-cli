@@ -105,7 +105,8 @@
   },
   "test": {
     "exclude": [
-      "rust/"
+      "rust/",
+      "untracked/"
     ]
   },
   "unstable": [

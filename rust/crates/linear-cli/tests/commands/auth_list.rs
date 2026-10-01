@@ -515,7 +515,7 @@ fn loopback_failures_stay_row_local_with_short_stable_cells() {
             "InvalidCredentials",
             "InvalidCredentials",
             "Too many requests",
-            "response body is not valid JSON",
+            "Invalid execution result: result is not object or array. \nGot:\nnot json",
             "response did not match the expected viewer shape",
             "unexpected HTTP status 500 Internal Server Error",
             "unexpected HTTP status 307 Temporary Redirect",

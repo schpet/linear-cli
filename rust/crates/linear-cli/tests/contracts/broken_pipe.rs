@@ -308,9 +308,12 @@ fn a_later_route_without_stdout_cannot_inherit_quiet_policy() {
         app.stdout_finalization,
         Some((OutputPolicy::ConsoleLike, OutputOutcome::QuietBrokenPipe))
     );
-    // `api` is currently a stable no-stdout Unimplemented route. This checks
-    // state lifetime only; the future API command owns its pipe semantics.
-    let route = run(&["api".to_owned()], &mut app);
+    // The implemented view action fails before HTTP on missing credentials,
+    // writes no stdout and must still replace the prior quiet root policy.
+    let route = run(
+        &["issue".to_owned(), "view".to_owned(), "ABC-1".to_owned()],
+        &mut app,
+    );
     assert_eq!(app.stdout_finalization, None);
     let error = finalize(route, &mut app).expect_err("later route flush must remain strict");
     failure(&error, Stream::Stdout, "flush", io::ErrorKind::BrokenPipe);

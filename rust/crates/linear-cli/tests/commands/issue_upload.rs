@@ -403,6 +403,10 @@ fn script(
             };
             let mut stream = stream;
             let row = receive(&stream, matches!(&reply, Reply::SlowPut));
+            let json_reply = matches!(
+                &reply,
+                Reply::Json(_) | Reply::Upload { .. } | Reply::UploadConfigured { .. }
+            );
             let (status, location, body) = match reply {
                 Reply::Json(value) => (200, None, value.to_string().into_bytes()),
                 Reply::Upload { false_success } => {
@@ -441,6 +445,9 @@ fn script(
                 body.len()
             )
             .unwrap();
+            if json_reply {
+                write!(stream, "Content-Type: application/json\r\n").unwrap();
+            }
             if let Some(location) = location {
                 write!(stream, "Location: {location}\r\n").unwrap();
             }

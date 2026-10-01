@@ -2,7 +2,9 @@ import { assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { fromFileUrl, join } from "@std/path"
 import { withSourceMap } from "./source-map.ts"
 import {
+  APPROVED_ROOT_FMT_EXCLUDE,
   APPROVED_ROOT_TASKS,
+  APPROVED_ROOT_TEST_EXCLUDE,
   compareManifest,
   compareRootConfig,
   exportRuntime,
@@ -170,6 +172,11 @@ function frozenRootConfig(): Record<string, unknown> {
       check: "deno check src/main.ts",
     },
     imports: { valibot: "npm:valibot@^1.3.1" },
+    fmt: {
+      exclude: ["original/", "second/"],
+      proseWrap: "never",
+      semiColons: false,
+    },
     unstable: ["sloppy-imports"],
   }
 }
@@ -180,7 +187,12 @@ function withApprovedAdditions(): Record<string, unknown> {
     ...recordField(current, "tasks"),
     ...APPROVED_ROOT_TASKS,
   }
-  current.test = { exclude: ["rust/"] }
+  current.test = { exclude: APPROVED_ROOT_TEST_EXCLUDE }
+  recordField(current, "fmt").exclude = [
+    "original/",
+    "second/",
+    ...APPROVED_ROOT_FMT_EXCLUDE,
+  ]
   return current
 }
 
@@ -199,7 +211,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value != null && !Array.isArray(value)
 }
 
-Deno.test("source binding accepts only the reviewed parity task and test.exclude additions", () => {
+Deno.test("source binding accepts only the reviewed task, test and fmt exclusions", () => {
   compareRootConfig(frozenRootConfig(), frozenRootConfig())
   compareRootConfig(frozenRootConfig(), withApprovedAdditions())
   const cases: Array<[string, (current: Record<string, unknown>) => void]> = [
@@ -232,11 +244,69 @@ Deno.test("source binding accepts only the reviewed parity task and test.exclude
     ],
     [
       "extra exclude",
-      (current) => (current.test = { exclude: ["rust/", "test/"] }),
+      (
+        current,
+      ) => (current.test = {
+        exclude: [...APPROVED_ROOT_TEST_EXCLUDE, "test/"],
+      }),
     ],
     [
       "extra test key",
-      (current) => (current.test = { exclude: ["rust/"], include: ["src/"] }),
+      (
+        current,
+      ) => (current.test = {
+        exclude: APPROVED_ROOT_TEST_EXCLUDE,
+        include: ["src/"],
+      }),
+    ],
+    [
+      "test exclude order",
+      (current) => (current.test = { exclude: ["untracked/", "rust/"] }),
+    ],
+    [
+      "fmt original order",
+      (
+        current,
+      ) => (recordField(current, "fmt").exclude = [
+        "second/",
+        "original/",
+        ...APPROVED_ROOT_FMT_EXCLUDE,
+      ]),
+    ],
+    [
+      "fmt appended order",
+      (
+        current,
+      ) => (recordField(current, "fmt").exclude = [
+        "original/",
+        "second/",
+        ...APPROVED_ROOT_FMT_EXCLUDE.toReversed(),
+      ]),
+    ],
+    [
+      "fmt extra exclusion",
+      (
+        current,
+      ) => (recordField(current, "fmt").exclude = [
+        "original/",
+        "second/",
+        "test/",
+        ...APPROVED_ROOT_FMT_EXCLUDE,
+      ]),
+    ],
+    [
+      "fmt missing exclusion",
+      (
+        current,
+      ) => (recordField(current, "fmt").exclude = [
+        "original/",
+        "second/",
+        ...APPROVED_ROOT_FMT_EXCLUDE.slice(1),
+      ]),
+    ],
+    [
+      "fmt other field",
+      (current) => (recordField(current, "fmt").proseWrap = "always"),
     ],
     ["new top-level key", (current) => (current.compilerOptions = {})],
   ]

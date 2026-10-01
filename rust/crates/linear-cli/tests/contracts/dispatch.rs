@@ -131,23 +131,24 @@ fn known_bare_routes_and_short_version() {
 }
 
 #[test]
-fn unimplemented_aliases_fail_visibly() {
-    let (status, stdout, stderr) = invoke(&["issue", "list"]);
+fn implemented_aliases_reach_the_command_credential_boundary() {
+    let (status, stdout, stderr) = invoke(&["issue", "list", "--team", "ENG"]);
     assert_eq!(status, ExitStatus::HandledFailure);
     assert!(stdout.is_empty());
-    assert!(
-        stderr.contains("linear issue mine is registered, but this action is not implemented yet")
+    assert_eq!(
+        stderr,
+        "✗ Failed to list issues: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n"
     );
 }
 
 #[test]
-fn leaf_positionals_reach_the_registered_unimplemented_action() {
+fn leaf_positionals_reach_the_implemented_command_credential_boundary() {
     let (status, stdout, stderr) = invoke(&["issue", "view", "ABC-1"]);
     assert_eq!(status, ExitStatus::HandledFailure);
     assert!(stdout.is_empty());
     assert_eq!(
         stderr,
-        "✗ linear issue view is registered, but this action is not implemented yet\n"
+        "✗ Failed to view issue: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n"
     );
 }
 

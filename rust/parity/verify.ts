@@ -278,7 +278,33 @@ export const APPROVED_ROOT_TASKS: Record<string, string> = {
   "parity:test":
     "deno test --frozen --allow-all --quiet --config rust/parity/deno.json rust/parity/",
 }
-export const APPROVED_ROOT_TEST_EXCLUDE = ["rust/"]
+export const APPROVED_ROOT_TEST_EXCLUDE = ["rust/", "untracked/"]
+
+// Exact appended paths protect hash-bound native distribution inputs from fmt.
+export const APPROVED_ROOT_FMT_EXCLUDE = [
+  "rust/licenses/",
+  "docs/rust-port.md",
+  "skills/linear-cli/SKILL.native.template.md",
+  "skills/linear-cli/SKILL.md",
+  "skills/linear-cli/references/api.md",
+  "skills/linear-cli/references/auth.md",
+  "skills/linear-cli/references/commands.md",
+  "skills/linear-cli/references/config.md",
+  "skills/linear-cli/references/cycle.md",
+  "skills/linear-cli/references/document.md",
+  "skills/linear-cli/references/initiative-update.md",
+  "skills/linear-cli/references/initiative.md",
+  "skills/linear-cli/references/issue.md",
+  "skills/linear-cli/references/label.md",
+  "skills/linear-cli/references/markdown.md",
+  "skills/linear-cli/references/milestone.md",
+  "skills/linear-cli/references/project-update.md",
+  "skills/linear-cli/references/project.md",
+  "skills/linear-cli/references/schema.md",
+  "skills/linear-cli/references/team.md",
+  "skills/linear-cli/references/template.md",
+  "skills/linear-cli/references/user.md",
+]
 
 /** Structural comparison of the current root config with the frozen one. */
 export function compareRootConfig(frozen: unknown, current: unknown): void {
@@ -299,9 +325,16 @@ export function compareRootConfig(frozen: unknown, current: unknown): void {
   ) {
     delete pruned.test
   }
+  if (isRecord(pruned.fmt) && Array.isArray(pruned.fmt.exclude)) {
+    const excludes = pruned.fmt.exclude
+    const suffix = excludes.slice(-APPROVED_ROOT_FMT_EXCLUDE.length)
+    if (JSON.stringify(suffix) === JSON.stringify(APPROVED_ROOT_FMT_EXCLUDE)) {
+      pruned.fmt.exclude = excludes.slice(0, -APPROVED_ROOT_FMT_EXCLUDE.length)
+    }
+  }
   assert(
     JSON.stringify(pruned) === JSON.stringify(frozen),
-    "root deno.json differs from the frozen reference beyond the approved parity task and test.exclude additions",
+    "root deno.json differs from the frozen reference beyond the approved parity task, test.exclude and fmt.exclude additions",
   )
 }
 

@@ -52,7 +52,7 @@
   "deviation": {
     "id": "C046-STRICT-TEXT-DECODE",
     "contract": "rust-3.0.0-alpha.1",
-    "sha256": "0114f25949a82ac0550ad7ec5b09597cc8b9bb53c64557b4116aea67c5293493"
+    "sha256": "5bdd614314bb690c5850fad552be36c7a1b6daf08d0e44e37c9482f8f82b1a7e"
   },
   "graphql": {
     "path": "/graphql",
