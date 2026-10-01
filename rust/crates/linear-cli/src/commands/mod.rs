@@ -115,3 +115,6 @@ pub mod auth_migrate;
 pub mod issue_commits;
 
 pub mod issue_describe;
+
+pub mod issue_pull_request;
+pub mod issue_start;

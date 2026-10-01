@@ -15,7 +15,7 @@ pub use dotenv::{
 pub use options::{
     AssignSelf, ConfigOptionError, ConfigOptions, ConfigSecret, EndpointSource, IssueSort,
     OptionErrorReason, OptionInputs, OptionKey, OptionSource, PrTemplateCli, PrTemplatePath,
-    Resolved, ResolvedEndpoint, Vcs,
+    Resolved, ResolvedEndpoint, StartupOptionPolicy, Vcs,
 };
 pub use parse::{
     ConfigParseError, ConfigParseErrorKind, ConfigTier, ConfigValue, parse_config_tier,
@@ -34,4 +34,4 @@ pub use startup::{
 };
 pub use transport::{TransportEnvError, TransportEnvInputs};
 
-pub(crate) use startup::load_startup_with_issue_read_sort;
+pub(crate) use startup::load_startup_with_policy;

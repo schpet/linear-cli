@@ -368,6 +368,23 @@ pub(crate) fn load_startup_with_issue_read_sort(
     git: &impl GitRootProbe,
     defer: bool,
 ) -> StartupReport {
+    load_startup_with_policy(
+        process,
+        files,
+        git,
+        if defer {
+            super::StartupOptionPolicy::IssueSort
+        } else {
+            super::StartupOptionPolicy::Eager
+        },
+    )
+}
+pub(crate) fn load_startup_with_policy(
+    process: &ProcessEnvSnapshot,
+    files: &impl FileSource,
+    git: &impl GitRootProbe,
+    policy: super::StartupOptionPolicy,
+) -> StartupReport {
     let initial_settings = settings(process, None);
     let git = MemoGit {
         git,
@@ -397,14 +414,14 @@ pub(crate) fn load_startup_with_issue_read_sort(
         Ok(project) => project,
         Err(error) => return fail(display, diagnostics, error),
     };
-    let options = match ConfigOptions::from_inputs_with_issue_read_sort(
+    let options = match ConfigOptions::from_inputs_with_startup_policy(
         OptionInputs {
             env: &process.inputs,
             dotenv: &dotenv,
             project: project.as_ref(),
             global: global.as_ref(),
         },
-        defer,
+        policy,
     ) {
         Ok(options) => options,
         Err(error) => return fail(display, diagnostics, option_error(error)),

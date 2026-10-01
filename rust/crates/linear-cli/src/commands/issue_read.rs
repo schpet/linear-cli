@@ -634,6 +634,20 @@ pub async fn mine(
     priority: bool,
     limit: f64,
 ) -> Result<Vec<GetIssuesForStateIssuesNodes>, AppError> {
+    mine_with_requests(transport, filter, priority, limit, |variables| {
+        GraphQlRequest::with_variables(GetIssuesForState::build(variables))
+    })
+    .await
+}
+/// Explicit request producer; Start trims its source document's final LF only.
+/// Old Mine keeps its existing producer and bytes.
+pub(crate) async fn mine_with_requests(
+    transport: &GraphQlTransport,
+    filter: IssueFilter,
+    priority: bool,
+    limit: f64,
+    mut request: impl FnMut(GetIssuesForStateVariables) -> GraphQlRequest<GetIssuesForStateVariables>,
+) -> Result<Vec<GetIssuesForStateIssuesNodes>, AppError> {
     let page_size = first(if limit == 0.0 { 50.0 } else { limit.min(100.0) })?;
     let mut after = None;
     let mut seen = HashSet::new();
@@ -641,12 +655,12 @@ pub async fn mine(
     loop {
         let data: GetIssuesForState = exchange(
             transport,
-            &GraphQlRequest::with_variables(GetIssuesForState::build(GetIssuesForStateVariables {
+            &request(GetIssuesForStateVariables {
                 sort: Some(sort_payload(priority)),
                 filter: filter.clone(),
                 first: Some(page_size),
                 after: after.clone(),
-            })),
+            }),
         )
         .await?;
         rows.extend(data.issues.nodes);

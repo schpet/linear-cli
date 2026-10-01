@@ -257,7 +257,9 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 cli.workspace.as_deref(),
                 IssueDetailField::Title,
             ),
-            Some(cli::issue::IssueCommand::Start(_)) => unsupported("linear issue start"),
+            Some(cli::issue::IssueCommand::Start(action)) => {
+                dispatch_issue_start(context, &action, workspace)
+            }
             Some(cli::issue::IssueCommand::View(action)) => {
                 dispatch_issue_view(context, &action, workspace)
             }
@@ -273,8 +275,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
             Some(cli::issue::IssueCommand::Commits(action)) => {
                 dispatch_issue_commits(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::PullRequest(_)) => {
-                unsupported("linear issue pull-request")
+            Some(cli::issue::IssueCommand::PullRequest(action)) => {
+                dispatch_issue_pull_request(context, &action, workspace)
             }
             Some(cli::issue::IssueCommand::Archive(action)) => dispatch_issue_archive_delete(
                 context,
@@ -7709,6 +7711,414 @@ fn dispatch_issue_describe(
         let detail = fetched?;
         let bytes = command::format(&identifier, &detail.title, &detail.url, action.references);
         context.write_stdout_with_policy(&bytes, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+}
+
+// Anchored addition to app.rs; no old app whole-file replacement.
+// Prompt session owns stdin/buffer across the picker, details read and branch menu.
+fn start_snapshot(
+    startup: &AppStartupReport,
+) -> Result<(&StartupConfig, &crate::auth::CredentialStore), AppError> {
+    startup
+        .result
+        .as_ref()
+        .map(|loaded| (&loaded.config, &loaded.credentials))
+        .map_err(|_| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                "start/PR config requested after startup failure",
+            )
+        })
+}
+struct StartPromptOutput<'a> {
+    plain: Option<&'a mut dyn Write>,
+    session: Option<crate::platform::prompt::PromptSession<std::io::Stdin, &'a mut dyn Write>>,
+}
+impl<'a> StartPromptOutput<'a> {
+    fn new(writer: &'a mut dyn Write) -> Self {
+        Self {
+            plain: Some(writer),
+            session: None,
+        }
+    }
+    fn writer(&mut self) -> Result<&mut (dyn Write + 'a), AppError> {
+        match self.session.as_mut() {
+            Some(session) => Ok(&mut **session.suspended_output()?),
+            None => self
+                .plain
+                .as_deref_mut()
+                .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "start output has no owner")),
+        }
+    }
+    fn prompt(
+        &mut self,
+    ) -> Result<
+        &mut crate::platform::prompt::PromptSession<std::io::Stdin, &'a mut dyn Write>,
+        AppError,
+    > {
+        match self.session.as_mut() {
+            Some(session) => session.resume()?,
+            None => {
+                let writer = self.plain.take().ok_or_else(|| {
+                    AppError::new(
+                        AppErrorKind::Invariant,
+                        "start prompt output was already moved",
+                    )
+                })?;
+                self.session =
+                    Some(crate::platform::prompt::PromptSession::stdin_stdio_cr_or_lf(writer)?);
+            }
+        }
+        self.session.as_mut().ok_or_else(|| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                "start prompt construction vanished",
+            )
+        })
+    }
+    fn suspend(&mut self) -> Result<(), AppError> {
+        self.session
+            .as_mut()
+            .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "start prompt absent"))?
+            .suspend()
+    }
+    fn close(&mut self) -> Result<(), AppError> {
+        if let Some(session) = self.session.take() {
+            self.plain = Some(session.into_output()?);
+        }
+        Ok(())
+    }
+}
+fn script_status(writer: &mut dyn Write, bytes: &[u8]) -> Result<(), AppError> {
+    Output::new(writer, Stream::Stdout)
+        .write_with_policy(bytes, OutputPolicy::ConsoleLike)
+        .map(|_| ())
+}
+fn start_details(
+    writer: &mut dyn Write,
+    config: &StartupConfig,
+    credentials: &crate::auth::CredentialStore,
+    workspace: Option<&str>,
+    identifier: &str,
+    spin: bool,
+) -> Result<crate::graphql::operations::issue_details::IssueDetails, AppError> {
+    if spin {
+        script_status(writer, spinner::frame(0).as_bytes())?;
+    }
+    let fetched = (|| {
+        // Source starts spinner before constructing the client on each details read.
+        let transport = client::prepare_transport(
+            &config.options,
+            credentials,
+            workspace,
+            &config.transport_env,
+        )?;
+        block_on_network(async {
+            let pending = crate::commands::issue_describe::fetch(&transport, identifier);
+            if !spin {
+                return pending.await;
+            }
+            tokio::pin!(pending);
+            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+            ticks.tick().await;
+            let mut frame = 1_usize;
+            loop {
+                tokio::select! { biased;
+                    result = &mut pending => break result,
+                    _ = ticks.tick() => {
+                        script_status(writer, spinner::frame(frame).as_bytes())?;
+                        frame = frame.wrapping_add(1);
+                    }
+                }
+            }
+        })
+    })();
+    if spin {
+        script_status(writer, spinner::CLEAR)?;
+    }
+    fetched
+}
+fn dispatch_issue_start(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssueStart,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::{
+        commands::issue_start as command,
+        platform::{prompt::PromptOutcome, vcs_script::NativeProcessRunner},
+    };
+    let result = (|| {
+        let (config, credentials) = start_snapshot(&context.startup)?;
+        let team = configured_team_key(&config.options);
+        let team =
+            command::team_and_flags(team.as_deref(), action.all_assignees, action.unassigned)?
+                .to_owned();
+        // Start never infers from VCS. Falsey/unresolved input enters the picker.
+        let identifier = match action.issue_id.as_deref().filter(|value| !value.is_empty()) {
+            Some(input) => {
+                let inputs = client::selection_inputs(&config.options, workspace)?;
+                match crate::refs::prepare_issue_reference(
+                    Some(input),
+                    Some(&team),
+                    &WorkspaceScope::from_selection(&inputs, credentials),
+                )? {
+                    crate::refs::IssueReference::Identifier(id) => Some(id),
+                    crate::refs::IssueReference::Unresolved => None,
+                    crate::refs::IssueReference::Inferred => {
+                        return Err(AppError::new(
+                            AppErrorKind::Invariant,
+                            "supplied start input inferred VCS",
+                        ));
+                    }
+                }
+            }
+            None => None,
+        };
+        let stdin_tty = context.stdin_tty;
+        let spin = spinner::enabled(
+            false,
+            context.stdout_tty,
+            context.startup.settings.no_color == NoColor::Absent,
+        );
+        let cwd = context.cwd.clone();
+        let mut output = StartPromptOutput::new(&mut *context.stdout);
+        let action_result = (|| {
+            let identifier = match identifier {
+                Some(identifier) => identifier,
+                None => {
+                    let priority =
+                        config.options.issue_read_sort(None)? == crate::config::IssueSort::Priority;
+                    // Sort validation precedes transport construction, after team/conflict.
+                    let transport = client::prepare_transport(
+                        &config.options,
+                        credentials,
+                        workspace,
+                        &config.transport_env,
+                    )?;
+                    let issues = block_on_network(command::list(
+                        &transport,
+                        command::filter(&team, action.all_assignees, action.unassigned),
+                        priority,
+                    ))?;
+                    let options = command::choices(&issues, &team)?;
+                    if stdin_tty {
+                        command::check_prompt_topology(true, command::stdout_is_fifo()?)?;
+                    }
+                    let picked = output
+                        .prompt()?
+                        .searchable_select("Select an issue to start:", "Search issues", &options)
+                        .map_err(|error| {
+                            if error.message
+                                == "C082-SEARCH-PROTOCOL: no teams match submitted search query"
+                            {
+                                AppError::new(
+                                    AppErrorKind::Validation,
+                                    "no issues match submitted search query",
+                                )
+                            } else {
+                                error
+                            }
+                        });
+                    let picked = command::stage(picked?, "issue to start")?;
+                    output.suspend()?;
+                    match picked {
+                        PromptOutcome::Submitted(identifier) => identifier,
+                        PromptOutcome::Interrupted => return initiative_interrupt_status(),
+                        PromptOutcome::EndOfInput => {
+                            return Err(AppError::new(
+                                AppErrorKind::Invariant,
+                                "start picker EOF conversion absent",
+                            ));
+                        }
+                    }
+                }
+            };
+            let details = start_details(
+                output.writer()?,
+                config,
+                credentials,
+                workspace,
+                &identifier,
+                spin,
+            )?;
+            let mut runner = NativeProcessRunner;
+            match config
+                .options
+                .vcs()
+                .map(|value| *value.value())
+                .unwrap_or(crate::config::Vcs::Git)
+            {
+                crate::config::Vcs::Git => {
+                    let branch =
+                        command::branch_name(action.branch.as_deref(), &details.branch_name);
+                    let exists = command::verify(&mut runner, branch, &cwd, &config.child_env)?;
+                    let choice = if exists {
+                        let choices = command::branch_options();
+                        let message =
+                            format!("Branch {branch} already exists. What would you like to do?");
+                        // Escape display controls only; raw branch remains semantic argv.
+                        let message = crate::platform::prompt::escaped_display(&message);
+                        if stdin_tty {
+                            command::check_prompt_topology(true, command::stdout_is_fifo()?)?;
+                        }
+                        let answer = output
+                            .prompt()?
+                            .select(&command::branch_menu(&message, &choices))?;
+                        let answer = command::stage(answer, "existing branch action")?;
+                        output.suspend()?;
+                        match answer {
+                            PromptOutcome::Submitted(value) => {
+                                Some(command::existing_branch(&value)?)
+                            }
+                            PromptOutcome::Interrupted => return initiative_interrupt_status(),
+                            PromptOutcome::EndOfInput => {
+                                return Err(AppError::new(
+                                    AppErrorKind::Invariant,
+                                    "branch EOF conversion absent",
+                                ));
+                            }
+                        }
+                    } else {
+                        None
+                    };
+                    output.close()?;
+                    let bytes = match choice {
+                        Some(choice) => command::existing_git(
+                            &mut runner,
+                            choice,
+                            branch,
+                            action.from_ref.as_deref(),
+                            &cwd,
+                            &config.child_env,
+                        )?,
+                        None => command::create_branch(
+                            &mut runner,
+                            branch,
+                            action.from_ref.as_deref(),
+                            &cwd,
+                            &config.child_env,
+                        )?,
+                    };
+                    script_status(output.writer()?, &bytes)?;
+                }
+                crate::config::Vcs::Jj => {
+                    output.close()?;
+                    command::prepare_jj(
+                        &mut runner,
+                        &cwd,
+                        &config.child_env,
+                        &mut *context.stderr,
+                    )?;
+                    let second = start_details(
+                        output.writer()?,
+                        config,
+                        credentials,
+                        workspace,
+                        &identifier,
+                        spin,
+                    )?;
+                    let bytes = command::describe_jj(
+                        &mut runner,
+                        &identifier,
+                        &second.title,
+                        &second.url,
+                        &cwd,
+                        &config.child_env,
+                        &mut *context.stderr,
+                    )?;
+                    script_status(output.writer()?, &bytes)?;
+                }
+            }
+            // The entire post-VCS block is best effort. A malformed success response
+            // may already have affected state; never retry or roll back local work.
+            let updated = (|| {
+                let transport = client::prepare_transport(
+                    &config.options,
+                    credentials,
+                    workspace,
+                    &config.transport_env,
+                )
+                .map_err(|error| {
+                    AppError::new(error.kind, format!("Error: {}", error.display_message()))
+                })?;
+                block_on_network(async {
+                    command::update_state(&transport, &team, &identifier)
+                        .await
+                        .map_err(|message| AppError::new(AppErrorKind::GraphQl, message))
+                })
+            })();
+            match updated {
+                Ok(bytes) => script_status(output.writer()?, &bytes)?,
+                Err(error) => Output::new(&mut *context.stderr, Stream::Stderr).write(
+                    format!("Failed to update issue state: {}\n", error.message).as_bytes(),
+                )?,
+            }
+            Ok(ExitStatus::Success)
+        })();
+        // Restore on answer, error, EOF and interruption before returning to app.
+        output.close()?;
+        action_result
+    })();
+    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+}
+fn dispatch_issue_pull_request(
+    context: &mut AppContext<'_>,
+    action: &cli::issue::IssuePullRequest,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::{
+        commands::issue_pull_request as command,
+        platform::{gh_script::NativeGhRunner, vcs_script::NativeProcessRunner},
+    };
+    let result = (|| {
+        let (config, credentials) = start_snapshot(&context.startup)?;
+        let selected = if action.no_template {
+            crate::config::PrTemplateCli::Disabled
+        } else if let Some(path) = action.template.as_deref() {
+            crate::config::PrTemplateCli::Path(path)
+        } else {
+            crate::config::PrTemplateCli::Unset
+        };
+        let path = config.options.pull_request_template(selected)?;
+        let contents = path
+            .as_ref()
+            .map(|path| command::read_template(path.path()))
+            .transpose()?;
+        let identifier = resolve_script_issue(
+            context,
+            action.issue_id.as_deref(),
+            workspace,
+            &mut NativeProcessRunner,
+        )?;
+        let spin = spinner::enabled(
+            false,
+            context.stdout_tty,
+            context.startup.settings.no_color == NoColor::Absent,
+        );
+        let details = start_details(
+            &mut *context.stdout,
+            config,
+            credentials,
+            workspace,
+            &identifier,
+            spin,
+        )?;
+        let args = command::args(
+            &identifier,
+            &details.title,
+            &details.url,
+            contents.as_deref(),
+            command::Options {
+                title: action.title.as_deref(),
+                base: action.base.as_deref(),
+                head: action.head.as_deref(),
+                draft: action.draft,
+                web: action.web,
+            },
+        );
+        command::create(&mut NativeGhRunner, &args, &context.cwd, &config.child_env)?;
         Ok(ExitStatus::Success)
     })();
     result.map_err(|error: AppError| error.with_context(command::CONTEXT))

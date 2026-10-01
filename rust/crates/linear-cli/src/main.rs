@@ -98,11 +98,22 @@ fn main() -> ExitCode {
                 command: Some(
                     linear_cli::cli::issue::IssueCommand::Mine(_)
                         | linear_cli::cli::issue::IssueCommand::Query(_)
+                        | linear_cli::cli::issue::IssueCommand::Start(_)
                 )
             }
         ))
     );
-    let startup_loader = if defer_sort {
+    let defer_template = matches!(
+        parsed.as_ref().ok().and_then(|cli| cli.command.as_ref()),
+        Some(linear_cli::cli::RootCommand::Issue(
+            linear_cli::cli::issue::Issue {
+                command: Some(linear_cli::cli::issue::IssueCommand::PullRequest(_))
+            }
+        ))
+    );
+    let startup_loader = if defer_template {
+        linear_cli::startup::load_for_pull_request
+    } else if defer_sort {
         linear_cli::startup::load_for_issue_reads
     } else {
         load

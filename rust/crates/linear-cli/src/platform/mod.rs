@@ -17,3 +17,5 @@ pub mod editor;
 pub mod prompt_text;
 
 pub mod vcs_script;
+
+pub mod gh_script;

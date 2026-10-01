@@ -13,7 +13,7 @@ use crate::auth::{
 };
 use crate::config::{
     ConfigDiagnostic, ConfigParseErrorKind, FileSource, GitRootProbe, ProcessEnvSnapshot,
-    RawConfigFile, StartupConfig, StartupError, load_startup, parse_config_tier, render_diagnostic,
+    RawConfigFile, StartupConfig, StartupError, parse_config_tier, render_diagnostic,
 };
 use crate::error::{AppError, AppErrorKind};
 
@@ -210,7 +210,7 @@ pub fn load_with_phase_timeout(
         credential_files,
         keyring,
         phase_timeout,
-        false,
+        crate::config::StartupOptionPolicy::Eager,
     )
 }
 /// Source mine/query defer sort until the resolver pipeline reaches it.
@@ -228,7 +228,25 @@ pub fn load_for_issue_reads(
         credential_files,
         keyring,
         DEFAULT_PHASE_TIMEOUT,
-        true,
+        crate::config::StartupOptionPolicy::IssueSort,
+    )
+}
+/// Pull-request alone defers all template-option validation until action priority.
+pub fn load_for_pull_request(
+    process: &ProcessEnvSnapshot,
+    files: &impl FileSource,
+    git: &impl GitRootProbe,
+    credential_files: &impl CredentialFileSource,
+    keyring: &impl KeyringReader,
+) -> AppStartupReport {
+    load_with_policy(
+        process,
+        files,
+        git,
+        credential_files,
+        keyring,
+        DEFAULT_PHASE_TIMEOUT,
+        crate::config::StartupOptionPolicy::PullRequestTemplate,
     )
 }
 fn load_with_policy(
@@ -238,13 +256,9 @@ fn load_with_policy(
     credential_files: &impl CredentialFileSource,
     keyring: &impl KeyringReader,
     phase_timeout: Duration,
-    defer: bool,
+    policy: crate::config::StartupOptionPolicy,
 ) -> AppStartupReport {
-    let config_report = if defer {
-        crate::config::load_startup_with_issue_read_sort(process, files, git, true)
-    } else {
-        load_startup(process, files, git)
-    };
+    let config_report = crate::config::load_startup_with_policy(process, files, git, policy);
     let mut diagnostics = config_report
         .diagnostics
         .into_iter()

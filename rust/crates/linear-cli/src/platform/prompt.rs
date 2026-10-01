@@ -510,6 +510,17 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
+    /// Start's retained input session may emit spinner/status bytes only after
+    /// restoring raw mode. A second menu can resume the same buffered input.
+    pub(crate) fn suspended_output(&mut self) -> Result<&mut W, AppError> {
+        if self.state != SessionState::Suspended {
+            return Err(invariant(
+                "ordinary command output requires suspended prompt mode",
+            ));
+        }
+        Ok(&mut self.output)
+    }
+
     pub fn into_output(mut self) -> Result<W, AppError> {
         self.close()?;
         Ok(self.output)

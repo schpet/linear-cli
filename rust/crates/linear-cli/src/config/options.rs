@@ -441,6 +441,7 @@ pub struct ConfigOptions {
     attachment_dir: Option<Resolved<String>>,
     auto_download_attachments: Option<Resolved<bool>>,
     pr_template: Option<Resolved<String>>,
+    deferred_pr_template: Option<Resolved<DeferredPrTemplate>>,
     endpoint: ResolvedEndpoint,
 }
 
@@ -508,6 +509,68 @@ fn sort_raw_value(raw: Raw<'_>) -> serde_json::Value {
         Raw::Toml(v) => value(v),
     }
 }
+/// Explicit command-local startup exceptions; unrelated callers remain eager.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StartupOptionPolicy {
+    Eager,
+    IssueSort,
+    PullRequestTemplate,
+}
+#[derive(Clone, Debug)]
+struct DeferredPrTemplate {
+    raw: serde_json::Value,
+    text: Option<String>,
+}
+fn deferred_template(raw: Raw<'_>) -> DeferredPrTemplate {
+    let text = match raw {
+        Raw::Text(value) => Some(value.to_owned()),
+        Raw::Toml(ConfigValue::String(value)) => Some(value.clone()),
+        Raw::Toml(_) => None,
+    };
+    DeferredPrTemplate {
+        raw: sort_raw_value(raw),
+        text,
+    }
+}
+/// Presence wins, including an empty environment value. Never parse shadowed tiers.
+fn highest_pr_template(
+    inputs: &OptionInputs<'_>,
+) -> Result<Option<Resolved<DeferredPrTemplate>>, ConfigOptionError> {
+    let name = OptionKey::PrTemplate.env_name();
+    if let Some(value) = inputs.env.process_env.get(&name) {
+        return Ok(Some(Resolved {
+            value: deferred_template(Raw::Text(value)),
+            source: OptionSource::Env,
+        }));
+    }
+    if let Some(value) = dotenv_key(inputs, &name) {
+        let path = inputs.dotenv.source_path.clone().ok_or_else(|| {
+            error(
+                Some(OptionKey::PrTemplate),
+                OptionSource::Env,
+                OptionErrorReason::MissingDotenvPath,
+            )
+        })?;
+        return Ok(Some(Resolved {
+            value: deferred_template(Raw::Text(value)),
+            source: OptionSource::ProjectEnv { path },
+        }));
+    }
+    if let Some((value, path)) = toml_key(inputs.project, OptionKey::PrTemplate) {
+        return Ok(Some(Resolved {
+            value: deferred_template(Raw::Toml(value)),
+            source: OptionSource::ProjectConfig { path },
+        }));
+    }
+    if let Some((value, path)) = toml_key(inputs.global, OptionKey::PrTemplate) {
+        return Ok(Some(Resolved {
+            value: deferred_template(Raw::Toml(value)),
+            source: OptionSource::GlobalConfig { path },
+        }));
+    }
+    Ok(None)
+}
+
 impl ConfigOptions {
     pub fn from_inputs(inputs: OptionInputs<'_>) -> Result<Self, ConfigOptionError> {
         Self::from_inputs_with_issue_read_sort(inputs, false)
@@ -516,6 +579,19 @@ impl ConfigOptions {
     pub(crate) fn from_inputs_with_issue_read_sort(
         inputs: OptionInputs<'_>,
         defer: bool,
+    ) -> Result<Self, ConfigOptionError> {
+        Self::from_inputs_with_startup_policy(
+            inputs,
+            if defer {
+                StartupOptionPolicy::IssueSort
+            } else {
+                StartupOptionPolicy::Eager
+            },
+        )
+    }
+    pub fn from_inputs_with_startup_policy(
+        inputs: OptionInputs<'_>,
+        policy: StartupOptionPolicy,
     ) -> Result<Self, ConfigOptionError> {
         if !inputs.env.cwd.is_absolute() {
             return Err(error(
@@ -530,7 +606,7 @@ impl ConfigOptions {
             text(raw).map(ConfigSecret)
         })?;
         let workspace = select(&inputs, OptionKey::Workspace, text)?;
-        let (issue_sort, deferred_issue_sort) = if defer {
+        let (issue_sort, deferred_issue_sort) = if policy == StartupOptionPolicy::IssueSort {
             let selected = select(&inputs, OptionKey::IssueSort, |raw| {
                 Ok(match issue_sort(raw) {
                     Ok(value) => DeferredIssueSort::Parsed(value),
@@ -550,7 +626,12 @@ impl ConfigOptions {
         let attachment_dir = select(&inputs, OptionKey::AttachmentDir, text)?;
         let auto_download_attachments =
             select(&inputs, OptionKey::AutoDownloadAttachments, boolean)?;
-        let pr_template = select(&inputs, OptionKey::PrTemplate, template)?;
+        let (pr_template, deferred_pr_template) =
+            if policy == StartupOptionPolicy::PullRequestTemplate {
+                (None, highest_pr_template(&inputs)?)
+            } else {
+                (select(&inputs, OptionKey::PrTemplate, template)?, None)
+            };
         let endpoint = endpoint(&inputs)?;
         Ok(Self {
             cwd: inputs.env.cwd.clone(),
@@ -567,6 +648,7 @@ impl ConfigOptions {
             attachment_dir,
             auto_download_attachments,
             pr_template,
+            deferred_pr_template,
             endpoint,
         })
     }
@@ -647,6 +729,58 @@ impl ConfigOptions {
     }
 
     /// Only the PR creation command supplies `--template` or `--no-template`.
+    /// PR action-only resolution: disabled/explicit overrides bypass unusable defaults.
+    pub fn pull_request_template(
+        &self,
+        cli: PrTemplateCli<'_>,
+    ) -> Result<Option<PrTemplatePath>, crate::error::AppError> {
+        use crate::error::{AppError, AppErrorKind};
+        let selected = match cli {
+            PrTemplateCli::Disabled => return Ok(None),
+            PrTemplateCli::Path(raw) => Some(Resolved {
+                value: deferred_template(Raw::Text(raw)),
+                source: OptionSource::Cli,
+            }),
+            PrTemplateCli::Unset => self.deferred_pr_template.clone().or_else(|| {
+                self.pr_template.as_ref().map(|value| Resolved {
+                    value: deferred_template(Raw::Text(value.value())),
+                    source: value.source().clone(),
+                })
+            }),
+        };
+        let Some(selected) = selected else {
+            return Ok(None);
+        };
+        let raw_json =
+            serde_json::to_string(&crate::graphql::bulk_error::JsValue(&selected.value.raw))
+                .map_err(|error| {
+                    AppError::new(
+                        AppErrorKind::Invariant,
+                        "could not render pull request template value",
+                    )
+                    .with_source(error)
+                })?;
+        let value = selected.value.text.as_deref().map(crate::text::js_trim).filter(|value| !value.is_empty()).ok_or_else(|| {
+            AppError::new(AppErrorKind::Validation, format!("Invalid pull request template: {raw_json}"))
+                .with_suggestion("Set a non-empty file path via --template, the pr_template config option, or LINEAR_PR_TEMPLATE; use --no-template to skip the template.")
+        })?;
+        let path = match selected.source.config_dir() {
+            Some(base) => {
+                let base = if base.is_absolute() {
+                    base.to_owned()
+                } else {
+                    self.cwd.join(base)
+                };
+                normalized_config_path(&base.join(value))
+            }
+            None => PathBuf::from(value),
+        };
+        Ok(Some(PrTemplatePath {
+            path,
+            source: selected.source,
+        }))
+    }
+
     pub fn pr_template(
         &self,
         cli: PrTemplateCli<'_>,

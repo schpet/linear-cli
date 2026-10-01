@@ -27,3 +27,5 @@ mod auth_mutation_cli;
 mod vcs_script;
 
 mod issue_commits_describe_cli;
+
+mod issue_start_pr_cli;

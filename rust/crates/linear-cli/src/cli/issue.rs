@@ -204,9 +204,19 @@ pub struct IssueStart {
     pub all_assignees: bool,
     #[arg(long = "unassigned", short = 'U', help = "Show only unassigned issues")]
     pub unassigned: bool,
-    #[arg(long = "from-ref", short = 'f', help = "Git ref to create new branch from", value_name = "fromRef", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "from-ref",
+        short = 'f',
+        help = "Git ref to create new branch from",
+        value_name = "fromRef"
+    )]
     pub from_ref: Option<String>,
-    #[arg(long = "branch", short = 'b', help = "Custom branch name to use instead of the issue identifier", value_name = "branch", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "branch",
+        short = 'b',
+        help = "Custom branch name to use instead of the issue identifier",
+        value_name = "branch"
+    )]
     pub branch: Option<String>,
 }
 
@@ -260,20 +270,38 @@ pub struct IssueCommits {
 pub struct IssuePullRequest {
     #[arg(value_name = "issueId")]
     pub issue_id: Option<String>,
-    #[arg(long = "base", help = "The branch into which you want your code merged", value_name = "branch", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "base",
+        help = "The branch into which you want your code merged",
+        value_name = "branch"
+    )]
     pub base: Option<String>,
     #[arg(long = "draft", help = "Create the pull request as a draft")]
     pub draft: bool,
-    #[arg(long = "title", short = 't', help = "Optional title for the pull request (Linear issue ID will be prefixed)", value_name = "title", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "title",
+        short = 't',
+        help = "Optional title for the pull request (Linear issue ID will be prefixed)",
+        value_name = "title"
+    )]
     pub title: Option<String>,
     #[arg(
         long = "web",
         help = "Open the pull request in the browser after creating it"
     )]
     pub web: bool,
-    #[arg(long = "head", help = "The branch that contains commits for your pull request", value_name = "branch", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "head",
+        help = "The branch that contains commits for your pull request",
+        value_name = "branch"
+    )]
     pub head: Option<String>,
-    #[arg(long = "template", short = 'T', help = "Start the pull request body from this template file (the Linear issue URL is appended)", value_name = "file", value_parser = super::nonempty_string)]
+    #[arg(
+        long = "template",
+        short = 'T',
+        help = "Start the pull request body from this template file (the Linear issue URL is appended)",
+        value_name = "file"
+    )]
     pub template: Option<String>,
     #[arg(
         long = "no-template",
