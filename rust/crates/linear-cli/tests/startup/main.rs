@@ -357,7 +357,7 @@ fn bounded_pool_requests_every_workspace_once_and_returns_ordered_warnings() {
 }
 
 #[test]
-fn actual_binary_loads_inline_metadata_and_rejects_malformed_before_help() {
+fn actual_binary_loads_inline_and_rejects_malformed_before_help() {
     let sandbox = Sandbox::new();
     let absent = sandbox.command().arg("--version").output().unwrap();
     assert!(absent.status.success());
@@ -365,19 +365,6 @@ fn actual_binary_loads_inline_metadata_and_rejects_malformed_before_help() {
     let inline = sandbox.command().arg("--help").output().unwrap();
     assert!(inline.status.success());
     assert!(inline.stderr.is_empty());
-    sandbox.write_credentials(b"default = 'missing'\nworkspaces = ['demo']\n");
-    let metadata = sandbox.command().arg("--version").output().unwrap();
-    assert!(metadata.status.success());
-    let stderr = String::from_utf8(metadata.stderr).unwrap();
-    assert!(stderr.contains("Default workspace \"missing\""));
-    let expected = if cfg!(target_os = "linux") {
-        "keyring tool unavailable"
-    } else {
-        "unsupported platform"
-    };
-    assert!(stderr.contains(&format!(
-        "Failed to read keyring for workspace \"demo\": {expected}"
-    )));
     sandbox.write_credentials(b"default = [");
     let malformed = sandbox.command().arg("--help").output().unwrap();
     assert_eq!(malformed.status.code(), Some(1));
@@ -433,4 +420,21 @@ fn actual_binary_keyring_child_inherits_process_env_without_dotenv_overlay() {
         fs::read_to_string(trace).unwrap(),
         "lookup\nservice\nlinear-cli\naccount\ndemo\n"
     );
+}
+
+// Linux-only private PATH probe; global Mac readers use injected fake tests,
+// never the actual /usr/bin/security service from portable startup checks.
+#[cfg(target_os = "linux")]
+#[test]
+fn actual_binary_metadata_warns_with_private_missing_linux_tool() {
+    let sandbox = Sandbox::new();
+    sandbox.write_credentials(b"default = 'missing'\nworkspaces = ['demo']\n");
+    let metadata = sandbox.command().arg("--version").output().unwrap();
+    assert!(metadata.status.success());
+    let stderr = String::from_utf8(metadata.stderr).unwrap();
+    assert!(stderr.contains("Default workspace \"missing\""));
+    let expected = "keyring tool unavailable";
+    assert!(stderr.contains(&format!(
+        "Failed to read keyring for workspace \"demo\": {expected}"
+    )));
 }

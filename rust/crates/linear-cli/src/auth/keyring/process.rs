@@ -1,4 +1,5 @@
 //! Uncapped concurrent keyring feed/drain/wait with owned cleanup.
+use super::ReaderFlavor;
 use crate::{
     auth::mutation::MutationFailure,
     config::{ChildEnvOverlay, ConfigSecret},
@@ -198,36 +199,16 @@ impl crate::auth::mutation::CredentialMutationBackend for ProcessMutationBackend
     }
     async fn store(&self, workspace: &str, secret: &ConfigSecret) -> Result<(), MutationFailure> {
         #[cfg(target_os = "linux")]
-        let (exe, action, args, input) = (
-            "secret-tool",
-            "store",
-            vec![
-                "store".to_owned(),
-                "--label".to_owned(),
-                format!("linear-cli: {workspace}"),
-                "service".to_owned(),
-                "linear-cli".to_owned(),
-                "account".to_owned(),
-                workspace.to_owned(),
-            ],
-            Some(secret),
-        );
+        let flavor = ReaderFlavor::SecretTool;
         #[cfg(target_os = "macos")]
-        let (exe, action, args, input) = (
-            "/usr/bin/security",
-            "add-generic-password",
-            vec![
-                "add-generic-password".to_owned(),
-                "-a".to_owned(),
-                workspace.to_owned(),
-                "-s".to_owned(),
-                "linear-cli".to_owned(),
-                "-w".to_owned(),
-                secret.expose().to_owned(),
-                "-U".to_owned(),
-            ],
-            None,
-        );
+        let flavor = ReaderFlavor::MacSecurity;
+        let exe = flavor.executable();
+        let action = flavor.store_action();
+        let args = flavor.store_arguments(workspace, secret);
+        let input = match flavor {
+            ReaderFlavor::SecretTool => Some(secret),
+            ReaderFlavor::MacSecurity => None,
+        };
         let reply = run(exe, &args, input, &self.overlay).await?;
         let code = reply.completion.source_code()?;
         if code != 0 {
@@ -246,32 +227,15 @@ impl crate::auth::mutation::CredentialMutationBackend for ProcessMutationBackend
     }
     async fn delete(&self, workspace: &str) -> Result<(), MutationFailure> {
         #[cfg(target_os = "linux")]
-        let (exe, action, args) = (
-            "secret-tool",
-            "clear",
-            vec![
-                "clear".to_owned(),
-                "service".to_owned(),
-                "linear-cli".to_owned(),
-                "account".to_owned(),
-                workspace.to_owned(),
-            ],
-        );
+        let flavor = ReaderFlavor::SecretTool;
         #[cfg(target_os = "macos")]
-        let (exe, action, args) = (
-            "/usr/bin/security",
-            "delete-generic-password",
-            vec![
-                "delete-generic-password".to_owned(),
-                "-a".to_owned(),
-                workspace.to_owned(),
-                "-s".to_owned(),
-                "linear-cli".to_owned(),
-            ],
-        );
+        let flavor = ReaderFlavor::MacSecurity;
+        let exe = flavor.executable();
+        let action = flavor.delete_action();
+        let args = flavor.delete_arguments(workspace);
         let reply = run(exe, &args, None, &self.overlay).await?;
         let code = reply.completion.source_code()?;
-        let accepted = code == 0 || (cfg!(target_os = "macos") && code == 44);
+        let accepted = code == 0 || (flavor == ReaderFlavor::MacSecurity && code == 44);
         if !accepted {
             return Err(MutationFailure::Ordinary(format!(
                 "{} {action} failed (exit {}): {}",

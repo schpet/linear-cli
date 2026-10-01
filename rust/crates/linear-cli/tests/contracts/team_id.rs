@@ -141,6 +141,9 @@ fn public_binary_matches_frozen_team_id_cases() {
             continue;
         }
         let case = load_json(&cases_root().join(format!("{id}.json")));
+        if !cfg!(target_os = "linux") && case["configFixture"] == "c009-metadata" {
+            continue;
+        }
         let sandbox = BinarySandbox::new();
         let output = prepared_command(&case, &sandbox)
             .output()

@@ -1,11 +1,11 @@
 //! Explicit startup readers and separate mutation backends; tests inject fakes.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-mod linux;
+mod process_reader;
+pub mod process_spec;
 
 use crate::auth::{LookupFailureCategory, LookupResult};
 
-#[cfg(target_os = "linux")]
-pub use linux::{LinuxKeyringReader, LinuxLookupFailure};
+pub use process_reader::{ProcessKeyringReader, ProcessLookupFailure};
+pub use process_spec::ReaderFlavor;
 
 pub trait KeyringReader: Sync {
     fn lookup(&self, workspace: &str) -> LookupResult;
@@ -25,53 +25,24 @@ pub mod process;
 pub mod windows;
 pub mod windows_spec;
 
-/// Only new mutation leaves opt into the full native startup readers.
-pub fn native_auth_route(command: Option<&crate::cli::RootCommand>) -> bool {
-    matches!(
-        command,
-        Some(crate::cli::RootCommand::Auth(crate::cli::auth::Auth {
-            command: Some(
-                crate::cli::auth::AuthCommand::Login(_)
-                    | crate::cli::auth::AuthCommand::Logout(_)
-                    | crate::cli::auth::AuthCommand::Migrate(_)
-            )
-        }))
-    )
-}
-pub struct RoutedKeyringReader {
-    native_auth: bool,
-}
-impl RoutedKeyringReader {
-    pub fn new(native_auth: bool) -> Self {
-        Self { native_auth }
-    }
-}
-impl KeyringReader for RoutedKeyringReader {
+/// Startup always selects the supported platform reader, independent of CLI route.
+pub struct NativeKeyringReader;
+impl KeyringReader for NativeKeyringReader {
     fn lookup(&self, workspace: &str) -> LookupResult {
         #[cfg(target_os = "linux")]
         {
-            let _native_auth = self.native_auth;
-            LinuxKeyringReader::new().lookup(workspace)
+            ProcessKeyringReader::new(ReaderFlavor::SecretTool).lookup(workspace)
         }
         #[cfg(target_os = "macos")]
         {
-            if self.native_auth {
-                linux::LinuxKeyringReader::macos().lookup(workspace)
-            } else {
-                UnsupportedKeyringReader.lookup(workspace)
-            }
+            ProcessKeyringReader::new(ReaderFlavor::MacSecurity).lookup(workspace)
         }
         #[cfg(windows)]
         {
-            if self.native_auth {
-                windows::lookup_windows(windows::credential(workspace))
-            } else {
-                UnsupportedKeyringReader.lookup(workspace)
-            }
+            windows::lookup_windows(windows::credential(workspace))
         }
         #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
         {
-            let _native_auth = self.native_auth;
             UnsupportedKeyringReader.lookup(workspace)
         }
     }

@@ -889,8 +889,9 @@ fn credentials_error(config: &Path) -> String {
     )
 }
 
+#[cfg(target_os = "linux")]
 #[test]
-fn startup_warnings_keep_script_stdout_clean_and_fatal_errors_precede_output() {
+fn startup_warnings_keep_script_stdout_clean() {
     let (warning, _) = with_credentials("c086-invalid-default", &["completions", "bash"]);
     assert_eq!(warning.status.code(), Some(0));
     assert!(warning.stdout == BASH);
@@ -898,6 +899,10 @@ fn startup_warnings_keep_script_stdout_clean_and_fatal_errors_precede_output() {
         text(&warning.stderr),
         "Warning: Default workspace \"ghost\" is not in the workspaces list. Run `linear auth default <workspace>` to set a valid default.\nWarning: Failed to read keyring for workspace \"fake-workspace\": keyring tool unavailable\n"
     );
+}
+
+#[test]
+fn fatal_startup_errors_precede_output() {
     for args in [
         &["completions", "bash"][..],
         &["completions", "complete", "sort", "issue", "mine"][..],

@@ -319,24 +319,6 @@ fn windows_owned_layout_and_decoder_bind_safe_library_boundary_without_os_calls(
         "dummy中"
     );
 }
-#[test]
-fn native_platform_startup_routing_is_explicit_for_only_new_auth_leaves() {
-    use linear_cli::{auth::keyring::native_auth_route, cli};
-    use std::ffi::OsString;
-    for (args, expected) in [
-        (vec!["auth", "login"], true),
-        (vec!["auth", "logout"], true),
-        (vec!["auth", "migrate"], true),
-        (vec!["auth", "list"], false),
-        (vec!["auth", "default"], false),
-        (vec!["auth", "token"], false),
-        (vec!["auth", "whoami"], false),
-        (vec!["schema"], false),
-    ] {
-        let parsed = cli::parse(&args.iter().map(OsString::from).collect::<Vec<_>>()).unwrap();
-        assert_eq!(native_auth_route(parsed.command.as_ref()), expected);
-    }
-}
 #[tokio::test(flavor = "current_thread")]
 async fn inline_reserved_numeric_unicode_names_use_exact_source_own_key_order() {
     let mut store = state("z='dummy_z'", &[]);

@@ -7,7 +7,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use linear_cli::auth::keyring::{LinuxKeyringReader, LinuxLookupFailure};
+use linear_cli::auth::keyring::{ProcessKeyringReader, ProcessLookupFailure, ReaderFlavor};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -28,7 +28,7 @@ impl Sandbox {
         Self { root, executable }
     }
 
-    fn reader(&self, timeout: Duration) -> LinuxKeyringReader {
+    fn reader(&self, timeout: Duration) -> ProcessKeyringReader {
         let environment = BTreeMap::from([
             (OsString::from("PATH"), OsString::from(&self.root)),
             (
@@ -37,7 +37,8 @@ impl Sandbox {
             ),
             (OsString::from("MARKER"), OsString::from("private-marker")),
         ]);
-        LinuxKeyringReader::with_test_environment(
+        ProcessKeyringReader::with_test_environment(
+            ReaderFlavor::SecretTool,
             self.executable.clone().into_os_string(),
             environment,
             timeout,
@@ -102,7 +103,7 @@ fn empty_output_and_exit_one_with_js_trimmed_stderr_are_misses() {
             .reader(Duration::from_secs(2))
             .lookup_detailed("demo")
             .unwrap_err(),
-        LinuxLookupFailure::ExitFailure
+        ProcessLookupFailure::ExitFailure
     );
     let ignored_stdout = Sandbox::new("printf '\\377'; exit 1");
     assert!(
@@ -121,7 +122,7 @@ fn errors_are_typed_and_do_not_include_child_output() {
         .reader(Duration::from_secs(2))
         .lookup_detailed("demo")
         .unwrap_err();
-    assert_eq!(error, LinuxLookupFailure::ExitFailure);
+    assert_eq!(error, ProcessLookupFailure::ExitFailure);
     assert!(!format!("{error:?}").contains("lin_api_fake_secret"));
     let invalid = Sandbox::new("printf '\\377'");
     assert_eq!(
@@ -129,16 +130,17 @@ fn errors_are_typed_and_do_not_include_child_output() {
             .reader(Duration::from_secs(2))
             .lookup_detailed("demo")
             .unwrap_err(),
-        LinuxLookupFailure::InvalidUtf8
+        ProcessLookupFailure::InvalidUtf8
     );
-    let missing = LinuxKeyringReader::with_test_environment(
+    let missing = ProcessKeyringReader::with_test_environment(
+        ReaderFlavor::SecretTool,
         OsString::from("/definitely/absent/secret-tool"),
         BTreeMap::new(),
         Duration::from_secs(1),
     );
     assert_eq!(
         missing.lookup_detailed("demo").unwrap_err(),
-        LinuxLookupFailure::Spawn(std::io::ErrorKind::NotFound)
+        ProcessLookupFailure::Spawn(std::io::ErrorKind::NotFound)
     );
     let other_exit = Sandbox::new("exit 4");
     assert_eq!(
@@ -146,7 +148,7 @@ fn errors_are_typed_and_do_not_include_child_output() {
             .reader(Duration::from_secs(2))
             .lookup_detailed("demo")
             .unwrap_err(),
-        LinuxLookupFailure::ExitFailure
+        ProcessLookupFailure::ExitFailure
     );
     let denied = Sandbox::new("exit 0");
     fs::set_permissions(&denied.executable, fs::Permissions::from_mode(0o600)).unwrap();
@@ -155,7 +157,7 @@ fn errors_are_typed_and_do_not_include_child_output() {
             .reader(Duration::from_secs(2))
             .lookup_detailed("demo")
             .unwrap_err(),
-        LinuxLookupFailure::Spawn(std::io::ErrorKind::PermissionDenied)
+        ProcessLookupFailure::Spawn(std::io::ErrorKind::PermissionDenied)
     );
 }
 
@@ -178,14 +180,14 @@ fn stdout_cap_and_deadline_stop_and_reap_child() {
             .reader(Duration::from_secs(3))
             .lookup_detailed("demo")
             .unwrap_err(),
-        LinuxLookupFailure::StdoutTooLarge
+        ProcessLookupFailure::StdoutTooLarge
     );
     let hung = Sandbox::new("printf '%s' \"$$\" > \"$TRACE\"; exec /bin/sleep 2");
     assert_eq!(
         hung.reader(Duration::from_millis(250))
             .lookup_detailed("demo")
             .unwrap_err(),
-        LinuxLookupFailure::Timeout
+        ProcessLookupFailure::Timeout
     );
     let pid = fs::read_to_string(hung.root.join("trace")).unwrap();
     assert!(
@@ -203,7 +205,7 @@ fn stdout_cap_and_deadline_stop_and_reap_child() {
             .reader(Duration::from_secs(3))
             .lookup_detailed("demo")
             .unwrap_err(),
-        LinuxLookupFailure::StderrTooLarge
+        ProcessLookupFailure::StderrTooLarge
     );
     let stderr_exact = Sandbox::new("/usr/bin/head -c 16384 /dev/zero >&2");
     assert!(
@@ -225,6 +227,9 @@ fn exited_child_with_descendant_holding_pipe_returns_within_grace() {
     let pid = fs::read_to_string(sandbox.root.join("trace")).unwrap();
     let pid: i32 = pid.parse().unwrap();
     let _ = Command::new("/bin/kill").arg(pid.to_string()).status();
-    assert_eq!(result.unwrap_err(), LinuxLookupFailure::PipeHeldOpen);
+    assert_eq!(result.unwrap_err(), ProcessLookupFailure::PipeHeldOpen);
     assert!(started.elapsed() < Duration::from_secs(2));
 }
+
+#[path = "mac_reader.rs"]
+mod mac_reader;
