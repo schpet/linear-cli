@@ -2,151 +2,129 @@
 
 > Manage Linear authentication
 
-## Usage
-
 ```
-Usage:   linear auth
+Manage Linear authentication
 
-Description:
-
-  Manage Linear authentication
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear auth [OPTIONS] [COMMAND]
 
 Commands:
-
-  login                 - Add a workspace credential                     
-  logout   [workspace]  - Remove a workspace credential                  
-  list                  - List configured workspaces                     
-  default  [workspace]  - Set the default workspace                      
-  token                 - Print the configured API token                 
-  whoami                - Print information about the authenticated user 
-  migrate               - Migrate plaintext credentials to system keyring
-```
-
-## Subcommands
-
-### default
-
-> Set the default workspace
-
-```
-Usage:   linear auth default [workspace]
-
-Description:
-
-  Set the default workspace
+  login    Add a workspace credential
+  logout   Remove a workspace credential
+  list     List configured workspaces
+  default  Set the default workspace
+  token    Print the configured API token
+  whoami   Print information about the authenticated user
+  migrate  Migrate plaintext credentials to system keyring
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```
 
-### list
-
-> List configured workspaces
-
-```
-Usage:   linear auth list
-
-Description:
-
-  List configured workspaces
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
-```
-
-### login
+## login
 
 > Add a workspace credential
 
 ```
-Usage:   linear auth login
+Add a workspace credential
 
-Description:
-
-  Add a workspace credential
+Usage: linear auth login [OPTIONS]
 
 Options:
-
-  -h, --help           - Show this help.                                              
-  --workspace  <slug>  - Target workspace (uses credentials)                          
-  -k, --key    <key>   - API key (prompted if not provided)                           
-  --plaintext          - Store API key in credentials file instead of system keyring
+  -k, --key <key>         API key (prompted if not provided)
+      --workspace <slug>  Target workspace (uses credentials)
+      --plaintext         Store API key in credentials file instead of system keyring
+  -h, --help              Print help
 ```
 
-### logout
+## logout
 
 > Remove a workspace credential
 
 ```
-Usage:   linear auth logout [workspace]
+Remove a workspace credential
 
-Description:
+Usage: linear auth logout [OPTIONS] [workspace]
 
-  Remove a workspace credential
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -f, --force          - Skip confirmation prompt
-```
-
-### migrate
-
-> Migrate plaintext credentials to system keyring
-
-```
-Usage:   linear auth migrate
-
-Description:
-
-  Migrate plaintext credentials to system keyring
+Arguments:
+  [workspace]  
 
 Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+  -f, --force             Skip confirmation prompt
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```
 
-### token
+## list
+
+> List configured workspaces
+
+```
+List configured workspaces
+
+Usage: linear auth list [OPTIONS]
+
+Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
+```
+
+## default
+
+> Set the default workspace
+
+```
+Set the default workspace
+
+Usage: linear auth default [OPTIONS] [workspace]
+
+Arguments:
+  [workspace]  
+
+Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
+```
+
+## token
 
 > Print the configured API token
 
 ```
-Usage:   linear auth token
+Print the configured API token
 
-Description:
-
-  Print the configured API token
+Usage: linear auth token [OPTIONS]
 
 Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```
 
-### whoami
+## whoami
 
 > Print information about the authenticated user
 
 ```
-Usage:   linear auth whoami
+Print information about the authenticated user
 
-Description:
-
-  Print information about the authenticated user
+Usage: linear auth whoami [OPTIONS]
 
 Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
+```
 
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+## migrate
+
+> Migrate plaintext credentials to system keyring
+
+```
+Migrate plaintext credentials to system keyring
+
+Usage: linear auth migrate [OPTIONS]
+
+Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```

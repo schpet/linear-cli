@@ -2,3 +2,6 @@
 members = ["crates/linear-cli", "crates/linear-schema"]
 resolver = "3"
 
+
+[profile.dist]
+inherits = "release"

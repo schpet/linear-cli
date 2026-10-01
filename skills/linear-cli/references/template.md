@@ -2,63 +2,52 @@
 
 > Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.
 
-## Usage
-
 ```
-Usage:   linear template
+Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.
 
-Description:
-
-  Browse Linear issue, project, and document templates. Apply one with `issue create --template` or `project create --template`.
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear template [OPTIONS] [COMMAND]
 
 Commands:
+  list  List templates. Without --team, every template in the workspace is shown.
+  view  Show a template and what it pre-fills. Pass its name or ID. [alias: v]
+  help  Print this message or the help of the given subcommand(s)
 
-  list                 - List templates. Without --team, every template in the workspace is shown.
-  view, v  <template>  - Show a template and what it pre-fills. Pass its name or ID.
+Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```
 
-## Subcommands
-
-### list
+## list
 
 > List templates. Without --team, every template in the workspace is shown.
 
 ```
-Usage:   linear template list
+List templates. Without --team, every template in the workspace is shown.
 
-Description:
-
-  List templates. Without --team, every template in the workspace is shown.
+Usage: linear template list [OPTIONS]
 
 Options:
-
-  -h, --help           - Show this help.                                                                                                       
-  --workspace  <slug>  - Target workspace (uses credentials)                                                                                   
-  --type       <type>  - Only templates of this type (issue, project, or document)                     (Values: "issue", "project", "document")
-  --team       <team>  - Team key, name, or ID. Shows that team's templates plus workspace templates.                                          
-  -j, --json           - Output as JSON
+      --type <type>       Only templates of this type (issue, project, or document) [possible values: issue, project, document]
+      --workspace <slug>  Target workspace (uses credentials)
+      --team <team>       Team key, name, or ID. Shows that team's templates plus workspace templates.
+  -j, --json              Output as JSON
+  -h, --help              Print help
 ```
 
-### view
+## view
 
 > Show a template and what it pre-fills. Pass its name or ID.
 
 ```
-Usage:   linear template view <template>
+Show a template and what it pre-fills. Pass its name or ID.
 
-Description:
+Usage: linear template view [OPTIONS] <template>
 
-  Show a template and what it pre-fills. Pass its name or ID.
+Arguments:
+  <template>  
 
 Options:
-
-  -h, --help           - Show this help.                                                                 
-  --workspace  <slug>  - Target workspace (uses credentials)                                             
-  -j, --json           - Output the template as JSON (templateData stays a JSON-encoded string; use `jq  
-                         '.templateData | fromjson'`)
+  -j, --json              Output the template as JSON (templateData stays a JSON-encoded string; use `jq '.templateData | fromjson'`)
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```

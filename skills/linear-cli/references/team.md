@@ -2,161 +2,142 @@
 
 > Manage Linear teams
 
-## Usage
-
 ```
-Usage:   linear team
+Manage Linear teams
 
-Description:
-
-  Manage Linear teams
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear team [OPTIONS] [COMMAND]
 
 Commands:
-
-  create             - Create a linear team                                                         
-  delete     <team>  - Delete a Linear team                                                         
-  list               - List teams                                                                   
-  id                 - Print the configured team id                                                 
-  autolinks          - Configure GitHub repository autolinks for Linear issues with this team prefix
-  members    [team]  - List team members (team by key, name, or ID)                                 
-  states     [team]  - List workflow states for a team (by key, name, or ID)
-```
-
-## Subcommands
-
-### autolinks
-
-> Configure GitHub repository autolinks for Linear issues with this team prefix
-
-```
-Usage:   linear team autolinks
-
-Description:
-
-  Configure GitHub repository autolinks for Linear issues with this team prefix
+  create     Create a linear team
+  delete     Delete a Linear team
+  list       List teams
+  id         Print the configured team id
+  autolinks  Configure GitHub repository autolinks for Linear issues with this team prefix
+  members    List team members (team by key, name, or ID)
+  states     List workflow states for a team (by key, name, or ID)
+  help       Print this message or the help of the given subcommand(s)
 
 Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```
 
-### create
+## create
 
 > Create a linear team
 
 ```
-Usage:   linear team create
+Create a linear team
 
-Description:
-
-  Create a linear team
+Usage: linear team create [OPTIONS]
 
 Options:
-
-  -h, --help                        - Show this help.                                          
-  --workspace        <slug>         - Target workspace (uses credentials)                      
-  -n, --name         <name>         - Name of the team                                         
-  -d, --description  <description>  - Description of the team                                  
-  -k, --key          <key>          - Team key (if not provided, will be generated from name)  
-  --private                         - Make the team private                                    
-  --no-interactive                  - Disable interactive prompts
+  -n, --name <name>                Name of the team
+      --workspace <slug>           Target workspace (uses credentials)
+  -d, --description <description>  Description of the team
+  -k, --key <key>                  Team key (if not provided, will be generated from name)
+      --private                    Make the team private
+      --no-interactive             Disable interactive prompts
+  -h, --help                       Print help
 ```
 
-### delete
+## delete
 
 > Delete a Linear team
 
 ```
-Usage:   linear team delete <team>
+Delete a Linear team
 
-Description:
+Usage: linear team delete [OPTIONS] <team>
 
-  Delete a Linear team
-
-Options:
-
-  -h, --help                   - Show this help.                                                     
-  --workspace    <slug>        - Target workspace (uses credentials)                                 
-  --move-issues  <targetTeam>  - Move all issues to another team (key, name, or ID) before deletion  
-  -y, --force                  - Skip confirmation prompt
-```
-
-### id
-
-> Print the configured team id
-
-```
-Usage:   linear team id
-
-Description:
-
-  Print the configured team id
+Arguments:
+  <team>  
 
 Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+      --move-issues <targetTeam>  Move all issues to another team (key, name, or ID) before deletion
+      --workspace <slug>          Target workspace (uses credentials)
+  -y, --force                     Skip confirmation prompt
+  -h, --help                      Print help
 ```
 
-### list
+## list
 
 > List teams
 
 ```
-Usage:   linear team list
+List teams
 
-Description:
-
-  List teams
+Usage: linear team list [OPTIONS]
 
 Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -w, --web            - Open in web browser                  
-  -a, --app            - Open in Linear.app                   
-  -j, --json           - Output as JSON
+  -w, --web               Open in web browser
+      --workspace <slug>  Target workspace (uses credentials)
+  -a, --app               Open in Linear.app
+  -j, --json              Output as JSON
+  -h, --help              Print help
 ```
 
-### members
+## id
+
+> Print the configured team id
+
+```
+Print the configured team id
+
+Usage: linear team id [OPTIONS]
+
+Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
+```
+
+## autolinks
+
+> Configure GitHub repository autolinks for Linear issues with this team prefix
+
+```
+Configure GitHub repository autolinks for Linear issues with this team prefix
+
+Usage: linear team autolinks [OPTIONS]
+
+Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
+```
+
+## members
 
 > List team members (team by key, name, or ID)
 
 ```
-Usage:   linear team members [team]
+List team members (team by key, name, or ID)
 
-Description:
+Usage: linear team members [OPTIONS] [team]
 
-  List team members (team by key, name, or ID)
+Arguments:
+  [team]  
 
 Options:
-
-  -h, --help           - Show this help.                                                         
-  --workspace  <slug>  - Target workspace (uses credentials)                                     
-  -a, --all            - Include inactive members                                                
-  -j, --json           - Output as JSON; a member's url mentions them when pasted into Markdown
+  -a, --all               Include inactive members
+      --workspace <slug>  Target workspace (uses credentials)
+  -j, --json              Output as JSON; a member's url mentions them when pasted into Markdown
+  -h, --help              Print help
 ```
 
-### states
+## states
 
 > List workflow states for a team (by key, name, or ID)
 
 ```
-Usage:   linear team states [team]
+List workflow states for a team (by key, name, or ID)
 
-Description:
+Usage: linear team states [OPTIONS] [team]
 
-  List workflow states for a team (by key, name, or ID)
+Arguments:
+  [team]  
 
 Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
-  -j, --json           - Output as JSON
+  -j, --json              Output as JSON
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```

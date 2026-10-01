@@ -2,69 +2,74 @@
 
 > Manage project status updates
 
-## Usage
-
 ```
-Usage:   linear project-update
+Manage project status updates
 
-Description:
-
-  Manage project status updates
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear project-update [OPTIONS] [COMMAND]
 
 Commands:
+  create  Create a new status update for a project [alias: c]
+  list    List status updates for a project [alias: l]
+  help    Print this message or the help of the given subcommand(s)
 
-  create, c  <projectId>  - Create a new status update for a project
-  list, l    <projectId>  - List status updates for a project
+Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```
 
-## Subcommands
-
-### create
+## create
 
 > Create a new status update for a project
 
 ```
-Usage:   linear project-update create <projectId>
+Create a new status update for a project
 
-Description:
+Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,
+and `[Name](url)` do not. Get a person's URL from the `url` field of
+`linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
+Run `linear markdown` for collapsible sections and the full reference.
 
-  Create a new status update for a project                                        
-                                                                                  
-  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  
-  and `[Name](url)` do not. Get a person's URL from the `url` field of            
-  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.
-  Run `linear markdown` for collapsible sections and the full reference.          
+Usage: linear project-update create [OPTIONS] <projectId>
+
+Arguments:
+  <projectId>
+          
 
 Options:
+      --body <body>
+          Update content (inline)
 
-  -h, --help                   - Show this help.                                    
-  --workspace        <slug>    - Target workspace (uses credentials)                
-  --body             <body>    - Update content (inline)                            
-  --body-file        <path>    - Read content from file                             
-  --health           <health>  - Project health status (onTrack, atRisk, offTrack)  
-  -i, --interactive            - Interactive mode with prompts
+      --workspace <slug>
+          Target workspace (uses credentials)
+
+      --body-file <path>
+          Read content from file
+
+      --health <health>
+          Project health status (onTrack, atRisk, offTrack)
+
+  -i, --interactive
+          Interactive mode with prompts
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
-### list
+## list
 
 > List status updates for a project
 
 ```
-Usage:   linear project-update list <projectId>
+List status updates for a project
 
-Description:
+Usage: linear project-update list [OPTIONS] <projectId>
 
-  List status updates for a project
+Arguments:
+  <projectId>  
 
 Options:
-
-  -h, --help            - Show this help.                                   
-  --workspace  <slug>   - Target workspace (uses credentials)               
-  --json                - Output as JSON                                    
-  --limit      <limit>  - Limit results                        (Default: 10)
+      --json              Output as JSON
+      --workspace <slug>  Target workspace (uses credentials)
+      --limit <limit>     Limit results [default: 10]
+  -h, --help              Print help
 ```

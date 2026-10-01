@@ -180,79 +180,198 @@ pub fn prompt<B: Backend, U: Ui>(
             shared::validation("Could not create interactive issue runtime").with_source(error)
         })?;
     std::thread::scope(|scope| {
-        runtime.block_on(async {
-    let (parent_id,parent_data)=issue_create::parent(backend,fields.parent.as_deref()).await?;
-    let initial_project=match &fields.project {Some(value)=>Some(issue_create::project(backend,ui,value,true).await?),None=>None};
-    let auto_backend=backend.clone();let mode=settings.assign_self;
-    let team_backend=backend.clone();let default_team=settings.default_team.clone();
-    let (first_phase,auto,team)=network_owner::pair(scope,
-        async move {match mode {AssignSelf::Always=>Ok(true),AssignSelf::Never=>Ok(false),AssignSelf::Auto=>auto_backend.auto_assign().await}},
-        async move {match default_team.filter(|key|!key.is_empty()) {Some(key)=>team_backend.find_team(key).await,None=>Ok(None)}})?;
-    if let Some(parent)=&parent_data {ui.output(&format!("Creating sub-issue for: {}: {}\n\n",parent.identifier,parent.title))?}
-    let title=ui.text("What's the title of your issue?",1,None)?;
+        runtime.block_on(prompt_in_scope(scope, backend, ui, settings, fields))
+    })
+}
+
+async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
+    scope: &'scope std::thread::Scope<'scope, 'env>,
+    backend: &B,
+    ui: &mut U,
+    settings: &CreateSettings,
+    fields: &Fields,
+) -> Result<Interactive, AppError> {
+    let (parent_id, parent_data) = issue_create::parent(backend, fields.parent.as_deref()).await?;
+    let initial_project = match &fields.project {
+        Some(value) => Some(issue_create::project(backend, ui, value, true).await?),
+        None => None,
+    };
+    let auto_backend = backend.clone();
+    let mode = settings.assign_self;
+    let team_backend = backend.clone();
+    let default_team = settings.default_team.clone();
+    let (first_phase, auto, team) = network_owner::pair(
+        scope,
+        async move {
+            match mode {
+                AssignSelf::Always => Ok(true),
+                AssignSelf::Never => Ok(false),
+                AssignSelf::Auto => auto_backend.auto_assign().await,
+            }
+        },
+        async move {
+            match default_team.filter(|key| !key.is_empty()) {
+                Some(key) => team_backend.find_team(key).await,
+                None => Ok(None),
+            }
+        },
+    )?;
+    if let Some(parent) = &parent_data {
+        ui.output(&format!(
+            "Creating sub-issue for: {}: {}\n\n",
+            parent.identifier, parent.title
+        ))?
+    }
+    let title = ui.text("What's the title of your issue?", 1, None)?;
     ui.suspend()?;
     // Exact SOURCE await order. Background tasks already live during title.
-    let team=team.take()?;let auto=auto.take()?;first_phase.close()?;
-    let team=match team {
-        Some(team)=>team,None=>{
-            let teams=backend.teams().await?;
-            let options:Vec<_>=teams.iter().map(|t|option(&t.id,&format!("{} ({})",t.name,t.key))).collect();
-            let selected=ui.choose("Which team should this issue belong to?",&options,0,true)?;
-            teams.into_iter().find(|t|t.id==selected).ok_or_else(||AppError::not_found("Team",&selected))?
+    let team = team.take()?;
+    let auto = auto.take()?;
+    first_phase.close()?;
+    let team = match team {
+        Some(team) => team,
+        None => {
+            let teams = backend.teams().await?;
+            let options: Vec<_> = teams
+                .iter()
+                .map(|t| option(&t.id, &format!("{} ({})", t.name, t.key)))
+                .collect();
+            let selected =
+                ui.choose("Which team should this issue belong to?", &options, 0, true)?;
+            teams
+                .into_iter()
+                .find(|t| t.id == selected)
+                .ok_or_else(|| AppError::not_found("Team", &selected))?
         }
     };
-    let state_backend=backend.clone();let state_key=team.key.clone();
-    let label_backend=backend.clone();let label_key=team.key.clone();
-    let project_backend=backend.clone();let project_key=team.key.clone();
-    let ask_project=settings.ask_project&&parent_data.is_none()&&initial_project.as_deref().is_none_or(str::is_empty);
-    let (second_phase,states,labels,projects)=network_owner::triple(scope,
-        async move {state_backend.states(state_key).await},
-        async move {label_backend.labels(label_key).await},
-        async move {if ask_project{project_backend.projects(project_key).await.map(Some)}else{Ok(None)}})?;
-    ui.suspend()?;let editor=ui.discover_editor()?;
-    let editor_label=editor.as_deref().and_then(|editor|editor.rsplit('/').next()).filter(|label|!label.is_empty());
-    let message=editor_label.map(|label|format!("Description [(e) to launch {label}]"))
-        .unwrap_or_else(||"Description".to_owned());
-    let raw=ui.text(&message,0,Some(""))?;
-    let description=if raw=="e" {
+    let state_backend = backend.clone();
+    let state_key = team.key.clone();
+    let label_backend = backend.clone();
+    let label_key = team.key.clone();
+    let project_backend = backend.clone();
+    let project_key = team.key.clone();
+    let ask_project = settings.ask_project
+        && parent_data.is_none()
+        && initial_project.as_deref().is_none_or(str::is_empty);
+    let (second_phase, states, labels, projects) = network_owner::triple(
+        scope,
+        async move { state_backend.states(state_key).await },
+        async move { label_backend.labels(label_key).await },
+        async move {
+            if ask_project {
+                project_backend.projects(project_key).await.map(Some)
+            } else {
+                Ok(None)
+            }
+        },
+    )?;
+    ui.suspend()?;
+    let editor = ui.discover_editor()?;
+    let editor_label = editor
+        .as_deref()
+        .and_then(|editor| editor.rsplit('/').next())
+        .filter(|label| !label.is_empty());
+    let message = editor_label
+        .map(|label| format!("Description [(e) to launch {label}]"))
+        .unwrap_or_else(|| "Description".to_owned());
+    let raw = ui.text(&message, 0, Some(""))?;
+    let description = if raw == "e" {
         ui.suspend()?;
-        if let Some(editor)=editor_label {
+        if let Some(editor) = editor_label {
             ui.output(&format!("Opening {editor}...\n"))?;
             // Existing optional editor rediscovers the literal editor and owns temp.
-            let text=ui.optional_editor()?;
-            if let Some(text)=text.filter(|text|!text.is_empty()) {
-                ui.output(&format!("Description entered ({} characters)\n",text.encode_utf16().count()))?;Some(text)
-            }else{ui.output("No description entered\n")?;None}
-        }else{
-            ui.error("No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>\n")?;None
+            let text = ui.optional_editor()?;
+            if let Some(text) = text.filter(|text| !text.is_empty()) {
+                ui.output(&format!(
+                    "Description entered ({} characters)\n",
+                    text.encode_utf16().count()
+                ))?;
+                Some(text)
+            } else {
+                ui.output("No description entered\n")?;
+                None
+            }
+        } else {
+            ui.error("No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>\n")?;
+            None
         }
-    }else{let text=raw.trim_matches(js_space);(!text.is_empty()).then(||text.to_owned())};
+    } else {
+        let text = raw.trim_matches(js_space);
+        (!text.is_empty()).then(|| text.to_owned())
+    };
     ui.suspend()?;
-    let mut project=initial_project.clone();
+    let mut project = initial_project.clone();
     // Projects/project menu BEFORE states BEFORE labels, regardless of arrival.
-    if let Some(projects)=projects.take()? {project=project_menu(ui,&projects)?;ui.suspend()?}
-    let states=states.take()?;let labels=labels.take()?;second_phase.close()?;
-    let next=ui.choose("What's next?",&[option("submit","Submit issue"),option("more_fields","Add more fields")],0,false)?;
+    if let Some(projects) = projects.take()? {
+        project = project_menu(ui, &projects)?;
+        ui.suspend()?
+    }
+    let states = states.take()?;
+    let labels = labels.take()?;
+    second_phase.close()?;
+    let next = ui.choose(
+        "What's next?",
+        &[
+            option("submit", "Submit issue"),
+            option("more_fields", "Add more fields"),
+        ],
+        0,
+        false,
+    )?;
     ui.suspend()?;
-    let mut more=More{state:shared::default_state(&states)?,..Default::default()};
-    if auto{more.assignee=Some(backend.viewer().await?)}
-    if next=="more_fields" {
-        more=additional(backend,ui,&team,&states,&labels,!settings.ask_project&&parent_data.is_none()&&initial_project.as_deref().is_none_or(str::is_empty),auto).await?;
-        project=more.project.clone().or(project);
-    }else if next!="submit"{return Err(shared::validation("next action is not a declared menu member"))}
-    let start=yes_no(ui,"Start working on this issue now? (creates branch and updates status)")?;
+    let mut more = More {
+        state: shared::default_state(&states)?,
+        ..Default::default()
+    };
+    if auto {
+        more.assignee = Some(backend.viewer().await?)
+    }
+    if next == "more_fields" {
+        more = additional(
+            backend,
+            ui,
+            &team,
+            &states,
+            &labels,
+            !settings.ask_project
+                && parent_data.is_none()
+                && initial_project.as_deref().is_none_or(str::is_empty),
+            auto,
+        )
+        .await?;
+        project = more.project.clone().or(project);
+    } else if next != "submit" {
+        return Err(shared::validation(
+            "next action is not a declared menu member",
+        ));
+    }
+    let start = yes_no(
+        ui,
+        "Start working on this issue now? (creates branch and updates status)",
+    )?;
     ui.suspend()?;
     // Both scoped phase owners abort+join before mutation/normal return; Drop
     // enforces the same cleanup on any preceding prompt/await error.
-    let project=project.or_else(||parent_data.and_then(|Parent{project_id,..}|project_id));
-    Ok(Interactive{title:title.clone(),start,input:Input {
-        title:Edit::Set(title),assignee_id:Edit::set_or_unchanged(more.assignee),due_date:Edit::Unchanged,
-        parent_id:Edit::set_or_unchanged(parent_id),priority:Edit::set_or_unchanged(more.priority),
-        estimate:Edit::set_or_unchanged(more.estimate),label_ids:Some(more.labels),team_id:team.id,
-        project_id:Edit::set_or_clear(project),project_milestone_id:Edit::Unchanged,cycle_id:Edit::Unchanged,
-        state_id:Edit::set_or_unchanged(more.state),template_id:Edit::Unchanged,
-        use_default_template:Edit::Set(fields.use_default_template),description:Edit::set_or_unchanged(description),
-    }})
-    })
+    let project = project.or_else(|| parent_data.and_then(|Parent { project_id, .. }| project_id));
+    Ok(Interactive {
+        title: title.clone(),
+        start,
+        input: Input {
+            title: Edit::Set(title),
+            assignee_id: Edit::set_or_unchanged(more.assignee),
+            due_date: Edit::Unchanged,
+            parent_id: Edit::set_or_unchanged(parent_id),
+            priority: Edit::set_or_unchanged(more.priority),
+            estimate: Edit::set_or_unchanged(more.estimate),
+            label_ids: Some(more.labels),
+            team_id: team.id,
+            project_id: Edit::set_or_clear(project),
+            project_milestone_id: Edit::Unchanged,
+            cycle_id: Edit::Unchanged,
+            state_id: Edit::set_or_unchanged(more.state),
+            template_id: Edit::Unchanged,
+            use_default_template: Edit::Set(fields.use_default_template),
+            description: Edit::set_or_unchanged(description),
+        },
     })
 }

@@ -3,9 +3,15 @@ name = "linear-schema"
 version = "3.0.0-alpha.1"
 edition = "2024"
 publish = false
+license = "MIT"
+repository = "https://github.com/schpet/linear-cli"
+homepage = "https://github.com/schpet/linear-cli"
 
 [dependencies]
 cynic = { version = "=3.14.0", default-features = false, features = ["rkyv"] }
 
 [build-dependencies]
 cynic-codegen = { version = "=3.14.0", features = ["rkyv"] }
+
+[package.metadata.dist]
+dist = false

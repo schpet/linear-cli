@@ -2,62 +2,52 @@
 
 > Manage Linear team cycles
 
-## Usage
-
 ```
-Usage:   linear cycle
+Manage Linear team cycles
 
-Description:
-
-  Manage Linear team cycles
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear cycle [OPTIONS] [COMMAND]
 
 Commands:
+  list  List cycles for a team
+  view  View cycle details [alias: v]
+  help  Print this message or the help of the given subcommand(s)
 
-  list                 - List cycles for a team
-  view, v  <cycleRef>  - View cycle details
+Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```
 
-## Subcommands
-
-### list
+## list
 
 > List cycles for a team
 
 ```
-Usage:   linear cycle list
+List cycles for a team
 
-Description:
-
-  List cycles for a team
+Usage: linear cycle list [OPTIONS]
 
 Options:
-
-  -h, --help           - Show this help.                                   
-  --workspace  <slug>  - Target workspace (uses credentials)               
-  --team       <team>  - Team key, name, or ID (defaults to current team)  
-  -j, --json           - Output as JSON
+      --team <team>       Team key, name, or ID (defaults to current team)
+      --workspace <slug>  Target workspace (uses credentials)
+  -j, --json              Output as JSON
+  -h, --help              Print help
 ```
 
-### view
+## view
 
 > View cycle details
 
 ```
-Usage:   linear cycle view <cycleRef>
+View cycle details
 
-Description:
+Usage: linear cycle view [OPTIONS] <cycleRef>
 
-  View cycle details
+Arguments:
+  <cycleRef>  
 
 Options:
-
-  -h, --help           - Show this help.                                   
-  --workspace  <slug>  - Target workspace (uses credentials)               
-  --team       <team>  - Team key, name, or ID (defaults to current team)  
-  -j, --json           - Output as JSON
+      --team <team>       Team key, name, or ID (defaults to current team)
+      --workspace <slug>  Target workspace (uses credentials)
+  -j, --json              Output as JSON
+  -h, --help              Print help
 ```

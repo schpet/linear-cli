@@ -2,44 +2,32 @@
 
 > Manage Linear users
 
-## Usage
-
 ```
-Usage:   linear user
+Manage Linear users
 
-Description:
-
-  Manage Linear users
-
-Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)  
+Usage: linear user [OPTIONS] [COMMAND]
 
 Commands:
+  list  List members of the workspace
+  help  Print this message or the help of the given subcommand(s)
 
-  list  - List members of the workspace
+Options:
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```
 
-## Subcommands
-
-### list
+## list
 
 > List members of the workspace
 
 ```
-Usage:   linear user list
+List members of the workspace
 
-Description:
-
-  List members of the workspace
+Usage: linear user list [OPTIONS]
 
 Options:
-
-  -h, --help           - Show this help.                                                               
-  --workspace  <slug>  - Target workspace (uses credentials)                                           
-  -a, --all            - Include inactive members                                                      
-  -j, --json           - Output as JSON; a member's url mentions them when pasted into Markdown. This  
-                         searches the whole workspace — prefer `linear team members <TEAM>`, and       
-                         confirm before mentioning someone outside the team
+  -a, --all               Include inactive members
+      --workspace <slug>  Target workspace (uses credentials)
+  -j, --json              Output as JSON; a member's url mentions them when pasted into Markdown. This searches the whole workspace — prefer `linear team members <TEAM>`, and confirm before mentioning someone outside the team
+  -h, --help              Print help
 ```

@@ -1,0 +1,104 @@
+{
+  "route": "linear auth whoami",
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "timeoutMs": 30000,
+  "outputCapBytes": 4194304,
+  "fixtureServer": null,
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "67e8bc7387b923469071e737a82565beb3ecce00a1ff41ca2f26a1e2c5a59097"
+  },
+  "id": "c001-env-graphql-error",
+  "reason": "GraphQL errors win over valid partial viewer data and use the auth-whoami command context.",
+  "argv": [
+    "auth",
+    "whoami"
+  ],
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql",
+    "LINEAR_API_KEY": "lin_api_fake"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 1,
+    "initialRecords": {},
+    "expectedRecords": {},
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "auth-status",
+            "operation": {
+              "document": "query AuthStatus { viewer { id name displayName email admin guest organization { name urlKey logoUrl } } }"
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "graphqlErrors",
+              "status": 200,
+              "data": {
+                "viewer": {
+                  "id": "user-fake-1",
+                  "name": "Alice Example",
+                  "displayName": "Ali",
+                  "email": "alice@example.invalid",
+                  "admin": false,
+                  "guest": false,
+                  "organization": {
+                    "name": "Example Workspace",
+                    "urlKey": "acme",
+                    "logoUrl": null
+                  }
+                }
+              },
+              "errors": [
+                {
+                  "message": "Fake identity is unavailable"
+                }
+              ]
+            },
+            "effects": []
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "exit": {
+      "code": 1
+    },
+    "stdout": {
+      "utf8": ""
+    },
+    "stderr": {
+      "utf8": "✗ Failed to get user info: Fake identity is unavailable\n"
+    },
+    "fileEffects": []
+  }
+}

@@ -3,6 +3,10 @@ name = "linear-cli"
 version = "3.0.0-alpha.1"
 edition = "2024"
 publish = false
+license = "MIT"
+repository = "https://github.com/schpet/linear-cli"
+homepage = "https://github.com/schpet/linear-cli"
+description = "Native typed Linear CLI, major-3 local candidate"
 
 [dependencies]
 linear-schema = { path = "../linear-schema" }
@@ -89,3 +93,9 @@ path = "tests/refs/main.rs"
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "=3.6.3", default-features = false, features = ["windows-native"] }
+
+[package.metadata.dist]
+dist = true
+# Includes are relative to this package Cargo.toml. The derived licenses tree
+# keeps vendor/dependency files in named subdirectories to avoid LICENSE collisions.
+include = ["../../../LICENSE", "../../licenses", "../../../docs/rust-port.md"]

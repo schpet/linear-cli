@@ -2,19 +2,14 @@
 
 > Print the GraphQL schema to stdout
 
-## Usage
-
 ```
-Usage:   linear schema
+Print the GraphQL schema to stdout
 
-Description:
-
-  Print the GraphQL schema to stdout
+Usage: linear schema [OPTIONS]
 
 Options:
-
-  -h, --help            - Show this help.                                     
-  --workspace   <slug>  - Target workspace (uses credentials)                 
-  --json                - Output as JSON introspection result instead of SDL  
-  -o, --output  <file>  - Write schema to file instead of stdout
+      --json              Output as JSON introspection result instead of SDL
+      --workspace <slug>  Target workspace (uses credentials)
+  -o, --output <file>     Write schema to file instead of stdout
+  -h, --help              Print help
 ```

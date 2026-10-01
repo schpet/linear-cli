@@ -4,6 +4,12 @@ a cli to list, start and create issues in the [linear](https://linear.app/) issu
 
 **works great with AI agents** — the CLI includes a [skill](#skills) that lets agents create issues, update status, and manage your Linear workflow alongside your code.
 
+## Native Rust major-3 candidate
+
+The reviewed Rust rewrite is a local `3.0.0-alpha.1` candidate. It covers the 86 original command leaves; native clap syntax and typed compatibility boundaries are documented in [the native guide](docs/rust-port.md). Build from `rust/` with Rust 1.93; the native executable does not require Deno or Node. Original Deno source, development instructions and published installers remain below.
+
+Native distribution rehearsals use the isolated `rust/dist-workspace.toml`. They do not publish packages or replace an installed CLI. See the native guide for artifact checksums, source inputs, completions and platform acceptance limits.
+
 here's how it works:
 
 ```bash
@@ -392,19 +398,18 @@ view the skill at [skills.sh/schpet/linear-cli/linear-cli](https://skills.sh/sch
 
 ### updating skill documentation
 
-the skill documentation in `skills/linear-cli/` is automatically generated from the CLI help text. after making changes to commands or help text, regenerate the docs:
+The local native candidate uses the typed clap exporter and Python renderer:
 
 ```bash
-deno task generate-skill-docs
+cd rust
+cargo +1.93.0 run --locked -p linear-cli --example native_docs -- --binary /absolute/path/to/linear --binary-sha256 "$BINARY_SHA256" > /absolute/path/to/native-docs.json
+cd ..
+python3 skills/linear-cli/scripts/generate-native-docs.py --manifest /absolute/path/to/native-docs.json --binary /absolute/path/to/linear --binary-sha256 "$BINARY_SHA256" --skill-dir skills/linear-cli
 ```
 
-this will:
+Use an immutable native binary and its exact SHA256. Compare every exported help path against that binary’s actual `--help` before accepting generated documentation; the exporter itself reads the compiled clap definitions. P10C qualified105 canonical paths and4 aliases. Python and the exporter are development tools, not CLI runtime dependencies.
 
-- discover all commands and subcommands from `linear --help`
-- generate reference documentation for each command
-- update the `SKILL.md` file from `SKILL.template.md`
-
-**important:** the CI checks will fail if the generated docs are out of date, so make sure to run this before committing changes that affect command structure or help text.
+The original Deno generator remains available as `deno task generate-skill-docs` for the Deno CLI. It overwrites the native skill/reference files, so do not run it when updating native documentation. Original Deno source and template remain intact.
 
 ### code formatting
 

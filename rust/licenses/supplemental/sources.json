@@ -1,0 +1,46 @@
+{
+  "kind": "explicit supplemental canonical notice provenance, not legal assessment",
+  "records": [
+    {
+      "file": "supplemental/alloc-stdlib-BSD-3-Clause.txt",
+      "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae",
+      "sourceUrl": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+      "packages": [
+        "alloc-stdlib@0.3.0"
+      ],
+      "qualification": "exact crate .cargo_vcs_info commit upstream root LICENSE"
+    },
+    {
+      "file": "supplemental/cynic-MPL-2.0.txt",
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+      "sourceUrl": "https://codeberg.org/obmarg/cynic/raw/commit/adc3685ebae599e713e49ee7fa39abebf8c9b676/LICENSE",
+      "packages": [
+        "cynic@3.14.0",
+        "cynic-codegen@3.14.0",
+        "cynic-parser@0.11.2",
+        "cynic-proc-macros@3.14.0"
+      ],
+      "qualification": "exact shared upstream .cargo_vcs_info commit LICENSE"
+    },
+    {
+      "file": "supplemental/winapi-LICENSE-MIT.txt",
+      "sha256": "ce7bc3499fee93d5022ef430d5e4201e79a6d9154f3974e42f41349f0569e09b",
+      "sourceUrl": "https://raw.githubusercontent.com/retep998/winapi-rs/796a8e6c2971dc2ff1bcff166e6671284f9b5b6b/LICENSE-MIT",
+      "packages": [
+        "winapi-i686-pc-windows-gnu@0.4.0",
+        "winapi-x86_64-pc-windows-gnu@0.4.0"
+      ],
+      "qualification": "same upstream repository copyright/license text from checksum-bound winapi0.3.9; support crates explicitly declare same MIT/Apache-2.0 and repository, no VCS stamp in support archives"
+    },
+    {
+      "file": "supplemental/winapi-LICENSE-APACHE.txt",
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+      "sourceUrl": "https://raw.githubusercontent.com/retep998/winapi-rs/796a8e6c2971dc2ff1bcff166e6671284f9b5b6b/LICENSE-APACHE",
+      "packages": [
+        "winapi-i686-pc-windows-gnu@0.4.0",
+        "winapi-x86_64-pc-windows-gnu@0.4.0"
+      ],
+      "qualification": "same upstream repository copyright/license text from checksum-bound winapi0.3.9; support crates explicitly declare same MIT/Apache-2.0 and repository, no VCS stamp in support archives"
+    }
+  ]
+}

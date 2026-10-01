@@ -2,17 +2,12 @@
 
 > Interactively generate .linear.toml configuration
 
-## Usage
-
 ```
-Usage:   linear config
+Interactively generate .linear.toml configuration
 
-Description:
-
-  Interactively generate .linear.toml configuration
+Usage: linear config [OPTIONS]
 
 Options:
-
-  -h, --help           - Show this help.                      
-  --workspace  <slug>  - Target workspace (uses credentials)
+      --workspace <slug>  Target workspace (uses credentials)
+  -h, --help              Print help
 ```
