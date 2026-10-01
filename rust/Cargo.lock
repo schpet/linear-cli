@@ -993,6 +993,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "signal-hook",
  "terminal_size",
  "tokio",
  "tokio-rustls",

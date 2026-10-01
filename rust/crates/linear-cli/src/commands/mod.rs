@@ -92,3 +92,5 @@ pub mod project_update;
 pub mod project_collections;
 
 pub mod issue_archive_delete;
+
+pub mod update_create;

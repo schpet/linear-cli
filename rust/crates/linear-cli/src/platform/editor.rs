@@ -124,3 +124,165 @@ pub fn open(
         )),
     }
 }
+
+/// Update-create policy retains the actual failed child status. DOC open is unchanged.
+#[derive(Debug)]
+pub enum UpdateEditorOutcome {
+    Content(Option<String>),
+    Missing,
+    Failed(AppError),
+    ChildFailed(std::process::ExitStatus),
+}
+impl UpdateEditorOutcome {
+    pub fn interrupted(&self) -> bool {
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt;
+            matches!(self, Self::ChildFailed(status) if status.signal()==Some(signal_hook::consts::SIGINT))
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
+    }
+}
+#[cfg(unix)]
+mod update_signal {
+    use super::*;
+    use std::sync::{Arc, Mutex, MutexGuard, OnceLock, atomic::AtomicBool};
+    struct State {
+        outside: Arc<AtomicBool>,
+        scope: Mutex<()>,
+        // Deliberately retained: unregister does not restore a signal disposition.
+        _registration: signal_hook::SigId,
+    }
+    static STATE: OnceLock<Result<State, String>> = OnceLock::new();
+    pub struct Guard {
+        state: &'static State,
+        _ownership: MutexGuard<'static, ()>,
+    }
+    pub fn enter() -> Result<Guard, AppError> {
+        let state = STATE
+            .get_or_init(|| {
+                let outside = Arc::new(AtomicBool::new(true));
+                signal_hook::flag::register_conditional_default(
+                    signal_hook::consts::SIGINT,
+                    outside.clone(),
+                )
+                .map(|registration| State {
+                    outside,
+                    scope: Mutex::new(()),
+                    _registration: registration,
+                })
+                .map_err(|error| error.to_string())
+            })
+            .as_ref()
+            .map_err(|message| {
+                AppError::new(
+                    AppErrorKind::IoProcess,
+                    format!("Failed to register update editor SIGINT policy: {message}"),
+                )
+            })?;
+        let ownership = state.scope.lock().map_err(|error| {
+            AppError::new(
+                AppErrorKind::Invariant,
+                format!("Update editor signal ownership failed: {error}"),
+            )
+        })?;
+        state.outside.store(false, Ordering::SeqCst);
+        Ok(Guard {
+            state,
+            _ownership: ownership,
+        })
+    }
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            self.state.outside.store(true, Ordering::SeqCst);
+        }
+    }
+}
+/// Configured update editor only: register lazily, reap, clean temp, then re-arm.
+/// The short post-child read/cleanup window still swallows parent SIGINT by design.
+pub fn open_update(env: &ChildEnvOverlay, root: &Path) -> Result<UpdateEditorOutcome, AppError> {
+    let Some(editor) = discover(env) else {
+        return Ok(UpdateEditorOutcome::Missing);
+    };
+    let temp = TempFile::create(root)?;
+    #[cfg(unix)]
+    let guard = match update_signal::enter() {
+        Ok(guard) => guard,
+        Err(error) => {
+            drop(temp);
+            return Err(error);
+        }
+    };
+    let result = (|| {
+        let mut child = match Command::new(editor)
+            .arg(&temp.0)
+            .envs(env.iter())
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(error) => {
+                return UpdateEditorOutcome::Failed(
+                    AppError::new(
+                        AppErrorKind::IoProcess,
+                        format!("Failed to open editor: {error}"),
+                    )
+                    .with_source(error),
+                );
+            }
+        };
+        let wait = |child: &mut std::process::Child| loop {
+            match child.wait() {
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                result => break result,
+            }
+        };
+        let status = match wait(&mut child) {
+            Ok(status) => status,
+            Err(error) => {
+                let kill = child.kill();
+                let reap = wait(&mut child);
+                match reap {
+                    Ok(_) => {}
+                    Err(reap) => {
+                        // Ownership cannot be released while the child may still be live.
+                        // Abort rather than clean its file or re-arm with an unconfirmed reap.
+                        eprintln!(
+                            "Update editor ownership invariant failed: wait={error}; kill={kill:?}; reap={reap}"
+                        );
+                        std::process::abort();
+                    }
+                }
+                return UpdateEditorOutcome::Failed(
+                    AppError::new(
+                        AppErrorKind::IoProcess,
+                        format!("Failed to wait for editor: {error}"),
+                    )
+                    .with_source(error),
+                );
+            }
+        };
+        if !status.success() {
+            return UpdateEditorOutcome::ChildFailed(status);
+        }
+        match fs::read(&temp.0) {
+            Ok(bytes) => UpdateEditorOutcome::Content(edited_body(&decode_file(&bytes))),
+            Err(error) => UpdateEditorOutcome::Failed(
+                AppError::new(
+                    AppErrorKind::IoProcess,
+                    format!("Failed to open editor: {error}"),
+                )
+                .with_source(error),
+            ),
+        }
+    })();
+    drop(temp);
+    #[cfg(unix)]
+    drop(guard);
+    Ok(result)
+}

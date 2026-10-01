@@ -1,0 +1,157 @@
+{
+  "id": "c036-name-or-slug-first",
+  "route": "linear project-update create",
+  "reason": "name-or-slug-first",
+  "argv": [
+    "project-update",
+    "create",
+    "Exact Name",
+    "--body",
+    "b"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "empty",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:{{fixturePort}}/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir",
+    "fixturePort"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 0
+    },
+    "stdout": {
+      "utf8": "Created status update for: Returned project %s 界\nHealth: atRisk\nhttps://example.invalid/project-update\n"
+    },
+    "stderr": {
+      "utf8": ""
+    },
+    "fileEffects": []
+  },
+  "deviation": {
+    "id": "R01H-GRAPHQL-UA",
+    "contract": "rust-3.0.0-alpha.1",
+    "sha256": "e91bb0b3e1c036505f2a452484e074ba79a7d639de75337380dad765c33d487e"
+  },
+  "graphql": {
+    "path": "/graphql",
+    "schemaSha256": "eef86b69c116d6adcb4f3659c29f9eb1407f84846f03cfda0b6096a80df3729a",
+    "expectedRequests": 2,
+    "initialRecords": {},
+    "expectedRecords": {
+      "ProjectUpdate:00000000-0000-4000-9000-000000000049": {
+        "input": {
+          "projectId": "00000000-0000-4000-9000-000000000036",
+          "body": "b"
+        }
+      }
+    },
+    "groups": [
+      {
+        "mode": "ordered",
+        "steps": [
+          {
+            "kind": "graphql",
+            "id": "name",
+            "operation": {
+              "document": "query GetProjectIdByName($name: String!) { projects(filter: { name: { eq: $name } }) { nodes { id } } }",
+              "variables": {
+                "name": "Exact Name"
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projects": {
+                  "nodes": [
+                    {
+                      "id": "00000000-0000-4000-9000-000000000036"
+                    }
+                  ]
+                }
+              }
+            },
+            "effects": []
+          },
+          {
+            "kind": "graphql",
+            "id": "create",
+            "operation": {
+              "document": "mutation CreateProjectUpdate($input: ProjectUpdateCreateInput!) { projectUpdateCreate(input: $input) { success projectUpdate { id body health url createdAt project { name slugId } } } }",
+              "variables": {
+                "input": {
+                  "projectId": "00000000-0000-4000-9000-000000000036",
+                  "body": "b"
+                }
+              }
+            },
+            "identity": {
+              "authorization": "lin_api_fake",
+              "userAgent": "schpet-linear-cli/2.6.0",
+              "headers": {}
+            },
+            "response": {
+              "kind": "data",
+              "data": {
+                "projectUpdateCreate": {
+                  "success": true,
+                  "projectUpdate": {
+                    "id": "00000000-0000-4000-9000-000000000049",
+                    "body": "Returned body ignored",
+                    "health": "atRisk",
+                    "url": "https://example.invalid/project-update",
+                    "createdAt": "2026-09-30T00:00:00Z",
+                    "project": {
+                      "name": "Returned project %s 界",
+                      "slugId": "d4b93e3b2695"
+                    }
+                  }
+                }
+              }
+            },
+            "effects": [
+              {
+                "kind": "put",
+                "record": "ProjectUpdate:00000000-0000-4000-9000-000000000049",
+                "before": {
+                  "absent": true
+                },
+                "after": {
+                  "input": {
+                    "projectId": "00000000-0000-4000-9000-000000000036",
+                    "body": "b"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

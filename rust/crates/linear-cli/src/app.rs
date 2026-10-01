@@ -401,8 +401,19 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
         },
         Some(cli::RootCommand::ProjectUpdate(action)) => match action.command {
             None => parent_help(context, "linear project-update"),
-            Some(cli::project_update::ProjectUpdateCommand::Create(_)) => {
-                unsupported("linear project-update create")
+            Some(cli::project_update::ProjectUpdateCommand::Create(action)) => {
+                dispatch_update_create(
+                    context,
+                    UpdateCreateAction {
+                        original: &action.project_id,
+                        body: action.body.as_deref(),
+                        file: action.body_file.as_deref(),
+                        health: action.health.as_deref(),
+                        interactive: action.interactive,
+                    },
+                    crate::commands::update_create::Mode::Project,
+                    workspace,
+                )
             }
             Some(cli::project_update::ProjectUpdateCommand::List(action)) => {
                 dispatch_project_update_list(context, &action, workspace)
@@ -514,8 +525,19 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
         },
         Some(cli::RootCommand::InitiativeUpdate(action)) => match action.command {
             None => parent_help(context, "linear initiative-update"),
-            Some(cli::initiative_update::InitiativeUpdateCommand::Create(_)) => {
-                unsupported("linear initiative-update create")
+            Some(cli::initiative_update::InitiativeUpdateCommand::Create(action)) => {
+                dispatch_update_create(
+                    context,
+                    UpdateCreateAction {
+                        original: &action.initiative_id,
+                        body: action.body.as_deref(),
+                        file: action.body_file.as_deref(),
+                        health: action.health.as_deref(),
+                        interactive: action.interactive,
+                    },
+                    crate::commands::update_create::Mode::Initiative,
+                    workspace,
+                )
             }
             Some(cli::initiative_update::InitiativeUpdateCommand::List(action)) => {
                 dispatch_initiative_update_list(context, &action, workspace)
@@ -5978,4 +6000,132 @@ fn dispatch_issue_archive_delete(
     let output = block_on_network(command::submit_single(&transport, &id, &details, mode))?;
     context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
     Ok(ExitStatus::Success)
+}
+
+struct UpdateCreateAction<'a> {
+    original: &'a str,
+    body: Option<&'a str>,
+    file: Option<&'a str>,
+    health: Option<&'a str>,
+    interactive: bool,
+}
+fn dispatch_update_create(
+    context: &mut AppContext<'_>,
+    action: UpdateCreateAction<'_>,
+    mode: crate::commands::update_create::Mode,
+    workspace: Option<&str>,
+) -> Result<ExitStatus, AppError> {
+    use crate::commands::update_create as command;
+    use crate::platform::prompt::PromptOutcome;
+    let result = (|| {
+        let interactive = command::attended(
+            action.interactive,
+            context.stdin_tty,
+            context.stdout_tty,
+            action.body,
+            action.file,
+            action.health,
+        )?;
+        // Approved explicit-i preflight precedes both clients. Otherwise source client-first.
+        let transport = relation_transport(context, workspace)?;
+        let (id, display) = {
+            let config = context.config()?;
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let scope = WorkspaceScope::from_selection(&inputs, credentials);
+            match mode {
+                command::Mode::Project => {
+                    let reference = prepare_project_lookup(action.original, &scope)?;
+                    (
+                        block_on_network(resolve_project_with_transport(
+                            &reference,
+                            action.original,
+                            &transport,
+                        ))?,
+                        None,
+                    )
+                }
+                command::Mode::Initiative => {
+                    let reference = initiative_view::prepare_reference(action.original, &scope)?;
+                    let id = block_on_network(command::initiative_id(
+                        &transport,
+                        &reference,
+                        action.original,
+                    ))?;
+                    let name = block_on_network(async {
+                        Ok(command::initiative_name(&transport, &id, action.original).await)
+                    })?;
+                    (id, Some(name))
+                }
+            }
+        };
+        let env = context.config()?.child_env.clone();
+        let root = std::env::temp_dir();
+        let fields = if interactive {
+            if let Some(name) = display {
+                context.write_stdout_with_policy(
+                    format!("\nCreating status update for: {name}\n\n").as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+            }
+            let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+            let prompted = command::prompt(&mut session, &mut *context.stderr, &env, &root, mode);
+            match session.finish_result(prompted)? {
+                PromptOutcome::Submitted(fields) => fields,
+                PromptOutcome::Interrupted => return initiative_interrupt_status(),
+                PromptOutcome::EndOfInput => {
+                    return Err(AppError::new(
+                        AppErrorKind::Validation,
+                        "unexpected EOF while prompting for status update",
+                    ));
+                }
+            }
+        } else {
+            let body = if let Some(body) = action.body.filter(|value| !value.is_empty()) {
+                Some(body.to_owned())
+            } else if let Some(path) = action.file.filter(|value| !value.is_empty()) {
+                Some(command::file(path, mode, false)?)
+            } else if !context.stdin_tty {
+                command::stdin_body(&mut std::io::stdin().lock())
+            } else if context.stdout_tty {
+                context.write_stdout_with_policy(
+                    format!("{}\n", mode.opening()).as_bytes(),
+                    OutputPolicy::ConsoleLike,
+                )?;
+                match command::edit(&env, &root, &mut *context.stderr)? {
+                    PromptOutcome::Submitted(body) => {
+                        if body.is_none() {
+                            context.write_stdout_with_policy(
+                                b"No content entered.\n",
+                                OutputPolicy::ConsoleLike,
+                            )?;
+                        }
+                        body
+                    }
+                    PromptOutcome::Interrupted => return initiative_interrupt_status(),
+                    PromptOutcome::EndOfInput => {
+                        return Err(AppError::new(
+                            AppErrorKind::Invariant,
+                            "editor cannot return input EOF",
+                        ));
+                    }
+                }
+            } else {
+                None
+            };
+            command::Fields {
+                body,
+                health: command::Health::parse(action.health, mode)?,
+            }
+        };
+        let pending = command::create(&transport, &id, fields, mode);
+        let output = if mode == command::Mode::Project && interactive {
+            block_on_network(pending)
+        } else {
+            document_fetch_with_spinner(context, false, pending)
+        }?;
+        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
+        Ok(ExitStatus::Success)
+    })();
+    result.map_err(|error: AppError| error.with_context(mode.context()))
 }

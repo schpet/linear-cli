@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "caseId": "c036-inline-wins-json-raw",
+  "deviationId": "CLAP-NATIVE-CLI-SURFACE",
+  "contract": "rust-3.0.0-alpha.1",
+  "approvedSurfaces": [
+    "stdout",
+    "stderr"
+  ],
+  "candidate": {
+    "expected": {
+      "exit": {
+        "code": 2
+      },
+      "stdout": {
+        "utf8": ""
+      },
+      "stderr": {
+        "utf8": "error: unexpected argument '--json' found\n\n  tip: to pass '--json' as a value, use '-- --json'\n\nUsage: linear project-update create --body <body> --body-file <path> <projectId>\n\nFor more information, try '--help'.\n"
+      },
+      "fileEffects": []
+    }
+  }
+}

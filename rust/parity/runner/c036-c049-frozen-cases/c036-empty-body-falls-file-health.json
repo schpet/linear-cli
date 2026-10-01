@@ -1,0 +1,56 @@
+{
+  "id": "c036-empty-body-falls-file-health",
+  "route": "linear project-update create",
+  "reason": "Source parser rejection before client/API, retained initial overexpected fixture failure; not inline/file success",
+  "argv": [
+    "project-update",
+    "create",
+    "00000000-0000-4000-9000-000000000036",
+    "--body",
+    "",
+    "--body-file",
+    "empty.md",
+    "--health",
+    "offTrack"
+  ],
+  "stdin": {
+    "utf8": ""
+  },
+  "cwdFixture": "update-create-body",
+  "env": {
+    "HOME": "{{home}}",
+    "XDG_CONFIG_HOME": "{{configHome}}",
+    "APPDATA": "{{configHome}}",
+    "PATH": "{{bin}}",
+    "DENO_DIR": "{{denoDir}}",
+    "TZ": "UTC",
+    "LANG": "C.UTF-8",
+    "LINEAR_IGNORE_ENV_FILE": "1",
+    "NO_COLOR": "1",
+    "LINEAR_API_KEY": "lin_api_fake",
+    "LINEAR_GRAPHQL_ENDPOINT": "http://127.0.0.1:1/graphql"
+  },
+  "substitutions": [
+    "home",
+    "configHome",
+    "bin",
+    "denoDir"
+  ],
+  "timeoutMs": 15000,
+  "outputCapBytes": 65536,
+  "fixtureServer": null,
+  "expected": {
+    "exit": {
+      "code": 2
+    },
+    "stdout": {
+      "utf8": "\nUsage:   linear project-update create <projectId>\nVersion: 2.6.0                                   \n\nDescription:\n\n  Create a new status update for a project                                        \n                                                                                  \n  Linear Markdown: a plain Linear URL creates a mention; `@name`, `@[Name](id)`,  \n  and `[Name](url)` do not. Get a person's URL from the `url` field of            \n  `linear team members <TEAM> --json`, or an issue's from `linear issue url <ID>`.\n  Run `linear markdown` for collapsible sections and the full reference.          \n\nOptions:\n\n  -h, --help                   - Show this help.                                    \n  --workspace        <slug>    - Target workspace (uses credentials)                \n  --body             <body>    - Update content (inline)                            \n  --body-file        <path>    - Read content from file                             \n  --health           <health>  - Project health status (onTrack, atRisk, offTrack)  \n  -i, --interactive            - Interactive mode with prompts                      \n\n"
+    },
+    "stderr": {
+      "utf8": "  error: Missing value for option \"--body\".\n\n"
+    },
+    "fileEffects": []
+  },
+  "deviation": null,
+  "graphql": null
+}
