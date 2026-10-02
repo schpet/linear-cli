@@ -502,12 +502,9 @@ pub async fn assignee_filter(
     }))
 }
 fn issue_write_query_ending<V>(
-    mut request: GraphQlRequest<V>,
-    terminal_lf: bool,
+    request: GraphQlRequest<V>,
+    _terminal_lf: bool,
 ) -> GraphQlRequest<V> {
-    if !terminal_lf {
-        request.query = crate::graphql::source_query::printed_builtin(&request.query);
-    }
     request
 }
 pub async fn project_id(

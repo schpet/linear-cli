@@ -23,5 +23,4 @@ pub mod bulk_error;
 pub mod schema_defaults;
 pub mod schema_introspection;
 
-pub mod source_query;
 pub(crate) mod source_response;
