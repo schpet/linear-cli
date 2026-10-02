@@ -97,3 +97,73 @@ fn list_reports_graphql_errors() {
         .failure()
         .stderr_has("Rate limited");
 }
+
+#[test]
+fn list_text_shows_member_details_and_markers() {
+    let api = MockLinear::start();
+    let mut rich = member("rich", "Rich Person", true);
+    rich["displayName"] = json!("");
+    rich["description"] = json!("Engineer");
+    rich["timezone"] = json!("America/Los_Angeles");
+    rich["statusEmoji"] = json!("🌿");
+    rich["statusLabel"] = json!("Away");
+    rich["guest"] = json!(true);
+    rich["isAssignable"] = json!(false);
+    rich["admin"] = json!(true);
+    rich["owner"] = json!(true);
+    rich["isMe"] = json!(true);
+    api.on(
+        "GetOrganizationMembers",
+        members(vec![rich], Value::Null, false),
+    );
+    let run = Cli::for_api(&api).run(&["user", "list"]);
+    run.success();
+    assert_eq!(
+        run.stdout,
+        "Workspace Members (1):\n\nRich Person [XX] (guest) (not assignable) (admin) (owner) (you)\n  Email: rich@example.com\n  Role: Engineer\n  Timezone: America/Los_Angeles\n  Status: 🌿 Away\n\n"
+    );
+}
+
+#[test]
+fn list_text_explains_empty_and_all_inactive_results() {
+    let api = MockLinear::start();
+    api.on(
+        "GetOrganizationMembers",
+        members(vec![], Value::Null, false),
+    )
+    .on(
+        "GetOrganizationMembers",
+        members(vec![member("old", "Old Timer", false)], Value::Null, false),
+    );
+    let cli = Cli::for_api(&api);
+    cli.run(&["user", "list"])
+        .success()
+        .stdout_has("No members found in this workspace.");
+    cli.run(&["user", "list"])
+        .success()
+        .stdout_has("Use --all to include inactive members.");
+}
+
+#[test]
+fn list_fails_when_the_cursor_does_not_advance() {
+    let api = MockLinear::start();
+    api.on(
+        "GetOrganizationMembers",
+        members(
+            vec![member("ada", "Ada Lovelace", true)],
+            json!("same"),
+            true,
+        ),
+    )
+    .on(
+        "GetOrganizationMembers",
+        members(
+            vec![member("ada", "Ada Lovelace", true)],
+            json!("same"),
+            true,
+        ),
+    );
+    let run = Cli::for_api(&api).run(&["user", "list"]);
+    run.failure().stderr_has("did not advance the page cursor");
+    assert!(run.stdout.is_empty());
+}

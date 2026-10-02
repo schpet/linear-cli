@@ -22,7 +22,6 @@ mod relative_time;
 mod template_json;
 mod template_list;
 mod template_view;
-mod user_list;
 
 mod initiative_unarchive;
 
