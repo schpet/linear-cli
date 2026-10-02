@@ -18,6 +18,7 @@ mod issue_vcs;
 mod issue_write;
 mod label;
 mod milestone;
+mod misc;
 mod project;
 mod status_update;
 mod team;
