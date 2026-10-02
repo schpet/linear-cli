@@ -325,10 +325,10 @@ fn poisoned_candidate_and_endpoint_error_are_explicit() {
 fn warning_templates_have_exact_color_bytes() {
     let diagnostic = ConfigDiagnostic {
         path: PathBuf::from("/work/.env"),
-        reason: DiagnosticReason::SkippedExpansion(vec!["LINEAR_TEAM_ID".to_owned()]),
+        reason: DiagnosticReason::InvalidLines(vec!["LINEAR_TEAM_ID".to_owned()]),
     };
-    let body = "Warning: Ignoring LINEAR_TEAM_ID in /work/.env: the value references a shell variable, which linear does not expand.";
-    let suggestion = "  Write the literal value, or set the variable in your environment instead.";
+    let body = "Warning: Ignoring LINEAR_TEAM_ID in /work/.env: the line could not be parsed.";
+    let suggestion = "  Check for an unclosed quote or a malformed KEY=value line.";
     assert_eq!(
         render_diagnostic(&diagnostic, true),
         format!("\x1b[33m{body}\x1b[39m\n\x1b[90m{suggestion}\x1b[39m\n")
@@ -416,10 +416,10 @@ fn binary_config_validation_precedes_parser_usage() {
 #[test]
 fn binary_warning_color_and_offline_version_are_exact() {
     let tree = BinaryTree::new();
-    tree.file("cwd/.env", b"LINEAR_TEAM_ID=$TEAM\n");
+    tree.file("cwd/.env", b"LINEAR_TEAM_ID='unterminated\n");
     let diagnostic = ConfigDiagnostic {
         path: tree.path("cwd/.env"),
-        reason: DiagnosticReason::SkippedExpansion(vec!["LINEAR_TEAM_ID".to_owned()]),
+        reason: DiagnosticReason::InvalidLines(vec!["LINEAR_TEAM_ID".to_owned()]),
     };
     for (value, color) in [(None, true), (Some(""), true), (Some("1"), false)] {
         let mut command = tree.command();

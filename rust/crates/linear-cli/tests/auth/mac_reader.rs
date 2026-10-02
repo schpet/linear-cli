@@ -12,7 +12,7 @@ fn reader(sandbox: &Sandbox) -> ProcessKeyringReader {
 }
 
 #[test]
-fn mac_flavor_has_exact_argv_null_stdin_and_trims_output() {
+fn mac_flavor_has_exact_argv_null_stdin_and_strips_surrounding_whitespace() {
     let sandbox = Sandbox::new(
         "printf '%s\\n' \"$@\" > \"$TRACE\"; if IFS= read -r line; then exit 8; fi; printf '\\357\\273\\277 \\tdummy_mac\\r\\n'",
     );

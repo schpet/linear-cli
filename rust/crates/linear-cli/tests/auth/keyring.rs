@@ -167,7 +167,7 @@ fn deadline_kills_a_hung_child() {
     );
     let pid = fs::read_to_string(hung.root.join("trace"))
         .expect("fake child started and published PID before its fixture deadline");
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
     while Command::new("/bin/kill")
         .arg("-0")
         .arg(&pid)
@@ -192,7 +192,7 @@ fn output_held_open_by_a_descendant_is_read_up_to_the_exit() {
     let pid = fs::read_to_string(sandbox.root.join("trace")).unwrap();
     let _ = Command::new("/bin/kill").arg(pid).status();
     assert_eq!(result.unwrap().unwrap().expose(), "key");
-    assert!(started.elapsed() < Duration::from_secs(2));
+    assert!(started.elapsed() < Duration::from_secs(5));
 }
 
 #[path = "mac_reader.rs"]

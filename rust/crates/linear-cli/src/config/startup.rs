@@ -317,21 +317,13 @@ pub fn render_diagnostic(diagnostic: &ConfigDiagnostic, color: bool) -> String {
             ),
             "  Set LINEAR_IGNORE_ENV_FILE=1 to skip .env loading entirely.",
         ),
-        DiagnosticReason::SkippedExpansion(keys) => (
+        DiagnosticReason::InvalidLines(keys) => (
             format!(
-                "Warning: Ignoring {} in {}: the value references a shell variable, which linear does not expand.",
+                "Warning: Ignoring {} in {}: the line could not be parsed.",
                 keys.join(", "),
                 diagnostic.path.display()
             ),
-            "  Write the literal value, or set the variable in your environment instead.",
-        ),
-        DiagnosticReason::UnterminatedQuote(keys) => (
-            format!(
-                "Warning: Ignoring {} in {}: the value opens a quote it never closes on the same line.",
-                keys.join(", "),
-                diagnostic.path.display()
-            ),
-            "  linear does not support values that span multiple lines.",
+            "  Check for an unclosed quote or a malformed KEY=value line.",
         ),
     };
     if color {

@@ -125,7 +125,7 @@ fn stderr_write_failure_is_not_reported_recursively() {
     context.startup.diagnostics = vec![linear_cli::startup::AppStartupDiagnostic::Config(
         linear_cli::config::ConfigDiagnostic {
             path: std::env::temp_dir().join(".env"),
-            reason: linear_cli::config::DiagnosticReason::SkippedExpansion(vec![
+            reason: linear_cli::config::DiagnosticReason::InvalidLines(vec![
                 "LINEAR_TEAM_ID".to_owned(),
             ]),
         },

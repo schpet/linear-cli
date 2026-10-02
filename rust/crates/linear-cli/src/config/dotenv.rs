@@ -7,8 +7,8 @@ use super::source::{ConfigInputs, FileKind, FileSource, MAX_CONFIG_BYTES, absent
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DiagnosticReason {
     Unusable(String),
-    SkippedExpansion(Vec<String>),
-    UnterminatedQuote(Vec<String>),
+    /// Lines for these keys could not be parsed.
+    InvalidLines(Vec<String>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -94,150 +94,57 @@ fn read_env(files: &impl FileSource, path: &Path) -> Result<EnvFile, ConfigFailu
     }
 }
 
-/// Splits `KEY=value` (optionally prefixed with `export`) and keeps only the
-/// keys this program reads.
-fn assignment(line: &str) -> Option<(&str, &str)> {
-    let line = line.trim_start();
-    let line = line
-        .strip_prefix("export")
-        .filter(|rest| rest.starts_with([' ', '\t']))
-        .map_or(line, str::trim_start);
-    let (key, raw) = line.split_once('=')?;
-    let key = key.trim_end();
-    let mut chars = key.chars();
-    let first = chars.next()?;
-    if !(first.is_ascii_alphabetic() || first == '_')
-        || !chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
-    {
-        return None;
-    }
-    if !["LINEAR_", "GH_", "GITHUB_"]
+/// Only these variables are read from `.env` files.
+fn admitted(key: &str) -> bool {
+    ["LINEAR_", "GH_", "GITHUB_"]
         .iter()
         .any(|prefix| key.starts_with(prefix))
-    {
-        return None;
-    }
-    Some((key, raw))
 }
 
-/// Whether `value` contains `$NAME` or `${...}`, which this parser does not
-/// expand. `\$` is a literal dollar sign.
-fn references_variable(value: &str) -> bool {
-    let mut chars = value.chars().peekable();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\\' => {
-                chars.next();
-            }
-            '$' => {
-                if chars
-                    .peek()
-                    .is_some_and(|next| *next == '{' || *next == '_' || next.is_ascii_alphabetic())
-                {
-                    return true;
-                }
-            }
-            _ => {}
-        }
-    }
-    false
+/// The key a line that failed to parse was meant to set, if any.
+fn intended_key(line: &str) -> Option<&str> {
+    let line = line.trim_start();
+    let line = line.strip_prefix("export ").unwrap_or(line);
+    let (key, _) = line.split_once('=')?;
+    Some(key.trim())
 }
 
-enum Value {
-    Parsed(String),
-    Expansion,
-    Unterminated,
-}
-
-fn parse_value(raw: &str) -> Value {
-    let value = raw.trim();
-    if let Some(rest) = value.strip_prefix('\'') {
-        return match rest.split_once('\'') {
-            Some((literal, _)) => Value::Parsed(literal.to_owned()),
-            None => Value::Unterminated,
-        };
-    }
-    if let Some(rest) = value.strip_prefix('"') {
-        let mut parsed = String::new();
-        let mut chars = rest.chars();
-        while let Some(ch) = chars.next() {
-            match ch {
-                '"' => {
-                    return if references_variable(rest) {
-                        Value::Expansion
-                    } else {
-                        Value::Parsed(parsed)
-                    };
-                }
-                '\\' => match chars.next() {
-                    Some('n') => parsed.push('\n'),
-                    Some('r') => parsed.push('\r'),
-                    Some('t') => parsed.push('\t'),
-                    Some(other) => parsed.push(other),
-                    None => return Value::Unterminated,
-                },
-                other => parsed.push(other),
-            }
-        }
-        return Value::Unterminated;
-    }
-    // An unquoted value ends at a ` #` comment.
-    let unquoted = value
-        .find(" #")
-        .or_else(|| value.find("\t#"))
-        .map_or(value, |end| value.get(..end).unwrap_or(value))
-        .trim_end();
-    if references_variable(unquoted) {
-        Value::Expansion
-    } else {
-        Value::Parsed(unquoted.to_owned())
-    }
-}
-
+/// Parses a `.env` file with dotenvy (which expands `$VAR` references) and
+/// keeps the admitted keys the process environment does not already set.
 fn parse_selected(
     text: &str,
     process_env: &BTreeMap<String, String>,
     path: &Path,
 ) -> (BTreeMap<String, String>, Vec<ConfigDiagnostic>) {
-    let mut parsed = BTreeMap::new();
-    let mut expansion = Vec::new();
-    let mut unterminated = Vec::new();
+    let mut applied = BTreeMap::new();
+    let mut invalid = Vec::new();
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    for line in text.lines() {
-        if line.trim_start().starts_with('#') {
-            continue;
-        }
-        let Some((key, raw)) = assignment(line) else {
-            continue;
-        };
-        match parse_value(raw) {
-            Value::Parsed(value) => {
-                parsed.insert(key.to_owned(), value);
+    for item in dotenvy::from_read_iter(text.as_bytes()) {
+        match item {
+            Ok((key, value)) => {
+                if admitted(&key) && !process_env.contains_key(&key) {
+                    applied.insert(key, value);
+                }
             }
-            Value::Expansion => expansion.push(key.to_owned()),
-            Value::Unterminated => unterminated.push(key.to_owned()),
+            Err(dotenvy::Error::LineParse(line, _)) => {
+                if let Some(key) = intended_key(&line).filter(|key| admitted(key)) {
+                    invalid.push(key.to_owned());
+                }
+            }
+            // Reading from memory cannot fail, and failed substitutions
+            // expand to an empty string rather than an error.
+            Err(error) => invalid.push(format!("(unreadable line: {error})")),
         }
     }
-    let applied = parsed
-        .into_iter()
-        .filter(|(key, _)| !process_env.contains_key(key))
-        .collect::<BTreeMap<_, _>>();
-    let warnable = |key: &String| !process_env.contains_key(key) && !applied.contains_key(key);
-    expansion.retain(warnable);
-    unterminated.retain(warnable);
-    let mut diagnostics = Vec::new();
-    if !expansion.is_empty() {
-        diagnostics.push(ConfigDiagnostic {
+    invalid.retain(|key| !process_env.contains_key(key) && !applied.contains_key(key));
+    let diagnostics = if invalid.is_empty() {
+        Vec::new()
+    } else {
+        vec![ConfigDiagnostic {
             path: path.to_owned(),
-            reason: DiagnosticReason::SkippedExpansion(expansion),
-        });
-    }
-    if !unterminated.is_empty() {
-        diagnostics.push(ConfigDiagnostic {
-            path: path.to_owned(),
-            reason: DiagnosticReason::UnterminatedQuote(unterminated),
-        });
-    }
+            reason: DiagnosticReason::InvalidLines(invalid),
+        }]
+    };
     (applied, diagnostics)
 }
 

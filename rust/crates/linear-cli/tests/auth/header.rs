@@ -3,7 +3,7 @@ use linear_cli::config::ConfigSecret;
 use linear_cli::graphql::transport::ApiKeyError;
 
 #[test]
-fn header_conversion_trims_http_edges_but_preserves_secret() {
+fn header_conversion_drops_surrounding_whitespace_but_preserves_secret() {
     let secret = ConfigSecret::new(" \t\r\nlin_api_fake\n ".to_owned());
     to_api_key(&secret).expect("header");
     assert_eq!(secret.expose(), " \t\r\nlin_api_fake\n ");

@@ -17,7 +17,7 @@ fn applied<'a>(selected: &'a SelectedEnv, key: &str) -> Option<&'a str> {
 }
 
 #[test]
-fn values_follow_common_dotenv_quoting() {
+fn values_follow_dotenv_quoting_and_substitution() {
     let tree = TempTree::new();
     tree.write(
         ".env",
@@ -27,17 +27,16 @@ LINEAR_A=last
 LINEAR_B="hello\nworld"
 LINEAR_C='$WORD'
 LINEAR_D=
-LINEAR_E=plain value # trailing comment
-LINEAR_F=$SKIP
-LINEAR_G='oops
+LINEAR_E=plain # trailing comment
+LINEAR_F=${LINEAR_UNSET_FOR_TEST}
 LINEAR_H="a\"b"
 LINEAR_I="x\\n"
-LINEAR_J=${FOO}
-LINEAR_K="tab\tend"
 LINEAR_L='literal\n'
 LINEAR_M="cost \$5"
-LINEAR_N="$HOME/x"
+LINEAR_BASE=base
+LINEAR_N="${LINEAR_BASE}/x"
 LINEAR_O=a#b
+LINEAR_G='oops
 "#,
     );
     let selected = load(&tree, None);
@@ -45,28 +44,32 @@ LINEAR_O=a#b
     assert_eq!(applied(&selected, "LINEAR_B"), Some("hello\nworld"));
     assert_eq!(applied(&selected, "LINEAR_C"), Some("$WORD"));
     assert_eq!(applied(&selected, "LINEAR_D"), Some(""));
-    assert_eq!(applied(&selected, "LINEAR_E"), Some("plain value"));
+    assert_eq!(applied(&selected, "LINEAR_E"), Some("plain"));
+    assert_eq!(applied(&selected, "LINEAR_F"), Some(""));
     assert_eq!(applied(&selected, "LINEAR_H"), Some("a\"b"));
     assert_eq!(applied(&selected, "LINEAR_I"), Some("x\\n"));
-    assert_eq!(applied(&selected, "LINEAR_K"), Some("tab\tend"));
     assert_eq!(applied(&selected, "LINEAR_L"), Some("literal\\n"));
     assert_eq!(applied(&selected, "LINEAR_M"), Some("cost $5"));
+    assert_eq!(applied(&selected, "LINEAR_N"), Some("base/x"));
     assert_eq!(applied(&selected, "LINEAR_O"), Some("a#b"));
+    assert_eq!(applied(&selected, "LINEAR_G"), None);
     assert_eq!(
         selected
             .diagnostics
             .iter()
             .map(|d| &d.reason)
             .collect::<Vec<_>>(),
-        [
-            &DiagnosticReason::SkippedExpansion(vec![
-                "LINEAR_F".to_owned(),
-                "LINEAR_J".to_owned(),
-                "LINEAR_N".to_owned(),
-            ]),
-            &DiagnosticReason::UnterminatedQuote(vec!["LINEAR_G".to_owned()]),
-        ]
+        [&DiagnosticReason::InvalidLines(vec!["LINEAR_G".to_owned()])]
     );
+}
+
+#[test]
+fn quoted_values_may_span_lines() {
+    let tree = TempTree::new();
+    tree.write(".env", b"LINEAR_A=\"one\ntwo\"\nLINEAR_B=after\n");
+    let selected = load(&tree, None);
+    assert_eq!(applied(&selected, "LINEAR_A"), Some("one\ntwo"));
+    assert_eq!(applied(&selected, "LINEAR_B"), Some("after"));
 }
 
 #[test]
@@ -87,7 +90,10 @@ fn only_linear_and_github_keys_are_read_and_export_is_allowed() {
 #[test]
 fn process_environment_wins_even_when_empty() {
     let tree = TempTree::new();
-    tree.write(".env", b"LINEAR_TEAM_ID=FROM_FILE\nLINEAR_SKIP=$EXPAND\n");
+    tree.write(
+        ".env",
+        b"LINEAR_TEAM_ID=FROM_FILE\nLINEAR_SKIP='unterminated\n",
+    );
     let mut inputs = tree.inputs();
     inputs
         .process_env
