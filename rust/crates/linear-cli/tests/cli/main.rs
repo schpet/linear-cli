@@ -8,5 +8,6 @@ mod auth;
 mod config;
 mod cycle;
 mod harness;
+mod issue_read;
 mod project;
 mod team;
