@@ -32,12 +32,18 @@ struct JsonConnection<'a> {
     page_info: &'a teams::PageInfo,
 }
 
-/// A web/app request deliberately ignores the inherited CLI workspace flag.
-/// The frozen command calls `getOption("workspace")` without the parsed value.
-pub fn web_opening(options: &ConfigOptions, app: bool) -> Result<(String, Vec<u8>), AppError> {
-    let workspace = options
-        .workspace()
-        .map(|resolved| resolved.value().as_str())
+/// The team settings URL for `--workspace`, or else the configured workspace.
+pub fn web_opening(
+    cli_workspace: Option<&str>,
+    options: &ConfigOptions,
+    app: bool,
+) -> Result<(String, Vec<u8>), AppError> {
+    let workspace = cli_workspace
+        .or_else(|| {
+            options
+                .workspace()
+                .map(|resolved| resolved.value().as_str())
+        })
         .filter(|workspace| !workspace.is_empty())
         .ok_or_else(|| {
             AppError::new(

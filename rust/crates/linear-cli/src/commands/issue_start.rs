@@ -78,7 +78,7 @@ pub async fn list(
     filter: IssueFilter,
     priority: bool,
 ) -> Result<Vec<GetIssuesForStateIssuesNodes>, AppError> {
-    issue_read::mine_with_requests(transport, filter, priority, 0.0, list_request).await
+    issue_read::mine_with_requests(transport, filter, priority, None, list_request).await
 }
 pub fn choices(
     issues: &[GetIssuesForStateIssuesNodes],

@@ -96,8 +96,8 @@ pub struct IssueMine {
     pub milestone: Option<String>,
     #[arg(long = "label", short = 'l', help = "Filter by label name (can be repeated for multiple labels)", value_name = "label", value_parser = super::nonempty_string)]
     pub label: Vec<String>,
-    #[arg(long = "limit", help = "Maximum number of issues to fetch (default: 50, use 0 for unlimited)", value_name = "limit", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true, default_value = "50")]
-    pub limit: f64,
+    #[arg(long = "limit", help = "Maximum number of issues to fetch (default: 50, use 0 for unlimited)", value_name = "limit", value_parser = super::numeric::issue_limit, default_value = "50")]
+    pub limit: super::numeric::IssueLimit,
     #[arg(long = "created-after", help = "Filter issues created after this date (ISO 8601 or YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]
     pub created_after: Option<String>,
     #[arg(long = "updated-after", help = "Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]
@@ -172,8 +172,8 @@ pub struct IssueQuery {
     pub milestone: Option<String>,
     #[arg(long = "label", short = 'l', help = "Filter by label name (can be repeated for multiple labels)", value_name = "label", value_parser = super::nonempty_string)]
     pub label: Vec<String>,
-    #[arg(long = "limit", help = "Maximum number of issues to fetch (default: 50, use 0 for unlimited)", value_name = "limit", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true, default_value = "50")]
-    pub limit: f64,
+    #[arg(long = "limit", help = "Maximum number of issues to fetch (default: 50, use 0 for unlimited)", value_name = "limit", value_parser = super::numeric::issue_limit, default_value = "50")]
+    pub limit: super::numeric::IssueLimit,
     #[arg(long = "created-after", help = "Filter issues created after this date (ISO 8601 or YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]
     pub created_after: Option<String>,
     #[arg(long = "updated-after", help = "Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)", value_name = "date", value_parser = super::nonempty_string)]

@@ -13,6 +13,7 @@ use chrono::{Datelike, FixedOffset, NaiveDate, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::{Serialize, de::DeserializeOwned};
 use std::collections::HashSet;
+use std::num::NonZeroU32;
 
 pub async fn exchange<T: DeserializeOwned, V: Serialize>(
     transport: &GraphQlTransport,
@@ -635,13 +636,24 @@ async fn milestone_id_query_ending(
         .map(|m| m.id.into_inner())
         .ok_or_else(|| AppError::not_found("Milestone", value))
 }
-fn first(value: f64) -> Result<i32, AppError> {
-    if value.fract() != 0.0 {
-        return Err(validation("Issue page size must be a GraphQL integer"));
+/// The page size to request: what is still wanted, capped at Linear's maximum of 100.
+fn page_size(limit: Option<NonZeroU32>, fetched: usize, unlimited: i32) -> i32 {
+    match limit {
+        None => unlimited,
+        Some(limit) => {
+            let remaining =
+                u64::from(limit.get()).saturating_sub(u64::try_from(fetched).unwrap_or(u64::MAX));
+            i32::try_from(remaining.min(100)).unwrap_or(100)
+        }
     }
-    value.to_string().parse().map_err(|e| {
-        validation("Issue page size is outside the GraphQL integer range").with_source(e)
-    })
+}
+fn reached(limit: Option<NonZeroU32>, fetched: usize) -> bool {
+    limit.is_some_and(|limit| usize::try_from(limit.get()).is_ok_and(|limit| fetched >= limit))
+}
+fn truncate_to<T>(rows: &mut Vec<T>, limit: Option<NonZeroU32>) {
+    if let Some(limit) = limit {
+        rows.truncate(usize::try_from(limit.get()).unwrap_or(usize::MAX));
+    }
 }
 fn next_cursor(next: Option<String>, seen: &mut HashSet<String>) -> Result<String, AppError> {
     let next = next.ok_or_else(|| {
@@ -652,37 +664,11 @@ fn next_cursor(next: Option<String>, seen: &mut HashSet<String>) -> Result<Strin
     }
     Ok(next)
 }
-fn length_number(length: usize) -> Result<f64, AppError> {
-    length.to_string().parse().map_err(|e| {
-        AppError::new(AppErrorKind::Invariant, "Could not represent issue count").with_source(e)
-    })
-}
-fn slice<T>(rows: &mut Vec<T>, limit: f64) -> Result<(), AppError> {
-    if limit == 0.0 {
-        return Ok(());
-    }
-    let len = length_number(rows.len())?;
-    let cutoff = if limit < 0.0 {
-        (len + limit).max(0.0)
-    } else {
-        limit.min(len)
-    }
-    .trunc();
-    let cutoff = cutoff.to_string().parse::<usize>().map_err(|e| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "Could not represent issue slice length",
-        )
-        .with_source(e)
-    })?;
-    rows.truncate(cutoff);
-    Ok(())
-}
 pub async fn mine(
     transport: &GraphQlTransport,
     filter: IssueFilter,
     priority: bool,
-    limit: f64,
+    limit: Option<NonZeroU32>,
 ) -> Result<Vec<GetIssuesForStateIssuesNodes>, AppError> {
     mine_with_requests(transport, filter, priority, limit, |variables| {
         GraphQlRequest::with_variables(GetIssuesForState::build(variables))
@@ -695,10 +681,10 @@ pub(crate) async fn mine_with_requests(
     transport: &GraphQlTransport,
     filter: IssueFilter,
     priority: bool,
-    limit: f64,
+    limit: Option<NonZeroU32>,
     mut request: impl FnMut(GetIssuesForStateVariables) -> GraphQlRequest<GetIssuesForStateVariables>,
 ) -> Result<Vec<GetIssuesForStateIssuesNodes>, AppError> {
-    let page_size = first(if limit == 0.0 { 50.0 } else { limit.min(100.0) })?;
+    let page_size = page_size(limit, 0, 50);
     let mut after = None;
     let mut seen = HashSet::new();
     let mut rows = vec![];
@@ -714,7 +700,7 @@ pub(crate) async fn mine_with_requests(
         )
         .await?;
         rows.extend(data.issues.nodes);
-        if limit != 0.0 && length_number(rows.len())? >= limit {
+        if reached(limit, rows.len()) {
             break;
         }
         if !data.issues.page_info.has_next_page {
@@ -722,7 +708,7 @@ pub(crate) async fn mine_with_requests(
         }
         after = Some(next_cursor(data.issues.page_info.end_cursor, &mut seen)?);
     }
-    slice(&mut rows, limit)?;
+    truncate_to(&mut rows, limit);
     sort_mine(&mut rows)?;
     Ok(rows)
 }
@@ -730,14 +716,10 @@ pub async fn query(
     transport: &GraphQlTransport,
     filter: Option<IssueFilter>,
     priority: bool,
-    limit: f64,
+    limit: Option<NonZeroU32>,
     archived: bool,
 ) -> Result<GetIssuesForQueryIssues, AppError> {
-    let size = first(if limit == 0.0 {
-        100.0
-    } else {
-        limit.min(100.0)
-    })?;
+    let size = page_size(limit, 0, 100);
     let mut after = None;
     let mut seen = HashSet::new();
     let mut rows = vec![];
@@ -755,12 +737,12 @@ pub async fn query(
         .await?;
         rows.extend(data.issues.nodes);
         let info = data.issues.page_info;
-        if (limit != 0.0 && length_number(rows.len())? >= limit) || !info.has_next_page {
+        if reached(limit, rows.len()) || !info.has_next_page {
             break info;
         }
         after = Some(next_cursor(info.end_cursor, &mut seen)?);
     };
-    slice(&mut rows, limit)?;
+    truncate_to(&mut rows, limit);
     sort_query(&mut rows)?;
     Ok(GetIssuesForQueryIssues {
         nodes: rows,
@@ -771,7 +753,7 @@ pub async fn search(
     transport: &GraphQlTransport,
     filter: Option<IssueFilter>,
     term: String,
-    limit: f64,
+    limit: Option<NonZeroU32>,
     archived: bool,
     comments: bool,
 ) -> Result<SearchIssuesSearchIssues, AppError> {
@@ -779,17 +761,12 @@ pub async fn search(
     let mut seen = HashSet::new();
     let mut rows = vec![];
     let (info, total) = loop {
-        let remaining = if limit == 0.0 {
-            100.0
-        } else {
-            (limit - length_number(rows.len())?).min(100.0)
-        };
         let data: SearchIssues = exchange(
             transport,
             &GraphQlRequest::with_variables(SearchIssues::build(SearchIssuesVariables {
                 term: term.clone(),
                 filter: filter.clone(),
-                first: Some(first(remaining)?),
+                first: Some(page_size(limit, rows.len(), 100)),
                 after: after.clone(),
                 include_archived: archived.then_some(true),
                 include_comments: comments.then_some(true),
@@ -799,7 +776,7 @@ pub async fn search(
         .await?;
         rows.extend(data.search_issues.nodes);
         let info = data.search_issues.page_info;
-        if (limit != 0.0 && length_number(rows.len())? >= limit) || !info.has_next_page {
+        if reached(limit, rows.len()) || !info.has_next_page {
             break (info, data.search_issues.total_count);
         }
         after = Some(next_cursor(info.end_cursor, &mut seen)?);

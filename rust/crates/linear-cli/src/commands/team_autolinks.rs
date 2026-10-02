@@ -8,11 +8,19 @@ use crate::error::{AppError, AppErrorKind};
 
 const CONTEXT: &str = "Failed to configure autolinks";
 
-pub fn execute(config: &StartupConfig, cwd: &Path) -> Result<(), AppError> {
-    execute_inner(config, cwd).map_err(|error| error.with_context(CONTEXT))
+pub fn execute(
+    config: &StartupConfig,
+    cli_workspace: Option<&str>,
+    cwd: &Path,
+) -> Result<(), AppError> {
+    execute_inner(config, cli_workspace, cwd).map_err(|error| error.with_context(CONTEXT))
 }
 
-fn execute_inner(config: &StartupConfig, cwd: &Path) -> Result<(), AppError> {
+fn execute_inner(
+    config: &StartupConfig,
+    cli_workspace: Option<&str>,
+    cwd: &Path,
+) -> Result<(), AppError> {
     let team = configured_team_key(&config.options).ok_or_else(|| {
         AppError::new(
             AppErrorKind::Validation,
@@ -20,11 +28,14 @@ fn execute_inner(config: &StartupConfig, cwd: &Path) -> Result<(), AppError> {
         )
         .with_suggestion("Run `linear config` to set a team.")
     })?;
-    // The source action does not pass the global CLI workspace to getOption.
-    let workspace = config
-        .options
-        .workspace()
-        .filter(|resolved| !resolved.value().is_empty())
+    let workspace = cli_workspace
+        .or_else(|| {
+            config
+                .options
+                .workspace()
+                .map(|resolved| resolved.value().as_str())
+        })
+        .filter(|workspace| !workspace.is_empty())
         .ok_or_else(|| {
             AppError::new(
                 AppErrorKind::Validation,
@@ -38,10 +49,7 @@ fn execute_inner(config: &StartupConfig, cwd: &Path) -> Result<(), AppError> {
             "-f".to_owned(),
             format!("key_prefix={team}-"),
             "-f".to_owned(),
-            format!(
-                "url_template=https://linear.app/{}/issue/{team}-<num>",
-                workspace.value()
-            ),
+            format!("url_template=https://linear.app/{workspace}/issue/{team}-<num>"),
         ])
         .current_dir(cwd)
         .envs(config.child_env.iter())

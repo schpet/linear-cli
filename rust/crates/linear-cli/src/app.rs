@@ -375,7 +375,11 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 dispatch_team_id(context, &action, workspace)
             }
             Some(cli::team::TeamCommand::Autolinks(_)) => {
-                crate::commands::team_autolinks::execute(context.config()?, &context.cwd)?;
+                crate::commands::team_autolinks::execute(
+                    context.config()?,
+                    workspace,
+                    &context.cwd,
+                )?;
                 Ok(ExitStatus::Success)
             }
             Some(cli::team::TeamCommand::Members(action)) => {
@@ -2915,7 +2919,8 @@ fn dispatch_team_list(
         app: action.app,
     };
     if flags.web || flags.app {
-        let (url, opening) = team_list::web_opening(&context.config()?.options, flags.app)?;
+        let (url, opening) =
+            team_list::web_opening(workspace, &context.config()?.options, flags.app)?;
         context.write_stdout_with_policy(&opening, OutputPolicy::ConsoleLike)?;
         team_list::open(&url, flags.app)?;
         return Ok(ExitStatus::Success);
@@ -6812,7 +6817,7 @@ fn dispatch_issue_mine(
                 action.created_after.as_deref(),
                 action.updated_after.as_deref(),
             )?;
-            command::mine(&transport, filter, priority, action.limit).await
+            command::mine(&transport, filter, priority, action.limit.0).await
         })?;
         let table = command::table(
             &rows
@@ -6878,9 +6883,6 @@ fn dispatch_issue_query(
             return Err(err("--sort cannot be used with --search").with_suggestion(
                 "Search results use relevance ordering. Remove --sort when using --search.",
             ));
-        }
-        if action.limit < 0.0 {
-            return Err(err("--limit must be 0 or greater"));
         }
         let default_team = if !action.all_teams && action.team.is_empty() {
             let team = configured_team_key(&context.config()?.options).ok_or_else(||err("No default team configured and no team scope provided").with_suggestion("Use --team <key, name, or ID> to specify a team, or --all-teams to query the whole workspace."))?;
@@ -7029,7 +7031,7 @@ fn dispatch_issue_query(
                     &transport,
                     filter,
                     term,
-                    action.limit,
+                    action.limit.0,
                     action.include_archived,
                     action.search_comments,
                 )
@@ -7056,7 +7058,7 @@ fn dispatch_issue_query(
                     &transport,
                     filter,
                     priority.ok_or_else(|| err("Missing issue sort"))?,
-                    action.limit,
+                    action.limit.0,
                     action.include_archived,
                 )
                 .await?;

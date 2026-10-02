@@ -111,12 +111,12 @@ fn success_preserves_shell_free_argv_cwd_binary_streams_and_exactly_one_effect()
     let sandbox = Sandbox::new();
     sandbox.gh("exit 0");
     let mut command = sandbox.configured();
-    command.args(["--workspace", "ignored-flag"]);
+    command.args(["--workspace", "flag-workspace"]);
     let output = run(command, b"\0\xffstdin\n");
     assert_eq!(output.status.code(), Some(0));
     assert_eq!(output.stdout, b"child stdout\xff\n");
     assert_eq!(output.stderr, b"child stderr\0\n");
-    assert_eq!(sandbox.read("argv.txt"), b"api\nrepos/{owner}/{repo}/autolinks\n-f\nkey_prefix=AB C-\n-f\nurl_template=https://linear.app/dummy-workspace/issue/AB C-<num>\n");
+    assert_eq!(sandbox.read("argv.txt"), b"api\nrepos/{owner}/{repo}/autolinks\n-f\nkey_prefix=AB C-\n-f\nurl_template=https://linear.app/flag-workspace/issue/AB C-<num>\n");
     assert_eq!(
         sandbox.read("cwd.txt"),
         format!("{}\n", sandbox.0.display()).as_bytes()

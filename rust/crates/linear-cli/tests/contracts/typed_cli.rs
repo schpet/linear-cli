@@ -305,7 +305,7 @@ fn collected_values_replace_defaults_and_retain_ordered_typed_payloads() {
         panic!()
     };
     assert_eq!(args.state, ["unstarted"]);
-    assert_eq!(args.limit, 50.0);
+    assert_eq!(args.limit.0.map(std::num::NonZeroU32::get), Some(50));
     assert!(args.sort.is_none() && args.label.is_empty() && !args.no_pager);
     let Some(RootCommand::Issue(group)) = parse(&[
         "issue",
@@ -405,5 +405,25 @@ fn issue_bulk_rejects_empty_values_before_action_but_retains_bare_and_literal_te
             };
             assert_eq!(actual, Some(expected));
         }
+    }
+}
+
+#[test]
+fn issue_list_limit_is_a_non_negative_integer_with_zero_for_no_limit() {
+    let limit = |value: &str| {
+        let words = ["issue", "query", "--limit", value];
+        let cli = cli::parse(&words.iter().map(Into::into).collect::<Vec<_>>())?;
+        let Some(RootCommand::Issue(group)) = cli.command else {
+            panic!()
+        };
+        let Some(cli::issue::IssueCommand::Query(args)) = group.command else {
+            panic!()
+        };
+        Ok::<_, linear_cli::error::AppError>(args.limit.0.map(std::num::NonZeroU32::get))
+    };
+    assert_eq!(limit("7").unwrap(), Some(7));
+    assert_eq!(limit("0").unwrap(), None);
+    for invalid in ["-1", "1.5", "1e2", ""] {
+        assert!(limit(invalid).is_err(), "{invalid}");
     }
 }
