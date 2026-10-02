@@ -1189,3 +1189,176 @@ pub fn project_menu_text(message: &str, labels: &[&str]) -> Result<(), Error> {
     }
     Ok(())
 }
+
+/// The team `reference` (a key, name, ID or URL) names.
+pub(super) fn resolve_team(
+    ctx: &crate::ctx::Ctx,
+    client: &GraphQlTransport,
+    reference: &str,
+) -> Result<crate::refs::ResolvedTeam, Error> {
+    let lookup = crate::refs::prepare_team_lookup(reference, &ctx.scope()?)?;
+    ctx.block_on(crate::refs::resolve_team(
+        &lookup,
+        |request| async move { exchange(client, &request).await },
+        |request| async move { exchange(client, &request).await },
+    ))
+}
+
+/// The project `--project` names. When no project matches exactly, a terminal
+/// user may pick one of the similarly named projects.
+pub(super) fn resolve_project(
+    ctx: &crate::ctx::Ctx,
+    client: &GraphQlTransport,
+    value: Option<&str>,
+) -> Result<Option<String>, Error> {
+    use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome};
+    let Some(value) = value else { return Ok(None) };
+    let reference = crate::refs::prepare_project_lookup(value, &ctx.scope()?)?;
+    if let Some(id) = ctx.block_on(project_id(client, &reference))? {
+        return Ok(Some(id));
+    }
+    let data: GetProjectIdOptionsByName = ctx.block_on(exchange(
+        client,
+        &GraphQlRequest::with_variables(GetProjectIdOptionsByName::build(
+            GetProjectIdOptionsByNameVariables {
+                name: value.to_owned(),
+            },
+        )),
+    ))?;
+    let mut rows: Vec<(String, String)> = vec![];
+    for row in data.projects.nodes {
+        match rows.iter_mut().find(|(id, _)| id == row.id.inner()) {
+            Some(existing) => existing.1 = row.name,
+            None => rows.push((row.id.into_inner(), row.name)),
+        }
+    }
+    let names = || {
+        rows.iter()
+            .map(|(_, name)| name.as_str())
+            .collect::<Vec<_>>()
+    };
+    match rows.as_slice() {
+        [] => return Err(Error::not_found("Project", value)),
+        _ if !ctx.stdin_tty() => {
+            return Err(Error::new(format!(
+                "Project \"{value}\" not found. Similar projects: {}",
+                names().join(", ")
+            )));
+        }
+        _ => {}
+    }
+    let single = rows.len() == 1;
+    let message = match rows.as_slice() {
+        [(_, name)] => format!(
+            "Project named {value} does not exist, but {name} exists. Is this what you meant?"
+        ),
+        _ => format!(
+            "Project with {value} does not exist, but the following exist. Is any of these what you meant?"
+        ),
+    };
+    let mut options = rows
+        .iter()
+        .enumerate()
+        .map(|(index, (_, name))| PlainOption {
+            label: if single {
+                "yes".to_owned()
+            } else {
+                name.clone()
+            },
+            value: index.to_string(),
+            script_token: index.to_string(),
+        })
+        .collect::<Vec<_>>();
+    options.push(PlainOption {
+        label: if single { "no" } else { "none of the above" }.to_owned(),
+        value: "none".to_owned(),
+        script_token: "none".to_owned(),
+    });
+    project_menu_text(
+        &message,
+        &options
+            .iter()
+            .map(|option| option.label.as_str())
+            .collect::<Vec<_>>(),
+    )?;
+    let mut session = ctx.prompts()?;
+    let selected = session.select(&PlainSelect {
+        message: &message,
+        options: &options,
+        default_index: 0,
+        default_hint: None,
+    });
+    match session.finish_result(selected)? {
+        PromptOutcome::Submitted(selected) if selected == "none" => Ok(None),
+        PromptOutcome::Submitted(selected) => {
+            let index: usize = selected.parse().expect("menu values are row indexes");
+            Ok(Some(
+                rows.get(index)
+                    .expect("menu values are row indexes")
+                    .0
+                    .clone(),
+            ))
+        }
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new("unexpected EOF while selecting project")),
+    }
+}
+
+/// The cycle `--cycle` names in the one team in scope.
+pub(super) fn resolve_cycle(
+    ctx: &crate::ctx::Ctx,
+    client: &GraphQlTransport,
+    value: Option<&str>,
+    team_key: Option<&str>,
+    team_id: Option<&str>,
+) -> Result<Option<String>, Error> {
+    let Some(value) = value else { return Ok(None) };
+    let team_id = match team_id {
+        Some(id) => id.to_owned(),
+        None => {
+            let key = team_key.ok_or_else(|| Error::new("--cycle requires a single team scope"))?;
+            resolve_team(ctx, client, key)?.id
+        }
+    };
+    let url = crate::refs::expect_url_kind(
+        value,
+        crate::refs::LinearUrlKind::Cycle,
+        "a cycle URL, number, or name",
+        &ctx.scope()?,
+    )?;
+    ctx.block_on(crate::commands::cycle::view::resolve_id_with(
+        &team_id,
+        value,
+        url.as_ref(),
+        |request| async move { exchange(client, &request).await },
+    ))
+    .map(Some)
+}
+
+/// Whether issues sort by priority: `--sort`, else the configured sort.
+pub(super) fn priority_sort(ctx: &crate::ctx::Ctx, sort: Option<crate::cli::Sort>) -> bool {
+    use crate::config::IssueSort;
+    let value = sort.map(|value| match value {
+        crate::cli::Sort::Manual => IssueSort::Manual,
+        crate::cli::Sort::Priority => IssueSort::Priority,
+    });
+    ctx.options().issue_sort(value).0 == IssueSort::Priority
+}
+
+/// Prints an issue table, through the pager on a terminal.
+pub(super) fn print_table(ctx: &crate::ctx::Ctx, table: &str, paging: bool) -> Result<(), Error> {
+    if ctx.stdout_tty() {
+        ctx.page(table, paging)
+    } else {
+        ctx.print(format!("{table}\n"))
+    }
+}
+
+/// The table width: the terminal's, or a fixed width when piped.
+pub(super) fn table_columns(ctx: &crate::ctx::Ctx) -> usize {
+    if ctx.stdout_tty() {
+        crate::platform::pager::stdout_size().map_or(80, |size| usize::from(size.columns))
+    } else {
+        120
+    }
+}

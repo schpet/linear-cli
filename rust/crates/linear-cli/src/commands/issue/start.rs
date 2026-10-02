@@ -1,8 +1,10 @@
 //! `issue start`: create or switch the VCS branch, then move the issue to a started state.
 use crate::{
-    commands::{issue_read, team_states},
-    config::ChildEnvOverlay,
-    error::{Error, ResultExt},
+    cli::issue::IssueStart,
+    commands::{issue::read as issue_read, team_key::configured_team_key, team_states},
+    config::{ChildEnvOverlay, Vcs},
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
     graphql::{
         bulk_error::{self, ObservedExchangeFailure, SourceExceptionKind},
         envelope::GraphQlRequest,
@@ -16,12 +18,133 @@ use crate::{
     platform::{
         prompt::{PlainOption, PlainSelect, PromptOutcome},
         selector::SelectOption,
-        vcs_script::{CommandSpec, ProcessRunner, Program, decoded_trim},
+        vcs_script::{CommandSpec, NativeProcessRunner, ProcessRunner, Program, decoded_trim},
     },
+    refs::{IssueReference, prepare_issue_reference},
 };
 use cynic::{MutationBuilder, QueryBuilder};
 use std::{io::Write, path::Path};
-pub const CONTEXT: &str = "Failed to start issue";
+pub fn run(ctx: &Ctx, args: &IssueStart) -> Result<()> {
+    start(ctx, args).context("Failed to start issue")
+}
+
+fn start(ctx: &Ctx, args: &IssueStart) -> Result<()> {
+    let team = configured_team_key(ctx.options());
+    let team = team_and_flags(team.as_deref(), args.all_assignees, args.unassigned)?;
+    // Start never infers the issue from the VCS: without one it offers a picker.
+    let identifier = match args.issue_id.as_deref().filter(|value| !value.is_empty()) {
+        Some(input) => match prepare_issue_reference(Some(input), Some(team), &ctx.scope()?)? {
+            IssueReference::Identifier(identifier) => Some(identifier),
+            IssueReference::Unresolved => None,
+            IssueReference::Inferred => unreachable!("a given reference is never inferred"),
+        },
+        None => None,
+    };
+    let identifier = match identifier {
+        Some(identifier) => identifier,
+        None => pick(ctx, team, args)?,
+    };
+    work_on(
+        ctx,
+        &identifier,
+        team,
+        args.branch.as_deref(),
+        args.from_ref.as_deref(),
+    )
+}
+
+/// Asks which of the team's unstarted issues to start.
+fn pick(ctx: &Ctx, team: &str, args: &IssueStart) -> Result<String> {
+    ctx.require_tty("an issue ID")?;
+    let priority = ctx.options().issue_sort(None).0 == crate::config::IssueSort::Priority;
+    let client = ctx.client()?;
+    let issues = ctx.spin(
+        true,
+        list(
+            client,
+            filter(team, args.all_assignees, args.unassigned),
+            priority,
+        ),
+    )?;
+    let options = choices(&issues, team)?;
+    let mut session = ctx.prompts()?;
+    let picked = session.searchable_select_with_no_match(
+        "Select an issue to start:",
+        "Search issues",
+        &options,
+        "no issues match submitted search query",
+    );
+    match stage(session.finish_result(picked)?, "issue to start")? {
+        PromptOutcome::Submitted(identifier) => Ok(identifier),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => unreachable!("stage reports end of input as an error"),
+    }
+}
+
+/// Switches the working copy to the issue (a git branch or a jj change), then
+/// moves the issue to a started state. The state change is best effort: the
+/// VCS work is already done and is never rolled back.
+pub(crate) fn work_on(
+    ctx: &Ctx,
+    identifier: &str,
+    team: &str,
+    branch: Option<&str>,
+    from_ref: Option<&str>,
+) -> Result<()> {
+    let client = ctx.client()?;
+    let details = ctx.spin(true, super::describe::fetch(client, identifier))?;
+    let mut runner = NativeProcessRunner;
+    let cwd = ctx.cwd();
+    let env = &ctx.config().child_env;
+    ctx.flush()?;
+    let output = match super::vcs(ctx) {
+        Vcs::Git => {
+            let branch = branch_name(branch, &details.branch_name);
+            let choice = if verify(&mut runner, branch, cwd, env)? {
+                Some(choose_existing(ctx, branch)?)
+            } else {
+                None
+            };
+            match choice {
+                Some(choice) => existing_git(&mut runner, choice, branch, from_ref, cwd, env)?,
+                None => create_branch(&mut runner, branch, from_ref, cwd, env)?,
+            }
+        }
+        Vcs::Jj => {
+            let mut stderr = std::io::stderr();
+            prepare_jj(&mut runner, cwd, env, &mut stderr)?;
+            describe_jj(
+                &mut runner,
+                identifier,
+                &details.title,
+                &details.url,
+                cwd,
+                env,
+                &mut stderr,
+            )?
+        }
+    };
+    ctx.print(output)?;
+    match ctx.spin(true, update_state(client, team, identifier)) {
+        Ok(output) => ctx.print(output),
+        Err(message) => ctx.eprint(format!("Failed to update issue state: {message}\n")),
+    }
+}
+
+fn choose_existing(ctx: &Ctx, branch: &str) -> Result<ExistingBranch> {
+    ctx.require_tty("--branch with a new name")?;
+    let choices = branch_options();
+    let message = crate::platform::prompt::escaped_display(&format!(
+        "Branch {branch} already exists. What would you like to do?"
+    ));
+    let mut session = ctx.prompts()?;
+    let answer = session.select(&branch_menu(&message, &choices));
+    match stage(session.finish_result(answer)?, "existing branch action")? {
+        PromptOutcome::Submitted(value) => existing_branch(&value),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => unreachable!("stage reports end of input as an error"),
+    }
+}
 pub fn team_and_flags(team: Option<&str>, all: bool, unassigned: bool) -> Result<&str, Error> {
     let team = team
         .filter(|value| !value.is_empty())
@@ -142,29 +265,6 @@ pub fn stage<T>(outcome: PromptOutcome<T>, name: &str) -> Result<PromptOutcome<T
         }
         outcome => Ok(outcome),
     }
-}
-pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), Error> {
-    if stdin_tty && stdout_fifo {
-        return Err(Error::new(
-            "issue start prompts require terminal or regular-file stdout when stdin is a terminal",
-        )
-        .with_hint(
-            "Run without piping stdout, or use a branch that does not require a selection.",
-        ));
-    }
-    Ok(())
-}
-#[cfg(unix)]
-pub fn stdout_is_fifo() -> Result<bool, Error> {
-    use rustix::fs::{FileType, fstat};
-    let stat = fstat(std::io::stdout()).map_err(|error| {
-        Error::new(format!("could not inspect stdout: {error}")).with_source(error)
-    })?;
-    Ok(FileType::from_raw_mode(stat.st_mode) == FileType::Fifo)
-}
-#[cfg(not(unix))]
-pub fn stdout_is_fifo() -> Result<bool, Error> {
-    Ok(false)
 }
 pub fn branch_name<'a>(custom: Option<&'a str>, returned: &'a str) -> &'a str {
     custom.filter(|value| !value.is_empty()).unwrap_or(returned)

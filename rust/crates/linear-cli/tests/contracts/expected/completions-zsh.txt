@@ -190,7 +190,7 @@ _arguments "${_arguments_options[@]}" : \
 '--sort=[Sort order (default\: priority, can also be set via LINEAR_ISSUE_SORT)]:sort:(manual priority)' \
 '--team=[Team key, name, or ID to list issues for (if not your default team)]:team:_default' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -199,7 +199,7 @@ _arguments "${_arguments_options[@]}" : \
 '--created-after=[Filter issues created after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--all-states[Show issues from all states]' \
+'(-s --state)--all-states[Show issues from all states]' \
 '-w[Open in web browser]' \
 '--web[Open in web browser]' \
 '-a[Open in Linear.app]' \
@@ -216,7 +216,7 @@ _arguments "${_arguments_options[@]}" : \
 '--sort=[Sort order (default\: priority, can also be set via LINEAR_ISSUE_SORT)]:sort:(manual priority)' \
 '--team=[Team key, name, or ID to list issues for (if not your default team)]:team:_default' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -225,7 +225,7 @@ _arguments "${_arguments_options[@]}" : \
 '--created-after=[Filter issues created after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--all-states[Show issues from all states]' \
+'(-s --state)--all-states[Show issues from all states]' \
 '-w[Open in web browser]' \
 '--web[Open in web browser]' \
 '-a[Open in Linear.app]' \
@@ -242,7 +242,7 @@ _arguments "${_arguments_options[@]}" : \
 '--sort=[Sort order (default\: priority, can also be set via LINEAR_ISSUE_SORT)]:sort:(manual priority)' \
 '--team=[Team key, name, or ID to list issues for (if not your default team)]:team:_default' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -251,7 +251,7 @@ _arguments "${_arguments_options[@]}" : \
 '--created-after=[Filter issues created after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--all-states[Show issues from all states]' \
+'(-s --state)--all-states[Show issues from all states]' \
 '-w[Open in web browser]' \
 '--web[Open in web browser]' \
 '-a[Open in Linear.app]' \
@@ -268,9 +268,9 @@ _arguments "${_arguments_options[@]}" : \
 '*-s+[Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)]:state:_default' \
 '*--state=[Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)]:state:_default' \
 '--assignee=[Filter by assignee (username)]:assignee:_default' \
-'--sort=[Sort order\: manual or priority (default\: priority, not available with --search)]:sort:(manual priority)' \
+'(--search)--sort=[Sort order\: manual or priority (default\: priority, not available with --search)]:sort:(manual priority)' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -280,12 +280,12 @@ _arguments "${_arguments_options[@]}" : \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '--search-comments[Also search inside issue comments (requires --search)]' \
-'--all-teams[Query across all teams]' \
-'--all-states[Show issues from all states (this is the default)]' \
-'-A[Show issues for all assignees (this is the default)]' \
-'--all-assignees[Show issues for all assignees (this is the default)]' \
-'-U[Show only unassigned issues]' \
-'--unassigned[Show only unassigned issues]' \
+'(--team)--all-teams[Query across all teams]' \
+'(-s --state)--all-states[Show issues from all states (this is the default)]' \
+'(--assignee -U --unassigned)-A[Show issues for all assignees (this is the default)]' \
+'(--assignee -U --unassigned)--all-assignees[Show issues for all assignees (this is the default)]' \
+'(--assignee)-U[Show only unassigned issues]' \
+'(--assignee)--unassigned[Show only unassigned issues]' \
 '--include-archived[Include archived issues]' \
 '-j[Output results as JSON]' \
 '--json[Output results as JSON]' \
@@ -301,9 +301,9 @@ _arguments "${_arguments_options[@]}" : \
 '*-s+[Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)]:state:_default' \
 '*--state=[Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)]:state:_default' \
 '--assignee=[Filter by assignee (username)]:assignee:_default' \
-'--sort=[Sort order\: manual or priority (default\: priority, not available with --search)]:sort:(manual priority)' \
+'(--search)--sort=[Sort order\: manual or priority (default\: priority, not available with --search)]:sort:(manual priority)' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -313,12 +313,12 @@ _arguments "${_arguments_options[@]}" : \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '--search-comments[Also search inside issue comments (requires --search)]' \
-'--all-teams[Query across all teams]' \
-'--all-states[Show issues from all states (this is the default)]' \
-'-A[Show issues for all assignees (this is the default)]' \
-'--all-assignees[Show issues for all assignees (this is the default)]' \
-'-U[Show only unassigned issues]' \
-'--unassigned[Show only unassigned issues]' \
+'(--team)--all-teams[Query across all teams]' \
+'(-s --state)--all-states[Show issues from all states (this is the default)]' \
+'(--assignee -U --unassigned)-A[Show issues for all assignees (this is the default)]' \
+'(--assignee -U --unassigned)--all-assignees[Show issues for all assignees (this is the default)]' \
+'(--assignee)-U[Show only unassigned issues]' \
+'(--assignee)--unassigned[Show only unassigned issues]' \
 '--include-archived[Include archived issues]' \
 '-j[Output results as JSON]' \
 '--json[Output results as JSON]' \
@@ -1084,7 +1084,7 @@ _arguments "${_arguments_options[@]}" : \
 '--sort=[Sort order (default\: priority, can also be set via LINEAR_ISSUE_SORT)]:sort:(manual priority)' \
 '--team=[Team key, name, or ID to list issues for (if not your default team)]:team:_default' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -1093,7 +1093,7 @@ _arguments "${_arguments_options[@]}" : \
 '--created-after=[Filter issues created after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--all-states[Show issues from all states]' \
+'(-s --state)--all-states[Show issues from all states]' \
 '-w[Open in web browser]' \
 '--web[Open in web browser]' \
 '-a[Open in Linear.app]' \
@@ -1110,7 +1110,7 @@ _arguments "${_arguments_options[@]}" : \
 '--sort=[Sort order (default\: priority, can also be set via LINEAR_ISSUE_SORT)]:sort:(manual priority)' \
 '--team=[Team key, name, or ID to list issues for (if not your default team)]:team:_default' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -1119,7 +1119,7 @@ _arguments "${_arguments_options[@]}" : \
 '--created-after=[Filter issues created after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--all-states[Show issues from all states]' \
+'(-s --state)--all-states[Show issues from all states]' \
 '-w[Open in web browser]' \
 '--web[Open in web browser]' \
 '-a[Open in Linear.app]' \
@@ -1136,7 +1136,7 @@ _arguments "${_arguments_options[@]}" : \
 '--sort=[Sort order (default\: priority, can also be set via LINEAR_ISSUE_SORT)]:sort:(manual priority)' \
 '--team=[Team key, name, or ID to list issues for (if not your default team)]:team:_default' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -1145,7 +1145,7 @@ _arguments "${_arguments_options[@]}" : \
 '--created-after=[Filter issues created after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--all-states[Show issues from all states]' \
+'(-s --state)--all-states[Show issues from all states]' \
 '-w[Open in web browser]' \
 '--web[Open in web browser]' \
 '-a[Open in Linear.app]' \
@@ -1162,9 +1162,9 @@ _arguments "${_arguments_options[@]}" : \
 '*-s+[Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)]:state:_default' \
 '*--state=[Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)]:state:_default' \
 '--assignee=[Filter by assignee (username)]:assignee:_default' \
-'--sort=[Sort order\: manual or priority (default\: priority, not available with --search)]:sort:(manual priority)' \
+'(--search)--sort=[Sort order\: manual or priority (default\: priority, not available with --search)]:sort:(manual priority)' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -1174,12 +1174,12 @@ _arguments "${_arguments_options[@]}" : \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '--search-comments[Also search inside issue comments (requires --search)]' \
-'--all-teams[Query across all teams]' \
-'--all-states[Show issues from all states (this is the default)]' \
-'-A[Show issues for all assignees (this is the default)]' \
-'--all-assignees[Show issues for all assignees (this is the default)]' \
-'-U[Show only unassigned issues]' \
-'--unassigned[Show only unassigned issues]' \
+'(--team)--all-teams[Query across all teams]' \
+'(-s --state)--all-states[Show issues from all states (this is the default)]' \
+'(--assignee -U --unassigned)-A[Show issues for all assignees (this is the default)]' \
+'(--assignee -U --unassigned)--all-assignees[Show issues for all assignees (this is the default)]' \
+'(--assignee)-U[Show only unassigned issues]' \
+'(--assignee)--unassigned[Show only unassigned issues]' \
 '--include-archived[Include archived issues]' \
 '-j[Output results as JSON]' \
 '--json[Output results as JSON]' \
@@ -1195,9 +1195,9 @@ _arguments "${_arguments_options[@]}" : \
 '*-s+[Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)]:state:_default' \
 '*--state=[Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)]:state:_default' \
 '--assignee=[Filter by assignee (username)]:assignee:_default' \
-'--sort=[Sort order\: manual or priority (default\: priority, not available with --search)]:sort:(manual priority)' \
+'(--search)--sort=[Sort order\: manual or priority (default\: priority, not available with --search)]:sort:(manual priority)' \
 '--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
+'(--project --milestone)--project-label=[Filter by project label name (shows issues from all projects with this label)]:projectLabel:_default' \
 '--cycle=[Filter by cycle name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1]:cycle:_default' \
 '--milestone=[Filter by project milestone (UUID, or name when --project is set)]:milestone:_default' \
 '*-l+[Filter by label name (can be repeated for multiple labels)]:label:_default' \
@@ -1207,12 +1207,12 @@ _arguments "${_arguments_options[@]}" : \
 '--updated-after=[Filter issues updated after this date (ISO 8601 or YYYY-MM-DD)]:date:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '--search-comments[Also search inside issue comments (requires --search)]' \
-'--all-teams[Query across all teams]' \
-'--all-states[Show issues from all states (this is the default)]' \
-'-A[Show issues for all assignees (this is the default)]' \
-'--all-assignees[Show issues for all assignees (this is the default)]' \
-'-U[Show only unassigned issues]' \
-'--unassigned[Show only unassigned issues]' \
+'(--team)--all-teams[Query across all teams]' \
+'(-s --state)--all-states[Show issues from all states (this is the default)]' \
+'(--assignee -U --unassigned)-A[Show issues for all assignees (this is the default)]' \
+'(--assignee -U --unassigned)--all-assignees[Show issues for all assignees (this is the default)]' \
+'(--assignee)-U[Show only unassigned issues]' \
+'(--assignee)--unassigned[Show only unassigned issues]' \
 '--include-archived[Include archived issues]' \
 '-j[Output results as JSON]' \
 '--json[Output results as JSON]' \

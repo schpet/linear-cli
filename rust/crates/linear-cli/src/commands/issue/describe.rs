@@ -1,14 +1,30 @@
-//! Full typed issue read and exact plaintext description.
+//! `issue describe`: a commit message for an issue, with Linear trailers.
 use crate::{
-    commands::issue_details,
-    error::Error,
+    cli::issue::IssueDescribe,
+    commands::issue::details,
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
     graphql::{
         bulk_error::{self, ObservedExchangeFailure},
         operations::issue_details::{GetIssueDetails, IssueDetails},
         transport::GraphQlTransport,
     },
 };
-pub const CONTEXT: &str = "Failed to get issue description";
+pub fn run(ctx: &Ctx, args: &IssueDescribe) -> Result<()> {
+    describe(ctx, args).context("Failed to get issue description")
+}
+
+fn describe(ctx: &Ctx, args: &IssueDescribe) -> Result<()> {
+    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let client = ctx.client()?;
+    let detail = ctx.spin(true, fetch(client, &identifier))?;
+    ctx.print(format(
+        &identifier,
+        &detail.title,
+        &detail.url,
+        args.references,
+    ))
+}
 pub fn exchange_failure(failure: ObservedExchangeFailure) -> Error {
     match failure {
         ObservedExchangeFailure::Strict(error) => error,
@@ -18,7 +34,7 @@ pub fn exchange_failure(failure: ObservedExchangeFailure) -> Error {
     }
 }
 pub async fn fetch(transport: &GraphQlTransport, identifier: &str) -> Result<IssueDetails, Error> {
-    let mut request = issue_details::request(identifier.to_owned());
+    let mut request = details::request(identifier.to_owned());
     request.query = request.query.trim_end_matches('\n').to_owned();
     let response: GetIssueDetails = bulk_error::execute_observed(transport, &request)
         .await

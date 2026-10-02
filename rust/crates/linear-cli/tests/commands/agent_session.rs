@@ -1,7 +1,7 @@
 use chrono::{TimeZone, Utc};
 use linear_cli::cli::issue::{IssueAgentSessionCommand, IssueCommand};
 use linear_cli::cli::{AgentSessionStatus, RootCommand};
-use linear_cli::commands::agent_session;
+use linear_cli::commands::issue::agent_session;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::agent_session::{
     AgentActivityContent, GetAgentSessionDetails, GetIssueAgentSessions,

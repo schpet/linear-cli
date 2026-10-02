@@ -21,7 +21,9 @@ impl Spinner {
         Self { running: None }
     }
 
-    pub fn start() -> Self {
+    /// Draws frames followed by `message` until dropped.
+    pub fn start(message: &str) -> Self {
+        let message = message.to_owned();
         let (stop, stopped) = mpsc::channel::<()>();
         let handle = thread::spawn(move || {
             if !matches!(stopped.recv_timeout(DELAY), Err(RecvTimeoutError::Timeout)) {
@@ -31,7 +33,7 @@ impl Spinner {
             for frame in FRAMES.iter().cycle() {
                 let mut stderr = io::stderr().lock();
                 // A spinner frame that cannot be drawn is not worth reporting.
-                let _ignored = write!(stderr, "\r{frame} ").and_then(|()| stderr.flush());
+                let _ignored = write!(stderr, "\r{frame} {message}").and_then(|()| stderr.flush());
                 drawn = true;
                 drop(stderr);
                 if !matches!(stopped.recv_timeout(TICK), Err(RecvTimeoutError::Timeout)) {

@@ -1,6 +1,9 @@
-//! `issue view`: the issue as Markdown with comment threads, or JSON.
+//! `issue view`: the issue as Markdown with comment threads, or JSON, or
+//! opened in Linear.
 use crate::{
-    error::Error,
+    cli::issue::IssueView,
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
     graphql::{envelope::GraphQlRequest, operations::issue_read::*, transport::GraphQlTransport},
     platform::{
         markdown_assets, markdown_ast, markdown_serializer,
@@ -13,6 +16,79 @@ use std::{
     collections::{HashMap, HashSet},
     path::Path,
 };
+pub fn run(ctx: &Ctx, args: &IssueView) -> Result<()> {
+    view(ctx, args).context("Failed to view issue")
+}
+
+fn view(ctx: &Ctx, args: &IssueView) -> Result<()> {
+    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    if args.web || args.app {
+        return ctx.open_in_linear(&format!("issue/{identifier}"), args.app);
+    }
+    let client = ctx.client()?;
+    let fetched = ctx.spin(!args.json, fetch(client, identifier, !args.no_comments))?;
+    if args.json {
+        return ctx.print(format!("{}\n", fetched.json()?));
+    }
+    let options = ctx.options();
+    let download = !args.no_download && options.download_images().is_none_or(|v| *v.value());
+    let attachments = download
+        && options
+            .auto_download_attachments()
+            .is_none_or(|v| *v.value());
+    let image_root = &ctx.config().image_cache_root;
+    let mut issue = fetched.into_issue();
+    if download {
+        ctx.block_on(download_images(client, &mut issue, image_root, |bytes| {
+            ctx.eprint(bytes)
+        }))?;
+    }
+    let paths = if attachments {
+        let attachment_root = options
+            .attachment_dir()
+            .map(|v| v.value().clone())
+            .filter(|dir| !dir.is_empty())
+            .unwrap_or_else(|| {
+                markdown_assets::posix_join(&[
+                    image_root.parent().and_then(Path::to_str).unwrap_or("/tmp"),
+                    "linear-cli-attachments",
+                ])
+            });
+        ctx.block_on(download_attachments(
+            client,
+            &issue,
+            &attachment_root,
+            |bytes| ctx.eprint(bytes),
+        ))?
+    } else {
+        HashMap::new()
+    };
+    let now = Utc::now();
+    if !ctx.stdout_tty() {
+        let markdown = markdown(&issue, &paths, args.show_resolved_threads, now)?;
+        return ctx.print(format!("{markdown}\n"));
+    }
+    let columns = crate::platform::pager::stdout_size()
+        .and_then(|size| std::num::NonZeroU16::new(size.columns))
+        .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
+    let hyperlinks = options.hyperlink_format().map(|v| v.value().as_str());
+    let render = RenderOptions::for_terminal(
+        columns,
+        ctx.color(),
+        hyperlinks,
+        markdown_terminal::HostSource::System,
+    );
+    let rendered = terminal(
+        &issue,
+        &paths,
+        args.show_resolved_threads,
+        now,
+        &render,
+        true,
+    )?;
+    ctx.page(&rendered, !args.no_pager)
+}
+
 pub type Issue = GetIssueDetailsWithCommentsIssue;
 pub type Comment = GetIssueDetailsWithCommentsIssueCommentsNodes;
 pub enum Fetched {
@@ -58,24 +134,25 @@ pub async fn fetch(
     id: String,
     comments: bool,
 ) -> Result<Fetched, Error> {
+    let missing = || Error::not_found("Issue", &id);
     if comments {
-        let data: GetIssueDetailsWithComments = super::issue_read::exchange(
+        let data: GetIssueDetailsWithComments = super::read::exchange(
             transport,
             &GraphQlRequest::with_variables(GetIssueDetailsWithComments::build(
-                GetIssueDetailsWithCommentsVariables { id },
+                GetIssueDetailsWithCommentsVariables { id: id.clone() },
             )),
         )
         .await?;
-        Ok(Fetched::With(data.issue))
+        Ok(Fetched::With(data.issue.ok_or_else(missing)?))
     } else {
-        let data: GetIssueDetails = super::issue_read::exchange(
+        let data: GetIssueDetails = super::read::exchange(
             transport,
             &GraphQlRequest::with_variables(GetIssueDetails::build(GetIssueDetailsVariables {
-                id,
+                id: id.clone(),
             })),
         )
         .await?;
-        Ok(Fetched::Without(data.issue))
+        Ok(Fetched::Without(data.issue.ok_or_else(missing)?))
     }
 }
 pub async fn download_images<E>(
@@ -222,10 +299,7 @@ fn documents(issue: &Issue) -> String {
 fn body(issue: &Issue) -> Result<String, Error> {
     let mut parts = vec![
         format!("**State:** {}", issue.state.name),
-        format!(
-            "**Priority:** {}",
-            super::issue_read::priority(issue.priority)
-        ),
+        format!("**Priority:** {}", super::read::priority(issue.priority)),
         format!(
             "**Assignee:** {}",
             issue
@@ -242,10 +316,8 @@ fn body(issue: &Issue) -> Result<String, Error> {
         parts.push(format!("**Milestone:** {}", m.name));
     }
     if let Some(c) = &issue.cycle {
-        let (short, _) = super::issue_read::cycle_short(
-            Some(c),
-            issue.team.active_cycle.as_ref().map(|c| c.number),
-        );
+        let (short, _) =
+            super::read::cycle_short(Some(c), issue.team.active_cycle.as_ref().map(|c| c.number));
         let label = format!(
             "#{}{}",
             c.number,
@@ -353,7 +425,7 @@ fn author(c: &Comment) -> &str {
         .unwrap_or("Unknown")
 }
 fn date(c: &Comment, now: DateTime<Utc>) -> String {
-    super::relative_time::format_relative_time(&c.created_at.0, now, &chrono::Local)
+    crate::commands::relative_time::format_relative_time(&c.created_at.0, now, &chrono::Local)
 }
 fn suffix(c: &Comment, links: bool) -> String {
     let text = format!("[thread: {}]", c.id.inner());

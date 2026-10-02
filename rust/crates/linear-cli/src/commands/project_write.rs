@@ -370,10 +370,10 @@ pub async fn template(
             }
             Err(error) => return Err(Error::from(error)),
         };
-        super::issue_template_scope::assert_scope(
+        super::issue::template_scope::assert_scope(
             &data.template,
             team_ids,
-            super::issue_template_scope::TemplateScope::Project,
+            super::issue::template_scope::TemplateScope::Project,
         )?;
         data.template
     } else {

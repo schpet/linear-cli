@@ -51,3 +51,16 @@ impl<'a> Loaded<'a> {
         })
     }
 }
+
+/// A fresh API client for the `--workspace`. Migrated commands use `Ctx::client`.
+pub fn relation_transport(
+    ctx: &crate::ctx::Ctx,
+    workspace: Option<&str>,
+) -> Result<crate::graphql::transport::GraphQlTransport> {
+    crate::commands::client::prepare_transport(
+        ctx.options(),
+        ctx.credentials()?,
+        workspace,
+        &ctx.config().transport_env,
+    )
+}

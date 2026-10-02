@@ -1,7 +1,8 @@
 //! `issue relation`: add, delete and list relations between issues.
-use crate::cli::issue::RelationType;
-use crate::commands::issue_id;
-use crate::error::Error;
+use crate::cli::issue::{IssueRelationAdd, IssueRelationDelete, IssueRelationList, RelationType};
+use crate::commands::issue::id;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_relations::{
     ApiRelationType, CreateIssueRelation, CreateVariables, DeleteIssueRelation, DeleteVariables,
@@ -10,9 +11,44 @@ use crate::graphql::operations::issue_relations::{
 use crate::graphql::transport::GraphQlTransport;
 use cynic::{MutationBuilder, QueryBuilder};
 
-pub const LIST_CONTEXT: &str = "Failed to list relations";
-pub const ADD_CONTEXT: &str = "Failed to create relation";
-pub const DELETE_CONTEXT: &str = "Failed to delete relation";
+pub fn list(ctx: &Ctx, args: &IssueRelationList) -> Result<()> {
+    print_list(ctx, args).context("Failed to list relations")
+}
+
+pub fn add(ctx: &Ctx, args: &IssueRelationAdd) -> Result<()> {
+    print_add(ctx, args).context("Failed to create relation")
+}
+
+pub fn delete(ctx: &Ctx, args: &IssueRelationDelete) -> Result<()> {
+    print_delete(ctx, args).context("Failed to delete relation")
+}
+
+fn print_list(ctx: &Ctx, args: &IssueRelationList) -> Result<()> {
+    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let client = ctx.client()?;
+    ctx.print(ctx.spin(true, fetch_list(client, &identifier))?)
+}
+
+fn print_add(ctx: &Ctx, args: &IssueRelationAdd) -> Result<()> {
+    let (a, b) = pair(ctx, &args.issue_id, &args.related_issue_id)?;
+    let client = ctx.client()?;
+    ctx.print(ctx.spin(true, create(client, args.relation_type, &a, &b))?)
+}
+
+fn print_delete(ctx: &Ctx, args: &IssueRelationDelete) -> Result<()> {
+    let (a, b) = pair(ctx, &args.issue_id, &args.related_issue_id)?;
+    let client = ctx.client()?;
+    ctx.print(ctx.spin(true, remove(client, args.relation_type, &a, &b))?)
+}
+
+/// Both identifiers, resolved before any request.
+fn pair(ctx: &Ctx, a: &str, b: &str) -> Result<(String, String)> {
+    let resolve = |input: &str| {
+        super::resolve(ctx, Some(input))?
+            .ok_or_else(|| Error::new(format!("Could not resolve issue identifier: {input}")))
+    };
+    Ok((resolve(a)?, resolve(b)?))
+}
 
 pub fn list_request(identifier: &str) -> GraphQlRequest<IssueVariables> {
     GraphQlRequest::with_variables(ListIssueRelations::build(IssueVariables {
@@ -84,11 +120,11 @@ pub fn list_output(issue: &ListedIssue) -> Vec<u8> {
     }
     text.into_bytes()
 }
-pub async fn list(transport: &GraphQlTransport, identifier: &str) -> Result<Vec<u8>, Error> {
+async fn fetch_list(transport: &GraphQlTransport, identifier: &str) -> Result<Vec<u8>> {
     let data: ListIssueRelations = transport
         .execute(&list_request(identifier))
         .await
-        .map_err(|failure| issue_id::lookup_error(failure, identifier))?;
+        .map_err(|failure| id::lookup_error(failure, identifier))?;
     Ok(list_output(&data.issue))
 }
 
@@ -98,12 +134,12 @@ async fn lookup_pair(
     a: &str,
     b: &str,
 ) -> Result<RelationInput, Error> {
-    let a_id = issue_id::fetch(transport, a).await?;
+    let a_id = id::fetch(transport, a).await?;
     // Even equal identifiers must be looked up twice, sequentially.
-    let b_id = issue_id::fetch(transport, b).await?;
+    let b_id = id::fetch(transport, b).await?;
     Ok(directional_input(kind, a_id, b_id))
 }
-pub async fn add(
+async fn create(
     transport: &GraphQlTransport,
     kind: RelationType,
     a: &str,
@@ -112,11 +148,11 @@ pub async fn add(
     let input = lookup_pair(transport, kind, a, b).await?;
     let data: CreateIssueRelation = transport.execute(&create_request(input)).await?;
     if !data.issue_relation_create.success {
-        return Err(Error::new(ADD_CONTEXT));
+        return Err(Error::new("Linear did not create the relation"));
     }
     Ok(format!("✓ Created relation: {a} {} {b}\n", kind.spelling()).into_bytes())
 }
-pub async fn delete(
+async fn remove(
     transport: &GraphQlTransport,
     kind: RelationType,
     a: &str,
@@ -143,7 +179,7 @@ pub async fn delete(
         .execute(&delete_request(relation.id.inner()))
         .await?;
     if !deleted.issue_relation_delete.success {
-        return Err(Error::new(DELETE_CONTEXT));
+        return Err(Error::new("Linear did not delete the relation"));
     }
     Ok(format!("✓ Deleted relation: {a} {} {b}\n", kind.spelling()).into_bytes())
 }

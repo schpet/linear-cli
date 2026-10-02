@@ -1,0 +1,28 @@
+//! `issue comment delete`: delete a comment by its UUID.
+use cynic::MutationBuilder;
+
+use crate::cli::issue::IssueCommentDelete;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
+use crate::graphql::envelope::GraphQlRequest;
+use crate::graphql::operations::comment_delete::{DeleteComment, DeleteCommentVariables};
+use crate::refs::{reject_comment_url, reject_linear_url};
+
+pub fn run(ctx: &Ctx, args: &IssueCommentDelete) -> Result<()> {
+    delete(ctx, args).context("Failed to delete comment")
+}
+
+fn delete(ctx: &Ctx, args: &IssueCommentDelete) -> Result<()> {
+    let id = &args.comment_id;
+    reject_comment_url(id)?;
+    reject_linear_url(id, "a comment UUID")?;
+    let client = ctx.client()?;
+    let request = GraphQlRequest::with_variables(DeleteComment::build(DeleteCommentVariables {
+        id: id.clone(),
+    }));
+    let result: DeleteComment = ctx.spin(true, client.execute(&request))?;
+    if !result.comment_delete.success {
+        return Err(Error::new("Linear did not delete the comment"));
+    }
+    ctx.print("✓ Comment deleted\n")
+}

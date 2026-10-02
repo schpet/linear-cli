@@ -611,10 +611,10 @@ fn query_validation_fails_before_any_request() {
         .stderr_has("--all-teams");
     let cli = cli.env("LINEAR_TEAM_ID", "ENG");
     cli.run(&["issue", "query", "--search-comments"])
-        .failure()
+        .usage_error()
         .stderr_has("--search");
     cli.run(&["issue", "query", "--search", "x", "--sort", "manual"])
-        .failure()
+        .usage_error()
         .stderr_has("--sort");
     assert!(api.requests().is_empty());
 }
@@ -718,4 +718,23 @@ fn view_reports_failed_image_downloads_and_keeps_the_url() {
         .success()
         .stdout_has(&url)
         .stderr_has(&url);
+}
+
+#[test]
+fn view_of_a_missing_issue_is_not_found() {
+    let api = MockLinear::start();
+    api.on("GetIssueDetailsWithComments", json!({ "issue": null }));
+    Cli::for_api(&api)
+        .run(&["issue", "view", "ENG-404", "--json"])
+        .failure()
+        .stderr_has("Issue not found: ENG-404");
+}
+
+#[test]
+fn list_limit_must_be_a_whole_number() {
+    for limit in ["-1", "1.5"] {
+        Cli::new()
+            .run(&["issue", "query", "--all-teams", "--limit", limit])
+            .usage_error();
+    }
 }

@@ -9,7 +9,6 @@ mod initiative_create;
 mod initiative_list;
 mod initiative_update_list;
 mod initiative_view;
-mod issue_comment_delete;
 mod label_create;
 mod label_delete;
 mod label_list;
@@ -35,16 +34,11 @@ mod user_list;
 
 mod initiative_unarchive;
 
-mod issue_link;
-mod issue_relations;
-
 mod agent_session;
 
 mod initiative_projects;
 
 mod initiative_bulk;
-
-mod issue_upload;
 
 mod document_reads;
 mod markdown_assets;
@@ -69,11 +63,7 @@ mod update_create;
 
 mod initiative_update;
 
-mod issue_comment_update;
-
 mod issue_read;
-
-mod issue_commits_describe;
 
 mod issue_start_pr;
 

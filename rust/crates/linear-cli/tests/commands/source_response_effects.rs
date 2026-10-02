@@ -1,5 +1,7 @@
 //! Response MIME failures preserve each source catch and already-sent effect stage.
-use linear_cli::commands::{initiative_bulk as bulk, initiative_view::Reference, issue_update};
+use linear_cli::commands::{
+    initiative_bulk as bulk, initiative_view::Reference, issue::update as issue_update,
+};
 use serde_json::{Value, json};
 const ID: &str = "00000000-0000-4000-8000-000000000001";
 const OTHER: &str = "00000000-0000-4000-8000-000000000002";

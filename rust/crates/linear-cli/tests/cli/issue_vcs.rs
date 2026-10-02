@@ -221,7 +221,6 @@ fn start_still_succeeds_when_the_state_update_fails() {
 fn start_with_jj_makes_a_new_described_change() {
     let api = MockLinear::start();
     api.on("GetIssueDetails", details())
-        .on("GetIssueDetails", details())
         .on("GetWorkflowStates", states())
         .on(
             "UpdateIssueState",

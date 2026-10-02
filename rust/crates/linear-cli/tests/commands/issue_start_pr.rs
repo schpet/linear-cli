@@ -1,6 +1,6 @@
 //! Public source command contracts; all processes, paths and responses are fake.
 use linear_cli::{
-    commands::{issue_pull_request as pr, issue_start as start},
+    commands::{issue::pull_request as pr, issue::start},
     config::{ChildEnvOverlay, FileKind, FileSource, OsFamily, ProcessEnvSnapshot},
     error::Error,
     graphql::{
@@ -253,13 +253,6 @@ fn state_chooses_lowest_started_with_stable_ties_and_raw_sdk_not_preferred() {
     );
 }
 #[test]
-fn mixed_output_refusal_is_stdin_tty_and_actual_fifo_only() {
-    assert!(start::check_prompt_topology(true, true).is_err());
-    for (stdin, fifo) in [(false, true), (true, false), (false, false)] {
-        assert!(start::check_prompt_topology(stdin, fifo).is_ok());
-    }
-}
-#[test]
 fn pr_body_and_argv_trim_template_end_and_keep_raw_values() {
     let args = pr::args(
         "ENG-1",
@@ -365,7 +358,7 @@ fn gh_non_success_is_handled_not_forwarded_and_has_no_retry() {
 fn start_list_full_wire_equals_original_source_in_filter_and_final_lf() {
     use linear_cli::graphql::operations::issue_read::GetIssuesForStateVariables;
     let request = start::list_request(GetIssuesForStateVariables {
-        sort: Some(linear_cli::commands::issue_read::sort_payload(true)),
+        sort: Some(linear_cli::commands::issue::read::sort_payload(true)),
         filter: start::filter("ENG", false, false),
         first: Some(50),
         after: None,

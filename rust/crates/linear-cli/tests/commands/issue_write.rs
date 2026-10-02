@@ -1,7 +1,8 @@
 use linear_cli::{
     commands::{
-        issue_create as create, issue_update as update,
-        issue_write::{
+        issue::create,
+        issue::update,
+        issue::write::{
             self as shared, AssignSelf, Backend, CreateSettings, Created, Label, Named, Parent,
             State, Team, Ui, Updated,
         },
@@ -171,7 +172,7 @@ impl Ui for Prompt {
         message: &str,
         options: &[Named],
         default: usize,
-        _: bool,
+        _: Option<linear_cli::commands::issue::write::Search>,
     ) -> Result<String, Error> {
         self.messages.push(message.into());
         self.menus.push((message.into(), options.to_vec()));
@@ -438,7 +439,7 @@ fn fallback_one_match_is_yes_no_multiple_has_none_and_no_matches_do_not_prompt()
 fn network(
     replies: Vec<serde_json::Value>,
 ) -> (
-    linear_cli::commands::issue_write_network::NetworkBackend,
+    linear_cli::commands::issue::write_network::NetworkBackend,
     std::thread::JoinHandle<Vec<serde_json::Value>>,
 ) {
     network_with_content_types(
@@ -451,7 +452,7 @@ fn network(
 pub(super) fn network_with_content_types(
     replies: Vec<(Option<&'static str>, String)>,
 ) -> (
-    linear_cli::commands::issue_write_network::NetworkBackend,
+    linear_cli::commands::issue::write_network::NetworkBackend,
     std::thread::JoinHandle<Vec<serde_json::Value>>,
 ) {
     use linear_cli::config::{ConfigInputs, ConfigOptions, OptionInputs, OsFamily, SelectedEnv};
@@ -474,7 +475,7 @@ pub(super) fn network_with_content_types(
     })
     .unwrap();
     (
-        linear_cli::commands::issue_write_network::NetworkBackend {
+        linear_cli::commands::issue::write_network::NetworkBackend {
             transport,
             options,
             cli_workspace: None,
@@ -599,7 +600,7 @@ async fn full_mutation_decode_precedes_false_null_and_preserves_raw_first_error(
 fn issue_and_project_templates_share_scope_rules_with_exact_project_regression() {
     use linear_cli::{
         commands::{
-            issue_template_scope::{self, TemplateScope},
+            issue::template_scope::{self as issue_template_scope, TemplateScope},
             project_write,
         },
         graphql::operations::templates::Template,
@@ -681,7 +682,7 @@ fn fallback_menu_dedupes_ids_in_order_and_declining_returns_none() {
 
 #[test]
 fn interactive_defaults_more_fields_discard_and_parent_null_suppresses_project_queries() {
-    use linear_cli::commands::issue_create_prompt;
+    use linear_cli::commands::issue::create_prompt as issue_create_prompt;
     for (next, expected_viewers) in [("submit", 1), ("more_fields", 2)] {
         let backend = Fake::default();
         let mut ui = Prompt {
@@ -782,7 +783,7 @@ fn blank_title_is_rejected_and_default_template_false_remains_explicit() {
     };
     let mut settings = settings();
     settings.assign_self = AssignSelf::Never;
-    let output = linear_cli::commands::issue_create_prompt::prompt(
+    let output = linear_cli::commands::issue::create_prompt::prompt(
         &Fake::default(),
         &mut ui,
         &settings,
@@ -1062,7 +1063,7 @@ async fn m2_shared_read_empty_project_name_uses_slug_and_keeps_query_lf() {
         json!({"data":{"projects":{"nodes":[{"id":"slug-id"}]}}}),
     ]);
     assert_eq!(
-        linear_cli::commands::issue_read::project_id(
+        linear_cli::commands::issue::read::project_id(
             &backend.transport,
             &linear_cli::refs::ProjectReference::NameOrSlug("Name".into())
         )
@@ -1084,7 +1085,7 @@ async fn m2_shared_read_empty_project_name_uses_slug_and_keeps_query_lf() {
 }
 #[test]
 fn m2_empty_initial_project_keeps_project_menu_and_priority_glyphs() {
-    use linear_cli::commands::issue_create_prompt;
+    use linear_cli::commands::issue::create_prompt as issue_create_prompt;
     for ask_project in [true, false] {
         let backend = Fake {
             empty_project: true,

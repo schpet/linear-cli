@@ -1,6 +1,6 @@
 //! Public process contracts with isolated fake executable fixtures.
 use linear_cli::{
-    commands::issue_commits,
+    commands::issue::commits as issue_commits,
     config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot, Vcs},
     error::Error,
     platform::vcs_script::{
@@ -88,7 +88,7 @@ fn child_exit_code_is_checked_and_signal_mapping_preserves_supported_status() {
             format!("Child exit code {code} is outside supported range 0..255")
         );
         assert_eq!(
-            error.context(issue_commits::CONTEXT).to_string(),
+            error.context("Failed to show commits").to_string(),
             format!(
                 "Failed to show commits: Child exit code {code} is outside supported range 0..255"
             )

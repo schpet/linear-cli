@@ -1,6 +1,6 @@
 use super::{
-    issue_create::{Input, Templates},
-    issue_write::{self as domain, Backend, Created, Label, Named, Parent, State, Team, Updated},
+    create::{Input, Templates},
+    write::{self as domain, Backend, Created, Label, Named, Parent, State, Team, Updated},
 };
 use crate::{
     config::ConfigOptions,
@@ -293,7 +293,7 @@ impl Backend for NetworkBackend {
         let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::prepare_project_lookup(&reference, &self.scope(&key))?;
         // The same project lookup as the issue read commands: exact-name ambiguity checks and slug fallback.
-        crate::commands::issue_read::project_id_without_terminal_lf(&self.transport, &prepared)
+        crate::commands::issue::read::project_id_without_terminal_lf(&self.transport, &prepared)
             .await
     }
     async fn project_options(&self, reference: String) -> Result<Vec<Named>, Error> {
@@ -369,7 +369,7 @@ impl Backend for NetworkBackend {
         Ok(sorted_names(rows))
     }
     async fn milestone(&self, project_id: String, reference: String) -> Result<String, Error> {
-        crate::commands::issue_read::milestone_id_without_terminal_lf(
+        crate::commands::issue::read::milestone_id_without_terminal_lf(
             &self.transport,
             &reference,
             Some(project_id.as_str()).filter(|project| !project.is_empty()),
@@ -396,7 +396,7 @@ impl Backend for NetworkBackend {
         let identifier = self.parent_reference(&reference).await?;
         // Object-only optional selected shape: reuse the already approved pattern,
         // but return its ID rather than committing the old strict GetIssueId model.
-        let request = crate::commands::issue_id::request(&identifier);
+        let request = crate::commands::issue::id::request(&identifier);
         let data: OptionalIssue = fetch(&self.transport, &request).await?;
         data.issue
             .and_then(|i| i.id)
@@ -531,7 +531,7 @@ impl<'de> serde::Deserialize<'de> for OptionalId {
 }
 impl Templates for NetworkBackend {
     async fn issue_template(&self, reference: String, team_id: String) -> Result<String, Error> {
-        use super::issue_template_scope::{self, TemplateScope};
+        use super::template_scope::{self, TemplateScope};
         use crate::graphql::operations::templates::{
             GetTemplate, GetTemplateVariables, GetTemplates,
         };
@@ -564,19 +564,14 @@ impl Templates for NetworkBackend {
                         return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
                     }
                     let template = other.map_err(Error::from)?.template;
-                    issue_template_scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
+                    template_scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
                     template
                 }
             }
         } else {
             let req = GraphQlRequest::without_variables(GetTemplates::build(()));
             let data: GetTemplates = fetch(&self.transport, &req).await?;
-            issue_template_scope::select(
-                &reference,
-                data.templates,
-                &team_ids,
-                TemplateScope::Issue,
-            )?
+            template_scope::select(&reference, data.templates, &team_ids, TemplateScope::Issue)?
         };
         Ok(template.id.into_inner())
     }

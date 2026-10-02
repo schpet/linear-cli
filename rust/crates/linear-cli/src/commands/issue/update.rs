@@ -1,8 +1,26 @@
-use super::issue_write::{self as shared, Backend};
+//! `issue update`: change an issue's fields.
+use super::write::{self as shared, Backend};
 use crate::{
-    error::Error,
+    cli::issue::IssueUpdate,
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
     graphql::{edit::Edit, operations::issue_update::IssueUpdateInput, scalars::TimelessDate},
 };
+
+pub fn run(ctx: &Ctx, args: &IssueUpdate) -> Result<()> {
+    update(ctx, args).context("Failed to update issue")
+}
+
+fn update(ctx: &Ctx, args: &IssueUpdate) -> Result<()> {
+    let fields = Fields::from(args);
+    let description = fields.local()?;
+    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let backend = super::create::backend(ctx)?;
+    let changes = ctx.spin(true, input(&backend, &identifier, &fields, description))?;
+    ctx.print(header(&identifier))?;
+    let issue = ctx.spin(true, backend.update(identifier, changes))?;
+    ctx.print(output(&issue))
+}
 #[derive(Clone, Debug, Default)]
 pub struct Fields {
     pub title: Option<String>,

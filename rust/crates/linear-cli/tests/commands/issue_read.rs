@@ -1,5 +1,5 @@
 use linear_cli::{
-    commands::{issue_read as read, issue_view as view},
+    commands::{issue::read, issue::view},
     graphql::{
         envelope::parse_response,
         operations::{
@@ -27,6 +27,7 @@ fn issue() -> view::Issue {
     parse_response::<GetIssueDetailsWithComments>(json!({"data":data(VIEW)}).to_string().as_bytes())
         .unwrap()
         .issue
+        .unwrap()
 }
 #[test]
 fn strict_date_accepts_only_complete_ascii_real_calendar_and_utc_milliseconds() {

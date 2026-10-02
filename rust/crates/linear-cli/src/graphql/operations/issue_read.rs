@@ -655,7 +655,7 @@ pub struct GetIssueDetailsIssue {
 #[serde(rename_all = "camelCase")]
 pub struct GetIssueDetails {
     #[arguments(id : $id)]
-    pub issue: GetIssueDetailsIssue,
+    pub issue: Option<GetIssueDetailsIssue>,
 }
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct GetIssueDetailsWithCommentsVariables {
@@ -733,7 +733,7 @@ pub struct GetIssueDetailsWithCommentsIssue {
 #[serde(rename_all = "camelCase")]
 pub struct GetIssueDetailsWithComments {
     #[arguments(id : $id)]
-    pub issue: GetIssueDetailsWithCommentsIssue,
+    pub issue: Option<GetIssueDetailsWithCommentsIssue>,
 }
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct GetProjectIdOptionsByNameVariables {

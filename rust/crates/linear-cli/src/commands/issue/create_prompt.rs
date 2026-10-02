@@ -1,7 +1,8 @@
 use super::{
-    issue_create::{self, Fields, Input},
-    issue_write::{
-        self as shared, AssignSelf, Backend, CreateSettings, Label, Named, Parent, State, Ui,
+    create::{self as issue_create, Fields, Input},
+    write::{
+        self as shared, AssignSelf, Backend, CreateSettings, Label, Named, Parent, Search, State,
+        Ui,
     },
 };
 use crate::graphql::operations::number::WholeNumber;
@@ -18,7 +19,7 @@ fn yes_no<U: Ui>(ui: &mut U, message: &str) -> Result<bool, Error> {
         message,
         &[option("no", "No"), option("yes", "Yes")],
         0,
-        false,
+        None,
     )? == "yes")
 }
 fn project_menu<U: Ui>(ui: &mut U, projects: &[Named]) -> Result<Option<String>, Error> {
@@ -27,7 +28,12 @@ fn project_menu<U: Ui>(ui: &mut U, projects: &[Named]) -> Result<Option<String>,
     }
     let mut rows = vec![option("__none__", "No project")];
     rows.extend_from_slice(projects);
-    let answer = ui.choose("Which project should this issue belong to?", &rows, 0, true)?;
+    let answer = ui.choose(
+        "Which project should this issue belong to?",
+        &rows,
+        0,
+        Some(Search::Projects),
+    )?;
     Ok((answer != "__none__").then_some(answer))
 }
 async fn additional<B: Backend, U: Ui>(
@@ -89,7 +95,7 @@ async fn additional<B: Backend, U: Ui>(
                     "Which workflow state should this issue be in?",
                     &options,
                     index,
-                    false,
+                    None,
                 )?);
             }
             "workflow_state" => (),
@@ -113,12 +119,12 @@ async fn additional<B: Backend, U: Ui>(
                 let options = values
                     .into_iter()
                     .map(|(value, label)| {
-                        let glyph = super::issue_read::priority(WholeNumber(value));
+                        let glyph = super::read::priority(WholeNumber(value));
                         option(&value.to_string(), &format!("{glyph} {label}"))
                     })
                     .collect::<Vec<_>>();
                 let value =
-                    ui.choose("What priority should this issue have?", &options, 0, false)?;
+                    ui.choose("What priority should this issue have?", &options, 0, None)?;
                 let priority = value.parse::<i32>().map_err(|error| {
                     shared::validation("selected priority is not an integer").with_source(error)
                 })?;
@@ -237,8 +243,12 @@ async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
                 .iter()
                 .map(|t| option(&t.id, &format!("{} ({})", t.name, t.key)))
                 .collect();
-            let selected =
-                ui.choose("Which team should this issue belong to?", &options, 0, true)?;
+            let selected = ui.choose(
+                "Which team should this issue belong to?",
+                &options,
+                0,
+                Some(Search::Teams),
+            )?;
             teams
                 .into_iter()
                 .find(|t| t.id == selected)
@@ -317,7 +327,7 @@ async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
             option("more_fields", "Add more fields"),
         ],
         0,
-        false,
+        None,
     )?;
     ui.suspend()?;
     let mut more = More {

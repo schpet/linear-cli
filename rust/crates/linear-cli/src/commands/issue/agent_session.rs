@@ -3,9 +3,12 @@ use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
+use crate::cli::issue::{IssueAgentSessionList, IssueAgentSessionView};
 use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::relative_time::format_relative_time;
-use crate::error::Error;
+use crate::commands::table;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::agent_session::{
     AgentActivityContent, AgentActivityType, AgentSession, AgentSessionStatus, AgentSessionType,
@@ -14,9 +17,36 @@ use crate::graphql::operations::agent_session::{
 };
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::style;
+use crate::refs::reject_linear_url;
 
-pub const VIEW_CONTEXT: &str = "Failed to fetch agent session details";
-pub const LIST_CONTEXT: &str = "Failed to list agent sessions";
+pub fn view(ctx: &Ctx, args: &IssueAgentSessionView) -> Result<()> {
+    print_session(ctx, args).context("Failed to fetch agent session details")
+}
+
+pub fn list(ctx: &Ctx, args: &IssueAgentSessionList) -> Result<()> {
+    print_sessions(ctx, args).context("Failed to list agent sessions")
+}
+
+fn print_session(ctx: &Ctx, args: &IssueAgentSessionView) -> Result<()> {
+    reject_linear_url(&args.session_id, "an agent session ID")?;
+    let client = ctx.client()?;
+    let session = ctx.spin(!args.json, fetch_session(client, &args.session_id))?;
+    if args.json {
+        return ctx.print(json(&session)?);
+    }
+    ctx.show_markdown(&markdown(&session, Utc::now(), &chrono::Local)?, false)
+}
+
+fn print_sessions(ctx: &Ctx, args: &IssueAgentSessionList) -> Result<()> {
+    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let client = ctx.client()?;
+    let sessions = ctx.spin(!args.json, fetch_sessions(client, &identifier, args.status))?;
+    if args.json {
+        return ctx.print(json(&sessions)?);
+    }
+    let columns = table::stdout_columns(ctx.stdout_tty());
+    ctx.print(text(&sessions, columns, ctx.color()))
+}
 
 pub fn view_request(id: &str) -> GraphQlRequest<GetAgentSessionDetailsVariables> {
     GraphQlRequest::with_variables(GetAgentSessionDetails::build(
@@ -32,7 +62,7 @@ pub fn list_request(issue_id: &str) -> GraphQlRequest<GetIssueAgentSessionsVaria
     ))
 }
 
-pub async fn view(transport: &GraphQlTransport, id: &str) -> Result<AgentSession, Error> {
+async fn fetch_session(transport: &GraphQlTransport, id: &str) -> Result<AgentSession> {
     let data: GetAgentSessionDetails = transport
         .execute(&view_request(id))
         .await
@@ -41,11 +71,11 @@ pub async fn view(transport: &GraphQlTransport, id: &str) -> Result<AgentSession
     Ok(data.agent_session)
 }
 
-pub async fn list(
+async fn fetch_sessions(
     transport: &GraphQlTransport,
     id: &str,
     status: Option<crate::cli::AgentSessionStatus>,
-) -> Result<SessionComments, Error> {
+) -> Result<SessionComments> {
     let data: GetIssueAgentSessions = transport
         .execute(&list_request(id))
         .await

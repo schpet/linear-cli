@@ -1,7 +1,10 @@
 //! `issue archive`/`delete`, single or bulk.
 use crate::{
-    commands::initiative_bulk::{BulkOutcome, BulkResult, Progress},
-    error::Error,
+    cli::issue::{IssueArchive, IssueDelete},
+    commands::initiative_bulk::{self, BulkInput, BulkOutcome, BulkResult, Progress},
+    commands::team_key::configured_team_key,
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
     graphql::{
         bulk_error::{self, ObservedExchangeFailure},
         envelope::GraphQlRequest,
@@ -12,6 +15,118 @@ use crate::{
 };
 use cynic::{MutationBuilder, QueryBuilder};
 use std::cell::{Cell, RefCell};
+
+pub fn archive(ctx: &Ctx, args: &IssueArchive) -> Result<()> {
+    let request = Request {
+        issue_id: args.issue_id.as_deref(),
+        confirmed: args.confirm,
+        bulk: BulkInput {
+            argv: args.bulk.as_deref(),
+            file: args.bulk_file.as_deref().map(std::path::Path::new),
+            stdin: args.bulk_stdin,
+        },
+    };
+    run(ctx, Mode::Archive, &request).context("Failed to archive issue")
+}
+
+pub fn delete(ctx: &Ctx, args: &IssueDelete) -> Result<()> {
+    let request = Request {
+        issue_id: args.issue_id.as_deref(),
+        confirmed: args.confirm,
+        bulk: BulkInput {
+            argv: args.bulk.as_deref(),
+            file: args.bulk_file.as_deref().map(std::path::Path::new),
+            stdin: args.bulk_stdin,
+        },
+    };
+    run(ctx, Mode::Delete, &request).context("Failed to delete issue")
+}
+
+struct Request<'a> {
+    issue_id: Option<&'a str>,
+    /// `--confirm`: no prompt.
+    confirmed: bool,
+    bulk: BulkInput<'a>,
+}
+
+fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
+    if !request.confirmed {
+        ctx.require_tty("--confirm")?;
+    }
+    if request.bulk.requested() {
+        return run_bulk(ctx, mode, request);
+    }
+    let identifier = match (mode, request.issue_id) {
+        (Mode::Delete, None) => {
+            return Err(
+                Error::new("Issue ID required").with_hint("Use --bulk for multiple issues.")
+            );
+        }
+        (Mode::Archive, input) => super::require(ctx, input)?,
+        (Mode::Delete, Some(input)) => {
+            super::resolve(ctx, Some(input))?.ok_or_else(|| Error::not_found("Issue", input))?
+        }
+    };
+    let client = ctx.client()?;
+    let details = ctx.spin(true, single_details(client, &identifier, mode))?;
+    if details.already_archived {
+        return ctx.print(format!(
+            "Issue \"{}\" is already archived.\n",
+            details.name()
+        ));
+    }
+    let question = format!(
+        "Are you sure you want to {} \"{}\"?",
+        mode.verb(),
+        details.name()
+    );
+    if !request.confirmed && !ctx.confirm(&question, "--confirm")? {
+        return ctx.print(format!("{} cancelled.\n", mode.title()));
+    }
+    ctx.print(ctx.spin(true, submit_single(client, &identifier, &details, mode))?)
+}
+
+fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
+    let ids = initiative_bulk::collect_ids(&request.bulk, &mut std::io::stdin().lock())?;
+    if ids.is_empty() {
+        return Err(Error::new(format!(
+            "No issue identifiers provided for bulk {}",
+            mode.verb()
+        )));
+    }
+    ctx.print(format!(
+        "Found {} issue(s) to {}.\n",
+        ids.len(),
+        mode.verb()
+    ))?;
+    let question = format!("{} {} issue(s)?", mode.title(), ids.len());
+    if !request.confirmed && !ctx.confirm(&question, "--confirm")? {
+        return ctx.print(format!("Bulk {} cancelled.\n", mode.verb()));
+    }
+    let scope = ctx.scope()?;
+    let team = configured_team_key(ctx.options());
+    let targets = ids
+        .into_iter()
+        .map(|id| Target::prepare(id, team.as_deref(), &scope))
+        .collect();
+    let client = ctx.client()?;
+    let show_progress = ctx.terminal().stderr_tty;
+    let results = ctx.block_on(execute(client, targets, mode, |progress| {
+        if show_progress {
+            ctx.eprint(progress.render())?;
+        }
+        Ok(())
+    }))?;
+    if show_progress {
+        ctx.eprint(initiative_bulk::PROGRESS_CLEAR)?;
+    }
+    let (output, failed) = summary(&results, mode);
+    ctx.print(output)?;
+    if failed {
+        return Err(Error::reported());
+    }
+    Ok(())
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -31,10 +146,10 @@ impl Mode {
             Self::Delete => "deleted",
         }
     }
-    pub const fn context(self) -> &'static str {
+    const fn title(self) -> &'static str {
         match self {
-            Self::Archive => "Failed to archive issue",
-            Self::Delete => "Failed to delete issue",
+            Self::Archive => "Archive",
+            Self::Delete => "Delete",
         }
     }
 }
@@ -428,17 +543,4 @@ pub fn summary(results: &[BulkResult], mode: Mode) -> (Vec<u8>, bool) {
         }
     }
     (out.into_bytes(), failed > 0)
-}
-/// Descriptor type, not CI or a broad !stdoutTTY gate, defines the approved boundary.
-#[cfg(unix)]
-pub fn stdout_is_pipe() -> Result<bool, Error> {
-    let stat = rustix::fs::fstat(std::io::stdout()).map_err(|error| {
-        Error::new("Failed to inspect issue confirmation stdout").with_source(error)
-    })?;
-    Ok(rustix::fs::FileType::from_raw_mode(stat.st_mode) == rustix::fs::FileType::Fifo)
-}
-#[cfg(not(unix))]
-pub fn stdout_is_pipe() -> Result<bool, Error> {
-    // The qualified FIFO refusal is Unix-only; other targets retain native prompts.
-    Ok(false)
 }

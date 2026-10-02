@@ -1,6 +1,11 @@
-//! Issue-specific comment ID/body composition and attachment mutation/output.
-use super::upload::UploadedFile;
-use crate::error::Error;
+//! `issue attach`: upload a file and link it in the issue's sidebar. Also the
+//! file uploads `issue comment add --attach` embeds.
+use std::path::Path;
+
+use crate::cli::issue::IssueAttach;
+use crate::commands::upload::{self, UploadedFile};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::{GraphQlRequest, is_not_found};
 use crate::graphql::operations::upload::{
     AttachmentCreate, AttachmentCreateInput, AttachmentCreateVariables, CreatedAttachment,
@@ -8,10 +13,46 @@ use crate::graphql::operations::upload::{
 };
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use cynic::{MutationBuilder, QueryBuilder};
-pub const ATTACH_CONTEXT: &str = "Failed to attach file";
-pub fn unresolved() -> Error {
-    Error::new("Could not determine issue ID")
-        .with_hint("Please provide an issue ID like 'ENG-123'.")
+pub fn run(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
+    attach_file(ctx, args).context("Failed to attach file")
+}
+
+fn attach_file(ctx: &Ctx, args: &IssueAttach) -> Result<()> {
+    let identifier = super::require(ctx, Some(&args.issue_id))?;
+    upload::validate_file(Path::new(&args.filepath))?;
+    let client = ctx.client()?;
+    let issue_uuid = ctx.spin(true, lookup(client, &identifier))?;
+    let file = upload_file(ctx, &args.filepath, args.public)?;
+    let attachment = ctx.spin(
+        true,
+        attach(
+            client,
+            &issue_uuid,
+            &file,
+            args.title.as_deref(),
+            args.comment.as_deref(),
+        ),
+    )?;
+    ctx.print(attach_output(
+        &attachment,
+        &identifier,
+        &args.filepath,
+        &file,
+    ))
+}
+
+/// Uploads one file, printing its result (and any warning) as soon as it is done.
+pub(crate) fn upload_file(ctx: &Ctx, path: &str, public: bool) -> Result<UploadedFile> {
+    let path = Path::new(path);
+    let file = upload::prepare(path, public)?;
+    let client = ctx.client()?;
+    let message = format!("Uploading {}...", file.filename);
+    let uploaded = ctx.spin_with(&message, upload::upload(client, path, file))?;
+    ctx.print(upload::output(&uploaded))?;
+    if let Some(warning) = upload::warning(&uploaded) {
+        ctx.eprint(warning)?;
+    }
+    Ok(uploaded)
 }
 pub fn validate_comment_id(id: Option<&str>) -> Result<(), Error> {
     if let Some(id) = id {
@@ -29,7 +70,7 @@ pub fn validate_comment_id(id: Option<&str>) -> Result<(), Error> {
 pub fn compose_body(text: Option<&str>, files: &[UploadedFile]) -> String {
     let links = files
         .iter()
-        .map(super::upload::markdown)
+        .map(upload::markdown)
         .collect::<Vec<_>>()
         .join("\n");
     [text.unwrap_or(""), &links]
@@ -41,12 +82,12 @@ pub fn compose_body(text: Option<&str>, files: &[UploadedFile]) -> String {
 pub fn comment_output(identifier: &str, url: &str) -> Vec<u8> {
     format!("✓ Comment added to {identifier}\n{url}\n").into_bytes()
 }
-pub fn lookup_request(identifier: &str) -> GraphQlRequest<GetIssueIdVariables> {
+fn lookup_request(identifier: &str) -> GraphQlRequest<GetIssueIdVariables> {
     GraphQlRequest::with_variables(GetIssueId::build(GetIssueIdVariables {
         id: identifier.to_owned(),
     }))
 }
-pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<String, Error> {
+async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<String, Error> {
     let data: GetIssueId = transport
         .execute(&lookup_request(identifier))
         .await
@@ -64,7 +105,7 @@ pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<St
         .filter(|x| !x.is_empty())
         .ok_or_else(|| Error::not_found("Issue", identifier))
 }
-pub fn attach_request(
+fn attach_request(
     issue_uuid: &str,
     file: &UploadedFile,
     title: Option<&str>,
@@ -82,7 +123,7 @@ pub fn attach_request(
         },
     }))
 }
-pub async fn attach(
+async fn attach(
     transport: &GraphQlTransport,
     issue_uuid: &str,
     file: &UploadedFile,
@@ -98,7 +139,7 @@ pub async fn attach(
     }
     Ok(data.attachment_create.attachment)
 }
-pub fn quote_shell(value: &str) -> String {
+fn quote_shell(value: &str) -> String {
     if !value.is_empty()
         && value
             .bytes()
@@ -109,7 +150,7 @@ pub fn quote_shell(value: &str) -> String {
         format!("'{}'", value.replace('\'', "'\\''"))
     }
 }
-pub fn attach_output(
+fn attach_output(
     attachment: &CreatedAttachment,
     identifier: &str,
     path: &str,

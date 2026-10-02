@@ -3,7 +3,7 @@ use linear_cli::{
     auth::ApiKeyInput,
     commands::{
         initiative_bulk::{self, BulkInput, BulkOutcome},
-        issue_archive_delete::{self as command, Mode, Target},
+        issue::archive::{self as command, Mode, Target},
     },
     graphql::{
         bulk_error,

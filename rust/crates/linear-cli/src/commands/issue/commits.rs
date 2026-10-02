@@ -1,8 +1,9 @@
-//! Exact issue commit lookup and jj output, with command-local process policy.
+//! `issue commits`: the jj commits whose trailers name an issue.
 use crate::{
-    commands::issue_id,
+    cli::issue::IssueCommits,
     config::Vcs,
-    error::{Error, Result},
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
     graphql::{
         bulk_error::{self, ObservedExchangeFailure},
         transport::GraphQlTransport,
@@ -11,7 +12,23 @@ use crate::{
 };
 use serde::Deserialize;
 use std::{num::NonZeroU8, path::Path};
-pub const CONTEXT: &str = "Failed to show commits";
+pub fn run(ctx: &Ctx, args: &IssueCommits) -> Result<()> {
+    show_commits(ctx, args).context("Failed to show commits")
+}
+
+fn show_commits(ctx: &Ctx, args: &IssueCommits) -> Result<()> {
+    check_vcs(super::vcs(ctx))?;
+    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let client = ctx.client()?;
+    ctx.spin(true, lookup(client, &identifier))?;
+    ctx.flush()?;
+    show(
+        &mut vcs_script::NativeProcessRunner,
+        &identifier,
+        ctx.cwd(),
+        &ctx.config().child_env,
+    )
+}
 pub fn check_vcs(vcs: Vcs) -> Result<(), Error> {
     match vcs {
         Vcs::Jj => Ok(()),
@@ -56,7 +73,7 @@ impl<'de> Deserialize<'de> for LookupIssue {
 }
 /// Look up the issue; a missing or null issue is "not found".
 pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<(), Error> {
-    let mut request = issue_id::request(identifier);
+    let mut request = super::id::request(identifier);
     request.query = request.query.trim_end_matches('\n').to_owned();
     let result: Lookup = bulk_error::execute_observed(transport, &request)
         .await

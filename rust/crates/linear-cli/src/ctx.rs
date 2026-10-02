@@ -193,14 +193,20 @@ impl Ctx {
     /// `show = false` for `--json` output. Nothing is drawn unless stderr is a
     /// terminal.
     pub fn spin<F: Future>(&self, show: bool, future: F) -> F::Output {
-        let _spinner = self.spinner(show);
+        let _spinner = self.spinner(show, "");
+        self.block_on(future)
+    }
+
+    /// Like [`Ctx::spin`], with `message` next to the spinner.
+    pub fn spin_with<F: Future>(&self, message: &str, future: F) -> F::Output {
+        let _spinner = self.spinner(true, message);
         self.block_on(future)
     }
 
     /// A spinner on stderr that stops and clears when dropped.
-    pub fn spinner(&self, show: bool) -> Spinner {
+    pub fn spinner(&self, show: bool, message: &str) -> Spinner {
         if show && self.terminal.stderr_tty {
-            Spinner::start()
+            Spinner::start(message)
         } else {
             Spinner::hidden()
         }
@@ -352,7 +358,7 @@ impl Ctx {
         &self,
     ) -> Result<crate::platform::prompt::PromptSession<io::Stdin, StdoutWriter<'_>>> {
         self.flush()?;
-        crate::platform::prompt::PromptSession::stdin_stdio(self.stdout())
+        crate::platform::prompt::PromptSession::stdin_stdio_cr_or_lf(self.stdout())
     }
 }
 

@@ -12,15 +12,14 @@ use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
-pub fn pagination_error(error: PaginationError<Error>, context: &str) -> Error {
-    let error = match error {
+pub fn pagination_error(error: PaginationError<Error>) -> Error {
+    match error {
         PaginationError::Fetch { source, .. } => source,
         PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
             Error::new("Linear reported more comments but did not return a usable cursor")
                 .with_hint("Rerun the command; if it persists, report it.")
         }
-    };
-    error.context(context)
+    }
 }
 
 #[derive(Serialize)]
@@ -46,12 +45,7 @@ struct JsonComment<'a> {
     parent: &'a Option<CommentParent>,
 }
 
-pub fn render_json(
-    nodes: &[CommentNode],
-    page_info: &PageInfo,
-    entity: &str,
-    context: &str,
-) -> Result<Vec<u8>, Error> {
+pub fn render_json(nodes: &[CommentNode], page_info: &PageInfo) -> Vec<u8> {
     let nodes = nodes
         .iter()
         .map(|node| JsonComment {
@@ -68,14 +62,10 @@ pub fn render_json(
             parent: &node.parent,
         })
         .collect();
-    let mut output =
-        serde_json::to_vec_pretty(&JsonConnection { nodes, page_info }).map_err(|error| {
-            Error::new(format!("could not serialize {entity} comments"))
-                .with_source(error)
-                .context(context)
-        })?;
+    let mut output = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
+        .expect("comment JSON always serializes");
     output.push(b'\n');
-    Ok(output)
+    output
 }
 
 fn nonempty(value: &str) -> Option<&str> {

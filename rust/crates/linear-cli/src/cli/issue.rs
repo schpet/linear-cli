@@ -77,7 +77,11 @@ pub struct IssueId {}
 pub struct IssueMine {
     #[arg(long = "state", short = 's', help = "Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)", value_name = "state", value_parser = super::nonempty_string, default_values = ["unstarted"])]
     pub state: Vec<String>,
-    #[arg(long = "all-states", help = "Show issues from all states")]
+    #[arg(
+        conflicts_with = "state",
+        long = "all-states",
+        help = "Show issues from all states"
+    )]
     pub all_states: bool,
     #[arg(
         long = "sort",
@@ -89,7 +93,7 @@ pub struct IssueMine {
     pub team: Option<String>,
     #[arg(long = "project", help = "Filter by project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
     pub project: Option<String>,
-    #[arg(long = "project-label", help = "Filter by project label name (shows issues from all projects with this label)", value_name = "projectLabel", value_parser = super::nonempty_string)]
+    #[arg(conflicts_with_all = ["project", "milestone"], long = "project-label", help = "Filter by project label name (shows issues from all projects with this label)", value_name = "projectLabel", value_parser = super::nonempty_string)]
     pub project_label: Option<String>,
     #[arg(long = "cycle", help = "Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1", value_name = "cycle", value_parser = super::nonempty_string)]
     pub cycle: Option<String>,
@@ -132,17 +136,23 @@ pub struct IssueQuery {
     #[arg(long = "search", help = "Full-text search term", value_name = "term", value_parser = super::nonempty_string)]
     pub search: Option<String>,
     #[arg(
+        requires = "search",
         long = "search-comments",
         help = "Also search inside issue comments (requires --search)"
     )]
     pub search_comments: bool,
     #[arg(long = "team", help = "Filter by team key, name, or ID (can be repeated for multiple teams)", value_name = "team", value_parser = super::nonempty_string)]
     pub team: Vec<String>,
-    #[arg(long = "all-teams", help = "Query across all teams")]
+    #[arg(
+        conflicts_with = "team",
+        long = "all-teams",
+        help = "Query across all teams"
+    )]
     pub all_teams: bool,
     #[arg(long = "state", short = 's', help = "Filter by workflow state type (triage, backlog, unstarted, started, completed, canceled), name, or ID (can be repeated for multiple states)", value_name = "state", value_parser = super::nonempty_string)]
     pub state: Vec<String>,
     #[arg(
+        conflicts_with = "state",
         long = "all-states",
         help = "Show issues from all states (this is the default)"
     )]
@@ -150,14 +160,21 @@ pub struct IssueQuery {
     #[arg(long = "assignee", help = "Filter by assignee (username)", value_name = "assignee", value_parser = super::nonempty_string)]
     pub assignee: Option<String>,
     #[arg(
+        conflicts_with_all = ["assignee", "unassigned"],
         long = "all-assignees",
         short = 'A',
         help = "Show issues for all assignees (this is the default)"
     )]
     pub all_assignees: bool,
-    #[arg(long = "unassigned", short = 'U', help = "Show only unassigned issues")]
+    #[arg(
+        conflicts_with = "assignee",
+        long = "unassigned",
+        short = 'U',
+        help = "Show only unassigned issues"
+    )]
     pub unassigned: bool,
     #[arg(
+        conflicts_with = "search",
         long = "sort",
         help = "Sort order: manual or priority (default: priority, not available with --search)",
         value_name = "sort"
@@ -165,7 +182,7 @@ pub struct IssueQuery {
     pub sort: Option<super::Sort>,
     #[arg(long = "project", help = "Filter by project (UUID, slug ID, or name)", value_name = "project", value_parser = super::nonempty_string)]
     pub project: Option<String>,
-    #[arg(long = "project-label", help = "Filter by project label name (shows issues from all projects with this label)", value_name = "projectLabel", value_parser = super::nonempty_string)]
+    #[arg(conflicts_with_all = ["project", "milestone"], long = "project-label", help = "Filter by project label name (shows issues from all projects with this label)", value_name = "projectLabel", value_parser = super::nonempty_string)]
     pub project_label: Option<String>,
     #[arg(long = "cycle", help = "Filter by cycle name, number, 'active'/'now', 'next', 'previous', or a relative offset like +1", value_name = "cycle", value_parser = super::nonempty_string)]
     pub cycle: Option<String>,
@@ -313,7 +330,7 @@ pub struct IssuePullRequest {
 
 #[derive(Debug, Args)]
 pub struct IssueArchive {
-    #[arg(value_name = "issueId")]
+    #[arg(value_name = "issueId", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub issue_id: Option<String>,
     #[arg(long = "confirm", short = 'y', help = "Skip confirmation prompt")]
     pub confirm: bool,
@@ -327,7 +344,7 @@ pub struct IssueArchive {
 
 #[derive(Debug, Args)]
 pub struct IssueDelete {
-    #[arg(value_name = "issueId")]
+    #[arg(value_name = "issueId", conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub issue_id: Option<String>,
     #[arg(long = "confirm", short = 'y', help = "Skip confirmation prompt")]
     pub confirm: bool,

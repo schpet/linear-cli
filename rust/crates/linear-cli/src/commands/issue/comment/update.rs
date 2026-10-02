@@ -1,6 +1,8 @@
 //! `issue comment update`: body from a flag, a file or a prompt, then one mutation.
 use crate::{
-    error::Error,
+    cli::issue::IssueCommentUpdate,
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
     graphql::{
         bulk_error,
         envelope::{GraphQlRequest, ResponseError},
@@ -17,7 +19,34 @@ use cynic::{MutationBuilder, QueryBuilder};
 use serde::{Serialize, de::DeserializeOwned};
 use std::io::{Read, Write};
 
-pub const CONTEXT: &str = "Failed to update comment";
+pub fn run(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
+    update(ctx, args).context("Failed to update comment")
+}
+
+fn update(ctx: &Ctx, args: &IssueCommentUpdate) -> Result<()> {
+    let id = &args.comment_id;
+    let body = prepare_body(id, args.body.as_deref(), args.body_file.as_deref())?;
+    let client = ctx.client()?;
+    let body = match body.filter(|body| !needs_prompt(Some(body))) {
+        Some(body) => body,
+        None => {
+            let existing = ctx.block_on(existing_body(client, id))?;
+            if ctx.stdin_tty() {
+                check_prompt_topology(true, stdout_is_fifo()?)?;
+            }
+            let mut session = ctx.prompts()?;
+            let prompted = prompt_body(&mut session, &existing);
+            match session.finish_result(prompted)? {
+                PromptOutcome::Submitted(body) => body,
+                PromptOutcome::Interrupted => return Err(Error::cancelled()),
+                PromptOutcome::EndOfInput => {
+                    unreachable!("prompt_body reports end of input as an error")
+                }
+            }
+        }
+    };
+    ctx.print(ctx.spin(true, submit(client, id, body))?)
+}
 /// URL guards and local body/file work happen before transport construction.
 pub fn prepare_body(
     id: &str,
@@ -136,7 +165,7 @@ pub async fn submit(
 ) -> Result<Vec<u8>, Error> {
     let result: UpdateComment = exchange(transport, &update_request(id, body), true).await?;
     if !result.comment_update.success {
-        return Err(Error::new(CONTEXT));
+        return Err(Error::new("Linear did not update the comment"));
     }
     // `success: true` with a null comment means the update happened but its
     // result is unavailable; report that without retrying.

@@ -205,7 +205,7 @@ pub trait Backend: Clone + Send + 'static {
     ) -> impl Future<Output = Result<Option<String>, Error>> + Send;
     fn create(
         &self,
-        input: super::issue_create::Input,
+        input: super::create::Input,
     ) -> impl Future<Output = Result<Created, Error>> + Send;
     fn update(
         &self,
@@ -213,8 +213,15 @@ pub trait Backend: Clone + Send + 'static {
         input: IssueUpdateInput,
     ) -> impl Future<Output = Result<Updated, Error>> + Send;
 }
-/// Owned UI adapter suspends before network/editor/output, resumes only for the
-/// next prompt; same stdin reader and raw owner survive all prompts.
+/// What a searchable menu searches; it names the search box.
+#[derive(Clone, Copy, Debug)]
+pub enum Search {
+    Teams,
+    Projects,
+}
+
+/// The prompts issue creation asks. The terminal is restored between prompts,
+/// so network work and output can happen in between.
 pub trait Ui {
     fn text(
         &mut self,
@@ -227,7 +234,7 @@ pub trait Ui {
         message: &str,
         options: &[Named],
         default: usize,
-        search: bool,
+        search: Option<Search>,
     ) -> Result<String, Error>;
     fn checkbox(
         &mut self,

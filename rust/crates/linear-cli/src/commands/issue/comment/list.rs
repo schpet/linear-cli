@@ -5,7 +5,9 @@ use std::future::Future;
 use chrono::{DateTime, Utc};
 use cynic::QueryBuilder;
 
-use crate::error::Error;
+use crate::cli::issue::IssueCommentList;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::{GraphQlRequest, is_not_found};
 use crate::graphql::operations::comments::CommentNode;
 use crate::graphql::operations::issue_comments::{GetIssueComments, GetIssueCommentsVariables};
@@ -13,7 +15,19 @@ use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::pagination::{self, EmptyCursorPolicy, Page};
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 
-pub const CONTEXT: &str = "Failed to list comments";
+pub fn run(ctx: &Ctx, args: &IssueCommentList) -> Result<()> {
+    list(ctx, args).context("Failed to list comments")
+}
+
+fn list(ctx: &Ctx, args: &IssueCommentList) -> Result<()> {
+    let identifier = crate::commands::issue::require(ctx, args.issue_id.as_deref())?;
+    let client = ctx.client()?;
+    let output = ctx.spin(
+        !args.json,
+        fetch_output(client, &identifier, args.json, ctx.color()),
+    )?;
+    ctx.print(output)
+}
 
 pub fn request(id: &str, after: Option<String>) -> GraphQlRequest<GetIssueCommentsVariables> {
     GraphQlRequest::with_variables(GetIssueComments::build(GetIssueCommentsVariables {
@@ -22,22 +36,21 @@ pub fn request(id: &str, after: Option<String>) -> GraphQlRequest<GetIssueCommen
     }))
 }
 
-/// Complete every request before returning a byte of output to the caller.
-pub async fn run(
+/// Every page of the issue's comments, rendered.
+async fn fetch_output(
     transport: &GraphQlTransport,
-    original: &str,
-    id: &str,
+    identifier: &str,
     json: bool,
     color: bool,
-) -> Result<Vec<u8>, Error> {
+) -> Result<Vec<u8>> {
     run_with(
-        original,
-        id,
+        identifier,
+        identifier,
         |query| async move {
             transport
                 .execute(&query)
                 .await
-                .map_err(|failure| translate_failure(failure, original))
+                .map_err(|failure| translate_failure(failure, identifier))
         },
         json,
         color,
@@ -73,7 +86,7 @@ where
         }
     })
     .await
-    .map_err(|error| super::comments::pagination_error(error, CONTEXT))?;
+    .map_err(crate::commands::comments::pagination_error)?;
     let page_info = PageInfo {
         has_next_page: result.page_info.has_next_page,
         end_cursor: result.page_info.end_cursor,
@@ -95,8 +108,8 @@ fn translate_failure(failure: TransportFailure, original: &str) -> Error {
 }
 
 pub fn render_json(nodes: &[CommentNode], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
-    super::comments::render_json(nodes, page_info, "issue", CONTEXT)
+    Ok(crate::commands::comments::render_json(nodes, page_info))
 }
 pub fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String {
-    super::comments::render_text(nodes, now, color, "No comments found for this issue")
+    crate::commands::comments::render_text(nodes, now, color, "No comments found for this issue")
 }

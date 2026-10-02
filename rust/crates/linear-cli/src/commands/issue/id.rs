@@ -1,9 +1,18 @@
-//! Resolve an issue identifier to its id, mapping a missing issue to "not found".
-use crate::error::Error;
+//! `issue id`, and resolving an issue identifier to its UUID.
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::{GraphQlRequest, is_not_found};
 use crate::graphql::operations::issue_id::{GetIssueId, Variables};
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use cynic::QueryBuilder;
+
+/// Prints the issue the current git branch or jj change names.
+pub fn run(ctx: &Ctx) -> Result<()> {
+    let identifier = super::infer(ctx)
+        .and_then(|identifier| identifier.ok_or_else(|| super::unresolved(ctx)))
+        .context("Failed to get issue ID")?;
+    ctx.print(format!("{identifier}\n"))
+}
 
 pub fn request(identifier: &str) -> GraphQlRequest<Variables> {
     GraphQlRequest::with_variables(GetIssueId::build(Variables {

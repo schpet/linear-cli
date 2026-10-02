@@ -1,9 +1,56 @@
-//! Complete PR template/body/argv policy; gh owns its browser/editor/interactive flow.
+//! `issue pull-request`: open a GitHub pull request for an issue with `gh`,
+//! which owns the browser, editor and interactive flow.
 use crate::{
-    commands::text_input, config::ChildEnvOverlay, error::Error, platform::gh_script::GhRunner,
+    cli::issue::IssuePullRequest,
+    commands::text_input,
+    config::{ChildEnvOverlay, PrTemplateCli},
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
+    platform::gh_script::{GhRunner, NativeGhRunner},
 };
 use std::path::Path;
-pub const CONTEXT: &str = "Failed to create pull request";
+
+pub fn run(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
+    create_pull_request(ctx, args).context("Failed to create pull request")
+}
+
+fn create_pull_request(ctx: &Ctx, args: &IssuePullRequest) -> Result<()> {
+    let selected = if args.no_template {
+        PrTemplateCli::Disabled
+    } else if let Some(path) = args.template.as_deref() {
+        PrTemplateCli::Path(path)
+    } else {
+        PrTemplateCli::Unset
+    };
+    let template = ctx
+        .options()
+        .pr_template(selected)?
+        .map(|path| read_template(path.path()))
+        .transpose()?;
+    let identifier = super::require(ctx, args.issue_id.as_deref())?;
+    let client = ctx.client()?;
+    let details = ctx.spin(true, super::describe::fetch(client, &identifier))?;
+    let argv = self::args(
+        &identifier,
+        &details.title,
+        &details.url,
+        template.as_deref(),
+        Options {
+            title: args.title.as_deref(),
+            base: args.base.as_deref(),
+            head: args.head.as_deref(),
+            draft: args.draft,
+            web: args.web,
+        },
+    );
+    ctx.flush()?;
+    create(
+        &mut NativeGhRunner,
+        &argv,
+        ctx.cwd(),
+        &ctx.config().child_env,
+    )
+}
 pub const TEMPLATE_SUGGESTION: &str = "Pass a readable file to --template, fix the pr_template config option, or use --no-template to skip the template.";
 fn unusable(reason: impl Into<String>) -> Error {
     Error::new(format!(

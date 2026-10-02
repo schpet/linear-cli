@@ -544,19 +544,19 @@ fn archive_of_an_archived_issue_is_a_no_op() {
         archive_details(json!("2026-01-01T00:00:00.000Z")),
     );
     Cli::for_api(&api)
-        .run(&["issue", "archive", "ENG-1"])
+        .run(&["issue", "archive", "ENG-1", "--confirm"])
         .success()
         .stdout_has("already archived");
 }
 
 #[test]
-fn archive_without_confirmation_or_terminal_does_not_archive() {
+fn archive_without_confirmation_or_terminal_fails_before_any_request() {
     let api = MockLinear::start();
-    api.on("GetIssueArchiveDetails", archive_details(Value::Null));
     Cli::for_api(&api)
         .run(&["issue", "archive", "ENG-1"])
         .failure()
         .stderr_has("--confirm");
+    assert!(api.requests().is_empty());
 }
 
 #[test]
@@ -608,16 +608,21 @@ fn delete_with_confirm() {
 }
 
 #[test]
-fn delete_without_confirmation_or_terminal_does_not_delete() {
+fn delete_without_confirmation_or_terminal_fails_before_any_request() {
     let api = MockLinear::start();
-    api.on(
-        "GetIssueDeleteDetails",
-        json!({ "issue": { "identifier": "ENG-3", "title": "Mistake" } }),
-    );
     Cli::for_api(&api)
         .run(&["issue", "delete", "ENG-3"])
         .failure()
         .stderr_has("--confirm");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn delete_rejects_a_positional_issue_with_bulk() {
+    Cli::new()
+        .run(&["issue", "delete", "ENG-9", "--confirm", "--bulk", "ENG-6"])
+        .usage_error()
+        .stderr_has("--bulk");
 }
 
 #[test]
