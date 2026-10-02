@@ -4,6 +4,7 @@
 
 mod support;
 
+mod api;
 mod auth;
 mod config;
 mod cycle;
