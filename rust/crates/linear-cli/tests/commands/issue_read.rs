@@ -232,11 +232,42 @@ fn thread_roots_resolution_hidden_count_orphans_duplicates_and_cycles_are_distin
             .contains("cycle")
     );
 }
+// These hierarchy/separator fixtures were captured in UTC. Keep every non-date
+// byte exact while expecting the host-local calendar used by the command.
+fn local_comment_calendar(expected: &str) -> String {
+    let dates = issue()
+        .comments
+        .nodes
+        .into_iter()
+        .map(|comment| {
+            let parsed = chrono::DateTime::parse_from_rfc3339(&comment.created_at.0).unwrap();
+            let utc = parsed.with_timezone(&chrono::Utc);
+            let local = parsed.with_timezone(&chrono::Local);
+            (
+                utc.format("%-m/%-d/%Y").to_string(),
+                local.format("%-m/%-d/%Y").to_string(),
+            )
+        })
+        .collect::<Vec<_>>();
+    expected
+        .split_inclusive('\n')
+        .map(|line| {
+            if let Some((utc, local)) = dates.iter().find(|(utc, _)| {
+                line.contains(&format!("commented {utc}")) || line.contains(&format!("*{utc}*"))
+            }) {
+                line.replace(&format!("commented {utc}"), &format!("commented {local}"))
+                    .replace(&format!("*{utc}*"), &format!("*{local}*"))
+            } else {
+                line.to_owned()
+            }
+        })
+        .collect()
+}
 #[test]
 fn pipe_markdown_hierarchy_comments_and_resolved_summary_match_source() {
     let i = issue();
     let source: Value = serde_json::from_str(VIEW).unwrap();
-    let want = source["expected"]["stdout"]["utf8"].as_str().unwrap();
+    let want = local_comment_calendar(source["expected"]["stdout"]["utf8"].as_str().unwrap());
     assert_eq!(
         format!(
             "{}\n",
@@ -367,6 +398,8 @@ fn terminal_comment_roots_with_replies_preserve_exact_source_separator() {
     let (_, tail) = rendered.split_once("## Comments").unwrap();
     assert_eq!(
         tail,
-        "\n\n@Dummy Person commented 1/1/2000 [thread: root]\nRoot body\n\n\n  @Dummy Person commented 1/3/2000\n  Reply\n  secondline\n  \n  @Dummy Person commented 1/4/2000\n  Grandchild\n  \n\n@Dummy Person commented 1/2/2000 [thread: resolved] [resolved]\nHidden thread\n\n"
+        local_comment_calendar(
+            "\n\n@Dummy Person commented 1/1/2000 [thread: root]\nRoot body\n\n\n  @Dummy Person commented 1/3/2000\n  Reply\n  secondline\n  \n  @Dummy Person commented 1/4/2000\n  Grandchild\n  \n\n@Dummy Person commented 1/2/2000 [thread: resolved] [resolved]\nHidden thread\n\n"
+        )
     );
 }

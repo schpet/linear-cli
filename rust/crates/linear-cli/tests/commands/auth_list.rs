@@ -538,11 +538,16 @@ fn refused_endpoint_is_a_row_error_without_secret() {
     let Outcome::Error(error) = &listed[0].state else {
         panic!("refused row");
     };
-    assert_eq!(
-        error,
-        &RowError::Failure(
-            "connection to http://127.0.0.1:1 failed: Connection refused (os error 111)".to_owned()
-        )
+    let RowError::Failure(message) = error else {
+        panic!("connection refusal must remain a row-local failure");
+    };
+    let cause = message
+        .strip_prefix("connection to http://127.0.0.1:1 failed: ")
+        .expect("exact endpoint/action context");
+    // The OS owns errno numbers and wording; the refusal and row behavior matter.
+    assert!(
+        cause.to_lowercase().starts_with("connection refused"),
+        "{cause}"
     );
     let output = render(&listed, false);
     assert!(

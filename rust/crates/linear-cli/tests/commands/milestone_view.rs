@@ -118,6 +118,9 @@ fn serve_once(body: Value) -> (String, thread::JoinHandle<Value>) {
             }
         };
         stream
+            .set_nonblocking(false)
+            .expect("blocking accepted mock stream");
+        stream
             .set_read_timeout(Some(Duration::from_secs(5)))
             .expect("read timeout");
         let mut bytes = Vec::new();

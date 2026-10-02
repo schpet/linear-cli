@@ -82,7 +82,9 @@ impl BinarySandbox {
         for name in ["cwd", "home", "bin"] {
             std::fs::create_dir_all(root.join(name)).expect("create private binary test directory");
         }
-        Self { root }
+        Self {
+            root: std::fs::canonicalize(root).expect("canonical private contract sandbox"),
+        }
     }
 
     pub fn command(&self) -> Command {

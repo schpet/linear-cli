@@ -55,6 +55,9 @@ impl Server {
                     Err(e) => panic!("{e}"),
                 };
                 stream
+                    .set_nonblocking(false)
+                    .expect("blocking accepted mock stream");
+                stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
                 let mut bytes = vec![];

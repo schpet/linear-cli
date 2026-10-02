@@ -373,6 +373,9 @@ fn server(replies: Vec<Reply>) -> (GraphQlTransport, thread::JoinHandle<Vec<Valu
                 }
             };
             socket
+                .set_nonblocking(false)
+                .expect("blocking accepted mock stream");
+            socket
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
             let mut bytes = vec![];

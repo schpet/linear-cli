@@ -20,7 +20,7 @@ impl Sandbox {
         for name in ["bin", "config"] {
             fs::create_dir_all(root.join(name)).unwrap();
         }
-        Self(root)
+        Self(fs::canonicalize(root).expect("canonical private autolinks sandbox"))
     }
     fn gh(&self, ending: &str) {
         let script = format!(

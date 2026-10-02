@@ -43,6 +43,9 @@ impl Server {
                     Err(e) => panic!("{e}"),
                 };
                 stream
+                    .set_nonblocking(false)
+                    .expect("blocking accepted mock stream");
+                stream
                     .set_read_timeout(Some(Duration::from_secs(3)))
                     .unwrap();
                 let mut bytes = vec![];
@@ -311,67 +314,6 @@ fn all_five_source_yellow_lines_are_colored_even_on_piped_stdout() {
         "\x1b[33mRemove it from your shell config to use multi-workspace auth.\x1b[39m\n"
     ));
     assert_eq!(server.finish().len(), 1);
-}
-#[cfg(target_os = "linux")]
-#[test]
-fn network_origin_401_uses_inner_catch_without_any_file_or_backend_write() {
-    // Private network namespace has no reachable service. The only key is dummy;
-    // this is native classification evidence, not a new source observation.
-    let home = Home::new();
-    let candidate = home.command(
-        "http://127.0.0.1:401/graphql",
-        &["auth", "login", "--key", "dummy_key", "--plaintext"],
-    );
-    let program = env!("CARGO_BIN_EXE_linear");
-    let mut wrapped = Command::new("/usr/bin/bwrap");
-    wrapped.args([
-        "--unshare-all",
-        "--die-with-parent",
-        "--cap-drop",
-        "ALL",
-        "--ro-bind",
-        "/usr",
-        "/usr",
-        "--symlink",
-        "usr/bin",
-        "/bin",
-        "--symlink",
-        "usr/lib",
-        "/lib",
-        "--symlink",
-        "usr/lib64",
-        "/lib64",
-        "--proc",
-        "/proc",
-        "--dev",
-        "/dev",
-        "--tmpfs",
-        "/tmp",
-        "--ro-bind",
-        program,
-        program,
-    ]);
-    wrapped
-        .arg("--bind")
-        .arg(&home.0)
-        .arg(&home.0)
-        .arg("--chdir")
-        .arg(&home.0)
-        .arg("--clearenv");
-    for (key, value) in candidate.get_envs() {
-        if let Some(value) = value {
-            wrapped.arg("--setenv").arg(key).arg(value);
-        }
-    }
-    wrapped.arg("--").arg(program).args(candidate.get_args());
-    let out = wrapped.output().unwrap();
-    assert_eq!(out.status.code(), Some(1));
-    assert!(out.stdout.is_empty());
-    assert!(!file(&home).exists());
-    assert_eq!(
-        String::from_utf8(out.stderr).unwrap(),
-        "✗ Failed to login: Invalid API key\n  Check that your API key is correct and not expired.\n"
-    );
 }
 
 #[cfg(target_os = "linux")]

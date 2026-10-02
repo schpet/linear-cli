@@ -104,12 +104,21 @@ impl KeyringReader for FakeReader {
         }
     }
 }
+fn fixture_root() -> PathBuf {
+    if cfg!(windows) {
+        PathBuf::from(r"C:\p10b")
+    } else {
+        PathBuf::from("/p10b")
+    }
+}
+
 fn process(extras: &[(&str, &str)]) -> ProcessEnvSnapshot {
+    let root = fixture_root();
     let mut values = vec![
-        (OsString::from("HOME"), OsString::from("/p10b/home")),
+        (OsString::from("HOME"), root.join("home").into_os_string()),
         (
             OsString::from("XDG_CONFIG_HOME"),
-            OsString::from("/p10b/config"),
+            root.join("config").into_os_string(),
         ),
         (
             OsString::from("LINEAR_IGNORE_ENV_FILE"),
@@ -122,7 +131,7 @@ fn process(extras: &[(&str, &str)]) -> ProcessEnvSnapshot {
         values.retain(|(existing, _)| existing != &name);
         values.push((name, OsString::from(value)));
     }
-    ProcessEnvSnapshot::from_vars_os(PathBuf::from("/p10b"), OsFamily::Unix, values).unwrap()
+    ProcessEnvSnapshot::from_vars_os(root, OsFamily::Unix, values).unwrap()
 }
 
 #[test]
@@ -252,6 +261,9 @@ fn ordinary_user_read_sends_one_dummy_header_after_global_metadata_hydration() {
                 }
             };
             stream
+                .set_nonblocking(false)
+                .expect("blocking accepted mock stream");
+            stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
                 .unwrap();
             stream
@@ -303,7 +315,7 @@ fn ordinary_user_read_sends_one_dummy_header_after_global_metadata_hydration() {
         let mut stderr = Vec::new();
         let mut context = AppContext {
             startup,
-            cwd: PathBuf::from("/p10b"),
+            cwd: fixture_root(),
             stdout: &mut stdout,
             stderr: &mut stderr,
             stdin_tty: false,

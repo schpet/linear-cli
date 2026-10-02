@@ -52,6 +52,9 @@ pub fn serve_responses(
                 }
             };
             socket
+                .set_nonblocking(false)
+                .expect("blocking accepted mock stream");
+            socket
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
             let mut bytes = Vec::new();

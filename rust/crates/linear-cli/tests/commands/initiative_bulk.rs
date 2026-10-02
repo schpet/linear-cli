@@ -59,7 +59,12 @@ fn accept(listener: &TcpListener) -> TcpStream {
     let started = Instant::now();
     loop {
         match listener.accept() {
-            Ok((stream, _)) => return stream,
+            Ok((stream, _)) => {
+                stream
+                    .set_nonblocking(false)
+                    .expect("blocking accepted mock stream");
+                return stream;
+            }
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                 assert!(
                     started.elapsed() < Duration::from_secs(5),

@@ -443,7 +443,9 @@ impl BinaryTree {
         for name in ["cwd", "home", "bin", "repo"] {
             fs::create_dir_all(root.join(name)).unwrap();
         }
-        Self { root }
+        Self {
+            root: fs::canonicalize(root).expect("canonical private config sandbox"),
+        }
     }
 
     fn path(&self, relative: &str) -> PathBuf {

@@ -86,6 +86,10 @@ impl Server {
                 assert!(start.elapsed() < Duration::from_secs(15), "mock deadline");
                 match socket.accept() {
                     Ok((mut stream, _)) => {
+                        // BSD may inherit the listener's nonblocking flag.
+                        stream
+                            .set_nonblocking(false)
+                            .expect("blocking accepted mock stream");
                         let request = request(&mut stream);
                         assert!(
                             requests.len() < replies.len(),
@@ -650,12 +654,15 @@ fn missing_nonzero_editor_and_temp_creation_are_distinct_update_failures() {
         let output = run(c, b"", false);
         assert_eq!(output.status.code(), Some(1));
         let stderr = String::from_utf8(output.stderr).unwrap();
-        assert!(stderr.contains(match variant {
-            "missing" => "No editor found",
-            "nonzero" => "Editor exited with an error",
-            "temp" => "Failed to create editor temporary file",
-            _ => unreachable!(),
-        }));
+        assert!(
+            stderr.contains(match variant {
+                "missing" => "No editor found",
+                "nonzero" => "Editor exited with an error",
+                "temp" => "Failed to create editor temporary file",
+                _ => unreachable!(),
+            }),
+            "editor variant {variant}: {stderr}"
+        );
         assert_eq!(server.finish().len(), 1);
     }
 }

@@ -319,6 +319,9 @@ enum Reply {
 }
 fn receive(mut stream: &TcpStream, slow_body: bool) -> Seen {
     stream
+        .set_nonblocking(false)
+        .expect("blocking accepted mock stream");
+    stream
         .set_read_timeout(Some(Duration::from_secs(2)))
         .unwrap();
     let mut input = Vec::new();

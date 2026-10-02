@@ -182,14 +182,15 @@ fn stdout_cap_and_deadline_stop_and_reap_child() {
             .unwrap_err(),
         ProcessLookupFailure::StdoutTooLarge
     );
-    let hung = Sandbox::new("printf '%s' \"$$\" > \"$TRACE\"; exec /bin/sleep 2");
+    let hung = Sandbox::new("printf '%s' \"$$\" > \"$TRACE\"; exec /bin/sleep 30");
     assert_eq!(
-        hung.reader(Duration::from_millis(250))
+        hung.reader(Duration::from_secs(3))
             .lookup_detailed("demo")
             .unwrap_err(),
         ProcessLookupFailure::Timeout
     );
-    let pid = fs::read_to_string(hung.root.join("trace")).unwrap();
+    let pid = fs::read_to_string(hung.root.join("trace"))
+        .expect("fake child started and published PID before its fixture deadline");
     assert!(
         !Command::new("/bin/kill")
             .arg("-0")
