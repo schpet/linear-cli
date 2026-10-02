@@ -13,14 +13,14 @@ use crate::commands;
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
-    auth_default, auth_list, auth_token, auth_whoami, client, comment_add, cycle_list, cycle_view,
-    document_comment_list, initiative_bulk, initiative_comment_list, initiative_create,
-    initiative_list, initiative_projects, initiative_unarchive, initiative_update_list,
-    initiative_view, issue_comment_delete, issue_comment_list, issue_details, label_create,
-    label_delete, label_list, milestone_create, milestone_delete, milestone_list, milestone_update,
-    milestone_view, project_comment_list, project_delete, project_list, project_update_list,
-    project_view, table, team_create, team_id, team_list, team_members, team_states, template_list,
-    template_view, user_list,
+    auth_default, auth_list, auth_token, auth_whoami, client, comment_add, document_comment_list,
+    initiative_bulk, initiative_comment_list, initiative_create, initiative_list,
+    initiative_projects, initiative_unarchive, initiative_update_list, initiative_view,
+    issue_comment_delete, issue_comment_list, issue_details, label_create, label_delete,
+    label_list, milestone_create, milestone_list, milestone_update, milestone_view,
+    project_comment_list, project_delete, project_list, project_update_list, project_view, table,
+    team_create, team_id, team_list, team_members, team_states, template_list, template_view,
+    user_list,
 };
 use crate::config::{
     DisplaySettings, OsFamily, ProcessEnvSnapshot, RealFileSource, load_startup, render_diagnostic,
@@ -337,14 +337,7 @@ fn dispatch(ctx: &Ctx, command: RootCommand) -> Result<()> {
                 dispatch_project_update_list(context, &action, workspace)
             }
         },
-        RootCommand::Cycle(action) => match action.command {
-            cli::cycle::CycleCommand::List(action) => {
-                dispatch_cycle_list(context, &action, workspace)
-            }
-            cli::cycle::CycleCommand::View(action) => {
-                dispatch_cycle_view(context, &action, workspace)
-            }
-        },
+        RootCommand::Cycle(args) => commands::cycle::run(ctx, &args.command),
         RootCommand::Milestone(action) => match action.command {
             cli::milestone::MilestoneCommand::List(action) => {
                 dispatch_milestone_list(context, &action, workspace)
@@ -358,8 +351,8 @@ fn dispatch(ctx: &Ctx, command: RootCommand) -> Result<()> {
             cli::milestone::MilestoneCommand::Update(action) => {
                 dispatch_milestone_update(context, &action, workspace)
             }
-            cli::milestone::MilestoneCommand::Delete(action) => {
-                dispatch_milestone_delete(context, &action, workspace)
+            cli::milestone::MilestoneCommand::Delete(args) => {
+                commands::milestone::delete::run(ctx, &args)
             }
         },
         RootCommand::Initiative(action) => match action.command {
@@ -1593,16 +1586,6 @@ fn dispatch_milestone_update(
     Ok(())
 }
 
-/// None means the user confirmed; every other result is a completed command.
-/// Whether a deletion should go ahead: `--force`, or a yes at the prompt.
-fn confirm_deletion(context: &Ctx, force: bool, message: &str) -> Result<bool> {
-    if force || context.confirm(message, "--force")? {
-        return Ok(true);
-    }
-    context.print("Deletion canceled\n")?;
-    Ok(false)
-}
-
 fn dispatch_label_delete(
     context: &Ctx,
     action: &cli::label::LabelDelete,
@@ -1661,7 +1644,7 @@ fn dispatch_label_delete(
                 }
             }
         };
-        if !confirm_deletion(
+        if !commands::confirm::deletion(
             context,
             action.force,
             &format!(
@@ -1710,7 +1693,7 @@ fn dispatch_project_delete(
     workspace: Option<&str>,
 ) -> Result<()> {
     let original = &action.project_id;
-    if !confirm_deletion(
+    if !commands::confirm::deletion(
         context,
         action.force,
         &format!("Are you sure you want to delete project {original}?"),
@@ -1745,44 +1728,6 @@ fn dispatch_project_delete(
         context.print(spinner::CLEAR)?;
     }
     let output = result.context(project_delete::CONTEXT)?;
-    context.print(&output)?;
-    Ok(())
-}
-
-fn dispatch_milestone_delete(
-    context: &Ctx,
-    action: &cli::milestone::MilestoneDelete,
-    workspace: Option<&str>,
-) -> Result<()> {
-    let id = &action.id;
-    crate::refs::reject_linear_url(id, "a milestone UUID").context(milestone_delete::CONTEXT)?;
-    if !confirm_deletion(
-        context,
-        action.force,
-        &format!("Are you sure you want to delete milestone {id}?"),
-    )? {
-        return Ok(());
-    }
-    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
-    if show_spinner {
-        context.print(spinner::frame(0).as_bytes())?;
-    }
-    let result = (|| {
-        let config = context.config();
-        let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace);
-        let transport = client::prepare_transport_with_inputs(
-            &config.options,
-            credentials,
-            &inputs,
-            &config.transport_env,
-        )?;
-        block_on_network(milestone_delete::submit(&transport, id))
-    })();
-    if show_spinner {
-        context.print(spinner::CLEAR)?;
-    }
-    let output = result.context(milestone_delete::CONTEXT)?;
     context.print(&output)?;
     Ok(())
 }
@@ -3113,208 +3058,6 @@ fn dispatch_project_list(
             error.context(project_list::FETCH_CONTEXT)
         }
     })?;
-    context.print(&output)?;
-    Ok(())
-}
-
-fn dispatch_cycle_list(
-    context: &Ctx,
-    action: &cli::cycle::CycleList,
-    workspace: Option<&str>,
-) -> Result<()> {
-    let json = action.json;
-    let team_reference = match action.team.clone() {
-        Some(explicit) => explicit,
-        None => configured_team_key(&context.config().options).ok_or_else(|| {
-            Error::new("Could not determine team key from directory name or team flag")
-                .context(cycle_list::CONTEXT)
-        })?,
-    };
-    let selected = (|| {
-        let config = context.config();
-        let credentials = context.credentials()?;
-
-        let inputs = client::selection_inputs(&config.options, workspace);
-        let scope = WorkspaceScope::from_selection(&inputs, credentials);
-        let prepared = prepare_team_lookup(&team_reference, &scope)?;
-        let transport = client::prepare_transport_with_inputs(
-            &config.options,
-            credentials,
-            &inputs,
-            &config.transport_env,
-        )?;
-        Ok::<_, Error>((prepared, transport))
-    })()
-    .context(cycle_list::CONTEXT)?;
-    let (prepared, transport) = selected;
-    let team = block_on_network(async { resolve_team_with_transport(&prepared, &transport).await })
-        .context(cycle_list::CONTEXT)?;
-
-    // The spinner starts after the team lookup; a cycle-fetch error leaves
-    // its last frame visible.
-    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
-    if show_spinner {
-        context.print(spinner::frame(0).as_bytes())?;
-    }
-    let columns = table::stdout_columns(context.stdout_tty());
-    let color = context.color();
-    let output = if show_spinner {
-        block_on_network(async {
-            let pending = cycle_list::run(&transport, &team.id, json, columns, color);
-            tokio::pin!(pending);
-            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-            ticks.tick().await;
-            let mut frame = 1;
-            loop {
-                tokio::select! {
-                    biased;
-                    result = &mut pending => break result,
-                    _ = ticks.tick() => {
-                        context.print(
-                            spinner::frame(frame).as_bytes())?;
-                        frame = frame.wrapping_add(1);
-                    }
-                }
-            }
-        })
-    } else {
-        block_on_network(async {
-            cycle_list::run(&transport, &team.id, json, columns, color).await
-        })
-    }
-    .map_err(|error| {
-        if !error.has_context() {
-            error.context(cycle_list::CONTEXT)
-        } else {
-            error
-        }
-    })?;
-    if show_spinner {
-        context.print(spinner::CLEAR)?;
-    }
-    context.print(&output)?;
-    Ok(())
-}
-
-fn dispatch_cycle_view(
-    context: &Ctx,
-    action: &cli::cycle::CycleView,
-    workspace: Option<&str>,
-) -> Result<()> {
-    let reference = action.cycle_ref.clone();
-    let json = action.json;
-    let explicit_team = action.team.clone();
-    let selected = (|| {
-        let config = context.config();
-        let credentials = context.credentials()?;
-
-        let inputs = client::selection_inputs(&config.options, workspace);
-        let scope = WorkspaceScope::from_selection(&inputs, credentials);
-        let url = crate::refs::expect_url_kind(
-            &reference,
-            crate::refs::LinearUrlKind::Cycle,
-            "a cycle URL, number, or name",
-            &scope,
-        )?;
-        let url_team = match &url {
-            Some(crate::refs::LinearUrlRef::Cycle { team_key, .. }) => Some(team_key.clone()),
-            Some(_) => {
-                return Err(Error::new("expected cycle URL"));
-            }
-            None => None,
-        };
-        let team_reference = explicit_team
-            .or(url_team)
-            .or_else(|| configured_team_key(&config.options))
-            .ok_or_else(|| {
-                Error::new("Could not determine team key from directory name or team flag")
-            })?;
-        let prepared = prepare_team_lookup(&team_reference, &scope)?;
-        let transport = client::prepare_transport_with_inputs(
-            &config.options,
-            credentials,
-            &inputs,
-            &config.transport_env,
-        )?;
-        Ok::<_, Error>((url, prepared, transport))
-    })()
-    .context(cycle_view::CONTEXT)?;
-    let (url, prepared, transport) = selected;
-    let team = block_on_network(async { resolve_team_with_transport(&prepared, &transport).await })
-        .context(cycle_view::CONTEXT)?;
-    let cycle_id = block_on_network(async {
-        cycle_view::resolve_id(&transport, &team.id, &reference, url.as_ref()).await
-    })
-    .context(cycle_view::CONTEXT)?;
-    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
-    if show_spinner {
-        context.print(spinner::frame(0).as_bytes())?;
-    }
-    let request = cycle_view::detail_request(&cycle_id);
-    let response = if show_spinner {
-        block_on_network(async {
-            let pending = transport.send_request(&request);
-            tokio::pin!(pending);
-            let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
-            ticks.tick().await;
-            let mut frame = 1;
-            loop {
-                tokio::select! {
-                    biased;
-                    result = &mut pending => break result.map_err(Error::from),
-                    _ = ticks.tick() => {
-                        context.print(
-                            spinner::frame(frame).as_bytes())?;
-                        frame = frame.wrapping_add(1);
-                    }
-                }
-            }
-        })
-    } else {
-        block_on_network(async { transport.send_request(&request).await.map_err(Error::from) })
-    }
-    .context(cycle_view::CONTEXT)?;
-    let details: Result<crate::graphql::operations::cycle_view::GetCycleDetails, _> =
-        crate::graphql::transport::classify_typed(response);
-    if show_spinner
-        && (details.is_ok()
-            || matches!(
-                &details,
-                Err(crate::graphql::transport::TransportFailure::Response(
-                    crate::graphql::envelope::ResponseError::UnexpectedShape(_)
-                ))
-            ))
-    {
-        context.print(spinner::CLEAR)?;
-    }
-    let details = details.map_err(|error| Error::from(error).context(cycle_view::CONTEXT))?;
-    let cycle = details
-        .cycle
-        .ok_or_else(|| Error::not_found("Cycle", &reference).context(cycle_view::CONTEXT))?;
-    let output = if json {
-        cycle_view::json(&cycle).context(cycle_view::CONTEXT)?
-    } else {
-        let markdown = cycle_view::markdown(&cycle, chrono::Utc::now(), &chrono::Local)
-            .context(cycle_view::CONTEXT)?;
-        let rendered = if context.stdout_tty() {
-            use std::num::NonZeroU16;
-            let columns = u16::try_from(table::stdout_columns(true))
-                .ok()
-                .and_then(NonZeroU16::new)
-                .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
-            let options = crate::platform::markdown_terminal::RenderOptions::for_terminal(
-                columns,
-                context.color(),
-                None,
-                crate::platform::markdown_terminal::HostSource::System,
-            );
-            crate::platform::markdown_terminal::render(&markdown, &options)
-                .context(cycle_view::CONTEXT)?
-        } else {
-            markdown
-        };
-        format!("{rendered}\n").into_bytes()
-    };
     context.print(&output)?;
     Ok(())
 }
@@ -5675,7 +5418,7 @@ fn issue_read_cycle(
         "a cycle URL, number, or name",
         &WorkspaceScope::from_selection(&inputs, context.credentials()?),
     )?;
-    block_on_network(cycle_view::resolve_id_with(
+    block_on_network(commands::cycle::view::resolve_id_with(
         &id,
         value,
         url.as_ref(),

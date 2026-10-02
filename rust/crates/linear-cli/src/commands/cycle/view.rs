@@ -1,4 +1,5 @@
-//! Typed lookup and detail rendering for `cycle view`.
+//! `cycle view`: one cycle by number, name, URL or relative offset, and the
+//! cycle lookup shared with issue and document commands.
 
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -9,8 +10,11 @@ use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
+use crate::cli::cycle::CycleView;
 use crate::commands::relative_time::format_relative_time;
-use crate::error::Error;
+use crate::commands::team_key::{configured_team_key, no_team};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::cycle_view::{
     ActiveCycle, DetailCycle, DetailVariables, GetCycleDetails, GetTeamCyclesForLookup,
@@ -18,23 +22,65 @@ use crate::graphql::operations::cycle_view::{
 };
 use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::transport::{GraphQlTransport, RawHttpResponse};
-use crate::refs::{CycleSelector, LinearUrlRef};
+use crate::refs::{
+    CycleSelector, LinearUrlKind, LinearUrlRef, expect_url_kind, prepare_team_lookup,
+    resolve_team_with_transport,
+};
 
-pub const CONTEXT: &str = "Failed to fetch cycle details";
+pub fn run(ctx: &Ctx, args: &CycleView) -> Result<()> {
+    view(ctx, args).context("Failed to fetch cycle details")
+}
+
+fn view(ctx: &Ctx, args: &CycleView) -> Result<()> {
+    let reference = &args.cycle_ref;
+    let scope = ctx.scope()?;
+    let url = expect_url_kind(
+        reference,
+        LinearUrlKind::Cycle,
+        "a cycle URL, number, or name",
+        &scope,
+    )?;
+    let url_team = match &url {
+        Some(LinearUrlRef::Cycle { team_key, .. }) => Some(team_key.clone()),
+        Some(other) => unreachable!("expect_url_kind returned a {:?} URL", other.kind()),
+        None => None,
+    };
+    let team = args
+        .team
+        .clone()
+        .or(url_team)
+        .or_else(|| configured_team_key(ctx.options()))
+        .ok_or_else(no_team)?;
+    let lookup = prepare_team_lookup(&team, &scope)?;
+    let client = ctx.client()?;
+    let cycle = ctx.spin(!args.json, async {
+        let team = resolve_team_with_transport(&lookup, client).await?;
+        let id = resolve_id(client, &team.id, reference, url.as_ref()).await?;
+        let details: GetCycleDetails = client.execute(&detail_request(&id)).await?;
+        details
+            .cycle
+            .ok_or_else(|| Error::not_found("Cycle", reference))
+    })?;
+    if args.json {
+        ctx.print(json(&cycle))
+    } else {
+        ctx.show_markdown(&markdown(&cycle, Utc::now(), &chrono::Local), false)
+    }
+}
 const SIMPLE_SUGGESTION: &str = "Use a cycle number or name instead.";
 
 fn protocol(message: String) -> Error {
     Error::new(message)
 }
 
-pub fn lookup_request(team_id: &str, after: Option<String>) -> GraphQlRequest<LookupVariables> {
+fn lookup_request(team_id: &str, after: Option<String>) -> GraphQlRequest<LookupVariables> {
     GraphQlRequest::with_variables(GetTeamCyclesForLookup::build(LookupVariables {
         team_id: team_id.to_owned(),
         after,
     }))
 }
 
-pub fn detail_request(id: &str) -> GraphQlRequest<DetailVariables> {
+fn detail_request(id: &str) -> GraphQlRequest<DetailVariables> {
     GraphQlRequest::with_variables(GetCycleDetails::build(DetailVariables {
         id: id.to_owned(),
     }))
@@ -330,7 +376,7 @@ struct JsonState<'a> {
     state_type: &'a str,
 }
 
-pub fn json(cycle: &DetailCycle) -> Result<Vec<u8>, Error> {
+fn json(cycle: &DetailCycle) -> Vec<u8> {
     let projected = JsonCycle {
         id: &cycle.id,
         number: cycle.number,
@@ -367,17 +413,12 @@ pub fn json(cycle: &DetailCycle) -> Result<Vec<u8>, Error> {
             page_info: &cycle.issues.page_info,
         },
     };
-    let mut bytes = serde_json::to_vec_pretty(&projected)
-        .map_err(|error| Error::new("could not serialize cycle").with_source(error))?;
+    let mut bytes = serde_json::to_vec_pretty(&projected).expect("cycle JSON always serializes");
     bytes.push(b'\n');
-    Ok(bytes)
+    bytes
 }
 
-pub fn markdown<Tz: TimeZone>(
-    cycle: &DetailCycle,
-    now: DateTime<Utc>,
-    zone: &Tz,
-) -> Result<String, Error> {
+fn markdown<Tz: TimeZone>(cycle: &DetailCycle, now: DateTime<Utc>, zone: &Tz) -> String {
     let number = cycle.number;
     let title = cycle
         .name
@@ -479,5 +520,5 @@ pub fn markdown<Tz: TimeZone>(
             ]);
         }
     }
-    Ok(lines.join("\n"))
+    lines.join("\n")
 }

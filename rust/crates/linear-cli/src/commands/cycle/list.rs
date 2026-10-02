@@ -2,19 +2,79 @@
 
 use cynic::QueryBuilder;
 use serde::Serialize;
-use std::future::Future;
 
+use crate::cli::cycle::CycleList;
 use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::error::Error;
+use crate::commands::table;
+use crate::commands::team_key::team_or_configured;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::cycles::{self, GetTeamCycles, GetTeamCyclesVariables};
 use crate::graphql::operations::number::WholeNumber;
 use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::collation;
+use crate::platform::{collation, style};
+use crate::refs::{prepare_team_lookup, resolve_team_with_transport};
 
-pub const CONTEXT: &str = "Failed to list cycles";
+pub fn run(ctx: &Ctx, args: &CycleList) -> Result<()> {
+    list(ctx, args).context("Failed to list cycles")
+}
+
+fn list(ctx: &Ctx, args: &CycleList) -> Result<()> {
+    let team = team_or_configured(ctx, args.team.as_deref())?;
+    let lookup = prepare_team_lookup(&team, &ctx.scope()?)?;
+    let client = ctx.client()?;
+    let (cycles, page_info) = ctx.spin(!args.json, async {
+        let team = resolve_team_with_transport(&lookup, client).await?;
+        fetch(client, &team.id).await
+    })?;
+    if args.json {
+        ctx.print(render_json(&cycles, &page_info))
+    } else {
+        let columns = table::stdout_columns(ctx.stdout_tty());
+        ctx.print(render_text(&cycles, columns, ctx.color()))
+    }
+}
+
+/// Every cycle of the team, newest first, with the last page's info.
+async fn fetch(client: &GraphQlTransport, team_id: &str) -> Result<(Vec<cycles::Cycle>, PageInfo)> {
+    let result = pagination::paginate(|after| {
+        let request =
+            GraphQlRequest::with_variables(GetTeamCycles::build(GetTeamCyclesVariables {
+                team_id: team_id.to_owned(),
+                first: Some(100),
+                after,
+            }));
+        async move {
+            let data: GetTeamCycles = client.execute(&request).await?;
+            Ok::<Page<cycles::Cycle>, Error>(Page {
+                nodes: data.team.cycles.nodes,
+                page_info: data.team.cycles.page_info.into(),
+            })
+        }
+    })
+    .await
+    .map_err(|error| match error {
+        PaginationError::Fetch { source, .. } => source,
+        PaginationError::MissingCursor { .. } => {
+            Error::new("Linear reported more cycles but returned no pagination cursor")
+                .with_hint("Retry the command.")
+        }
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated a cycle pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command."),
+    })?;
+    let mut nodes = result.nodes;
+    nodes.sort_by(|left, right| collation::compare(&right.starts_at.0, &left.starts_at.0));
+    let page_info = PageInfo {
+        has_next_page: result.page_info.has_next_page,
+        end_cursor: result.page_info.end_cursor,
+    };
+    Ok((nodes, page_info))
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,103 +97,25 @@ struct JsonConnection<'a> {
     page_info: &'a PageInfo,
 }
 
-fn render_json(nodes: &[cycles::Cycle], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
+fn render_json(nodes: &[cycles::Cycle], page_info: &PageInfo) -> Vec<u8> {
     let nodes = nodes
         .iter()
-        .map(|cycle| {
-            Ok(JsonCycle {
-                id: &cycle.id,
-                number: cycle.number,
-                name: &cycle.name,
-                starts_at: &cycle.starts_at,
-                ends_at: &cycle.ends_at,
-                completed_at: &cycle.completed_at,
-                is_active: cycle.is_active,
-                is_future: cycle.is_future,
-                is_past: cycle.is_past,
-            })
+        .map(|cycle| JsonCycle {
+            id: &cycle.id,
+            number: cycle.number,
+            name: &cycle.name,
+            starts_at: &cycle.starts_at,
+            ends_at: &cycle.ends_at,
+            completed_at: &cycle.completed_at,
+            is_active: cycle.is_active,
+            is_future: cycle.is_future,
+            is_past: cycle.is_past,
         })
-        .collect::<Result<Vec<_>, Error>>()?;
-    let mut output =
-        serde_json::to_vec_pretty(&JsonConnection { nodes, page_info }).map_err(|error| {
-            Error::new("could not serialize cycles")
-                .with_source(error)
-                .context(CONTEXT)
-        })?;
+        .collect();
+    let mut output = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
+        .expect("cycle JSON always serializes");
     output.push(b'\n');
-    Ok(output)
-}
-
-pub async fn run_with<F, Fut>(
-    team_id: &str,
-    mut fetch: F,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error>
-where
-    F: FnMut(GraphQlRequest<GetTeamCyclesVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeamCycles, Error>>,
-{
-    let result = pagination::paginate(|after| {
-        let request =
-            GraphQlRequest::with_variables(GetTeamCycles::build(GetTeamCyclesVariables {
-                team_id: team_id.to_owned(),
-                first: Some(100),
-                after,
-            }));
-        let future = fetch(request);
-        async move {
-            let data = future.await?;
-            Ok::<Page<cycles::Cycle>, Error>(Page {
-                nodes: data.team.cycles.nodes,
-                page_info: data.team.cycles.page_info.into(),
-            })
-        }
-    })
-    .await
-    .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
-        PaginationError::MissingCursor { .. } => {
-            Error::new("Linear reported more cycles but returned no pagination cursor")
-                .with_hint("Retry the command.")
-                .context(CONTEXT)
-        }
-        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
-            "Linear repeated a cycle pagination cursor on page {page}"
-        ))
-        .with_hint("Retry the command.")
-        .context(CONTEXT),
-    })?;
-
-    let mut nodes = result.nodes;
-    nodes.sort_by(|left, right| collation::compare(&right.starts_at.0, &left.starts_at.0));
-    let page_info = PageInfo {
-        has_next_page: result.page_info.has_next_page,
-        end_cursor: result.page_info.end_cursor,
-    };
-    if json {
-        render_json(&nodes, &page_info)
-    } else {
-        Ok(render_text(&nodes, columns, color)?.into_bytes())
-    }
-}
-
-pub async fn run(
-    transport: &GraphQlTransport,
-    team_id: &str,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error> {
-    run_with(
-        team_id,
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        json,
-        columns,
-        color,
-    )
-    .await
+    output
 }
 
 fn cycle_name(cycle: &cycles::Cycle, number: &str) -> String {
@@ -163,9 +145,9 @@ fn date_prefix(date: &str) -> String {
     date.chars().take(10).collect()
 }
 
-pub fn render_text(nodes: &[cycles::Cycle], columns: usize, color: bool) -> Result<String, Error> {
+fn render_text(nodes: &[cycles::Cycle], columns: usize, color: bool) -> String {
     if nodes.is_empty() {
-        return Ok("No cycles found for this team.\n".to_owned());
+        return "No cycles found for this team.\n".to_owned();
     }
     let numbers: Vec<String> = nodes.iter().map(|cycle| cycle.number.to_string()).collect();
     let names: Vec<_> = nodes
@@ -191,19 +173,16 @@ pub fn render_text(nodes: &[cycles::Cycle], columns: usize, color: bool) -> Resu
         pad("STATUS", 9),
     ]
     .join(" ");
-    let mut output = if color {
-        format!("\x1b[1m\x1b[4m{header}\x1b[24m\x1b[22m\n")
-    } else {
-        format!("{header}\n")
-    };
+    let mut output = format!(
+        "{}\n",
+        style::bold(&style::underline(&header, color), color)
+    );
     for ((cycle, number), name) in nodes.iter().zip(&numbers).zip(&names) {
         let label = pad(status(cycle), 9);
-        let styled = if !color {
-            label
-        } else if cycle.is_active {
-            format!("\x1b[32m{label}\x1b[39m")
+        let styled = if cycle.is_active {
+            style::green(&label, color)
         } else if cycle.is_past || cycle.completed_at.is_some() {
-            format!("\x1b[90m{label}\x1b[39m")
+            style::gray(&label, color)
         } else {
             label
         };
@@ -215,5 +194,5 @@ pub fn render_text(nodes: &[cycles::Cycle], columns: usize, color: bool) -> Resu
             pad(&date_prefix(&cycle.ends_at.0), 10),
         ));
     }
-    Ok(output)
+    output
 }

@@ -235,7 +235,7 @@ pub async fn resolve(
             url,
         } => {
             let team = refs::resolve_team_with_transport(team, transport).await?;
-            let id = crate::commands::cycle_view::resolve_id_with(
+            let id = crate::commands::cycle::view::resolve_id_with(
                 &team.id,
                 reference,
                 url.as_ref(),

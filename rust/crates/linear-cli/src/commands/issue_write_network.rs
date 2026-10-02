@@ -384,7 +384,7 @@ impl Backend for NetworkBackend {
             "a cycle URL, number, or name",
             &self.scope(&key),
         )?;
-        crate::commands::cycle_view::resolve_id_with(
+        crate::commands::cycle::view::resolve_id_with(
             &team_id,
             &reference,
             url.as_ref(),

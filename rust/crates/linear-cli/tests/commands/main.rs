@@ -1,7 +1,6 @@
 mod auth_list;
 mod auth_whoami;
 mod comment_add;
-mod cycle_list;
 mod cycle_view;
 mod delete_server;
 mod document_comment_list;
@@ -15,7 +14,6 @@ mod label_create;
 mod label_delete;
 mod label_list;
 mod milestone_create;
-mod milestone_delete;
 mod milestone_list;
 mod milestone_update;
 mod project_comment_list;
