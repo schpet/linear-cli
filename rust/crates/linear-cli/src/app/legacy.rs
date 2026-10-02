@@ -37,23 +37,6 @@ pub mod spinner {
     }
 }
 
-/// Loaded configuration and credentials for auth commands not yet on `Ctx`.
-pub struct Loaded<'a> {
-    pub config: &'a crate::config::StartupConfig,
-    pub credentials: &'a crate::auth::CredentialStore,
-    pub credentials_path: Option<std::path::PathBuf>,
-}
-
-impl<'a> Loaded<'a> {
-    pub fn new(ctx: &'a crate::ctx::Ctx) -> Result<Self> {
-        Ok(Self {
-            config: ctx.config(),
-            credentials: ctx.credentials()?,
-            credentials_path: ctx.credentials_path().map(std::path::Path::to_path_buf),
-        })
-    }
-}
-
 /// A fresh API client for the `--workspace`. Migrated commands use `Ctx::client`.
 pub fn relation_transport(
     ctx: &crate::ctx::Ctx,
