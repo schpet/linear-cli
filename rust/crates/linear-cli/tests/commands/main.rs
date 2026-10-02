@@ -2,20 +2,10 @@ mod comment_add;
 mod cycle_view;
 mod delete_server;
 mod document_comment_list;
-mod initiative_comment_list;
-mod initiative_create;
-mod initiative_list;
-mod initiative_view;
 mod prosemirror;
 mod relative_time;
 
-mod initiative_unarchive;
-
 mod agent_session;
-
-mod initiative_projects;
-
-mod initiative_bulk;
 
 mod document_reads;
 mod markdown_assets;
@@ -29,8 +19,6 @@ mod document_write;
 mod project_write_server;
 
 mod issue_archive_delete;
-
-mod initiative_update;
 
 mod issue_read;
 

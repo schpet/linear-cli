@@ -1,168 +1,65 @@
-//! `initiative unarchive`: find the archived initiative by id, slug or name, then restore it.
-use crate::commands::initiative::view::{FETCH_CONTEXT, RESOLVE_CONTEXT, Reference};
-use crate::error::{Error, ResultExt};
-use crate::graphql::envelope::{GraphQlRequest, ResponseError};
+//! `initiative unarchive`: find the archived initiative, confirm, restore it.
+use cynic::{MutationBuilder, QueryBuilder};
+
+use crate::cli::initiative::InitiativeUnarchive;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
+use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_unarchive::{
-    DetailVariables, GetInitiativeByNameIncludeArchived, GetInitiativeBySlugIncludeArchived,
-    GetInitiativeForUnarchive, NameVariables, SlugVariables, UnarchiveDetail, UnarchiveInitiative,
+    DetailVariables, GetInitiativeForUnarchive, UnarchiveDetail, UnarchiveInitiative,
     UnarchiveVariables,
 };
-use crate::graphql::operations::initiative_view::{ResolveInitiativeBySlug, UrlSlugVariables};
-use crate::graphql::transport::{GraphQlTransport, TransportFailure};
-use crate::refs::is_linear_uuid;
-use cynic::{MutationBuilder, QueryBuilder};
-pub const CONTEXT: &str = "Failed to unarchive initiative";
+use crate::graphql::transport::GraphQlTransport;
 
-// A failed name or slug lookup counts as "not found by this route". Malformed
-// responses still stop the command rather than resolve the wrong initiative.
-fn text_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, Error> {
-    match result {
-        Ok(value) => Ok(Some(value)),
-        Err(
-            TransportFailure::GraphQl { .. }
-            | TransportFailure::Http { .. }
-            | TransportFailure::Network { .. }
-            | TransportFailure::Timeout { .. }
-            | TransportFailure::ResponseTooLarge { .. }
-            | TransportFailure::Response(
-                ResponseError::NotJson { .. }
-                | ResponseError::MalformedJson(_)
-                | ResponseError::MissingData
-                | ResponseError::GraphQl { .. },
-            ),
-        ) => Ok(None),
-        Err(
-            error @ (TransportFailure::RequestBody(_)
-            | TransportFailure::Response(
-                ResponseError::UnexpectedShape(_)
-                | ResponseError::MutationRejected
-                | ResponseError::MissingPayloadEntity,
-            )),
-        ) => Err(Error::from(error)),
+pub fn run(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
+    unarchive(ctx, args).context("Failed to unarchive initiative")
+}
+
+fn unarchive(ctx: &Ctx, args: &InitiativeUnarchive) -> Result<()> {
+    if !args.force {
+        ctx.require_tty("--force")?;
     }
-}
-fn missing(original: &str) -> Error {
-    Error::not_found("Initiative", original)
-}
-async fn resolve_text(
-    transport: &GraphQlTransport,
-    token: &str,
-    original: &str,
-) -> Result<String, Error> {
-    let request =
-        GraphQlRequest::with_variables(GetInitiativeBySlugIncludeArchived::build(SlugVariables {
-            slug_id: token.to_owned(),
-        }));
-    let result: Option<GetInitiativeBySlugIncludeArchived> =
-        text_result(transport.execute(&request).await)?;
-    if let Some(node) = result.and_then(|data| data.initiatives.nodes.into_iter().next()) {
-        return if node.id.inner().is_empty() {
-            Err(missing(original))
-        } else {
-            Ok(node.id.into_inner())
-        };
+    let original = &args.initiative_id;
+    let reference = super::reference(ctx, original)?;
+    let client = ctx.client()?;
+    let detail = ctx.spin(true, async {
+        let id = super::resolve(client, &reference, original, super::Archived::Include).await?;
+        details(client, &id, original).await
+    })?;
+    if detail.archived_at.is_none() {
+        return ctx.print(format!("Initiative \"{}\" is not archived.\n", detail.name));
     }
-    let request =
-        GraphQlRequest::with_variables(GetInitiativeByNameIncludeArchived::build(NameVariables {
-            name: token.to_owned(),
-        }));
-    let result: Option<GetInitiativeByNameIncludeArchived> =
-        text_result(transport.execute(&request).await)?;
-    result
-        .and_then(|data| data.initiatives.nodes.into_iter().next())
-        .map(|node| node.id.into_inner())
-        .filter(|id| !id.is_empty())
-        .ok_or_else(|| missing(original))
-}
-pub async fn resolve_reference(
-    transport: &GraphQlTransport,
-    reference: &Reference,
-    original: &str,
-) -> Result<String, Error> {
-    let result = async {
-        match reference {
-            Reference::Id(id) => Ok(id.clone()),
-            Reference::NameOrSlug(token) => resolve_text(transport, token, original).await,
-            Reference::UrlSlug(slug_id) => {
-                let request = GraphQlRequest::with_variables(ResolveInitiativeBySlug::build(
-                    UrlSlugVariables {
-                        slug_id: slug_id.clone(),
-                        include_archived: Some(true),
-                    },
-                ));
-                let data: ResolveInitiativeBySlug =
-                    transport.execute(&request).await.map_err(Error::from)?;
-                let id = data
-                    .initiatives
-                    .nodes
-                    .into_iter()
-                    .next()
-                    .map(|node| node.id.into_inner())
-                    .ok_or_else(|| missing(original))?;
-                if is_linear_uuid(&id) {
-                    Ok(id)
-                } else {
-                    resolve_text(transport, &id, original).await
-                }
-            }
-        }
+    let question = format!("Are you sure you want to unarchive \"{}\"?", detail.name);
+    if !args.force && !ctx.confirm(&question, "--force")? {
+        return ctx.print("Unarchive cancelled.\n");
     }
-    .await;
-    result.context(RESOLVE_CONTEXT)
+    let request = GraphQlRequest::with_variables(UnarchiveInitiative::build(UnarchiveVariables {
+        id: detail.id.inner().to_owned(),
+    }));
+    let result: UnarchiveInitiative = ctx.spin(true, client.execute(&request))?;
+    if !result.initiative_unarchive.success {
+        return Err(Error::new("Linear did not unarchive the initiative"));
+    }
+    let mut output = format!("✓ Unarchived initiative: {}\n", detail.name);
+    if let Some(entity) = result
+        .initiative_unarchive
+        .entity
+        .filter(|entity| !entity.url.is_empty())
+    {
+        output.push_str(&format!("{}\n", entity.url));
+    }
+    ctx.print(output)
 }
-pub async fn fetch_details(
-    transport: &GraphQlTransport,
-    id: &str,
-    original: &str,
-) -> Result<UnarchiveDetail, Error> {
+
+async fn details(client: &GraphQlTransport, id: &str, original: &str) -> Result<UnarchiveDetail> {
     let request =
         GraphQlRequest::with_variables(GetInitiativeForUnarchive::build(DetailVariables {
             id: cynic::Id::new(id),
         }));
-    let data: GetInitiativeForUnarchive = transport
-        .execute(&request)
-        .await
-        .map_err(Error::from)
-        .context(FETCH_CONTEXT)?;
+    let data: GetInitiativeForUnarchive = client.execute(&request).await?;
     data.initiatives
         .nodes
         .into_iter()
         .next()
-        .ok_or_else(|| missing(original).context(RESOLVE_CONTEXT))
-}
-pub fn active_output(detail: &UnarchiveDetail) -> Option<Vec<u8>> {
-    if detail
-        .archived_at
-        .as_ref()
-        .is_none_or(|date| date.0.is_empty())
-    {
-        Some(format!("Initiative \"{}\" is not archived.\n", detail.name).into_bytes())
-    } else {
-        None
-    }
-}
-pub async fn submit(transport: &GraphQlTransport, id: &str) -> Result<Vec<u8>, Error> {
-    let request = GraphQlRequest::with_variables(UnarchiveInitiative::build(UnarchiveVariables {
-        id: id.to_owned(),
-    }));
-    let data: UnarchiveInitiative = transport
-        .execute(&request)
-        .await
-        .map_err(Error::from)
-        .context(CONTEXT)?;
-    if !data.initiative_unarchive.success {
-        return Err(Error::new(CONTEXT).context(CONTEXT));
-    }
-    let entity = data.initiative_unarchive.entity;
-    let mut output = format!(
-        "✓ Unarchived initiative: {}\n",
-        entity
-            .as_ref()
-            .map_or("undefined", |node| node.name.as_str())
-    );
-    if let Some(entity) = entity.filter(|node| !node.url.is_empty()) {
-        output.push_str(&entity.url);
-        output.push('\n');
-    }
-    Ok(output.into_bytes())
+        .ok_or_else(|| Error::not_found("Initiative", original))
 }

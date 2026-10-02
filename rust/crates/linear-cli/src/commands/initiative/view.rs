@@ -1,134 +1,61 @@
-//! Initiative detail resolution and display.
+//! `initiative view`: an initiative's details as Markdown or JSON, or opened in Linear.
 use chrono::{DateTime, Local, Utc};
 use cynic::QueryBuilder;
 use serde::Serialize;
 
+use crate::cli::initiative::InitiativeView;
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::table::terminal_color;
-use crate::error::{Error, ResultExt};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_view::{
-    DetailVariables, GetInitiativeByNameForView, GetInitiativeBySlugForView, GetInitiativeDetails,
-    InitiativeDetails, NameVariables, ResolveInitiativeBySlug, SlugVariables, UrlSlugVariables,
+    DetailVariables, GetInitiativeDetails, InitiativeDetails,
 };
 use crate::graphql::operations::initiatives::{InitiativeStatus, InitiativeUpdateHealthType};
 use crate::graphql::operations::projects::ProjectStatusType;
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::markdown_terminal::{self, HostSource, RenderOptions};
-use crate::refs::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind, is_linear_uuid};
+use crate::refs::{self, WorkspaceScope};
 
-pub const RESOLVE_CONTEXT: &str = "Failed to resolve initiative";
-pub const FETCH_CONTEXT: &str = "Failed to fetch initiative details";
-pub const OPEN_CONTEXT: &str = "Failed to open initiative";
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Reference {
-    Id(String),
-    UrlSlug(String),
-    NameOrSlug(String),
+pub fn run(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
+    view(ctx, args).context("Failed to view initiative")
 }
 
-pub fn prepare_reference(input: &str, scope: &WorkspaceScope<'_>) -> Result<Reference, Error> {
-    match expect_url_kind(
-        input,
-        LinearUrlKind::Initiative,
-        "an initiative URL, UUID, slug ID, or exact name",
-        scope,
-    )? {
-        Some(LinearUrlRef::Initiative { slug_id, .. }) => Ok(Reference::UrlSlug(slug_id)),
-        Some(_) => Err(Error::new("initiative URL kind mismatch")),
-        None if is_linear_uuid(input) => Ok(Reference::Id(input.to_owned())),
-        None => Ok(Reference::NameOrSlug(input.to_owned())),
+fn view(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
+    let original = &args.initiative_id;
+    let reference = super::reference(ctx, original)?;
+    let client = ctx.client()?;
+    let detail = ctx.spin(!args.json, async {
+        let id = super::resolve(client, &reference, original, super::Archived::Exclude).await?;
+        fetch(client, id, original).await
+    })?;
+    if args.web || args.app {
+        return ctx.open_url(&detail.url, args.app);
     }
-}
-
-async fn resolve_text(
-    transport: &GraphQlTransport,
-    text: &str,
-    original: &str,
-) -> Result<String, Error> {
-    let request =
-        GraphQlRequest::with_variables(GetInitiativeBySlugForView::build(SlugVariables {
-            slug_id: text.to_owned(),
-        }));
-    let slug: GetInitiativeBySlugForView = transport
-        .execute(&request)
-        .await
-        .map_err(Error::from)
-        .context(RESOLVE_CONTEXT)?;
-    if let Some(node) = slug.initiatives.nodes.first() {
-        return Ok(node.id.inner().to_owned());
+    if args.json {
+        return ctx.print(render_json(&detail));
     }
-    let request =
-        GraphQlRequest::with_variables(GetInitiativeByNameForView::build(NameVariables {
-            name: text.to_owned(),
-        }));
-    let name: GetInitiativeByNameForView = transport
-        .execute(&request)
-        .await
-        .map_err(Error::from)
-        .context(RESOLVE_CONTEXT)?;
-    name.initiatives
-        .nodes
-        .first()
-        .map(|node| node.id.inner().to_owned())
-        .ok_or_else(|| Error::not_found("Initiative", original).context(RESOLVE_CONTEXT))
-}
-
-pub async fn resolve_reference(
-    transport: &GraphQlTransport,
-    reference: &Reference,
-    original: &str,
-) -> Result<String, Error> {
-    match reference {
-        Reference::Id(id) => Ok(id.clone()),
-        Reference::NameOrSlug(text) => resolve_text(transport, text, original).await,
-        Reference::UrlSlug(slug_id) => {
-            let request =
-                GraphQlRequest::with_variables(ResolveInitiativeBySlug::build(UrlSlugVariables {
-                    slug_id: slug_id.clone(),
-                    include_archived: Some(false),
-                }));
-            let result: ResolveInitiativeBySlug = transport
-                .execute(&request)
-                .await
-                .map_err(Error::from)
-                .context(RESOLVE_CONTEXT)?;
-            let id = result
-                .initiatives
-                .nodes
-                .first()
-                .map(|node| node.id.inner().to_owned())
-                .ok_or_else(|| Error::not_found("Initiative", original).context(RESOLVE_CONTEXT))?;
-            if is_linear_uuid(&id) {
-                Ok(id)
-            } else {
-                resolve_text(transport, &id, original).await
-            }
-        }
+    let now = Utc::now();
+    if !ctx.stdout_tty() {
+        return ctx.print(format!("{}\n", markdown(&detail, now, false)));
     }
+    let rendered = ctx.render_markdown(&markdown(&detail, now, true))?;
+    let status = format!("**Status:** {}", detail.status.as_str());
+    let status = super::list::status_style(&detail.status, &status, ctx.color());
+    ctx.print(format!("{status}\n{rendered}\n"))
 }
 
-pub async fn fetch_details(
-    transport: &GraphQlTransport,
-    id: String,
-    original: &str,
-) -> Result<InitiativeDetails, Error> {
+async fn fetch(client: &GraphQlTransport, id: String, original: &str) -> Result<InitiativeDetails> {
     let request =
         GraphQlRequest::with_variables(GetInitiativeDetails::build(DetailVariables { id }));
-    let result: GetInitiativeDetails = transport
-        .execute(&request)
-        .await
-        .map_err(Error::from)
-        .context(FETCH_CONTEXT)?;
+    let result: GetInitiativeDetails = client.execute(&request).await?;
     let detail = result
         .initiative
-        .ok_or_else(|| Error::not_found("Initiative", original).context(FETCH_CONTEXT))?;
-    verify_detail(&detail).context(FETCH_CONTEXT)?;
+        .ok_or_else(|| Error::not_found("Initiative", original))?;
+    verify_detail(&detail)?;
     Ok(detail)
 }
 
-fn verify_detail(detail: &InitiativeDetails) -> Result<(), Error> {
+fn verify_detail(detail: &InitiativeDetails) -> Result<()> {
     if let InitiativeStatus::Unknown(value) = &detail.status {
         return Err(Error::new(format!(
             "Linear returned an unknown initiative status: {value}"
@@ -195,7 +122,7 @@ struct JsonProjectStatus<'a> {
     status_type: &'a str,
 }
 
-pub fn render_json(detail: &InitiativeDetails) -> Result<Vec<u8>, Error> {
+fn render_json(detail: &InitiativeDetails) -> Vec<u8> {
     let projection = JsonDetail {
         id: &detail.id,
         slug_id: &detail.slug_id,
@@ -235,10 +162,10 @@ pub fn render_json(detail: &InitiativeDetails) -> Result<Vec<u8>, Error> {
                 .collect(),
         },
     };
-    let mut bytes = serde_json::to_vec_pretty(&projection)
-        .map_err(|e| Error::new("could not serialize initiative").with_source(e))?;
+    let mut bytes =
+        serde_json::to_vec_pretty(&projection).expect("initiative JSON always serializes");
     bytes.push(b'\n');
-    Ok(bytes)
+    bytes
 }
 
 fn project_rank(status: &ProjectStatusType) -> u8 {
@@ -253,7 +180,7 @@ fn project_rank(status: &ProjectStatusType) -> u8 {
     }
 }
 
-pub fn markdown(detail: &InitiativeDetails, now: DateTime<Utc>, terminal: bool) -> String {
+fn markdown(detail: &InitiativeDetails, now: DateTime<Utc>, terminal: bool) -> String {
     let icon = detail
         .icon
         .as_deref()
@@ -331,38 +258,19 @@ pub fn markdown(detail: &InitiativeDetails, now: DateTime<Utc>, terminal: bool) 
     lines.join("\n")
 }
 
-pub fn render_text(
-    detail: &InitiativeDetails,
-    terminal: bool,
-    columns: std::num::NonZeroU16,
-    color: bool,
-) -> Result<Vec<u8>, Error> {
-    let now = Utc::now();
-    let body = markdown(detail, now, terminal);
-    if !terminal {
-        return Ok(format!("{body}\n").into_bytes());
-    }
-    let options = RenderOptions::for_terminal(columns, color, None, HostSource::System);
-    let rendered = markdown_terminal::render(&body, &options)?;
-    let line = format!("**Status:** {}", detail.status.as_str());
-    let colored = if !color {
-        line
-    } else {
-        let hex = match detail.status {
-            InitiativeStatus::Active => "#27AE60",
-            InitiativeStatus::Planned => "#5E6AD2",
-            InitiativeStatus::Completed | InitiativeStatus::Proposed => "#6B6F76",
-            InitiativeStatus::Canceled => "#EB5757",
-            InitiativeStatus::Unknown(_) => "#6B6F76",
-        };
-        let sgr = terminal_color(hex)
-            .ok_or_else(|| Error::new("invalid built-in initiative status color"))?;
-        format!("{sgr}{line}\x1b[0m")
-    };
-    Ok(format!("{colored}\n{rendered}\n").into_bytes())
+// The `initiative-update` commands resolve initiatives through these.
+pub use crate::refs::InitiativeReference as Reference;
+
+/// Kept for the `initiative-update` commands until they use `refs` directly.
+pub fn prepare_reference(input: &str, scope: &WorkspaceScope<'_>) -> Result<Reference> {
+    refs::prepare_initiative_lookup(input, scope)
 }
 
-pub fn opening(detail: &InitiativeDetails, app: bool) -> Vec<u8> {
-    let target = if app { "Linear.app" } else { "web browser" };
-    format!("Opening {} in {target}\n", detail.url).into_bytes()
+/// Kept for the `initiative-update` commands until they use `refs` directly.
+pub async fn resolve_reference(
+    transport: &GraphQlTransport,
+    reference: &Reference,
+    original: &str,
+) -> Result<String> {
+    refs::resolve_initiative_with_transport(reference, original, transport).await
 }

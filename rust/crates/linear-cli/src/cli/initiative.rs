@@ -98,7 +98,7 @@ pub struct InitiativeCreate {
 
 #[derive(Debug, Args)]
 pub struct InitiativeArchive {
-    #[arg(value_name = "initiativeId")]
+    #[arg(value_name = "initiativeId", value_parser = super::nonempty_string, conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub initiative_id: Option<String>,
     #[arg(long = "force", short = 'y', help = "Skip confirmation prompt")]
     pub force: bool,
@@ -112,7 +112,7 @@ pub struct InitiativeArchive {
 
 #[derive(Debug, Args)]
 pub struct InitiativeUpdate {
-    #[arg(value_name = "initiativeId")]
+    #[arg(value_name = "initiativeId", value_parser = super::nonempty_string)]
     pub initiative_id: String,
     #[arg(long = "name", short = 'n', help = "New name for the initiative", value_name = "name", value_parser = super::nonempty_string)]
     pub name: Option<String>,
@@ -138,7 +138,7 @@ pub struct InitiativeUpdate {
 
 #[derive(Debug, Args)]
 pub struct InitiativeUnarchive {
-    #[arg(value_name = "initiativeId")]
+    #[arg(value_name = "initiativeId", value_parser = super::nonempty_string)]
     pub initiative_id: String,
     #[arg(long = "force", short = 'y', help = "Skip confirmation prompt")]
     pub force: bool,
@@ -146,7 +146,7 @@ pub struct InitiativeUnarchive {
 
 #[derive(Debug, Args)]
 pub struct InitiativeDelete {
-    #[arg(value_name = "initiativeId")]
+    #[arg(value_name = "initiativeId", value_parser = super::nonempty_string, conflicts_with_all = ["bulk", "bulk_file", "bulk_stdin"])]
     pub initiative_id: Option<String>,
     #[arg(long = "force", short = 'y', help = "Skip confirmation prompt")]
     pub force: bool,
@@ -160,9 +160,9 @@ pub struct InitiativeDelete {
 
 #[derive(Debug, Args)]
 pub struct InitiativeAddProject {
-    #[arg(value_name = "initiative")]
+    #[arg(value_name = "initiative", value_parser = super::nonempty_string)]
     pub initiative: String,
-    #[arg(value_name = "project")]
+    #[arg(value_name = "project", value_parser = super::nonempty_string)]
     pub project: String,
     #[arg(long = "sort-order", help = "Sort order within initiative", value_name = "sortOrder", value_parser = super::numeric::finite_decimal, allow_negative_numbers = true)]
     pub sort_order: Option<f64>,
@@ -170,9 +170,9 @@ pub struct InitiativeAddProject {
 
 #[derive(Debug, Args)]
 pub struct InitiativeRemoveProject {
-    #[arg(value_name = "initiative")]
+    #[arg(value_name = "initiative", value_parser = super::nonempty_string)]
     pub initiative: String,
-    #[arg(value_name = "project")]
+    #[arg(value_name = "project", value_parser = super::nonempty_string)]
     pub project: String,
     #[arg(long = "force", short = 'y', help = "Skip confirmation prompt")]
     pub force: bool,
@@ -202,7 +202,7 @@ pub enum InitiativeCommentCommand {
 
 #[derive(Debug, Args)]
 pub struct InitiativeCommentAdd {
-    #[arg(value_name = "initiative")]
+    #[arg(value_name = "initiative", value_parser = super::nonempty_string)]
     pub initiative: String,
     #[arg(long = "body", short = 'b', help = "Comment body text", value_name = "text", value_parser = super::nonempty_string)]
     pub body: Option<String>,
@@ -214,7 +214,7 @@ pub struct InitiativeCommentAdd {
 
 #[derive(Debug, Args)]
 pub struct InitiativeCommentList {
-    #[arg(value_name = "initiative")]
+    #[arg(value_name = "initiative", value_parser = super::nonempty_string)]
     pub initiative: String,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,

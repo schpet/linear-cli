@@ -1,22 +1,13 @@
-use super::initiative_view::{NameVariablesFields, SlugVariablesFields};
-// Exact archived lookups, confirmation details and unarchive selection.
-pub use super::initiative_view::{
-    InitiativeNameResults, InitiativeSlugResults, NameVariables, SlugVariables,
-};
+//! Archived-inclusive initiative lookups for `initiative unarchive` and `delete`.
+use super::initiative_reference::{InitiativeNameConnection, NameVariablesFields};
 use crate::graphql::scalars::DateTime;
 use crate::graphql::schema;
 
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "SlugVariables")]
-pub struct GetInitiativeBySlugIncludeArchived {
-    #[arguments(filter: { slugId: { eq: $slug_id } }, includeArchived: true)]
-    pub initiatives: InitiativeSlugResults,
-}
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
+#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
 #[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct GetInitiativeByNameIncludeArchived {
+pub struct ResolveInitiativeByNameIncludingArchived {
     #[arguments(filter: { name: { eqIgnoreCase: $name } }, includeArchived: true)]
-    pub initiatives: InitiativeNameResults,
+    pub initiatives: InitiativeNameConnection,
 }
 #[derive(cynic::QueryVariables, Clone, Debug, PartialEq, Eq)]
 pub struct DetailVariables {

@@ -232,21 +232,3 @@ pub struct LookupUserNode {
     pub display_name: String,
     pub name: String,
 }
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Query")]
-pub struct GetViewerForInitiatives {
-    pub viewer: InitiativeViewer,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "User")]
-pub struct InitiativeViewer {
-    pub organization: InitiativeOrganization,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Organization")]
-pub struct InitiativeOrganization {
-    pub url_key: String,
-}

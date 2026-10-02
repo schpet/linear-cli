@@ -191,7 +191,7 @@ fn list_rejects_an_unknown_status_before_any_request() {
 fn list_web_opens_the_workspace_initiatives_page() {
     let api = MockLinear::start();
     api.on(
-        "GetViewerForInitiatives",
+        "GetViewer",
         json!({ "viewer": { "organization": { "urlKey": "acme" } } }),
     );
     let cli = open_stubs(Cli::for_api(&api));
@@ -213,8 +213,8 @@ fn view_json_by_id_returns_the_initiative() {
 #[test]
 fn view_resolves_slugs_then_names_and_shows_details() {
     let api = MockLinear::start();
-    api.on("GetInitiativeBySlugForView", none())
-        .on("GetInitiativeByNameForView", by_id(ID))
+    api.on("ResolveInitiativeBySlug", none())
+        .on("ResolveInitiativeByName", by_id(ID))
         .on("GetInitiativeDetails", json!({ "initiative": details() }));
     Cli::for_api(&api)
         .run(&["initiative", "view", "Roadmap"])
@@ -223,11 +223,11 @@ fn view_resolves_slugs_then_names_and_shows_details() {
         .stdout_has("Ship the roadmap")
         .stdout_has("Mobile");
     assert_eq!(
-        api.variables("GetInitiativeBySlugForView"),
-        json!({ "slugId": "Roadmap" })
+        api.variables("ResolveInitiativeBySlug"),
+        json!({ "slugId": "Roadmap", "includeArchived": false })
     );
     assert_eq!(
-        api.variables("GetInitiativeByNameForView"),
+        api.variables("ResolveInitiativeByName"),
         json!({ "name": "Roadmap" })
     );
 }
@@ -250,8 +250,8 @@ fn view_resolves_urls_by_slug() {
 #[test]
 fn view_unknown_initiative_fails() {
     let api = MockLinear::start();
-    api.on("GetInitiativeBySlugForView", none())
-        .on("GetInitiativeByNameForView", none());
+    api.on("ResolveInitiativeBySlug", none())
+        .on("ResolveInitiativeByName", none());
     Cli::for_api(&api)
         .run(&["initiative", "view", "nothing-here"])
         .failure()
@@ -360,16 +360,6 @@ fn create_validates_flags_before_any_request() {
     assert!(api.requests().is_empty());
 }
 
-fn current() -> Value {
-    json!({
-        "initiative": {
-            "id": ID, "slugId": "1a2b3c4d5e6f", "name": "Roadmap", "description": null,
-            "status": "Planned", "targetDate": null, "color": null, "icon": null,
-            "owner": { "id": "user-1", "displayName": "ada" }
-        }
-    })
-}
-
 fn updated() -> Value {
     json!({
         "initiativeUpdate": {
@@ -382,8 +372,7 @@ fn updated() -> Value {
 #[test]
 fn update_sends_changed_fields() {
     let api = MockLinear::start();
-    api.on("GetInitiativeForUpdate", current())
-        .on("LookupUser", users())
+    api.on("LookupUser", users())
         .on("UpdateInitiative", updated());
     Cli::for_api(&api)
         .run(&[
@@ -399,7 +388,7 @@ fn update_sends_changed_fields() {
         ])
         .success()
         .stdout_has("Renamed");
-    assert_eq!(api.variables("GetInitiativeForUpdate"), json!({ "id": ID }));
+    assert_eq!(api.operations(), ["LookupUser", "UpdateInitiative"]);
     assert_eq!(
         api.variables("UpdateInitiative"),
         json!({
@@ -415,15 +404,14 @@ fn update_sends_changed_fields() {
 #[test]
 fn update_resolves_names() {
     let api = MockLinear::start();
-    api.on("GetInitiativeBySlug", none())
-        .on("GetInitiativeByName", by_id(ID))
-        .on("GetInitiativeForUpdate", current())
+    api.on("ResolveInitiativeBySlug", none())
+        .on("ResolveInitiativeByName", by_id(ID))
         .on("UpdateInitiative", updated());
     Cli::for_api(&api)
         .run(&["initiative", "update", "Roadmap", "-d", "New summary"])
         .success();
     assert_eq!(
-        api.variables("GetInitiativeByName"),
+        api.variables("ResolveInitiativeByName"),
         json!({ "name": "Roadmap" })
     );
     assert_eq!(
@@ -433,14 +421,45 @@ fn update_resolves_names() {
 }
 
 #[test]
-fn update_without_changes_does_not_mutate() {
+fn update_without_changes_fails_before_any_request() {
     let api = MockLinear::start();
-    // The initiative is looked up before the missing fields are noticed.
-    api.on("GetInitiativeForUpdate", current());
+    let cli = Cli::for_api(&api);
+    cli.run(&["initiative", "update", ID])
+        .failure()
+        .stderr_has("No changes");
+    cli.run(&["initiative", "update", ID, "-i"])
+        .failure()
+        .stderr_has("terminal");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn update_validates_flags_before_any_request() {
+    let api = MockLinear::start();
+    let cli = Cli::for_api(&api);
+    cli.run(&["initiative", "update", ID, "--status", "someday"])
+        .failure()
+        .stderr_has("someday");
+    cli.run(&["initiative", "update", ID, "--color", "blue"])
+        .failure()
+        .stderr_has("hex");
+    cli.run(&["initiative", "update", ID, "--target-date", "2026-02-30"])
+        .failure()
+        .stderr_has("YYYY-MM-DD");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn update_sends_statuses_as_linear_enum_values() {
+    let api = MockLinear::start();
+    api.on("UpdateInitiative", updated());
     Cli::for_api(&api)
-        .run(&["initiative", "update", ID])
-        .stdout_has("No changes");
-    assert!(!api.operations().contains(&"UpdateInitiative".to_owned()));
+        .run(&["initiative", "update", ID, "--status", "completed"])
+        .success();
+    assert_eq!(
+        api.variables("UpdateInitiative"),
+        json!({ "id": ID, "input": { "status": "Completed" } })
+    );
 }
 
 fn archive_detail(archived_at: Value) -> Value {
@@ -481,12 +500,31 @@ fn archive_skips_already_archived_initiatives() {
 }
 
 #[test]
-fn archive_without_force_or_tty_does_not_archive() {
+fn archive_and_delete_without_force_or_tty_fail_before_any_request() {
     let api = MockLinear::start();
-    api.on("GetInitiativeForArchive", archive_detail(Value::Null));
-    let run = Cli::for_api(&api).run(&["initiative", "archive", ID]);
-    assert_ne!(run.code, 0, "{run}");
-    assert!(!api.operations().contains(&"ArchiveInitiative".to_owned()));
+    let cli = Cli::for_api(&api);
+    let commands: [&[&str]; 4] = [
+        &["initiative", "archive", ID],
+        &["initiative", "delete", ID],
+        &["initiative", "unarchive", ID],
+        &["initiative", "remove-project", ID, PROJECT_ID],
+    ];
+    for command in commands {
+        cli.run(command).failure().stderr_has("--force");
+    }
+    cli.run(&["initiative", "archive", "--bulk", ID])
+        .failure()
+        .stderr_has("--force");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn archive_target_conflicts_with_bulk_flags() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["initiative", "archive", ID, "--bulk", OTHER_ID, "--force"])
+        .usage_error();
+    assert!(api.requests().is_empty());
 }
 
 #[test]
@@ -502,8 +540,8 @@ fn archive_requires_a_target() {
 #[test]
 fn delete_with_force_resolves_names_and_deletes() {
     let api = MockLinear::start();
-    api.on("GetInitiativeBySlugForDelete", none())
-        .on("GetInitiativeByNameForDelete", by_id(ID))
+    api.on("ResolveInitiativeBySlug", none())
+        .on("ResolveInitiativeByNameIncludingArchived", by_id(ID))
         .on(
             "GetInitiativeForDelete",
             json!({ "initiative": {
@@ -520,7 +558,11 @@ fn delete_with_force_resolves_names_and_deletes() {
         .success()
         .stdout_has("Roadmap");
     assert_eq!(
-        api.variables("GetInitiativeByNameForDelete"),
+        api.variables("ResolveInitiativeBySlug"),
+        json!({ "slugId": "Roadmap", "includeArchived": true })
+    );
+    assert_eq!(
+        api.variables("ResolveInitiativeByNameIncludingArchived"),
         json!({ "name": "Roadmap" })
     );
     assert_eq!(api.variables("DeleteInitiative"), json!({ "id": ID }));
@@ -547,24 +589,25 @@ fn ids(list: &[&str]) -> Vec<String> {
     ids
 }
 
-fn bulk_name(id: &str, name: &str) -> Value {
-    json!({ "initiative": { "id": id, "name": name, "archivedAt": null } })
+fn bulk_archive(id: &str, name: &str) -> Value {
+    json!({ "initiative": { "id": id, "slugId": "slug", "name": name, "archivedAt": null } })
+}
+
+fn bulk_delete(id: &str, name: &str) -> Value {
+    json!({ "initiative": { "id": id, "slugId": "slug", "name": name, "projects": { "nodes": [] } } })
 }
 
 #[test]
 fn archive_bulk_archives_every_target() {
     let api = MockLinear::start();
-    api.on("GetInitiativeNameForBulkArchive", bulk_name(ID, "Roadmap"))
+    api.on("GetInitiativeForArchive", bulk_archive(ID, "Roadmap"))
+        .on("GetInitiativeForArchive", bulk_archive(OTHER_ID, "Other"))
         .on(
-            "GetInitiativeNameForBulkArchive",
-            bulk_name(OTHER_ID, "Other"),
-        )
-        .on(
-            "BulkArchiveInitiative",
+            "ArchiveInitiative",
             json!({ "initiativeArchive": { "success": true } }),
         )
         .on(
-            "BulkArchiveInitiative",
+            "ArchiveInitiative",
             json!({ "initiativeArchive": { "success": true } }),
         );
     Cli::for_api(&api)
@@ -572,7 +615,7 @@ fn archive_bulk_archives_every_target() {
         .success()
         .stdout_has("2");
     assert_eq!(
-        sorted_variables(&api, "BulkArchiveInitiative"),
+        sorted_variables(&api, "ArchiveInitiative"),
         ids(&[ID, OTHER_ID])
     );
 }
@@ -582,19 +625,13 @@ fn delete_bulk_reads_ids_from_a_file_and_stdin() {
     let api = MockLinear::start();
     for _ in 0..3 {
         api.on(
-            "BulkDeleteInitiative",
+            "DeleteInitiative",
             json!({ "initiativeDelete": { "success": true } }),
         );
     }
-    api.on("GetInitiativeNameForBulkDelete", bulk_name(ID, "Roadmap"))
-        .on(
-            "GetInitiativeNameForBulkDelete",
-            bulk_name(OTHER_ID, "Other"),
-        )
-        .on(
-            "GetInitiativeNameForBulkDelete",
-            bulk_name(THIRD_ID, "Third"),
-        );
+    api.on("GetInitiativeForDelete", bulk_delete(ID, "Roadmap"))
+        .on("GetInitiativeForDelete", bulk_delete(OTHER_ID, "Other"))
+        .on("GetInitiativeForDelete", bulk_delete(THIRD_ID, "Third"));
     Cli::for_api(&api)
         .file("cwd/ids.txt", &format!("{ID}\n{OTHER_ID}\n"))
         .run(&["initiative", "delete", "--bulk-file", "ids.txt", "--force"])
@@ -604,7 +641,7 @@ fn delete_bulk_reads_ids_from_a_file_and_stdin() {
         .run(&["initiative", "delete", "--bulk-stdin", "--force"])
         .success();
     assert_eq!(
-        sorted_variables(&api, "BulkDeleteInitiative"),
+        sorted_variables(&api, "DeleteInitiative"),
         ids(&[ID, OTHER_ID, THIRD_ID])
     );
 }
@@ -612,16 +649,13 @@ fn delete_bulk_reads_ids_from_a_file_and_stdin() {
 #[test]
 fn bulk_failures_are_reported_and_fail_the_command() {
     let api = MockLinear::start();
-    api.on("GetInitiativeNameForBulkArchive", bulk_name(ID, "Roadmap"))
+    api.on("GetInitiativeForArchive", bulk_archive(ID, "Roadmap"))
+        .on("GetInitiativeForArchive", bulk_archive(OTHER_ID, "Other"))
         .on(
-            "GetInitiativeNameForBulkArchive",
-            bulk_name(OTHER_ID, "Other"),
-        )
-        .on(
-            "BulkArchiveInitiative",
+            "ArchiveInitiative",
             json!({ "initiativeArchive": { "success": true } }),
         )
-        .on_error("BulkArchiveInitiative", "Permission denied");
+        .on_error("ArchiveInitiative", "Permission denied");
     let run = Cli::for_api(&api).run(&["initiative", "archive", "--bulk", ID, OTHER_ID, "--force"]);
     run.failure().stdout_has("Permission denied");
 }
@@ -657,8 +691,8 @@ fn unarchive_with_force_unarchives() {
 #[test]
 fn unarchive_resolves_archived_names() {
     let api = MockLinear::start();
-    api.on("GetInitiativeBySlugIncludeArchived", none())
-        .on("GetInitiativeByNameIncludeArchived", by_id(ID))
+    api.on("ResolveInitiativeBySlug", none())
+        .on("ResolveInitiativeByNameIncludingArchived", by_id(ID))
         .on("GetInitiativeForUnarchive", unarchive_detail())
         .on(
             "UnarchiveInitiative",
@@ -671,26 +705,37 @@ fn unarchive_resolves_archived_names() {
         .run(&["initiative", "unarchive", "Roadmap", "-y"])
         .success();
     assert_eq!(
-        api.variables("GetInitiativeByNameIncludeArchived"),
+        api.variables("ResolveInitiativeByNameIncludingArchived"),
         json!({ "name": "Roadmap" })
     );
     assert_eq!(api.variables("UnarchiveInitiative"), json!({ "id": ID }));
+}
+
+/// The names of both sides and the initiatives the project is linked to.
+fn links(initiatives: &[(&str, &str)]) -> Value {
+    let nodes: Vec<Value> = initiatives
+        .iter()
+        .map(|(link, initiative)| json!({ "id": link, "initiative": { "id": initiative } }))
+        .collect();
+    json!({
+        "initiative": { "name": "Roadmap" },
+        "project": {
+            "name": "Mobile",
+            "initiativeToProjects": page(json!(nodes), Value::Null, false)
+        }
+    })
 }
 
 #[test]
 fn add_project_links_with_a_sort_order() {
     let api = MockLinear::start();
     api.on(
-        "GetInitiativeNameById",
-        json!({ "initiative": { "id": ID, "name": "Roadmap" } }),
-    )
-    .on(
-        "GetProjectNameById",
-        json!({ "project": { "id": PROJECT_ID, "name": "Mobile" } }),
+        "GetInitiativeProjectLinks",
+        links(&[("link-other", OTHER_ID)]),
     )
     .on(
         "AddProjectToInitiative",
-        json!({ "initiativeToProjectCreate": { "success": true, "initiativeToProject": { "id": "link-1" } } }),
+        json!({ "initiativeToProjectCreate": { "success": true } }),
     );
     Cli::for_api(&api)
         .run(&[
@@ -702,8 +747,11 @@ fn add_project_links_with_a_sort_order() {
             "2.5",
         ])
         .success()
-        .stdout_has("Mobile")
-        .stdout_has("Roadmap");
+        .stdout_has("✓ Added \"Mobile\" to initiative \"Roadmap\"");
+    assert_eq!(
+        api.variables("GetInitiativeProjectLinks"),
+        json!({ "initiativeId": ID, "projectId": PROJECT_ID, "after": null })
+    );
     assert_eq!(
         api.variables("AddProjectToInitiative"),
         json!({ "input": { "initiativeId": ID, "projectId": PROJECT_ID, "sortOrder": 2.5 } })
@@ -713,19 +761,16 @@ fn add_project_links_with_a_sort_order() {
 #[test]
 fn add_project_resolves_names() {
     let api = MockLinear::start();
-    api.on("GetInitiativeBySlugForAddProject", none())
-        .on("GetInitiativeByNameForAddProject", by_id(ID))
+    api.on("ResolveInitiativeBySlug", none())
+        .on("ResolveInitiativeByName", by_id(ID))
         .on(
-            "GetProjectBySlugForAddProject",
-            json!({ "projects": { "nodes": [] } }),
+            "GetProjectIdByName",
+            json!({ "projects": { "nodes": [{ "id": PROJECT_ID }] } }),
         )
-        .on(
-            "GetProjectByNameForAddProject",
-            json!({ "projects": { "nodes": [{ "id": PROJECT_ID, "name": "Mobile" }] } }),
-        )
+        .on("GetInitiativeProjectLinks", links(&[]))
         .on(
             "AddProjectToInitiative",
-            json!({ "initiativeToProjectCreate": { "success": true, "initiativeToProject": { "id": "link-1" } } }),
+            json!({ "initiativeToProjectCreate": { "success": true } }),
         );
     Cli::for_api(&api)
         .run(&["initiative", "add-project", "Roadmap", "Mobile"])
@@ -737,22 +782,22 @@ fn add_project_resolves_names() {
 }
 
 #[test]
+fn add_project_reports_an_existing_link_without_adding() {
+    let api = MockLinear::start();
+    api.on("GetInitiativeProjectLinks", links(&[("link-1", ID)]));
+    Cli::for_api(&api)
+        .run(&["initiative", "add-project", ID, PROJECT_ID])
+        .success()
+        .stdout_has("already linked");
+    assert_eq!(api.operations(), ["GetInitiativeProjectLinks"]);
+}
+
+#[test]
 fn remove_project_deletes_the_link() {
     let api = MockLinear::start();
     api.on(
-        "GetInitiativeNameByIdForRemove",
-        json!({ "initiative": { "id": ID, "name": "Roadmap" } }),
-    )
-    .on(
-        "GetProjectNameByIdForRemove",
-        json!({ "project": { "id": PROJECT_ID, "name": "Mobile" } }),
-    )
-    .on(
-        "GetInitiativeToProjects",
-        json!({ "initiativeToProjects": { "nodes": [
-            { "id": "link-other", "initiative": { "id": OTHER_ID }, "project": { "id": PROJECT_ID } },
-            { "id": "link-1", "initiative": { "id": ID }, "project": { "id": PROJECT_ID } }
-        ] } }),
+        "GetInitiativeProjectLinks",
+        links(&[("link-other", OTHER_ID), ("link-1", ID)]),
     )
     .on(
         "RemoveProjectFromInitiative",
@@ -761,7 +806,7 @@ fn remove_project_deletes_the_link() {
     Cli::for_api(&api)
         .run(&["initiative", "remove-project", ID, PROJECT_ID, "--force"])
         .success()
-        .stdout_has("Mobile");
+        .stdout_has("✓ Removed \"Mobile\" from initiative \"Roadmap\"");
     assert_eq!(
         api.variables("RemoveProjectFromInitiative"),
         json!({ "id": "link-1" })
@@ -769,27 +814,45 @@ fn remove_project_deletes_the_link() {
 }
 
 #[test]
-fn remove_project_reports_an_unlinked_project() {
+fn remove_project_follows_link_pages() {
+    let api = MockLinear::start();
+    let mut first = links(&[("link-other", OTHER_ID)]);
+    first["project"]["initiativeToProjects"]["pageInfo"] =
+        json!({ "hasNextPage": true, "endCursor": "cursor-1" });
+    api.on("GetInitiativeProjectLinks", first)
+        .on("GetInitiativeProjectLinks", links(&[("link-1", ID)]))
+        .on(
+            "RemoveProjectFromInitiative",
+            json!({ "initiativeToProjectDelete": { "success": true } }),
+        );
+    Cli::for_api(&api)
+        .run(&["initiative", "remove-project", ID, PROJECT_ID, "--force"])
+        .success();
+    let cursors: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .filter(|r| r.operation.as_deref() == Some("GetInitiativeProjectLinks"))
+        .map(|r| r.variables["after"].clone())
+        .collect();
+    assert_eq!(cursors, [Value::Null, json!("cursor-1")]);
+    assert_eq!(
+        api.variables("RemoveProjectFromInitiative"),
+        json!({ "id": "link-1" })
+    );
+}
+
+#[test]
+fn remove_project_fails_for_an_unlinked_project() {
     let api = MockLinear::start();
     api.on(
-        "GetInitiativeNameByIdForRemove",
-        json!({ "initiative": { "id": ID, "name": "Roadmap" } }),
-    )
-    .on(
-        "GetProjectNameByIdForRemove",
-        json!({ "project": { "id": PROJECT_ID, "name": "Mobile" } }),
-    )
-    .on(
-        "GetInitiativeToProjects",
-        json!({ "initiativeToProjects": { "nodes": [] } }),
+        "GetInitiativeProjectLinks",
+        links(&[("link-other", OTHER_ID)]),
     );
     Cli::for_api(&api)
         .run(&["initiative", "remove-project", ID, PROJECT_ID, "--force"])
-        .stdout_has("not linked");
-    assert!(
-        !api.operations()
-            .contains(&"RemoveProjectFromInitiative".to_owned())
-    );
+        .failure()
+        .stderr_has("not linked");
+    assert_eq!(api.operations(), ["GetInitiativeProjectLinks"]);
 }
 
 fn comment(id: &str, body: &str, parent: Option<&str>) -> Value {
@@ -879,4 +942,21 @@ fn comment_list_json_returns_comments() {
         api.variables("GetInitiativeComments"),
         json!({ "id": ID, "filterId": ID, "after": null })
     );
+}
+
+#[test]
+fn comment_list_stops_on_an_empty_cursor() {
+    let api = MockLinear::start();
+    api.on(
+        "GetInitiativeComments",
+        json!({
+            "initiative": { "id": ID, "name": "Roadmap" },
+            "comments": page(json!([comment("comment-1", "Root A", None)]), json!(""), true)
+        }),
+    );
+    Cli::for_api(&api)
+        .run(&["initiative", "comment", "list", ID])
+        .failure()
+        .stderr_has("cursor");
+    assert_eq!(api.operations(), ["GetInitiativeComments"]);
 }

@@ -1,142 +1,88 @@
-//! `initiative list`: typed owner resolution, complete pagination, and display.
-
+//! `initiative list`: every page, sorted by status then name, as a table or JSON.
 use cynic::QueryBuilder;
 use serde::Serialize;
 
+use crate::cli::initiative::InitiativeList;
 use crate::commands::display::{display_width, pad, truncate_text};
-use crate::commands::table::underlined_header;
-use crate::error::{Error, ResultExt};
+use crate::commands::table::{self, underlined_header};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiatives::{
     GetInitiatives, GetInitiativesPage, GetInitiativesPageVariables, GetInitiativesVariables,
-    GetViewerForInitiatives, GetViewerId, GetViewerIdVariables, IDComparator, Initiative,
-    InitiativeFilter, InitiativeStatus, LookupUser, LookupUserVariables, NullableUserFilter,
+    IDComparator, Initiative, InitiativeConnection, InitiativeFilter, InitiativeOwner,
+    InitiativeProjects, InitiativeStatus, InitiativeUpdateHealthType, LookupUserNode,
+    NullableUserFilter,
 };
 use crate::graphql::operations::teams::{PageInfo, StringComparator};
-use crate::graphql::pagination::{self, EmptyCursorPolicy, Page, PaginationError};
+use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::{collation, opener};
-use crate::refs::reject_linear_url;
+use crate::platform::{collation, style};
 
-pub const FETCH_CONTEXT: &str = "Failed to fetch initiatives";
-pub const OPEN_CONTEXT: &str = "Failed to open initiatives";
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct Options {
-    pub status: Option<String>,
-    pub all_statuses: bool,
-    pub owner: Option<String>,
-    pub web: bool,
-    pub app: bool,
-    pub json: bool,
-    pub archived: bool,
+pub fn run(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
+    if args.web || args.app {
+        return ctx
+            .open_in_linear("initiatives", args.app)
+            .context("Failed to open initiatives");
+    }
+    list(ctx, args).context("Failed to list initiatives")
 }
 
-pub fn status_filter(status: Option<&str>, all_statuses: bool) -> Result<Option<String>, Error> {
-    match status {
-        Some(value) => {
-            let api = match value.to_lowercase().as_str() {
-                "active" => "Active",
-                "planned" => "Planned",
-                "completed" => "Completed",
-                _ => {
-                    return Err(Error::new(format!(
-                        "Invalid status: {value}. Valid values: active, planned, completed"
-                    )));
-                }
-            };
-            Ok(Some(api.to_owned()))
-        }
+fn list(ctx: &Ctx, args: &InitiativeList) -> Result<()> {
+    let status = status_filter(args.status.as_deref(), args.all_statuses)?;
+    super::check_owner(args.owner.as_deref())?;
+    let client = ctx.client()?;
+    let (initiatives, page_info) = ctx.spin(!args.json, async {
+        let owner = match &args.owner {
+            Some(owner) => Some(super::owner_id(client, owner).await?),
+            None => None,
+        };
+        fetch(client, filter(status, owner), args.archived).await
+    })?;
+    if args.json {
+        ctx.print(render_json(&initiatives, &page_info))
+    } else {
+        let columns = table::stdout_columns(ctx.stdout_tty());
+        ctx.print(render_text(&initiatives, columns, ctx.color()))
+    }
+}
+
+/// The API status value to filter on: `--status`, every status with
+/// `--all-statuses`, and only active initiatives otherwise.
+fn status_filter(status: Option<&str>, all_statuses: bool) -> Result<Option<&'static str>> {
+    match status.map(str::to_lowercase).as_deref() {
+        Some("active") => Ok(Some("Active")),
+        Some("planned") => Ok(Some("Planned")),
+        Some("completed") => Ok(Some("Completed")),
+        Some(_) => Err(Error::new(format!(
+            "Invalid status: {}. Valid values: active, planned, completed",
+            status.unwrap_or_default()
+        ))),
         None if all_statuses => Ok(None),
-        None => Ok(Some("Active".to_owned())),
+        None => Ok(Some("Active")),
     }
 }
 
-pub fn validate_owner(owner: Option<&str>) -> Result<(), Error> {
-    if let Some(owner) = owner {
-        reject_linear_url(owner, "an email, username, display name, or @me")?;
-    }
-    Ok(())
-}
-
-pub fn opening(workspace: &str, app: bool) -> (String, Vec<u8>) {
-    let url = format!("https://linear.app/{workspace}/initiatives");
-    let destination = if app { "Linear.app" } else { "web browser" };
-    let line = format!("Opening {url} in {destination}\n").into_bytes();
-    (url, line)
-}
-
-pub async fn viewer_workspace(transport: &GraphQlTransport) -> Result<String, Error> {
-    let request = GraphQlRequest::without_variables(GetViewerForInitiatives::build(()));
-    let result: GetViewerForInitiatives = transport.execute(&request).await.map_err(Error::from)?;
-    Ok(result.viewer.organization.url_key)
-}
-
-pub fn open(url: &str, app: bool) -> Result<(), Error> {
-    opener::open(url, app).context(OPEN_CONTEXT)
-}
-
-pub async fn resolve_owner(transport: &GraphQlTransport, input: &str) -> Result<cynic::Id, Error> {
-    if input == "self" || input == "@me" {
-        let request = GraphQlRequest::with_variables(GetViewerId::build(GetViewerIdVariables {}));
-        let result: GetViewerId = transport.execute(&request).await.map_err(Error::from)?;
-        return Ok(result.viewer.id);
-    }
-    let request = GraphQlRequest::with_variables(LookupUser::build(LookupUserVariables {
-        input: input.to_owned(),
-    }));
-    let result: LookupUser = transport.execute(&request).await.map_err(Error::from)?;
-    select_owner(&result.users.nodes, input).ok_or_else(|| Error::not_found("Owner", input))
-}
-
-/// Pick the user matching an owner reference; callers fetch the users.
-pub fn select_owner(
-    users: &[crate::graphql::operations::initiatives::LookupUserNode],
-    input: &str,
-) -> Option<cynic::Id> {
-    let target = input.to_lowercase();
-    let selected = users
-        .iter()
-        .find(|user| user.email.to_lowercase() == target)
-        .or_else(|| {
-            users
-                .iter()
-                .find(|user| user.display_name.to_lowercase() == target)
-        })
-        .or_else(|| users.first());
-    selected.map(|user| user.id.clone())
-}
-
-fn filter(status: Option<&str>, owner: Option<cynic::Id>) -> Option<InitiativeFilter> {
+fn filter(status: Option<&str>, owner: Option<String>) -> Option<InitiativeFilter> {
     let status = status.map(|value| StringComparator {
         eq: Some(value.to_owned()),
         ..Default::default()
     });
     let owner = owner.map(|id| NullableUserFilter {
-        id: Some(IDComparator { eq: Some(id) }),
+        id: Some(IDComparator {
+            eq: Some(cynic::Id::new(id)),
+        }),
     });
-    if status.is_none() && owner.is_none() {
-        None
-    } else {
-        Some(InitiativeFilter { status, owner })
-    }
+    (status.is_some() || owner.is_some()).then_some(InitiativeFilter { status, owner })
 }
 
-pub async fn run(
-    transport: &GraphQlTransport,
-    status: Option<&str>,
-    owner: Option<&str>,
+/// Every matching initiative, sorted by status then name, with the last page's info.
+async fn fetch(
+    client: &GraphQlTransport,
+    filter: Option<InitiativeFilter>,
     archived: bool,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error> {
-    let owner_id = match owner {
-        Some(input) => Some(resolve_owner(transport, input).await?),
-        None => None,
-    };
-    let filter = filter(status, owner_id);
-    let pages = pagination::paginate_with_policy(EmptyCursorPolicy::Reject, |after| {
+) -> Result<(Vec<Initiative>, PageInfo)> {
+    let pages = pagination::paginate(|after| {
         let filter = filter.clone();
         async move {
             let connection = match after {
@@ -147,8 +93,7 @@ pub async fn run(
                             include_archived: Some(archived),
                         },
                     ));
-                    let data: GetInitiatives =
-                        transport.execute(&request).await.map_err(Error::from)?;
+                    let data: GetInitiatives = client.execute(&request).await?;
                     data.initiatives
                 }
                 Some(after) => {
@@ -159,21 +104,16 @@ pub async fn run(
                             after: Some(after),
                         },
                     ));
-                    let data: GetInitiativesPage =
-                        transport.execute(&request).await.map_err(Error::from)?;
-                    Some(data.initiatives.ok_or_else(|| {
-                        Error::new("Linear returned a null initiatives connection on a later page")
-                    })?)
+                    let data: GetInitiativesPage = client.execute(&request).await?;
+                    data.initiatives
                 }
             };
-            let connection = connection.unwrap_or_else(|| {
-                crate::graphql::operations::initiatives::InitiativeConnection {
-                    nodes: Vec::new(),
-                    page_info: PageInfo {
-                        has_next_page: false,
-                        end_cursor: None,
-                    },
-                }
+            let connection = connection.unwrap_or_else(|| InitiativeConnection {
+                nodes: Vec::new(),
+                page_info: PageInfo {
+                    has_next_page: false,
+                    end_cursor: None,
+                },
             });
             Ok::<Page<Initiative>, Error>(Page {
                 nodes: connection.nodes,
@@ -183,17 +123,12 @@ pub async fn run(
     })
     .await
     .map_err(|error| match error {
-        PaginationError::Fetch { page, source } => {
-            if page == 1 {
-                source
-            } else {
-                source.context(format!("page {page}"))
-            }
+        PaginationError::Fetch { page: 1, source } => source,
+        PaginationError::Fetch { page, source } => source.context(format!("page {page}")),
+        PaginationError::MissingCursor { .. } => {
+            Error::new("Linear reported more initiatives but returned no pagination cursor")
+                .with_hint("Retry the command.")
         }
-        PaginationError::MissingCursor { page } => Error::new(format!(
-            "Linear reported more initiatives but returned no pagination cursor on page {page}"
-        ))
-        .with_hint("Retry the command."),
         PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
             "Linear repeated an initiative pagination cursor on page {page}"
         ))
@@ -206,34 +141,23 @@ pub async fn run(
                 "Linear returned an unknown initiative status: {value}"
             )));
         }
-        if let Some(crate::graphql::operations::initiatives::InitiativeUpdateHealthType::Unknown(
-            value,
-        )) = &item.health
-        {
+        if let Some(InitiativeUpdateHealthType::Unknown(value)) = &item.health {
             return Err(Error::new(format!(
                 "Linear returned an unknown initiative health: {value}"
             )));
         }
     }
-    if !initiatives.is_empty() {
-        initiatives.sort_by(|left, right| {
-            left.status
-                .rank()
-                .cmp(&right.status.rank())
-                .then_with(|| collation::compare(&left.name, &right.name))
-        });
-    }
-    if json {
-        render_json(
-            &initiatives,
-            &PageInfo {
-                has_next_page: pages.page_info.has_next_page,
-                end_cursor: pages.page_info.end_cursor,
-            },
-        )
-    } else {
-        Ok(render_text(&initiatives, columns, color).into_bytes())
-    }
+    initiatives.sort_by(|left, right| {
+        left.status
+            .rank()
+            .cmp(&right.status.rank())
+            .then_with(|| collation::compare(&left.name, &right.name))
+    });
+    let page_info = PageInfo {
+        has_next_page: pages.page_info.has_next_page,
+        end_cursor: pages.page_info.end_cursor,
+    };
+    Ok((initiatives, page_info))
 }
 
 #[derive(Serialize)]
@@ -257,11 +181,11 @@ struct JsonInitiative<'a> {
     icon: Option<&'a str>,
     url: &'a str,
     archived_at: Option<&'a str>,
-    owner: Option<&'a crate::graphql::operations::initiatives::InitiativeOwner>,
-    projects: &'a crate::graphql::operations::initiatives::InitiativeProjects,
+    owner: Option<&'a InitiativeOwner>,
+    projects: &'a InitiativeProjects,
 }
 
-pub fn render_json(initiatives: &[Initiative], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
+fn render_json(initiatives: &[Initiative], page_info: &PageInfo) -> Vec<u8> {
     let nodes = initiatives
         .iter()
         .map(|item| JsonInitiative {
@@ -271,7 +195,7 @@ pub fn render_json(initiatives: &[Initiative], page_info: &PageInfo) -> Result<V
             description: item.description.as_deref(),
             status: item.status.as_str(),
             target_date: item.target_date.as_ref().map(|date| date.0.as_str()),
-            health: item.health.as_ref().map(|health| health.as_str()),
+            health: item.health.as_ref().map(InitiativeUpdateHealthType::as_str),
             color: item.color.as_deref(),
             icon: item.icon.as_deref(),
             url: &item.url,
@@ -280,130 +204,98 @@ pub fn render_json(initiatives: &[Initiative], page_info: &PageInfo) -> Result<V
             projects: &item.projects,
         })
         .collect();
-    let mut bytes = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
-        .map_err(|error| Error::new("could not serialize initiatives").with_source(error))?;
-    bytes.push(b'\n');
-    Ok(bytes)
+    let mut output = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
+        .expect("initiative JSON always serializes");
+    output.push(b'\n');
+    output
 }
 
-pub fn render_text(initiatives: &[Initiative], columns: usize, color: bool) -> String {
+/// The status column's color, matching the status colors in Linear.
+pub(super) fn status_style(status: &InitiativeStatus, text: &str, color: bool) -> String {
+    match status {
+        InitiativeStatus::Active => style::green(text, color),
+        InitiativeStatus::Canceled => style::red(text, color),
+        InitiativeStatus::Planned => text.to_owned(),
+        InitiativeStatus::Completed | InitiativeStatus::Proposed | InitiativeStatus::Unknown(_) => {
+            style::gray(text, color)
+        }
+    }
+}
+
+fn render_text(initiatives: &[Initiative], columns: usize, color: bool) -> String {
     if initiatives.is_empty() {
         return "No initiatives found.\n".to_owned();
     }
-    let slug_width = initiatives
-        .iter()
-        .map(|item| display_width(&item.slug_id))
-        .max()
-        .unwrap_or(0)
-        .max(4);
-    let status_width = initiatives
-        .iter()
-        .map(|item| display_width(item.status.as_str()))
-        .max()
-        .unwrap_or(0)
-        .max(6);
-    let health_width = initiatives
-        .iter()
-        .map(|item| display_width(item.health.as_ref().map_or("-", |health| health.as_str())))
-        .max()
-        .unwrap_or(0)
-        .max(6);
-    let owner_width = initiatives
+    let rows: Vec<[String; 7]> = initiatives
         .iter()
         .map(|item| {
-            display_width(item.owner.as_ref().map_or("-", |owner| {
-                if owner.initials.is_empty() {
-                    "-"
-                } else {
-                    &owner.initials
-                }
-            }))
+            let owner = item
+                .owner
+                .as_ref()
+                .map(|owner| owner.initials.as_str())
+                .filter(|initials| !initials.is_empty())
+                .unwrap_or("-");
+            [
+                item.slug_id.clone(),
+                item.name.clone(),
+                item.status.as_str().to_owned(),
+                item.health
+                    .as_ref()
+                    .map_or("-", InitiativeUpdateHealthType::as_str)
+                    .to_owned(),
+                owner.to_owned(),
+                item.projects.nodes.len().to_string(),
+                item.target_date
+                    .as_ref()
+                    .map_or("-", |date| date.0.as_str())
+                    .to_owned(),
+            ]
         })
-        .max()
-        .unwrap_or(0)
-        .max(5);
-    let projects_width = initiatives
+        .collect();
+    let headers = [
+        "SLUG", "NAME", "STATUS", "HEALTH", "OWNER", "PROJ", "TARGET",
+    ];
+    let mut widths = [4, 0, 6, 6, 5, 4, 10];
+    for row in &rows {
+        for (width, cell) in widths.iter_mut().zip(row) {
+            *width = (*width).max(display_width(cell));
+        }
+    }
+    let fixed: usize = widths.iter().sum::<usize>() - widths[1] + widths.len() - 1;
+    widths[1] = widths[1].min(columns.saturating_sub(1 + fixed).max(10));
+    let header: Vec<String> = headers
         .iter()
-        .map(|item| display_width(&item.projects.nodes.len().to_string()))
-        .max()
-        .unwrap_or(0)
-        .max(4);
-    let target_width = initiatives
-        .iter()
-        .map(|item| display_width(item.target_date.as_ref().map_or("-", |date| &date.0)))
-        .max()
-        .unwrap_or(0)
-        .max(10);
-    let fixed =
-        slug_width + status_width + health_width + owner_width + projects_width + target_width + 6;
-    let available = columns.saturating_sub(1 + fixed).max(10);
-    let name_width = initiatives
-        .iter()
-        .map(|item| display_width(&item.name))
-        .max()
-        .unwrap_or(0)
-        .min(available);
-    let mut output = underlined_header(
-        &[
-            pad("SLUG", slug_width),
-            pad("NAME", name_width),
-            pad("STATUS", status_width),
-            pad("HEALTH", health_width),
-            pad("OWNER", owner_width),
-            pad("PROJ", projects_width),
-            pad("TARGET", target_width),
-        ],
-        color,
-    );
-    for item in initiatives {
-        let health = item.health.as_ref().map_or("-", |value| value.as_str());
-        let owner = item.owner.as_ref().map_or("-", |value| {
-            if value.initials.is_empty() {
-                "-"
-            } else {
-                &value.initials
-            }
-        });
-        let status = item.status.as_str();
-        let target = item
-            .target_date
-            .as_ref()
-            .map_or("-", |value| value.0.as_str());
-        let name = pad(&truncate_text(&item.name, name_width), name_width);
-        output.push_str(&pad(&item.slug_id, slug_width));
-        output.push(' ');
-        output.push_str(&name);
-        output.push(' ');
-        if color {
-            let code = match item.status {
-                InitiativeStatus::Active => "\x1b[38;2;39;174;96m",
-                InitiativeStatus::Planned => "\x1b[38;2;94;106;210m",
-                InitiativeStatus::Completed
-                | InitiativeStatus::Canceled
-                | InitiativeStatus::Proposed
-                | InitiativeStatus::Unknown(_) => "\x1b[38;2;107;111;118m",
-            };
-            output.push_str(code);
-        }
-        output.push_str(&pad(status, status_width));
-        if color {
-            output.push_str("\x1b[39m");
-        }
-        output.push(' ');
-        output.push_str(&pad(health, health_width));
-        output.push(' ');
-        output.push_str(&pad(owner, owner_width));
-        output.push(' ');
-        output.push_str(&pad(&item.projects.nodes.len().to_string(), projects_width));
-        output.push(' ');
-        if color {
-            output.push_str("\x1b[38;2;128;128;128m");
-        }
-        output.push_str(&pad(target, target_width));
-        if color {
-            output.push_str("\x1b[39m\x1b[0m");
-        }
-        output.push('\n');
+        .zip(widths)
+        .map(|(header, width)| pad(header, width))
+        .collect();
+    let mut output = underlined_header(&header, color);
+    for (item, row) in initiatives.iter().zip(&rows) {
+        let name = pad(&truncate_text(&row[1], widths[1]), widths[1]);
+        let status = status_style(&item.status, &pad(&row[2], widths[2]), color);
+        let target = style::gray(&pad(&row[6], widths[6]), color);
+        output.push_str(&format!(
+            "{} {name} {status} {} {} {} {target}\n",
+            pad(&row[0], widths[0]),
+            pad(&row[3], widths[3]),
+            pad(&row[4], widths[4]),
+            pad(&row[5], widths[5]),
+        ));
     }
     output
+}
+
+/// An exact email match, then an exact display name, then the first user
+/// whose name contains the input.
+pub fn select_owner(users: &[LookupUserNode], input: &str) -> Option<cynic::Id> {
+    let target = input.to_lowercase();
+    users
+        .iter()
+        .find(|user| user.email.to_lowercase() == target)
+        .or_else(|| {
+            users
+                .iter()
+                .find(|user| user.display_name.to_lowercase() == target)
+        })
+        .or_else(|| users.first())
+        .map(|user| user.id.clone())
 }

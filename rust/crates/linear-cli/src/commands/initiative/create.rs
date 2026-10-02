@@ -1,41 +1,93 @@
-//! `initiative create`: validate the fields, then create the initiative.
+//! `initiative create`: fields from flags or prompts, then one mutation.
 use std::io::{Read, Write};
 
 use cynic::MutationBuilder;
 
-use crate::error::Error;
+use crate::cli::initiative::InitiativeCreate;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_create::{
-    CreateInitiative, CreateInitiativeVariables, InitiativeCreateInput,
+    CreateInitiative, CreateInitiativeVariables, CreatedInitiative, InitiativeCreateInput,
 };
 use crate::graphql::operations::initiatives::InitiativeStatus;
 use crate::graphql::scalars::TimelessDate;
-use crate::graphql::transport::{GraphQlTransport, TransportFailure};
+use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
 
-pub const CREATE_CONTEXT: &str = "Failed to create initiative";
-
-#[derive(Clone, Debug, Default)]
-pub struct Options {
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub status: Option<String>,
-    pub owner: Option<String>,
-    pub target_date: Option<String>,
-    pub color: Option<String>,
-    pub icon: Option<String>,
-    pub interactive: bool,
+pub fn run(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
+    create(ctx, args).context("Failed to create initiative")
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PromptResult {
-    Complete,
-    Interrupted,
-    EndOfInput,
+fn create(ctx: &Ctx, args: &InitiativeCreate) -> Result<()> {
+    let mut fields = Fields {
+        name: args.name.clone(),
+        description: args.description.clone(),
+        status: args.status.clone(),
+        owner: args.owner.clone(),
+        target_date: args.target_date.clone(),
+        color: args.color.clone(),
+        icon: args.icon.clone(),
+    };
+    if ctx.stdout_tty() && (fields.name.is_none() || args.interactive) {
+        ctx.print("\nCreate a new initiative\n\n")?;
+        let mut session = ctx.prompts()?;
+        let result = prompt(&mut fields, &mut session);
+        match session.finish_result(result)? {
+            PromptOutcome::Submitted(()) => {}
+            PromptOutcome::Interrupted => return Err(Error::cancelled()),
+            PromptOutcome::EndOfInput => {
+                return Err(Error::new("Unexpected end of input at a prompt"));
+            }
+        }
+    }
+    let input = validate(fields)?;
+    let client = ctx.client()?;
+    let created = ctx.spin(true, async {
+        let owner_id = match &input.owner {
+            Some(owner) => Some(super::owner_id(client, owner).await?),
+            None => None,
+        };
+        submit(client, input.into_create(owner_id)).await
+    })?;
+    ctx.print(render(&created))
 }
 
-pub fn should_prompt(options: &Options, stdout_tty: bool) -> bool {
-    stdout_tty && (options.name.is_none() || options.interactive)
+/// The fields as given on the command line or at the prompts.
+#[derive(Default)]
+struct Fields {
+    name: Option<String>,
+    description: Option<String>,
+    status: Option<String>,
+    owner: Option<String>,
+    target_date: Option<String>,
+    color: Option<String>,
+    icon: Option<String>,
+}
+
+/// Validated fields, ready to send once the owner is looked up.
+struct Valid {
+    name: String,
+    description: Option<String>,
+    status: Option<InitiativeStatus>,
+    owner: Option<String>,
+    target_date: Option<TimelessDate>,
+    color: Option<String>,
+    icon: Option<String>,
+}
+
+impl Valid {
+    fn into_create(self, owner_id: Option<String>) -> InitiativeCreateInput {
+        InitiativeCreateInput {
+            name: self.name,
+            description: self.description,
+            status: self.status,
+            owner_id,
+            target_date: self.target_date,
+            color: self.color,
+            icon: self.icon,
+        }
+    }
 }
 
 fn choice(label: &str, value: &str, token: &str) -> PlainOption {
@@ -46,16 +98,17 @@ fn choice(label: &str, value: &str, token: &str) -> PlainOption {
     }
 }
 
-pub fn prompt<R: Read, W: Write>(
-    options: &mut Options,
+/// Asks for each field not given as a flag.
+fn prompt<R: Read, W: Write>(
+    options: &mut Fields,
     session: &mut PromptSession<R, W>,
-) -> Result<PromptResult, Error> {
+) -> Result<PromptOutcome<()>> {
     macro_rules! answer {
         ($call:expr) => {
             match $call? {
                 PromptOutcome::Submitted(value) => value,
-                PromptOutcome::Interrupted => return Ok(PromptResult::Interrupted),
-                PromptOutcome::EndOfInput => return Ok(PromptResult::EndOfInput),
+                PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
+                PromptOutcome::EndOfInput => return Ok(PromptOutcome::EndOfInput),
             }
         };
     }
@@ -121,119 +174,75 @@ pub fn prompt<R: Read, W: Write>(
             "__custom__" => Some(answer!(session.text(
                 "Enter hex color (e.g., #FF5733):",
                 0,
-                |raw| if valid_color(raw) {
-                    Ok(())
-                } else {
-                    Err("Please enter a valid hex color (e.g., #FF5733)".to_owned())
+                |raw| {
+                    super::parse_color(raw)
+                        .map(drop)
+                        .map_err(|_| "Please enter a valid hex color (e.g., #FF5733)".to_owned())
                 }
             ))),
             _ => Some(selected),
         };
     }
-    Ok(PromptResult::Complete)
+    Ok(PromptOutcome::Submitted(()))
 }
 
 fn optional(value: String) -> Option<String> {
     if value.is_empty() { None } else { Some(value) }
 }
 
-fn valid_color(value: &str) -> bool {
-    value.len() == 7 && value.starts_with('#') && value[1..].bytes().all(|b| b.is_ascii_hexdigit())
-}
-
-fn valid_date(value: &str) -> bool {
-    let [a, b, c, d, b'-', e, f, b'-', g, h] = value.as_bytes() else {
-        return false;
-    };
-    [a, b, c, d, e, f, g, h].into_iter().all(u8::is_ascii_digit)
-}
-
-pub fn validate(options: &Options) -> Result<Option<InitiativeStatus>, Error> {
-    if options.name.as_deref().is_none_or(str::is_empty) {
-        return Err(Error::new(
-            "Initiative name is required. Use --name or -n flag.",
-        ));
-    }
-    let status = match options.status.as_deref() {
-        None | Some("") => None,
-        Some(value) if value.eq_ignore_ascii_case("planned") => Some(InitiativeStatus::Planned),
-        Some(value) if value.eq_ignore_ascii_case("active") => Some(InitiativeStatus::Active),
-        Some(value) if value.eq_ignore_ascii_case("completed") => Some(InitiativeStatus::Completed),
-        Some(value) => {
-            return Err(Error::new(format!(
-                "Invalid status: {value}. Valid values: planned, active, completed"
-            )));
-        }
-    };
-    if options
-        .color
-        .as_deref()
-        .is_some_and(|value| !value.is_empty() && !valid_color(value))
-    {
-        return Err(Error::new("Color must be a valid hex code (e.g., #5E6AD2)"));
-    }
-    if options
-        .target_date
-        .as_deref()
-        .is_some_and(|value| !value.is_empty() && !valid_date(value))
-    {
-        return Err(Error::new("Target date must be in YYYY-MM-DD format"));
-    }
-    Ok(status)
-}
-
-pub async fn resolve_owner(
-    transport: &GraphQlTransport,
-    owner: Option<&str>,
-) -> Result<Option<String>, Error> {
-    match owner.filter(|value| !value.is_empty()) {
-        Some(owner) => {
-            crate::refs::reject_linear_url(owner, "an email, username, display name, or @me")?;
-            let id = crate::commands::initiative::list::resolve_owner(transport, owner).await?;
-            if id.inner().is_empty() {
-                return Err(Error::not_found("Owner", owner));
-            }
-            Ok(Some(id.inner().to_owned()))
-        }
-        None => Ok(None),
-    }
-}
-
-pub async fn submit_create(
-    transport: &GraphQlTransport,
-    options: Options,
-    status: Option<InitiativeStatus>,
-    owner_id: Option<String>,
-) -> Result<Vec<u8>, Error> {
-    let name = options
+fn validate(fields: Fields) -> Result<Valid> {
+    let name = fields
         .name
-        .ok_or_else(|| Error::new("validated name vanished"))?;
+        .filter(|name| !name.is_empty())
+        .ok_or_else(|| Error::new("Initiative name is required. Use --name or -n flag."))?;
+    let nonempty = |value: Option<String>| value.filter(|value| !value.is_empty());
+    let status = nonempty(fields.status)
+        .map(|value| super::parse_status(&value))
+        .transpose()?;
+    let color = nonempty(fields.color)
+        .map(|value| super::parse_color(&value))
+        .transpose()?;
+    let target_date = nonempty(fields.target_date)
+        .map(|value| super::parse_target_date(&value))
+        .transpose()?;
+    let owner = nonempty(fields.owner);
+    super::check_owner(owner.as_deref())?;
+    Ok(Valid {
+        name,
+        description: nonempty(fields.description),
+        status,
+        owner,
+        target_date,
+        color,
+        icon: nonempty(fields.icon),
+    })
+}
+
+/// Sends the mutation once. A failure after the request may have reached
+/// Linear says the initiative may already exist; nothing is retried.
+async fn submit(
+    client: &GraphQlTransport,
+    input: InitiativeCreateInput,
+) -> Result<CreatedInitiative> {
     let request =
         GraphQlRequest::with_variables(CreateInitiative::build(CreateInitiativeVariables {
-            input: InitiativeCreateInput {
-                name,
-                description: options.description.filter(|value| !value.is_empty()),
-                status,
-                owner_id,
-                target_date: options
-                    .target_date
-                    .filter(|value| !value.is_empty())
-                    .map(TimelessDate),
-                color: options.color.filter(|value| !value.is_empty()),
-                icon: options.icon.filter(|value| !value.is_empty()),
-            },
+            input,
         }));
-    let result: CreateInitiative = transport.execute(&request).await.map_err(|failure| {
-        if matches!(failure, TransportFailure::Timeout { .. }) {
-            Error::new(format!("{failure}; initiative may already exist"))
-        } else {
-            Error::from(failure)
+    let result: CreateInitiative = client.execute(&request).await.map_err(|failure| {
+        let uncertain = crate::commands::milestone::create::outcome_unknown(&failure);
+        let mut error = Error::from(failure);
+        if uncertain {
+            error.push_message("; initiative may already exist");
         }
+        error
     })?;
     if !result.initiative_create.success {
-        return Err(Error::new("Failed to create initiative"));
+        return Err(Error::new("Linear did not create the initiative"));
     }
-    let initiative = result.initiative_create.initiative;
+    Ok(result.initiative_create.initiative)
+}
+
+fn render(initiative: &CreatedInitiative) -> String {
     let mut output = format!(
         "✓ Created initiative: {}\n  Slug: {}\n",
         initiative.name, initiative.slug_id
@@ -241,5 +250,5 @@ pub async fn submit_create(
     if !initiative.url.is_empty() {
         output.push_str(&format!("  URL: {}\n", initiative.url));
     }
-    Ok(output.into_bytes())
+    output
 }

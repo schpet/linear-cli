@@ -1,21 +1,6 @@
-//! Typed initiative update operations; raw status strings are an explicit update opt-in.
-use super::initiative_view::{
-    DetailVariablesFields, InitiativeNameResults, InitiativeSlugResults, NameVariablesFields,
-    SlugVariablesFields,
-};
+//! Current fields and the mutation for `initiative update`.
+use super::initiative_view::DetailVariablesFields;
 use crate::graphql::{operations::initiatives::InitiativeStatus, scalars::TimelessDate, schema};
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "SlugVariables")]
-pub struct GetInitiativeBySlug {
-    #[arguments(filter: {slugId: {eq: $slug_id}})]
-    pub initiatives: InitiativeSlugResults,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct GetInitiativeByName {
-    #[arguments(filter: {name: {eqIgnoreCase: $name}})]
-    pub initiatives: InitiativeNameResults,
-}
 #[derive(cynic::QueryFragment, Clone, Debug)]
 #[cynic(
     schema = "linear",

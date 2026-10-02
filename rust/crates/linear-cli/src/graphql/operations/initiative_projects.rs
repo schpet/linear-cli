@@ -1,135 +1,61 @@
-//! Exact selections for initiative association commands; local display lookups.
+//! Links between initiatives and projects for `initiative add-project` and `remove-project`.
+use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::schema;
+
 #[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct IdVariables {
-    pub id: String,
+pub struct LinksVariables {
+    pub initiative_id: String,
+    pub project_id: String,
+    pub after: Option<String>,
 }
-#[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct SlugVariables {
-    pub slug_id: String,
-}
-#[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct NameVariables {
-    pub name: String,
-}
+
+/// Both names, and one page of the initiatives the project is linked to.
 #[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
-pub struct GetInitiativeNameById {
-    #[arguments(id: $id)]
-    pub initiative: Option<InitiativeName>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "SlugVariables")]
-pub struct GetInitiativeBySlugForAddProject {
-    #[arguments(filter: { slugId: { eq: $slug_id } })]
-    pub initiatives: InitiativeSlugResults,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct GetInitiativeByNameForAddProject {
-    #[arguments(filter: { name: { eqIgnoreCase: $name } })]
-    pub initiatives: InitiativeNameResults,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
-pub struct GetInitiativeNameByIdForRemove {
-    #[arguments(id: $id)]
-    pub initiative: Option<InitiativeName>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "SlugVariables")]
-pub struct GetInitiativeBySlugForRemoveProject {
-    #[arguments(filter: { slugId: { eq: $slug_id } })]
-    pub initiatives: InitiativeSlugResults,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct GetInitiativeByNameForRemoveProject {
-    #[arguments(filter: { name: { eqIgnoreCase: $name } })]
-    pub initiatives: InitiativeNameResults,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "InitiativeConnection")]
-pub struct InitiativeNameResults {
-    pub nodes: Vec<InitiativeName>,
+#[cynic(
+    schema = "linear",
+    graphql_type = "Query",
+    variables = "LinksVariables"
+)]
+pub struct GetInitiativeProjectLinks {
+    #[arguments(id: $initiative_id)]
+    pub initiative: Named,
+    #[arguments(id: $project_id)]
+    pub project: LinkedProject,
 }
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(schema = "linear", graphql_type = "Initiative")]
-pub struct InitiativeName {
-    pub id: cynic::Id,
+pub struct Named {
     pub name: String,
 }
 #[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "InitiativeConnection")]
-pub struct InitiativeSlugResults {
-    pub nodes: Vec<InitiativeSlug>,
+#[cynic(
+    schema = "linear",
+    graphql_type = "Project",
+    variables = "LinksVariables"
+)]
+pub struct LinkedProject {
+    pub name: String,
+    #[arguments(first: 100, after: $after)]
+    pub initiative_to_projects: Links,
+}
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(schema = "linear", graphql_type = "InitiativeToProjectConnection")]
+pub struct Links {
+    pub nodes: Vec<Link>,
+    pub page_info: PageInfo,
+}
+#[derive(cynic::QueryFragment, Debug)]
+#[cynic(schema = "linear", graphql_type = "InitiativeToProject")]
+pub struct Link {
+    pub id: cynic::Id,
+    pub initiative: LinkedInitiative,
 }
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(schema = "linear", graphql_type = "Initiative")]
-pub struct InitiativeSlug {
+pub struct LinkedInitiative {
     pub id: cynic::Id,
-    pub slug_id: String,
-    pub name: String,
 }
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
-pub struct GetProjectNameById {
-    #[arguments(id: $id)]
-    pub project: Option<ProjectName>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "SlugVariables")]
-pub struct GetProjectBySlugForAddProject {
-    #[arguments(filter: { slugId: { eq: $slug_id } })]
-    pub projects: ProjectSlugResults,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct GetProjectByNameForAddProject {
-    #[arguments(filter: { name: { eqIgnoreCase: $name } })]
-    pub projects: ProjectNameResults,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
-pub struct GetProjectNameByIdForRemove {
-    #[arguments(id: $id)]
-    pub project: Option<ProjectName>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "SlugVariables")]
-pub struct GetProjectBySlugForRemoveProject {
-    #[arguments(filter: { slugId: { eq: $slug_id } })]
-    pub projects: ProjectSlugResults,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct GetProjectByNameForRemoveProject {
-    #[arguments(filter: { name: { eqIgnoreCase: $name } })]
-    pub projects: ProjectNameResults,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "ProjectConnection")]
-pub struct ProjectNameResults {
-    pub nodes: Vec<ProjectName>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Project")]
-pub struct ProjectName {
-    pub id: cynic::Id,
-    pub name: String,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "ProjectConnection")]
-pub struct ProjectSlugResults {
-    pub nodes: Vec<ProjectSlug>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Project")]
-pub struct ProjectSlug {
-    pub id: cynic::Id,
-    pub slug_id: String,
-    pub name: String,
-}
+
 #[derive(cynic::QueryVariables, Clone, Debug)]
 pub struct AddVariables {
     pub input: InitiativeToProjectCreateInput,
@@ -156,48 +82,11 @@ pub struct AddProjectToInitiative {
 #[cynic(schema = "linear", graphql_type = "InitiativeToProjectPayload")]
 pub struct AddPayload {
     pub success: bool,
-    pub initiative_to_project: LinkId,
 }
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "InitiativeToProject")]
-pub struct LinkId {
-    pub id: cynic::Id,
-}
+
 #[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct LinksVariables {
-    pub first: Option<i32>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(
-    schema = "linear",
-    graphql_type = "Query",
-    variables = "LinksVariables"
-)]
-pub struct GetInitiativeToProjects {
-    #[arguments(first: $first)]
-    pub initiative_to_projects: Links,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "InitiativeToProjectConnection")]
-pub struct Links {
-    pub nodes: Vec<Link>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "InitiativeToProject")]
-pub struct Link {
-    pub id: cynic::Id,
-    pub initiative: Option<InitiativeId>,
-    pub project: Option<ProjectId>,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Initiative")]
-pub struct InitiativeId {
-    pub id: cynic::Id,
-}
-#[derive(cynic::QueryFragment, Debug)]
-#[cynic(schema = "linear", graphql_type = "Project")]
-pub struct ProjectId {
-    pub id: cynic::Id,
+pub struct IdVariables {
+    pub id: String,
 }
 #[derive(cynic::QueryFragment, Debug)]
 #[cynic(

@@ -74,59 +74,9 @@ pub struct InitiativeViewProjectStatus {
 }
 
 #[derive(cynic::QueryVariables, Clone, Debug, Eq, PartialEq)]
-pub struct SlugVariables {
-    pub slug_id: String,
-}
-
-#[derive(cynic::QueryVariables, Clone, Debug, Eq, PartialEq)]
-pub struct NameVariables {
-    pub name: String,
-}
-
-#[derive(cynic::QueryVariables, Clone, Debug, Eq, PartialEq)]
 pub struct UrlSlugVariables {
     pub slug_id: String,
     pub include_archived: Option<bool>,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "SlugVariables")]
-pub struct GetInitiativeBySlugForView {
-    #[arguments(filter: { slugId: { eq: $slug_id } })]
-    pub initiatives: InitiativeSlugResults,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "InitiativeConnection")]
-pub struct InitiativeSlugResults {
-    pub nodes: Vec<InitiativeSlugNode>,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "Initiative")]
-pub struct InitiativeSlugNode {
-    pub id: cynic::Id,
-    pub slug_id: String,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct GetInitiativeByNameForView {
-    #[arguments(filter: { name: { eqIgnoreCase: $name } })]
-    pub initiatives: InitiativeNameResults,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "InitiativeConnection")]
-pub struct InitiativeNameResults {
-    pub nodes: Vec<InitiativeNameNode>,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
-#[cynic(schema = "linear", graphql_type = "Initiative")]
-pub struct InitiativeNameNode {
-    pub id: cynic::Id,
-    pub name: String,
 }
 
 #[derive(cynic::QueryFragment, Clone, Debug, PartialEq)]
