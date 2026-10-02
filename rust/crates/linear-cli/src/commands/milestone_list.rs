@@ -76,14 +76,13 @@ where
     .map_err(pagination_error)?;
 
     let mut nodes = result.nodes;
-    let collator = collation::root().map_err(|error| error.with_context(CONTEXT))?;
     nodes.sort_by(|left, right| {
-        let name = || collator.compare(&left.name, &right.name);
+        let name = || collation::compare(&left.name, &right.name);
         match (target_date(left), target_date(right)) {
             (None, None) => name(),
             (None, Some(_)) => Ordering::Greater,
             (Some(_), None) => Ordering::Less,
-            (Some(left), Some(right)) => collator.compare(left, right).then_with(name),
+            (Some(left), Some(right)) => collation::compare(left, right).then_with(name),
         }
     });
     let page_info = PageInfo {

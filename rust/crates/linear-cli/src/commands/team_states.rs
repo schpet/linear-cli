@@ -35,7 +35,7 @@ where
 {
     let response = fetch(request(team_key)).await?;
     let mut states = response.team.states.nodes;
-    workflow_states::sort(&mut states)?;
+    workflow_states::sort(&mut states);
     if json {
         render_json(&states)
     } else {

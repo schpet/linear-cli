@@ -324,11 +324,9 @@ pub async fn state_filter(
                     )
                 },
             );
-            let collator = crate::platform::collation::root()?;
             states.sort_by(|a, b| {
-                collator
-                    .compare(&a.team.key, &b.team.key)
-                    .then_with(|| collator.compare(&a.name, &b.name))
+                crate::platform::collation::compare(&a.team.key, &b.team.key)
+                    .then_with(|| crate::platform::collation::compare(&a.name, &b.name))
             });
             let listed = states
                 .iter()
@@ -709,7 +707,7 @@ pub(crate) async fn mine_with_requests(
         after = Some(next_cursor(data.issues.page_info.end_cursor, &mut seen)?);
     }
     truncate_to(&mut rows, limit);
-    sort_mine(&mut rows)?;
+    sort_mine(&mut rows);
     Ok(rows)
 }
 pub async fn query(
@@ -743,7 +741,7 @@ pub async fn query(
         after = Some(next_cursor(info.end_cursor, &mut seen)?);
     };
     truncate_to(&mut rows, limit);
-    sort_query(&mut rows)?;
+    sort_query(&mut rows);
     Ok(GetIssuesForQueryIssues {
         nodes: rows,
         page_info: info,
@@ -801,26 +799,21 @@ fn state_rank(value: &str) -> usize {
     .position(|v| *v == value)
     .unwrap_or(7)
 }
-fn type_order(
-    a: &str,
-    b: &str,
-    collator: &icu_collator::CollatorBorrowed<'_>,
-) -> std::cmp::Ordering {
+fn type_order(a: &str, b: &str) -> std::cmp::Ordering {
     state_rank(a).cmp(&state_rank(b)).then_with(|| {
         if state_rank(a) == 7 {
-            collator.compare(a, b)
+            crate::platform::collation::compare(a, b)
         } else {
             std::cmp::Ordering::Equal
         }
     })
 }
-pub fn sort_mine(rows: &mut [GetIssuesForStateIssuesNodes]) -> Result<(), AppError> {
+pub fn sort_mine(rows: &mut [GetIssuesForStateIssuesNodes]) {
     let multi = rows
         .first()
         .is_some_and(|first| rows.iter().any(|r| r.team.key != first.team.key));
-    let collator = crate::platform::collation::root()?;
     rows.sort_by(|a, b| {
-        type_order(&a.state.r#type, &b.state.r#type, &collator).then_with(|| {
+        type_order(&a.state.r#type, &b.state.r#type).then_with(|| {
             if multi {
                 std::cmp::Ordering::Equal
             } else {
@@ -828,15 +821,13 @@ pub fn sort_mine(rows: &mut [GetIssuesForStateIssuesNodes]) -> Result<(), AppErr
             }
         })
     });
-    Ok(())
 }
-pub fn sort_query(rows: &mut [GetIssuesForQueryIssuesNodes]) -> Result<(), AppError> {
+pub fn sort_query(rows: &mut [GetIssuesForQueryIssuesNodes]) {
     let multi = rows
         .first()
         .is_some_and(|first| rows.iter().any(|r| r.team.key != first.team.key));
-    let collator = crate::platform::collation::root()?;
     rows.sort_by(|a, b| {
-        type_order(&a.state.r#type, &b.state.r#type, &collator).then_with(|| {
+        type_order(&a.state.r#type, &b.state.r#type).then_with(|| {
             if multi {
                 std::cmp::Ordering::Equal
             } else {
@@ -844,7 +835,6 @@ pub fn sort_query(rows: &mut [GetIssuesForQueryIssuesNodes]) -> Result<(), AppEr
             }
         })
     });
-    Ok(())
 }
 pub fn priority(value: WholeNumber) -> String {
     match value.0 {

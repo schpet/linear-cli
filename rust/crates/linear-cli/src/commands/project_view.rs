@@ -131,16 +131,14 @@ pub async fn fetch_picker(
     Ok(projects)
 }
 
-pub fn picker_options(projects: &[PickerProject]) -> Result<Vec<SelectOption>, AppError> {
-    let collator = collation::root()?;
+pub fn picker_options(projects: &[PickerProject]) -> Vec<SelectOption> {
     let mut ordered: Vec<_> = projects.iter().collect();
     ordered.sort_by(|a, b| {
-        collator
-            .compare(&a.name.to_lowercase(), &b.name.to_lowercase())
-            .then_with(|| collator.compare(&a.slug_id, &b.slug_id))
-            .then_with(|| collator.compare(a.id.inner(), b.id.inner()))
+        collation::compare(&a.name.to_lowercase(), &b.name.to_lowercase())
+            .then_with(|| collation::compare(&a.slug_id, &b.slug_id))
+            .then_with(|| collation::compare(a.id.inner(), b.id.inner()))
     });
-    Ok(ordered
+    ordered
         .into_iter()
         .map(|project| {
             let mut parts = vec![project.name.clone(), project.status.name.clone()];
@@ -160,7 +158,7 @@ pub fn picker_options(projects: &[PickerProject]) -> Result<Vec<SelectOption>, A
                 value: project.id.inner().to_owned(),
             }
         })
-        .collect())
+        .collect()
 }
 
 pub fn json(project: &ProjectDetails) -> Result<Vec<u8>, AppError> {

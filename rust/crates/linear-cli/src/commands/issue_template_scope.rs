@@ -157,8 +157,7 @@ pub fn select(
             names.push(template.name.clone())
         }
     }
-    let collator = crate::platform::collation::root()?;
-    names.sort_by(|a, b| collator.compare(a, b));
+    names.sort_by(|a, b| crate::platform::collation::compare(a, b));
     let suggestion = if names.is_empty() {
         format!(
             "No {} templates are available here. Run `linear template list` to see every template.",

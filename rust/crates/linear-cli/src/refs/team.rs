@@ -148,11 +148,10 @@ where
     let suggestion = if teams.is_empty() {
         "This workspace has no teams you can access.".to_owned()
     } else {
-        let collator = collation::root()?;
         teams.sort_by(|left, right| {
-            collator.compare(&left.name.to_lowercase(), &right.name.to_lowercase())
+            collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
         });
-        teams.sort_by(|left, right| collator.compare(&left.key, &right.key));
+        teams.sort_by(|left, right| collation::compare(&left.key, &right.key));
         format!(
             "Valid team keys: {}. Run `linear team list` to see all teams.",
             teams
@@ -210,9 +209,8 @@ where
         page += 1;
     }
 
-    let collator = collation::root()?;
     teams.sort_by(|left, right| {
-        collator.compare(&left.name.to_lowercase(), &right.name.to_lowercase())
+        collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
     });
     Ok(teams)
 }

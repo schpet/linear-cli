@@ -177,9 +177,8 @@ where
     })?;
 
     let mut labels = result.nodes;
-    let collator = collation::root().map_err(|error| error.with_context(CONTEXT))?;
     labels.sort_by(|left, right| {
-        collator.compare(&left.name.to_lowercase(), &right.name.to_lowercase())
+        collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
     });
     if json {
         let page_info = teams::PageInfo {

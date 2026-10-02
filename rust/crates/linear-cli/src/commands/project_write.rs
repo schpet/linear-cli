@@ -346,8 +346,7 @@ pub fn select_template(
             names.push(t.name.clone());
         }
     }
-    let collator = crate::platform::collation::root()?;
-    names.sort_by(|a, b| collator.compare(a, b));
+    names.sort_by(|a, b| crate::platform::collation::compare(a, b));
     let suggestion = if names.is_empty() {
         "No project templates are available here. Run `linear template list` to see every template."
             .to_owned()

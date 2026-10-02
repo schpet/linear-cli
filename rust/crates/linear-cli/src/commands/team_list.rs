@@ -129,8 +129,7 @@ where
                 .is_none_or(|date| date.0.is_empty())
         })
         .collect();
-    let collator = collation::root().map_err(|error| error.with_context(CONTEXT))?;
-    teams.sort_by(|left, right| collator.compare(&left.name, &right.name));
+    teams.sort_by(|left, right| collation::compare(&left.name, &right.name));
     if json {
         let page_info = teams::PageInfo {
             has_next_page: result.page_info.has_next_page,

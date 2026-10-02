@@ -212,13 +212,11 @@ fn select(
             })
         })
         .collect();
-    let collator = collation::root()?;
     selected.sort_by(|left, right| {
-        collator
-            .compare(&left.template_type, &right.template_type)
-            .then_with(|| collator.compare(&left.name.to_lowercase(), &right.name.to_lowercase()))
+        collation::compare(&left.template_type, &right.template_type)
+            .then_with(|| collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase()))
             .then_with(|| left.team.is_some().cmp(&right.team.is_some()))
-            .then_with(|| collator.compare(team_key(left), team_key(right)))
+            .then_with(|| collation::compare(team_key(left), team_key(right)))
     });
     Ok(selected)
 }

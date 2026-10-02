@@ -10,7 +10,6 @@ use crate::{
         transport::GraphQlTransport,
     },
     platform::{
-        collation,
         markdown_assets::posix_join,
         prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession},
         selector::SelectOption,
@@ -129,8 +128,9 @@ pub fn prepare_teams(mut teams: Vec<ConfigTeam>) -> Result<Vec<ConfigTeam>, AppE
             ));
         }
     }
-    let collator = collation::root()?;
-    teams.sort_by(|a, b| collator.compare(&a.name.to_lowercase(), &b.name.to_lowercase()));
+    teams.sort_by(|a, b| {
+        crate::platform::collation::compare(&a.name.to_lowercase(), &b.name.to_lowercase())
+    });
     Ok(teams)
 }
 pub fn team_options(teams: &[ConfigTeam]) -> Vec<SelectOption> {

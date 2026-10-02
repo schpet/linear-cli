@@ -67,9 +67,8 @@ where
 
     let raw_count = result.nodes.len();
     let mut members = result.nodes;
-    let collator = collation::root().map_err(|error| error.with_context(CONTEXT))?;
     members.sort_by(|left, right| {
-        collator.compare(
+        collation::compare(
             &left.display_name.to_lowercase(),
             &right.display_name.to_lowercase(),
         )

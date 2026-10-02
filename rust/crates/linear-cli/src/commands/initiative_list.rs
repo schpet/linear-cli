@@ -232,12 +232,11 @@ pub async fn run(
         }
     }
     if !initiatives.is_empty() {
-        let collator = collation::root()?;
         initiatives.sort_by(|left, right| {
             left.status
                 .rank()
                 .cmp(&right.status.rank())
-                .then_with(|| collator.compare(&left.name, &right.name))
+                .then_with(|| collation::compare(&left.name, &right.name))
         });
     }
     if json {

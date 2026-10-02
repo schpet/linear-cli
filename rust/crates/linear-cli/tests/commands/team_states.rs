@@ -48,7 +48,7 @@ fn stable_order_uses_type_rank_collation_then_descending_position() {
     .team
     .states
     .nodes;
-    linear_cli::workflow_states::sort(&mut states).unwrap();
+    linear_cli::workflow_states::sort(&mut states);
     let ids = states
         .iter()
         .map(|state| state.id.inner())

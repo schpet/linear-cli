@@ -229,8 +229,7 @@ fn select_by_name(reference: &str, templates: Vec<Template>) -> Result<Template,
                     names.push(&template.name);
                 }
             }
-            let collator = collation::root()?;
-            names.sort_by(|left, right| collator.compare(left, right));
+            names.sort_by(|left, right| collation::compare(left, right));
             let suggestion = if names.is_empty() {
                 format!("No templates are available here. {LIST_SUGGESTION}")
             } else {

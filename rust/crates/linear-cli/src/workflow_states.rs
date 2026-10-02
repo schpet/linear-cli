@@ -2,7 +2,6 @@
 
 use std::cmp::Ordering;
 
-use crate::error::AppError;
 use crate::graphql::operations::workflow_states::WorkflowState;
 use crate::platform::collation;
 
@@ -16,8 +15,7 @@ const KNOWN_TYPES: [&str; 7] = [
     "duplicate",
 ];
 
-pub fn sort(states: &mut [WorkflowState]) -> Result<(), AppError> {
-    let collator = collation::root()?;
+pub fn sort(states: &mut [WorkflowState]) {
     states.sort_by(|left, right| {
         let left_rank = KNOWN_TYPES
             .iter()
@@ -29,9 +27,8 @@ pub fn sort(states: &mut [WorkflowState]) -> Result<(), AppError> {
             (Some(left), Some(right)) => left.cmp(&right),
             (Some(_), None) => Ordering::Less,
             (None, Some(_)) => Ordering::Greater,
-            (None, None) => collator.compare(&left.state_type, &right.state_type),
+            (None, None) => collation::compare(&left.state_type, &right.state_type),
         };
         by_type.then_with(|| right.position.get().total_cmp(&left.position.get()))
     });
-    Ok(())
 }

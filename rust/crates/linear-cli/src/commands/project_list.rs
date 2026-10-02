@@ -144,13 +144,12 @@ where
             return Ok(b"No projects found.\n".to_vec());
         }
     } else {
-        let collator = collation::root()?;
         projects.sort_by(|left, right| {
             left.sort_order
                 .get()
                 .total_cmp(&right.sort_order.get())
-                .then_with(|| collator.compare(&left.name, &right.name))
-                .then_with(|| collator.compare(left.id.inner(), right.id.inner()))
+                .then_with(|| collation::compare(&left.name, &right.name))
+                .then_with(|| collation::compare(left.id.inner(), right.id.inner()))
         });
     }
     if json {

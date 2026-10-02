@@ -136,7 +136,7 @@ fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
         r.state.position = Float(serde_json::Number::from_f64(position).unwrap());
         rows.push(r);
     }
-    read::sort_mine(&mut rows).unwrap();
+    read::sort_mine(&mut rows);
     assert_eq!(
         rows.iter()
             .map(|r| r.identifier.as_str())
@@ -145,7 +145,7 @@ fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
     );
     rows[0].team.key = "OTHER".to_owned();
     rows.rotate_right(1);
-    read::sort_mine(&mut rows).unwrap();
+    read::sort_mine(&mut rows);
     assert_eq!(
         rows.iter()
             .map(|r| r.identifier.as_str())
@@ -156,7 +156,7 @@ fn workflow_sort_uses_actual_returned_teams_and_stable_position_desc() {
 #[test]
 fn exact_pipe_table_and_clock_thresholds_match_frozen_mine() {
     let mut source: GetIssuesForState = serde_json::from_value(data(MINE)).unwrap();
-    read::sort_mine(&mut source.issues.nodes).unwrap();
+    read::sort_mine(&mut source.issues.nodes);
     let rows = source
         .issues
         .nodes

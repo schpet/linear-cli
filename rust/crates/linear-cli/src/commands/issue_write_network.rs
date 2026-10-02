@@ -38,12 +38,11 @@ async fn fetch<T: DeserializeOwned, V: Serialize>(
             ),
         })
 }
-fn sorted_names(mut rows: Vec<Named>) -> Result<Vec<Named>, AppError> {
-    let collator = crate::platform::collation::root()?;
+fn sorted_names(mut rows: Vec<Named>) -> Vec<Named> {
     rows.sort_by(|left, right| {
-        collator.compare(&left.name.to_lowercase(), &right.name.to_lowercase())
+        crate::platform::collation::compare(&left.name.to_lowercase(), &right.name.to_lowercase())
     });
-    Ok(rows)
+    rows
 }
 impl NetworkBackend {
     fn scope<'a>(&'a self, key: &'a crate::auth::ApiKeyInput<'a>) -> refs::WorkspaceScope<'a> {
@@ -121,8 +120,9 @@ impl Backend for NetworkBackend {
         )
         .await?;
         let mut teams = data.teams.nodes;
-        let collator = crate::platform::collation::root()?;
-        teams.sort_by(|a, b| collator.compare(&a.key.to_lowercase(), &b.key.to_lowercase()));
+        teams.sort_by(|a, b| {
+            crate::platform::collation::compare(&a.key.to_lowercase(), &b.key.to_lowercase())
+        });
         Ok(teams
             .into_iter()
             .map(|team| Named {
@@ -177,7 +177,7 @@ impl Backend for NetworkBackend {
         )
         .await?;
         let mut states = data.team.states.nodes;
-        crate::workflow_states::sort(&mut states)?;
+        crate::workflow_states::sort(&mut states);
         Ok(states
             .into_iter()
             .map(|s| State {
@@ -263,7 +263,7 @@ impl Backend for NetworkBackend {
             )),
         )
         .await?;
-        sorted_names(
+        Ok(sorted_names(
             data.issue_labels
                 .nodes
                 .into_iter()
@@ -272,7 +272,7 @@ impl Backend for NetworkBackend {
                     name: l.name,
                 })
                 .collect(),
-        )
+        ))
     }
     async fn labels(&self, team_key: String) -> Result<Vec<Label>, AppError> {
         let data: ops::GetLabelsForTeam = fetch(
@@ -281,8 +281,9 @@ impl Backend for NetworkBackend {
         )
         .await?;
         let mut labels = data.team.map(|t| t.labels.nodes).unwrap_or_default();
-        let collator = crate::platform::collation::root()?;
-        labels.sort_by(|a, b| collator.compare(&a.name.to_lowercase(), &b.name.to_lowercase()));
+        labels.sort_by(|a, b| {
+            crate::platform::collation::compare(&a.name.to_lowercase(), &b.name.to_lowercase())
+        });
         Ok(labels
             .into_iter()
             .map(|l| Label {
@@ -371,7 +372,7 @@ impl Backend for NetworkBackend {
             }
             after = crate::graphql::edit::Edit::Set(cursor);
         }
-        sorted_names(rows)
+        Ok(sorted_names(rows))
     }
     async fn milestone(&self, project_id: String, reference: String) -> Result<String, AppError> {
         crate::commands::issue_read::milestone_id_without_terminal_lf(

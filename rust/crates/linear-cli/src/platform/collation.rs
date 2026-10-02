@@ -1,16 +1,15 @@
-//! Root-locale collation for commands that mirror JavaScript `localeCompare`.
+//! Locale-aware string ordering (root locale), so accented names sort next to
+//! their unaccented forms.
+use std::cmp::Ordering;
+use std::sync::LazyLock;
+
 use icu_collator::{CollatorBorrowed, CollatorPreferences, options::CollatorOptions};
 
-use crate::error::{AppError, AppErrorKind};
+static ROOT: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| {
+    CollatorBorrowed::try_new(CollatorPreferences::default(), CollatorOptions::default())
+        .unwrap_or_else(|error| unreachable!("root collation data is compiled in: {error}"))
+});
 
-pub fn root() -> Result<CollatorBorrowed<'static>, AppError> {
-    CollatorBorrowed::try_new(CollatorPreferences::default(), CollatorOptions::default()).map_err(
-        |error| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "could not load root collation data",
-            )
-            .with_source(error)
-        },
-    )
+pub fn compare(left: &str, right: &str) -> Ordering {
+    ROOT.compare(left, right)
 }

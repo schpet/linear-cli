@@ -72,9 +72,8 @@ where
         end_cursor: result.page_info.end_cursor,
     };
 
-    let collator = collation::root().map_err(|error| error.with_context(CONTEXT))?;
     nodes.sort_by(|left, right| {
-        collator.compare(
+        collation::compare(
             &left.display_name.to_lowercase(),
             &right.display_name.to_lowercase(),
         )

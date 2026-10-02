@@ -84,7 +84,7 @@ fn picker_sorts_case_insensitively_and_keeps_uuid_values() {
     ],"pageInfo":{"hasNextPage":false,"endCursor":null}}}});
     let response: GetProjectsForPicker =
         parse_response(data.to_string().as_bytes()).expect("picker response");
-    let options = picker_options(&response.projects.nodes).expect("picker options");
+    let options = picker_options(&response.projects.nodes);
     assert_eq!(options[0].label, "alpha  ·  Backlog  ·  a-1");
     assert_eq!(options[0].value, "a");
     assert_eq!(options[1].label, "Zeta  ·  Started  ·  ENG  ·  z-1");

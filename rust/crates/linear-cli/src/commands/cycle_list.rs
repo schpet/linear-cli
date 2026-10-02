@@ -109,8 +109,7 @@ where
     })?;
 
     let mut nodes = result.nodes;
-    let collator = collation::root().map_err(|error| error.with_context(CONTEXT))?;
-    nodes.sort_by(|left, right| collator.compare(&right.starts_at.0, &left.starts_at.0));
+    nodes.sort_by(|left, right| collation::compare(&right.starts_at.0, &left.starts_at.0));
     let page_info = PageInfo {
         has_next_page: result.page_info.has_next_page,
         end_cursor: result.page_info.end_cursor,

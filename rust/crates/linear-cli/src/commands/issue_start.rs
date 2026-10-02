@@ -336,7 +336,7 @@ pub fn describe_jj(
     Ok(format!("✓ Prepared jj change for issue {identifier}\n").into_bytes())
 }
 pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, AppError> {
-    crate::workflow_states::sort(&mut states)?;
+    crate::workflow_states::sort(&mut states);
     let mut selected: Option<WorkflowState> = None;
     for state in states {
         if state.state_type == "started"

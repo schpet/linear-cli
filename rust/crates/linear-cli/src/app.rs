@@ -734,8 +734,7 @@ fn dispatch_project_view(
         let projects =
             block_on_network(project_view::fetch_picker(&transport, team_key.as_deref()))
                 .map_err(|error| error.with_context(project_view::CONTEXT))?;
-        let options = project_view::picker_options(&projects)
-            .map_err(|error| error.with_context(project_view::CONTEXT))?;
+        let options = project_view::picker_options(&projects);
         let ci = context.config()?.ci.clone();
         let selection = selector::run(
             &options,
