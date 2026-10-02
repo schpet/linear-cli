@@ -1,0 +1,534 @@
+//! The `document` command group.
+use serde_json::{Value, json};
+
+use crate::support::{Cli, MockLinear};
+use crate::team::{resolve_vars, resolved};
+
+const DOC_ID: &str = "00000000-0000-4000-9000-000000000051";
+const SLUG: &str = "d4b93e3b2695";
+const PROJECT_ID: &str = "00000000-0000-4000-9000-000000000050";
+
+fn page(nodes: Value, end_cursor: Value, has_next: bool) -> Value {
+    json!({ "nodes": nodes, "pageInfo": { "hasNextPage": has_next, "endCursor": end_cursor } })
+}
+
+fn list_node(slug: &str, title: &str) -> Value {
+    json!({
+        "id": format!("doc-{slug}"), "title": title, "slugId": slug,
+        "url": format!("https://linear.app/acme/document/{slug}"),
+        "updatedAt": "2024-01-03T00:00:00Z",
+        "project": { "name": "Roadmap", "slugId": "roadmap-slug" },
+        "issue": null, "initiative": null, "team": null, "cycle": null, "release": null,
+        "creator": { "name": "Ada" }
+    })
+}
+
+fn document() -> Value {
+    json!({
+        "id": DOC_ID, "title": "Design notes", "slugId": SLUG,
+        "content": "# Heading\n\nThe plan in **bold**.\n",
+        "url": format!("https://linear.app/acme/document/design-notes-{SLUG}"),
+        "createdAt": "2024-01-02T00:00:00Z", "updatedAt": "2024-01-03T00:00:00Z",
+        "creator": { "name": "Ada", "email": "ada@example.com" },
+        "project": { "name": "Roadmap", "slugId": "roadmap-slug" },
+        "issue": null, "initiative": null, "team": null, "cycle": null, "release": null
+    })
+}
+
+fn comment(id: &str, body: &str, parent: Option<&str>) -> Value {
+    json!({
+        "id": id, "body": body, "quotedText": null, "documentContentId": "content-1",
+        "createdAt": "2024-01-02T00:00:00Z", "updatedAt": "2024-01-03T00:00:00Z",
+        "archivedAt": null, "resolvedAt": null,
+        "url": format!("https://linear.app/acme/comment/{id}"),
+        "user": { "name": "Ada", "email": "ada@example.com" },
+        "parent": parent.map(|id| json!({ "id": id }))
+    })
+}
+
+fn written(operation: &str) -> Value {
+    let key = match operation {
+        "CreateDocument" => "documentCreate",
+        "UpdateDocument" => "documentUpdate",
+        other => panic!("not a document write: {other}"),
+    };
+    json!({ key: {
+        "success": true,
+        "document": {
+            "id": DOC_ID, "slugId": SLUG, "title": "Server title",
+            "url": format!("https://linear.app/acme/document/server-{SLUG}"),
+            "updatedAt": "2024-01-04T00:00:00Z"
+        }
+    } })
+}
+
+fn guard(comments: Value) -> Value {
+    json!({ "document": { "id": DOC_ID, "comments": page(comments, Value::Null, false) } })
+}
+
+#[test]
+fn list_json_contains_documents() {
+    let api = MockLinear::start();
+    let nodes = json!([list_node("a1", "Alpha"), list_node("b2", "Beta")]);
+    api.on(
+        "ListDocuments",
+        json!({ "documents": page(nodes.clone(), Value::Null, false) }),
+    );
+    let json = Cli::for_api(&api)
+        .run(&["document", "list", "--json"])
+        .success()
+        .json();
+    assert_eq!(json["nodes"], nodes);
+    assert_eq!(api.variables("ListDocuments"), json!({ "first": 50 }));
+}
+
+#[test]
+fn list_filters_by_project_and_limit() {
+    let api = MockLinear::start();
+    api.on(
+        "ListDocuments",
+        json!({ "documents": page(json!([list_node("a1", "Alpha")]), Value::Null, false) }),
+    );
+    Cli::for_api(&api)
+        .run(&["docs", "list", "--project", PROJECT_ID, "--limit", "2"])
+        .success()
+        .stdout_has("Alpha");
+    assert_eq!(
+        api.variables("ListDocuments"),
+        json!({ "filter": { "project": { "id": { "eq": PROJECT_ID } } }, "first": 2 })
+    );
+}
+
+#[test]
+fn view_raw_prints_markdown_from_a_url() {
+    let api = MockLinear::start();
+    api.on("GetDocument", json!({ "document": document() }));
+    Cli::for_api(&api)
+        .run(&[
+            "document",
+            "view",
+            &format!("https://linear.app/acme/document/design-notes-{SLUG}"),
+            "--raw",
+            "--no-download",
+        ])
+        .success()
+        .stdout_has("The plan in **bold**.");
+    assert_eq!(api.variables("GetDocument"), json!({ "id": SLUG }));
+}
+
+#[test]
+fn view_missing_document_fails() {
+    let api = MockLinear::start();
+    api.on("GetDocument", json!({ "document": null }));
+    Cli::for_api(&api)
+        .run(&["document", "view", "gone123", "--raw"])
+        .failure();
+}
+
+#[test]
+fn view_json_collects_comment_pages() {
+    let api = MockLinear::start();
+    let first = comment("c1", "Looks good", None);
+    let reply = comment("c2", "Thanks", Some("c1"));
+    let with_comments = |nodes: Value, cursor: &str, more: bool| {
+        let mut doc = document();
+        doc["comments"] = page(nodes, json!(cursor), more);
+        json!({ "document": doc })
+    };
+    api.on(
+        "GetDocumentWithComments",
+        with_comments(json!([first.clone()]), "cursor-1", true),
+    )
+    .on(
+        "GetDocumentWithComments",
+        with_comments(json!([reply.clone()]), "cursor-2", false),
+    );
+    let json = Cli::for_api(&api)
+        .run(&["document", "view", SLUG, "--json"])
+        .success()
+        .json();
+    assert_eq!(json["title"], "Design notes");
+    assert_eq!(json["content"], document()["content"]);
+    assert_eq!(json["comments"]["nodes"], json!([first, reply]));
+    let variables: Vec<Value> = api.requests().into_iter().map(|r| r.variables).collect();
+    assert_eq!(
+        variables,
+        [
+            json!({ "id": SLUG, "commentsAfter": null }),
+            json!({ "id": SLUG, "commentsAfter": "cursor-1" }),
+        ]
+    );
+}
+
+#[test]
+fn create_sends_title_content_and_project() {
+    let api = MockLinear::start();
+    api.on("CreateDocument", written("CreateDocument"));
+    Cli::for_api(&api)
+        .run(&[
+            "document",
+            "create",
+            "--title",
+            "Requested",
+            "--content",
+            "# Body\n\nText",
+            "--project",
+            PROJECT_ID,
+            "--icon",
+            "📄",
+        ])
+        .success()
+        .stdout_has("Server title")
+        .stdout_has(&format!("server-{SLUG}"));
+    assert_eq!(
+        api.variables("CreateDocument"),
+        json!({ "input": {
+            "title": "Requested", "content": "# Body\n\nText",
+            "projectId": PROJECT_ID, "icon": "📄"
+        } })
+    );
+}
+
+#[test]
+fn create_reads_content_from_a_file() {
+    let api = MockLinear::start();
+    api.on("CreateDocument", written("CreateDocument"));
+    Cli::for_api(&api)
+        .file(
+            "cwd/body.md",
+            "# From file\n\nMultiple words, with commas.\n",
+        )
+        .run(&[
+            "document",
+            "create",
+            "-t",
+            "Requested",
+            "--content-file",
+            "body.md",
+            "--project",
+            PROJECT_ID,
+        ])
+        .success();
+    assert_eq!(
+        api.variables("CreateDocument")["input"]["content"],
+        "# From file\n\nMultiple words, with commas.\n"
+    );
+}
+
+#[test]
+fn create_reads_content_from_stdin() {
+    let api = MockLinear::start();
+    api.on("CreateDocument", written("CreateDocument"));
+    Cli::for_api(&api)
+        .stdin(b"Body")
+        .run(&[
+            "document",
+            "create",
+            "-t",
+            "Requested",
+            "--project",
+            PROJECT_ID,
+        ])
+        .success();
+    assert_eq!(api.variables("CreateDocument")["input"]["content"], "Body");
+}
+
+#[test]
+fn create_attaches_to_a_team() {
+    let api = MockLinear::start();
+    api.on("ResolveTeam", resolved("team-eng-id", "ENG", "Engineering"))
+        .on("CreateDocument", written("CreateDocument"));
+    Cli::for_api(&api)
+        .run(&["document", "create", "-t", "Requested", "--team", "ENG"])
+        .success();
+    assert_eq!(api.variables("ResolveTeam"), resolve_vars("ENG"));
+    assert_eq!(
+        api.variables("CreateDocument"),
+        json!({ "input": { "title": "Requested", "teamId": "team-eng-id" } })
+    );
+}
+
+#[test]
+fn create_without_title_fails_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["document", "create", "--content", "Body"])
+        .failure();
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn update_metadata_skips_the_inline_comment_check() {
+    let api = MockLinear::start();
+    api.on("UpdateDocument", written("UpdateDocument"));
+    Cli::for_api(&api)
+        .run(&[
+            "document", "update", SLUG, "--title", "Renamed", "--icon", "📄",
+        ])
+        .success()
+        .stdout_has("Server title");
+    assert_eq!(
+        api.variables("UpdateDocument"),
+        json!({ "id": SLUG, "input": { "title": "Renamed", "icon": "📄" } })
+    );
+}
+
+#[test]
+fn update_content_checks_for_inline_comments_first() {
+    let api = MockLinear::start();
+    let resolved_quote = json!({
+        "id": "old", "quotedText": "quote",
+        "resolvedAt": "2024-01-01T00:00:00Z", "archivedAt": null
+    });
+    api.on("DocumentInlineCommentGuard", guard(json!([resolved_quote])))
+        .on("UpdateDocument", written("UpdateDocument"));
+    Cli::for_api(&api)
+        .file("cwd/body.md", "new body\n")
+        .run(&["document", "update", SLUG, "--content-file", "body.md"])
+        .success();
+    assert_eq!(
+        api.operations(),
+        ["DocumentInlineCommentGuard", "UpdateDocument"]
+    );
+    assert_eq!(
+        api.variables("DocumentInlineCommentGuard"),
+        json!({ "id": SLUG, "after": null })
+    );
+    assert_eq!(
+        api.variables("UpdateDocument"),
+        json!({ "id": SLUG, "input": { "content": "new body\n" } })
+    );
+}
+
+#[test]
+fn update_content_refuses_when_inline_comments_would_detach() {
+    let api = MockLinear::start();
+    let active = json!({
+        "id": "active", "quotedText": "anchored text", "resolvedAt": null, "archivedAt": null
+    });
+    api.on("DocumentInlineCommentGuard", guard(json!([active])));
+    Cli::for_api(&api)
+        .run(&["document", "update", SLUG, "--content", "new body"])
+        .failure()
+        .stderr_has("--force");
+    assert_eq!(api.operations(), ["DocumentInlineCommentGuard"]);
+}
+
+#[test]
+fn update_content_with_force_skips_the_check() {
+    let api = MockLinear::start();
+    api.on("UpdateDocument", written("UpdateDocument"));
+    Cli::for_api(&api)
+        .run(&[
+            "document",
+            "update",
+            SLUG,
+            "--content",
+            "new body",
+            "--force",
+        ])
+        .success();
+    assert_eq!(
+        api.variables("UpdateDocument"),
+        json!({ "id": SLUG, "input": { "content": "new body" } })
+    );
+}
+
+#[test]
+fn delete_resolves_a_url_then_deletes_by_id() {
+    let api = MockLinear::start();
+    api.on(
+        "GetDocumentForDelete",
+        json!({ "document": { "id": DOC_ID, "slugId": SLUG, "title": "Design notes" } }),
+    )
+    .on(
+        "DeleteDocument",
+        json!({ "documentDelete": { "success": true } }),
+    );
+    Cli::for_api(&api)
+        .run(&[
+            "document",
+            "delete",
+            &format!("https://linear.app/acme/document/design-notes-{SLUG}"),
+            "-y",
+        ])
+        .success()
+        .stdout_has("Design notes");
+    assert_eq!(api.variables("GetDocumentForDelete"), json!({ "id": SLUG }));
+    assert_eq!(api.variables("DeleteDocument"), json!({ "id": DOC_ID }));
+}
+
+#[test]
+fn delete_without_confirmation_does_not_delete() {
+    let api = MockLinear::start();
+    api.on(
+        "GetDocumentForDelete",
+        json!({ "document": { "id": DOC_ID, "slugId": SLUG, "title": "Design notes" } }),
+    );
+    Cli::for_api(&api)
+        .run(&["document", "delete", SLUG])
+        .failure();
+    assert!(!api.operations().contains(&"DeleteDocument".to_owned()));
+}
+
+#[test]
+fn delete_bulk_deletes_each_document() {
+    let api = MockLinear::start();
+    for (id, slug) in [("doc-a", "aaa111"), ("doc-b", "bbb222")] {
+        api.on(
+            "GetDocumentForBulkDelete",
+            json!({ "document": { "id": id, "slugId": slug, "title": format!("Doc {slug}") } }),
+        )
+        .on(
+            "BulkDeleteDocument",
+            json!({ "documentDelete": { "success": true } }),
+        );
+    }
+    Cli::for_api(&api)
+        .run(&["document", "delete", "--bulk", "aaa111", "bbb222", "-y"])
+        .success();
+    let mut lookups: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .filter(|r| r.operation.as_deref() == Some("GetDocumentForBulkDelete"))
+        .map(|r| r.variables)
+        .collect();
+    lookups.sort_by_key(Value::to_string);
+    assert_eq!(
+        lookups,
+        [json!({ "id": "aaa111" }), json!({ "id": "bbb222" })]
+    );
+    let mut deletes: Vec<Value> = api
+        .requests()
+        .into_iter()
+        .filter(|r| r.operation.as_deref() == Some("BulkDeleteDocument"))
+        .map(|r| r.variables)
+        .collect();
+    deletes.sort_by_key(Value::to_string);
+    assert_eq!(
+        deletes,
+        [json!({ "id": "doc-a" }), json!({ "id": "doc-b" })]
+    );
+}
+
+fn comment_target() -> Value {
+    json!({ "document": { "id": DOC_ID, "title": "Design notes", "documentContentId": "content-1" } })
+}
+
+fn comment_created() -> Value {
+    json!({ "commentCreate": {
+        "success": true,
+        "comment": { "id": "comment-new", "url": "https://linear.app/acme/comment/comment-new" }
+    } })
+}
+
+#[test]
+fn comment_add_replies_on_the_document_content() {
+    let api = MockLinear::start();
+    api.on("GetDocumentCommentTarget", comment_target())
+        .on("AddComment", comment_created());
+    Cli::for_api(&api)
+        .run(&[
+            "document",
+            "comment",
+            "add",
+            &format!("https://linear.app/acme/document/design-notes-{SLUG}"),
+            "--body",
+            "Hi",
+            "--parent",
+            "comment-root",
+        ])
+        .success()
+        .stdout_has("comment-new");
+    assert_eq!(
+        api.variables("GetDocumentCommentTarget"),
+        json!({ "id": SLUG })
+    );
+    assert_eq!(
+        api.variables("AddComment"),
+        json!({ "input": {
+            "body": "Hi", "parentId": "comment-root", "documentContentId": "content-1"
+        } })
+    );
+}
+
+#[test]
+fn comment_add_reads_the_body_from_a_file() {
+    let api = MockLinear::start();
+    api.on("GetDocumentCommentTarget", comment_target())
+        .on("AddComment", comment_created());
+    Cli::for_api(&api)
+        .file("cwd/comment.md", "**Bold** remark\n")
+        .run(&[
+            "document",
+            "comment",
+            "add",
+            SLUG,
+            "--body-file",
+            "comment.md",
+        ])
+        .success();
+    assert_eq!(
+        api.variables("AddComment"),
+        json!({ "input": { "body": "**Bold** remark\n", "documentContentId": "content-1" } })
+    );
+}
+
+#[test]
+fn comment_add_with_a_blank_body_fails_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&["document", "comment", "add", SLUG, "--body", "   "])
+        .failure()
+        .stderr_has("empty");
+    assert!(api.requests().is_empty());
+}
+
+fn listed_comment(id: &str, body: &str, parent: Option<&str>) -> Value {
+    json!({
+        "id": id, "body": body, "quotedText": null,
+        "createdAt": "2024-01-02T12:00:00Z", "updatedAt": "2024-01-02T12:00:00Z",
+        "editedAt": null, "url": format!("https://linear.app/acme/comment/{id}"),
+        "user": { "id": "user-1", "name": "ada", "displayName": "Ada" },
+        "externalUser": null, "botActor": null,
+        "parent": parent.map(|id| json!({ "id": id }))
+    })
+}
+
+fn document_comments() -> (Value, Value) {
+    let nodes = json!([
+        listed_comment("c1", "Root comment", None),
+        listed_comment("c2", "Reply comment", Some("c1")),
+    ]);
+    let data = json!({ "document": {
+        "id": DOC_ID, "comments": page(nodes.clone(), json!("end"), false)
+    } });
+    (nodes, data)
+}
+
+#[test]
+fn comment_list_json_contains_comments() {
+    let api = MockLinear::start();
+    let (nodes, data) = document_comments();
+    api.on("GetDocumentComments", data);
+    let json = Cli::for_api(&api)
+        .run(&["document", "comment", "list", "--json", SLUG])
+        .success()
+        .json();
+    assert_eq!(json["nodes"], nodes);
+    assert_eq!(
+        api.variables("GetDocumentComments"),
+        json!({ "id": SLUG, "after": null })
+    );
+}
+
+#[test]
+fn comment_list_text_shows_threads() {
+    let api = MockLinear::start();
+    api.on("GetDocumentComments", document_comments().1);
+    Cli::for_api(&api)
+        .run(&["document", "comment", "list", SLUG])
+        .success()
+        .stdout_has("Root comment")
+        .stdout_has("Reply comment");
+}
