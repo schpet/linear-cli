@@ -1,7 +1,7 @@
 //! `milestone create`: one typed mutation after shared project resolution.
 use cynic::MutationBuilder;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestone_create::{
     CreateProjectMilestone, CreateProjectMilestoneVariables, CreatedMilestone,
@@ -47,24 +47,21 @@ pub async fn submit(
     transport: &GraphQlTransport,
     project_id: &str,
     options: &Options,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let result: CreateProjectMilestone = transport
         .execute(&request(project_id, options))
         .await
         .map_err(|failure| {
             let uncertain = outcome_unknown(&failure);
-            let mut error = AppError::from(failure);
+            let mut error = Error::from(failure);
             if uncertain {
-                error.message.push_str("; milestone may already exist");
+                error.push_message("; milestone may already exist");
             }
             error
         })?;
     let payload = result.project_milestone_create;
     if !payload.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to create milestone",
-        ));
+        return Err(Error::new("Failed to create milestone"));
     }
     Ok(render(&payload.project_milestone))
 }

@@ -1,4 +1,3 @@
-use linear_cli::error::AppErrorKind;
 use linear_cli::refs::{is_linear_uuid, reject_linear_url};
 
 #[test]
@@ -11,16 +10,12 @@ fn url_guard_rejects_known_and_unsupported_urls_without_workspace_selection() {
         "  https://linear.app/acme/issue/ENG-12  ",
     ] {
         let error = reject_linear_url(input, "a template name or UUID").expect_err(input);
-        assert_eq!(error.kind, AppErrorKind::Validation, "{input}");
         assert_eq!(
-            error.message,
+            error.message(),
             format!("\"{input}\" is a Linear URL, and this command does not take one.")
         );
-        assert_eq!(
-            error.suggestion.as_deref(),
-            Some("Pass a template name or UUID.")
-        );
-        assert_eq!(error.context, None);
+        assert_eq!(error.hint(), Some("Pass a template name or UUID."));
+        assert!(!error.has_context());
     }
     for input in [
         "A template",

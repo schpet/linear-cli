@@ -1,8 +1,5 @@
 //! Proposed extraction from project_write's template section, not whole-file copy.
-use crate::{
-    error::{AppError, AppErrorKind},
-    graphql::operations::templates::Template,
-};
+use crate::{error::Error, graphql::operations::templates::Template};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TemplateScope {
     Issue,
@@ -28,7 +25,7 @@ fn available(template: &Template, team_ids: &[String]) -> bool {
         .as_ref()
         .is_none_or(|team| team_ids.iter().any(|id| id == team.id.inner()))
 }
-fn wrong_type(template: &Template, scope: TemplateScope) -> AppError {
+fn wrong_type(template: &Template, scope: TemplateScope) -> Error {
     let article = if template
         .template_type
         .chars()
@@ -39,45 +36,40 @@ fn wrong_type(template: &Template, scope: TemplateScope) -> AppError {
     } else {
         "a"
     };
-    AppError::new(
-        AppErrorKind::Validation,
-        format!(
-            "Template \"{}\" is {article} {} template, not {} {} template",
-            template.name,
-            template.template_type,
-            scope.article(),
-            scope.word()
-        ),
-    )
-    .with_suggestion(format!(
+    Error::new(format!(
+        "Template \"{}\" is {article} {} template, not {} {} template",
+        template.name,
+        template.template_type,
+        scope.article(),
+        scope.word()
+    ))
+    .with_hint(format!(
         "Run `linear template list --type {}` to see the {} templates.",
         scope.word(),
         scope.word()
     ))
 }
-fn wrong_team(name: &str, keys: &[String], scope: TemplateScope) -> AppError {
+fn wrong_team(name: &str, keys: &[String], scope: TemplateScope) -> Error {
     let Some(first) = keys.first() else {
-        return AppError::new(
-            AppErrorKind::Invariant,
-            "unavailable template has no team key",
-        );
+        return Error::new("unavailable template has no team key");
     };
-    AppError::new(AppErrorKind::Validation,format!("Template \"{name}\" belongs to team{} {} and cannot be applied here",
+    Error::new(format!("Template \"{name}\" belongs to team{} {} and cannot be applied here",
         if keys.len()==1{""}else{"s"},keys.join(", ")))
-        .with_suggestion(format!("Pass --team {first}, or pick a workspace template or one from the target team with `linear template list --type {} --team <team>`.",scope.word()))
+        .with_hint(format!("Pass --team {first}, or pick a workspace template or one from the target team with `linear template list --type {} --team <team>`.",scope.word()))
 }
 pub fn assert_scope(
     template: &Template,
     team_ids: &[String],
     scope: TemplateScope,
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     if template.template_type != scope.word() {
         return Err(wrong_type(template, scope));
     }
     if !available(template, team_ids) {
-        let team = template.team.as_ref().ok_or_else(|| {
-            AppError::new(AppErrorKind::Invariant, "unavailable template has no team")
-        })?;
+        let team = template
+            .team
+            .as_ref()
+            .ok_or_else(|| Error::new("unavailable template has no team"))?;
         return Err(wrong_team(
             &template.name,
             std::slice::from_ref(&team.key),
@@ -91,7 +83,7 @@ pub fn select(
     all: Vec<Template>,
     team_ids: &[String],
     scope: TemplateScope,
-) -> Result<Template, AppError> {
+) -> Result<Template, Error> {
     let matches: Vec<_> = all
         .iter()
         .filter(|t| t.name.to_lowercase() == reference.to_lowercase())
@@ -99,14 +91,11 @@ pub fn select(
     let eligible = |t: &Template| t.template_type == scope.word() && available(t, team_ids);
     let candidates: Vec<_> = matches.iter().copied().filter(|t| eligible(t)).collect();
     if candidates.len() > 1 {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!(
-                "Template name \"{reference}\" is ambiguous: it matches {} templates",
-                candidates.len()
-            ),
-        )
-        .with_suggestion(format!(
+        return Err(Error::new(format!(
+            "Template name \"{reference}\" is ambiguous: it matches {} templates",
+            candidates.len()
+        ))
+        .with_hint(format!(
             "Pass the template ID instead: {}",
             candidates
                 .iter()
@@ -174,7 +163,7 @@ pub fn select(
                 .join(", ")
         )
     };
-    Err(AppError::not_found("Template", reference).with_suggestion(suggestion))
+    Err(Error::not_found("Template", reference).with_hint(suggestion))
 }
 // Project callers use scope=Project with the shared transport; the issue path
 // uses NetworkBackend's exchange below.

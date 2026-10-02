@@ -6,7 +6,7 @@ use crate::{
         mutation::{CredentialMutationBackend, MutationFailure},
     },
     config::ConfigSecret,
-    error::{AppError, AppErrorKind},
+    error::Error,
 };
 use keyring::{credential::CredentialApi, windows::WinCredential};
 
@@ -18,8 +18,7 @@ pub struct WindowsMutationBackend {
 }
 fn failure(error: keyring::Error) -> MutationFailure {
     match error {
-        keyring::Error::BadEncoding(_) => MutationFailure::Typed(AppError::new(
-            AppErrorKind::Validation,
+        keyring::Error::BadEncoding(_) => MutationFailure::Typed(Error::new(
             "System keyring returned an invalid secret encoding",
         )),
         other => MutationFailure::Ordinary(other.to_string()),

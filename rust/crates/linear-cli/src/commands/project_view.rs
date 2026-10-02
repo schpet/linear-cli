@@ -7,7 +7,7 @@ use cynic::QueryBuilder;
 
 use crate::commands::project_list;
 use crate::commands::relative_time::format_relative_time;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::project_view::{
     DateResolutionType, GetProjectDetails, GetProjectIssuesPage, GetProjectsForPicker,
@@ -22,23 +22,23 @@ use crate::platform::selector::SelectOption;
 pub const CONTEXT: &str = "Failed to view project";
 const PAGE_SIZE: i32 = 250;
 
-fn protocol_error(message: String, suggestion: &str) -> AppError {
-    AppError::new(AppErrorKind::Validation, message).with_suggestion(suggestion)
+fn protocol_error(message: String, suggestion: &str) -> Error {
+    Error::new(message).with_hint(suggestion)
 }
 
 pub async fn fetch_details(
     transport: &GraphQlTransport,
     project_id: &str,
     original_input: &str,
-) -> Result<ProjectDetails, AppError> {
+) -> Result<ProjectDetails, Error> {
     let first = GraphQlRequest::with_variables(GetProjectDetails::build(ProjectDetailsVariables {
         id: project_id.to_owned(),
         first: PAGE_SIZE,
     }));
-    let data: GetProjectDetails = transport.execute(&first).await.map_err(AppError::from)?;
+    let data: GetProjectDetails = transport.execute(&first).await.map_err(Error::from)?;
     let mut project = data
         .project
-        .ok_or_else(|| AppError::not_found("Project", original_input))?;
+        .ok_or_else(|| Error::not_found("Project", original_input))?;
     let mut page_info = project.issues.page_info.clone();
     let mut seen = HashSet::new();
     while page_info.has_next_page {
@@ -61,10 +61,10 @@ pub async fn fetch_details(
                 first: PAGE_SIZE,
                 after: cursor.clone(),
             }));
-        let data: GetProjectIssuesPage = transport.execute(&query).await.map_err(AppError::from)?;
+        let data: GetProjectIssuesPage = transport.execute(&query).await.map_err(Error::from)?;
         let next = data
             .project
-            .ok_or_else(|| AppError::not_found("Project", original_input))?;
+            .ok_or_else(|| Error::not_found("Project", original_input))?;
         project.issues.nodes.extend(next.issues.nodes);
         page_info = next.issues.page_info;
         if page_info.has_next_page && page_info.end_cursor.as_deref() == Some(&cursor) {
@@ -84,7 +84,7 @@ pub async fn fetch_details(
 pub async fn fetch_picker(
     transport: &GraphQlTransport,
     team_key: Option<&str>,
-) -> Result<Vec<PickerProject>, AppError> {
+) -> Result<Vec<PickerProject>, Error> {
     let filter = project_list::filter(team_key, None);
     let mut projects = Vec::new();
     let mut after: Option<String> = None;
@@ -95,7 +95,7 @@ pub async fn fetch_picker(
             first: 100,
             after: after.clone(),
         }));
-        let data: GetProjectsForPicker = transport.execute(&query).await.map_err(AppError::from)?;
+        let data: GetProjectsForPicker = transport.execute(&query).await.map_err(Error::from)?;
         projects.extend(data.projects.nodes);
         let page_info = data.projects.page_info;
         if !page_info.has_next_page {
@@ -126,7 +126,7 @@ pub async fn fetch_picker(
     if projects.is_empty() {
         let identifier = team_key.map_or("this workspace".to_owned(), |key| format!("team {key}"));
         let suggestion = team_key.map_or("Create one with `linear project create`.".to_owned(), |key| format!("No projects are accessible to team {key}. Check `linear project list --all-teams`, or create one with `linear project create`."));
-        return Err(AppError::not_found("Project", &identifier).with_suggestion(suggestion));
+        return Err(Error::not_found("Project", &identifier).with_hint(suggestion));
     }
     Ok(projects)
 }
@@ -161,10 +161,9 @@ pub fn picker_options(projects: &[PickerProject]) -> Vec<SelectOption> {
         .collect()
 }
 
-pub fn json(project: &ProjectDetails) -> Result<Vec<u8>, AppError> {
-    let mut bytes = serde_json::to_vec_pretty(project).map_err(|error| {
-        AppError::new(AppErrorKind::Invariant, "could not serialize project").with_source(error)
-    })?;
+pub fn json(project: &ProjectDetails) -> Result<Vec<u8>, Error> {
+    let mut bytes = serde_json::to_vec_pretty(project)
+        .map_err(|error| Error::new("could not serialize project").with_source(error))?;
     bytes.push(b'\n');
     Ok(bytes)
 }
@@ -275,7 +274,7 @@ pub fn markdown<Tz: TimeZone>(
     project: &ProjectDetails,
     now: DateTime<Utc>,
     zone: &Tz,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let mut out = if let Some(identifier) = &project.identifier
         && !identifier.is_empty()
     {

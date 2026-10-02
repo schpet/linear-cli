@@ -93,7 +93,7 @@ async fn output_preserves_original_input_and_empty_name_and_never_retries() {
         project_delete::submit(&transport, "Original", "id")
             .await
             .unwrap_err()
-            .message,
+            .message(),
         project_delete::CONTEXT
     );
     server.join().unwrap();

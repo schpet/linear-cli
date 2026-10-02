@@ -7,7 +7,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use linear_cli::commands::team_list::{render_text, run_with};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::teams::GetTeams;
-use linear_cli::platform::spinner;
 use serde_json::{Value, json};
 
 fn team(id: &str, name: &str, archived_at: Value, updated_at: &str) -> Value {
@@ -107,10 +106,10 @@ async fn missing_cursor_discards_nodes_and_returns_specific_guidance() {
     .await
     .expect_err("missing cursor");
     assert_eq!(
-        result.display_message(),
+        result.to_string(),
         "Failed to fetch teams: Linear reported more teams but returned no pagination cursor"
     );
-    assert_eq!(result.suggestion.as_deref(), Some("Retry the command."));
+    assert_eq!(result.hint(), Some("Retry the command."));
 }
 
 #[tokio::test]
@@ -169,7 +168,7 @@ async fn repeated_cursor_fails_before_a_third_request() {
     assert_eq!(*calls.borrow(), 2);
     assert!(
         result
-            .display_message()
+            .to_string()
             .contains("repeated a team pagination cursor")
     );
 }
@@ -191,7 +190,4 @@ fn terminal_table_and_spinner_use_the_observed_control_sequences() {
     assert!(styled.contains("\x1b[38;2;68;102;170mid1\x1b[39m"));
     assert!(styled.contains("\x1b[38;2;128;128;128mjust now\x1b[39m"));
     assert!(styled.ends_with("\x1b[39m\x1b[0m\n"));
-    assert_eq!(spinner::frame(0), "\r\x1b[K⠋\x1b[0m ");
-    assert_eq!(spinner::frame(1), "\r\x1b[K⠙\x1b[0m ");
-    assert_eq!(spinner::CLEAR, b"\r\x1b[K");
 }

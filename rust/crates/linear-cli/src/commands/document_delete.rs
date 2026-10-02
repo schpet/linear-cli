@@ -68,14 +68,14 @@ pub fn summary(results: &[BulkResult]) -> (Vec<u8>, bool) {
 
 use crate::commands::initiative_bulk::Progress;
 use crate::{
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{bulk_error, transport::GraphQlTransport},
     refs::{WorkspaceScope, resolve_document_reference},
 };
 use std::cell::{Cell, RefCell};
 pub struct Target {
     pub original: String,
-    pub id: Result<String, AppError>,
+    pub id: Result<String, Error>,
 }
 impl Target {
     pub fn prepare(original: String, scope: &WorkspaceScope<'_>) -> Self {
@@ -87,23 +87,20 @@ pub async fn single_details(
     transport: &GraphQlTransport,
     original: &str,
     id: &str,
-) -> Result<DocumentDetails, AppError> {
+) -> Result<DocumentDetails, Error> {
     let data: GetDocumentForDelete = transport.execute(&single_details_request(id)).await?;
     data.document
-        .ok_or_else(|| AppError::not_found("Document", original))
+        .ok_or_else(|| Error::not_found("Document", original))
 }
 pub async fn submit_single(
     transport: &GraphQlTransport,
     document: &DocumentDetails,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let result: DeleteDocument = transport
         .execute(&single_delete_request(document.id.inner()))
         .await?;
     if !result.document_delete.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Delete operation failed",
-        ));
+        return Err(Error::new("Delete operation failed"));
     }
     Ok(deleted(&document.title))
 }
@@ -111,7 +108,7 @@ async fn run_resolved(
     transport: &GraphQlTransport,
     original: &str,
     id: &str,
-) -> Result<BulkResult, AppError> {
+) -> Result<BulkResult, Error> {
     let data: Result<GetDocumentForBulkDelete, bulk_error::BulkExchangeFailure> =
         bulk_error::execute(transport, &bulk_details_request(id)).await;
     let document = match data {
@@ -160,9 +157,9 @@ async fn slot<F>(
     total: usize,
     succeeded: usize,
     progress: &RefCell<F>,
-) -> Result<Option<BulkResult>, AppError>
+) -> Result<Option<BulkResult>, Error>
 where
-    F: FnMut(Progress) -> Result<(), AppError>,
+    F: FnMut(Progress) -> Result<(), Error>,
 {
     let Some(target) = target else {
         return Ok(None);
@@ -181,9 +178,9 @@ pub async fn execute<F>(
     transport: &GraphQlTransport,
     targets: Vec<Target>,
     progress: F,
-) -> Result<Vec<BulkResult>, AppError>
+) -> Result<Vec<BulkResult>, Error>
 where
-    F: FnMut(Progress) -> Result<(), AppError>,
+    F: FnMut(Progress) -> Result<(), Error>,
 {
     let total = targets.len();
     let mut targets = targets.into_iter();

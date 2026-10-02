@@ -64,18 +64,12 @@ impl crate::auth::mutation::CredentialMutationBackend for NativeMutationBackend 
         _: &crate::config::ConfigSecret,
     ) -> Result<(), crate::auth::mutation::MutationFailure> {
         Err(crate::auth::mutation::MutationFailure::Typed(
-            crate::error::AppError::new(
-                crate::error::AppErrorKind::IoProcess,
-                "System keyring is unsupported on this platform",
-            ),
+            crate::error::Error::new("System keyring is unsupported on this platform"),
         ))
     }
     async fn delete(&self, _: &str) -> Result<(), crate::auth::mutation::MutationFailure> {
         Err(crate::auth::mutation::MutationFailure::Typed(
-            crate::error::AppError::new(
-                crate::error::AppErrorKind::IoProcess,
-                "System keyring is unsupported on this platform",
-            ),
+            crate::error::Error::new("System keyring is unsupported on this platform"),
         ))
     }
 }

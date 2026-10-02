@@ -1,55 +1,7 @@
-use std::ffi::OsString;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
-use linear_cli::auth::keyring::UnsupportedKeyringReader;
-use linear_cli::config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot};
-use linear_cli::startup::{AppStartupReport, load};
-
-struct EmptyFiles;
-
-impl FileSource for EmptyFiles {
-    fn kind(&self, _path: &Path) -> io::Result<Option<FileKind>> {
-        Ok(None)
-    }
-
-    fn read_bounded(&self, _path: &Path, _max_bytes: u64) -> io::Result<Vec<u8>> {
-        Err(io::Error::from(io::ErrorKind::NotFound))
-    }
-}
-
-struct EmptyCredentials;
-
-impl CredentialFileSource for EmptyCredentials {
-    fn read_credentials(&self, _path: &Path) -> Result<Option<Vec<u8>>, CredentialReadFailure> {
-        Ok(None)
-    }
-}
-
-pub fn empty_startup(cwd: PathBuf, env: &[(&str, &str)]) -> AppStartupReport {
-    let os = if cfg!(windows) {
-        OsFamily::Windows
-    } else {
-        OsFamily::Unix
-    };
-    let variables = env
-        .iter()
-        .map(|(name, value)| (OsString::from(name), OsString::from(value)));
-    let process = ProcessEnvSnapshot::from_vars_os(cwd, os, variables)
-        .expect("synthetic process environment is valid");
-    let startup = load(
-        &process,
-        &EmptyFiles,
-        &EmptyCredentials,
-        &UnsupportedKeyringReader,
-    );
-    assert!(startup.result.is_ok(), "synthetic config must load");
-    startup
-}
 
 static NEXT_SANDBOX: AtomicU64 = AtomicU64::new(0);
 

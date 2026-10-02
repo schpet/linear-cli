@@ -1,7 +1,7 @@
 //! `issue comment delete`: one typed mutation for a directly supplied comment id.
 use cynic::MutationBuilder;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::comment_delete::{DeleteComment, DeleteCommentVariables};
 use crate::graphql::transport::GraphQlTransport;
@@ -21,10 +21,10 @@ pub fn request(id: &str) -> GraphQlRequest<DeleteCommentVariables> {
 
 /// Sends the mutation once and reports errors as they are; a
 /// failed delete is visible on a retry, so no uncertainty text is added.
-pub async fn submit(transport: &GraphQlTransport, id: &str) -> Result<Vec<u8>, AppError> {
+pub async fn submit(transport: &GraphQlTransport, id: &str) -> Result<Vec<u8>, Error> {
     let result: DeleteComment = transport.execute(&request(id)).await?;
     if !result.comment_delete.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, CONTEXT));
+        return Err(Error::new(CONTEXT));
     }
     Ok(DELETED.to_vec())
 }

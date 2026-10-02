@@ -4,7 +4,7 @@ use linear_cli::{
         initiative_bulk::{BulkOutcome, BulkResult},
         team_delete as team,
     },
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error::{self, BulkExchangeFailure},
         operations::team_delete::{
@@ -165,7 +165,7 @@ fn nonstandard_bulk_shapes_are_strict_and_partial_data_is_not_lost() {
         ),
     ] {
         match message(200, "application/json", body) {
-            Err(BulkExchangeFailure::Strict(error)) => assert!(error.message.starts_with(name)),
+            Err(BulkExchangeFailure::Strict(error)) => assert!(error.message().starts_with(name)),
             _ => panic!("invalid shape was accepted"),
         }
     }
@@ -227,13 +227,13 @@ async fn invalid_issue_cursors_fail_before_any_move() {
     let missing = team::all_issues("source", |_| ready(Ok(page(&["one"], true, None))))
         .await
         .unwrap_err();
-    assert!(missing.message.contains("no pagination cursor"));
+    assert!(missing.message().contains("no pagination cursor"));
     let repeated = team::all_issues("source", |_| {
         ready(Ok(page(&["one"], true, Some("repeat"))))
     })
     .await
     .unwrap_err();
-    assert!(repeated.message.contains("repeated"));
+    assert!(repeated.message().contains("repeated"));
 }
 #[tokio::test]
 async fn sequential_moves_ignore_false_and_stop_on_partial_failure() {
@@ -271,7 +271,7 @@ async fn sequential_moves_ignore_false_and_stop_on_partial_failure() {
             let id = request.variables.unwrap().id;
             writes.push(id.clone());
             ready(if id == "two" {
-                Err(AppError::new(AppErrorKind::GraphQl, "second failed"))
+                Err(Error::new("second failed"))
             } else {
                 Ok(MoveIssueToTeam {
                     issue_update: MovePayload { success: true },

@@ -6,14 +6,14 @@ use super::{
 };
 use crate::graphql::operations::number::WholeNumber;
 use crate::platform::network_owner;
-use crate::{error::AppError, graphql::edit::Edit};
+use crate::{error::Error, graphql::edit::Edit};
 fn option(id: &str, name: &str) -> Named {
     Named {
         id: id.to_owned(),
         name: name.to_owned(),
     }
 }
-fn yes_no<U: Ui>(ui: &mut U, message: &str) -> Result<bool, AppError> {
+fn yes_no<U: Ui>(ui: &mut U, message: &str) -> Result<bool, Error> {
     Ok(ui.choose(
         message,
         &[option("no", "No"), option("yes", "Yes")],
@@ -21,7 +21,7 @@ fn yes_no<U: Ui>(ui: &mut U, message: &str) -> Result<bool, AppError> {
         false,
     )? == "yes")
 }
-fn project_menu<U: Ui>(ui: &mut U, projects: &[Named]) -> Result<Option<String>, AppError> {
+fn project_menu<U: Ui>(ui: &mut U, projects: &[Named]) -> Result<Option<String>, Error> {
     if projects.is_empty() {
         return Ok(None);
     }
@@ -38,7 +38,7 @@ async fn additional<B: Backend, U: Ui>(
     labels: &[Label],
     include_project: bool,
     auto: bool,
-) -> Result<More, AppError> {
+) -> Result<More, Error> {
     let default = shared::default_state(states)?;
     let name = default
         .as_ref()
@@ -173,7 +173,7 @@ pub fn prompt<B: Backend, U: Ui>(
     ui: &mut U,
     settings: &CreateSettings,
     fields: &Fields,
-) -> Result<Interactive, AppError> {
+) -> Result<Interactive, Error> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -191,7 +191,7 @@ async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
     ui: &mut U,
     settings: &CreateSettings,
     fields: &Fields,
-) -> Result<Interactive, AppError> {
+) -> Result<Interactive, Error> {
     let (parent_id, parent_data) = issue_create::parent(backend, fields.parent.as_deref()).await?;
     let initial_project = match &fields.project {
         Some(value) => Some(issue_create::project(backend, ui, value, true).await?),
@@ -242,7 +242,7 @@ async fn prompt_in_scope<'scope, 'env, B: Backend, U: Ui>(
             teams
                 .into_iter()
                 .find(|t| t.id == selected)
-                .ok_or_else(|| AppError::not_found("Team", &selected))?
+                .ok_or_else(|| Error::not_found("Team", &selected))?
         }
     };
     let state_backend = backend.clone();

@@ -163,7 +163,7 @@ async fn missing_document_on_later_json_page_never_emits_partial_output() {
     })
     .await
     .unwrap_err();
-    assert_eq!(error.message, "Document not found: d4b93e3b2695");
+    assert_eq!(error.message(), "Document not found: d4b93e3b2695");
     assert_eq!(index, 2);
 }
 #[test]
@@ -215,19 +215,15 @@ async fn release_ambiguity_and_url_precedence_are_public_refusals() {
     })
     .await
     .unwrap_err();
-    assert!(error.message.contains("matches multiple releases"));
-    assert_eq!(
-        error.suggestion.as_deref(),
-        Some("Pass the release UUID instead.")
-    );
+    assert!(error.message().contains("matches multiple releases"));
+    assert_eq!(error.hint(), Some("Pass the release UUID instead."));
     assert_eq!(index, 2);
     let mut called = false;
     let result =
         release_lookup::resolve_with("https://linear.app/acme/project/title-a1b2c3d4e5f6", |_| {
             called = true;
             async {
-                Err::<ResolveReleases, _>(linear_cli::error::AppError::new(
-                    linear_cli::error::AppErrorKind::Invariant,
+                Err::<ResolveReleases, _>(linear_cli::error::Error::new(
                     "invalid URL unexpectedly fetched",
                 ))
             }
@@ -268,7 +264,7 @@ async fn invalid_comment_pagination_reports_missing_or_repeated_cursor_without_p
         .unwrap_err();
         assert_eq!(index, if repeated { 2 } else { 1 });
         assert_eq!(
-            error.message,
+            error.message(),
             if repeated {
                 "Linear repeated a document comment pagination cursor"
             } else {

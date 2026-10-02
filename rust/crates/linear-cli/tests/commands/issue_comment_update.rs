@@ -23,12 +23,12 @@ fn local_guards_precede_conflict_and_body_files_keep_source_text_policy() {
         Some("missing.md"),
     )
     .unwrap_err();
-    assert!(error.message.contains("comment"));
-    assert!(!error.message.contains("Cannot specify both"));
+    assert!(error.message().contains("comment"));
+    assert!(!error.message().contains("Cannot specify both"));
     assert_eq!(
         command::prepare_body("opaque", Some("x"), Some("missing.md"))
             .unwrap_err()
-            .message,
+            .message(),
         "Cannot specify both --body and --body-file"
     );
     let root = std::env::temp_dir().join(format!(
@@ -58,10 +58,10 @@ fn local_guards_precede_conflict_and_body_files_keep_source_text_policy() {
         let error =
             command::prepare_body("opaque", None, Some(path.to_str().unwrap())).unwrap_err();
         assert_eq!(
-            error.message,
+            error.message(),
             format!("Failed to read body file: {}", path.display())
         );
-        assert!(error.suggestion.unwrap().starts_with("Error: "));
+        assert!(error.hint().unwrap().starts_with("Error: "));
     }
     for body in [" ", "\u{feff}", " raw Markdown\r\n界 "] {
         let actual = command::prepare_body("https://example.test/raw", Some(body), None).unwrap();
@@ -92,8 +92,8 @@ fn text_default_raw_semantics_and_blank_eof_errors_keep_outer_context() {
         assert_eq!(
             command::prompt_body(&mut session, "")
                 .unwrap_err()
-                .with_context(command::CONTEXT)
-                .display_message(),
+                .context(command::CONTEXT)
+                .to_string(),
             "Failed to update comment: Comment body cannot be empty"
         );
     }
@@ -101,20 +101,16 @@ fn text_default_raw_semantics_and_blank_eof_errors_keep_outer_context() {
     assert_eq!(
         command::prompt_body(&mut session, "")
             .unwrap_err()
-            .with_context(command::CONTEXT)
-            .display_message(),
+            .context(command::CONTEXT)
+            .to_string(),
         "Failed to update comment: unexpected EOF while prompting for comment body"
     );
     for answer in [b"partial".as_slice(), b"\xff\r", b"\0\r"] {
         let mut session = PromptSession::script_cr_or_lf(Cursor::new(answer), vec![]);
         let error = command::prompt_body(&mut session, "seed")
             .unwrap_err()
-            .with_context(command::CONTEXT);
-        assert!(
-            error
-                .display_message()
-                .starts_with("Failed to update comment:")
-        );
+            .context(command::CONTEXT);
+        assert!(error.to_string().starts_with("Failed to update comment:"));
     }
 }
 #[test]
@@ -173,9 +169,9 @@ async fn false_precedes_optional_null_business_error_but_corrupt_required_fields
         let error = command::submit(&transport, "raw-id", "body".to_owned())
             .await
             .unwrap_err()
-            .with_context(command::CONTEXT);
+            .context(command::CONTEXT);
         assert_eq!(
-            error.display_message(),
+            error.to_string(),
             if success {
                 "Failed to update comment: Comment update failed - no comment returned"
             } else {
@@ -193,11 +189,11 @@ async fn false_precedes_optional_null_business_error_but_corrupt_required_fields
             .unwrap_err();
         assert!(
             error
-                .message
+                .message()
                 .contains("Linear returned an unexpected response")
         );
-        assert!(error.message.contains("update outcome unknown"));
-        assert!(!error.message.contains("confirmed"));
+        assert!(error.message().contains("update outcome unknown"));
+        assert!(!error.message().contains("confirmed"));
         assert_eq!(worker.join().unwrap().len(), 1);
     }
 }
@@ -213,7 +209,7 @@ async fn friendly_get_and_update_errors_keep_one_action_context_and_no_lookup_fa
             command::existing_body(&transport, "id").await.unwrap_err()
         };
         assert_eq!(
-            error.with_context(command::CONTEXT).display_message(),
+            error.context(command::CONTEXT).to_string(),
             "Failed to update comment: Friendly failure"
         );
         assert_eq!(worker.join().unwrap().len(), 1);
@@ -329,7 +325,7 @@ async fn handled_client_fallback_preserves_empty_first_and_non_json_raw_message(
                     .await
                     .unwrap_err()
             };
-            let rendered = error.with_context(command::CONTEXT).display_message();
+            let rendered = error.context(command::CONTEXT).to_string();
             assert!(rendered.starts_with("Failed to update comment: "));
             assert!(rendered.contains("boom"));
             assert!(rendered.contains("request"));
@@ -422,17 +418,15 @@ fn stdin_owned_constructor_reads_actual_pipe_with_cr_framing_and_deferred_lf() {
 
 #[test]
 fn text_topology_refuses_only_terminal_stdin_with_fifo_stdout_before_raw_mode() {
-    use linear_cli::error::AppErrorKind;
     for (stdin_tty, stdout_fifo) in [(false, false), (false, true), (true, false)] {
         command::check_prompt_topology(stdin_tty, stdout_fifo).unwrap();
     }
     let error = command::check_prompt_topology(true, true).unwrap_err();
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert!(error.message.starts_with("Comment text prompt requires"));
+    assert!(error.message().starts_with("Comment text prompt requires"));
     assert!(
         error
-            .with_context(command::CONTEXT)
-            .display_message()
+            .context(command::CONTEXT)
+            .to_string()
             .starts_with("Failed to update comment: Comment text prompt requires")
     );
 }

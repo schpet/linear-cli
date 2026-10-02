@@ -8,7 +8,7 @@ use serde::Serialize;
 
 use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::commands::table::underlined_header;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestones::{
     GetProjectMilestones, GetProjectMilestonesVariables, ProjectMilestone,
@@ -53,10 +53,10 @@ pub async fn run_with<F, Fut>(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnMut(GraphQlRequest<GetProjectMilestonesVariables>) -> Fut,
-    Fut: Future<Output = Result<GetProjectMilestones, AppError>>,
+    Fut: Future<Output = Result<GetProjectMilestones, Error>>,
 {
     let result = pagination::paginate(|after| {
         let future = fetch(request(project_id, after));
@@ -64,9 +64,9 @@ where
             let project = future
                 .await?
                 .project
-                .ok_or_else(|| AppError::not_found("Project", original))?;
+                .ok_or_else(|| Error::not_found("Project", original))?;
             let connection = project.project_milestones;
-            Ok::<Page<ProjectMilestone>, AppError>(Page {
+            Ok::<Page<ProjectMilestone>, Error>(Page {
                 nodes: connection.nodes,
                 page_info: connection.page_info.into(),
             })
@@ -103,11 +103,11 @@ pub async fn run(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(
         original,
         project_id,
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
         json,
         columns,
         color,
@@ -115,21 +115,19 @@ pub async fn run(
     .await
 }
 
-fn pagination_error(error: PaginationError<AppError>) -> AppError {
+fn pagination_error(error: PaginationError<Error>) -> Error {
     match error {
-        PaginationError::Fetch { source, .. } => source.with_context(CONTEXT),
-        PaginationError::MissingCursor { .. } => AppError::new(
-            AppErrorKind::Validation,
-            "Linear reported more milestones but returned no pagination cursor",
-        )
-        .with_suggestion("Retry the command.")
-        .with_context(CONTEXT),
-        PaginationError::RepeatedCursor { page, .. } => AppError::new(
-            AppErrorKind::Validation,
-            format!("Linear repeated a milestone pagination cursor on page {page}"),
-        )
-        .with_suggestion("Retry the command.")
-        .with_context(CONTEXT),
+        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
+        PaginationError::MissingCursor { .. } => {
+            Error::new("Linear reported more milestones but returned no pagination cursor")
+                .with_hint("Retry the command.")
+                .context(CONTEXT)
+        }
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated a milestone pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command.")
+        .context(CONTEXT),
     }
 }
 
@@ -165,7 +163,7 @@ struct JsonConnection<'a> {
     page_info: &'a PageInfo,
 }
 
-fn render_json(nodes: &[ProjectMilestone], page_info: &PageInfo) -> Result<Vec<u8>, AppError> {
+fn render_json(nodes: &[ProjectMilestone], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
     let nodes = nodes
         .iter()
         .map(|milestone| {
@@ -180,12 +178,12 @@ fn render_json(nodes: &[ProjectMilestone], page_info: &PageInfo) -> Result<Vec<u
                 },
             })
         })
-        .collect::<Result<Vec<_>, AppError>>()?;
+        .collect::<Result<Vec<_>, Error>>()?;
     let mut output =
         serde_json::to_vec_pretty(&JsonConnection { nodes, page_info }).map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize milestones")
+            Error::new("could not serialize milestones")
                 .with_source(error)
-                .with_context(CONTEXT)
+                .context(CONTEXT)
         })?;
     output.push(b'\n');
     Ok(output)

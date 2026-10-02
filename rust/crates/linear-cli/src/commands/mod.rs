@@ -40,8 +40,6 @@ pub mod template_list;
 pub mod template_view;
 pub mod user_list;
 
-mod style;
-
 pub mod issue_details;
 
 pub mod label_create;

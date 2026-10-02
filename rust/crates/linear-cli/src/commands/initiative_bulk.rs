@@ -1,7 +1,7 @@
 //! `initiative archive`/`delete`, including bulk mode run in batches of five.
 use crate::{
     commands::initiative_view::{Reference, prepare_reference},
-    error::{AppError, AppErrorKind},
+    error::{Error, ResultExt},
     graphql::{
         bulk_error,
         envelope::GraphQlRequest,
@@ -76,38 +76,32 @@ fn parse_ids(text: &str) -> impl Iterator<Item = &str> {
 }
 /// Read and decode every selected input before printing a count or dispatching requests.
 /// argv tokens deliberately remain unsplit and untrimmed.
-pub fn collect_ids(input: &BulkInput<'_>, stdin: &mut impl Read) -> Result<Vec<String>, AppError> {
+pub fn collect_ids(input: &BulkInput<'_>, stdin: &mut impl Read) -> Result<Vec<String>, Error> {
     let mut ids = input.argv.unwrap_or_default().to_vec();
     if let Some(path) = input.file {
         let bytes = std::fs::read(path).map_err(|error| {
             if error.kind() == std::io::ErrorKind::NotFound {
-                AppError::not_found("File", &path.display().to_string())
+                Error::not_found("File", &path.display().to_string())
             } else {
-                AppError::new(
-                    AppErrorKind::IoProcess,
-                    format!("Failed to read bulk file: {}", path.display()),
-                )
-                .with_source(error)
+                Error::new(format!("Failed to read bulk file: {}", path.display()))
+                    .with_source(error)
             }
         })?;
         let text = String::from_utf8(bytes).map_err(|error| {
-            AppError::new(
-                AppErrorKind::Validation,
-                format!("Bulk file must be valid UTF-8: {}", path.display()),
-            )
-            .with_suggestion("Re-save the file as UTF-8 text.")
-            .with_source(error)
+            Error::new(format!("Bulk file must be valid UTF-8: {}", path.display()))
+                .with_hint("Re-save the file as UTF-8 text.")
+                .with_source(error)
         })?;
         ids.extend(parse_ids(&text).map(str::to_owned));
     }
     if input.stdin {
         let mut bytes = Vec::new();
-        stdin.read_to_end(&mut bytes).map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "Failed to read bulk stdin").with_source(error)
-        })?;
+        stdin
+            .read_to_end(&mut bytes)
+            .map_err(|error| Error::new("Failed to read bulk stdin").with_source(error))?;
         let text = String::from_utf8(bytes).map_err(|error| {
-            AppError::new(AppErrorKind::Validation, "Bulk stdin must be valid UTF-8")
-                .with_suggestion("Provide UTF-8 text on stdin.")
+            Error::new("Bulk stdin must be valid UTF-8")
+                .with_hint("Provide UTF-8 text on stdin.")
                 .with_source(error)
         })?;
         ids.extend(parse_ids(&text).map(str::to_owned));
@@ -121,7 +115,7 @@ pub fn collect_ids(input: &BulkInput<'_>, stdin: &mut impl Read) -> Result<Vec<S
 /// Preparing these owned targets borrows no app state during concurrent requests/output.
 pub struct Target {
     pub original: String,
-    pub reference: Result<Reference, AppError>,
+    pub reference: Result<Reference, Error>,
 }
 impl Target {
     pub fn prepare(original: String, scope: &WorkspaceScope<'_>) -> Self {
@@ -183,7 +177,7 @@ pub async fn resolve(
     transport: &GraphQlTransport,
     reference: &Reference,
     mode: Mode,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     resolve_with_errors(transport, reference, mode, ResolutionErrors::SingleFriendly).await
 }
 #[derive(Clone, Copy)]
@@ -196,7 +190,7 @@ async fn resolve_with_errors(
     reference: &Reference,
     mode: Mode,
     errors: ResolutionErrors,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     match reference {
         Reference::Id(id) => Ok(Some(id.clone())),
         Reference::NameOrSlug(token) => Ok(resolve_text(transport, token, mode).await),
@@ -208,7 +202,7 @@ async fn resolve_with_errors(
                 }));
             let data: ResolveInitiativeBySlug = match errors {
                 ResolutionErrors::SingleFriendly => {
-                    transport.execute(&request).await.map_err(AppError::from)?
+                    transport.execute(&request).await.map_err(Error::from)?
                 }
                 ResolutionErrors::BulkSourceMessage => bulk_error::execute(transport, &request)
                     .await
@@ -270,7 +264,7 @@ pub async fn fetch_single(
     transport: &GraphQlTransport,
     id: &str,
     mode: Mode,
-) -> Result<Option<SingleDetails>, AppError> {
+) -> Result<Option<SingleDetails>, Error> {
     let variables = IdVariables { id: id.to_owned() };
     let result = match mode {
         Mode::Archive => transport
@@ -287,15 +281,15 @@ pub async fn fetch_single(
             .map(|data| data.initiative.map(SingleDetails::Delete)),
     };
     result
-        .map_err(AppError::from)
-        .map_err(|error| error.with_context("Failed to fetch initiative details"))
+        .map_err(Error::from)
+        .context("Failed to fetch initiative details")
 }
 pub async fn submit_single(
     transport: &GraphQlTransport,
     id: &str,
     name: &str,
     mode: Mode,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let variables = IdVariables { id: id.to_owned() };
     let result = match mode {
         Mode::Archive => transport
@@ -311,13 +305,9 @@ pub async fn submit_single(
             .await
             .map(|data| data.initiative_delete.success),
     };
-    let success = result
-        .map_err(AppError::from)
-        .map_err(|error| error.with_context(mode.context()))?;
+    let success = result.map_err(Error::from).context(mode.context())?;
     if !success {
-        return Err(
-            AppError::new(AppErrorKind::GraphQl, mode.context()).with_context(mode.context())
-        );
+        return Err(Error::new(mode.context()).context(mode.context()));
     }
     Ok(match mode {
         Mode::Archive => format!("✓ Archived initiative: {name}\n"),
@@ -347,7 +337,7 @@ async fn run_resolved(
     original: &str,
     reference: &Reference,
     mode: Mode,
-) -> Result<BulkResult, AppError> {
+) -> Result<BulkResult, Error> {
     let Some(id) = resolve_with_errors(
         transport,
         reference,
@@ -470,9 +460,9 @@ struct BatchContext<'a, F> {
 async fn run_slot<F>(
     context: &BatchContext<'_, F>,
     target: Option<Target>,
-) -> Result<Option<BulkResult>, AppError>
+) -> Result<Option<BulkResult>, Error>
 where
-    F: FnMut(Progress) -> Result<(), AppError>,
+    F: FnMut(Progress) -> Result<(), Error>,
 {
     let Some(target) = target else {
         return Ok(None);
@@ -493,9 +483,9 @@ pub async fn execute<F>(
     targets: Vec<Target>,
     mode: Mode,
     progress: F,
-) -> Result<Vec<BulkResult>, AppError>
+) -> Result<Vec<BulkResult>, Error>
 where
-    F: FnMut(Progress) -> Result<(), AppError>,
+    F: FnMut(Progress) -> Result<(), Error>,
 {
     let total = targets.len();
     let mut targets = targets.into_iter();

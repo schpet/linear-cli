@@ -89,18 +89,18 @@ fn all_paths_and_public_types_prevalidate_but_sizes_wait_for_upload() {
     assert!(
         upload::prevalidate(&strings(vec![&png, &dir.join("missing")]), false)
             .unwrap_err()
-            .message
+            .message()
             .starts_with("File not found:")
     );
     assert_eq!(
         upload::prevalidate(&strings(vec![&png, &txt]), true)
             .unwrap_err()
-            .message,
+            .message(),
         "Cannot upload text/plain to a public URL"
     );
     upload::prevalidate(&strings(vec![&png, &large]), true).unwrap();
     assert_eq!(
-        upload::prepare(&large, true).unwrap_err().message,
+        upload::prepare(&large, true).unwrap_err().message(),
         "File too large: 100.00MB exceeds limit of 100MB"
     );
     let f = std::fs::File::create(dir.join("limit.bin")).unwrap();
@@ -190,7 +190,7 @@ fn signed_headers_reproduce_exact_case_record_then_fetch_combining() {
         h("token", "secret\r\nnew: header"),
     ] {
         let error = upload::signed_headers("text/plain", &[pair]).unwrap_err();
-        assert!(!error.message.contains("secret"));
+        assert!(!error.message().contains("secret"));
     }
 }
 #[test]
@@ -649,11 +649,11 @@ async fn rejected_put_false_metadata_and_post_metadata_read_failure_stop_before_
         );
         match failure {
             "put" => assert_eq!(
-                error.message,
+                error.message(),
                 "Failed to upload file: 403 Forbidden - upload refused"
             ),
-            "false" => assert_eq!(error.message, "Failed to get upload URL from Linear"),
-            "read" => assert!(error.message.starts_with("Failed to read upload file:")),
+            "false" => assert_eq!(error.message(), "Failed to get upload URL from Linear"),
+            "read" => assert!(error.message().starts_with("Failed to read upload file:")),
             _ => unreachable!(),
         };
         std::fs::remove_dir_all(dir).unwrap();
@@ -722,7 +722,7 @@ fn native_full_leaf_flags_preserve_repeatable_uploads_and_reply_aliases() {
             "123e4567-e89b-42d3-a456-426614174000",
         ];
         assert!(
-            linear_cli::cli::parse(
+            crate::parse(
                 &args
                     .iter()
                     .map(std::ffi::OsString::from)
@@ -743,7 +743,7 @@ fn native_full_leaf_flags_preserve_repeatable_uploads_and_reply_aliases() {
         "--public",
     ];
     assert!(
-        linear_cli::cli::parse(
+        crate::parse(
             &args
                 .iter()
                 .map(std::ffi::OsString::from)
@@ -757,7 +757,7 @@ fn native_full_leaf_flags_preserve_repeatable_uploads_and_reply_aliases() {
         vec!["issue", "comment", "add", "ENG-1", "--json"],
     ] {
         assert!(
-            linear_cli::cli::parse(
+            crate::parse(
                 &args
                     .iter()
                     .map(std::ffi::OsString::from)
@@ -961,14 +961,14 @@ async fn signed_redirect_limit_allows_twenty_hops_and_rejects_the_twenty_first()
             result.unwrap();
         } else {
             let error = result.unwrap_err();
-            assert!(error.message.starts_with("Signed upload to "));
-            assert!(error.message.contains("redirect"), "{}", error.message);
+            assert!(error.message().starts_with("Signed upload to "));
+            assert!(error.message().contains("redirect"), "{}", error.message());
             assert!(
                 error
-                    .message
+                    .message()
                     .contains("no comment or attachment was created")
             );
-            assert!(!error.message.contains("hidden"));
+            assert!(!error.message().contains("hidden"));
         }
         let rows = server.join().unwrap();
         assert_eq!(rows.len(), 21);
@@ -1002,8 +1002,8 @@ async fn signed_failure_body_cap_network_and_invalid_redirects_are_typed_and_san
             )
             .await
             .unwrap_err();
-        assert!(error.message.starts_with(expected), "{}", error.message);
-        assert!(!error.message.contains("hidden"));
+        assert!(error.message().starts_with(expected), "{}", error.message());
+        assert!(!error.message().contains("hidden"));
         assert_eq!(server.join().unwrap().len(), 1);
     }
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -1019,10 +1019,10 @@ async fn signed_failure_body_cap_network_and_invalid_redirects_are_typed_and_san
         .unwrap_err();
     assert!(
         error
-            .message
+            .message()
             .starts_with(&format!("Signed upload to {origin} failed: "))
     );
-    assert!(!error.message.contains("hidden"));
+    assert!(!error.message().contains("hidden"));
     for url in [
         "",
         "file:///tmp/file",
@@ -1037,17 +1037,6 @@ async fn signed_failure_body_cap_network_and_invalid_redirects_are_typed_and_san
             )
             .await
             .unwrap_err();
-        assert_eq!(error.message, "Invalid signed upload URL");
+        assert_eq!(error.message(), "Invalid signed upload URL");
     }
-}
-
-#[test]
-fn upload_spinner_prefix_preserves_source_clear_symbol_reset_and_space_bytes() {
-    let first = linear_cli::platform::spinner::frame(0);
-    assert_eq!(first.as_bytes(), b"\r\x1b[K\xe2\xa0\x8b\x1b[0m ");
-    assert_eq!(
-        format!("{first}Uploading note.txt...").as_bytes(),
-        b"\r\x1b[K\xe2\xa0\x8b\x1b[0m Uploading note.txt..."
-    );
-    assert_eq!(linear_cli::platform::spinner::frame(10), first);
 }

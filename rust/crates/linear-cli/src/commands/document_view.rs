@@ -1,6 +1,6 @@
 //! Document detail: JSON-only complete comment pagination, raw body and metadata.
 use crate::{
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         envelope::{GraphQlRequest, is_not_found},
         operations::documents::*,
@@ -31,20 +31,20 @@ pub fn comments_request(
         },
     ))
 }
-fn translate(failure: TransportFailure, original: &str) -> AppError {
+fn translate(failure: TransportFailure, original: &str) -> Error {
     if let TransportFailure::GraphQl { errors, .. } = &failure
         && is_not_found(errors)
     {
-        return AppError::not_found("Document", original);
+        return Error::not_found("Document", original);
     }
-    AppError::from(failure)
+    Error::from(failure)
 }
 pub async fn fetch(
     transport: &GraphQlTransport,
     original: &str,
     id: &str,
     json: bool,
-) -> Result<DocumentResult, AppError> {
+) -> Result<DocumentResult, Error> {
     if json {
         return all_comments_with(id, |query| async move {
             transport
@@ -60,21 +60,21 @@ pub async fn fetch(
         .await
         .map_err(|failure| translate(failure, original))?;
     data.document
-        .ok_or_else(|| AppError::not_found("Document", id))
+        .ok_or_else(|| Error::not_found("Document", id))
         .map(DocumentResult::Body)
 }
 pub async fn all_comments_with<F, Fut>(
     id: &str,
     mut fetch: F,
-) -> Result<DocumentWithComments, AppError>
+) -> Result<DocumentWithComments, Error>
 where
     F: FnMut(GraphQlRequest<GetDocumentCommentsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetDocumentWithComments, AppError>>,
+    Fut: Future<Output = Result<GetDocumentWithComments, Error>>,
 {
     let mut document = fetch(comments_request(id, None))
         .await?
         .document
-        .ok_or_else(|| AppError::not_found("Document", id))?;
+        .ok_or_else(|| Error::not_found("Document", id))?;
     let mut seen = HashSet::new();
     while document.comments.page_info.has_next_page {
         let after = document
@@ -83,21 +83,19 @@ where
             .end_cursor
             .clone()
             .ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Validation,
+                Error::new(
                     "Linear reported more document comments but returned no pagination cursor",
                 )
             })?;
         if !seen.insert(after.clone()) {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
+            return Err(Error::new(
                 "Linear repeated a document comment pagination cursor",
             ));
         }
         let next = fetch(comments_request(id, Some(after)))
             .await?
             .document
-            .ok_or_else(|| AppError::not_found("Document", id))?;
+            .ok_or_else(|| Error::not_found("Document", id))?;
         document.comments.nodes.extend(next.comments.nodes);
         document.comments.page_info = next.comments.page_info;
     }
@@ -110,15 +108,12 @@ impl DocumentResult {
             Self::WithComments(document) => &document.url,
         }
     }
-    pub fn json(&self) -> Result<Vec<u8>, AppError> {
+    pub fn json(&self) -> Result<Vec<u8>, Error> {
         let mut bytes = match self {
             Self::Body(document) => serde_json::to_vec_pretty(document),
             Self::WithComments(document) => serde_json::to_vec_pretty(document),
         }
-        .map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize document")
-                .with_source(error)
-        })?;
+        .map_err(|error| Error::new("could not serialize document").with_source(error))?;
         bytes.push(b'\n');
         Ok(bytes)
     }

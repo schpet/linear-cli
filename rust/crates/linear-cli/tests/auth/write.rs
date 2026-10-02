@@ -1,7 +1,8 @@
+use crate::{LookupReply, hydrate};
 use linear_cli::auth::write::{CredentialFileWriter, prepare_default_write};
-use linear_cli::auth::{CredentialStore, LookupReply, LookupResult, hydrate, parse_credentials};
+use linear_cli::auth::{CredentialStore, LookupResult, parse_credentials};
 use linear_cli::config::{RawConfigFile, parse_config_tier};
-use linear_cli::error::AppErrorKind;
+use linear_cli::error::ErrorKind;
 use std::cell::RefCell;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -14,8 +15,8 @@ fn store(text: &str) -> CredentialStore {
     .unwrap();
     let manifest = parse_credentials(tier).unwrap();
     let replies = manifest
-        .lookup_requests()
-        .into_iter()
+        .workspaces()
+        .iter()
         .map(|workspace| LookupReply {
             workspace: workspace.to_owned(),
             result: LookupResult::Miss,
@@ -83,14 +84,14 @@ fn prepared_bytes_are_redacted_and_explicit_path_and_writer_errors_are_typed() {
     assert_eq!(
         prepare_default_write(&store, "alpha", None)
             .unwrap_err()
-            .kind,
-        AppErrorKind::IoProcess
+            .kind(),
+        ErrorKind::Other
     );
     assert_eq!(
         prepare_default_write(&store, "missing", Some(Path::new("/fake/path")))
             .unwrap_err()
-            .kind,
-        AppErrorKind::Invariant
+            .kind(),
+        ErrorKind::Other
     );
     let plan = prepare_default_write(
         &store,
@@ -106,7 +107,7 @@ fn prepared_bytes_are_redacted_and_explicit_path_and_writer_errors_are_typed() {
         }
     }
     let error = plan.save(&Denied).unwrap_err();
-    assert_eq!(error.kind, AppErrorKind::IoProcess);
-    assert!(error.message.contains("/fake/chosen/credentials.toml"));
-    assert!(!error.message.contains("lin_api_fake_unique_secret"));
+    assert_eq!(error.kind(), ErrorKind::Other);
+    assert!(error.message().contains("/fake/chosen/credentials.toml"));
+    assert!(!error.message().contains("lin_api_fake_unique_secret"));
 }

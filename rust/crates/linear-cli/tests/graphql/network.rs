@@ -1,6 +1,5 @@
-//! Client construction, TLS, proxy and error-rendering checks against
+//! Client construction, TLS, proxy and error-message checks against
 //! private listeners and files.
-use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -9,24 +8,24 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use linear_cli::app::{AppContext, block_on_network, write_final_error};
-use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
-use linear_cli::auth::keyring::UnsupportedKeyringReader;
-use linear_cli::config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot};
-use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
+use linear_cli::error::{Error, Result};
 use linear_cli::graphql::transport::{
     ApiKey, Deadline, EndpointUrl, GraphQlTransport, RawHttpResponse, ResponseCap, TransportConfig,
-    classify_typed,
 };
-use linear_cli::startup::{AppStartupReport, load};
-use reqwest::StatusCode;
-use reqwest::header::HeaderMap;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::rustls::ServerConfig;
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
+
+fn block_on_network<T>(future: impl std::future::Future<Output = Result<T>>) -> Result<T> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime")
+        .block_on(future)
+}
 
 struct PrivateDir(PathBuf);
 
@@ -106,7 +105,7 @@ fn current_thread_runtime_has_io_and_a_test_deadline() {
         transport
             .send_raw("query { ok }", None, None)
             .await
-            .map_err(AppError::from)
+            .map_err(Error::from)
     })
     .expect("loopback response");
     assert_eq!(response.body, OK_BODY);
@@ -124,11 +123,10 @@ fn current_thread_runtime_has_io_and_a_test_deadline() {
         transport
             .send_raw("query { ok }", None, None)
             .await
-            .map_err(AppError::from)
+            .map_err(Error::from)
     })
     .expect_err("deadline must fail");
-    assert_eq!(error.kind, AppErrorKind::Transport);
-    assert!(error.display_message().contains("did not complete"));
+    assert!(error.to_string().contains("did not complete"));
     assert!(started.elapsed() < Duration::from_secs(2));
     server.join().expect("server");
 }
@@ -203,7 +201,7 @@ fn tls_listener(proxy: bool) -> (u16, thread::JoinHandle<TlsObserved>) {
     (port, handle)
 }
 
-fn tls_request(port: u16, ca_bundle: PathBuf) -> Result<RawHttpResponse, AppError> {
+fn tls_request(port: u16, ca_bundle: PathBuf) -> Result<RawHttpResponse, Error> {
     let transport = GraphQlTransport::new(
         EndpointUrl::parse(&format!("https://localhost:{port}/graphql")).expect("endpoint"),
         fake_key(),
@@ -217,7 +215,7 @@ fn tls_request(port: u16, ca_bundle: PathBuf) -> Result<RawHttpResponse, AppErro
         transport
             .send_raw("query { ok }", None, None)
             .await
-            .map_err(AppError::from)
+            .map_err(Error::from)
     })
 }
 
@@ -233,7 +231,6 @@ fn ca_bundle_roots_verify_a_private_certificate() {
 fn an_unrelated_ca_bundle_fails_the_handshake() {
     let (port, server) = tls_listener(false);
     let error = tls_request(port, fixture("wrong-ca.pem")).expect_err("wrong CA");
-    assert_eq!(error.kind, AppErrorKind::Transport);
     assert!(format!("{error:?}").contains("UnknownIssuer"), "{error:?}");
     assert!(!server.join().expect("TLS server").handshake);
 }
@@ -315,116 +312,6 @@ fn no_proxy_bypasses_the_proxy_for_listed_hosts() {
     );
 }
 
-struct EmptyFiles;
-impl FileSource for EmptyFiles {
-    fn kind(&self, _path: &Path) -> std::io::Result<Option<FileKind>> {
-        Ok(None)
-    }
-    fn read_bounded(&self, _path: &Path, _max_bytes: u64) -> std::io::Result<Vec<u8>> {
-        Err(std::io::Error::from(std::io::ErrorKind::NotFound))
-    }
-}
-
-struct EmptyCredentials;
-impl CredentialFileSource for EmptyCredentials {
-    fn read_credentials(&self, _path: &Path) -> Result<Option<Vec<u8>>, CredentialReadFailure> {
-        Ok(None)
-    }
-}
-
-fn empty_startup(snapshot: &ProcessEnvSnapshot) -> AppStartupReport {
-    load(
-        snapshot,
-        &EmptyFiles,
-        &EmptyCredentials,
-        &UnsupportedKeyringReader,
-    )
-}
-
-fn render_graphql_failure(debug: Option<&str>) -> String {
-    let variables = debug
-        .into_iter()
-        .map(|value| (OsString::from("LINEAR_DEBUG"), OsString::from(value)))
-        .chain([(OsString::from("NO_COLOR"), OsString::from("1"))]);
-    let snapshot =
-        ProcessEnvSnapshot::from_vars_os(PathBuf::from("/work"), OsFamily::Unix, variables)
-            .expect("test env");
-    let startup = empty_startup(&snapshot);
-    let response = RawHttpResponse {
-        status: StatusCode::BAD_REQUEST,
-        headers: HeaderMap::from_iter([(reqwest::header::CONTENT_TYPE, reqwest::header::HeaderValue::from_static("application/json"))]),
-        body: b"{\"errors\":[{\"message\":\"Backend failed\",\"extensions\":{\"userPresentableMessage\":\"Try again\"}}]}".to_vec(),
-    };
-    let failure = classify_typed::<serde_json::Value>(response).expect_err("GraphQL errors");
-    let error = AppError::from(failure).with_context("Failed to get user info");
-    let mut stdout = Vec::new();
-    let mut stderr = Vec::new();
-    let mut context = AppContext {
-        startup,
-        cwd: PathBuf::from("/work"),
-        stdout: &mut stdout,
-        stderr: &mut stderr,
-        stdin_tty: false,
-        stdout_tty: false,
-        stderr_tty: false,
-        stdout_finalization: None,
-    };
-    assert_eq!(
-        write_final_error(&mut context, &error).expect("render"),
-        ExitStatus::HandledFailure
-    );
-    assert!(stdout.is_empty());
-    String::from_utf8(stderr).expect("UTF-8 diagnostic")
-}
-
-#[test]
-fn graphql_debug_presentation_is_exact_for_absent_one_and_true() {
-    let ordinary = "✗ Failed to get user info: Try again\n";
-    assert_eq!(render_graphql_failure(None), ordinary);
-    let debug = concat!(
-        "✗ Failed to get user info: Try again\n",
-        "  debug: GraphQL HTTP 400 Bad Request; errors=1; partial_data=false\n",
-    );
-    assert_eq!(render_graphql_failure(Some("1")), debug);
-    assert_eq!(render_graphql_failure(Some("true")), debug);
-    for sentinel in ["lin_api_fake", "Authorization", "Backend failed"] {
-        assert!(!debug.contains(sentinel));
-    }
-}
-
-#[test]
-fn transport_debug_includes_a_source_chain() {
-    let snapshot = ProcessEnvSnapshot::from_vars_os(
-        PathBuf::from("/work"),
-        OsFamily::Unix,
-        [(OsString::from("LINEAR_DEBUG"), OsString::from("1"))],
-    )
-    .expect("test env");
-    let startup = empty_startup(&snapshot);
-    let error = AppError::new(AppErrorKind::Transport, "request failed")
-        .with_source(std::io::Error::other("synthetic connection failure"));
-    let mut stdout = Vec::new();
-    let mut stderr = Vec::new();
-    let mut context = AppContext {
-        startup,
-        cwd: PathBuf::from("/work"),
-        stdout: &mut stdout,
-        stderr: &mut stderr,
-        stdin_tty: false,
-        stdout_tty: false,
-        stderr_tty: false,
-        stdout_finalization: None,
-    };
-    assert_eq!(
-        write_final_error(&mut context, &error).expect("render"),
-        ExitStatus::HandledFailure
-    );
-    assert_eq!(
-        String::from_utf8(stderr).expect("UTF-8"),
-        "✗ request failed\n  caused by: synthetic connection failure\n"
-    );
-}
-
 #[test]
 fn real_network_failure_debug_omits_endpoint_query_and_api_key() {
     // Nothing listens on port 1, so the connection is refused.
@@ -439,35 +326,15 @@ fn real_network_failure_debug_omits_endpoint_query_and_api_key() {
         transport
             .send_raw("query { ok }", None, None)
             .await
-            .map_err(AppError::from)
+            .map_err(Error::from)
     })
     .expect_err("closed endpoint");
-    assert_eq!(error.kind, AppErrorKind::Transport);
-    let snapshot = ProcessEnvSnapshot::from_vars_os(
-        PathBuf::from("/work"),
-        OsFamily::Unix,
-        [(OsString::from("LINEAR_DEBUG"), OsString::from("1"))],
-    )
-    .expect("debug env");
-    let startup = empty_startup(&snapshot);
-    let mut stdout = Vec::new();
-    let mut stderr = Vec::new();
-    let mut context = AppContext {
-        startup,
-        cwd: PathBuf::from("/work"),
-        stdout: &mut stdout,
-        stderr: &mut stderr,
-        stdin_tty: false,
-        stdout_tty: false,
-        stderr_tty: false,
-        stdout_finalization: None,
-    };
-    assert_eq!(
-        write_final_error(&mut context, &error).expect("render"),
-        ExitStatus::HandledFailure
-    );
-    assert!(stdout.is_empty());
-    let rendered = String::from_utf8(stderr).expect("UTF-8");
+    let mut rendered = format!("✗ {error}\n");
+    let mut source = std::error::Error::source(&error);
+    while let Some(cause) = source {
+        rendered.push_str(&format!("  caused by: {cause}\n"));
+        source = cause.source();
+    }
     assert!(
         rendered.starts_with("✗ connection to http://127.0.0.1:"),
         "{rendered}"

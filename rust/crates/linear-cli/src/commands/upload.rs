@@ -1,5 +1,5 @@
 //! File uploads: validation, MIME types, the signed upload and the resulting links.
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::upload::{FileUpload, FileUploadVariables, UploadFileHeader};
 use crate::graphql::transport::GraphQlTransport;
@@ -68,45 +68,38 @@ pub fn mime_type(path: &Path) -> &'static str {
         _ => "application/octet-stream",
     }
 }
-pub fn resolve_public(content_type: &str, requested: bool) -> Result<bool, AppError> {
+pub fn resolve_public(content_type: &str, requested: bool) -> Result<bool, Error> {
     if requested
         && !matches!(
             content_type,
             "image/png" | "image/jpeg" | "image/gif" | "image/webp" | "image/bmp" | "image/tiff"
         )
     {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("Cannot upload {content_type} to a public URL"),
-        )
-        .with_suggestion(PUBLIC_SUGGESTION));
+        return Err(
+            Error::new(format!("Cannot upload {content_type} to a public URL"))
+                .with_hint(PUBLIC_SUGGESTION),
+        );
     }
     Ok(requested)
 }
-pub fn validate_file(path: &Path) -> Result<std::fs::Metadata, AppError> {
+pub fn validate_file(path: &Path) -> Result<std::fs::Metadata, Error> {
     let info = std::fs::metadata(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
-            AppError::not_found("File", &path.to_string_lossy())
+            Error::not_found("File", &path.to_string_lossy())
         } else {
-            AppError::new(
-                AppErrorKind::Validation,
-                format!("Failed to read file metadata: {}", path.display()),
-            )
-            .with_source(error)
+            Error::new(format!("Failed to read file metadata: {}", path.display()))
+                .with_source(error)
         }
     })?;
     if !info.is_file() {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("Not a file: {}", path.display()),
-        )
-        .with_suggestion("Please provide a path to a valid file"));
+        return Err(Error::new(format!("Not a file: {}", path.display()))
+            .with_hint("Please provide a path to a valid file"));
     }
     Ok(info)
 }
 /// This deliberately does NOT prevalidate file sizes; sizes are checked
 /// during each sequential upload, so earlier uploads may already have succeeded.
-pub fn prevalidate(paths: &[String], public: bool) -> Result<(), AppError> {
+pub fn prevalidate(paths: &[String], public: bool) -> Result<(), Error> {
     for path in paths {
         let path = Path::new(path);
         validate_file(path)?;
@@ -121,17 +114,16 @@ pub struct PreparedFile {
     pub content_type: &'static str,
     pub public: bool,
 }
-pub fn prepare(path: &Path, public: bool) -> Result<PreparedFile, AppError> {
+pub fn prepare(path: &Path, public: bool) -> Result<PreparedFile, Error> {
     let info = validate_file(path)?;
     let size = info.len();
     if size > MAX_FILE_SIZE {
         let hundredths = (u128::from(size) * 100 + 524288) / 1048576;
         let mib = format!("{}.{:02}", hundredths / 100, hundredths % 100);
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("File too large: {mib}MB exceeds limit of 100MB"),
-        )
-        .with_suggestion("Please upload a file smaller than 100MB"));
+        return Err(
+            Error::new(format!("File too large: {mib}MB exceeds limit of 100MB"))
+                .with_hint("Please upload a file smaller than 100MB"),
+        );
     }
     let Ok(size) = i32::try_from(size) else {
         unreachable!("100MiB fits GraphQL Int");
@@ -141,12 +133,7 @@ pub fn prepare(path: &Path, public: bool) -> Result<PreparedFile, AppError> {
     let filename = path
         .file_name()
         .and_then(|x| x.to_str())
-        .ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Upload filename must be valid UTF-8",
-            )
-        })?
+        .ok_or_else(|| Error::new("Upload filename must be valid UTF-8"))?
         .to_owned();
     Ok(PreparedFile {
         filename,
@@ -168,7 +155,7 @@ pub fn request(file: &PreparedFile) -> GraphQlRequest<FileUploadVariables> {
 pub fn signed_headers(
     content_type: &str,
     returned: &[UploadFileHeader],
-) -> Result<HeaderMap, AppError> {
+) -> Result<HeaderMap, Error> {
     let mut entries = vec![("content-type".to_owned(), content_type.to_owned())];
     for header in returned {
         if let Some((_, value)) = entries.iter_mut().find(|(key, _)| key == &header.key) {
@@ -179,19 +166,11 @@ pub fn signed_headers(
     }
     let mut headers = HeaderMap::new();
     for (key, value) in entries {
-        let name = HeaderName::from_bytes(key.as_bytes()).map_err(|_| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Invalid signed upload header name",
-            )
-        })?;
+        let name = HeaderName::from_bytes(key.as_bytes())
+            .map_err(|_| Error::new("Invalid signed upload header name"))?;
         let value = value.trim_matches([' ', '\t', '\r', '\n']);
-        let value = HeaderValue::from_str(value).map_err(|_| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Invalid signed upload header value",
-            )
-        })?;
+        let value = HeaderValue::from_str(value)
+            .map_err(|_| Error::new("Invalid signed upload header value"))?;
         headers.append(name, value);
     }
     Ok(headers)
@@ -205,30 +184,21 @@ pub async fn upload(
     transport: &GraphQlTransport,
     path: &Path,
     file: PreparedFile,
-) -> Result<UploadedFile, AppError> {
+) -> Result<UploadedFile, Error> {
     let response: FileUpload = transport
         .execute(&request(&file))
         .await
-        .map_err(AppError::from)?;
+        .map_err(Error::from)?;
     if !response.file_upload.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to get upload URL from Linear",
-        ));
+        return Err(Error::new("Failed to get upload URL from Linear"));
     }
-    let target = response.file_upload.upload_file.ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to get upload URL from Linear",
-        )
-    })?;
+    let target = response
+        .file_upload
+        .upload_file
+        .ok_or_else(|| Error::new("Failed to get upload URL from Linear"))?;
     // The file is read only after the upload URL is issued; no retry or rollback.
     let bytes = std::fs::read(path).map_err(|error| {
-        AppError::new(
-            AppErrorKind::Validation,
-            format!("Failed to read upload file: {}", path.display()),
-        )
-        .with_source(error)
+        Error::new(format!("Failed to read upload file: {}", path.display())).with_source(error)
     })?;
     let headers = signed_headers(file.content_type, &target.headers)?;
     transport

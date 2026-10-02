@@ -2,14 +2,14 @@
 //! parsing, coercion and printing. Adapted from graphql-js 16.13.2
 //! (MIT, GraphQL Contributors; see rust/licenses/graphql-js-MIT.txt).
 use crate::{
-    error::AppError,
+    error::Error,
     graphql::schema_introspection::{Kind, Model, TypeRef, name, print_string, shape},
 };
 use serde_json::{Map, Number, Value};
 use std::collections::BTreeSet;
 
 const MAX_DEFAULT_DEPTH: usize = 128;
-fn check_depth(depth: usize) -> Result<(), AppError> {
+fn check_depth(depth: usize) -> Result<(), Error> {
     if depth > MAX_DEFAULT_DEPTH {
         Err(shape("Schema default nesting exceeds 128 levels"))
     } else {
@@ -57,14 +57,14 @@ impl Lexer<'_> {
             false
         }
     }
-    fn required(&mut self, c: char) -> Result<(), AppError> {
+    fn required(&mut self, c: char) -> Result<(), Error> {
         if self.take(c) {
             Ok(())
         } else {
             Err(shape(format!("Syntax Error: Expected {c}.")))
         }
     }
-    fn named(&mut self) -> Result<String, AppError> {
+    fn named(&mut self) -> Result<String, Error> {
         self.skip();
         let n = self
             .rest
@@ -83,7 +83,7 @@ impl Lexer<'_> {
             .ok_or_else(|| shape("Invalid name offset"))?;
         Ok(result)
     }
-    fn value(&mut self, depth: usize) -> Result<Literal, AppError> {
+    fn value(&mut self, depth: usize) -> Result<Literal, Error> {
         check_depth(depth)?;
         self.skip();
         if self.take('$') {
@@ -121,7 +121,7 @@ impl Lexer<'_> {
             name => Ok(Literal::Enum(name.to_owned())),
         }
     }
-    fn number(&mut self) -> Result<Literal, AppError> {
+    fn number(&mut self) -> Result<Literal, Error> {
         let start = self.rest;
         let negative = self.rest.starts_with('-');
         if negative {
@@ -184,7 +184,7 @@ impl Lexer<'_> {
             Literal::Int(raw)
         })
     }
-    fn digits(&mut self) -> Result<(), AppError> {
+    fn digits(&mut self) -> Result<(), Error> {
         let n = self.rest.bytes().take_while(u8::is_ascii_digit).count();
         if n == 0 {
             return Err(shape("Syntax Error: Invalid number."));
@@ -195,7 +195,7 @@ impl Lexer<'_> {
             .ok_or_else(|| shape("Invalid number offset"))?;
         Ok(())
     }
-    fn char(&mut self) -> Result<char, AppError> {
+    fn char(&mut self) -> Result<char, Error> {
         let c = self
             .rest
             .chars()
@@ -207,7 +207,7 @@ impl Lexer<'_> {
             .ok_or_else(|| shape("Invalid string offset"))?;
         Ok(c)
     }
-    fn hex(&mut self, count: usize) -> Result<u32, AppError> {
+    fn hex(&mut self, count: usize) -> Result<u32, Error> {
         let s = self
             .rest
             .get(..count)
@@ -223,7 +223,7 @@ impl Lexer<'_> {
             .ok_or_else(|| shape("Invalid escape offset"))?;
         Ok(n)
     }
-    fn string(&mut self) -> Result<String, AppError> {
+    fn string(&mut self) -> Result<String, Error> {
         if let Some(rest) = self.rest.strip_prefix("\"\"\"") {
             self.rest = rest;
             let mut value = String::new();
@@ -339,7 +339,7 @@ fn dedent(raw: &str) -> String {
         .collect::<Vec<_>>()
         .join("\n")
 }
-pub fn parse(text: &str) -> Result<Literal, AppError> {
+pub fn parse(text: &str) -> Result<Literal, Error> {
     let mut lexer = Lexer { rest: text };
     let value = lexer.value(0)?;
     lexer.skip();
@@ -357,7 +357,7 @@ fn number(text: &str) -> Option<Value> {
             .map(Value::Number)
     })
 }
-fn untyped(value: &Literal, depth: usize) -> Result<Option<Value>, AppError> {
+fn untyped(value: &Literal, depth: usize) -> Result<Option<Value>, Error> {
     check_depth(depth)?;
     Ok(match value {
         Literal::Null => Some(Value::Null),
@@ -368,7 +368,7 @@ fn untyped(value: &Literal, depth: usize) -> Result<Option<Value>, AppError> {
         Literal::List(v) => Some(Value::Array(
             v.iter()
                 .map(|v| Ok(untyped(v, depth + 1)?.unwrap_or(Value::Null)))
-                .collect::<Result<_, AppError>>()?,
+                .collect::<Result<_, Error>>()?,
         )),
         Literal::Object(v) => {
             let mut fields = Vec::new();
@@ -387,7 +387,7 @@ fn coerce(
     literal: &Literal,
     depth: usize,
     defaults: &mut BTreeSet<(String, String)>,
-) -> Result<Option<Value>, AppError> {
+) -> Result<Option<Value>, Error> {
     check_depth(depth)?;
     if matches!(literal, Literal::Variable) {
         return Ok(None);
@@ -527,7 +527,7 @@ fn from_value(
     r: &TypeRef,
     value: &Value,
     depth: usize,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     check_depth(depth)?;
     if r.kind == Kind::NonNull {
         if value == &Value::Null {
@@ -584,7 +584,7 @@ fn from_value(
         Value::Array(_) | Value::Object(_) => Err(shape("Cannot convert value to AST.")),
     }
 }
-pub fn render(model: &Model, r: &TypeRef, value: &Literal) -> Result<Option<String>, AppError> {
+pub fn render(model: &Model, r: &TypeRef, value: &Literal) -> Result<Option<String>, Error> {
     match coerce(model, r, value, 0, &mut BTreeSet::new())? {
         Some(v) => from_value(model, r, &v, 0),
         None => Ok(None),

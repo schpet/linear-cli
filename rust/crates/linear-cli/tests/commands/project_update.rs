@@ -29,7 +29,10 @@ fn local_inputs_preserve_clear_empty_and_validation_phase_order() {
         json!({"description":"","content":"","startDate":null,"targetDate":null})
     );
     let error = update::local(&update::Options::default()).unwrap_err();
-    assert_eq!(error.message, "At least one update option must be provided");
+    assert_eq!(
+        error.message(),
+        "At least one update option must be provided"
+    );
     let error = update::local(&update::Options {
         lead: Some("x".to_owned()),
         clear_lead: true,
@@ -37,14 +40,17 @@ fn local_inputs_preserve_clear_empty_and_validation_phase_order() {
         ..Default::default()
     })
     .unwrap_err();
-    assert_eq!(error.message, "Cannot specify both --lead and --clear-lead");
+    assert_eq!(
+        error.message(),
+        "Cannot specify both --lead and --clear-lead"
+    );
     let error = update::local(&update::Options {
         labels: Some(vec![" \t".to_owned()]),
         content_file: Some("missing".to_owned()),
         ..Default::default()
     })
     .unwrap_err();
-    assert_eq!(error.message, "Project label cannot be empty");
+    assert_eq!(error.message(), "Project label cannot be empty");
     assert!(update::replace_conflict("team", true, true, false).is_err());
     assert!(update::replace_conflict("label", true, false, true).is_err());
     assert!(
@@ -88,44 +94,31 @@ fn decoded_files_preserve_source_success_and_distinct_error_shapes() {
     let missing = root.join("missing");
     let missing = missing.to_str().unwrap();
     let content = shared::content(None, Some(missing)).unwrap_err();
-    assert_eq!(content.kind, linear_cli::error::AppErrorKind::Validation);
     assert_eq!(
-        content.message,
+        content.message(),
         format!("Failed to read content file: {missing}")
     );
-    assert!(
-        content
-            .suggestion
-            .as_deref()
-            .unwrap()
-            .starts_with("Error: ")
-    );
+    assert!(content.hint().unwrap().starts_with("Error: "));
     assert_eq!(
         shared::description(None, Some(missing))
             .unwrap_err()
-            .message,
+            .message(),
         format!("File not found: {missing}")
     );
     let directory = root.to_str().unwrap();
     let content = shared::content(None, Some(directory)).unwrap_err();
     assert_eq!(
-        content.message,
+        content.message(),
         format!("Failed to read content file: {directory}")
     );
-    assert!(
-        content
-            .suggestion
-            .as_deref()
-            .unwrap()
-            .starts_with("Error: ")
-    );
+    assert!(content.hint().unwrap().starts_with("Error: "));
     let description = shared::description(None, Some(directory)).unwrap_err();
     assert!(
         description
-            .message
+            .message()
             .starts_with("Failed to read description file: ")
     );
-    assert!(description.suggestion.is_none());
+    assert!(description.hint().is_none());
     std::fs::remove_dir_all(root).unwrap();
 }
 #[test]
@@ -281,7 +274,10 @@ async fn field_rejection_aborts_all_join_writes() {
         initiative_only_display: None,
     };
     assert_eq!(
-        update::submit(&transport, plan).await.unwrap_err().message,
+        update::submit(&transport, plan)
+            .await
+            .unwrap_err()
+            .message(),
         "Failed to update project"
     );
     assert_eq!(server.join().unwrap().len(), 1);

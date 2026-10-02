@@ -5,12 +5,12 @@ use crate::{
         text_input,
     },
     config::ChildEnvOverlay,
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         envelope::GraphQlRequest, operations::document_write::*, transport::GraphQlTransport,
     },
     platform::{
-        editor::{self, EditorOutcome},
+        editor,
         prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession},
         prompt_text::TextOptions,
     },
@@ -113,16 +113,13 @@ pub async fn create(
     transport: &GraphQlTransport,
     title: String,
     input: DocumentUpdateInput,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let data: CreateDocument = transport
         .execute(&create_request(title, input))
         .await
-        .map_err(AppError::from)?;
+        .map_err(Error::from)?;
     if !data.document_create.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Document creation failed",
-        ));
+        return Err(Error::new("Document creation failed"));
     }
     let document = data.document_create.document;
     Ok(format!("✓ Created document: {}\n{}\n", document.title, document.url).into_bytes())
@@ -131,30 +128,27 @@ pub async fn update(
     transport: &GraphQlTransport,
     id: &str,
     input: DocumentUpdateInput,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let data: UpdateDocument = transport
         .execute(&update_request(id, input))
         .await
-        .map_err(AppError::from)?;
+        .map_err(Error::from)?;
     if !data.document_update.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Document update failed",
-        ));
+        return Err(Error::new("Document update failed"));
     }
     let document = data.document_update.document;
     Ok(format!("✓ Updated document: {}\n{}\n", document.title, document.url).into_bytes())
 }
-pub async fn for_edit(transport: &GraphQlTransport, id: &str) -> Result<DocumentForEdit, AppError> {
+pub async fn for_edit(transport: &GraphQlTransport, id: &str) -> Result<DocumentForEdit, Error> {
     let request =
         GraphQlRequest::with_variables(GetDocumentForEdit::build(DocumentEditVariables {
             id: id.to_owned(),
         }));
-    let data: GetDocumentForEdit = transport.execute(&request).await.map_err(AppError::from)?;
+    let data: GetDocumentForEdit = transport.execute(&request).await.map_err(Error::from)?;
     data.document
-        .ok_or_else(|| AppError::not_found("Document", id))
+        .ok_or_else(|| Error::not_found("Document", id))
 }
-pub async fn guard(transport: &GraphQlTransport, id: &str) -> Result<(), AppError> {
+pub async fn guard(transport: &GraphQlTransport, id: &str) -> Result<(), Error> {
     let mut after = None;
     let mut seen = std::collections::BTreeSet::new();
     loop {
@@ -165,83 +159,62 @@ pub async fn guard(transport: &GraphQlTransport, id: &str) -> Result<(), AppErro
             },
         ));
         let data: DocumentInlineCommentGuard =
-            transport.execute(&request).await.map_err(AppError::from)?;
+            transport.execute(&request).await.map_err(Error::from)?;
         let document = data
             .document
-            .ok_or_else(|| AppError::not_found("Document", id))?;
+            .ok_or_else(|| Error::not_found("Document", id))?;
         for comment in document.comments.nodes {
             if let Some(quoted) = comment.quoted_text
                 && comment.resolved_at.is_none()
                 && comment.archived_at.is_none()
             {
-                return Err(AppError::new(AppErrorKind::Validation,"Refusing to update document content because this document has inline comments.").with_suggestion(format!("Updating Markdown content can detach or hide Linear document comments. First review comment {} quoting \"{quoted}\", then rerun with --force if you accept that risk.",comment.id.into_inner())));
+                return Err(Error::new("Refusing to update document content because this document has inline comments.").with_hint(format!("Updating Markdown content can detach or hide Linear document comments. First review comment {} quoting \"{quoted}\", then rerun with --force if you accept that risk.",comment.id.into_inner())));
             }
         }
         if !document.comments.page_info.has_next_page {
             return Ok(());
         }
-        let cursor = document.comments.page_info.end_cursor.ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::GraphQl,
-                "Document comments page has no end cursor",
-            )
-        })?;
+        let cursor = document
+            .comments
+            .page_info
+            .end_cursor
+            .ok_or_else(|| Error::new("Document comments page has no end cursor"))?;
         if !seen.insert(cursor.clone()) {
-            return Err(AppError::new(
-                AppErrorKind::GraphQl,
+            return Err(Error::new(
                 "Document comments pagination cursor did not advance",
             ));
         }
         after = Some(cursor);
     }
 }
-pub fn file(path: &str, interactive: bool) -> Result<String, AppError> {
+pub fn file(path: &str, interactive: bool) -> Result<String, Error> {
     match text_input::read_file(path) {
         Ok(text) => Ok(text),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            Err(AppError::not_found("File", path))
+            Err(Error::not_found("File", path))
         }
-        Err(error) => Err(AppError::new(
-            AppErrorKind::IoProcess,
-            format!(
-                "Failed to read {}file: {error}",
-                if interactive { "" } else { "content " }
-            ),
-        )
+        Err(error) => Err(Error::new(format!(
+            "Failed to read {}file: {error}",
+            if interactive { "" } else { "content " }
+        ))
         .with_source(error)),
     }
 }
+/// Opens an empty editor for the interactive flow. Editor failures are
+/// reported on stderr and leave the content empty.
 pub fn optional_editor(
     env: &ChildEnvOverlay,
-    root: &Path,
     stderr: &mut dyn Write,
-) -> Result<Option<String>, AppError> {
-    match editor::open(env, None, root)? {
-        EditorOutcome::Content(content) => Ok(content),
-        EditorOutcome::Missing => {
-            writeln!(stderr,"No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>").map_err(io_error)?;
-            Ok(None)
-        }
-        EditorOutcome::Failed(error) => {
-            writeln!(stderr, "{}", error.message).map_err(io_error)?;
+) -> Result<Option<String>, Error> {
+    match editor::edit("", env) {
+        Ok(text) => Ok(text_input::edited_body(&text)),
+        Err(error) => {
+            writeln!(stderr, "{error}").map_err(|error| {
+                Error::new("Failed to write editor diagnostic").with_source(error)
+            })?;
             Ok(None)
         }
     }
-}
-pub fn required_editor(
-    env: &ChildEnvOverlay,
-    root: &Path,
-    seed: &str,
-) -> Result<Option<String>, AppError> {
-    match editor::open(env, Some(seed), root)? {
-        EditorOutcome::Content(content) => Ok(content),
-        EditorOutcome::Missing => Err(AppError::new(AppErrorKind::Validation, "No editor found")
-            .with_suggestion(editor::NO_EDITOR)),
-        EditorOutcome::Failed(error) => Err(error),
-    }
-}
-fn io_error(error: std::io::Error) -> AppError {
-    AppError::new(AppErrorKind::IoProcess, "Failed to write editor diagnostic").with_source(error)
 }
 pub struct PromptSettings<'a> {
     pub env: &'a ChildEnvOverlay,
@@ -252,7 +225,7 @@ pub fn prompt<R: Read, W: Write>(
     session: &mut PromptSession<R, W>,
     stderr: &mut dyn Write,
     settings: PromptSettings<'_>,
-) -> Result<PromptOutcome<Fields>, AppError> {
+) -> Result<PromptOutcome<Fields>, Error> {
     macro_rules! answer {
         ($call:expr) => {
             match $call? {
@@ -270,7 +243,7 @@ pub fn prompt<R: Read, W: Write>(
         ..Default::default()
     };
     // Discovery for the menu is intentionally separate from discovery on open.
-    let editor = editor::discover(settings.env);
+    let editor = editor::configured(settings.env);
     let editor_label = editor.as_deref().and_then(editor_label);
     let mut methods = vec![
         choice("Skip (no content)", "skip"),
@@ -300,15 +273,11 @@ pub fn prompt<R: Read, W: Write>(
             )?)
         }
         "editor" => {
-            let label = editor_label.ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "editor menu selection has no label",
-                )
-            })?;
+            let label =
+                editor_label.ok_or_else(|| Error::new("editor menu selection has no label"))?;
             session.print_line(&format!("Opening {label}..."))?;
             session.suspend()?;
-            let content = optional_editor(settings.env, settings.temp_root, stderr);
+            let content = optional_editor(settings.env, stderr);
             session.resume()?;
             fields.content = content?;
             if let Some(content) = &fields.content {
@@ -319,10 +288,7 @@ pub fn prompt<R: Read, W: Write>(
             }
         }
         _ => {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unrecognized content method",
-            ));
+            return Err(Error::new("unrecognized content method"));
         }
     }
     fields.icon = text_input::edited_body(&answer!(session.text_with_options(
@@ -382,10 +348,7 @@ pub fn prompt<R: Read, W: Write>(
             ))
         }
         _ => {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unrecognized attachment menu value",
-            ));
+            return Err(Error::new("unrecognized attachment menu value"));
         }
     }
     Ok(PromptOutcome::Submitted(fields))

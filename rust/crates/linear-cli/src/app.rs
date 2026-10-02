@@ -1,16 +1,15 @@
+//! The process entry point: load configuration, build the [`Ctx`], run the
+//! selected command and report its error.
 mod issue_write_dispatch;
+mod legacy;
 use issue_write_dispatch::{dispatch_issue_create, dispatch_issue_update};
+use legacy::{block_on_network, spinner};
 
-use std::error::Error;
-use std::ffi::OsString;
-use std::future::Future;
-use std::io;
-use std::io::Write;
-use std::path::PathBuf;
-use std::time::Duration;
+use std::error::Error as StdError;
 
-use crate::auth::{ApiKeyInput, CredentialSelectionInputs};
-use crate::cli;
+use crate::auth::credentials_path;
+use crate::cli::{self, Cli, RootCommand};
+use crate::commands;
 use crate::commands::completions::{self, CompletionShell};
 use crate::commands::team_key::configured_team_key;
 use crate::commands::{
@@ -23,265 +22,182 @@ use crate::commands::{
     project_view, table, team_create, team_id, team_list, team_members, team_states, template_list,
     template_view, user_list,
 };
-use crate::config::{NoColor, StartupConfig};
-use crate::error::{AppError, AppErrorKind, ExitStatus};
-use crate::platform::output::{Output, OutputOutcome, OutputPolicy, Stream, failed_stream};
-use crate::platform::spinner;
+use crate::config::{
+    DisplaySettings, OsFamily, ProcessEnvSnapshot, RealFileSource, load_startup, render_diagnostic,
+};
+use crate::ctx::{Ctx, CtxInit, Terminal};
+use crate::error::{Error, ErrorKind, Result, ResultExt};
+use crate::platform::output::{self, Stdout, StdoutWriter};
+use crate::platform::style;
 use crate::refs::{
     InitiativeReference, ProjectReference, WorkspaceScope, prepare_initiative_lookup,
     prepare_project_lookup, prepare_team_lookup, resolve_document_reference,
     resolve_initiative_with_transport, resolve_project_with_transport, resolve_team_with_transport,
 };
-use crate::startup::{AppStartupReport, render_startup_diagnostic};
 
-/// Lazily run one network action on a current-thread IO runtime. The action
-/// owns its inputs and returns before its caller writes to the CLI streams.
-pub fn block_on_network<T, F>(future: F) -> Result<T, AppError>
-where
-    F: Future<Output = Result<T, AppError>>,
-{
-    block_on_network_with(future, || {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-    })
-}
-
-fn block_on_network_with<T, F>(
-    future: F,
-    build: impl FnOnce() -> io::Result<tokio::runtime::Runtime>,
-) -> Result<T, AppError>
-where
-    F: Future<Output = Result<T, AppError>>,
-{
-    let runtime = build().map_err(|error| {
-        AppError::new(AppErrorKind::IoProcess, "could not start network runtime").with_source(error)
-    })?;
-    let result = runtime.block_on(future);
-    runtime.shutdown_timeout(Duration::from_millis(500));
-    result
-}
-
-pub struct AppContext<'a> {
-    pub startup: AppStartupReport,
-    pub cwd: PathBuf,
-    pub stdout: &'a mut dyn Write,
-    pub stderr: &'a mut dyn Write,
-    pub stdin_tty: bool,
-    pub stdout_tty: bool,
-    pub stderr_tty: bool,
-    pub stdout_finalization: Option<(OutputPolicy, OutputOutcome)>,
-}
-
-impl AppContext<'_> {
-    pub fn debug_enabled(&self) -> bool {
-        self.startup.settings.debug
-    }
-
-    pub fn no_color(&self) -> bool {
-        self.startup.settings.no_color()
-    }
-
-    pub fn handled_color(&self) -> bool {
-        self.stderr_tty && !self.no_color()
-    }
-
-    pub fn help_color(&self) -> bool {
-        self.startup.settings.help_color()
-    }
-
-    pub fn config(&self) -> Result<&StartupConfig, AppError> {
-        self.startup
-            .result
-            .as_ref()
-            .map(|loaded| &loaded.config)
-            .map_err(|_| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "config was requested after startup failed",
-                )
-            })
-    }
-
-    pub fn credentials(&self) -> Result<&crate::auth::CredentialStore, AppError> {
-        self.startup
-            .result
-            .as_ref()
-            .map(|loaded| &loaded.credentials)
-            .map_err(|_| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "credentials requested after startup failed",
-                )
-            })
-    }
-
-    fn write_stdout(&mut self, bytes: &[u8]) -> Result<(), AppError> {
-        self.write_stdout_with_policy(bytes, OutputPolicy::Strict)
-    }
-
-    fn write_stdout_with_policy(
-        &mut self,
-        bytes: &[u8],
-        policy: OutputPolicy,
-    ) -> Result<(), AppError> {
-        self.stdout_finalization = None;
-        let outcome =
-            Output::new(&mut *self.stdout, Stream::Stdout).write_with_policy(bytes, policy)?;
-        self.stdout_finalization = Some((policy, outcome));
-        Ok(())
-    }
-
-    fn write_stderr(&mut self, bytes: &[u8]) -> Result<(), AppError> {
-        Output::new(&mut *self.stderr, Stream::Stderr).write(bytes)
-    }
-
-    fn flush_all(&mut self) -> Result<(), AppError> {
-        let policy = match self.stdout_finalization.take() {
-            Some((OutputPolicy::ConsoleLike, OutputOutcome::QuietBrokenPipe)) => {
-                OutputPolicy::ConsoleLike
-            }
-            Some(_) | None => OutputPolicy::Strict,
-        };
-        Output::new(&mut *self.stdout, Stream::Stdout).flush_with_policy(policy)?;
-        Output::new(&mut *self.stderr, Stream::Stderr).flush()
-    }
-}
-
-fn write_stdout(context: &mut AppContext<'_>, bytes: &[u8]) -> Result<(), AppError> {
-    context.write_stdout(bytes)
-}
-
-fn write_stderr(context: &mut AppContext<'_>, bytes: &[u8]) -> Result<(), AppError> {
-    context.write_stderr(bytes)
-}
-
-/// Emit one bootstrap diagnostic, including its flush. The caller returns status 1
-/// even when this diagnostic cannot be written.
-pub fn report_bootstrap_error(stderr: &mut dyn Write, error: &AppError) -> Result<(), AppError> {
-    Output::new(stderr, Stream::Stderr).write(format!("✗ {error}\n").as_bytes())
-}
-
-fn report_output_failure(context: &mut AppContext<'_>, error: &AppError) {
-    if failed_stream(error) == Some(Stream::Stdout) {
-        let _ = report_bootstrap_error(context.stderr, error);
-    }
-}
-
-/// Resolve route output and final stream flushes before the process chooses an exit code.
-/// A write or flush failure always wins over the route status, including usage/child codes.
-pub fn finalize(
-    result: Result<ExitStatus, AppError>,
-    context: &mut AppContext<'_>,
-) -> Result<ExitStatus, AppError> {
-    let (status, route_io_error, output_diagnostic_attempted) = match result {
-        Ok(status) => (status, None, false),
+/// Runs a parsed command line and returns the process exit status.
+pub fn main(cli: Cli) -> u8 {
+    let mut settings = DisplaySettings {
+        debug: false,
+        no_color: false,
+    };
+    let result = run(cli, &mut settings);
+    match result {
+        Ok(()) => 0,
         Err(error) => {
-            // A failed stderr write already was the diagnostic attempt.
-            if failed_stream(&error) == Some(Stream::Stderr) {
-                return Err(error);
+            report(&error, settings);
+            error.exit_code()
+        }
+    }
+}
+
+fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
+    let Cli { workspace, command } = cli;
+    let command = match command {
+        RootCommand::Completions(action) => return completions_command(&action),
+        RootCommand::Markdown(_) => return markdown(),
+        command => command,
+    };
+    let cwd = std::env::current_dir().map_err(|error| {
+        Error::new(format!("Failed to read the working directory: {error}")).with_source(error)
+    })?;
+    let os = if cfg!(windows) {
+        OsFamily::Windows
+    } else {
+        OsFamily::Unix
+    };
+    let process = ProcessEnvSnapshot::capture(cwd.clone(), os)
+        .map_err(|error| Error::new(format!("Invalid environment: {error}")))?;
+    let report = load_startup(&process, &RealFileSource);
+    *settings = report.settings;
+    let terminal = Terminal::detect(report.settings.no_color);
+    for diagnostic in &report.diagnostics {
+        output::eprint(render_diagnostic(diagnostic, terminal.stderr_color()).as_bytes())?;
+    }
+    let config = report.result?;
+    let env = |name| process.inputs.env(name);
+    let ctx = Ctx::new(CtxInit {
+        config,
+        debug: report.settings.debug,
+        workspace,
+        cwd,
+        terminal,
+        credentials_path: credentials_path(os, env("XDG_CONFIG_HOME"), env("HOME"), env("APPDATA")),
+    })?;
+    let result = dispatch(&ctx, command);
+    // Output written before a failure still reaches the reader.
+    let flushed = ctx.flush();
+    result.and(flushed)
+}
+
+/// Prints `error` to stderr: `✗ message`, an optional hint, and under
+/// `LINEAR_DEBUG` the debug detail and source chain.
+fn report(error: &Error, settings: DisplaySettings) {
+    let lines = match error.kind() {
+        ErrorKind::Cancelled | ErrorKind::Exit(_) | ErrorKind::BrokenPipe => return,
+        ErrorKind::Usage => match error.usage_error() {
+            Some(usage) => usage.render().to_string(),
+            None => format!("{error}\n"),
+        },
+        ErrorKind::Other | ErrorKind::Auth | ErrorKind::NotFound => {
+            let color = Terminal::detect(settings.no_color).stderr_color();
+            let mut lines = format!("{}\n", style::red(&format!("✗ {error}"), color));
+            if let Some(hint) = error.hint() {
+                lines.push_str(&format!("{}\n", style::gray(&format!("  {hint}"), color)));
             }
-            match write_final_error(context, &error) {
-                Ok(status) => {
-                    let output_diagnostic_attempted = failed_stream(&error) == Some(Stream::Stdout);
-                    let io_error = (error.kind == AppErrorKind::IoProcess).then_some(error);
-                    (status, io_error, output_diagnostic_attempted)
+            if settings.debug {
+                if let Some(detail) = error.debug_detail() {
+                    lines.push_str(&format!("  debug: {detail}\n"));
                 }
-                Err(write_error) => {
-                    report_output_failure(context, &write_error);
-                    return Err(write_error);
+                let mut source = error.source();
+                while let Some(cause) = source {
+                    lines.push_str(&format!("  caused by: {cause}\n"));
+                    source = cause.source();
                 }
             }
+            lines
         }
     };
-    if let Err(flush_error) = context.flush_all() {
-        if !output_diagnostic_attempted {
-            report_output_failure(context, &flush_error);
-        }
-        return Err(flush_error);
-    }
-    match route_io_error {
-        Some(error) => Err(error),
-        None => Ok(status),
-    }
+    // Nothing is left to report a failure to.
+    let _ignored = output::eprint(lines.as_bytes());
 }
 
-pub fn run(argv: &[String], context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
-    context.stdout_finalization = None;
-    for diagnostic in context.startup.diagnostics.clone() {
-        let rendered = render_startup_diagnostic(&diagnostic, context.help_color());
-        write_stderr(context, rendered.as_bytes())?;
-    }
-    if let Err(error) = &context.startup.result {
-        return Err(error.app_error());
-    }
-    let os_argv = argv.iter().map(OsString::from).collect::<Vec<_>>();
-    dispatch(cli::parse(&os_argv)?, context)
+fn completions_command(action: &cli::completions::Completions) -> Result<()> {
+    use cli::completions::CompletionsCommand;
+    let output = match &action.command {
+        CompletionsCommand::Bash(action) => {
+            completions::script(CompletionShell::Bash, action.name.as_deref())?
+        }
+        CompletionsCommand::Fish(action) => {
+            completions::script(CompletionShell::Fish, action.name.as_deref())?
+        }
+        CompletionsCommand::Zsh(action) => {
+            completions::script(CompletionShell::Zsh, action.name.as_deref())?
+        }
+        CompletionsCommand::Complete(action) => completions::complete(action)?,
+    };
+    let stdout = Stdout::new();
+    stdout.write(&output)?;
+    stdout.flush()
 }
 
-fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
-    let workspace = cli.workspace.as_deref();
-    match cli.command {
-        None => {
-            context.write_stdout_with_policy(
-                b"Use --help to see available commands\n",
-                OutputPolicy::ConsoleLike,
-            )?;
-            Ok(ExitStatus::Success)
-        }
-        Some(cli::RootCommand::Auth(action)) => match action.command {
-            None => parent_help(context, "linear auth"),
-            Some(cli::auth::AuthCommand::Login(action)) => dispatch_auth_login(context, &action),
-            Some(cli::auth::AuthCommand::Logout(action)) => dispatch_auth_logout(context, &action),
-            Some(cli::auth::AuthCommand::List(action)) => {
-                dispatch_auth_list(context, &action, workspace)
-            }
-            Some(cli::auth::AuthCommand::Default(action)) => {
-                dispatch_auth_default(context, &action)
-            }
-            Some(cli::auth::AuthCommand::Token(_)) => dispatch_auth_token(context, workspace),
-            Some(cli::auth::AuthCommand::Whoami(action)) => {
+fn markdown() -> Result<()> {
+    let stdout = Stdout::new();
+    stdout.write(include_str!("cli/markdown.txt").as_bytes())?;
+    stdout.flush()
+}
+
+fn dispatch(ctx: &Ctx, command: RootCommand) -> Result<()> {
+    let workspace = ctx.workspace();
+    let context = ctx;
+    match command {
+        RootCommand::Auth(action) => match action.command {
+            cli::auth::AuthCommand::Login(action) => dispatch_auth_login(context, &action),
+            cli::auth::AuthCommand::Logout(action) => dispatch_auth_logout(context, &action),
+            cli::auth::AuthCommand::List(action) => dispatch_auth_list(context, &action, workspace),
+            cli::auth::AuthCommand::Default(action) => dispatch_auth_default(context, &action),
+            cli::auth::AuthCommand::Token(_) => dispatch_auth_token(context, workspace),
+            cli::auth::AuthCommand::Whoami(action) => {
                 dispatch_auth_whoami(context, &action, workspace)
             }
-            Some(cli::auth::AuthCommand::Migrate(_)) => dispatch_auth_migrate(context),
+            cli::auth::AuthCommand::Migrate(_) => dispatch_auth_migrate(context),
         },
-        Some(cli::RootCommand::Issue(action)) => match action.command {
-            None => parent_help(context, "linear issue"),
-            Some(cli::issue::IssueCommand::Id(_)) => dispatch_issue_id(context),
-            Some(cli::issue::IssueCommand::Mine(action)) => {
+        RootCommand::Issue(action) => match action.command {
+            cli::issue::IssueCommand::Id(_) => dispatch_issue_id(context),
+            cli::issue::IssueCommand::Mine(action) => {
                 dispatch_issue_mine(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::Query(action)) => {
+            cli::issue::IssueCommand::Query(action) => {
                 dispatch_issue_query(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::Title(action)) => dispatch_issue_detail(
+            cli::issue::IssueCommand::Title(action) => dispatch_issue_detail(
                 context,
                 action.issue_id.as_deref(),
-                cli.workspace.as_deref(),
+                workspace,
                 IssueDetailField::Title,
             ),
-            Some(cli::issue::IssueCommand::Start(action)) => {
+            cli::issue::IssueCommand::Start(action) => {
                 dispatch_issue_start(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::View(action)) => {
+            cli::issue::IssueCommand::View(action) => {
                 dispatch_issue_view(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::Url(action)) => dispatch_issue_detail(
+            cli::issue::IssueCommand::Url(action) => dispatch_issue_detail(
                 context,
                 action.issue_id.as_deref(),
-                cli.workspace.as_deref(),
+                workspace,
                 IssueDetailField::Url,
             ),
-            Some(cli::issue::IssueCommand::Describe(action)) => {
+            cli::issue::IssueCommand::Describe(action) => {
                 dispatch_issue_describe(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::Commits(action)) => {
+            cli::issue::IssueCommand::Commits(action) => {
                 dispatch_issue_commits(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::PullRequest(action)) => {
+            cli::issue::IssueCommand::PullRequest(action) => {
                 dispatch_issue_pull_request(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::Archive(action)) => dispatch_issue_archive_delete(
+            cli::issue::IssueCommand::Archive(action) => dispatch_issue_archive_delete(
                 context,
                 IssueArchiveDeleteAction {
                     target: action.issue_id.as_deref(),
@@ -295,8 +211,8 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 crate::commands::issue_archive_delete::Mode::Archive,
                 workspace,
             )
-            .map_err(|error| error.with_context("Failed to archive issue")),
-            Some(cli::issue::IssueCommand::Delete(action)) => dispatch_issue_archive_delete(
+            .context("Failed to archive issue"),
+            cli::issue::IssueCommand::Delete(action) => dispatch_issue_archive_delete(
                 context,
                 IssueArchiveDeleteAction {
                     target: action.issue_id.as_deref(),
@@ -310,177 +226,153 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 crate::commands::issue_archive_delete::Mode::Delete,
                 workspace,
             )
-            .map_err(|error| error.with_context("Failed to delete issue")),
-            Some(cli::issue::IssueCommand::Create(action)) => {
+            .context("Failed to delete issue"),
+            cli::issue::IssueCommand::Create(action) => {
                 dispatch_issue_create(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::Update(action)) => {
+            cli::issue::IssueCommand::Update(action) => {
                 dispatch_issue_update(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::Comment(action)) => match action.command {
-                None => parent_help(context, "linear issue comment"),
-                Some(cli::issue::IssueCommentCommand::Add(action)) => {
+            cli::issue::IssueCommand::Comment(action) => match action.command {
+                cli::issue::IssueCommentCommand::Add(action) => {
                     dispatch_issue_comment_add(context, &action, workspace)
                 }
-                Some(cli::issue::IssueCommentCommand::Delete(action)) => {
+                cli::issue::IssueCommentCommand::Delete(action) => {
                     dispatch_issue_comment_delete(context, &action, workspace)
                 }
-                Some(cli::issue::IssueCommentCommand::Update(action)) => {
+                cli::issue::IssueCommentCommand::Update(action) => {
                     dispatch_issue_comment_update(context, &action, workspace)
                 }
-                Some(cli::issue::IssueCommentCommand::List(action)) => {
+                cli::issue::IssueCommentCommand::List(action) => {
                     dispatch_issue_comment_list(context, &action, workspace)
                 }
             },
-            Some(cli::issue::IssueCommand::Attach(action)) => {
+            cli::issue::IssueCommand::Attach(action) => {
                 dispatch_issue_attach(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::Link(action)) => {
+            cli::issue::IssueCommand::Link(action) => {
                 dispatch_issue_link(context, &action, workspace)
             }
-            Some(cli::issue::IssueCommand::Relation(action)) => match action.command {
-                None => parent_help(context, "linear issue relation"),
-                Some(cli::issue::IssueRelationCommand::Add(action)) => {
+            cli::issue::IssueCommand::Relation(action) => match action.command {
+                cli::issue::IssueRelationCommand::Add(action) => {
                     dispatch_issue_relation_add(context, &action, workspace)
                 }
-                Some(cli::issue::IssueRelationCommand::Delete(action)) => {
+                cli::issue::IssueRelationCommand::Delete(action) => {
                     dispatch_issue_relation_delete(context, &action, workspace)
                 }
-                Some(cli::issue::IssueRelationCommand::List(action)) => {
+                cli::issue::IssueRelationCommand::List(action) => {
                     dispatch_issue_relation_list(context, &action, workspace)
                 }
             },
-            Some(cli::issue::IssueCommand::AgentSession(action)) => match action.command {
-                None => parent_help(context, "linear issue agent-session"),
-                Some(cli::issue::IssueAgentSessionCommand::List(action)) => {
+            cli::issue::IssueCommand::AgentSession(action) => match action.command {
+                cli::issue::IssueAgentSessionCommand::List(action) => {
                     dispatch_agent_session_list(context, &action, workspace)
                 }
-                Some(cli::issue::IssueAgentSessionCommand::View(action)) => {
+                cli::issue::IssueAgentSessionCommand::View(action) => {
                     dispatch_agent_session_view(context, &action, workspace)
                 }
             },
         },
-        Some(cli::RootCommand::Team(action)) => match action.command {
-            None => parent_help(context, "linear team"),
-            Some(cli::team::TeamCommand::Create(action)) => {
+        RootCommand::Team(action) => match action.command {
+            cli::team::TeamCommand::Create(action) => {
                 dispatch_team_create(context, &action, workspace)
             }
-            Some(cli::team::TeamCommand::Delete(action)) => {
+            cli::team::TeamCommand::Delete(action) => {
                 dispatch_team_delete(context, &action, workspace)
             }
-            Some(cli::team::TeamCommand::List(action)) => {
-                dispatch_team_list(context, &action, workspace)
+            cli::team::TeamCommand::List(action) => dispatch_team_list(context, &action, workspace),
+            cli::team::TeamCommand::Id(action) => dispatch_team_id(context, &action, workspace),
+            cli::team::TeamCommand::Autolinks(_) => {
+                crate::commands::team_autolinks::execute(context.config(), workspace, context.cwd())
             }
-            Some(cli::team::TeamCommand::Id(action)) => {
-                dispatch_team_id(context, &action, workspace)
-            }
-            Some(cli::team::TeamCommand::Autolinks(_)) => {
-                crate::commands::team_autolinks::execute(
-                    context.config()?,
-                    workspace,
-                    &context.cwd,
-                )?;
-                Ok(ExitStatus::Success)
-            }
-            Some(cli::team::TeamCommand::Members(action)) => {
+            cli::team::TeamCommand::Members(action) => {
                 dispatch_team_members(context, &action, workspace)
             }
-            Some(cli::team::TeamCommand::States(action)) => {
+            cli::team::TeamCommand::States(action) => {
                 dispatch_team_states(context, &action, workspace)
             }
         },
-        Some(cli::RootCommand::User(action)) => match action.command {
-            None => parent_help(context, "linear user"),
-            Some(cli::user::UserCommand::List(action)) => {
-                dispatch_user_list(context, &action, workspace)
-            }
+        RootCommand::User(action) => match action.command {
+            cli::user::UserCommand::List(action) => dispatch_user_list(context, &action, workspace),
         },
-        Some(cli::RootCommand::Project(action)) => match action.command {
-            None => parent_help(context, "linear project"),
-            Some(cli::project::ProjectCommand::List(action)) => {
+        RootCommand::Project(action) => match action.command {
+            cli::project::ProjectCommand::List(action) => {
                 dispatch_project_list(context, &action, workspace)
             }
-            Some(cli::project::ProjectCommand::View(action)) => {
+            cli::project::ProjectCommand::View(action) => {
                 dispatch_project_view(context, &action, workspace)
             }
-            Some(cli::project::ProjectCommand::Create(action)) => {
+            cli::project::ProjectCommand::Create(action) => {
                 dispatch_project_create(context, &action, workspace)
             }
-            Some(cli::project::ProjectCommand::Update(action)) => {
+            cli::project::ProjectCommand::Update(action) => {
                 dispatch_project_update(context, &action, workspace)
             }
-            Some(cli::project::ProjectCommand::Delete(action)) => {
+            cli::project::ProjectCommand::Delete(action) => {
                 dispatch_project_delete(context, &action, workspace)
             }
-            Some(cli::project::ProjectCommand::Comment(action)) => match action.command {
-                None => parent_help(context, "linear project comment"),
-                Some(cli::project::ProjectCommentCommand::Add(action)) => {
+            cli::project::ProjectCommand::Comment(action) => match action.command {
+                cli::project::ProjectCommentCommand::Add(action) => {
                     dispatch_project_comment_add(context, &action, workspace)
                 }
-                Some(cli::project::ProjectCommentCommand::List(action)) => {
+                cli::project::ProjectCommentCommand::List(action) => {
                     dispatch_project_comment_list(context, &action, workspace)
                 }
             },
         },
-        Some(cli::RootCommand::ProjectUpdate(action)) => match action.command {
-            None => parent_help(context, "linear project-update"),
-            Some(cli::project_update::ProjectUpdateCommand::Create(action)) => {
-                dispatch_update_create(
-                    context,
-                    UpdateCreateAction {
-                        original: &action.project_id,
-                        body: action.body.as_deref(),
-                        file: action.body_file.as_deref(),
-                        health: action.health.as_deref(),
-                        interactive: action.interactive,
-                    },
-                    crate::commands::update_create::Mode::Project,
-                    workspace,
-                )
-            }
-            Some(cli::project_update::ProjectUpdateCommand::List(action)) => {
+        RootCommand::ProjectUpdate(action) => match action.command {
+            cli::project_update::ProjectUpdateCommand::Create(action) => dispatch_update_create(
+                context,
+                UpdateCreateAction {
+                    original: &action.project_id,
+                    body: action.body.as_deref(),
+                    file: action.body_file.as_deref(),
+                    health: action.health.as_deref(),
+                    interactive: action.interactive,
+                },
+                crate::commands::update_create::Mode::Project,
+                workspace,
+            ),
+            cli::project_update::ProjectUpdateCommand::List(action) => {
                 dispatch_project_update_list(context, &action, workspace)
             }
         },
-        Some(cli::RootCommand::Cycle(action)) => match action.command {
-            None => parent_help(context, "linear cycle"),
-            Some(cli::cycle::CycleCommand::List(action)) => {
+        RootCommand::Cycle(action) => match action.command {
+            cli::cycle::CycleCommand::List(action) => {
                 dispatch_cycle_list(context, &action, workspace)
             }
-            Some(cli::cycle::CycleCommand::View(action)) => {
+            cli::cycle::CycleCommand::View(action) => {
                 dispatch_cycle_view(context, &action, workspace)
             }
         },
-        Some(cli::RootCommand::Milestone(action)) => match action.command {
-            None => parent_help(context, "linear milestone"),
-            Some(cli::milestone::MilestoneCommand::List(action)) => {
+        RootCommand::Milestone(action) => match action.command {
+            cli::milestone::MilestoneCommand::List(action) => {
                 dispatch_milestone_list(context, &action, workspace)
             }
-            Some(cli::milestone::MilestoneCommand::View(action)) => {
+            cli::milestone::MilestoneCommand::View(action) => {
                 dispatch_milestone_view(context, &action, workspace)
             }
-            Some(cli::milestone::MilestoneCommand::Create(action)) => {
+            cli::milestone::MilestoneCommand::Create(action) => {
                 dispatch_milestone_create(context, &action, workspace)
             }
-            Some(cli::milestone::MilestoneCommand::Update(action)) => {
+            cli::milestone::MilestoneCommand::Update(action) => {
                 dispatch_milestone_update(context, &action, workspace)
             }
-            Some(cli::milestone::MilestoneCommand::Delete(action)) => {
+            cli::milestone::MilestoneCommand::Delete(action) => {
                 dispatch_milestone_delete(context, &action, workspace)
             }
         },
-        Some(cli::RootCommand::Initiative(action)) => match action.command {
-            None => parent_help(context, "linear initiative"),
-            Some(cli::initiative::InitiativeCommand::List(action)) => {
+        RootCommand::Initiative(action) => match action.command {
+            cli::initiative::InitiativeCommand::List(action) => {
                 dispatch_initiative_list(context, &action, workspace)
             }
-            Some(cli::initiative::InitiativeCommand::View(action)) => {
+            cli::initiative::InitiativeCommand::View(action) => {
                 dispatch_initiative_view(context, &action, workspace)
             }
-            Some(cli::initiative::InitiativeCommand::Create(action)) => {
+            cli::initiative::InitiativeCommand::Create(action) => {
                 dispatch_initiative_create(context, &action, workspace)
             }
-            Some(cli::initiative::InitiativeCommand::Archive(action)) => dispatch_initiative_bulk(
+            cli::initiative::InitiativeCommand::Archive(action) => dispatch_initiative_bulk(
                 context,
                 InitiativeAction {
                     target: action.initiative_id.as_deref(),
@@ -494,13 +386,13 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 initiative_bulk::Mode::Archive,
                 workspace,
             ),
-            Some(cli::initiative::InitiativeCommand::Update(action)) => {
+            cli::initiative::InitiativeCommand::Update(action) => {
                 dispatch_initiative_update(context, &action, workspace)
             }
-            Some(cli::initiative::InitiativeCommand::Unarchive(action)) => {
+            cli::initiative::InitiativeCommand::Unarchive(action) => {
                 dispatch_initiative_unarchive(context, &action, workspace)
             }
-            Some(cli::initiative::InitiativeCommand::Delete(action)) => dispatch_initiative_bulk(
+            cli::initiative::InitiativeCommand::Delete(action) => dispatch_initiative_bulk(
                 context,
                 InitiativeAction {
                     target: action.initiative_id.as_deref(),
@@ -514,18 +406,16 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                 initiative_bulk::Mode::Delete,
                 workspace,
             ),
-            Some(cli::initiative::InitiativeCommand::AddProject(action)) => {
-                dispatch_initiative_projects(
-                    context,
-                    &action.initiative,
-                    &action.project,
-                    action.sort_order,
-                    true,
-                    initiative_projects::Mode::Add,
-                    workspace,
-                )
-            }
-            Some(cli::initiative::InitiativeCommand::RemoveProject(action)) => {
+            cli::initiative::InitiativeCommand::AddProject(action) => dispatch_initiative_projects(
+                context,
+                &action.initiative,
+                &action.project,
+                action.sort_order,
+                true,
+                initiative_projects::Mode::Add,
+                workspace,
+            ),
+            cli::initiative::InitiativeCommand::RemoveProject(action) => {
                 dispatch_initiative_projects(
                     context,
                     &action.initiative,
@@ -536,19 +426,17 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                     workspace,
                 )
             }
-            Some(cli::initiative::InitiativeCommand::Comment(action)) => match action.command {
-                None => parent_help(context, "linear initiative comment"),
-                Some(cli::initiative::InitiativeCommentCommand::Add(action)) => {
+            cli::initiative::InitiativeCommand::Comment(action) => match action.command {
+                cli::initiative::InitiativeCommentCommand::Add(action) => {
                     dispatch_initiative_comment_add(context, &action, workspace)
                 }
-                Some(cli::initiative::InitiativeCommentCommand::List(action)) => {
+                cli::initiative::InitiativeCommentCommand::List(action) => {
                     dispatch_initiative_comment_list(context, &action, workspace)
                 }
             },
         },
-        Some(cli::RootCommand::InitiativeUpdate(action)) => match action.command {
-            None => parent_help(context, "linear initiative-update"),
-            Some(cli::initiative_update::InitiativeUpdateCommand::Create(action)) => {
+        RootCommand::InitiativeUpdate(action) => match action.command {
+            cli::initiative_update::InitiativeUpdateCommand::Create(action) => {
                 dispatch_update_create(
                     context,
                     UpdateCreateAction {
@@ -562,137 +450,74 @@ fn dispatch(cli: cli::Cli, context: &mut AppContext<'_>) -> Result<ExitStatus, A
                     workspace,
                 )
             }
-            Some(cli::initiative_update::InitiativeUpdateCommand::List(action)) => {
+            cli::initiative_update::InitiativeUpdateCommand::List(action) => {
                 dispatch_initiative_update_list(context, &action, workspace)
             }
         },
-        Some(cli::RootCommand::Label(action)) => match action.command {
-            None => parent_help(context, "linear label"),
-            Some(cli::label::LabelCommand::List(action)) => {
+        RootCommand::Label(action) => match action.command {
+            cli::label::LabelCommand::List(action) => {
                 dispatch_label_list(context, &action, workspace)
             }
-            Some(cli::label::LabelCommand::Create(action)) => {
+            cli::label::LabelCommand::Create(action) => {
                 dispatch_label_create(context, &action, workspace)
             }
-            Some(cli::label::LabelCommand::Delete(action)) => {
+            cli::label::LabelCommand::Delete(action) => {
                 dispatch_label_delete(context, &action, workspace)
             }
         },
-        Some(cli::RootCommand::Template(action)) => match action.command {
-            None => parent_help(context, "linear template"),
-            Some(cli::template::TemplateCommand::List(action)) => {
+        RootCommand::Template(action) => match action.command {
+            cli::template::TemplateCommand::List(action) => {
                 dispatch_template_list(context, &action, workspace)
             }
-            Some(cli::template::TemplateCommand::View(action)) => {
+            cli::template::TemplateCommand::View(action) => {
                 dispatch_template_view(context, &action, workspace)
             }
         },
-        Some(cli::RootCommand::Document(action)) => match action.command {
-            None => document_hint(context),
-            Some(cli::document::DocumentCommand::List(action)) => {
+        RootCommand::Document(action) => match action.command {
+            cli::document::DocumentCommand::List(action) => {
                 dispatch_document_list(context, &action, workspace)
             }
-            Some(cli::document::DocumentCommand::View(action)) => {
+            cli::document::DocumentCommand::View(action) => {
                 dispatch_document_view(context, &action, workspace)
             }
-            Some(cli::document::DocumentCommand::Create(action)) => {
+            cli::document::DocumentCommand::Create(action) => {
                 dispatch_document_create(context, &action, workspace)
             }
-            Some(cli::document::DocumentCommand::Update(action)) => {
+            cli::document::DocumentCommand::Update(action) => {
                 dispatch_document_update(context, &action, workspace)
             }
-            Some(cli::document::DocumentCommand::Delete(action)) => {
+            cli::document::DocumentCommand::Delete(action) => {
                 dispatch_document_delete(context, &action, workspace)
             }
-            Some(cli::document::DocumentCommand::Comment(action)) => match action.command {
-                None => parent_help(context, "linear document comment"),
-                Some(cli::document::DocumentCommentCommand::Add(action)) => {
+            cli::document::DocumentCommand::Comment(action) => match action.command {
+                cli::document::DocumentCommentCommand::Add(action) => {
                     dispatch_document_comment_add(context, &action, workspace)
                 }
-                Some(cli::document::DocumentCommentCommand::List(action)) => {
+                cli::document::DocumentCommentCommand::List(action) => {
                     dispatch_document_comment_list(context, &action, workspace)
                 }
             },
         },
-        Some(cli::RootCommand::Completions(action)) => match action.command {
-            None => parent_help(context, "linear completions"),
-            Some(cli::completions::CompletionsCommand::Bash(action)) => {
-                write_completion_script(context, CompletionShell::Bash, action.name.as_deref())
-            }
-            Some(cli::completions::CompletionsCommand::Fish(action)) => {
-                write_completion_script(context, CompletionShell::Fish, action.name.as_deref())
-            }
-            Some(cli::completions::CompletionsCommand::Zsh(action)) => {
-                write_completion_script(context, CompletionShell::Zsh, action.name.as_deref())
-            }
-            Some(cli::completions::CompletionsCommand::Complete(action)) => {
-                write_complete(context, &action)
-            }
-        },
-        Some(cli::RootCommand::Config(_)) => dispatch_config_generate(context, workspace),
-        Some(cli::RootCommand::Schema(action)) => {
-            schema_action(&action, cli.workspace.as_deref(), context)
+        RootCommand::Config(_) => dispatch_config_generate(context, workspace),
+        RootCommand::Schema(args) => commands::schema::run(ctx, &args),
+        RootCommand::Api(args) => commands::api::run(ctx, &args),
+        RootCommand::Completions(_) | RootCommand::Markdown(_) => {
+            unreachable!("handled before configuration loads")
         }
-        Some(cli::RootCommand::Api(action)) => {
-            api_action(&action, cli.workspace.as_deref(), context)
-        }
-        Some(cli::RootCommand::Markdown(_)) => markdown(context),
     }
 }
-fn parent_help(context: &mut AppContext<'_>, path: &str) -> Result<ExitStatus, AppError> {
-    let mut command = cli::command();
-    command.build();
-    let mut selected = &mut command;
-    for word in path.split_whitespace().skip(1) {
-        selected = selected.find_subcommand_mut(word).ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                format!("native command path missing: {path}"),
-            )
-        })?;
-    }
-    context.write_stdout_with_policy(
-        selected.render_long_help().to_string().as_bytes(),
-        OutputPolicy::ConsoleLike,
-    )?;
-    Ok(ExitStatus::Success)
-}
 
-fn document_hint(context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
-    write_stdout(context, b"Use --help to see available subcommands\n")?;
-    Ok(ExitStatus::Success)
-}
-
-fn markdown(context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
-    context.write_stdout_with_policy("Linear-flavored Markdown: mentions and collapsible sections\n\nThese rules apply to comment bodies, issue descriptions, document content,\nproject overviews, and status update bodies.\n\nMENTIONS\n\nA resource's plain Linear URL becomes a linked mention. A literal `@name`, an\n`@[Name](id)`, or a Markdown link such as `[Name](url)` does not — it stays\nplain text and notifies nobody. Put the bare URL in the body:\n\nhttps://linear.app/acme/profiles/someuser can you take a look?\n\nRESOLVING PEOPLE\n\nLook the person up in the relevant team first. The team can usually be\ninferred from the issue identifier or the current directory:\n\nlinear team members ENG --json\n\nPaste the selected member's `url` field verbatim. If the intended person is\nnot a member of that team, stop and confirm before searching the whole\nworkspace with `linear user list --json`; mentioning someone outside the team\nis likely accidental.\n\nTo mention an issue, use its URL the same way:\n\nlinear issue url ENG-123\n\nCOLLAPSIBLE SECTIONS\n\nOpen a section with `+++ [title]` and close it with `+++`:\n\n+++ [Server log]\n\nMarkdown content that is initially hidden.\n\n+++\n\nThe square brackets around the title and the closing `+++` are both required.\n".as_bytes(), OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
-}
-
-fn write_complete(
-    context: &mut AppContext<'_>,
-    action: &cli::completions::CompletionsComplete,
-) -> Result<ExitStatus, AppError> {
-    let output = completions::complete(action)?;
-    if !output.is_empty() {
-        context.write_stdout_with_policy(&output, OutputPolicy::Strict)?;
-    }
-    Ok(ExitStatus::Success)
-}
-
-fn missing_team_key() -> AppError {
-    AppError::new(
-        AppErrorKind::Validation,
-        "Could not determine team key from directory name",
-    )
-    .with_suggestion("Please specify a team key, name, or ID as an argument.")
+fn missing_team_key() -> Error {
+    Error::new("Could not determine team key from directory name")
+        .with_hint("Please specify a team key, name, or ID as an argument.")
 }
 
 fn dispatch_project_view(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::project::ProjectView,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
-    use crate::platform::{markdown_terminal::HostSource, pager, selector};
+) -> Result<()> {
+    use crate::platform::selector;
     use crate::refs::is_linear_uuid;
 
     let json = action.json;
@@ -705,24 +530,24 @@ fn dispatch_project_view(
         reference.to_owned()
     } else {
         if json {
-            return Err(AppError::new(AppErrorKind::Validation, "A project is required with --json")
-                .with_suggestion("Pass a project UUID, slug ID, or exact name, or drop --json to pick one from a list.")
-                .with_context(project_view::CONTEXT));
+            return Err(Error::new("A project is required with --json")
+                .with_hint("Pass a project UUID, slug ID, or exact name, or drop --json to pick one from a list.")
+                .context(project_view::CONTEXT));
         }
         let interactive = {
-            let config = context.config()?;
+            let config = context.config();
             selector::interactive_allowed(
-                context.stdin_tty,
-                context.stdout_tty,
+                context.stdin_tty(),
+                context.stdout_tty(),
                 config.ci.as_deref(),
             )
         };
         if !interactive {
-            return Err(AppError::new(AppErrorKind::Validation, "No project specified")
-                .with_suggestion("Pass a project UUID, slug ID, or exact name. Running `linear project view` with no argument picks from a list, but only on a terminal.")
-                .with_context(project_view::CONTEXT));
+            return Err(Error::new("No project specified")
+                .with_hint("Pass a project UUID, slug ID, or exact name. Running `linear project view` with no argument picks from a list, but only on a terminal.")
+                .context(project_view::CONTEXT));
         }
-        let config = context.config()?;
+        let config = context.config();
         let team_key = configured_team_key(&config.options);
         let transport = client::prepare_transport(
             &config.options,
@@ -730,12 +555,12 @@ fn dispatch_project_view(
             cli_workspace,
             &config.transport_env,
         )
-        .map_err(|error| error.with_context(project_view::CONTEXT))?;
+        .context(project_view::CONTEXT)?;
         let projects =
             block_on_network(project_view::fetch_picker(&transport, team_key.as_deref()))
-                .map_err(|error| error.with_context(project_view::CONTEXT))?;
+                .context(project_view::CONTEXT)?;
         let options = project_view::picker_options(&projects);
-        let ci = context.config()?.ci.clone();
+        let ci = context.config().ci.clone();
         let selection = selector::run(
             &options,
             &selector::PromptLabels {
@@ -744,18 +569,17 @@ fn dispatch_project_view(
                 max_rows: 10,
             },
             ci.as_deref(),
-            context.stdout,
+            &mut context.stdout(),
         )
-        .map_err(|error| error.with_context(project_view::CONTEXT))?;
+        .context(project_view::CONTEXT)?;
         match selection {
             selector::Selection::Selected(id) => id,
-            selector::Selection::Interrupted => return Ok(ExitStatus::HandledFailure),
+            selector::Selection::Interrupted => return Err(Error::reported()),
             selector::Selection::EndOfInput => {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "Project selection ended before a project was chosen",
-                )
-                .with_context(project_view::CONTEXT));
+                return Err(
+                    Error::new("Project selection ended before a project was chosen")
+                        .context(project_view::CONTEXT),
+                );
             }
         }
     };
@@ -765,17 +589,16 @@ fn dispatch_project_view(
         if explicit.is_some() && is_linear_uuid(&original) && (web || app) {
             (original.clone(), None)
         } else {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, cli_workspace)
-                .map_err(|error| error.with_context(project_view::CONTEXT))?;
+            let inputs = client::selection_inputs(&config.options, cli_workspace);
             let reference = if explicit.is_some() {
                 Some(
                     prepare_project_lookup(
                         &original,
                         &WorkspaceScope::from_selection(&inputs, credentials),
                     )
-                    .map_err(|error| error.with_context(project_view::CONTEXT))?,
+                    .context(project_view::CONTEXT)?,
                 )
             } else {
                 None
@@ -786,12 +609,12 @@ fn dispatch_project_view(
                 &inputs,
                 &config.transport_env,
             )
-            .map_err(|error| error.with_context(project_view::CONTEXT))?;
+            .context(project_view::CONTEXT)?;
             let id = match reference {
                 Some(reference) => block_on_network(resolve_project_with_transport(
                     &reference, &original, &transport,
                 ))
-                .map_err(|error| error.with_context(project_view::CONTEXT))?,
+                .context(project_view::CONTEXT)?,
                 None => original.clone(),
             };
             (id, Some(transport))
@@ -799,40 +622,28 @@ fn dispatch_project_view(
 
     if web || app {
         let workspace = context
-            .config()?
+            .config()
             .options
             .workspace()
             .map(|value| value.value().clone())
             .filter(|value| !value.is_empty());
         let Some(workspace) = workspace else {
-            context.write_stderr(
+            context.eprint(
                 b"workspace is not set via command line, configuration file, or environment.\n",
             )?;
-            return Ok(ExitStatus::HandledFailure);
+            return Err(Error::reported());
         };
         let url = format!("https://linear.app/{workspace}/project/{resolved_id}");
         let destination = if app { "Linear.app" } else { "web browser" };
-        context.write_stdout_with_policy(
-            format!("Opening {url} in {destination}\n").as_bytes(),
-            OutputPolicy::ConsoleLike,
-        )?;
-        project_list::open(&url, app).map_err(|mut error| {
-            error.context = None;
-            error.with_context(project_view::CONTEXT)
-        })?;
-        return Ok(ExitStatus::Success);
+        context.print(format!("Opening {url} in {destination}\n").as_bytes())?;
+        crate::platform::opener::open(&url, app).context(project_view::CONTEXT)?;
+        return Ok(());
     }
 
-    let transport = transport
-        .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "project transport missing"))?;
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let transport = transport.ok_or_else(|| Error::new("project transport missing"))?;
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = if show_spinner {
         block_on_network(async {
@@ -846,7 +657,7 @@ fn dispatch_project_view(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        context.print(spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -860,75 +671,47 @@ fn dispatch_project_view(
         ))
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let project = result.map_err(|error| error.with_context(project_view::CONTEXT))?;
+    let project = result.context(project_view::CONTEXT)?;
     if json {
-        let bytes = project_view::json(&project)
-            .map_err(|error| error.with_context(project_view::CONTEXT))?;
-        context.write_stdout_with_policy(&bytes, OutputPolicy::ConsoleLike)?;
-        return Ok(ExitStatus::Success);
+        let bytes = project_view::json(&project).context(project_view::CONTEXT)?;
+        context.print(&bytes)?;
+        return Ok(());
     }
     let markdown = project_view::markdown(&project, chrono::Utc::now(), &chrono::Local)
-        .map_err(|error| error.with_context(project_view::CONTEXT))?;
-    if !context.stdout_tty {
-        context.write_stdout_with_policy(
-            format!("{markdown}\n").as_bytes(),
-            OutputPolicy::ConsoleLike,
-        )?;
-        return Ok(ExitStatus::Success);
+        .context(project_view::CONTEXT)?;
+    if !context.stdout_tty() {
+        context.print(format!("{markdown}\n").as_bytes())?;
+        return Ok(());
     }
-    let config = context.config()?;
-    let pager_value = config.pager.clone();
-    let no_color = context.startup.settings.no_color;
-    let hyperlink_format = config
-        .options
-        .hyperlink_format()
-        .map(|value| value.value().clone());
-    let mut runner = pager::ProcessPagerRunner::inheriting(config.child_env.iter());
-    let request = pager::PagerRequest {
-        enabled: pager_enabled,
-        stdout_tty: context.stdout_tty,
-        size: pager::stdout_size(),
-        pager: pager_value.as_deref(),
-        os: pager::HOST_OS,
-    };
-    pager::render_and_show(
-        &markdown,
-        &request,
-        no_color,
-        hyperlink_format.as_deref(),
-        HostSource::System,
-        &mut runner,
-        context.stdout,
-    )
-    .map_err(|error| error.with_context(project_view::CONTEXT))?;
-    Ok(ExitStatus::Success)
+    let rendered = context
+        .render_markdown(&markdown)
+        .context(project_view::CONTEXT)?;
+    context
+        .page(&rendered, pager_enabled)
+        .context(project_view::CONTEXT)?;
+    Ok(())
 }
 
 fn dispatch_milestone_view(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::milestone::MilestoneView,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let all = action.all;
     let original = action.milestone.clone();
     let project = action.project.clone();
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let reference = project
             .as_deref()
             .map(|value| {
@@ -946,15 +729,15 @@ fn dispatch_milestone_view(
             &inputs,
             &config.transport_env,
         )?;
-        Ok::<_, AppError>((reference, transport))
+        Ok::<_, Error>((reference, transport))
     })();
     let (reference, transport) = match prepared {
         Ok(value) => value,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
-            return Err(error.with_context(milestone_view::CONTEXT));
+            return Err(error.context(milestone_view::CONTEXT));
         }
     };
     let fetch = async {
@@ -967,10 +750,7 @@ fn dispatch_milestone_view(
             }
             (None, None) => original.clone(),
             _ => {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
-                    "project reference mismatch",
-                ));
+                return Err(Error::new("project reference mismatch"));
             }
         };
         milestone_view::fetch(&transport, &original, &request_id, all).await
@@ -986,7 +766,7 @@ fn dispatch_milestone_view(
                     biased;
                     result = &mut fetch => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        context.print(spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -996,16 +776,15 @@ fn dispatch_milestone_view(
         block_on_network(fetch)
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let milestone = result.map_err(|error| error.with_context(milestone_view::CONTEXT))?;
+    let milestone = result.context(milestone_view::CONTEXT)?;
     let output = if json {
-        milestone_view::json(&milestone)
-            .map_err(|error| error.with_context(milestone_view::CONTEXT))?
+        milestone_view::json(&milestone).context(milestone_view::CONTEXT)?
     } else {
         let markdown =
             milestone_view::markdown(&milestone, all, chrono::Utc::now(), &chrono::Local);
-        let rendered = if context.stdout_tty {
+        let rendered = if context.stdout_tty() {
             use std::num::NonZeroU16;
             let columns = u16::try_from(table::stdout_columns(true))
                 .ok()
@@ -1013,44 +792,38 @@ fn dispatch_milestone_view(
                 .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
             let options = crate::platform::markdown_terminal::RenderOptions::for_terminal(
                 columns,
-                context.startup.settings.no_color,
-                true,
+                context.color(),
                 None,
                 crate::platform::markdown_terminal::HostSource::System,
             );
             crate::platform::markdown_terminal::render(&markdown, &options)
-                .map_err(|error| error.with_context(milestone_view::CONTEXT))?
+                .context(milestone_view::CONTEXT)?
         } else {
             markdown
         };
         format!("{rendered}\n").into_bytes()
     };
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_project_update_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::project_update::ProjectUpdateList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let first = project_update_list::graphql_int(action.limit)?;
     let original = action.project_id.clone();
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let reference = prepare_project_lookup(
             &original,
             &WorkspaceScope::from_selection(&inputs, credentials),
@@ -1061,32 +834,32 @@ fn dispatch_project_update_list(
             &inputs,
             &config.transport_env,
         )?;
-        let columns = table::stdout_columns(context.stdout_tty);
-        let color = project_update_list::output_color(context.stdout_tty, context.no_color());
+        let columns = table::stdout_columns(context.stdout_tty());
+        let color = project_update_list::output_color(context.stdout_tty(), !context.color());
         block_on_network(async {
             let id = resolve_project_with_transport(&reference, &original, &transport).await?;
             project_update_list::run(&transport, &original, &id, first, json, columns, color).await
         })
     })();
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = result.map_err(|error| {
-        if error.context.is_some() {
+        if error.has_context() {
             error
         } else {
-            error.with_context(project_update_list::CONTEXT)
+            error.context(project_update_list::CONTEXT)
         }
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_initiative_create(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::initiative::InitiativeCreate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let mut options = initiative_create::Options {
         name: action.name.clone(),
         description: action.description.clone(),
@@ -1097,24 +870,20 @@ fn dispatch_initiative_create(
         icon: action.icon.clone(),
         interactive: action.interactive,
     };
-    let config = context.config()?;
+    let config = context.config();
     let credentials = context.credentials()?;
     let cli_workspace = workspace;
-    let inputs = client::selection_inputs(&config.options, cli_workspace)
-        .map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
+    let inputs = client::selection_inputs(&config.options, cli_workspace);
     let transport = client::prepare_transport_with_inputs(
         &config.options,
         credentials,
         &inputs,
         &config.transport_env,
     )
-    .map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
-    if initiative_create::should_prompt(&options, context.stdout_tty) {
-        context.write_stdout_with_policy(
-            b"\nCreate a new initiative\n\n",
-            OutputPolicy::ConsoleLike,
-        )?;
-        let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+    .context(initiative_create::CREATE_CONTEXT)?;
+    if initiative_create::should_prompt(&options, context.stdout_tty()) {
+        context.print(b"\nCreate a new initiative\n\n")?;
+        let mut session = crate::platform::prompt::PromptSession::stdio(context.stdout())?;
         let prompted = initiative_create::prompt(&mut options, &mut session);
         let result = match prompted {
             Ok(outcome) => {
@@ -1125,10 +894,7 @@ fn dispatch_initiative_create(
                 return Err(match session.close() {
                     Ok(()) => error,
                     Err(mut cleanup) => {
-                        cleanup.message.push_str(&format!(
-                            "; prompt also failed: {}",
-                            error.display_message()
-                        ));
+                        cleanup.push_message(&format!("; prompt also failed: {}", error));
                         cleanup
                     }
                 });
@@ -1137,17 +903,10 @@ fn dispatch_initiative_create(
         match result {
             initiative_create::PromptResult::Complete => {}
             initiative_create::PromptResult::Interrupted => {
-                return Ok(ExitStatus::ChildCode(
-                    std::num::NonZeroU8::new(130).ok_or_else(|| {
-                        AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
-                    })?,
-                ));
+                return Err(Error::cancelled());
             }
             initiative_create::PromptResult::EndOfInput => {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "unexpected EOF while prompting for initiative",
-                ));
+                return Err(Error::new("unexpected EOF while prompting for initiative"));
             }
         }
     }
@@ -1156,49 +915,39 @@ fn dispatch_initiative_create(
         &transport,
         options.owner.as_deref(),
     ))
-    .map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    .context(initiative_create::CREATE_CONTEXT)?;
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = block_on_network(initiative_create::submit_create(
         &transport, options, status, owner_id,
     ));
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let result = result.map_err(|error| error.with_context(initiative_create::CREATE_CONTEXT))?;
-    context.write_stdout_with_policy(&result, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    let result = result.context(initiative_create::CREATE_CONTEXT)?;
+    context.print(&result)?;
+    Ok(())
 }
 
 fn dispatch_initiative_update_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::initiative_update::InitiativeUpdateList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let first = initiative_update_list::graphql_int(action.limit)?;
     let original = &action.initiative_id;
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let reference = initiative_view::prepare_reference(
             original,
             &WorkspaceScope::from_selection(&inputs, credentials),
@@ -1209,46 +958,43 @@ fn dispatch_initiative_update_list(
             &inputs,
             &config.transport_env,
         )?;
-        let columns = table::stdout_columns(context.stdout_tty);
-        let color = context.stdout_tty && !context.no_color();
+        let columns = table::stdout_columns(context.stdout_tty());
+        let color = context.stdout_tty() && context.color();
         block_on_network(async {
             let id = initiative_view::resolve_reference(&transport, &reference, original)
                 .await
-                .map_err(|mut error| {
-                    error.context = Some(initiative_update_list::CONTEXT.to_owned());
-                    error
-                })?;
+                .context(initiative_update_list::CONTEXT)?;
             initiative_update_list::run(&transport, original, &id, first, json, columns, color)
                 .await
         })
     })();
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = result.map_err(|error| {
-        if error.context.is_some() {
+        if error.has_context() {
             error
         } else {
-            error.with_context(initiative_update_list::CONTEXT)
+            error.context(initiative_update_list::CONTEXT)
         }
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_initiative_projects(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     initiative_arg: &str,
     project_arg: &str,
     sort_order: Option<f64>,
     force: bool,
     mode: initiative_projects::Mode,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::platform::prompt::{PromptOutcome, PromptSession};
-    let config = context.config()?;
+    let config = context.config();
     let credentials = context.credentials()?;
-    let inputs = client::selection_inputs(&config.options, workspace)?;
+    let inputs = client::selection_inputs(&config.options, workspace);
     let transport = client::prepare_transport_with_inputs(
         &config.options,
         credentials,
@@ -1277,25 +1023,23 @@ fn dispatch_initiative_projects(
                 &project,
             ))?;
             if link.is_none() {
-                context.write_stdout_with_policy(
+                context.print(
                     format!(
                         "Project \"{}\" is not linked to initiative \"{}\"\n",
                         project.name, initiative.name
                     )
                     .as_bytes(),
-                    OutputPolicy::ConsoleLike,
                 )?;
-                return Ok(ExitStatus::Success);
+                return Ok(());
             }
             if !force {
-                if !context.stdin_tty {
-                    return Err(AppError::new(
-                        AppErrorKind::Validation,
+                if !context.stdin_tty() {
+                    return Err(Error::new(
                         "Interactive confirmation required. Use --force to skip.",
                     ));
                 }
                 let outcome = {
-                    let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+                    let mut session = PromptSession::confirmation_stdio(context.stdout())?;
                     let result = session.confirm(
                         &format!(
                             "Remove \"{}\" from initiative \"{}\"?",
@@ -1308,25 +1052,14 @@ fn dispatch_initiative_projects(
                 match outcome {
                     PromptOutcome::Submitted(true) => {}
                     PromptOutcome::Submitted(false) => {
-                        context.write_stdout_with_policy(
-                            b"Removal cancelled.\n",
-                            OutputPolicy::ConsoleLike,
-                        )?;
-                        return Ok(ExitStatus::Success);
+                        context.print(b"Removal cancelled.\n")?;
+                        return Ok(());
                     }
                     PromptOutcome::Interrupted => {
-                        return Ok(ExitStatus::ChildCode(
-                            std::num::NonZeroU8::new(130).ok_or_else(|| {
-                                AppError::new(
-                                    AppErrorKind::Invariant,
-                                    "exit code 130 must be nonzero",
-                                )
-                            })?,
-                        ));
+                        return Err(Error::cancelled());
                     }
                     PromptOutcome::EndOfInput => {
-                        return Err(AppError::new(
-                            AppErrorKind::Validation,
+                        return Err(Error::new(
                             "unexpected EOF while prompting for confirmation",
                         ));
                     }
@@ -1335,14 +1068,9 @@ fn dispatch_initiative_projects(
             link
         }
     };
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = match mode {
         initiative_projects::Mode::Add => block_on_network(initiative_projects::add(
@@ -1352,12 +1080,7 @@ fn dispatch_initiative_projects(
             sort_order,
         )),
         initiative_projects::Mode::Remove => {
-            let link_id = link.ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "confirmed removal requires a link ID",
-                )
-            })?;
+            let link_id = link.ok_or_else(|| Error::new("confirmed removal requires a link ID"))?;
             block_on_network(initiative_projects::remove(
                 &transport,
                 &link_id,
@@ -1367,35 +1090,34 @@ fn dispatch_initiative_projects(
         }
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    context.write_stdout_with_policy(&result?, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&result?)?;
+    Ok(())
 }
 
 fn dispatch_initiative_unarchive(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::initiative::InitiativeUnarchive,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::platform::prompt::{PromptOutcome, PromptSession};
     let original = &action.initiative_id;
-    let config = context.config()?;
+    let config = context.config();
     let credentials = context.credentials()?;
-    let inputs = client::selection_inputs(&config.options, workspace)
-        .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    let inputs = client::selection_inputs(&config.options, workspace);
     let transport = client::prepare_transport_with_inputs(
         &config.options,
         credentials,
         &inputs,
         &config.transport_env,
     )
-    .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    .context(initiative_view::RESOLVE_CONTEXT)?;
     let reference = initiative_view::prepare_reference(
         original,
         &WorkspaceScope::from_selection(&inputs, credentials),
     )
-    .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    .context(initiative_view::RESOLVE_CONTEXT)?;
     let id = block_on_network(initiative_unarchive::resolve_reference(
         &transport, &reference, original,
     ))?;
@@ -1403,18 +1125,17 @@ fn dispatch_initiative_unarchive(
         &transport, &id, original,
     ))?;
     if let Some(output) = initiative_unarchive::active_output(&detail) {
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        return Ok(ExitStatus::Success);
+        context.print(&output)?;
+        return Ok(());
     }
     if !action.force {
-        if !context.stdin_tty {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
+        if !context.stdin_tty() {
+            return Err(Error::new(
                 "Interactive confirmation required. Use --force to skip.",
             ));
         }
         let outcome = {
-            let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+            let mut session = PromptSession::confirmation_stdio(context.stdout())?;
             let result = session.confirm(
                 &format!("Are you sure you want to unarchive \"{}\"?", detail.name),
                 true,
@@ -1424,124 +1145,96 @@ fn dispatch_initiative_unarchive(
         match outcome {
             PromptOutcome::Submitted(true) => {}
             PromptOutcome::Submitted(false) => {
-                context.write_stdout_with_policy(
-                    b"Unarchive cancelled.\n",
-                    OutputPolicy::ConsoleLike,
-                )?;
-                return Ok(ExitStatus::Success);
+                context.print(b"Unarchive cancelled.\n")?;
+                return Ok(());
             }
             PromptOutcome::Interrupted => {
-                return Ok(ExitStatus::ChildCode(
-                    std::num::NonZeroU8::new(130).ok_or_else(|| {
-                        AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
-                    })?,
-                ));
+                return Err(Error::cancelled());
             }
             PromptOutcome::EndOfInput => {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
+                return Err(Error::new(
                     "unexpected EOF while prompting for confirmation",
                 ));
             }
         }
     }
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = block_on_network(initiative_unarchive::submit(&transport, &id));
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = result?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_initiative_view(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::initiative::InitiativeView,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let original = &action.initiative_id;
     let app = action.app;
     let web = action.web;
     let json = action.json;
-    let config = context.config()?;
+    let config = context.config();
     let credentials = context.credentials()?;
     let cli_workspace = workspace;
-    let inputs = client::selection_inputs(&config.options, cli_workspace)
-        .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    let inputs = client::selection_inputs(&config.options, cli_workspace);
     let transport = client::prepare_transport_with_inputs(
         &config.options,
         credentials,
         &inputs,
         &config.transport_env,
     )
-    .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+    .context(initiative_view::RESOLVE_CONTEXT)?;
     let scope = WorkspaceScope::from_selection(&inputs, credentials);
     let reference = initiative_view::prepare_reference(original, &scope)
-        .map_err(|error| error.with_context(initiative_view::RESOLVE_CONTEXT))?;
+        .context(initiative_view::RESOLVE_CONTEXT)?;
     let id = block_on_network(initiative_view::resolve_reference(
         &transport, &reference, original,
     ))?;
-    let show_spinner = !(app || web)
-        && spinner::enabled(
-            json,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
+    let show_spinner = !(app || web) && spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = block_on_network(initiative_view::fetch_details(&transport, id, original));
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let detail = result?;
     if app || web {
         if detail.url.is_empty() {
-            return Err(AppError::not_found("Initiative", original)
-                .with_context(initiative_view::FETCH_CONTEXT));
+            return Err(
+                Error::not_found("Initiative", original).context(initiative_view::FETCH_CONTEXT)
+            );
         }
-        context.write_stdout_with_policy(
-            &initiative_view::opening(&detail, app),
-            OutputPolicy::ConsoleLike,
-        )?;
-        crate::platform::opener::open(&detail.url, app)
-            .map_err(|error| error.with_context(initiative_view::OPEN_CONTEXT))?;
-        return Ok(ExitStatus::Success);
+        context.print(initiative_view::opening(&detail, app))?;
+        crate::platform::opener::open(&detail.url, app).context(initiative_view::OPEN_CONTEXT)?;
+        return Ok(());
     }
     let output = if json {
         initiative_view::render_json(&detail)
     } else {
         let columns = std::num::NonZeroU16::new(
-            u16::try_from(table::stdout_columns(context.stdout_tty)).unwrap_or(80),
+            u16::try_from(table::stdout_columns(context.stdout_tty())).unwrap_or(80),
         )
         .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
-        initiative_view::render_text(
-            &detail,
-            context.stdout_tty,
-            columns,
-            context.startup.settings.no_color,
-        )
+        initiative_view::render_text(&detail, context.stdout_tty(), columns, context.color())
     }
-    .map_err(|error| error.with_context(initiative_view::FETCH_CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    .context(initiative_view::FETCH_CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_initiative_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::initiative::InitiativeList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let options = initiative_list::Options {
         status: action.status.clone(),
         all_statuses: action.all_statuses,
@@ -1553,7 +1246,7 @@ fn dispatch_initiative_list(
     };
     let cli_workspace = workspace;
     if options.web || options.app {
-        let config = context.config()?;
+        let config = context.config();
         let workspace = match config
             .options
             .workspace()
@@ -1564,40 +1257,34 @@ fn dispatch_initiative_list(
             None => {
                 let credentials = context
                     .credentials()
-                    .map_err(|error| error.with_context(initiative_list::OPEN_CONTEXT))?;
-                let inputs = client::selection_inputs(&config.options, cli_workspace)
-                    .map_err(|error| error.with_context(initiative_list::OPEN_CONTEXT))?;
+                    .context(initiative_list::OPEN_CONTEXT)?;
+                let inputs = client::selection_inputs(&config.options, cli_workspace);
                 let transport = client::prepare_transport_with_inputs(
                     &config.options,
                     credentials,
                     &inputs,
                     &config.transport_env,
                 )
-                .map_err(|error| error.with_context(initiative_list::OPEN_CONTEXT))?;
+                .context(initiative_list::OPEN_CONTEXT)?;
                 block_on_network(initiative_list::viewer_workspace(&transport))
-                    .map_err(|error| error.with_context(initiative_list::OPEN_CONTEXT))?
+                    .context(initiative_list::OPEN_CONTEXT)?
             }
         };
         let (url, opening) = initiative_list::opening(&workspace, options.app);
-        context.write_stdout_with_policy(&opening, OutputPolicy::ConsoleLike)?;
+        context.print(&opening)?;
         initiative_list::open(&url, options.app)?;
-        return Ok(ExitStatus::Success);
+        return Ok(());
     }
 
-    let show_spinner = spinner::enabled(
-        options.json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(options.json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = (|| {
         let status =
             initiative_list::status_filter(options.status.as_deref(), options.all_statuses)?;
         initiative_list::validate_owner(options.owner.as_deref())?;
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
         let transport = client::prepare_transport(
             &config.options,
@@ -1611,76 +1298,70 @@ fn dispatch_initiative_list(
             options.owner.as_deref(),
             options.archived,
             options.json,
-            table::stdout_columns(context.stdout_tty),
-            context.stdout_tty && !context.no_color(),
+            table::stdout_columns(context.stdout_tty()),
+            context.stdout_tty() && context.color(),
         ))
     })();
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let output = result.map_err(|error| error.with_context(initiative_list::FETCH_CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    let output = result.context(initiative_list::FETCH_CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_project_comment_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::project::ProjectCommentList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let original = &action.project;
-    let config = context.config()?;
+    let config = context.config();
     let credentials = context.credentials()?;
 
-    let inputs = client::selection_inputs(&config.options, workspace)
-        .map_err(|error| error.with_context(project_comment_list::CONTEXT))?;
+    let inputs = client::selection_inputs(&config.options, workspace);
     let reference = prepare_project_lookup(
         original,
         &WorkspaceScope::from_selection(&inputs, credentials),
     )
-    .map_err(|error| error.with_context(project_comment_list::CONTEXT))?;
+    .context(project_comment_list::CONTEXT)?;
     let transport = client::prepare_transport_with_inputs(
         &config.options,
         credentials,
         &inputs,
         &config.transport_env,
     )
-    .map_err(|error| error.with_context(project_comment_list::CONTEXT))?;
-    let color = !context.no_color();
+    .context(project_comment_list::CONTEXT)?;
+    let color = context.color();
     let output = block_on_network(async {
         let id = resolve_project_with_transport(&reference, original, &transport)
             .await
-            .map_err(|error| error.with_context(project_comment_list::CONTEXT))?;
+            .context(project_comment_list::CONTEXT)?;
         project_comment_list::run(&transport, original, &id, json, color).await
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_milestone_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::milestone::MilestoneList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let original = action.project.clone();
     // The spinner starts before config, credential and URL preparation and
     // stops before any error is reported.
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let reference = prepare_project_lookup(
             &original,
             &WorkspaceScope::from_selection(&inputs, credentials),
@@ -1691,25 +1372,25 @@ fn dispatch_milestone_list(
             &inputs,
             &config.transport_env,
         )?;
-        Ok::<_, AppError>((reference, transport))
+        Ok::<_, Error>((reference, transport))
     })();
     let (reference, transport) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
-            return Err(error.with_context(milestone_list::CONTEXT));
+            return Err(error.context(milestone_list::CONTEXT));
         }
     };
-    let columns = table::stdout_columns(context.stdout_tty);
-    let color = context.stdout_tty && !context.no_color();
+    let columns = table::stdout_columns(context.stdout_tty());
+    let color = context.stdout_tty() && context.color();
     // Resolver errors gain the context here; `milestone_list::run` already
     // applies it to every page, cursor and rendering error.
     let fetch = async {
         let project_id = resolve_project_with_transport(&reference, &original, &transport)
             .await
-            .map_err(|error| error.with_context(milestone_list::CONTEXT))?;
+            .context(milestone_list::CONTEXT)?;
         milestone_list::run(&transport, &original, &project_id, json, columns, color).await
     };
     let output_result = if show_spinner {
@@ -1723,10 +1404,8 @@ fn dispatch_milestone_list(
                     biased;
                     result = &mut fetch => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -1736,18 +1415,18 @@ fn dispatch_milestone_list(
         block_on_network(fetch)
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = output_result?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_milestone_create(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::milestone::MilestoneCreate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let original = action.project.clone();
     let options = milestone_create::Options {
         name: action.name.clone(),
@@ -1756,20 +1435,15 @@ fn dispatch_milestone_create(
     };
     // The spinner starts before config, credential and URL preparation and
     // stops before any error is reported.
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let reference = prepare_project_lookup(
             &original,
             &WorkspaceScope::from_selection(&inputs, credentials),
@@ -1780,15 +1454,15 @@ fn dispatch_milestone_create(
             &inputs,
             &config.transport_env,
         )?;
-        Ok::<_, AppError>((reference, transport))
+        Ok::<_, Error>((reference, transport))
     })();
     let (reference, transport) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
-            return Err(error.with_context(milestone_create::CONTEXT));
+            return Err(error.context(milestone_create::CONTEXT));
         }
     };
     let create = async {
@@ -1806,10 +1480,8 @@ fn dispatch_milestone_create(
                     biased;
                     result = &mut create => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -1819,21 +1491,20 @@ fn dispatch_milestone_create(
         block_on_network(create)
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let output = result.map_err(|error| error.with_context(milestone_create::CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    let output = result.context(milestone_create::CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_milestone_update(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::milestone::MilestoneUpdate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let id = &action.id;
-    crate::refs::reject_linear_url(id, "a milestone UUID")
-        .map_err(|error| error.with_context(milestone_update::CONTEXT))?;
+    crate::refs::reject_linear_url(id, "a milestone UUID").context(milestone_update::CONTEXT)?;
     let sort_order = action.sort_order;
     let mut options = milestone_update::Options {
         name: action.name.clone(),
@@ -1844,20 +1515,15 @@ fn dispatch_milestone_update(
     };
     // Checked before the spinner, config or client.
     options.require_update()?;
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         // The client is built first so missing credentials are reported before a bad project.
         let transport = client::prepare_transport_with_inputs(
             &config.options,
@@ -1876,25 +1542,23 @@ fn dispatch_milestone_update(
                 )
             })
             .transpose()?;
-        Ok::<_, AppError>((reference, transport))
+        Ok::<_, Error>((reference, transport))
     })();
     let (reference, transport) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
-            return Err(error.with_context(milestone_update::CONTEXT));
+            return Err(error.context(milestone_update::CONTEXT));
         }
     };
     let update = async {
         if let Some(reference) = reference {
-            let original = options.project_id.as_ref().ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "prepared project has no original reference",
-                )
-            })?;
+            let original = options
+                .project_id
+                .as_ref()
+                .ok_or_else(|| Error::new("prepared project has no original reference"))?;
             options.project_id =
                 Some(resolve_project_with_transport(&reference, original, &transport).await?);
         }
@@ -1911,10 +1575,8 @@ fn dispatch_milestone_update(
                     biased;
                     result = &mut update => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -1924,63 +1586,33 @@ fn dispatch_milestone_update(
         block_on_network(update)
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let output = result.map_err(|error| error.with_context(milestone_update::CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    let output = result.context(milestone_update::CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 /// None means the user confirmed; every other result is a completed command.
-fn confirm_deletion(
-    context: &mut AppContext<'_>,
-    force: bool,
-    message: &str,
-) -> Result<Option<ExitStatus>, AppError> {
-    use crate::platform::prompt::{PromptOutcome, PromptSession};
-    if force {
-        return Ok(None);
+/// Whether a deletion should go ahead: `--force`, or a yes at the prompt.
+fn confirm_deletion(context: &Ctx, force: bool, message: &str) -> Result<bool> {
+    if force || context.confirm(message, "--force")? {
+        return Ok(true);
     }
-    if !context.stdin_tty {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Interactive confirmation required",
-        )
-        .with_suggestion("Use --force to skip confirmation."));
-    }
-    let outcome = {
-        let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
-        let result = session.confirm(message, false);
-        session.finish_result(result)?
-    };
-    match outcome {
-        PromptOutcome::Submitted(true) => Ok(None),
-        PromptOutcome::Submitted(false) => {
-            context.write_stdout_with_policy(b"Deletion canceled\n", OutputPolicy::ConsoleLike)?;
-            Ok(Some(ExitStatus::Success))
-        }
-        PromptOutcome::Interrupted => Ok(Some(ExitStatus::ChildCode(
-            std::num::NonZeroU8::new(130).ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
-            })?,
-        ))),
-        PromptOutcome::EndOfInput => Err(AppError::new(
-            AppErrorKind::Validation,
-            "unexpected EOF while prompting for confirmation",
-        )),
-    }
+    context.print("Deletion canceled\n")?;
+    Ok(false)
 }
 
 fn dispatch_label_delete(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::label::LabelDelete,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::platform::prompt::{PromptOutcome, PromptSession};
     let result = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         // The client is built first so missing credentials are reported before a bad team.
         let transport = client::prepare_transport_with_inputs(
             &config.options,
@@ -2006,40 +1638,30 @@ fn dispatch_label_delete(
             [] => return Err(label_delete::missing(&action.name_or_id, team.as_deref())),
             [label] => label.clone(),
             _ => {
-                if !context.stdin_tty {
-                    return Err(AppError::new(
-                        AppErrorKind::Validation,
-                        format!("Multiple labels named \"{}\" found", action.name_or_id),
-                    )
-                    .with_suggestion("Use --team to disambiguate."));
+                if !context.stdin_tty() {
+                    return Err(Error::new(format!(
+                        "Multiple labels named \"{}\" found",
+                        action.name_or_id
+                    ))
+                    .with_hint("Use --team to disambiguate."));
                 }
                 let outcome = {
-                    let mut session = PromptSession::stdin_stdio(&mut *context.stdout)?;
+                    let mut session = PromptSession::stdin_stdio(context.stdout())?;
                     let result = label_delete::choose(&mut session, &action.name_or_id, &labels);
                     session.finish_result(result)?
                 };
                 match outcome {
                     PromptOutcome::Submitted(label) => label,
                     PromptOutcome::Interrupted => {
-                        return Ok(ExitStatus::ChildCode(
-                            std::num::NonZeroU8::new(130).ok_or_else(|| {
-                                AppError::new(
-                                    AppErrorKind::Invariant,
-                                    "exit code 130 must be nonzero",
-                                )
-                            })?,
-                        ));
+                        return Err(Error::cancelled());
                     }
                     PromptOutcome::EndOfInput => {
-                        return Err(AppError::new(
-                            AppErrorKind::Validation,
-                            "unexpected EOF while selecting a label",
-                        ));
+                        return Err(Error::new("unexpected EOF while selecting a label"));
                     }
                 }
             }
         };
-        if let Some(status) = confirm_deletion(
+        if !confirm_deletion(
             context,
             action.force,
             &format!(
@@ -2047,18 +1669,11 @@ fn dispatch_label_delete(
                 label_delete::display(&label)
             ),
         )? {
-            return Ok(status);
+            return Ok(());
         }
-        let show_spinner = spinner::enabled(
-            false,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
+        let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
         if show_spinner {
-            context.write_stdout_with_policy(
-                spinner::frame(0).as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
+            context.print(spinner::frame(0).as_bytes())?;
         }
         let result = block_on_network(async {
             let pending = label_delete::submit(&transport, &label);
@@ -2074,47 +1689,42 @@ fn dispatch_label_delete(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        context.print(spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
             }
         });
         if show_spinner {
-            context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            context.print(spinner::CLEAR)?;
         }
-        context.write_stdout_with_policy(&result?, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&result?)?;
+        Ok(())
     })();
-    result.map_err(|error| error.with_context(label_delete::CONTEXT))
+    result.context(label_delete::CONTEXT)
 }
 
 fn dispatch_project_delete(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::project::ProjectDelete,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let original = &action.project_id;
-    if let Some(status) = confirm_deletion(
+    if !confirm_deletion(
         context,
         action.force,
         &format!("Are you sure you want to delete project {original}?"),
     )? {
-        return Ok(status);
+        return Ok(());
     }
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         // The client is built first so missing credentials are reported before a bad URL.
         let transport = client::prepare_transport_with_inputs(
             &config.options,
@@ -2132,41 +1742,35 @@ fn dispatch_project_delete(
         })
     })();
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let output = result.map_err(|error| error.with_context(project_delete::CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    let output = result.context(project_delete::CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_milestone_delete(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::milestone::MilestoneDelete,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let id = &action.id;
-    crate::refs::reject_linear_url(id, "a milestone UUID")
-        .map_err(|error| error.with_context(milestone_delete::CONTEXT))?;
-    if let Some(status) = confirm_deletion(
+    crate::refs::reject_linear_url(id, "a milestone UUID").context(milestone_delete::CONTEXT)?;
+    if !confirm_deletion(
         context,
         action.force,
         &format!("Are you sure you want to delete milestone {id}?"),
     )? {
-        return Ok(status);
+        return Ok(());
     }
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let transport = client::prepare_transport_with_inputs(
             &config.options,
             credentials,
@@ -2176,27 +1780,27 @@ fn dispatch_milestone_delete(
         block_on_network(milestone_delete::submit(&transport, id))
     })();
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let output = result.map_err(|error| error.with_context(milestone_delete::CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    let output = result.context(milestone_delete::CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 /// These leaves have distinct unresolved diagnostics, while sharing the
 /// maintained reference and real VCS inference implementation.
 fn resolve_relation_reference(
-    context: &AppContext<'_>,
+    context: &Ctx,
     input: Option<&str>,
     workspace: Option<&str>,
-    unresolved: impl FnOnce() -> AppError,
-) -> Result<String, AppError> {
+    unresolved: impl FnOnce() -> Error,
+) -> Result<String, Error> {
     let reference = match input {
         None => crate::refs::IssueReference::Inferred,
         Some(_) => {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             let team = configured_team_key(&config.options);
             crate::refs::prepare_issue_reference(
                 input,
@@ -2214,10 +1818,10 @@ fn resolve_relation_reference(
 }
 
 fn relation_transport(
-    context: &AppContext<'_>,
+    context: &Ctx,
     workspace: Option<&str>,
-) -> Result<crate::graphql::transport::GraphQlTransport, AppError> {
-    let config = context.config()?;
+) -> Result<crate::graphql::transport::GraphQlTransport, Error> {
+    let config = context.config();
     client::prepare_transport(
         &config.options,
         context.credentials()?,
@@ -2229,18 +1833,14 @@ fn relation_transport(
 /// Relation commands use a spinner; URL links do not. Clear it on every network
 /// result before displaying the result or returning its contextual error.
 fn relation_network(
-    context: &mut AppContext<'_>,
-    pending: impl std::future::Future<Output = Result<Vec<u8>, AppError>>,
-) -> Result<Vec<u8>, AppError> {
-    let enabled = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    context: &Ctx,
+    pending: impl std::future::Future<Output = Result<Vec<u8>, Error>>,
+) -> Result<Vec<u8>, Error> {
+    let enabled = spinner::enabled(false, context.stdout_tty(), true);
     if !enabled {
         return block_on_network(pending);
     }
-    context.write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    context.print(spinner::frame(0).as_bytes())?;
     let result = block_on_network(async {
         tokio::pin!(pending);
         let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
@@ -2251,21 +1851,21 @@ fn relation_network(
                 biased;
                 result = &mut pending => break result,
                 _ = ticks.tick() => {
-                    context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                    context.print(spinner::frame(frame).as_bytes())?;
                     frame = frame.wrapping_add(1);
                 }
             }
         }
     });
-    context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    context.print(spinner::CLEAR)?;
     result
 }
 
 fn dispatch_issue_relation_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueRelationList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::issue_relations;
     let output = (|| {
         let identifier =
@@ -2275,23 +1875,20 @@ fn dispatch_issue_relation_list(
         let transport = relation_transport(context, workspace)?;
         relation_network(context, issue_relations::list(&transport, &identifier))
     })()
-    .map_err(|error| error.with_context(issue_relations::LIST_CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    .context(issue_relations::LIST_CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn prepare_relation_pair(
-    context: &AppContext<'_>,
+    context: &Ctx,
     a: &str,
     b: &str,
     workspace: Option<&str>,
-) -> Result<(String, String), AppError> {
+) -> Result<(String, String), Error> {
     let resolve = |input| {
         resolve_relation_reference(context, Some(input), workspace, || {
-            AppError::new(
-                AppErrorKind::Validation,
-                format!("Could not resolve issue identifier: {input}"),
-            )
+            Error::new(format!("Could not resolve issue identifier: {input}"))
         })
     };
     // Validate both references before creating the transport or looking up A.
@@ -2300,10 +1897,10 @@ fn prepare_relation_pair(
     Ok((a, b))
 }
 fn dispatch_issue_relation_add(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueRelationAdd,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::issue_relations;
     let output = (|| {
         let (a, b) = prepare_relation_pair(
@@ -2318,15 +1915,15 @@ fn dispatch_issue_relation_add(
             issue_relations::add(&transport, action.relation_type, &a, &b),
         )
     })()
-    .map_err(|error| error.with_context(issue_relations::ADD_CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    .context(issue_relations::ADD_CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 fn dispatch_issue_relation_delete(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueRelationDelete,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::issue_relations;
     let output = (|| {
         let (a, b) = prepare_relation_pair(
@@ -2341,68 +1938,68 @@ fn dispatch_issue_relation_delete(
             issue_relations::delete(&transport, action.relation_type, &a, &b),
         )
     })()
-    .map_err(|error| error.with_context(issue_relations::DELETE_CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    .context(issue_relations::DELETE_CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 fn dispatch_issue_link(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueLink,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::issue_link;
     let output = (|| {
         let (input, url) = issue_link::inputs(&action.url_or_issue_id, action.url.as_deref())?;
         let identifier = resolve_relation_reference(context, input, workspace, ||
-            AppError::new(AppErrorKind::Validation, "Could not determine issue ID").with_suggestion(
+            Error::new("Could not determine issue ID").with_hint(
                 "Please provide an issue ID like 'ENG-123', or run from a branch that contains an issue identifier."))?;
         let transport = relation_transport(context, workspace)?;
         block_on_network(issue_link::submit(&transport, &identifier, url, action.title.as_deref()))
-    })().map_err(|error| error.with_context(issue_link::CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    })().context(issue_link::CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_issue_comment_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueCommentList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let id = resolve_issue(context, action.issue_id.as_deref(), workspace)
-        .map_err(|error| error.with_context(issue_comment_list::CONTEXT))?;
-    let config = context.config()?;
+        .context(issue_comment_list::CONTEXT)?;
+    let config = context.config();
     let transport = client::prepare_transport(
         &config.options,
         context.credentials()?,
         workspace,
         &config.transport_env,
     )
-    .map_err(|error| error.with_context(issue_comment_list::CONTEXT))?;
+    .context(issue_comment_list::CONTEXT)?;
     let output = block_on_network(issue_comment_list::run(
         &transport,
         &id,
         &id,
         action.json,
-        !context.no_color(),
+        context.color(),
     ))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_issue_comment_delete(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueCommentDelete,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let id = &action.comment_id;
     // Both URL checks come before config and credentials.
     crate::refs::reject_comment_url(id)
         .and_then(|()| crate::refs::reject_linear_url(id, "a comment UUID"))
-        .map_err(|error| error.with_context(issue_comment_delete::CONTEXT))?;
+        .context(issue_comment_delete::CONTEXT)?;
     let transport = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         client::prepare_transport_with_inputs(
             &config.options,
             credentials,
@@ -2410,101 +2007,27 @@ fn dispatch_issue_comment_delete(
             &config.transport_env,
         )
     })()
-    .map_err(|error| error.with_context(issue_comment_delete::CONTEXT))?;
+    .context(issue_comment_delete::CONTEXT)?;
     let output = block_on_network(issue_comment_delete::submit(&transport, id))
-        .map_err(|error| error.with_context(issue_comment_delete::CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
-}
-
-fn write_completion_script(
-    context: &mut AppContext<'_>,
-    shell: CompletionShell,
-    name: Option<&str>,
-) -> Result<ExitStatus, AppError> {
-    let script = completions::script(shell, name)?;
-    context.write_stdout_with_policy(&script, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
-}
-
-pub fn write_final_error(
-    context: &mut AppContext<'_>,
-    error: &AppError,
-) -> Result<ExitStatus, AppError> {
-    if let Some(native) = error.native_parser_error() {
-        let use_stderr = native.use_stderr();
-        // clap was built without its color feature. Preserve its native
-        // rendering rather than applying our handled-error ANSI wrapper.
-        let text = native.render().to_string();
-        if use_stderr {
-            write_stderr(context, text.as_bytes())?;
-        } else {
-            write_stdout(context, text.as_bytes())?;
-        }
-        let code = u8::try_from(native.exit_code()).map_err(|error| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "clap exit code does not fit process status",
-            )
-            .with_source(error)
-        })?;
-        return Ok(match code {
-            0 => ExitStatus::Success,
-            2 => ExitStatus::UsageFailure,
-            _ => ExitStatus::ChildCode(std::num::NonZeroU8::new(code).ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "nonzero clap exit code became zero",
-                )
-            })?),
-        });
-    }
-    let color = context.handled_color();
-    let line = format!("✗ {}", error.display_message());
-    if color {
-        write_stderr(context, format!("\x1b[31m{line}\x1b[39m\n").as_bytes())?;
-    } else {
-        write_stderr(context, format!("{line}\n").as_bytes())?;
-    }
-    if let Some(suggestion) = &error.suggestion {
-        if color {
-            write_stderr(
-                context,
-                format!("\x1b[90m  {suggestion}\x1b[39m\n").as_bytes(),
-            )?;
-        } else {
-            write_stderr(context, format!("  {suggestion}\n").as_bytes())?;
-        }
-    }
-    if context.debug_enabled()
-        && matches!(error.kind, AppErrorKind::GraphQl | AppErrorKind::Transport)
-    {
-        if let Some(detail) = error.debug_detail() {
-            write_stderr(context, format!("  debug: {detail}\n").as_bytes())?;
-        }
-        let mut source = error.source();
-        while let Some(cause) = source {
-            write_stderr(context, format!("  caused by: {cause}\n").as_bytes())?;
-            source = cause.source();
-        }
-    }
-    Ok(ExitStatus::HandledFailure)
+        .context(issue_comment_delete::CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 /// Order: body flags, project reference (a UUID needs no client), the
 /// omitted-body prompt, then client construction before parent validation.
 fn dispatch_project_comment_add(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::project::ProjectCommentAdd,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let original = &action.project;
     let result = (|| {
         let body = comment_add::resolve_body(action.body.as_deref(), action.body_file.as_deref())?;
         let project_id = {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             let reference = prepare_project_lookup(
                 original,
                 &WorkspaceScope::from_selection(&inputs, credentials),
@@ -2526,10 +2049,7 @@ fn dispatch_project_comment_add(
         };
         let body = match body {
             Some(body) => body,
-            None => match prompt_comment_body(context)? {
-                Ok(body) => body,
-                Err(status) => return Ok(Err(status)),
-            },
+            None => prompt_comment_body(context)?,
         };
         submit_comment(
             context,
@@ -2538,7 +2058,7 @@ fn dispatch_project_comment_add(
             body,
             action.parent.as_deref(),
         )
-        .map(|comment| Ok(comment_add::output("project", original, &comment)))
+        .map(|comment| comment_add::output("project", original, &comment))
     })();
     finish_comment_add(context, result)
 }
@@ -2546,17 +2066,17 @@ fn dispatch_project_comment_add(
 /// Order: body flags, initiative reference (a UUID needs no client),
 /// the omitted-body prompt, then client construction before parent validation.
 fn dispatch_initiative_comment_add(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::initiative::InitiativeCommentAdd,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let original = &action.initiative;
     let result = (|| {
         let body = comment_add::resolve_body(action.body.as_deref(), action.body_file.as_deref())?;
         let initiative_id = {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             let reference = prepare_initiative_lookup(
                 original,
                 &WorkspaceScope::from_selection(&inputs, credentials),
@@ -2578,10 +2098,7 @@ fn dispatch_initiative_comment_add(
         };
         let body = match body {
             Some(body) => body,
-            None => match prompt_comment_body(context)? {
-                Ok(body) => body,
-                Err(status) => return Ok(Err(status)),
-            },
+            None => prompt_comment_body(context)?,
         };
         submit_comment(
             context,
@@ -2590,7 +2107,7 @@ fn dispatch_initiative_comment_add(
             body,
             action.parent.as_deref(),
         )
-        .map(|comment| Ok(comment_add::output("initiative", original, &comment)))
+        .map(|comment| comment_add::output("initiative", original, &comment))
     })();
     finish_comment_add(context, result)
 }
@@ -2599,15 +2116,15 @@ fn dispatch_initiative_comment_add(
 /// record lookup for every reference (UUIDs included), the omitted-body
 /// prompt, and a second client before parent validation.
 fn dispatch_document_comment_add(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::document::DocumentCommentAdd,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let result = (|| {
         let document = {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             resolve_document_reference(
                 &action.document,
                 &WorkspaceScope::from_selection(&inputs, credentials),
@@ -2615,9 +2132,9 @@ fn dispatch_document_comment_add(
         };
         let body = comment_add::resolve_body(action.body.as_deref(), action.body_file.as_deref())?;
         let document_content_id = {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             let transport = client::prepare_transport_with_inputs(
                 &config.options,
                 credentials,
@@ -2628,10 +2145,7 @@ fn dispatch_document_comment_add(
         };
         let body = match body {
             Some(body) => body,
-            None => match prompt_comment_body(context)? {
-                Ok(body) => body,
-                Err(status) => return Ok(Err(status)),
-            },
+            None => prompt_comment_body(context)?,
         };
         submit_comment(
             context,
@@ -2642,31 +2156,24 @@ fn dispatch_document_comment_add(
             body,
             action.parent.as_deref(),
         )
-        .map(|comment| Ok(comment_add::output("document", &document, &comment)))
+        .map(|comment| comment_add::output("document", &document, &comment))
     })();
     finish_comment_add(context, result)
 }
 
 /// An omitted body is always prompted for. Terminal cleanup completes
 /// before any outcome, and a blank answer fails after submission.
-fn prompt_comment_body(
-    context: &mut AppContext<'_>,
-) -> Result<Result<String, ExitStatus>, AppError> {
+fn prompt_comment_body(context: &Ctx) -> Result<String> {
     use crate::platform::prompt::{PromptOutcome, PromptSession};
     let outcome = {
-        let mut session = PromptSession::stdin_stdio(&mut *context.stdout)?;
+        let mut session = PromptSession::stdin_stdio(context.stdout())?;
         let result = comment_add::prompt_body(&mut session);
         session.finish_result(result)?
     };
     match outcome {
-        PromptOutcome::Submitted(body) => comment_add::require_prompted(body).map(Ok),
-        PromptOutcome::Interrupted => Ok(Err(ExitStatus::ChildCode(
-            std::num::NonZeroU8::new(130).ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
-            })?,
-        ))),
-        PromptOutcome::EndOfInput => Err(AppError::new(
-            AppErrorKind::Validation,
+        PromptOutcome::Submitted(body) => comment_add::require_prompted(body),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new(
             "unexpected EOF while prompting for comment body",
         )),
     }
@@ -2674,15 +2181,15 @@ fn prompt_comment_body(
 
 /// `createComment` constructs its client before building the input.
 fn submit_comment(
-    context: &AppContext<'_>,
+    context: &Ctx,
     workspace: Option<&str>,
     target: comment_add::CommentTarget,
     body: String,
     parent: Option<&str>,
-) -> Result<crate::graphql::operations::comment_create::CreatedComment, AppError> {
-    let config = context.config()?;
+) -> Result<crate::graphql::operations::comment_create::CreatedComment, Error> {
+    let config = context.config();
     let credentials = context.credentials()?;
-    let inputs = client::selection_inputs(&config.options, workspace)?;
+    let inputs = client::selection_inputs(&config.options, workspace);
     let transport = client::prepare_transport_with_inputs(
         &config.options,
         credentials,
@@ -2693,103 +2200,82 @@ fn submit_comment(
     block_on_network(comment_add::create(&transport, input))
 }
 
-fn finish_comment_add(
-    context: &mut AppContext<'_>,
-    result: Result<Result<Vec<u8>, ExitStatus>, AppError>,
-) -> Result<ExitStatus, AppError> {
-    match result.map_err(|error| error.with_context(comment_add::CONTEXT))? {
-        Ok(output) => {
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            Ok(ExitStatus::Success)
-        }
-        Err(status) => Ok(status),
-    }
+fn finish_comment_add(context: &Ctx, result: Result<Vec<u8>>) -> Result<()> {
+    context.print(result.context(comment_add::CONTEXT)?)
 }
 
 fn dispatch_initiative_comment_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::initiative::InitiativeCommentList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let original = &action.initiative;
-    let config = context.config()?;
+    let config = context.config();
     let credentials = context.credentials()?;
 
-    let inputs = client::selection_inputs(&config.options, workspace)
-        .map_err(|error| error.with_context(initiative_comment_list::CONTEXT))?;
+    let inputs = client::selection_inputs(&config.options, workspace);
     let reference = prepare_initiative_lookup(
         original,
         &WorkspaceScope::from_selection(&inputs, credentials),
     )
-    .map_err(|error| error.with_context(initiative_comment_list::CONTEXT))?;
+    .context(initiative_comment_list::CONTEXT)?;
     let transport = client::prepare_transport_with_inputs(
         &config.options,
         credentials,
         &inputs,
         &config.transport_env,
     )
-    .map_err(|error| error.with_context(initiative_comment_list::CONTEXT))?;
-    let color = !context.no_color();
+    .context(initiative_comment_list::CONTEXT)?;
+    let color = context.color();
     let output = block_on_network(async {
         let id = resolve_initiative_with_transport(&reference, original, &transport)
             .await
-            .map_err(|error| error.with_context(initiative_comment_list::CONTEXT))?;
+            .context(initiative_comment_list::CONTEXT)?;
         initiative_comment_list::run(&transport, original, &id, json, color).await
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_document_comment_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::document::DocumentCommentList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let original = &action.document;
-    let config = context.config()?;
+    let config = context.config();
     let credentials = context.credentials()?;
 
-    let inputs = client::selection_inputs(&config.options, workspace)
-        .map_err(|error| error.with_context(document_comment_list::CONTEXT))?;
+    let inputs = client::selection_inputs(&config.options, workspace);
     let reference = resolve_document_reference(
         original,
         &WorkspaceScope::from_selection(&inputs, credentials),
     )
-    .map_err(|error| error.with_context(document_comment_list::CONTEXT))?;
+    .context(document_comment_list::CONTEXT)?;
     let transport = client::prepare_transport_with_inputs(
         &config.options,
         credentials,
         &inputs,
         &config.transport_env,
     )
-    .map_err(|error| error.with_context(document_comment_list::CONTEXT))?;
-    let color = !context.no_color();
+    .context(document_comment_list::CONTEXT)?;
+    let color = context.color();
     let output = block_on_network(async {
         document_comment_list::run(&transport, &reference, &reference, json, color).await
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
-fn dispatch_auth_token(
-    context: &mut AppContext<'_>,
-    workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
-    let output = auth_token::run(
-        &context.config()?.options,
-        context.credentials()?,
-        workspace,
-    )?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+fn dispatch_auth_token(context: &Ctx, workspace: Option<&str>) -> Result<()> {
+    let output = auth_token::run(&context.config().options, context.credentials()?, workspace)?;
+    context.print(&output)?;
+    Ok(())
 }
 
-fn dispatch_auth_default(
-    context: &mut AppContext<'_>,
-    action: &cli::auth::AuthDefault,
-) -> Result<ExitStatus, AppError> {
+fn dispatch_auth_default(context: &Ctx, action: &cli::auth::AuthDefault) -> Result<()> {
     use crate::auth::write::RealCredentialFileWriter;
     use crate::commands::auth_default::DefaultAction;
     use crate::platform::prompt::{PlainSelect, PromptOutcome, PromptSession};
@@ -2801,11 +2287,11 @@ fn dispatch_auth_default(
         let selected = match prepared {
             DefaultAction::Select(options) => {
                 // stdin_stdio otherwise falls back to the line-script protocol.
-                if !io::stdin().is_terminal() {
+                if !std::io::stdin().is_terminal() {
                     return Err(auth_default::non_tty_error());
                 }
                 let outcome = {
-                    let mut session = PromptSession::stdin_stdio(&mut *context.stdout)?;
+                    let mut session = PromptSession::stdin_stdio(context.stdout())?;
                     let prompted = session.select(&PlainSelect {
                         message: "Select default workspace",
                         options: &options,
@@ -2819,18 +2305,10 @@ fn dispatch_auth_default(
                         auth_default::prepare(context.credentials()?, Some(&workspace))?
                     }
                     PromptOutcome::Interrupted => {
-                        return Ok(ExitStatus::ChildCode(
-                            std::num::NonZeroU8::new(130).ok_or_else(|| {
-                                AppError::new(
-                                    AppErrorKind::Invariant,
-                                    "exit code 130 must be nonzero",
-                                )
-                            })?,
-                        ));
+                        return Err(Error::cancelled());
                     }
                     PromptOutcome::EndOfInput => {
-                        return Err(AppError::new(
-                            AppErrorKind::Validation,
+                        return Err(Error::new(
                             "unexpected EOF while selecting a default workspace",
                         ));
                     }
@@ -2841,35 +2319,32 @@ fn dispatch_auth_default(
         let output = match selected {
             DefaultAction::Output(bytes) => bytes,
             DefaultAction::Save(workspace) => {
-                let startup = context.startup.result.as_ref().map_err(|_| {
-                    AppError::new(AppErrorKind::Invariant, "default save after failed startup")
-                })?;
+                let startup = legacy::Loaded::new(context)?;
                 auth_default::save(
-                    &startup.credentials,
+                    startup.credentials,
                     &workspace,
                     startup.credentials_path.as_deref(),
                     &RealCredentialFileWriter,
                 )?
             }
             DefaultAction::Select(_) => {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
+                return Err(Error::new(
                     "submitted workspace did not resolve to a default action",
                 ));
             }
         };
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&output)?;
+        Ok(())
     })();
-    result.map_err(|error| error.with_context(auth_default::CONTEXT))
+    result.context(auth_default::CONTEXT)
 }
 
 fn dispatch_auth_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     _action: &cli::auth::AuthList,
     _workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
-    let config = context.config()?;
+) -> Result<()> {
+    let config = context.config();
     let rows = auth_list::classify(context.credentials()?);
     let output = if rows.is_empty() {
         auth_list::EMPTY_OUTPUT.as_bytes().to_vec()
@@ -2879,21 +2354,20 @@ fn dispatch_auth_list(
             config.options.endpoint().value(),
             &config.transport_env,
         )
-        .map_err(|error| error.with_context(auth_list::CONTEXT))?;
-        let listed = block_on_network(auth_list::fetch(prepared))
-            .map_err(|error| error.with_context(auth_list::CONTEXT))?;
-        auth_list::render(&listed, context.stdout_tty && !context.no_color())
+        .context(auth_list::CONTEXT)?;
+        let listed = block_on_network(auth_list::fetch(prepared)).context(auth_list::CONTEXT)?;
+        auth_list::render(&listed, context.stdout_tty() && context.color())
     };
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_auth_whoami(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     _action: &cli::auth::AuthWhoami,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
-    let config = context.config()?;
+) -> Result<()> {
+    let config = context.config();
     let credentials = context.credentials()?;
 
     let transport = auth_whoami::prepare_transport(
@@ -2903,15 +2377,15 @@ fn dispatch_auth_whoami(
         &config.transport_env,
     )?;
     let output = block_on_network(async move { auth_whoami::run(&transport).await })?;
-    write_stdout(context, &output)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_team_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::team::TeamList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let flags = team_list::Options {
         json: action.json,
         web: action.web,
@@ -2919,22 +2393,17 @@ fn dispatch_team_list(
     };
     if flags.web || flags.app {
         let (url, opening) =
-            team_list::web_opening(workspace, &context.config()?.options, flags.app)?;
-        context.write_stdout_with_policy(&opening, OutputPolicy::ConsoleLike)?;
+            team_list::web_opening(workspace, &context.config().options, flags.app)?;
+        context.print(&opening)?;
         team_list::open(&url, flags.app)?;
-        return Ok(ExitStatus::Success);
+        return Ok(());
     }
-    let spinner = spinner::enabled(
-        flags.json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let spinner = spinner::enabled(flags.json, context.stdout_tty(), true);
     if spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
         client::prepare_transport(
@@ -2943,19 +2412,19 @@ fn dispatch_team_list(
             workspace,
             &config.transport_env,
         )
-        .map_err(|error| error.with_context("Failed to fetch teams"))
+        .context("Failed to fetch teams")
     })();
     let transport = match prepared {
         Ok(transport) => transport,
         Err(error) => {
             if spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
             return Err(error);
         }
     };
-    let columns = table::stdout_columns(context.stdout_tty);
-    let color = context.stdout_tty && !context.no_color();
+    let columns = table::stdout_columns(context.stdout_tty());
+    let color = context.stdout_tty() && context.color();
     let output_result = if spinner {
         block_on_network(async {
             let pending = team_list::run(&transport, flags.json, columns, color);
@@ -2968,10 +2437,8 @@ fn dispatch_team_list(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -2981,27 +2448,27 @@ fn dispatch_team_list(
         block_on_network(async { team_list::run(&transport, flags.json, columns, color).await })
     };
     if spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = output_result.map_err(|error| {
-        if error.context.is_none() {
-            error.with_context("Failed to fetch teams")
+        if !error.has_context() {
+            error.context("Failed to fetch teams")
         } else {
             error
         }
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_label_create(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::label::LabelCreate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     // The transport is built before validating required fields.
     let transport = (|| {
-        let config = context.config()?;
+        let config = context.config();
         client::prepare_transport(
             &config.options,
             context.credentials()?,
@@ -3009,7 +2476,7 @@ fn dispatch_label_create(
             &config.transport_env,
         )
     })()
-    .map_err(|error| error.with_context(label_create::CONTEXT))?;
+    .context(label_create::CONTEXT)?;
     let mut options = label_create::Options {
         name: action.name.clone(),
         color: action.color.clone(),
@@ -3017,10 +2484,10 @@ fn dispatch_label_create(
         team: action.team.clone(),
         interactive: action.interactive,
     };
-    if label_create::should_prompt(&options, context.stdout_tty) {
-        context.write_stdout_with_policy(label_create::PROMPT_HEADER, OutputPolicy::ConsoleLike)?;
-        let configured_key = configured_team_key(&context.config()?.options);
-        let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+    if label_create::should_prompt(&options, context.stdout_tty()) {
+        context.print(label_create::PROMPT_HEADER)?;
+        let configured_key = configured_team_key(&context.config().options);
+        let mut session = crate::platform::prompt::PromptSession::stdio(context.stdout())?;
         let prompted = (|| {
             let outcome = label_create::prompt_fields(&mut options, &mut session)?;
             match outcome {
@@ -3032,7 +2499,7 @@ fn dispatch_label_create(
                 session.suspend()?;
                 let teams =
                     block_on_network(crate::refs::fetch_all_teams_with_transport(&transport))
-                        .map_err(|error| error.with_context(label_create::CONTEXT))?;
+                        .context(label_create::CONTEXT)?;
                 session.resume()?;
                 label_create::prompt_team(
                     &mut options,
@@ -3048,46 +2515,34 @@ fn dispatch_label_create(
         match outcome {
             crate::platform::prompt::PromptOutcome::Submitted(()) => {}
             crate::platform::prompt::PromptOutcome::Interrupted => {
-                return Ok(ExitStatus::ChildCode(
-                    std::num::NonZeroU8::new(130).ok_or_else(|| {
-                        AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
-                    })?,
-                ));
+                return Err(Error::cancelled());
             }
             crate::platform::prompt::PromptOutcome::EndOfInput => {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "unexpected EOF while prompting for label",
-                ));
+                return Err(Error::new("unexpected EOF while prompting for label"));
             }
         }
     }
-    label_create::validate(&options).map_err(|error| error.with_context(label_create::CONTEXT))?;
+    label_create::validate(&options).context(label_create::CONTEXT)?;
     let team_id = match options.team.as_deref().filter(|team| !team.is_empty()) {
         None => None,
         Some(team) => {
-            let config = context.config()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let config = context.config();
+            let inputs = client::selection_inputs(&config.options, workspace);
             let prepared = prepare_team_lookup(
                 team,
                 &WorkspaceScope::from_selection(&inputs, context.credentials()?),
             )
-            .map_err(|error| error.with_context(label_create::CONTEXT))?;
+            .context(label_create::CONTEXT)?;
             Some(
                 block_on_network(resolve_team_with_transport(&prepared, &transport))
-                    .map_err(|error| error.with_context(label_create::CONTEXT))?
+                    .context(label_create::CONTEXT)?
                     .id,
             )
         }
     };
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let create = label_create::submit(&transport, &options, team_id);
     let result = if show_spinner {
@@ -3101,7 +2556,7 @@ fn dispatch_label_create(
                     biased;
                     result = &mut create => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        context.print(spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -3111,29 +2566,29 @@ fn dispatch_label_create(
         block_on_network(create)
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let output = result.map_err(|error| error.with_context(label_create::CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    let output = result.context(label_create::CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_team_create(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::team::TeamCreate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let mut options = team_create::Options {
         name: action.name.clone(),
         description: action.description.clone(),
         key: action.key.clone(),
         private: action.private,
     };
-    let interactive = team_create::interactive(action.no_interactive, context.stdout_tty);
+    let interactive = team_create::interactive(action.no_interactive, context.stdout_tty());
     let mode = team_create::mode(&options, interactive);
     if mode == team_create::Mode::Prompt {
-        context.write_stdout_with_policy(team_create::PROMPT_HEADER, OutputPolicy::ConsoleLike)?;
-        let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+        context.print(team_create::PROMPT_HEADER)?;
+        let mut session = crate::platform::prompt::PromptSession::stdio(context.stdout())?;
         let prompted = team_create::prompt(&mut options, &mut session);
         let result = match prompted {
             Ok(outcome) => {
@@ -3144,10 +2599,7 @@ fn dispatch_team_create(
                 return Err(match session.close() {
                     Ok(()) => error,
                     Err(mut cleanup) => {
-                        cleanup.message.push_str(&format!(
-                            "; prompt also failed: {}",
-                            error.display_message()
-                        ));
+                        cleanup.push_message(&format!("; prompt also failed: {}", error));
                         cleanup
                     }
                 });
@@ -3156,39 +2608,27 @@ fn dispatch_team_create(
         match result {
             team_create::PromptResult::Complete => {}
             team_create::PromptResult::Interrupted => {
-                return Ok(ExitStatus::ChildCode(
-                    std::num::NonZeroU8::new(130).ok_or_else(|| {
-                        AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
-                    })?,
-                ));
+                return Err(Error::cancelled());
             }
             team_create::PromptResult::EndOfInput => {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "unexpected EOF while prompting for team",
-                ));
+                return Err(Error::new("unexpected EOF while prompting for team"));
             }
         }
     }
     let announcement = team_create::required_name(&options)
         .map(|name| team_create::announcement(name, mode))
-        .map_err(|error| error.with_context(team_create::CONTEXT))?;
-    context.write_stdout_with_policy(&announcement, OutputPolicy::ConsoleLike)?;
+        .context(team_create::CONTEXT)?;
+    context.print(&announcement)?;
     // Only flag mode starts the spinner, after its progress line and before
     // the client is built; the catch path stops it before any error.
     let show_spinner = mode == team_create::Mode::Flags
         && interactive
-        && spinner::enabled(
-            false,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
+        && spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
         client::prepare_transport(
             &config.options,
@@ -3201,9 +2641,9 @@ fn dispatch_team_create(
         Ok(transport) => transport,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
-            return Err(error.with_context(team_create::CONTEXT));
+            return Err(error.context(team_create::CONTEXT));
         }
     };
     let create = team_create::submit(&transport, &options);
@@ -3218,10 +2658,8 @@ fn dispatch_team_create(
                     biased;
                     result = &mut create => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -3231,51 +2669,46 @@ fn dispatch_team_create(
         block_on_network(create)
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let output = result.map_err(|error| error.with_context(team_create::CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    let output = result.context(team_create::CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_team_id(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     _action: &cli::team::TeamId,
     _workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let text = team_id::render(context)?;
-    context.write_stdout_with_policy(text.as_bytes(), OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(text.as_bytes())?;
+    Ok(())
 }
 
 fn dispatch_team_members(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::team::TeamMembers,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let flags = team_members::Options {
         all: action.all,
         json: action.json,
     };
     let explicit = action.team.as_ref().filter(|value| !value.is_empty());
 
-    let show_spinner = spinner::enabled(
-        flags.json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(flags.json, context.stdout_tty(), true);
     let mut spinner_started = false;
     let fallback_key = if explicit.is_none() {
         Some(
-            crate::commands::team_key::configured_team_key(&context.config()?.options)
-                .ok_or_else(|| missing_team_key().with_context(team_members::CONTEXT))?,
+            crate::commands::team_key::configured_team_key(&context.config().options)
+                .ok_or_else(|| missing_team_key().context(team_members::CONTEXT))?,
         )
     } else {
         None
     };
     if show_spinner && fallback_key.is_some() {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
         spinner_started = true;
     }
 
@@ -3283,10 +2716,10 @@ fn dispatch_team_members(
     // references are locally prepared before transport, and resolved
     // before the member-query spinner begins.
     let selected = (|| {
-        let config = context.config()?;
+        let config = context.config();
         if let Some(reference) = explicit {
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             let scope = WorkspaceScope::from_selection(&inputs, credentials);
             let prepared = prepare_team_lookup(reference, &scope)?;
             let transport = client::prepare_transport_with_inputs(
@@ -3303,9 +2736,7 @@ fn dispatch_team_members(
             }
             Ok((team.key, transport))
         } else {
-            let key = fallback_key.ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "configured team key was lost")
-            })?;
+            let key = fallback_key.ok_or_else(|| Error::new("configured team key was lost"))?;
             Ok((
                 key,
                 client::prepare_transport(
@@ -3317,20 +2748,19 @@ fn dispatch_team_members(
             ))
         }
     })();
-    let selected = selected.map_err(|error: AppError| {
-        if error.context.is_none() {
-            error.with_context(team_members::CONTEXT)
+    let selected = selected.map_err(|error: Error| {
+        if !error.has_context() {
+            error.context(team_members::CONTEXT)
         } else {
             error
         }
     });
     if selected.is_err() && spinner_started {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let (team_key, transport) = selected?;
     if show_spinner && !spinner_started {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
         spinner_started = true;
     }
     let output_result = if spinner_started {
@@ -3345,10 +2775,8 @@ fn dispatch_team_members(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -3358,67 +2786,45 @@ fn dispatch_team_members(
         block_on_network(team_members::run(&transport, &team_key, flags))
     };
     if spinner_started {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    context.write_stdout_with_policy(&output_result?, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output_result?)?;
+    Ok(())
 }
 
 fn dispatch_team_states(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::team::TeamStates,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let cli_workspace = workspace;
     let explicit = action.team.as_ref().filter(|value| !value.is_empty());
     let prepared = if let Some(reference) = explicit {
-        let config = context.config()?;
-        let api_key = ApiKeyInput::from_options(&config.options).map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, error.to_string())
-                .with_context(team_states::CONTEXT)
-        })?;
-        let inputs = CredentialSelectionInputs {
-            api_key,
-            cli_workspace,
-            sourced_workspace: config
-                .options
-                .workspace()
-                .map(|resolved| (resolved.value().as_str(), resolved.source().clone())),
-        };
+        let config = context.config();
+        let inputs = client::selection_inputs(&config.options, cli_workspace);
         let scope = WorkspaceScope::from_selection(&inputs, context.credentials()?);
-        Some(
-            prepare_team_lookup(reference, &scope)
-                .map_err(|error| error.with_context(team_states::CONTEXT))?,
-        )
+        Some(prepare_team_lookup(reference, &scope).context(team_states::CONTEXT)?)
     } else {
         None
     };
     let configured_key = if prepared.is_none() {
         Some(
-            configured_team_key(&context.config()?.options).ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Validation,
-                    "Could not determine team key from directory name",
-                )
-                .with_suggestion("Please specify a team key, name, or ID as an argument.")
-                .with_context(team_states::CONTEXT)
+            configured_team_key(&context.config().options).ok_or_else(|| {
+                Error::new("Could not determine team key from directory name")
+                    .with_hint("Please specify a team key, name, or ID as an argument.")
+                    .context(team_states::CONTEXT)
             })?,
         )
     } else {
         None
     };
-    let spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let spinner = spinner::enabled(json, context.stdout_tty(), true);
     if spinner && prepared.is_none() {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let transport = match (|| {
-        let config = context.config()?;
+        let config = context.config();
         client::prepare_transport(
             &config.options,
             context.credentials()?,
@@ -3429,26 +2835,23 @@ fn dispatch_team_states(
         Ok(transport) => transport,
         Err(error) => {
             if spinner && prepared.is_none() {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
-            return Err(error.with_context(team_states::CONTEXT));
+            return Err(error.context(team_states::CONTEXT));
         }
     };
     let team_key = match prepared {
         Some(prepared) => {
             block_on_network(async { resolve_team_with_transport(&prepared, &transport).await })
-                .map_err(|error| error.with_context(team_states::CONTEXT))?
+                .context(team_states::CONTEXT)?
                 .key
         }
-        None => configured_key.ok_or_else(|| {
-            AppError::new(AppErrorKind::Invariant, "configured team key disappeared")
-        })?,
+        None => configured_key.ok_or_else(|| Error::new("configured team key disappeared"))?,
     };
     if spinner && explicit.is_some() {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
-    let color = context.stdout_tty && !context.no_color();
+    let color = context.stdout_tty() && context.color();
     let output_result = if spinner {
         block_on_network(async {
             let pending = team_states::run(&transport, team_key, json, color);
@@ -3461,10 +2864,8 @@ fn dispatch_team_states(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -3474,31 +2875,26 @@ fn dispatch_team_states(
         block_on_network(async { team_states::run(&transport, team_key, json, color).await })
     };
     if spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let output = output_result.map_err(|error| error.with_context(team_states::CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    let output = output_result.context(team_states::CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_user_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::user::UserList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let include_disabled = action.all;
     let json = action.json;
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
         client::prepare_transport(
@@ -3507,13 +2903,13 @@ fn dispatch_user_list(
             workspace,
             &config.transport_env,
         )
-        .map_err(|error| error.with_context(user_list::CONTEXT))
+        .context(user_list::CONTEXT)
     })();
     let transport = match prepared {
         Ok(transport) => transport,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
             return Err(error);
         }
@@ -3530,10 +2926,8 @@ fn dispatch_user_list(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -3543,24 +2937,24 @@ fn dispatch_user_list(
         block_on_network(async { user_list::run(&transport, include_disabled, json).await })
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = output_result.map_err(|error| {
-        if error.context.is_none() {
-            error.with_context(user_list::CONTEXT)
+        if !error.has_context() {
+            error.context(user_list::CONTEXT)
         } else {
             error
         }
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_project_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::project::ProjectList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let options = project_list::Options {
         team: action.team.clone(),
         all_teams: action.all_teams,
@@ -3571,7 +2965,7 @@ fn dispatch_project_list(
     };
     let cli_workspace = workspace;
     if options.web || options.app {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
         let configured_workspace = config
             .options
@@ -3586,15 +2980,14 @@ fn dispatch_project_list(
             configured_team_key(&config.options)
         };
         let (workspace, team_key) = if needs_viewer || needs_team_lookup {
-            let inputs = client::selection_inputs(&config.options, cli_workspace)
-                .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?;
+            let inputs = client::selection_inputs(&config.options, cli_workspace);
             let transport = client::prepare_transport_with_inputs(
                 &config.options,
                 credentials,
                 &inputs,
                 &config.transport_env,
             )
-            .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?;
+            .context(project_list::OPEN_CONTEXT)?;
             block_on_network(async {
                 let workspace = match configured_workspace {
                     Some(workspace) => workspace,
@@ -3616,36 +3009,27 @@ fn dispatch_project_list(
                 };
                 Ok((workspace, team_key))
             })
-            .map_err(|error| error.with_context(project_list::OPEN_CONTEXT))?
+            .context(project_list::OPEN_CONTEXT)?
         } else {
-            let workspace = configured_workspace.ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "project browser workspace was not resolved",
-                )
-            })?;
+            let workspace = configured_workspace
+                .ok_or_else(|| Error::new("project browser workspace was not resolved"))?;
             (workspace, configured_team)
         };
         let (url, line) = project_list::opening(&workspace, team_key.as_deref(), options.app);
-        context.write_stdout_with_policy(&line, OutputPolicy::ConsoleLike)?;
+        context.print(&line)?;
         project_list::open(&url, options.app)?;
-        return Ok(ExitStatus::Success);
+        return Ok(());
     }
 
-    let show_spinner = spinner::enabled(
-        options.json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(options.json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
         project_list::check_conflicting_flags(&options)?;
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, cli_workspace)?;
+        let inputs = client::selection_inputs(&config.options, cli_workspace);
         let team_lookup = if options.all_teams {
             None
         } else {
@@ -3663,23 +3047,23 @@ fn dispatch_project_list(
             &inputs,
             &config.transport_env,
         )?;
-        Ok::<_, AppError>((team_lookup, transport))
+        Ok::<_, Error>((team_lookup, transport))
     })();
     let (team_lookup, transport) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
-            return Err(error.with_context(project_list::FETCH_CONTEXT));
+            return Err(error.context(project_list::FETCH_CONTEXT));
         }
     };
-    let columns = crate::commands::table::stdout_columns(context.stdout_tty);
-    let color = context.stdout_tty && !context.no_color();
+    let columns = crate::commands::table::stdout_columns(context.stdout_tty());
+    let color = context.stdout_tty() && context.color();
     let configured_team = if options.all_teams {
         None
     } else {
-        configured_team_key(&context.config()?.options)
+        configured_team_key(&context.config().options)
     };
     let pending = async {
         let team_key = if options.all_teams {
@@ -3710,7 +3094,7 @@ fn dispatch_project_list(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        context.print(spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -3720,40 +3104,37 @@ fn dispatch_project_list(
         block_on_network(pending)
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = result.map_err(|error| {
-        if error.context.is_some() {
+        if error.has_context() {
             error
         } else {
-            error.with_context(project_list::FETCH_CONTEXT)
+            error.context(project_list::FETCH_CONTEXT)
         }
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_cycle_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::cycle::CycleList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let team_reference = match action.team.clone() {
         Some(explicit) => explicit,
-        None => configured_team_key(&context.config()?.options).ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Could not determine team key from directory name or team flag",
-            )
-            .with_context(cycle_list::CONTEXT)
+        None => configured_team_key(&context.config().options).ok_or_else(|| {
+            Error::new("Could not determine team key from directory name or team flag")
+                .context(cycle_list::CONTEXT)
         })?,
     };
     let selected = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let scope = WorkspaceScope::from_selection(&inputs, credentials);
         let prepared = prepare_team_lookup(&team_reference, &scope)?;
         let transport = client::prepare_transport_with_inputs(
@@ -3762,26 +3143,21 @@ fn dispatch_cycle_list(
             &inputs,
             &config.transport_env,
         )?;
-        Ok::<_, AppError>((prepared, transport))
+        Ok::<_, Error>((prepared, transport))
     })()
-    .map_err(|error| error.with_context(cycle_list::CONTEXT))?;
+    .context(cycle_list::CONTEXT)?;
     let (prepared, transport) = selected;
     let team = block_on_network(async { resolve_team_with_transport(&prepared, &transport).await })
-        .map_err(|error| error.with_context(cycle_list::CONTEXT))?;
+        .context(cycle_list::CONTEXT)?;
 
     // The spinner starts after the team lookup; a cycle-fetch error leaves
     // its last frame visible.
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
-    let columns = table::stdout_columns(context.stdout_tty);
-    let color = !context.no_color();
+    let columns = table::stdout_columns(context.stdout_tty());
+    let color = context.color();
     let output = if show_spinner {
         block_on_network(async {
             let pending = cycle_list::run(&transport, &team.id, json, columns, color);
@@ -3794,10 +3170,8 @@ fn dispatch_cycle_list(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -3809,32 +3183,32 @@ fn dispatch_cycle_list(
         })
     }
     .map_err(|error| {
-        if error.context.is_none() {
-            error.with_context(cycle_list::CONTEXT)
+        if !error.has_context() {
+            error.context(cycle_list::CONTEXT)
         } else {
             error
         }
     })?;
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_cycle_view(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::cycle::CycleView,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let reference = action.cycle_ref.clone();
     let json = action.json;
     let explicit_team = action.team.clone();
     let selected = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let scope = WorkspaceScope::from_selection(&inputs, credentials);
         let url = crate::refs::expect_url_kind(
             &reference,
@@ -3845,7 +3219,7 @@ fn dispatch_cycle_view(
         let url_team = match &url {
             Some(crate::refs::LinearUrlRef::Cycle { team_key, .. }) => Some(team_key.clone()),
             Some(_) => {
-                return Err(AppError::new(AppErrorKind::Invariant, "expected cycle URL"));
+                return Err(Error::new("expected cycle URL"));
             }
             None => None,
         };
@@ -3853,10 +3227,7 @@ fn dispatch_cycle_view(
             .or(url_team)
             .or_else(|| configured_team_key(&config.options))
             .ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Validation,
-                    "Could not determine team key from directory name or team flag",
-                )
+                Error::new("Could not determine team key from directory name or team flag")
             })?;
         let prepared = prepare_team_lookup(&team_reference, &scope)?;
         let transport = client::prepare_transport_with_inputs(
@@ -3865,24 +3236,19 @@ fn dispatch_cycle_view(
             &inputs,
             &config.transport_env,
         )?;
-        Ok::<_, AppError>((url, prepared, transport))
+        Ok::<_, Error>((url, prepared, transport))
     })()
-    .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+    .context(cycle_view::CONTEXT)?;
     let (url, prepared, transport) = selected;
     let team = block_on_network(async { resolve_team_with_transport(&prepared, &transport).await })
-        .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+        .context(cycle_view::CONTEXT)?;
     let cycle_id = block_on_network(async {
         cycle_view::resolve_id(&transport, &team.id, &reference, url.as_ref()).await
     })
-    .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    .context(cycle_view::CONTEXT)?;
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let request = cycle_view::detail_request(&cycle_id);
     let response = if show_spinner {
@@ -3895,25 +3261,19 @@ fn dispatch_cycle_view(
             loop {
                 tokio::select! {
                     biased;
-                    result = &mut pending => break result.map_err(AppError::from),
+                    result = &mut pending => break result.map_err(Error::from),
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
             }
         })
     } else {
-        block_on_network(async {
-            transport
-                .send_request(&request)
-                .await
-                .map_err(AppError::from)
-        })
+        block_on_network(async { transport.send_request(&request).await.map_err(Error::from) })
     }
-    .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
+    .context(cycle_view::CONTEXT)?;
     let details: Result<crate::graphql::operations::cycle_view::GetCycleDetails, _> =
         crate::graphql::transport::classify_typed(response);
     if show_spinner
@@ -3925,19 +3285,18 @@ fn dispatch_cycle_view(
                 ))
             ))
     {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let details =
-        details.map_err(|error| AppError::from(error).with_context(cycle_view::CONTEXT))?;
-    let cycle = details.cycle.ok_or_else(|| {
-        AppError::not_found("Cycle", &reference).with_context(cycle_view::CONTEXT)
-    })?;
+    let details = details.map_err(|error| Error::from(error).context(cycle_view::CONTEXT))?;
+    let cycle = details
+        .cycle
+        .ok_or_else(|| Error::not_found("Cycle", &reference).context(cycle_view::CONTEXT))?;
     let output = if json {
-        cycle_view::json(&cycle).map_err(|error| error.with_context(cycle_view::CONTEXT))?
+        cycle_view::json(&cycle).context(cycle_view::CONTEXT)?
     } else {
         let markdown = cycle_view::markdown(&cycle, chrono::Utc::now(), &chrono::Local)
-            .map_err(|error| error.with_context(cycle_view::CONTEXT))?;
-        let rendered = if context.stdout_tty {
+            .context(cycle_view::CONTEXT)?;
+        let rendered = if context.stdout_tty() {
             use std::num::NonZeroU16;
             let columns = u16::try_from(table::stdout_columns(true))
                 .ok()
@@ -3945,27 +3304,26 @@ fn dispatch_cycle_view(
                 .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
             let options = crate::platform::markdown_terminal::RenderOptions::for_terminal(
                 columns,
-                context.startup.settings.no_color,
-                true,
+                context.color(),
                 None,
                 crate::platform::markdown_terminal::HostSource::System,
             );
             crate::platform::markdown_terminal::render(&markdown, &options)
-                .map_err(|error| error.with_context(cycle_view::CONTEXT))?
+                .context(cycle_view::CONTEXT)?
         } else {
             markdown
         };
         format!("{rendered}\n").into_bytes()
     };
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_label_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::label::LabelList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let flags = label_list::Options {
         team: action.team.clone(),
         workspace_only: action.workspace_only,
@@ -3973,19 +3331,14 @@ fn dispatch_label_list(
         json: action.json,
     };
     let cli_workspace = workspace;
-    let show_spinner = spinner::enabled(
-        flags.json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(flags.json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, cli_workspace)?;
+        let inputs = client::selection_inputs(&config.options, cli_workspace);
         let transport = client::prepare_transport_with_inputs(
             &config.options,
             credentials,
@@ -3995,23 +3348,23 @@ fn dispatch_label_list(
         let scope = WorkspaceScope::from_selection(&inputs, credentials);
         let configured_team = configured_team_key(&config.options);
         let selection = label_list::select(&flags, configured_team.as_deref(), &scope)?;
-        Ok::<_, AppError>((transport, selection))
+        Ok::<_, Error>((transport, selection))
     })();
     let (transport, selection) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
-            return Err(if error.context.is_none() {
-                error.with_context(label_list::CONTEXT)
+            return Err(if !error.has_context() {
+                error.context(label_list::CONTEXT)
             } else {
                 error
             });
         }
     };
-    let columns = table::stdout_columns(context.stdout_tty);
-    let color = context.stdout_tty && !context.no_color();
+    let columns = table::stdout_columns(context.stdout_tty());
+    let color = context.stdout_tty() && context.color();
     let output_result = if show_spinner {
         block_on_network(async {
             let pending = label_list::run(&transport, selection, flags.json, columns, color);
@@ -4024,10 +3377,8 @@ fn dispatch_label_list(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -4039,24 +3390,24 @@ fn dispatch_label_list(
         })
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = output_result.map_err(|error| {
-        if error.context.is_none() {
-            error.with_context(label_list::CONTEXT)
+        if !error.has_context() {
+            error.context(label_list::CONTEXT)
         } else {
             error
         }
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_template_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::template::TemplateList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let template_type = action.r#type.map(|value| match value {
         cli::TemplateType::Issue => template_list::TemplateType::Issue,
@@ -4064,17 +3415,12 @@ fn dispatch_template_list(
         cli::TemplateType::Document => template_list::TemplateType::Document,
     });
     let team_reference = action.team.as_deref();
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
         template_list::prepare(
@@ -4089,13 +3435,13 @@ fn dispatch_template_list(
         Ok(prepared) => prepared,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
             return Err(error);
         }
     };
-    let columns = table::stdout_columns(context.stdout_tty);
-    let color = context.stdout_tty && !context.no_color();
+    let columns = table::stdout_columns(context.stdout_tty());
+    let color = context.stdout_tty() && context.color();
     let options = template_list::Options {
         template_type,
         json,
@@ -4118,10 +3464,8 @@ fn dispatch_template_list(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -4140,39 +3484,34 @@ fn dispatch_template_list(
         })
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = output_result.map_err(|error| {
-        if error.context.is_none() {
-            error.with_context(template_list::CONTEXT)
+        if !error.has_context() {
+            error.context(template_list::CONTEXT)
         } else {
             error
         }
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_template_view(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::template::TemplateView,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let json = action.json;
     let reference = &action.template;
     // The spinner starts before the URL check and credential selection, and
     // stops before either failure is reported.
-    let show_spinner = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(json, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let prepared = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
 
         template_view::prepare(
@@ -4187,10 +3526,10 @@ fn dispatch_template_view(
         Ok(prepared) => prepared,
         Err(error) => {
             if show_spinner {
-                context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+                context.print(spinner::CLEAR)?;
             }
-            return Err(if error.context.is_none() {
-                error.with_context(template_view::CONTEXT)
+            return Err(if !error.has_context() {
+                error.context(template_view::CONTEXT)
             } else {
                 error
             });
@@ -4209,10 +3548,8 @@ fn dispatch_template_view(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(
-                            spinner::frame(frame).as_bytes(),
-                            OutputPolicy::ConsoleLike,
-                        )?;
+                        context.print(
+                            spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -4224,35 +3561,35 @@ fn dispatch_template_view(
         })
     };
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
     let output = output_result.map_err(|error| {
-        if error.context.is_none() {
-            error.with_context(template_view::CONTEXT)
+        if !error.has_context() {
+            error.context(template_view::CONTEXT)
         } else {
             error
         }
     })?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
-fn inferred_issue(context: &AppContext<'_>) -> Result<Option<String>, AppError> {
+fn inferred_issue(context: &Ctx) -> Result<Option<String>, Error> {
     let vcs = context
-        .config()?
+        .config()
         .options
         .vcs()
         .map(|v| *v.value())
         .unwrap_or(crate::config::Vcs::Git);
-    crate::platform::vcs::infer_issue(vcs, &context.cwd)
+    crate::platform::vcs::infer_issue(vcs, context.cwd())
 }
 
-fn dispatch_issue_id(context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
+fn dispatch_issue_id(context: &Ctx) -> Result<()> {
     let id = inferred_issue(context)
         .and_then(|id| id.ok_or_else(|| issue_details::unresolved(true)))
-        .map_err(|e| e.with_context("Failed to get issue ID"))?;
-    context.write_stdout_with_policy(format!("{id}\n").as_bytes(), OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+        .context("Failed to get issue ID")?;
+    context.print(format!("{id}\n").as_bytes())?;
+    Ok(())
 }
 
 #[derive(Clone, Copy)]
@@ -4270,16 +3607,16 @@ impl IssueDetailField {
 }
 
 fn resolve_issue(
-    context: &AppContext<'_>,
+    context: &Ctx,
     input: Option<&str>,
     workspace: Option<&str>,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let reference = if input.is_none() {
         crate::refs::IssueReference::Inferred
     } else {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let team = configured_team_key(&config.options);
         crate::refs::prepare_issue_reference(
             input,
@@ -4296,24 +3633,18 @@ fn resolve_issue(
 }
 
 fn dispatch_issue_detail(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     input: Option<&str>,
     workspace: Option<&str>,
     field: IssueDetailField,
-) -> Result<ExitStatus, AppError> {
-    let id =
-        resolve_issue(context, input, workspace).map_err(|e| e.with_context(field.context()))?;
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+) -> Result<()> {
+    let id = resolve_issue(context, input, workspace).context(field.context())?;
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let transport = client::prepare_transport(
             &config.options,
             context.credentials()?,
@@ -4334,7 +3665,7 @@ fn dispatch_issue_detail(
                     biased;
                     result = &mut pending => break result,
                     _ = ticks.tick() => {
-                        context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                        context.print(spinner::frame(frame).as_bytes())?;
                         frame = frame.wrapping_add(1);
                     }
                 }
@@ -4342,31 +3673,27 @@ fn dispatch_issue_detail(
         })
     })();
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let detail = result.map_err(|e| e.with_context(field.context()))?;
+    let detail = result.context(field.context())?;
     let value = match field {
         IssueDetailField::Title => detail.title,
         IssueDetailField::Url => detail.url,
     };
-    context.write_stdout_with_policy(format!("{value}\n").as_bytes(), OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(format!("{value}\n").as_bytes())?;
+    Ok(())
 }
 
 fn agent_session_network<T>(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     json: bool,
-    pending: impl Future<Output = Result<T, AppError>>,
-) -> Result<T, AppError> {
-    let enabled = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    pending: impl Future<Output = Result<T, Error>>,
+) -> Result<T, Error> {
+    let enabled = spinner::enabled(json, context.stdout_tty(), true);
     if !enabled {
         return block_on_network(pending);
     }
-    context.write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    context.print(spinner::frame(0).as_bytes())?;
     let result = block_on_network(async {
         tokio::pin!(pending);
         let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
@@ -4377,21 +3704,21 @@ fn agent_session_network<T>(
                 biased;
                 result = &mut pending => break result,
                 _ = ticks.tick() => {
-                    context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                    context.print(spinner::frame(frame).as_bytes())?;
                     frame = frame.wrapping_add(1);
                 }
             }
         }
     });
-    context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    context.print(spinner::CLEAR)?;
     result
 }
 
 fn dispatch_agent_session_view(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueAgentSessionView,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::agent_session;
     let output = (|| {
         crate::refs::reject_linear_url(&action.session_id, "an agent session ID")?;
@@ -4405,7 +3732,7 @@ fn dispatch_agent_session_view(
             return agent_session::json(&session);
         }
         let markdown = agent_session::markdown(&session, chrono::Utc::now(), &chrono::Local)?;
-        let rendered = if context.stdout_tty {
+        let rendered = if context.stdout_tty() {
             use std::num::NonZeroU16;
             let columns = u16::try_from(table::stdout_columns(true))
                 .ok()
@@ -4413,8 +3740,7 @@ fn dispatch_agent_session_view(
                 .unwrap_or(crate::platform::markdown_terminal::FALLBACK_COLUMNS);
             let options = crate::platform::markdown_terminal::RenderOptions::for_terminal(
                 columns,
-                context.startup.settings.no_color,
-                true,
+                context.color(),
                 None,
                 crate::platform::markdown_terminal::HostSource::System,
             );
@@ -4424,16 +3750,16 @@ fn dispatch_agent_session_view(
         };
         Ok(format!("{rendered}\n").into_bytes())
     })()
-    .map_err(|error: AppError| error.with_context(agent_session::VIEW_CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    .context(agent_session::VIEW_CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_agent_session_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueAgentSessionList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::agent_session;
     let output = (|| {
         let id =
@@ -4451,13 +3777,13 @@ fn dispatch_agent_session_list(
         }
         Ok(agent_session::text(
             &comments,
-            table::stdout_columns(context.stdout_tty),
-            !context.no_color(),
+            table::stdout_columns(context.stdout_tty()),
+            context.color(),
         ))
     })()
-    .map_err(|error: AppError| error.with_context(agent_session::LIST_CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    .context(agent_session::LIST_CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 
 struct InitiativeAction<'a> {
@@ -4467,56 +3793,50 @@ struct InitiativeAction<'a> {
 }
 
 fn initiative_prompt_confirm(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     message: &str,
     default: bool,
-) -> Result<crate::platform::prompt::PromptOutcome<bool>, AppError> {
+) -> Result<crate::platform::prompt::PromptOutcome<bool>, Error> {
     use crate::platform::prompt::PromptSession;
-    if !context.stdin_tty {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
+    if !context.stdin_tty() {
+        return Err(Error::new(
             "Interactive confirmation required. Use --force to skip.",
         ));
     }
-    let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+    let mut session = PromptSession::confirmation_stdio(context.stdout())?;
     let result = session.confirm(message, default);
     session.finish_result(result)
 }
 
 fn initiative_prompt_stop<T>(
     outcome: crate::platform::prompt::PromptOutcome<T>,
-) -> Result<T, AppError> {
+) -> Result<T, Error> {
     use crate::platform::prompt::PromptOutcome;
     match outcome {
         PromptOutcome::Submitted(value) => Ok(value),
-        PromptOutcome::Interrupted => Err(AppError::new(AppErrorKind::Cancellation, "Interrupted")),
-        PromptOutcome::EndOfInput => Err(AppError::new(
-            AppErrorKind::Validation,
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new(
             "unexpected EOF while prompting for confirmation",
         )),
     }
 }
 
-fn initiative_interrupt_status() -> Result<ExitStatus, AppError> {
-    Ok(ExitStatus::ChildCode(
-        std::num::NonZeroU8::new(130).ok_or_else(|| {
-            AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
-        })?,
-    ))
+fn initiative_interrupt_status() -> Result<()> {
+    Err(Error::cancelled())
 }
 
 fn dispatch_initiative_bulk(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: InitiativeAction<'_>,
     mode: initiative_bulk::Mode,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::platform::prompt::{PromptOutcome, PromptSession};
     // The client is built before reading or validating the collected IDs.
     let transport = {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         client::prepare_transport_with_inputs(
             &config.options,
             credentials,
@@ -4527,20 +3847,15 @@ fn dispatch_initiative_bulk(
     if action.bulk.requested() {
         let ids = initiative_bulk::collect_ids(&action.bulk, &mut std::io::stdin().lock())?;
         if ids.is_empty() {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("No initiative IDs provided for bulk {}.", mode.verb()),
-            ));
+            return Err(Error::new(format!(
+                "No initiative IDs provided for bulk {}.",
+                mode.verb()
+            )));
         }
-        context.write_stdout_with_policy(
-            format!("Found {} initiative(s) to {}.\n", ids.len(), mode.verb()).as_bytes(),
-            OutputPolicy::ConsoleLike,
-        )?;
+        context
+            .print(format!("Found {} initiative(s) to {}.\n", ids.len(), mode.verb()).as_bytes())?;
         if mode == initiative_bulk::Mode::Delete {
-            context.write_stdout_with_policy(
-                "\n⚠️  This action is PERMANENT and cannot be undone.\n\n".as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
+            context.print("\n⚠️  This action is PERMANENT and cannot be undone.\n\n".as_bytes())?;
         }
         if !action.force {
             let message = match mode {
@@ -4554,64 +3869,52 @@ fn dispatch_initiative_bulk(
                 return initiative_interrupt_status();
             }
             if !initiative_prompt_stop(outcome)? {
-                context
-                    .write_stdout_with_policy(mode.bulk_cancelled(), OutputPolicy::ConsoleLike)?;
-                return Ok(ExitStatus::Success);
+                context.print(mode.bulk_cancelled())?;
+                return Ok(());
             }
         }
         let targets = {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             let scope = WorkspaceScope::from_selection(&inputs, credentials);
             ids.into_iter()
                 .map(|id| initiative_bulk::Target::prepare(id, &scope))
                 .collect()
         };
-        let progress_enabled = spinner::enabled(
-            false,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
+        let progress_enabled = spinner::enabled(false, context.stdout_tty(), true);
         let results = block_on_network(initiative_bulk::execute(
             &transport,
             targets,
             mode,
             |progress| {
                 if progress_enabled {
-                    context
-                        .write_stdout_with_policy(&progress.render(), OutputPolicy::ConsoleLike)?;
+                    context.print(progress.render())?;
                 }
                 Ok(())
             },
         ))?;
         if progress_enabled {
-            context.write_stdout_with_policy(
-                initiative_bulk::PROGRESS_CLEAR,
-                OutputPolicy::ConsoleLike,
-            )?;
+            context.print(initiative_bulk::PROGRESS_CLEAR)?;
         }
         let (output, failed) = initiative_bulk::summary(&results, mode);
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        return Ok(if failed {
-            ExitStatus::HandledFailure
+        context.print(&output)?;
+        return if failed {
+            Err(Error::reported())
         } else {
-            ExitStatus::Success
-        });
+            Ok(())
+        };
     }
     let original = action
         .target
         .filter(|target| !target.is_empty())
         .ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Initiative ID required. Use --bulk for multiple initiatives.",
-            )
+            Error::new("Initiative ID required. Use --bulk for multiple initiatives.")
         })?;
     let target = {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         initiative_bulk::Target::prepare(
             original.to_owned(),
             &WorkspaceScope::from_selection(&inputs, credentials),
@@ -4622,24 +3925,21 @@ fn dispatch_initiative_bulk(
         &target.reference?,
         mode,
     ))?
-    .ok_or_else(|| AppError::not_found("Initiative", original))?;
+    .ok_or_else(|| Error::not_found("Initiative", original))?;
     let detail = block_on_network(initiative_bulk::fetch_single(&transport, &id, mode))?
-        .ok_or_else(|| AppError::not_found("Initiative", original))?;
+        .ok_or_else(|| Error::not_found("Initiative", original))?;
     if detail.already_archived() {
-        context.write_stdout_with_policy(
-            format!("Initiative \"{}\" is already archived.\n", detail.name()).as_bytes(),
-            OutputPolicy::ConsoleLike,
-        )?;
-        return Ok(ExitStatus::Success);
+        context
+            .print(format!("Initiative \"{}\" is already archived.\n", detail.name()).as_bytes())?;
+        return Ok(());
     }
     if let Some(warning) = detail.linked_warning() {
-        context.write_stdout_with_policy(&warning, OutputPolicy::ConsoleLike)?;
+        context.print(&warning)?;
     }
     if !action.force {
         // The terminal check comes before the permanent-deletion warning.
-        if !context.stdin_tty {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
+        if !context.stdin_tty() {
+            return Err(Error::new(
                 "Interactive confirmation required. Use --force to skip.",
             ));
         }
@@ -4648,10 +3948,8 @@ fn dispatch_initiative_bulk(
                 (format!("Archive initiative \"{}\"?", detail.name()), true)
             }
             initiative_bulk::Mode::Delete => {
-                context.write_stdout_with_policy(
-                    "\n⚠️  This action is PERMANENT and cannot be undone.\n\n".as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
+                context
+                    .print("\n⚠️  This action is PERMANENT and cannot be undone.\n\n".as_bytes())?;
                 (
                     format!(
                         "Are you sure you want to permanently delete \"{}\"?",
@@ -4666,14 +3964,14 @@ fn dispatch_initiative_bulk(
             return initiative_interrupt_status();
         }
         if !initiative_prompt_stop(outcome)? {
-            context.write_stdout_with_policy(mode.single_cancelled(), OutputPolicy::ConsoleLike)?;
-            return Ok(ExitStatus::Success);
+            context.print(mode.single_cancelled())?;
+            return Ok(());
         }
         if mode == initiative_bulk::Mode::Delete {
             // Keep the raw answer; the prompt owns terminal handling and rendering.
             let raw = std::cell::RefCell::new(String::new());
             let outcome = {
-                let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+                let mut session = PromptSession::confirmation_stdio(context.stdout())?;
                 let result = session.text(
                     "Type the initiative name to confirm deletion:",
                     0,
@@ -4689,22 +3987,14 @@ fn dispatch_initiative_bulk(
             }
             initiative_prompt_stop(outcome)?;
             if raw.into_inner().trim() != detail.name() {
-                context.write_stdout_with_policy(
-                    b"Name does not match. Delete cancelled.\n",
-                    OutputPolicy::ConsoleLike,
-                )?;
-                return Ok(ExitStatus::Success);
+                context.print(b"Name does not match. Delete cancelled.\n")?;
+                return Ok(());
             }
         }
     }
-    let show_spinner = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show_spinner = spinner::enabled(false, context.stdout_tty(), true);
     if show_spinner {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = block_on_network(initiative_bulk::submit_single(
         &transport,
@@ -4713,10 +4003,10 @@ fn dispatch_initiative_bulk(
         mode,
     ));
     if show_spinner {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    context.write_stdout_with_policy(&result?, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&result?)?;
+    Ok(())
 }
 
 use crate::commands::{issue_upload, upload};
@@ -4724,10 +4014,10 @@ use crate::commands::{issue_upload, upload};
 /// sequential uploads with immediate output, line prompt only with no links,
 /// client then parent validation then AddComment. No pre-target API lookup.
 fn dispatch_issue_comment_add(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueCommentAdd,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let result = (|| {
         issue_upload::validate_comment_id(action.id.as_deref())?;
         let text = comment_add::resolve_body(action.body.as_deref(), action.body_file.as_deref())?;
@@ -4738,11 +4028,8 @@ fn dispatch_issue_comment_add(
             issue_upload::unresolved,
         )?;
         if action.public && action.attach.is_empty() {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                "--public requires at least one --attach",
-            )
-            .with_suggestion("Add --attach <file> to upload, or remove --public."));
+            return Err(Error::new("--public requires at least one --attach")
+                .with_hint("Add --attach <file> to upload, or remove --public."));
         }
         upload::prevalidate(&action.attach, action.public)?;
         let mut files = Vec::with_capacity(action.attach.len());
@@ -4757,10 +4044,7 @@ fn dispatch_issue_comment_add(
             )?);
         }
         let text = if text.is_none() && files.is_empty() {
-            match prompt_comment_body(context)? {
-                Ok(body) => Some(body),
-                Err(status) => return Ok(Err(status)),
-            }
+            Some(prompt_comment_body(context)?)
         } else {
             text
         };
@@ -4779,16 +4063,16 @@ fn dispatch_issue_comment_add(
             action.id.as_deref(),
         )?;
         let comment = block_on_network(comment_add::create(&transport, input))?;
-        Ok(Ok(issue_upload::comment_output(&identifier, &comment.url)))
+        Ok(issue_upload::comment_output(&identifier, &comment.url))
     })();
     finish_comment_add(context, result)
 }
 fn dispatch_issue_attach(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueAttach,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
-    let output = (|| {
+) -> Result<()> {
+    let output = (|| -> Result<Vec<u8>> {
         let identifier = resolve_relation_reference(
             context,
             Some(&action.issue_id),
@@ -4824,19 +4108,19 @@ fn dispatch_issue_attach(
             &file,
         ))
     })()
-    .map_err(|error: AppError| error.with_context(issue_upload::ATTACH_CONTEXT))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    .context(issue_upload::ATTACH_CONTEXT)?;
+    context.print(&output)?;
+    Ok(())
 }
 /// File metadata/public validation before client/spinner; spinner only encloses
 /// FileUpload+PUT. Every completed file is printed before later failures.
 fn upload_issue_file(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     workspace: Option<&str>,
     path: &str,
     public: bool,
     transport_slot: &mut Option<crate::graphql::transport::GraphQlTransport>,
-) -> Result<upload::UploadedFile, AppError> {
+) -> Result<upload::UploadedFile, Error> {
     let path = std::path::Path::new(path);
     let file = upload::prepare(path, public)?;
     if transport_slot.is_none() {
@@ -4845,44 +4129,44 @@ fn upload_issue_file(
     let Some(transport) = transport_slot.as_ref() else {
         unreachable!("transport initialized after metadata checks");
     };
-    let show_spinner = context.stdout_tty && context.startup.settings.no_color == NoColor::Absent;
+    let show_spinner = context.stdout_tty();
     let filename = file.filename.clone();
     let pending = upload::upload(transport, path, file);
     let uploaded = if show_spinner {
         // Each frame clears the line and resets color before the message.
         let frame = |tick: usize| format!("{}Uploading {filename}...", spinner::frame(tick));
-        context.write_stdout_with_policy(frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(frame(0).as_bytes())?;
         let result = block_on_network(async {
             tokio::pin!(pending);
             let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
             ticks.tick().await;
             let mut tick = 1;
             loop {
-                tokio::select! {biased;result=&mut pending=>break result,_=ticks.tick()=>{context.write_stdout_with_policy(frame(tick).as_bytes(),OutputPolicy::ConsoleLike)?;tick=tick.wrapping_add(1);}}
+                tokio::select! {biased;result=&mut pending=>break result,_=ticks.tick()=>{context.print(frame(tick).as_bytes())?;tick=tick.wrapping_add(1);}}
             }
         });
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
         result?
     } else {
         block_on_network(pending)?
     };
-    context.write_stdout_with_policy(&upload::output(&uploaded), OutputPolicy::ConsoleLike)?;
+    context.print(upload::output(&uploaded))?;
     if let Some(warning) = upload::warning(&uploaded) {
-        write_stderr(context, &warning)?;
+        context.eprint(&warning)?;
     }
     Ok(uploaded)
 }
 
 fn dispatch_document_list(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::document::DocumentList,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::{document_list, document_target};
-    let result = (|| {
-        let config = context.config()?;
+    let result: Result<()> = (|| {
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let team = configured_team_key(&config.options);
         let target = document_target::prepare(
             action,
@@ -4890,11 +4174,7 @@ fn dispatch_document_list(
             team.as_deref(),
         )?;
         let first = i32::try_from(action.limit.get()).map_err(|error| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Document limit exceeds GraphQL's signed integer range",
-            )
-            .with_source(error)
+            Error::new("Document limit exceeds GraphQL's signed integer range").with_source(error)
         })?;
         let transport = client::prepare_transport_with_inputs(
             &config.options,
@@ -4921,28 +4201,28 @@ fn dispatch_document_list(
             document_list::text(
                 &documents,
                 columns,
-                context.stdout_tty && !context.no_color(),
+                context.stdout_tty() && context.color(),
                 std::time::SystemTime::now(),
             )
             .into_bytes()
         };
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&output)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context(document_list::CONTEXT))
+    result.context(document_list::CONTEXT)
 }
 
 fn dispatch_document_view(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::document::DocumentView,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::document_view;
     use crate::platform::{markdown_assets, markdown_ast, markdown_serializer, markdown_terminal};
     let result = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let id = resolve_document_reference(
             &action.id,
             &WorkspaceScope::from_selection(&inputs, credentials),
@@ -4969,22 +4249,18 @@ fn dispatch_document_view(
             document_view::fetch(&transport, &action.id, &id, action.json),
         )?;
         if action.web {
-            context.write_stdout_with_policy(
-                format!("Opening {} in web browser\n", document.url()).as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
+            context.print(format!("Opening {} in web browser\n", document.url()).as_bytes())?;
             crate::platform::opener::open(document.url(), false)?;
-            return Ok(ExitStatus::Success);
+            return Ok(());
         }
         if action.json {
-            context.write_stdout_with_policy(&document.json()?, OutputPolicy::ConsoleLike)?;
-            return Ok(ExitStatus::Success);
+            context.print(&document.json()?)?;
+            return Ok(());
         }
         let document = match document {
             document_view::DocumentResult::Body(document) => document,
             document_view::DocumentResult::WithComments(_) => {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
+                return Err(Error::new(
                     "Non-JSON document unexpectedly included comments",
                 ));
             }
@@ -4998,7 +4274,7 @@ fn dispatch_document_view(
                     let transport = &transport;
                     async move { transport.download_markdown_image(&url).await }
                 },
-                |bytes| context.write_stderr(bytes),
+                |bytes| context.eprint(bytes),
             ))?
             .paths;
             if !paths.is_empty() {
@@ -5009,7 +4285,7 @@ fn dispatch_document_view(
                 )?);
             }
         }
-        let output = if action.raw || !context.stdout_tty {
+        let output = if action.raw || !context.stdout_tty() {
             document_view::raw(content.as_deref())
         } else {
             let markdown = document_view::markdown(
@@ -5023,33 +4299,28 @@ fn dispatch_document_view(
                 .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
             let options = markdown_terminal::RenderOptions::for_terminal(
                 columns,
-                context.startup.settings.no_color,
-                context.stdout_tty,
+                context.color(),
                 hyperlink.as_deref(),
                 markdown_terminal::HostSource::System,
             );
             format!("{}\n", markdown_terminal::render(&markdown, &options)?).into_bytes()
         };
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&output)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context(document_view::CONTEXT))
+    result.context(document_view::CONTEXT)
 }
 
 fn document_fetch_with_spinner<T>(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     json: bool,
-    pending: impl std::future::Future<Output = Result<T, AppError>>,
-) -> Result<T, AppError> {
-    let enabled = spinner::enabled(
-        json,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    pending: impl std::future::Future<Output = Result<T, Error>>,
+) -> Result<T, Error> {
+    let enabled = spinner::enabled(json, context.stdout_tty(), true);
     if !enabled {
         return block_on_network(pending);
     }
-    context.write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+    context.print(spinner::frame(0).as_bytes())?;
     let result = block_on_network(async {
         tokio::pin!(pending);
         let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
@@ -5060,38 +4331,34 @@ fn document_fetch_with_spinner<T>(
                 biased;
                 result = &mut pending => break result,
                 _ = ticks.tick() => {
-                    context.write_stdout_with_policy(spinner::frame(frame).as_bytes(), OutputPolicy::ConsoleLike)?;
+                    context.print(spinner::frame(frame).as_bytes())?;
                     frame = frame.wrapping_add(1);
                 }
             }
         }
     });
-    context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+    context.print(spinner::CLEAR)?;
     result
 }
 
 fn delete_confirmation(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     message: &str,
     flag: &str,
-) -> Result<crate::platform::prompt::PromptOutcome<bool>, AppError> {
-    if !context.stdin_tty {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Interactive confirmation required",
-        )
-        .with_suggestion(format!("Use --{flag} to skip.")));
+) -> Result<crate::platform::prompt::PromptOutcome<bool>, Error> {
+    if !context.stdin_tty() {
+        return Err(Error::new("Interactive confirmation required")
+            .with_hint(format!("Use --{flag} to skip.")));
     }
-    let mut session =
-        crate::platform::prompt::PromptSession::confirmation_stdio(&mut *context.stdout)?;
+    let mut session = crate::platform::prompt::PromptSession::confirmation_stdio(context.stdout())?;
     let outcome = session.confirm(message, false);
     session.finish_result(outcome)
 }
 fn dispatch_team_delete(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::team::TeamDelete,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::{
         commands::team_delete,
         graphql::operations::team_delete::GetTeamDetails,
@@ -5100,7 +4367,7 @@ fn dispatch_team_delete(
     let result = (|| {
         let transport = relation_transport(context, workspace)?;
         let prepared = {
-            let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+            let inputs = client::selection_inputs(&context.config().options, workspace);
             prepare_team_lookup(
                 &action.team,
                 &WorkspaceScope::from_selection(&inputs, context.credentials()?),
@@ -5111,18 +4378,17 @@ fn dispatch_team_delete(
             transport
                 .execute(&team_delete::details_request(&source.id))
                 .await
-                .map_err(AppError::from)
+                .map_err(Error::from)
         })?;
         let team = details
             .team
-            .ok_or_else(|| AppError::not_found("Team", &action.team))?;
+            .ok_or_else(|| Error::not_found("Team", &action.team))?;
         let count = team.issues.nodes.len();
         if count > 0 {
             let target = match action.move_issues.as_deref().filter(|s| !s.is_empty()) {
                 Some(reference) => {
                     let prepared = {
-                        let inputs =
-                            client::selection_inputs(&context.config()?.options, workspace)?;
+                        let inputs = client::selection_inputs(&context.config().options, workspace);
                         prepare_team_lookup(
                             reference,
                             &WorkspaceScope::from_selection(&inputs, context.credentials()?),
@@ -5131,24 +4397,15 @@ fn dispatch_team_delete(
                     let target =
                         block_on_network(resolve_team_with_transport(&prepared, &transport))?;
                     if target.id == source.id {
-                        return Err(AppError::new(
-                            AppErrorKind::Validation,
-                            "Cannot move issues to the same team",
-                        ));
+                        return Err(Error::new("Cannot move issues to the same team"));
                     }
                     target.id
                 }
                 None => {
-                    context.write_stdout_with_policy(
-                        &team_delete::warning(&team),
-                        OutputPolicy::ConsoleLike,
-                    )?;
-                    if !context.stdin_tty {
-                        return Err(AppError::new(
-                            AppErrorKind::Validation,
-                            "Interactive selection required",
-                        )
-                        .with_suggestion("Use --move-issues <teamKey> to specify target team."));
+                    context.print(team_delete::warning(&team))?;
+                    if !context.stdin_tty() {
+                        return Err(Error::new("Interactive selection required")
+                            .with_hint("Use --move-issues <teamKey> to specify target team."));
                     }
                     let teams =
                         block_on_network(crate::refs::fetch_all_teams_with_transport(&transport))?;
@@ -5162,13 +4419,10 @@ fn dispatch_team_delete(
                         })
                         .collect();
                     if options.is_empty() {
-                        return Err(AppError::new(
-                            AppErrorKind::GraphQl,
-                            "No other teams available to move issues to",
-                        ));
+                        return Err(Error::new("No other teams available to move issues to"));
                     }
                     let outcome = {
-                        let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+                        let mut session = PromptSession::confirmation_stdio(context.stdout())?;
                         let result = session.select(&PlainSelect {
                             message: "Select a team to move issues to:",
                             options: &options,
@@ -5180,25 +4434,19 @@ fn dispatch_team_delete(
                     match outcome {
                         PromptOutcome::Submitted(id) => {
                             if !options.iter().any(|o| o.value == id) {
-                                return Err(AppError::new(
-                                    AppErrorKind::Invariant,
-                                    "selected target team is missing",
-                                ));
+                                return Err(Error::new("selected target team is missing"));
                             }
                             id
                         }
                         PromptOutcome::Interrupted => return initiative_interrupt_status(),
                         PromptOutcome::EndOfInput => {
-                            return Err(AppError::new(
-                                AppErrorKind::Validation,
-                                "unexpected EOF while selecting a team",
-                            ));
+                            return Err(Error::new("unexpected EOF while selecting a team"));
                         }
                     }
                 }
             };
             team_delete_moves(context, &transport, &source.id, &target, count)
-                .map_err(|e| e.with_context(team_delete::MOVE_CONTEXT))?;
+                .context(team_delete::MOVE_CONTEXT)?;
         }
         if !action.force {
             match delete_confirmation(
@@ -5211,16 +4459,12 @@ fn dispatch_team_delete(
             )? {
                 PromptOutcome::Submitted(true) => {}
                 PromptOutcome::Submitted(false) => {
-                    context.write_stdout_with_policy(
-                        b"Delete cancelled.\n",
-                        OutputPolicy::ConsoleLike,
-                    )?;
-                    return Ok(ExitStatus::Success);
+                    context.print(b"Delete cancelled.\n")?;
+                    return Ok(());
                 }
                 PromptOutcome::Interrupted => return initiative_interrupt_status(),
                 PromptOutcome::EndOfInput => {
-                    return Err(AppError::new(
-                        AppErrorKind::Validation,
+                    return Err(Error::new(
                         "unexpected EOF while prompting for confirmation",
                     ));
                 }
@@ -5231,49 +4475,41 @@ fn dispatch_team_delete(
                 transport
                     .execute(&team_delete::delete_request(&source.id))
                     .await
-                    .map_err(AppError::from)
+                    .map_err(Error::from)
             })?;
         if !result.team_delete.success {
-            return Err(AppError::new(
-                AppErrorKind::GraphQl,
-                "Failed to delete team",
-            ));
+            return Err(Error::new("Failed to delete team"));
         }
-        context
-            .write_stdout_with_policy(&team_delete::deleted(&team), OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(team_delete::deleted(&team))?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| {
-        if error.context.as_deref() == Some(team_delete::MOVE_CONTEXT) {
+    result.map_err(|error: Error| {
+        if error.has_context() {
             error
         } else {
-            error.with_context(team_delete::CONTEXT)
+            error.context(team_delete::CONTEXT)
         }
     })
 }
 fn team_delete_moves(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     transport: &crate::graphql::transport::GraphQlTransport,
     source: &str,
     target: &str,
     count: usize,
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     use crate::commands::team_delete;
-    let show = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let show = spinner::enabled(false, context.stdout_tty(), true);
     let message = std::cell::RefCell::new(format!("Moving {count} issue(s) to target team..."));
     let pending = async {
         let issues = team_delete::all_issues(source, |request| async move {
-            transport.execute(&request).await.map_err(AppError::from)
+            transport.execute(&request).await.map_err(Error::from)
         })
         .await?;
         team_delete::move_all(
             &issues,
             target,
-            |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+            |request| async move { transport.execute(&request).await.map_err(Error::from) },
             |moved, total| {
                 *message.borrow_mut() = format!("Moving issues... ({moved}/{total})");
                 Ok(())
@@ -5282,36 +4518,30 @@ fn team_delete_moves(
         .await
     };
     let result = if show {
-        context.write_stdout_with_policy(
-            format!("{}{}", spinner::frame(0), message.borrow()).as_bytes(),
-            OutputPolicy::ConsoleLike,
-        )?;
+        context.print(format!("{}{}", spinner::frame(0), message.borrow()).as_bytes())?;
         block_on_network(async {
             tokio::pin!(pending);
             let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
             ticks.tick().await;
             let mut frame = 1;
             loop {
-                tokio::select! {biased;result=&mut pending=>break result,_=ticks.tick()=>{context.write_stdout_with_policy(format!("{}{}",spinner::frame(frame),message.borrow()).as_bytes(),OutputPolicy::ConsoleLike)?;frame=frame.wrapping_add(1);}}
+                tokio::select! {biased;result=&mut pending=>break result,_=ticks.tick()=>{context.print(format!("{}{}",spinner::frame(frame),message.borrow()).as_bytes())?;frame=frame.wrapping_add(1);}}
             }
         })
     } else {
         block_on_network(pending)
     };
     if show {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?
+        context.print(spinner::CLEAR)?
     }
     let moved = result?;
-    context.write_stdout_with_policy(
-        format!("✓ Moved {moved} issue(s) to target team\n").as_bytes(),
-        OutputPolicy::ConsoleLike,
-    )
+    context.print(format!("✓ Moved {moved} issue(s) to target team\n").as_bytes())
 }
 fn dispatch_document_delete(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::document::DocumentDelete,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::{commands::document_delete as command, platform::prompt::PromptOutcome};
     let result = (|| {
         let transport = relation_transport(context, workspace)?;
@@ -5323,15 +4553,9 @@ fn dispatch_document_delete(
         if input.requested() {
             let ids = initiative_bulk::collect_ids(&input, &mut std::io::stdin().lock())?;
             if ids.is_empty() {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "No document IDs provided for bulk delete",
-                ));
+                return Err(Error::new("No document IDs provided for bulk delete"));
             }
-            context.write_stdout_with_policy(
-                format!("Found {} document(s) to delete.\n", ids.len()).as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
+            context.print(format!("Found {} document(s) to delete.\n", ids.len()).as_bytes())?;
             if !action.yes {
                 match delete_confirmation(
                     context,
@@ -5340,64 +4564,51 @@ fn dispatch_document_delete(
                 )? {
                     PromptOutcome::Submitted(true) => {}
                     PromptOutcome::Submitted(false) => {
-                        context.write_stdout_with_policy(
-                            b"Bulk delete cancelled.\n",
-                            OutputPolicy::ConsoleLike,
-                        )?;
-                        return Ok(ExitStatus::Success);
+                        context.print(b"Bulk delete cancelled.\n")?;
+                        return Ok(());
                     }
                     PromptOutcome::Interrupted => return initiative_interrupt_status(),
                     PromptOutcome::EndOfInput => {
-                        return Err(AppError::new(
-                            AppErrorKind::Validation,
+                        return Err(Error::new(
                             "unexpected EOF while prompting for confirmation",
                         ));
                     }
                 }
             }
             let targets = {
-                let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+                let inputs = client::selection_inputs(&context.config().options, workspace);
                 let scope = WorkspaceScope::from_selection(&inputs, context.credentials()?);
                 ids.into_iter()
                     .map(|id| command::Target::prepare(id, &scope))
                     .collect()
             };
-            let show = spinner::enabled(
-                false,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
+            let show = spinner::enabled(false, context.stdout_tty(), true);
             let results = block_on_network(command::execute(&transport, targets, |progress| {
                 if show {
-                    context
-                        .write_stdout_with_policy(&progress.render(), OutputPolicy::ConsoleLike)?
+                    context.print(progress.render())?
                 }
                 Ok(())
             }));
             if show {
-                context.write_stdout_with_policy(
-                    initiative_bulk::PROGRESS_CLEAR,
-                    OutputPolicy::ConsoleLike,
-                )?
+                context.print(initiative_bulk::PROGRESS_CLEAR)?
             }
             let (output, failed) = command::summary(&results?);
-            context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-            return Ok(if failed {
-                ExitStatus::HandledFailure
+            context.print(&output)?;
+            return if failed {
+                Err(Error::reported())
             } else {
-                ExitStatus::Success
-            });
+                Ok(())
+            };
         }
         let original = action
             .document_id
             .as_deref()
             .filter(|id| !id.is_empty())
             .ok_or_else(|| {
-                AppError::new(AppErrorKind::Validation, "Document ID required")
-                    .with_suggestion("Use --bulk for multiple documents.")
+                Error::new("Document ID required").with_hint("Use --bulk for multiple documents.")
             })?;
         let id = {
-            let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+            let inputs = client::selection_inputs(&context.config().options, workspace);
             resolve_document_reference(
                 original,
                 &WorkspaceScope::from_selection(&inputs, context.credentials()?),
@@ -5412,30 +4623,26 @@ fn dispatch_document_delete(
             )? {
                 PromptOutcome::Submitted(true) => {}
                 PromptOutcome::Submitted(false) => {
-                    context.write_stdout_with_policy(
-                        b"Delete cancelled.\n",
-                        OutputPolicy::ConsoleLike,
-                    )?;
-                    return Ok(ExitStatus::Success);
+                    context.print(b"Delete cancelled.\n")?;
+                    return Ok(());
                 }
                 PromptOutcome::Interrupted => return initiative_interrupt_status(),
                 PromptOutcome::EndOfInput => {
-                    return Err(AppError::new(
-                        AppErrorKind::Validation,
+                    return Err(Error::new(
                         "unexpected EOF while prompting for confirmation",
                     ));
                 }
             }
         }
         let output = block_on_network(command::submit_single(&transport, &document))?;
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&output)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+    result.context(command::CONTEXT)
 }
 
 fn document_write_target(
-    context: &AppContext<'_>,
+    context: &Ctx,
     target: crate::commands::document_target::TargetOptions<'_>,
     workspace: Option<&str>,
 ) -> Result<
@@ -5443,11 +4650,11 @@ fn document_write_target(
         crate::graphql::transport::GraphQlTransport,
         Option<crate::commands::document_target::PreparedTarget>,
     ),
-    AppError,
+    Error,
 > {
-    let config = context.config()?;
+    let config = context.config();
     let credentials = context.credentials()?;
-    let inputs = client::selection_inputs(&config.options, workspace)?;
+    let inputs = client::selection_inputs(&config.options, workspace);
     let team = configured_team_key(&config.options);
     let prepared = crate::commands::document_target::prepare_options(
         target,
@@ -5464,26 +4671,19 @@ fn document_write_target(
 }
 fn document_prompt_exit(
     outcome: crate::platform::prompt::PromptOutcome<crate::commands::document_write::Fields>,
-) -> Result<Result<crate::commands::document_write::Fields, ExitStatus>, AppError> {
+) -> Result<crate::commands::document_write::Fields> {
     use crate::platform::prompt::PromptOutcome;
     match outcome {
-        PromptOutcome::Submitted(fields) => Ok(Ok(fields)),
-        PromptOutcome::Interrupted => Ok(Err(ExitStatus::ChildCode(
-            std::num::NonZeroU8::new(130).ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "exit code 130 must be nonzero")
-            })?,
-        ))),
-        PromptOutcome::EndOfInput => Err(AppError::new(
-            AppErrorKind::Validation,
-            "unexpected EOF while prompting for document",
-        )),
+        PromptOutcome::Submitted(fields) => Ok(fields),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new("unexpected EOF while prompting for document")),
     }
 }
 fn dispatch_document_create(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::document::DocumentCreate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::{document_target::TargetOptions, document_write as command, text_input};
     let result = (|| {
         let target = TargetOptions {
@@ -5494,7 +4694,7 @@ fn dispatch_document_create(
             cycle: action.cycle.as_deref(),
             release: action.release.as_deref(),
         };
-        let interactive = context.stdout_tty
+        let interactive = context.stdout_tty()
             && (action.interactive
                 || (action.title.is_none()
                     && action.content.is_none()
@@ -5504,9 +4704,9 @@ fn dispatch_document_create(
         let root = std::env::temp_dir();
         let fields = if interactive {
             if target.any() {
-                return Err(AppError::new(AppErrorKind::Validation,"Attachment target flags cannot be combined with interactive mode").with_suggestion("Drop the target flags to choose the attachment interactively, or drop -i/--interactive to use the flags."));
+                return Err(Error::new("Attachment target flags cannot be combined with interactive mode").with_hint("Drop the target flags to choose the attachment interactively, or drop -i/--interactive to use the flags."));
             }
-            let config = context.config()?;
+            let config = context.config();
             let env = config.child_env.clone();
             let default_team = configured_team_key(&config.options);
             crate::platform::prompt_text::TextOptions {
@@ -5514,11 +4714,11 @@ fn dispatch_document_create(
                 default: default_team.as_deref(),
             }
             .preflight()
-            .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
-            let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+            .map_err(Error::new)?;
+            let mut session = crate::platform::prompt::PromptSession::stdio(context.stdout())?;
             let prompted = command::prompt(
                 &mut session,
-                &mut *context.stderr,
+                &mut std::io::stderr(),
                 command::PromptSettings {
                     env: &env,
                     temp_root: &root,
@@ -5526,34 +4726,25 @@ fn dispatch_document_create(
                 },
             );
             let outcome = session.finish_result(prompted)?;
-            match document_prompt_exit(outcome)? {
-                Ok(fields) => fields,
-                Err(exit) => return Ok(exit),
-            }
+            document_prompt_exit(outcome)?
         } else {
             let title = action.title.clone().ok_or_else(|| {
-                AppError::new(AppErrorKind::Validation, "Title is required")
-                    .with_suggestion("Use --title or run with -i for interactive mode.")
+                Error::new("Title is required")
+                    .with_hint("Use --title or run with -i for interactive mode.")
             })?;
             target.cardinality(true)?;
             let content = if let Some(content) = &action.content {
                 Some(content.clone())
             } else if let Some(path) = &action.content_file {
                 Some(command::file(path, false)?)
-            } else if !context.stdin_tty {
+            } else if !context.stdin_tty() {
                 text_input::read_stdin(std::io::stdin().lock())?
-            } else if context.stdout_tty {
-                context.write_stdout_with_policy(
-                    b"Opening editor for document content...\n",
-                    OutputPolicy::ConsoleLike,
-                )?;
-                let env = context.config()?.child_env.clone();
-                let content = command::optional_editor(&env, &root, &mut *context.stderr)?;
+            } else if context.stdout_tty() {
+                context.print(b"Opening editor for document content...\n")?;
+                let env = context.config().child_env.clone();
+                let content = command::optional_editor(&env, &mut std::io::stderr())?;
                 if content.is_none() {
-                    context.write_stdout_with_policy(
-                        b"No content entered. Creating document without content.\n",
-                        OutputPolicy::ConsoleLike,
-                    )?;
+                    context.print(b"No content entered. Creating document without content.\n")?;
                 }
                 content
             } else {
@@ -5583,24 +4774,24 @@ fn dispatch_document_create(
             let title = fields
                 .title
                 .filter(|title| !title.is_empty())
-                .ok_or_else(|| AppError::new(AppErrorKind::Validation, "Title is required"))?;
+                .ok_or_else(|| Error::new("Title is required"))?;
             command::create(&transport, title, input).await
         })?;
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&output)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context("Failed to create document"))
+    result.context("Failed to create document")
 }
 fn dispatch_document_update(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::document::DocumentUpdate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::{document_target::TargetOptions, document_write as command, text_input};
     let result = (|| {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let id = resolve_document_reference(
             &action.document_id,
             &WorkspaceScope::from_selection(&inputs, credentials),
@@ -5629,37 +4820,24 @@ fn dispatch_document_update(
         } else if action.edit {
             let document = block_on_network(command::for_edit(&transport, &id))?;
             let seed = document.content.unwrap_or_default();
-            context.write_stdout_with_policy(
-                format!("Opening {} in editor...\n", document.title).as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
-            let content = command::required_editor(
-                &context.config()?.child_env,
-                &std::env::temp_dir(),
-                &seed,
-            )?;
-            let Some(content) = content else {
-                context.write_stdout_with_policy(
-                    b"No changes made, update cancelled.\n",
-                    OutputPolicy::ConsoleLike,
-                )?;
-                return Ok(ExitStatus::Success);
-            };
-            if content == seed {
-                context.write_stdout_with_policy(
-                    b"No changes detected, update cancelled.\n",
-                    OutputPolicy::ConsoleLike,
-                )?;
-                return Ok(ExitStatus::Success);
+            context.print(format!("Opening {} in editor...\n", document.title).as_bytes())?;
+            let edited = context.edit_text(&seed)?;
+            if edited == seed {
+                context.print(b"No changes detected, update cancelled.\n")?;
+                return Ok(());
             }
+            let Some(content) = text_input::edited_body(&edited) else {
+                context.print(b"No changes made, update cancelled.\n")?;
+                return Ok(());
+            };
             Some(content)
-        } else if !context.stdin_tty && !command::has_fields(&input) {
+        } else if !context.stdin_tty() && !command::has_fields(&input) {
             text_input::read_stdin(std::io::stdin().lock())?
         } else {
             None
         };
         if !command::has_fields(&input) {
-            return Err(AppError::new(AppErrorKind::Validation,"No update fields provided").with_suggestion("Use --title, --content, --content-file, --icon, --edit, or re-point the attachment with --project, --issue, --initiative, --team, --cycle, or --release."));
+            return Err(Error::new("No update fields provided").with_hint("Use --title, --content, --content-file, --icon, --edit, or re-point the attachment with --project, --issue, --initiative, --team, --cycle, or --release."));
         }
         let output = block_on_network(async {
             if input.content.is_some() && !action.force {
@@ -5667,17 +4845,17 @@ fn dispatch_document_update(
             }
             command::update(&transport, &id, input).await
         })?;
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&output)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context("Failed to update document"))
+    result.context("Failed to update document")
 }
 
 fn project_ticks<T>(
-    context: &mut AppContext<'_>,
-    pending: impl std::future::Future<Output = Result<T, AppError>>,
+    context: &Ctx,
+    pending: impl std::future::Future<Output = Result<T, Error>>,
     enabled: bool,
-) -> Result<T, AppError> {
+) -> Result<T, Error> {
     if !enabled {
         return block_on_network(pending);
     }
@@ -5687,24 +4865,24 @@ fn project_ticks<T>(
         ticks.tick().await;
         let mut frame = 1_usize;
         loop {
-            tokio::select! {biased;result=&mut pending=>break result,_=ticks.tick()=>{context.write_stdout_with_policy(spinner::frame(frame).as_bytes(),OutputPolicy::ConsoleLike)?;frame=frame.wrapping_add(1);}}
+            tokio::select! {biased;result=&mut pending=>break result,_=ticks.tick()=>{context.print(spinner::frame(frame).as_bytes())?;frame=frame.wrapping_add(1);}}
         }
     })
 }
 fn dispatch_project_create(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::project::ProjectCreate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::project_create as command;
     let result = (|| {
         // Original content/priority validation before authentication.
         let mut fields = command::local(action)?;
         let (options, default_workspace, transport) = {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
             let options = config.options.clone();
-            let inputs = client::selection_inputs(&options, workspace)?;
+            let inputs = client::selection_inputs(&options, workspace);
             let transport = client::prepare_transport_with_inputs(
                 &options,
                 credentials,
@@ -5713,21 +4891,18 @@ fn dispatch_project_create(
             )?;
             (options, credentials.default().map(str::to_owned), transport)
         };
-        let inputs = client::selection_inputs(&options, workspace)?;
+        let inputs = client::selection_inputs(&options, workspace);
         let scope = WorkspaceScope {
             cli_workspace: inputs.cli_workspace,
             sourced_workspace: inputs.sourced_workspace.as_ref().map(|(value, _)| *value),
             default_workspace: default_workspace.as_deref(),
-            api_key: &inputs.api_key,
+            api_key: inputs.api_key.clone(),
         };
         let default_team = configured_team_key(&options);
-        if command::interactive(&fields, action.interactive, context.stdout_tty) {
+        if command::interactive(&fields, action.interactive, context.stdout_tty()) {
             // Only stdout is checked here; piped stdin is not refused.
-            context.write_stdout_with_policy(
-                b"\nCreate a new project\n\n",
-                OutputPolicy::ConsoleLike,
-            )?;
-            let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
+            context.print(b"\nCreate a new project\n\n")?;
+            let mut session = crate::platform::prompt::PromptSession::stdio(context.stdout())?;
             let prompted = block_on_network(command::prompt(
                 &mut session,
                 &transport,
@@ -5741,10 +4916,7 @@ fn dispatch_project_create(
                     return initiative_interrupt_status();
                 }
                 crate::platform::prompt::PromptOutcome::EndOfInput => {
-                    return Err(AppError::new(
-                        AppErrorKind::Validation,
-                        "unexpected EOF while prompting for project",
-                    ));
+                    return Err(Error::new("unexpected EOF while prompting for project"));
                 }
             };
         }
@@ -5754,20 +4926,13 @@ fn dispatch_project_create(
             &fields,
             default_team.as_deref(),
         ))?;
-        let enabled = spinner::enabled(
-            action.json,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
+        let enabled = spinner::enabled(action.json, context.stdout_tty(), true);
         if enabled {
-            context.write_stdout_with_policy(
-                spinner::frame(0).as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
+            context.print(spinner::frame(0).as_bytes())?;
         }
         let created = project_ticks(context, command::submit(&transport, input), enabled);
         if enabled {
-            context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            context.print(spinner::CLEAR)?;
         }
         let payload = created?;
         // Spinner has stopped BEFORE postcreate initiative resolution/join/output.
@@ -5778,37 +4943,31 @@ fn dispatch_project_create(
             fields.initiative.as_deref(),
             action.json,
         ))?;
-        context.write_stderr(&output.stderr)?;
-        context.write_stdout_with_policy(&output.stdout, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.eprint(&output.stderr)?;
+        context.print(&output.stdout)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context("Failed to create project"))
+    result.context("Failed to create project")
 }
 fn dispatch_project_update(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::project::ProjectUpdate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::project_update as command;
     let options = command::Options::from_cli(action);
     // Local input, file and date checks run before the spinner and client.
-    let local =
-        command::local(&options).map_err(|error| error.with_context("Failed to update project"))?;
-    let enabled = spinner::enabled(
-        false,
-        context.stdout_tty,
-        context.startup.settings.no_color == NoColor::Absent,
-    );
+    let local = command::local(&options).context("Failed to update project")?;
+    let enabled = spinner::enabled(false, context.stdout_tty(), true);
     if enabled {
-        context
-            .write_stdout_with_policy(spinner::frame(0).as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(spinner::frame(0).as_bytes())?;
     }
     let result = (|| {
         let (config_options, default_workspace, transport) = {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
             let config_options = config.options.clone();
-            let inputs = client::selection_inputs(&config_options, workspace)?;
+            let inputs = client::selection_inputs(&config_options, workspace);
             let transport = client::prepare_transport_with_inputs(
                 &config_options,
                 credentials,
@@ -5821,12 +4980,12 @@ fn dispatch_project_update(
                 transport,
             )
         };
-        let inputs = client::selection_inputs(&config_options, workspace)?;
+        let inputs = client::selection_inputs(&config_options, workspace);
         let scope = WorkspaceScope {
             cli_workspace: inputs.cli_workspace,
             sourced_workspace: inputs.sourced_workspace.as_ref().map(|(value, _)| *value),
             default_workspace: default_workspace.as_deref(),
-            api_key: &inputs.api_key,
+            api_key: inputs.api_key.clone(),
         };
         project_ticks(
             context,
@@ -5840,15 +4999,11 @@ fn dispatch_project_update(
     })();
     // Every setup/lookup/write failure clears, and success clears BEFORE printing.
     if enabled {
-        context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+        context.print(spinner::CLEAR)?;
     }
-    let project =
-        result.map_err(|error: AppError| error.with_context("Failed to update project"))?;
-    context.write_stdout_with_policy(
-        &command::output(project.as_ref()),
-        OutputPolicy::ConsoleLike,
-    )?;
-    Ok(ExitStatus::Success)
+    let project = result.context("Failed to update project")?;
+    context.print(command::output(project.as_ref()))?;
+    Ok(())
 }
 
 struct IssueArchiveDeleteAction<'a> {
@@ -5857,52 +5012,46 @@ struct IssueArchiveDeleteAction<'a> {
     bulk: initiative_bulk::BulkInput<'a>,
 }
 fn issue_archive_delete_confirm(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     message: &str,
-) -> Result<crate::platform::prompt::PromptOutcome<bool>, AppError> {
+) -> Result<crate::platform::prompt::PromptOutcome<bool>, Error> {
     use crate::platform::prompt::PromptSession;
-    if !context.stdin_tty {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Interactive confirmation required",
-        )
-        .with_suggestion("Use --confirm to skip."));
+    if !context.stdin_tty() {
+        return Err(
+            Error::new("Interactive confirmation required").with_hint("Use --confirm to skip.")
+        );
     }
     if crate::commands::issue_archive_delete::stdout_is_pipe()? {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
+        return Err(Error::new(
             "Cannot confirm while stdout is a pipe; pass --confirm to continue.",
         ));
     }
-    let mut session = PromptSession::confirmation_stdio(&mut *context.stdout)?;
+    let mut session = PromptSession::confirmation_stdio(context.stdout())?;
     let result = session.confirm(message, false);
     session.finish_result(result)
 }
 fn dispatch_issue_archive_delete(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: IssueArchiveDeleteAction<'_>,
     mode: crate::commands::issue_archive_delete::Mode,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::issue_archive_delete as command;
     use crate::platform::prompt::PromptOutcome;
     // The client is built before collecting or resolving any IDs.
     let transport = relation_transport(context, workspace)?;
     if action.bulk.requested() {
         if mode == command::Mode::Archive && action.target.is_some() {
-            return Err(AppError::new(AppErrorKind::Validation,"Cannot combine a positional issue ID with --bulk").with_suggestion("Pass every identifier through --bulk (or --bulk-file / --bulk-stdin), or drop the positional one."));
+            return Err(Error::new("Cannot combine a positional issue ID with --bulk").with_hint("Pass every identifier through --bulk (or --bulk-file / --bulk-stdin), or drop the positional one."));
         }
         let ids = initiative_bulk::collect_ids(&action.bulk, &mut std::io::stdin().lock())?;
         if ids.is_empty() {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("No issue identifiers provided for bulk {}", mode.verb()),
-            ));
+            return Err(Error::new(format!(
+                "No issue identifiers provided for bulk {}",
+                mode.verb()
+            )));
         }
-        context.write_stdout_with_policy(
-            format!("Found {} issue(s) to {}.\n", ids.len(), mode.verb()).as_bytes(),
-            OutputPolicy::ConsoleLike,
-        )?;
+        context.print(format!("Found {} issue(s) to {}.\n", ids.len(), mode.verb()).as_bytes())?;
         if !action.confirm {
             let outcome = issue_archive_delete_confirm(
                 context,
@@ -5919,66 +5068,50 @@ fn dispatch_issue_archive_delete(
                 return initiative_interrupt_status();
             }
             if !initiative_prompt_stop(outcome)? {
-                context.write_stdout_with_policy(
-                    format!("Bulk {} cancelled.\n", mode.verb()).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-                return Ok(ExitStatus::Success);
+                context.print(format!("Bulk {} cancelled.\n", mode.verb()).as_bytes())?;
+                return Ok(());
             }
         }
         let targets = {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             let scope = WorkspaceScope::from_selection(&inputs, credentials);
             let team = configured_team_key(&config.options);
             ids.into_iter()
                 .map(|id| command::Target::prepare(id, team.as_deref(), &scope))
                 .collect()
         };
-        let progress_enabled = spinner::enabled(
-            false,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
+        let progress_enabled = spinner::enabled(false, context.stdout_tty(), true);
         let results = block_on_network(command::execute(&transport, targets, mode, |progress| {
             if progress_enabled {
-                context.write_stdout_with_policy(&progress.render(), OutputPolicy::ConsoleLike)?;
+                context.print(progress.render())?;
             }
             Ok(())
         }))?;
         if progress_enabled {
-            context.write_stdout_with_policy(
-                initiative_bulk::PROGRESS_CLEAR,
-                OutputPolicy::ConsoleLike,
-            )?;
+            context.print(initiative_bulk::PROGRESS_CLEAR)?;
         }
         let (output, failed) = command::summary(&results, mode);
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        return Ok(if failed {
-            ExitStatus::HandledFailure
+        context.print(&output)?;
+        return if failed {
+            Err(Error::reported())
         } else {
-            ExitStatus::Success
-        });
+            Ok(())
+        };
     }
     if mode == command::Mode::Delete && action.target.is_none_or(str::is_empty) {
-        return Err(AppError::new(AppErrorKind::Validation, "Issue ID required")
-            .with_suggestion("Use --bulk for multiple issues."));
+        return Err(Error::new("Issue ID required").with_hint("Use --bulk for multiple issues."));
     }
     let id = resolve_relation_reference(context, action.target, workspace, || match mode {
-        command::Mode::Archive => {
-            AppError::new(AppErrorKind::Validation, "Could not determine issue ID")
-                .with_suggestion("Please provide an issue ID like 'ENG-123'.")
-        }
-        command::Mode::Delete => AppError::not_found("Issue", action.target.unwrap_or_default()),
+        command::Mode::Archive => Error::new("Could not determine issue ID")
+            .with_hint("Please provide an issue ID like 'ENG-123'."),
+        command::Mode::Delete => Error::not_found("Issue", action.target.unwrap_or_default()),
     })?;
     let details = block_on_network(command::single_details(&transport, &id, mode))?;
     if details.already_archived {
-        context.write_stdout_with_policy(
-            format!("Issue \"{}\" is already archived.\n", details.name()).as_bytes(),
-            OutputPolicy::ConsoleLike,
-        )?;
-        return Ok(ExitStatus::Success);
+        context.print(format!("Issue \"{}\" is already archived.\n", details.name()).as_bytes())?;
+        return Ok(());
     }
     if !action.confirm {
         let outcome = issue_archive_delete_confirm(
@@ -5993,7 +5126,7 @@ fn dispatch_issue_archive_delete(
             return initiative_interrupt_status();
         }
         if !initiative_prompt_stop(outcome)? {
-            context.write_stdout_with_policy(
+            context.print(
                 format!(
                     "{} cancelled.\n",
                     match mode {
@@ -6002,14 +5135,13 @@ fn dispatch_issue_archive_delete(
                     }
                 )
                 .as_bytes(),
-                OutputPolicy::ConsoleLike,
             )?;
-            return Ok(ExitStatus::Success);
+            return Ok(());
         }
     }
     let output = block_on_network(command::submit_single(&transport, &id, &details, mode))?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 struct UpdateCreateAction<'a> {
@@ -6020,18 +5152,18 @@ struct UpdateCreateAction<'a> {
     interactive: bool,
 }
 fn dispatch_update_create(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: UpdateCreateAction<'_>,
     mode: crate::commands::update_create::Mode,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::update_create as command;
     use crate::platform::prompt::PromptOutcome;
     let result = (|| {
         let interactive = command::attended(
             action.interactive,
-            context.stdin_tty,
-            context.stdout_tty,
+            context.stdin_tty(),
+            context.stdout_tty(),
             action.body,
             action.file,
             action.health,
@@ -6039,9 +5171,9 @@ fn dispatch_update_create(
         // The explicit -i check runs before either client is built.
         let transport = relation_transport(context, workspace)?;
         let (id, display) = {
-            let config = context.config()?;
+            let config = context.config();
             let credentials = context.credentials()?;
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             let scope = WorkspaceScope::from_selection(&inputs, credentials);
             match mode {
                 command::Mode::Project => {
@@ -6069,23 +5201,18 @@ fn dispatch_update_create(
                 }
             }
         };
-        let env = context.config()?.child_env.clone();
-        let root = std::env::temp_dir();
+        let env = context.config().child_env.clone();
         let fields = if interactive {
             if let Some(name) = display {
-                context.write_stdout_with_policy(
-                    format!("\nCreating status update for: {name}\n\n").as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
+                context.print(format!("\nCreating status update for: {name}\n\n").as_bytes())?;
             }
-            let mut session = crate::platform::prompt::PromptSession::stdio(&mut *context.stdout)?;
-            let prompted = command::prompt(&mut session, &mut *context.stderr, &env, &root, mode);
+            let mut session = crate::platform::prompt::PromptSession::stdio(context.stdout())?;
+            let prompted = command::prompt(&mut session, &mut std::io::stderr(), &env, mode);
             match session.finish_result(prompted)? {
                 PromptOutcome::Submitted(fields) => fields,
                 PromptOutcome::Interrupted => return initiative_interrupt_status(),
                 PromptOutcome::EndOfInput => {
-                    return Err(AppError::new(
-                        AppErrorKind::Validation,
+                    return Err(Error::new(
                         "unexpected EOF while prompting for status update",
                     ));
                 }
@@ -6095,29 +5222,20 @@ fn dispatch_update_create(
                 Some(body.to_owned())
             } else if let Some(path) = action.file.filter(|value| !value.is_empty()) {
                 Some(command::file(path, mode, false)?)
-            } else if !context.stdin_tty {
+            } else if !context.stdin_tty() {
                 crate::commands::text_input::read_stdin(std::io::stdin().lock())?
-            } else if context.stdout_tty {
-                context.write_stdout_with_policy(
-                    format!("{}\n", mode.opening()).as_bytes(),
-                    OutputPolicy::ConsoleLike,
-                )?;
-                match command::edit(&env, &root, &mut *context.stderr)? {
+            } else if context.stdout_tty() {
+                context.print(format!("{}\n", mode.opening()).as_bytes())?;
+                match command::edit(&env, &mut std::io::stderr())? {
                     PromptOutcome::Submitted(body) => {
                         if body.is_none() {
-                            context.write_stdout_with_policy(
-                                b"No content entered.\n",
-                                OutputPolicy::ConsoleLike,
-                            )?;
+                            context.print(b"No content entered.\n")?;
                         }
                         body
                     }
                     PromptOutcome::Interrupted => return initiative_interrupt_status(),
                     PromptOutcome::EndOfInput => {
-                        return Err(AppError::new(
-                            AppErrorKind::Invariant,
-                            "editor cannot return input EOF",
-                        ));
+                        return Err(Error::new("editor cannot return input EOF"));
                     }
                 }
             } else {
@@ -6134,24 +5252,24 @@ fn dispatch_update_create(
         } else {
             document_fetch_with_spinner(context, false, pending)
         }?;
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&output)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context(mode.context()))
+    result.context(mode.context())
 }
 
 fn dispatch_initiative_update(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::initiative::InitiativeUpdate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::initiative_update as command;
     use crate::platform::prompt::{PromptOutcome, PromptSession, escaped_display};
     let transport = relation_transport(context, workspace)?;
     let reference = {
-        let config = context.config()?;
+        let config = context.config();
         let credentials = context.credentials()?;
-        let inputs = client::selection_inputs(&config.options, workspace)?;
+        let inputs = client::selection_inputs(&config.options, workspace);
         let scope = WorkspaceScope::from_selection(&inputs, credentials);
         initiative_view::prepare_reference(&action.initiative_id, &scope)?
     };
@@ -6170,47 +5288,43 @@ fn dispatch_initiative_update(
         color: action.color.clone(),
         icon: action.icon.clone(),
     };
-    if fields.should_prompt(action.interactive, context.stdout_tty) {
-        context.write_stdout_with_policy(
+    if fields.should_prompt(action.interactive, context.stdout_tty()) {
+        context.print(
             format!(
                 "\nUpdating initiative: {}\n\n",
                 escaped_display(&current.name)
             )
             .as_bytes(),
-            OutputPolicy::ConsoleLike,
         )?;
-        let mut session = PromptSession::stdio_cr_or_lf(&mut *context.stdout)?;
+        let mut session = PromptSession::stdio_cr_or_lf(context.stdout())?;
         let prompted = command::prompt(&mut session, &current);
         fields = match session.finish_result(prompted)? {
             PromptOutcome::Submitted(fields) => fields,
             PromptOutcome::Interrupted => return initiative_interrupt_status(),
             PromptOutcome::EndOfInput => {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "unexpected EOF while updating initiative",
-                ));
+                return Err(Error::new("unexpected EOF while updating initiative"));
             }
         };
     }
     let owner_id = block_on_network(command::owner(&transport, fields.owner.as_deref()))?;
     if fields.empty() {
-        context.write_stdout_with_policy(b"No changes specified\n", OutputPolicy::ConsoleLike)?;
-        return Ok(ExitStatus::Success);
+        context.print(b"No changes specified\n")?;
+        return Ok(());
     }
     let output = document_fetch_with_spinner(
         context,
         false,
         command::submit(&transport, &id, fields.input(owner_id)),
     )?;
-    context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    context.print(&output)?;
+    Ok(())
 }
 
 fn dispatch_issue_comment_update(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueCommentUpdate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::{
         commands::issue_comment_update as command,
         platform::prompt::{PromptOutcome, PromptSession},
@@ -6225,57 +5339,43 @@ fn dispatch_issue_comment_update(
         if command::needs_prompt(body.as_deref()) {
             let existing =
                 block_on_network(command::existing_body(&transport, &action.comment_id))?;
-            if context.stdin_tty {
+            if context.stdin_tty() {
                 command::check_prompt_topology(true, command::stdout_is_fifo()?)?;
             }
-            let mut session = PromptSession::stdin_stdio_cr_or_lf(&mut *context.stdout)?;
+            let mut session = PromptSession::stdin_stdio_cr_or_lf(context.stdout())?;
             let prompted = command::prompt_body(&mut session, &existing);
             body = match session.finish_result(prompted)? {
                 PromptOutcome::Submitted(body) => Some(body),
                 PromptOutcome::Interrupted => return initiative_interrupt_status(),
                 PromptOutcome::EndOfInput => {
-                    return Err(AppError::new(
-                        AppErrorKind::Invariant,
+                    return Err(Error::new(
                         "comment prompt must convert EOF to its text-specific error",
                     ));
                 }
             };
         }
-        let body = body.ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "comment update body absent after prompt",
-            )
-        })?;
+        let body = body.ok_or_else(|| Error::new("comment update body absent after prompt"))?;
         let output = block_on_network(command::submit(&transport, &action.comment_id, body))?;
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&output)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+    result.context(command::CONTEXT)
 }
 
-fn dispatch_config_generate(
-    context: &mut AppContext<'_>,
-    workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+fn dispatch_config_generate(context: &Ctx, workspace: Option<&str>) -> Result<()> {
     use crate::{
         commands::config_generate as command,
         platform::prompt::{PlainSelect, PromptOutcome, PromptSession},
     };
     let result = (|| {
-        context.write_stdout_with_policy(command::BANNER.as_bytes(), OutputPolicy::ConsoleLike)?;
+        context.print(command::BANNER.as_bytes())?;
         // Borrow disjoint startup/stdout fields, not a full-context reference held by the session.
-        let loaded = context.startup.result.as_ref().map_err(|_| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "config action reached failed startup",
-            )
-        })?;
+        let loaded = legacy::Loaded::new(context)?;
         let config = &loaded.config;
         let credentials = &loaded.credentials;
         let choice = command::workspace_choice(&config.options, credentials, workspace)?;
         let mut session = None;
-        let mut prompt_output = Some(&mut *context.stdout);
+        let mut prompt_output = Some(context.stdout());
         let answers = (|| {
             let selected = match choice {
                 command::WorkspaceChoice::Existing => workspace.map(str::to_owned),
@@ -6284,21 +5384,18 @@ fn dispatch_config_generate(
                     options,
                     default_index,
                 } => {
-                    if context.stdin_tty {
+                    if context.stdin_tty() {
                         command::check_prompt_topology(true, command::stdout_is_fifo()?)?;
                     }
                     let current = PromptSession::stdin_stdio_cr_or_lf(
-                        prompt_output.take().ok_or_else(|| {
-                            AppError::new(
-                                AppErrorKind::Invariant,
-                                "config prompt output already owned",
-                            )
-                        })?,
+                        prompt_output
+                            .take()
+                            .ok_or_else(|| Error::new("config prompt output already owned"))?,
                     )?;
                     session = Some(current);
-                    let current = session.as_mut().ok_or_else(|| {
-                        AppError::new(AppErrorKind::Invariant, "workspace session absent")
-                    })?;
+                    let current = session
+                        .as_mut()
+                        .ok_or_else(|| Error::new("workspace session absent"))?;
                     let answer = command::stage(
                         current.select(&PlainSelect {
                             message: "Select workspace:",
@@ -6312,10 +5409,7 @@ fn dispatch_config_generate(
                         PromptOutcome::Submitted(name) => Some(name),
                         PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
                         PromptOutcome::EndOfInput => {
-                            return Err(AppError::new(
-                                AppErrorKind::Invariant,
-                                "workspace EOF conversion absent",
-                            ));
+                            return Err(Error::new("workspace EOF conversion absent"));
                         }
                     }
                 }
@@ -6332,25 +5426,22 @@ fn dispatch_config_generate(
             let data = block_on_network(command::fetch(&transport))?;
             // Validate all selectable IDs before team raw mode resumes/starts.
             let teams = command::prepare_teams(data.teams.nodes)?;
-            if context.stdin_tty {
+            if context.stdin_tty() {
                 command::check_prompt_topology(true, command::stdout_is_fifo()?)?;
             }
             match session.as_mut() {
                 Some(current) => current.resume()?,
                 None => {
                     session = Some(PromptSession::stdin_stdio_cr_or_lf(
-                        prompt_output.take().ok_or_else(|| {
-                            AppError::new(
-                                AppErrorKind::Invariant,
-                                "config prompt output already owned",
-                            )
-                        })?,
+                        prompt_output
+                            .take()
+                            .ok_or_else(|| Error::new("config prompt output already owned"))?,
                     )?)
                 }
             }
             let current = session
                 .as_mut()
-                .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "team session absent"))?;
+                .ok_or_else(|| Error::new("team session absent"))?;
             let choices = command::team_options(&teams);
             let id = match command::stage(
                 current.searchable_select("Select a team:", "Search teams", &choices)?,
@@ -6359,10 +5450,7 @@ fn dispatch_config_generate(
                 PromptOutcome::Submitted(id) => id,
                 PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
                 PromptOutcome::EndOfInput => {
-                    return Err(AppError::new(
-                        AppErrorKind::Invariant,
-                        "team EOF conversion absent",
-                    ));
+                    return Err(Error::new("team EOF conversion absent"));
                 }
             };
             let key = command::team_key(&teams, &id)?.to_owned();
@@ -6370,10 +5458,7 @@ fn dispatch_config_generate(
                 PromptOutcome::Submitted(sort) => sort,
                 PromptOutcome::Interrupted => return Ok(PromptOutcome::Interrupted),
                 PromptOutcome::EndOfInput => {
-                    return Err(AppError::new(
-                        AppErrorKind::Invariant,
-                        "sort EOF conversion absent",
-                    ));
+                    return Err(Error::new("sort EOF conversion absent"));
                 }
             };
             Ok(PromptOutcome::Submitted((
@@ -6392,14 +5477,11 @@ fn dispatch_config_generate(
             PromptOutcome::Submitted(values) => values,
             PromptOutcome::Interrupted => return initiative_interrupt_status(),
             PromptOutcome::EndOfInput => {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
-                    "config stage EOF conversion absent",
-                ));
+                return Err(Error::new("config stage EOF conversion absent"));
             }
         };
         let root = block_on_network(command::late_root(
-            &context.cwd,
+            context.cwd(),
             &config.child_env,
             command::GitLimits::default(),
         ))?;
@@ -6407,25 +5489,25 @@ fn dispatch_config_generate(
             let absolute = if path.is_absolute() {
                 path.to_owned()
             } else {
-                context.cwd.join(path)
+                context.cwd().join(path)
             };
             std::fs::metadata(absolute).is_ok() // follows symlinks, any stat success, ordinary errors fallback.
         });
         let content = command::template(&written_workspace, &key, sort);
-        let output = command::write_config(&context.cwd, &path, &content)?;
-        context.write_stdout_with_policy(&output, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        let output = command::write_config(context.cwd(), &path, &content)?;
+        context.print(&output)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+    result.context(command::CONTEXT)
 }
 
 // These helpers return owned data before prompts or stream output borrow the
 // application context.
 fn issue_read_transport(
-    context: &AppContext<'_>,
+    context: &Ctx,
     workspace: Option<&str>,
-) -> Result<crate::graphql::transport::GraphQlTransport, AppError> {
-    let config = context.config()?;
+) -> Result<crate::graphql::transport::GraphQlTransport, Error> {
+    let config = context.config();
     client::prepare_transport(
         &config.options,
         context.credentials()?,
@@ -6434,12 +5516,12 @@ fn issue_read_transport(
     )
 }
 fn issue_read_team(
-    context: &AppContext<'_>,
+    context: &Ctx,
     transport: &crate::graphql::transport::GraphQlTransport,
     value: &str,
     workspace: Option<&str>,
-) -> Result<crate::refs::ResolvedTeam, AppError> {
-    let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+) -> Result<crate::refs::ResolvedTeam, Error> {
+    let inputs = client::selection_inputs(&context.config().options, workspace);
     let prepared = prepare_team_lookup(
         value,
         &WorkspaceScope::from_selection(&inputs, context.credentials()?),
@@ -6451,11 +5533,11 @@ fn issue_read_team(
     ))
 }
 fn issue_read_project(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     transport: &crate::graphql::transport::GraphQlTransport,
     value: Option<&str>,
     workspace: Option<&str>,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     use crate::commands::issue_read as command;
     use crate::graphql::{
         envelope::GraphQlRequest,
@@ -6464,7 +5546,7 @@ fn issue_read_project(
     use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
     use cynic::QueryBuilder;
     let Some(value) = value else { return Ok(None) };
-    let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+    let inputs = client::selection_inputs(&context.config().options, workspace);
     let reference = prepare_project_lookup(
         value,
         &WorkspaceScope::from_selection(&inputs, context.credentials()?),
@@ -6492,26 +5574,23 @@ fn issue_read_project(
         }
     }
     if rows.is_empty() {
-        return Err(AppError::not_found("Project", value));
+        return Err(Error::not_found("Project", value));
     }
-    if !context.stdin_tty {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!(
-                "Project \"{value}\" not found. Similar projects: {}",
-                rows.iter()
-                    .map(|r| r.1.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-        ));
+    if !context.stdin_tty() {
+        return Err(Error::new(format!(
+            "Project \"{value}\" not found. Similar projects: {}",
+            rows.iter()
+                .map(|r| r.1.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )));
     }
     let single = rows.len() == 1;
     let message = if single {
         format!(
             "Project named {value} does not exist, but {} exists. Is this what you meant?",
             rows.first()
-                .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "Empty project menu"))?
+                .ok_or_else(|| Error::new("Empty project menu"))?
                 .1
         )
     } else {
@@ -6548,7 +5627,7 @@ fn issue_read_project(
             .map(|option| option.label.as_str())
             .collect::<Vec<_>>(),
     )?;
-    let mut session = PromptSession::stdin_stdio(&mut *context.stdout)?;
+    let mut session = PromptSession::stdin_stdio(context.stdout())?;
     let result = session.select(&PlainSelect {
         message: &message,
         options: &options,
@@ -6563,41 +5642,28 @@ fn issue_read_project(
             .ok()
             .and_then(|index| rows.get(index))
             .map(|r| Some(r.0.clone()))
-            .ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "Project menu returned unknown selection",
-                )
-            }),
-        PromptOutcome::Interrupted => Err(AppError::new(AppErrorKind::Cancellation, "Interrupted")),
-        PromptOutcome::EndOfInput => Err(AppError::new(
-            AppErrorKind::Validation,
-            "unexpected EOF while selecting project",
-        )),
+            .ok_or_else(|| Error::new("Project menu returned unknown selection")),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new("unexpected EOF while selecting project")),
     }
 }
 fn issue_read_cycle(
-    context: &AppContext<'_>,
+    context: &Ctx,
     transport: &crate::graphql::transport::GraphQlTransport,
     value: Option<&str>,
     team_key: Option<&str>,
     team_id: Option<&str>,
     workspace: Option<&str>,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     let Some(value) = value else { return Ok(None) };
-    let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+    let inputs = client::selection_inputs(&context.config().options, workspace);
     let id = match team_id {
         Some(id) => id.to_owned(),
         None => {
             issue_read_team(
                 context,
                 transport,
-                team_key.ok_or_else(|| {
-                    AppError::new(
-                        AppErrorKind::Validation,
-                        "--cycle requires a single team scope",
-                    )
-                })?,
+                team_key.ok_or_else(|| Error::new("--cycle requires a single team scope"))?,
                 workspace,
             )?
             .id
@@ -6617,92 +5683,70 @@ fn issue_read_cycle(
     ))
     .map(Some)
 }
-fn issue_read_sort(context: &AppContext<'_>, sort: Option<cli::Sort>) -> Result<bool, AppError> {
+fn issue_read_sort(context: &Ctx, sort: Option<cli::Sort>) -> Result<bool, Error> {
     use crate::config::IssueSort;
     let value = sort.map(|v| match v {
         cli::Sort::Manual => IssueSort::Manual,
         cli::Sort::Priority => IssueSort::Priority,
     });
-    Ok(context.config()?.options.issue_sort(value).0 == IssueSort::Priority)
+    Ok(context.config().options.issue_sort(value).0 == IssueSort::Priority)
 }
-fn issue_read_output(
-    context: &mut AppContext<'_>,
-    output: &str,
-    pager_enabled: bool,
-) -> Result<ExitStatus, AppError> {
-    use crate::platform::pager;
-    if !context.stdout_tty {
-        context.write_stdout_with_policy(
-            format!("{output}\n").as_bytes(),
-            OutputPolicy::ConsoleLike,
-        )?;
-        return Ok(ExitStatus::Success);
+fn issue_read_output(context: &Ctx, output: &str, pager_enabled: bool) -> Result<()> {
+    if !context.stdout_tty() {
+        context.print(format!("{output}\n").as_bytes())?;
+        return Ok(());
     }
-    let config = context.config()?;
-    let env = config.child_env.clone();
-    let pager = config.pager.clone();
-    let mut runner = pager::ProcessPagerRunner::inheriting(env.iter());
-    let request = pager::PagerRequest {
-        enabled: pager_enabled,
-        stdout_tty: true,
-        size: pager::stdout_size(),
-        pager: pager.as_deref(),
-        os: pager::HOST_OS,
-    };
-    pager::show(output, &request, &mut runner, context.stdout).map(|_| ExitStatus::Success)
+    context.page(output, pager_enabled)
 }
-fn issue_read_project_conflict(project: Option<&str>, label: Option<&str>) -> Result<(), AppError> {
+fn issue_read_project_conflict(project: Option<&str>, label: Option<&str>) -> Result<(), Error> {
     if project.is_some() && label.is_some() {
-        return Err(AppError::new(AppErrorKind::Validation,"Cannot use --project and --project-label together").with_suggestion("Use --project to filter by a single project, or --project-label to filter by all projects with a given label."));
+        return Err(Error::new("Cannot use --project and --project-label together").with_hint("Use --project to filter by a single project, or --project-label to filter by all projects with a given label."));
     }
     Ok(())
 }
 fn issue_read_milestone_conflict(
     milestone: Option<&str>,
     project_label: Option<&str>,
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     if milestone.is_some() && project_label.is_some() {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "--milestone cannot be used with --project-label",
-        )
-        .with_suggestion(
-            "Use --project to specify a single project when filtering by milestone.",
-        ));
+        return Err(
+            Error::new("--milestone cannot be used with --project-label").with_hint(
+                "Use --project to specify a single project when filtering by milestone.",
+            ),
+        );
     }
     Ok(())
 }
 fn dispatch_issue_mine(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueMine,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::issue_read as command;
     if action.web || action.app {
-        let Some(team) = configured_team_key(&context.config()?.options) else {
-            context.write_stderr(
-                b"Could not determine team id from configuration or directory name.\n",
-            )?;
-            return Ok(ExitStatus::HandledFailure);
+        let Some(team) = configured_team_key(&context.config().options) else {
+            context
+                .eprint(b"Could not determine team id from configuration or directory name.\n")?;
+            return Err(Error::reported());
         };
         let Some(workspace) = workspace.or(context
-            .config()?
+            .config()
             .options
             .workspace()
             .map(|v| v.value().as_str())
             .filter(|v| !v.is_empty()))
         else {
-            context.write_stderr(
+            context.eprint(
                 b"workspace is not set via command line, configuration file, or environment.\n",
             )?;
-            return Ok(ExitStatus::HandledFailure);
+            return Err(Error::reported());
         };
         let filter = "eyJhbmQiOlt7ImFzc2lnbmVlIjp7Im9yIjpbeyJpc01lIjp7ImVxIjp0cnVlfX1dfX1dfQ";
         crate::platform::opener::open(
             &format!("https://linear.app/{workspace}/team/{team}/active?filter={filter}"),
             action.app,
         )?;
-        return Ok(ExitStatus::Success);
+        return Ok(());
     }
     let result = (|| {
         if action.assignee.is_some() || action.all_assignees || action.unassigned {
@@ -6713,33 +5757,28 @@ fn dispatch_issue_mine(
             } else {
                 "--unassigned"
             };
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("{flag} has been removed from 'issue mine'"),
-            )
-            .with_suggestion(format!(
-                "Use 'linear issue query {flag}' for assignee filtering."
-            )));
+            return Err(
+                Error::new(format!("{flag} has been removed from 'issue mine'")).with_hint(
+                    format!("Use 'linear issue query {flag}' for assignee filtering."),
+                ),
+            );
         }
         if action.all_states
             && (action.state.len() != 1
                 || action.state.first().map(String::as_str) != Some("unstarted"))
         {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                "Cannot use --all-states with --state flag",
-            ));
+            return Err(Error::new("Cannot use --all-states with --state flag"));
         }
         let priority = issue_read_sort(context, action.sort)?;
-        if action.team.is_none() && configured_team_key(&context.config()?.options).is_none() {
+        if action.team.is_none() && configured_team_key(&context.config().options).is_none() {
             let inside = std::process::Command::new("git")
                 .args(["rev-parse", "--is-inside-work-tree"])
-                .current_dir(&context.cwd)
+                .current_dir(context.cwd())
                 .stdin(std::process::Stdio::null())
-                .envs(context.config()?.child_env.iter())
+                .envs(context.config().child_env.iter())
                 .output()
                 .is_ok_and(|o| o.status.success());
-            return Err(AppError::new(AppErrorKind::Validation, "No default team configured and no team scope provided").with_suggestion(if inside { "Use --team <key, name, or ID> to specify a team, or run `linear config` to link this repository to a team." } else { "Use --team <key, name, or ID> to specify a team." }));
+            return Err(Error::new("No default team configured and no team scope provided").with_hint(if inside { "Use --team <key, name, or ID> to specify a team, or run `linear config` to link this repository to a team." } else { "Use --team <key, name, or ID> to specify a team." }));
         }
         let transport = issue_read_transport(context, workspace)?;
         let explicit = action
@@ -6750,13 +5789,8 @@ fn dispatch_issue_mine(
         let team = explicit
             .as_ref()
             .map(|t| t.key.clone())
-            .or_else(|| configured_team_key(&context.config().ok()?.options));
-        let team = team.ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "Validated issue team scope is absent",
-            )
-        })?;
+            .or_else(|| configured_team_key(&context.config().options));
+        let team = team.ok_or_else(|| Error::new("Validated issue team scope is absent"))?;
         issue_read_project_conflict(action.project.as_deref(), action.project_label.as_deref())?;
         let project =
             issue_read_project(context, &transport, action.project.as_deref(), workspace)?;
@@ -6778,7 +5812,7 @@ fn dispatch_issue_mine(
             .is_some_and(|m| !crate::refs::is_linear_uuid(m))
             && project.is_none()
         {
-            return Err(AppError::new(AppErrorKind::Validation,"--milestone requires --project to be set").with_suggestion("Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly."));
+            return Err(Error::new("--milestone requires --project to be set").with_hint("Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly."));
         }
         let milestone = action
             .milestone
@@ -6824,27 +5858,27 @@ fn dispatch_issue_mine(
             true,
             false,
             false,
-            if context.stdout_tty {
+            if context.stdout_tty() {
                 crate::platform::pager::stdout_size().map_or(80, |s| usize::from(s.columns))
             } else {
                 120
             },
-            !context.no_color(),
+            context.color(),
             std::time::SystemTime::now(),
         )?;
         issue_read_output(context, &table, !action.no_pager)
     })();
-    result.map_err(|e: AppError| e.with_context("Failed to list issues"))
+    result.context("Failed to list issues")
 }
 fn dispatch_issue_query(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueQuery,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::issue_read as command;
     use crate::graphql::operations::issue_read::IssueFilter;
     let result = (|| {
-        let err = |m: &str| AppError::new(AppErrorKind::Validation, m);
+        let err = |m: &str| Error::new(m);
         if !action.team.is_empty() && action.all_teams {
             return Err(err("Cannot use both --team and --all-teams flags"));
         }
@@ -6867,30 +5901,30 @@ fn dispatch_issue_query(
             .is_some_and(|m| !crate::refs::is_linear_uuid(m))
             && action.project.is_none()
         {
-            return Err(err("--milestone requires --project to be set").with_suggestion("Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly."));
+            return Err(err("--milestone requires --project to be set").with_hint("Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly."));
         }
         issue_read_milestone_conflict(
             action.milestone.as_deref(),
             action.project_label.as_deref(),
         )?;
         if action.search_comments && action.search.is_none() {
-            return Err(err("--search-comments requires --search to be set").with_suggestion("Use --search to provide a search term, e.g. --search \"oauth timeout\" --search-comments."));
+            return Err(err("--search-comments requires --search to be set").with_hint("Use --search to provide a search term, e.g. --search \"oauth timeout\" --search-comments."));
         }
         if action.sort.is_some() && action.search.is_some() {
-            return Err(err("--sort cannot be used with --search").with_suggestion(
+            return Err(err("--sort cannot be used with --search").with_hint(
                 "Search results use relevance ordering. Remove --sort when using --search.",
             ));
         }
         let default_team = if !action.all_teams && action.team.is_empty() {
-            let team = configured_team_key(&context.config()?.options).ok_or_else(||err("No default team configured and no team scope provided").with_suggestion("Use --team <key, name, or ID> to specify a team, or --all-teams to query the whole workspace."))?;
-            if context.config()?.options.team_id().is_some_and(|v| {
+            let team = configured_team_key(&context.config().options).ok_or_else(||err("No default team configured and no team scope provided").with_hint("Use --team <key, name, or ID> to specify a team, or --all-teams to query the whole workspace."))?;
+            if context.config().options.team_id().is_some_and(|v| {
                 matches!(
                     v.source(),
                     crate::config::OptionSource::Env
                         | crate::config::OptionSource::GlobalConfig { .. }
                 )
             }) {
-                context.write_stderr(format!("Note: using default team {team}. Pass --team <key, name, or ID> or --all-teams to be explicit.\n").as_bytes())?;
+                context.eprint(format!("Note: using default team {team}. Pass --team <key, name, or ID> or --all-teams to be explicit.\n").as_bytes())?;
             }
             Some(team)
         } else {
@@ -6900,7 +5934,7 @@ fn dispatch_issue_query(
         let (keys, multi, explicit_id) = if action.all_teams {
             (None, true, None)
         } else if !action.team.is_empty() {
-            let inputs = client::selection_inputs(&context.config()?.options, workspace)?;
+            let inputs = client::selection_inputs(&context.config().options, workspace);
             let scope = WorkspaceScope::from_selection(&inputs, context.credentials()?);
             let prepared = action
                 .team
@@ -6938,12 +5972,8 @@ fn dispatch_issue_query(
                 id,
             )
         } else {
-            let team = default_team.ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "default issue team was not prepared",
-                )
-            })?;
+            let team =
+                default_team.ok_or_else(|| Error::new("default issue team was not prepared"))?;
             (Some(vec![team]), false, None)
         };
         let state = block_on_network(command::state_filter(
@@ -6954,7 +5984,7 @@ fn dispatch_issue_query(
         let project =
             issue_read_project(context, &transport, action.project.as_deref(), workspace)?;
         if action.cycle.is_some() && (multi || keys.as_ref().is_none_or(|k| k.len() != 1)) {
-            return Err(err("--cycle requires a single team scope").with_suggestion("Use --team <key, name, or ID> to specify exactly one team when filtering by cycle."));
+            return Err(err("--cycle requires a single team scope").with_hint("Use --team <key, name, or ID> to specify exactly one team when filtering by cycle."));
         }
         let cycle = issue_read_cycle(
             context,
@@ -6974,12 +6004,12 @@ fn dispatch_issue_query(
         } else {
             Ok(None)
         };
-        let columns = if context.stdout_tty {
+        let columns = if context.stdout_tty() {
             crate::platform::pager::stdout_size().map_or(80, |s| usize::from(s.columns))
         } else {
             120
         };
-        let color = !context.no_color();
+        let color = context.color();
         let output = agent_session_network(context, action.json, async {
             let priority = priority?;
             let term = action.search.as_deref().map(|s| s.trim().to_owned());
@@ -7012,10 +6042,7 @@ fn dispatch_issue_query(
                 action.updated_after.as_deref(),
             )?;
             let filter = if serde_json::to_value(&filter)
-                .map_err(|e| {
-                    AppError::new(AppErrorKind::Invariant, "could not inspect typed filter")
-                        .with_source(e)
-                })?
+                .map_err(|e| Error::new("could not inspect typed filter").with_source(e))?
                 .as_object()
                 .is_some_and(|m| m.is_empty())
             {
@@ -7079,35 +6106,31 @@ fn dispatch_issue_query(
             }
         })?;
         if action.json {
-            context.write_stdout_with_policy(
-                format!("{output}\n").as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
-            Ok(ExitStatus::Success)
+            context.print(format!("{output}\n").as_bytes())?;
+            Ok(())
         } else {
             issue_read_output(context, &output, !action.no_pager)
         }
     })();
-    result.map_err(|e: AppError| e.with_context("Failed to query issues"))
+    result.context("Failed to query issues")
 }
-fn issue_read_json(value: &impl serde::Serialize) -> Result<String, AppError> {
-    serde_json::to_string_pretty(value).map_err(|e| {
-        AppError::new(AppErrorKind::Invariant, "could not serialize issue output").with_source(e)
-    })
+fn issue_read_json(value: &impl serde::Serialize) -> Result<String, Error> {
+    serde_json::to_string_pretty(value)
+        .map_err(|e| Error::new("could not serialize issue output").with_source(e))
 }
 fn dispatch_issue_view(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueView,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::issue_view as command;
     use crate::platform::{markdown_assets, markdown_terminal, pager};
     if action.web || action.app {
         let id = match resolve_issue(context, action.issue_id.as_deref(), workspace) {
             Ok(id) => id,
-            Err(e) if e.message == "Could not determine issue ID" => {
+            Err(e) if e.message() == "Could not determine issue ID" => {
                 let message = match context
-                    .config()?
+                    .config()
                     .options
                     .vcs()
                     .map(|v| *v.value())
@@ -7120,8 +6143,8 @@ fn dispatch_issue_view(
                         "No Linear-issue trailer found in current or ancestor commits.\n"
                     }
                 };
-                context.write_stderr(message.as_bytes())?;
-                return Ok(ExitStatus::HandledFailure);
+                context.eprint(message.as_bytes())?;
+                return Err(Error::reported());
             }
             Err(e) => return Err(e),
         };
@@ -7129,20 +6152,19 @@ fn dispatch_issue_view(
             .or_else(|| {
                 context
                     .config()
-                    .ok()?
                     .options
                     .workspace()
                     .map(|v| v.value().as_str())
             })
             .filter(|s| !s.is_empty());
         let Some(workspace) = configured else {
-            context.write_stderr(
+            context.eprint(
                 b"workspace is not set via command line, configuration file, or environment.\n",
             )?;
-            return Ok(ExitStatus::HandledFailure);
+            return Err(Error::reported());
         };
         let url = format!("https://linear.app/{workspace}/issue/{id}");
-        context.write_stdout_with_policy(
+        context.print(
             format!(
                 "Opening {url} in {}\n",
                 if action.app {
@@ -7152,10 +6174,9 @@ fn dispatch_issue_view(
                 }
             )
             .as_bytes(),
-            OutputPolicy::ConsoleLike,
         )?;
         crate::platform::opener::open(&url, action.app)?;
-        return Ok(ExitStatus::Success);
+        return Ok(());
     }
     let result = (|| {
         let id = resolve_issue(context, action.issue_id.as_deref(), workspace)?;
@@ -7166,13 +6187,10 @@ fn dispatch_issue_view(
             command::fetch(&transport, id, !action.no_comments),
         )?;
         if action.json {
-            context.write_stdout_with_policy(
-                format!("{}\n", fetched.json()?).as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
-            return Ok(ExitStatus::Success);
+            context.print(format!("{}\n", fetched.json()?).as_bytes())?;
+            return Ok(());
         }
-        let config = context.config()?;
+        let config = context.config();
         let download =
             !action.no_download && config.options.download_images().is_none_or(|v| *v.value());
         let attachments = download
@@ -7202,7 +6220,7 @@ fn dispatch_issue_view(
                 &transport,
                 &mut issue,
                 &image_root,
-                |bytes| context.write_stderr(bytes),
+                |bytes| context.eprint(bytes),
             ))?;
         }
         let paths = if attachments {
@@ -7210,19 +6228,18 @@ fn dispatch_issue_view(
                 &transport,
                 &issue,
                 &attachment_root,
-                |bytes| context.write_stderr(bytes),
+                |bytes| context.eprint(bytes),
             ))?
         } else {
             std::collections::HashMap::new()
         };
-        let output = if context.stdout_tty {
+        let output = if context.stdout_tty() {
             let columns = pager::stdout_size()
                 .and_then(|s| std::num::NonZeroU16::new(s.columns))
                 .unwrap_or(markdown_terminal::FALLBACK_COLUMNS);
             let options = markdown_terminal::RenderOptions::for_terminal(
                 columns,
-                context.startup.settings.no_color,
-                true,
+                context.color(),
                 hyperlink.as_deref(),
                 markdown_terminal::HostSource::System,
             );
@@ -7232,7 +6249,7 @@ fn dispatch_issue_view(
                 action.show_resolved_threads,
                 chrono::Utc::now(),
                 &options,
-                context.startup.settings.no_color == NoColor::Absent,
+                true,
             )?
         } else {
             command::markdown(
@@ -7244,102 +6261,21 @@ fn dispatch_issue_view(
         };
         issue_read_output(context, &output, !action.no_pager)
     })();
-    result.map_err(|e: AppError| e.with_context("Failed to view issue"))
+    result.context("Failed to view issue")
 }
 
-fn api_action(
-    action: &cli::api::Api,
-    workspace: Option<&str>,
-    context: &mut AppContext<'_>,
-) -> Result<ExitStatus, AppError> {
-    use crate::commands::api;
-    let result = (|| {
-        let query = api::resolve_query(action.graphql_document.as_deref(), context.stdin_tty)?;
-        let variables = api::variables(action)?;
-        let config = context.config()?;
-        let transport=client::prepare_transport(&config.options,context.credentials()?,workspace,&config.transport_env).map_err(|error| {
-            if error.message=="No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`." {AppError::new(AppErrorKind::Validation,"No API key configured").with_suggestion("Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.")}else{error}
-        })?;
-        let output = block_on_network(api::execute(
-            &transport,
-            &query,
-            variables,
-            action.paginate,
-            action.silent,
-            context.stdout_tty,
-        ))?;
-        if !output.stdout.is_empty() {
-            context
-                .write_stdout_with_policy(
-                    output.stdout.as_bytes(),
-                    if output.console {
-                        OutputPolicy::ConsoleLike
-                    } else {
-                        OutputPolicy::Strict
-                    },
-                )
-                .map_err(api::stdout_write_error)?;
-        }
-        if !output.stderr.is_empty() {
-            write_stderr(context, output.stderr.as_bytes())?;
-        }
-        Ok(output.status)
-    })();
-    result.map_err(|error: AppError| error.with_context(api::CONTEXT))
+fn auth_prompt_eof(phase: &str) -> Error {
+    Error::new(format!("unexpected EOF while prompting for {phase}"))
 }
-fn schema_action(
-    action: &cli::schema::Schema,
-    workspace: Option<&str>,
-    context: &mut AppContext<'_>,
-) -> Result<ExitStatus, AppError> {
-    use crate::commands::schema;
-    let result = (|| {
-        let config = context.config()?;
-        let transport = client::prepare_transport(
-            &config.options,
-            context.credentials()?,
-            workspace,
-            &config.transport_env,
-        )?;
-        let value = block_on_network(schema::fetch(&transport))?;
-        let content = format!("{}\n", schema::content(&value, action.json)?);
-        if let Some(path) = &action.output {
-            std::fs::write(path, content).map_err(|e| {
-                AppError::new(
-                    AppErrorKind::IoProcess,
-                    format!("Failed to write schema: {path}: {e}"),
-                )
-                .with_source(e)
-            })?;
-            context.write_stdout_with_policy(
-                format!("Schema written to {path}\n").as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
-        } else {
-            context.write_stdout_with_policy(content.as_bytes(), OutputPolicy::ConsoleLike)?;
-        }
-        Ok(ExitStatus::Success)
-    })();
-    result.map_err(|error: AppError| error.with_context(schema::CONTEXT))
-}
-
-fn auth_prompt_eof(phase: &str) -> AppError {
-    AppError::new(
-        AppErrorKind::Validation,
-        format!("unexpected EOF while prompting for {phase}"),
-    )
-}
-fn auth_prompt_output<R: io::Read, W: Write>(
+fn auth_prompt_output<R: std::io::Read, W: std::io::Write>(
     session: &mut Option<crate::platform::prompt::PromptSession<R, W>>,
     output: &mut Option<W>,
     bytes: &[u8],
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     match session {
         Some(current) => {
-            let text = std::str::from_utf8(bytes).map_err(|error| {
-                AppError::new(AppErrorKind::Invariant, "auth output must be UTF-8")
-                    .with_source(error)
-            })?;
+            let text = std::str::from_utf8(bytes)
+                .map_err(|error| Error::new("auth output must be UTF-8").with_source(error))?;
             for line in text.split_terminator('\n') {
                 current.print_line(line)?;
             }
@@ -7348,18 +6284,15 @@ fn auth_prompt_output<R: io::Read, W: Write>(
         None => {
             let writer = output
                 .as_mut()
-                .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "auth output missing"))?;
-            Output::new(writer, Stream::Stdout)
-                .write_with_policy(bytes, OutputPolicy::ConsoleLike)?;
-            Output::new(writer, Stream::Stdout).flush_with_policy(OutputPolicy::ConsoleLike)?;
-            Ok(())
+                .ok_or_else(|| Error::new("auth output missing"))?;
+            writer
+                .write_all(bytes)
+                .and_then(|()| writer.flush())
+                .map_err(output::write_error)
         }
     }
 }
-fn dispatch_auth_login(
-    context: &mut AppContext<'_>,
-    action: &cli::auth::AuthLogin,
-) -> Result<ExitStatus, AppError> {
+fn dispatch_auth_login(context: &Ctx, action: &cli::auth::AuthLogin) -> Result<()> {
     use crate::{
         auth::{
             keyring::NativeMutationBackend,
@@ -7368,13 +6301,9 @@ fn dispatch_auth_login(
         commands::auth_login as command,
         platform::prompt::{PromptOutcome, PromptSession},
     };
-    let no_color = context.no_color();
-    let loaded = context
-        .startup
-        .result
-        .as_ref()
-        .map_err(|_| AppError::new(AppErrorKind::Invariant, "auth reached failed startup"))?;
-    let mut state = CredentialMutationState::from_store(&loaded.credentials);
+    let no_color = !context.color();
+    let loaded = legacy::Loaded::new(context)?;
+    let mut state = CredentialMutationState::from_store(loaded.credentials);
     let config = &loaded.config;
     let path = loaded.credentials_path.as_deref();
     let backend = NativeMutationBackend {
@@ -7382,19 +6311,19 @@ fn dispatch_auth_login(
     };
     let writer = RealCredentialMutationFileWriter;
     let mut session = None;
-    let mut output = Some(&mut *context.stdout);
+    let mut output = Some(context.stdout());
     let result = (|| {
         let key = match command::supplied_key(action.key.as_deref()) {
             Some(key) => key,
             None => {
                 session = Some(PromptSession::stdin_stdio_cr_or_lf(
-                    output.take().ok_or_else(|| {
-                        AppError::new(AppErrorKind::Invariant, "auth output already owned")
-                    })?,
+                    output
+                        .take()
+                        .ok_or_else(|| Error::new("auth output already owned"))?,
                 )?);
-                let current = session.as_mut().ok_or_else(|| {
-                    AppError::new(AppErrorKind::Invariant, "secret session absent")
-                })?;
+                let current = session
+                    .as_mut()
+                    .ok_or_else(|| Error::new("secret session absent"))?;
                 let key = match current.secret(command::SECRET_MESSAGE, command::SECRET_HINT)? {
                     PromptOutcome::Submitted(key) => key,
                     PromptOutcome::Interrupted => return initiative_interrupt_status(),
@@ -7440,15 +6369,15 @@ fn dispatch_auth_login(
                 Some(current) => current.resume()?,
                 None => {
                     session = Some(PromptSession::stdin_stdio_cr_or_lf(
-                        output.take().ok_or_else(|| {
-                            AppError::new(AppErrorKind::Invariant, "migration output absent")
-                        })?,
+                        output
+                            .take()
+                            .ok_or_else(|| Error::new("migration output absent"))?,
                     )?);
                 }
             }
-            let current = session.as_mut().ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "migration session absent")
-            })?;
+            let current = session
+                .as_mut()
+                .ok_or_else(|| Error::new("migration session absent"))?;
             let migrate = match current.confirm(command::MIGRATE_MESSAGE, true)? {
                 PromptOutcome::Submitted(answer) => answer,
                 PromptOutcome::Interrupted => return initiative_interrupt_status(),
@@ -7469,17 +6398,12 @@ fn dispatch_auth_login(
             &mut output,
             &command::environment_warning(&config.options, no_color)?,
         )?;
-        Ok(ExitStatus::Success)
+        Ok(())
     })();
     let cleanup = session.as_mut().map_or(Ok(()), PromptSession::close);
-    cleanup
-        .and(result)
-        .map_err(|error| error.with_context(command::CONTEXT))
+    cleanup.and(result).context(command::CONTEXT)
 }
-fn dispatch_auth_logout(
-    context: &mut AppContext<'_>,
-    action: &cli::auth::AuthLogout,
-) -> Result<ExitStatus, AppError> {
+fn dispatch_auth_logout(context: &Ctx, action: &cli::auth::AuthLogout) -> Result<()> {
     use crate::{
         auth::{
             keyring::NativeMutationBackend,
@@ -7488,32 +6412,28 @@ fn dispatch_auth_logout(
         commands::auth_logout as command,
         platform::prompt::{PlainSelect, PromptOutcome, PromptSession},
     };
-    let loaded = context
-        .startup
-        .result
-        .as_ref()
-        .map_err(|_| AppError::new(AppErrorKind::Invariant, "auth reached failed startup"))?;
-    let mut state = CredentialMutationState::from_store(&loaded.credentials);
+    let loaded = legacy::Loaded::new(context)?;
+    let mut state = CredentialMutationState::from_store(loaded.credentials);
     let backend = NativeMutationBackend {
         overlay: loaded.config.child_env.clone(),
     };
     let writer = RealCredentialMutationFileWriter;
     let path = loaded.credentials_path.as_deref();
     let mut session = None;
-    let mut output = Some(&mut *context.stdout);
+    let mut output = Some(context.stdout());
     let result = (|| {
         let target = command::prepare(&state, action.workspace_name.as_deref())?;
         let name = match target {
             command::LogoutTarget::Selected(name) => name,
             command::LogoutTarget::Select(options) => {
                 session = Some(PromptSession::stdin_stdio_cr_or_lf(
-                    output.take().ok_or_else(|| {
-                        AppError::new(AppErrorKind::Invariant, "logout output absent")
-                    })?,
+                    output
+                        .take()
+                        .ok_or_else(|| Error::new("logout output absent"))?,
                 )?);
-                let current = session.as_mut().ok_or_else(|| {
-                    AppError::new(AppErrorKind::Invariant, "logout session absent")
-                })?;
+                let current = session
+                    .as_mut()
+                    .ok_or_else(|| Error::new("logout session absent"))?;
                 match current.select(&PlainSelect {
                     message: command::SELECT_MESSAGE,
                     options: &options,
@@ -7529,19 +6449,19 @@ fn dispatch_auth_logout(
         if !action.force {
             if session.is_none() {
                 session = Some(PromptSession::stdin_stdio_cr_or_lf(
-                    output.take().ok_or_else(|| {
-                        AppError::new(AppErrorKind::Invariant, "logout confirmation output absent")
-                    })?,
+                    output
+                        .take()
+                        .ok_or_else(|| Error::new("logout confirmation output absent"))?,
                 )?)
             }
-            let current = session.as_mut().ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "logout confirmation absent")
-            })?;
+            let current = session
+                .as_mut()
+                .ok_or_else(|| Error::new("logout confirmation absent"))?;
             match current.confirm(&command::confirm_message(&name), false)? {
                 PromptOutcome::Submitted(true) => {}
                 PromptOutcome::Submitted(false) => {
                     auth_prompt_output(&mut session, &mut output, b"Cancelled\n")?;
-                    return Ok(ExitStatus::Success);
+                    return Ok(());
                 }
                 PromptOutcome::Interrupted => return initiative_interrupt_status(),
                 PromptOutcome::EndOfInput => return Err(auth_prompt_eof("logout confirmation")),
@@ -7556,14 +6476,12 @@ fn dispatch_auth_logout(
                 .map_err(|failure| failure.outer())
         })?;
         auth_prompt_output(&mut session, &mut output, &bytes)?;
-        Ok(ExitStatus::Success)
+        Ok(())
     })();
     let cleanup = session.as_mut().map_or(Ok(()), PromptSession::close);
-    cleanup
-        .and(result)
-        .map_err(|error| error.with_context(command::CONTEXT))
+    cleanup.and(result).context(command::CONTEXT)
 }
-fn dispatch_auth_migrate(context: &mut AppContext<'_>) -> Result<ExitStatus, AppError> {
+fn dispatch_auth_migrate(context: &Ctx) -> Result<()> {
     use crate::{
         auth::{
             keyring::NativeMutationBackend,
@@ -7571,12 +6489,8 @@ fn dispatch_auth_migrate(context: &mut AppContext<'_>) -> Result<ExitStatus, App
         },
         commands::auth_migrate as command,
     };
-    let loaded = context
-        .startup
-        .result
-        .as_ref()
-        .map_err(|_| AppError::new(AppErrorKind::Invariant, "auth reached failed startup"))?;
-    let mut state = CredentialMutationState::from_store(&loaded.credentials);
+    let loaded = legacy::Loaded::new(context)?;
+    let mut state = CredentialMutationState::from_store(loaded.credentials);
     let backend = NativeMutationBackend {
         overlay: loaded.config.child_env.clone(),
     };
@@ -7591,23 +6505,23 @@ fn dispatch_auth_migrate(context: &mut AppContext<'_>) -> Result<ExitStatus, App
         .await
         .map_err(|failure| failure.outer())
     })
-    .map_err(|error| error.with_context(command::CONTEXT))?;
-    context.write_stdout_with_policy(&bytes, OutputPolicy::ConsoleLike)?;
-    Ok(ExitStatus::Success)
+    .context(command::CONTEXT)?;
+    context.print(&bytes)?;
+    Ok(())
 }
 
 // Resolve the issue from the argument or the VCS, running jj/git with explicit stdin and environment.
 fn resolve_script_issue(
-    context: &AppContext<'_>,
+    context: &Ctx,
     input: Option<&str>,
     workspace: Option<&str>,
     runner: &mut impl crate::platform::vcs_script::ProcessRunner,
-) -> Result<String, AppError> {
-    let config = context.config()?;
+) -> Result<String, Error> {
+    let config = context.config();
     let reference = match input {
         None => crate::refs::IssueReference::Inferred,
         Some(_) => {
-            let inputs = client::selection_inputs(&config.options, workspace)?;
+            let inputs = client::selection_inputs(&config.options, workspace);
             let team = configured_team_key(&config.options);
             crate::refs::prepare_issue_reference(
                 input,
@@ -7626,20 +6540,20 @@ fn resolve_script_issue(
                 .vcs()
                 .map(|value| *value.value())
                 .unwrap_or(crate::config::Vcs::Git),
-            &context.cwd,
+            context.cwd(),
             &config.child_env,
         )?,
     };
     identifier.ok_or_else(|| issue_details::unresolved(false))
 }
 fn dispatch_issue_commits(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueCommits,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::{commands::issue_commits as command, platform::vcs_script::NativeProcessRunner};
     let result = (|| {
-        let config = context.config()?;
+        let config = context.config();
         command::check_vcs(
             config
                 .options
@@ -7651,7 +6565,7 @@ fn dispatch_issue_commits(
         // Gate then inference; missing key must NOT preempt the inference child.
         let identifier =
             resolve_script_issue(context, action.issue_id.as_deref(), workspace, &mut runner)?;
-        let config = context.config()?;
+        let config = context.config();
         let transport = client::prepare_transport(
             &config.options,
             context.credentials()?,
@@ -7660,33 +6574,26 @@ fn dispatch_issue_commits(
         )?;
         block_on_network(command::lookup(&transport, &identifier))?;
         // The final child writes actual inherited descriptors, not AppContext.
-        command::show(&mut runner, &identifier, &context.cwd, &config.child_env)
+        command::show(&mut runner, &identifier, context.cwd(), &config.child_env)
     })();
-    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+    result.context(command::CONTEXT)
 }
 fn dispatch_issue_describe(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueDescribe,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::{commands::issue_describe as command, platform::vcs_script::NativeProcessRunner};
-    let result = (|| {
+    let result: Result<()> = (|| {
         let identifier = resolve_script_issue(
             context,
             action.issue_id.as_deref(),
             workspace,
             &mut NativeProcessRunner,
         )?;
-        let enabled = spinner::enabled(
-            false,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
+        let enabled = spinner::enabled(false, context.stdout_tty(), true);
         if enabled {
-            context.write_stdout_with_policy(
-                spinner::frame(0).as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
+            context.print(spinner::frame(0).as_bytes())?;
         }
         // The spinner starts before the client is built, so it also covers a missing key.
         let fetched = (|| {
@@ -7694,104 +6601,89 @@ fn dispatch_issue_describe(
             project_ticks(context, command::fetch(&transport, &identifier), enabled)
         })();
         if enabled {
-            context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            context.print(spinner::CLEAR)?;
         }
         let detail = fetched?;
         let bytes = command::format(&identifier, &detail.title, &detail.url, action.references);
-        context.write_stdout_with_policy(&bytes, OutputPolicy::ConsoleLike)?;
-        Ok(ExitStatus::Success)
+        context.print(&bytes)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+    result.context(command::CONTEXT)
 }
 
 // Anchored addition to app.rs; no old app whole-file replacement.
 // Prompt session owns stdin/buffer across the picker, details read and branch menu.
 fn start_snapshot(
-    startup: &AppStartupReport,
-) -> Result<(&StartupConfig, &crate::auth::CredentialStore), AppError> {
-    startup
-        .result
-        .as_ref()
-        .map(|loaded| (&loaded.config, &loaded.credentials))
-        .map_err(|_| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "start/PR config requested after startup failure",
-            )
-        })
+    context: &Ctx,
+) -> Result<(&crate::config::StartupConfig, &crate::auth::CredentialStore)> {
+    Ok((context.config(), context.credentials()?))
 }
 struct StartPromptOutput<'a> {
-    plain: Option<&'a mut dyn Write>,
-    session: Option<crate::platform::prompt::PromptSession<std::io::Stdin, &'a mut dyn Write>>,
+    plain: Option<StdoutWriter<'a>>,
+    session: Option<crate::platform::prompt::PromptSession<std::io::Stdin, StdoutWriter<'a>>>,
 }
 impl<'a> StartPromptOutput<'a> {
-    fn new(writer: &'a mut dyn Write) -> Self {
+    fn new(writer: StdoutWriter<'a>) -> Self {
         Self {
             plain: Some(writer),
             session: None,
         }
     }
-    fn writer(&mut self) -> Result<&mut (dyn Write + 'a), AppError> {
+    fn writer(&mut self) -> Result<&mut StdoutWriter<'a>, Error> {
         match self.session.as_mut() {
-            Some(session) => Ok(&mut **session.suspended_output()?),
+            Some(session) => session.suspended_output(),
             None => self
                 .plain
-                .as_deref_mut()
-                .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "start output has no owner")),
+                .as_mut()
+                .ok_or_else(|| Error::new("start output has no owner")),
         }
     }
     fn prompt(
         &mut self,
-    ) -> Result<
-        &mut crate::platform::prompt::PromptSession<std::io::Stdin, &'a mut dyn Write>,
-        AppError,
-    > {
+    ) -> Result<&mut crate::platform::prompt::PromptSession<std::io::Stdin, StdoutWriter<'a>>, Error>
+    {
         match self.session.as_mut() {
             Some(session) => session.resume()?,
             None => {
-                let writer = self.plain.take().ok_or_else(|| {
-                    AppError::new(
-                        AppErrorKind::Invariant,
-                        "start prompt output was already moved",
-                    )
-                })?;
+                let writer = self
+                    .plain
+                    .take()
+                    .ok_or_else(|| Error::new("start prompt output was already moved"))?;
                 self.session =
                     Some(crate::platform::prompt::PromptSession::stdin_stdio_cr_or_lf(writer)?);
             }
         }
-        self.session.as_mut().ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "start prompt construction vanished",
-            )
-        })
-    }
-    fn suspend(&mut self) -> Result<(), AppError> {
         self.session
             .as_mut()
-            .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "start prompt absent"))?
+            .ok_or_else(|| Error::new("start prompt construction vanished"))
+    }
+    fn suspend(&mut self) -> Result<(), Error> {
+        self.session
+            .as_mut()
+            .ok_or_else(|| Error::new("start prompt absent"))?
             .suspend()
     }
-    fn close(&mut self) -> Result<(), AppError> {
+    fn close(&mut self) -> Result<(), Error> {
         if let Some(session) = self.session.take() {
             self.plain = Some(session.into_output()?);
         }
         Ok(())
     }
 }
-fn script_status(writer: &mut dyn Write, bytes: &[u8]) -> Result<(), AppError> {
-    Output::new(writer, Stream::Stdout)
-        .write_with_policy(bytes, OutputPolicy::ConsoleLike)
-        .map(|_| ())
+fn script_status(writer: &mut dyn std::io::Write, bytes: &[u8]) -> Result<(), Error> {
+    writer
+        .write_all(bytes)
+        .and_then(|()| writer.flush())
+        .map_err(output::write_error)
 }
 fn start_details(
-    writer: &mut dyn Write,
-    config: &StartupConfig,
+    writer: &mut dyn std::io::Write,
+    config: &crate::config::StartupConfig,
     credentials: &crate::auth::CredentialStore,
     workspace: Option<&str>,
     identifier: &str,
     spin: bool,
-) -> Result<crate::graphql::operations::issue_details::IssueDetails, AppError> {
+) -> Result<crate::graphql::operations::issue_details::IssueDetails, Error> {
     if spin {
         script_status(writer, spinner::frame(0).as_bytes())?;
     }
@@ -7831,8 +6723,8 @@ fn start_details(
 /// Composed post-create/start entry: the already resolved ID is opaque.
 #[allow(clippy::too_many_arguments)]
 fn start_work_on_created_issue(
-    stderr: &mut dyn Write,
-    config: &StartupConfig,
+    stderr: &mut dyn std::io::Write,
+    config: &crate::config::StartupConfig,
     credentials: &crate::auth::CredentialStore,
     workspace: Option<&str>,
     identifier: &str,
@@ -7843,7 +6735,7 @@ fn start_work_on_created_issue(
     stdin_tty: bool,
     branch_override: Option<&str>,
     from_ref: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::{
         commands::issue_start as command,
         platform::{prompt::PromptOutcome, vcs_script::NativeProcessRunner},
@@ -7883,10 +6775,7 @@ fn start_work_on_created_issue(
                     PromptOutcome::Submitted(value) => Some(command::existing_branch(&value)?),
                     PromptOutcome::Interrupted => return initiative_interrupt_status(),
                     PromptOutcome::EndOfInput => {
-                        return Err(AppError::new(
-                            AppErrorKind::Invariant,
-                            "branch EOF conversion absent",
-                        ));
+                        return Err(Error::new("branch EOF conversion absent"));
                     }
                 }
             } else {
@@ -7940,30 +6829,29 @@ fn start_work_on_created_issue(
             workspace,
             &config.transport_env,
         )
-        .map_err(|error| {
-            AppError::new(error.kind, format!("Error: {}", error.display_message()))
-        })?;
+        .map_err(|error| Error::new(format!("Error: {error}")))?;
         block_on_network(async {
             command::update_state(&transport, team_reference, identifier)
                 .await
-                .map_err(|message| AppError::new(AppErrorKind::GraphQl, message))
+                .map_err(Error::new)
         })
     })();
     match updated {
         Ok(bytes) => script_status(output.writer()?, &bytes)?,
-        Err(error) => Output::new(&mut *stderr, Stream::Stderr)
-            .write(format!("Failed to update issue state: {}\n", error.message).as_bytes())?,
+        Err(error) => output::eprint(
+            format!("Failed to update issue state: {}\n", error.message()).as_bytes(),
+        )?,
     }
-    Ok(ExitStatus::Success)
+    Ok(())
 }
 fn dispatch_issue_start(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueStart,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::{commands::issue_start as command, platform::prompt::PromptOutcome};
     let result = (|| {
-        let (config, credentials) = start_snapshot(&context.startup)?;
+        let (config, credentials) = start_snapshot(context)?;
         let team = configured_team_key(&config.options);
         let team =
             command::team_and_flags(team.as_deref(), action.all_assignees, action.unassigned)?
@@ -7971,7 +6859,7 @@ fn dispatch_issue_start(
         // Start never infers from VCS. Falsey/unresolved input enters the picker.
         let identifier = match action.issue_id.as_deref().filter(|value| !value.is_empty()) {
             Some(input) => {
-                let inputs = client::selection_inputs(&config.options, workspace)?;
+                let inputs = client::selection_inputs(&config.options, workspace);
                 match crate::refs::prepare_issue_reference(
                     Some(input),
                     Some(&team),
@@ -7980,23 +6868,16 @@ fn dispatch_issue_start(
                     crate::refs::IssueReference::Identifier(id) => Some(id),
                     crate::refs::IssueReference::Unresolved => None,
                     crate::refs::IssueReference::Inferred => {
-                        return Err(AppError::new(
-                            AppErrorKind::Invariant,
-                            "supplied start input inferred VCS",
-                        ));
+                        return Err(Error::new("supplied start input inferred VCS"));
                     }
                 }
             }
             None => None,
         };
-        let stdin_tty = context.stdin_tty;
-        let spin = spinner::enabled(
-            false,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
-        let cwd = context.cwd.clone();
-        let mut output = StartPromptOutput::new(&mut *context.stdout);
+        let stdin_tty = context.stdin_tty();
+        let spin = spinner::enabled(false, context.stdout_tty(), true);
+        let cwd = context.cwd().to_path_buf();
+        let mut output = StartPromptOutput::new(context.stdout());
         let action_result = (|| {
             let identifier = match identifier {
                 Some(identifier) => identifier,
@@ -8031,16 +6912,13 @@ fn dispatch_issue_start(
                         PromptOutcome::Submitted(identifier) => identifier,
                         PromptOutcome::Interrupted => return initiative_interrupt_status(),
                         PromptOutcome::EndOfInput => {
-                            return Err(AppError::new(
-                                AppErrorKind::Invariant,
-                                "start picker EOF conversion absent",
-                            ));
+                            return Err(Error::new("start picker EOF conversion absent"));
                         }
                     }
                 }
             };
             start_work_on_created_issue(
-                context.stderr,
+                &mut std::io::stderr(),
                 config,
                 credentials,
                 workspace,
@@ -8058,19 +6936,19 @@ fn dispatch_issue_start(
         output.close()?;
         action_result
     })();
-    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+    result.context(command::CONTEXT)
 }
 fn dispatch_issue_pull_request(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssuePullRequest,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::{
         commands::issue_pull_request as command,
         platform::{gh_script::NativeGhRunner, vcs_script::NativeProcessRunner},
     };
-    let result = (|| {
-        let (config, credentials) = start_snapshot(&context.startup)?;
+    let result: Result<()> = (|| {
+        let (config, credentials) = start_snapshot(context)?;
         let selected = if action.no_template {
             crate::config::PrTemplateCli::Disabled
         } else if let Some(path) = action.template.as_deref() {
@@ -8089,13 +6967,9 @@ fn dispatch_issue_pull_request(
             workspace,
             &mut NativeProcessRunner,
         )?;
-        let spin = spinner::enabled(
-            false,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
+        let spin = spinner::enabled(false, context.stdout_tty(), true);
         let details = start_details(
-            &mut *context.stdout,
+            &mut context.stdout(),
             config,
             credentials,
             workspace,
@@ -8115,8 +6989,8 @@ fn dispatch_issue_pull_request(
                 web: action.web,
             },
         );
-        command::create(&mut NativeGhRunner, &args, &context.cwd, &config.child_env)?;
-        Ok(ExitStatus::Success)
+        command::create(&mut NativeGhRunner, &args, context.cwd(), &config.child_env)?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context(command::CONTEXT))
+    result.context(command::CONTEXT)
 }

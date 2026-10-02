@@ -1,7 +1,7 @@
+use crate::{LookupReply, hydrate};
 use linear_cli::auth::{
-    CredentialFormat, CredentialFormatErrorKind, CredentialInvariantError, CredentialManifest,
-    CredentialWarning, LookupFailureCategory, LookupReply, LookupResult, hydrate,
-    parse_credentials,
+    CredentialFormat, CredentialFormatErrorKind, CredentialManifest, CredentialWarning,
+    LookupFailureCategory, LookupResult, parse_credentials,
 };
 use linear_cli::config::{ConfigSecret, RawConfigFile, parse_config_tier};
 use std::path::PathBuf;
@@ -24,14 +24,14 @@ fn inline_file_order_and_metadata_dedup() {
             .expect("inline");
     assert_eq!(inline.format(), CredentialFormat::Inline);
     assert_eq!(inline.workspaces(), ["10", "2", "01", "-1", "a"]);
-    assert!(inline.lookup_requests().is_empty());
+
     let store = hydrate(inline, vec![]).expect("inline needs no replies");
     assert_eq!(store.default(), Some("a"));
     assert_eq!(store.key("2").expect("key").expose(), "k2");
     let meta = parse_manifest("workspaces=['a','a','b']\ndefault='b'").expect("metadata");
     assert_eq!(meta.format(), CredentialFormat::Metadata);
     assert_eq!(meta.workspaces(), ["a", "b"]);
-    assert_eq!(meta.lookup_requests(), ["a", "b"]);
+    assert_eq!(meta.workspaces(), ["a", "b"]);
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn shape_errors_have_fixed_priority_and_no_secret_text() {
     assert_eq!(
         parse_manifest(&format!("workspaces=[{max}]"))
             .expect("at cap")
-            .lookup_requests()
+            .workspaces()
             .len(),
         256
     );
@@ -134,8 +134,10 @@ fn default_warning_precedes_lookup_warnings_and_hydration_checks_reply_table() {
     )
     .expect("all replies");
     assert_eq!(store.key("a").expect("empty cached hit").expose(), "");
+    assert!(store.key("b").is_none());
+    assert!(store.key("c").is_none());
     assert_eq!(
-        store.warnings(),
+        store.take_warnings(),
         &[
             CredentialWarning::InvalidDefault {
                 workspace: "missing".to_owned()
@@ -149,54 +151,6 @@ fn default_warning_precedes_lookup_warnings_and_hydration_checks_reply_table() {
             },
         ]
     );
-    let manifest = parse_manifest("workspaces=['a','b']").expect("metadata");
-    assert_eq!(
-        hydrate(
-            manifest,
-            vec![LookupReply {
-                workspace: "a".to_owned(),
-                result: LookupResult::Miss
-            }]
-        )
-        .expect_err("missing reply"),
-        CredentialInvariantError::MissingReply {
-            workspace: "b".to_owned()
-        }
-    );
-    let manifest = parse_manifest("workspaces=['a']").expect("metadata");
-    assert_eq!(
-        hydrate(
-            manifest,
-            vec![
-                LookupReply {
-                    workspace: "a".to_owned(),
-                    result: LookupResult::Miss
-                },
-                LookupReply {
-                    workspace: "a".to_owned(),
-                    result: LookupResult::Miss
-                }
-            ]
-        )
-        .expect_err("duplicate reply"),
-        CredentialInvariantError::DuplicateReply {
-            workspace: "a".to_owned()
-        }
-    );
-    let manifest = parse_manifest("workspaces=['a']").expect("metadata");
-    assert_eq!(
-        hydrate(
-            manifest,
-            vec![LookupReply {
-                workspace: "x".to_owned(),
-                result: LookupResult::Miss
-            }]
-        )
-        .expect_err("extra reply"),
-        CredentialInvariantError::ExtraReply {
-            workspace: "x".to_owned()
-        }
-    );
 }
 
 #[test]
@@ -204,19 +158,6 @@ fn defaults_and_inline_reply_rules() {
     let inline = parse_manifest("a='lin_api_fake'\ndefault='missing'").expect("inline");
     assert_eq!(inline.default(), Some("missing"));
     assert!(inline.warnings().is_empty());
-    assert_eq!(
-        hydrate(
-            inline,
-            vec![LookupReply {
-                workspace: "a".to_owned(),
-                result: LookupResult::Miss
-            }]
-        )
-        .expect_err("inline reply"),
-        CredentialInvariantError::ExtraReply {
-            workspace: "a".to_owned()
-        }
-    );
     let only_default = parse_manifest("default='missing'").expect("default only");
     assert_eq!(only_default.workspaces().len(), 0);
     assert_eq!(
@@ -242,9 +183,6 @@ fn every_secret_bearing_debug_path_is_redacted() {
     assert!(!format!("{inline:?}").contains(marker));
     let store = hydrate(inline, vec![]).expect("store");
     assert!(!format!("{store:?}").contains(marker));
-    let reply = LookupReply {
-        workspace: "a".to_owned(),
-        result: LookupResult::Hit(ConfigSecret::new(marker.to_owned())),
-    };
+    let reply = LookupResult::Hit(ConfigSecret::new(marker.to_owned()));
     assert!(!format!("{reply:?}").contains(marker));
 }

@@ -1,7 +1,7 @@
 //! `project create`: fields from flags or prompts, then one mutation.
 use crate::{
     commands::project_write as shared,
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error,
         envelope::GraphQlRequest,
@@ -36,7 +36,7 @@ pub struct Fields {
     pub initiative: Option<String>,
     pub template: Option<String>,
 }
-pub fn local(action: &crate::cli::project::ProjectCreate) -> Result<Fields, AppError> {
+pub fn local(action: &crate::cli::project::ProjectCreate) -> Result<Fields, Error> {
     let content = shared::content(action.content.as_deref(), action.content_file.as_deref())?;
     let priority = action
         .priority
@@ -72,7 +72,7 @@ pub async fn prompt<R: Read, W: Write>(
     transport: &GraphQlTransport,
     mut fields: Fields,
     default_team: Option<&str>,
-) -> Result<PromptOutcome<Fields>, AppError> {
+) -> Result<PromptOutcome<Fields>, Error> {
     macro_rules! answer {
         ($call:expr) => {
             match $call? {
@@ -152,12 +152,7 @@ pub async fn prompt<R: Read, W: Write>(
                 .iter()
                 .zip(&options)
                 .find_map(|(status, option)| (option.value == selected).then_some(status))
-                .ok_or_else(|| {
-                    AppError::new(
-                        AppErrorKind::Invariant,
-                        "selected project status token is absent from menu",
-                    )
-                })?;
+                .ok_or_else(|| Error::new("selected project status token is absent from menu"))?;
             fields.status = Some(status.status_type.as_str().to_owned());
         } else {
             session.resume()?;
@@ -189,14 +184,14 @@ pub async fn input(
     scope: &WorkspaceScope<'_>,
     fields: &Fields,
     default_team: Option<&str>,
-) -> Result<ProjectCreateInput, AppError> {
+) -> Result<ProjectCreateInput, Error> {
     let description = shared::description(
         fields.description.as_deref(),
         fields.description_file.as_deref(),
     )?;
     let name = shared::truthy(fields.name.as_deref()).ok_or_else(|| {
         shared::validation("Project name is required")
-            .with_suggestion("Use --name or -n flag to specify a project name.")
+            .with_hint("Use --name or -n flag to specify a project name.")
     })?;
     let teams = if fields.teams.is_empty() {
         vec![
@@ -204,7 +199,7 @@ pub async fn input(
                 .filter(|v| !v.is_empty())
                 .ok_or_else(|| {
                     shared::validation("At least one team is required")
-                        .with_suggestion("Use --team or -t flag to specify a team.")
+                        .with_hint("Use --team or -t flag to specify a team.")
                 })?
                 .to_owned(),
         ]
@@ -260,21 +255,15 @@ pub async fn input(
 pub async fn submit(
     transport: &GraphQlTransport,
     input: ProjectCreateInput,
-) -> Result<CreatedProjectPayload, AppError> {
+) -> Result<CreatedProjectPayload, Error> {
     let query =
         GraphQlRequest::with_variables(CreateProject::build(CreateProjectVariables { input }));
-    let result: CreateProject = transport.execute(&query).await.map_err(AppError::from)?;
+    let result: CreateProject = transport.execute(&query).await.map_err(Error::from)?;
     if !result.project_create.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to create project",
-        ));
+        return Err(Error::new("Failed to create project"));
     }
     if result.project_create.project.is_none() {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to create project: no project returned",
-        ));
+        return Err(Error::new("Failed to create project: no project returned"));
     }
     Ok(result.project_create)
 }
@@ -282,7 +271,7 @@ pub async fn initiative_for_create(
     transport: &GraphQlTransport,
     scope: &WorkspaceScope<'_>,
     value: &str,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     let prepared = refs::prepare_initiative_lookup(value, scope)?;
     match prepared {
         InitiativeReference::Id(id) => return Ok(Some(id)),
@@ -296,7 +285,7 @@ pub async fn initiative_for_create(
                 ),
             );
             let result: crate::graphql::operations::initiative_reference::ResolveInitiativeBySlug =
-                transport.execute(&query).await.map_err(AppError::from)?;
+                transport.execute(&query).await.map_err(Error::from)?;
             return Ok(result
                 .initiatives
                 .nodes
@@ -356,7 +345,7 @@ pub async fn join(transport: &GraphQlTransport, input: InitiativeLinkInput) -> J
     let response = match transport.send_request(&request).await {
         Ok(response) => response,
         Err(error) => {
-            return JoinOutcome::Warning(warning(&AppError::from(error).to_string(), false));
+            return JoinOutcome::Warning(warning(&Error::from(error).to_string(), false));
         }
     };
     let client_class = client_error_branch(&response);
@@ -371,7 +360,7 @@ pub async fn join(transport: &GraphQlTransport, input: InitiativeLinkInput) -> J
     match data {
         Ok(data) if data.initiative_to_project_create.success => JoinOutcome::Added,
         Ok(_) => JoinOutcome::Rejected,
-        Err(error) => JoinOutcome::Warning(warning(&AppError::from(error).to_string(), false)),
+        Err(error) => JoinOutcome::Warning(warning(&Error::from(error).to_string(), false)),
     }
 }
 #[derive(Debug, Default)]
@@ -385,13 +374,11 @@ pub async fn followup_and_output(
     payload: &CreatedProjectPayload,
     initiative: Option<&str>,
     json: bool,
-) -> Result<Output, AppError> {
-    let project = payload.project.as_ref().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "project creation output has no project",
-        )
-    })?;
+) -> Result<Output, Error> {
+    let project = payload
+        .project
+        .as_ref()
+        .ok_or_else(|| Error::new("project creation output has no project"))?;
     let mut output = Output::default();
     if let Some(value) = shared::truthy(initiative) {
         match initiative_for_create(transport, scope, value).await? {
@@ -415,11 +402,7 @@ pub async fn followup_and_output(
     }
     if json {
         let mut bytes = serde_json::to_vec_pretty(payload).map_err(|error| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "could not serialize project creation",
-            )
-            .with_source(error)
+            Error::new("could not serialize project creation").with_source(error)
         })?;
         bytes.push(b'\n');
         output.stdout.extend(bytes);

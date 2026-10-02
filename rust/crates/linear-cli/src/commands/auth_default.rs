@@ -1,7 +1,7 @@
 //! Default selection uses loaded membership; only changed targets write the file.
 use crate::auth::CredentialStore;
 use crate::auth::write::{CredentialFileWriter, prepare_default_write};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::platform::prompt::PlainOption;
 use std::path::Path;
 
@@ -14,13 +14,11 @@ pub enum DefaultAction {
     Save(String),
 }
 
-pub fn prepare(store: &CredentialStore, target: Option<&str>) -> Result<DefaultAction, AppError> {
+pub fn prepare(store: &CredentialStore, target: Option<&str>) -> Result<DefaultAction, Error> {
     match store.workspaces() {
         [] => {
-            return Err(
-                AppError::new(AppErrorKind::Auth, "No workspaces configured")
-                    .with_suggestion("Run `linear auth login` to add a workspace"),
-            );
+            return Err(Error::auth("No workspaces configured")
+                .with_hint("Run `linear auth login` to add a workspace"));
         }
         [only] => {
             return Ok(DefaultAction::Output(
@@ -33,25 +31,22 @@ pub fn prepare(store: &CredentialStore, target: Option<&str>) -> Result<DefaultA
         let options = store.workspaces().iter().map(|name| {
             // Refuse user data before constructing the session/entering raw mode.
             if name.trim().is_empty() || name.chars().any(char::is_control) {
-                return Err(AppError::new(AppErrorKind::Validation,
-                    "Workspace names containing control characters or only whitespace cannot be selected interactively")
-                    .with_suggestion("Specify a workspace explicitly with `linear auth default <workspace>`."));
+                return Err(Error::new("Workspace names containing control characters or only whitespace cannot be selected interactively")
+                    .with_hint("Specify a workspace explicitly with `linear auth default <workspace>`."));
             }
             Ok(PlainOption {
                 label: if store.default() == Some(name.as_str()) { format!("{name} (current)") } else { name.clone() },
                 value: name.clone(),
                 script_token: name.clone(),
             })
-        }).collect::<Result<Vec<_>, AppError>>()?;
+        }).collect::<Result<Vec<_>, Error>>()?;
         return Ok(DefaultAction::Select(options));
     };
     if !store.workspaces().iter().any(|name| name == target) {
-        return Err(
-            AppError::not_found("Workspace", target).with_suggestion(format!(
-                "Available workspaces: {}",
-                store.workspaces().join(", ")
-            )),
-        );
+        return Err(Error::not_found("Workspace", target).with_hint(format!(
+            "Available workspaces: {}",
+            store.workspaces().join(", ")
+        )));
     }
     if store.default() == Some(target) {
         return Ok(DefaultAction::Output(
@@ -66,16 +61,13 @@ pub fn save(
     target: &str,
     path: Option<&Path>,
     writer: &impl CredentialFileWriter,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let plan = prepare_default_write(store, target, path)?;
     plan.save(writer)?;
     Ok(format!("Default workspace set to: {target}\n").into_bytes())
 }
 
-pub fn non_tty_error() -> AppError {
-    AppError::new(
-        AppErrorKind::Validation,
-        "A workspace is required when stdin is not a terminal",
-    )
-    .with_suggestion("Specify a workspace with `linear auth default <workspace>`.")
+pub fn non_tty_error() -> Error {
+    Error::new("A workspace is required when stdin is not a terminal")
+        .with_hint("Specify a workspace with `linear auth default <workspace>`.")
 }

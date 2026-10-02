@@ -15,7 +15,7 @@ use crate::commands::client;
 use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::template_json;
 use crate::config::{ConfigOptions, TransportEnvInputs};
-use crate::error::AppError;
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_resolver::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables,
@@ -72,9 +72,9 @@ pub fn prepare(
     cli_workspace: Option<&str>,
     transport_env: &TransportEnvInputs,
     team: Option<&str>,
-) -> Result<Prepared, AppError> {
+) -> Result<Prepared, Error> {
     prepare_uncontextualized(options, credentials, cli_workspace, transport_env, team)
-        .map_err(|error| error.with_context(CONTEXT))
+        .context(CONTEXT)
 }
 
 fn prepare_uncontextualized(
@@ -83,8 +83,8 @@ fn prepare_uncontextualized(
     cli_workspace: Option<&str>,
     transport_env: &TransportEnvInputs,
     team: Option<&str>,
-) -> Result<Prepared, AppError> {
-    let inputs = client::selection_inputs(options, cli_workspace)?;
+) -> Result<Prepared, Error> {
+    let inputs = client::selection_inputs(options, cli_workspace);
     let team = team
         .map(|reference| {
             prepare_team_lookup(
@@ -112,14 +112,14 @@ pub async fn run_with<RF, RFut, AF, AFut, TF, TFut>(
     resolve_fetch: RF,
     all_teams_fetch: AF,
     templates_fetch: TF,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     RF: FnOnce(GraphQlRequest<ResolveTeamVariables>) -> RFut,
-    RFut: Future<Output = Result<ResolveTeam, AppError>>,
+    RFut: Future<Output = Result<ResolveTeam, Error>>,
     AF: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> AFut,
-    AFut: Future<Output = Result<GetAllTeams, AppError>>,
+    AFut: Future<Output = Result<GetAllTeams, Error>>,
     TF: FnOnce(GraphQlRequest<()>) -> TFut,
-    TFut: Future<Output = Result<GetTemplates, AppError>>,
+    TFut: Future<Output = Result<GetTemplates, Error>>,
 {
     run_uncontextualized(
         team,
@@ -131,7 +131,7 @@ where
         templates_fetch,
     )
     .await
-    .map_err(|error| error.with_context(CONTEXT))
+    .context(CONTEXT)
 }
 
 async fn run_uncontextualized<RF, RFut, AF, AFut, TF, TFut>(
@@ -142,14 +142,14 @@ async fn run_uncontextualized<RF, RFut, AF, AFut, TF, TFut>(
     resolve_fetch: RF,
     all_teams_fetch: AF,
     templates_fetch: TF,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     RF: FnOnce(GraphQlRequest<ResolveTeamVariables>) -> RFut,
-    RFut: Future<Output = Result<ResolveTeam, AppError>>,
+    RFut: Future<Output = Result<ResolveTeam, Error>>,
     AF: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> AFut,
-    AFut: Future<Output = Result<GetAllTeams, AppError>>,
+    AFut: Future<Output = Result<GetAllTeams, Error>>,
     TF: FnOnce(GraphQlRequest<()>) -> TFut,
-    TFut: Future<Output = Result<GetTemplates, AppError>>,
+    TFut: Future<Output = Result<GetTemplates, Error>>,
 {
     let team_id = match team {
         Some(prepared) => Some(
@@ -178,15 +178,15 @@ pub async fn run(
     options: Options,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(
         team,
         options,
         columns,
         color,
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
     )
     .await
 }
@@ -197,7 +197,7 @@ fn select(
     templates: Vec<Template>,
     template_type: Option<TemplateType>,
     team_id: Option<&str>,
-) -> Result<Vec<Template>, AppError> {
+) -> Result<Vec<Template>, Error> {
     let mut selected: Vec<Template> = templates
         .into_iter()
         .filter(|template| {

@@ -2,27 +2,63 @@
 use crate::{
     cli::api::Api,
     commands::text_input,
-    error::{AppError, AppErrorKind, ExitStatus},
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
     graphql::transport::GraphQlTransport,
 };
 use serde_json::{Map, Number, Value};
 use std::collections::HashSet;
 
-pub const CONTEXT: &str = "API request failed";
+pub fn run(ctx: &Ctx, args: &Api) -> Result<()> {
+    request_and_print(ctx, args).context("API request failed")
+}
+
+fn request_and_print(ctx: &Ctx, args: &Api) -> Result<()> {
+    let query = resolve_query(args.graphql_document.as_deref(), ctx.stdin_tty())?;
+    let variables = variables(args)?;
+    let client = ctx.client()?;
+    let response = ctx.block_on(execute(
+        client,
+        &query,
+        variables,
+        args.paginate,
+        ctx.stdout_tty(),
+    ))?;
+    // The response is printed either way; the exit status says whether it
+    // was a success.
+    let (text, succeeded) = match response {
+        Response::Data(text) => (text, true),
+        Response::Errors(text) => (text, false),
+        Response::HttpError(body) => {
+            if !args.silent {
+                ctx.eprint(body)?;
+            }
+            return Err(Error::reported());
+        }
+    };
+    if !args.silent {
+        ctx.print(text)?;
+    }
+    if succeeded {
+        Ok(())
+    } else {
+        Err(Error::reported())
+    }
+}
 
 /// Parses response or input text as JSON; `None` when it is not JSON.
-pub fn decode(text: &str) -> Option<Value> {
+fn decode(text: &str) -> Option<Value> {
     serde_json::from_str(text).ok()
 }
-fn no_query() -> AppError {
-    AppError::new(AppErrorKind::Validation,"No query provided").with_suggestion("Provide a query as an argument: linear api '{ viewer { id } }'\n  Or pipe from stdin: echo '{ viewer { id } }' | linear api")
+fn no_query() -> Error {
+    Error::new("No query provided").with_hint("Provide a query as an argument: linear api '{ viewer { id } }'\n  Or pipe from stdin: echo '{ viewer { id } }' | linear api")
 }
-fn stdin_all() -> Result<String, AppError> {
+fn stdin_all() -> Result<String> {
     Ok(text_input::read_stdin(std::io::stdin().lock())?
         .map(|text| text.trim().to_owned())
         .unwrap_or_default())
 }
-pub fn resolve_query(positional: Option<&str>, stdin_tty: bool) -> Result<String, AppError> {
+fn resolve_query(positional: Option<&str>, stdin_tty: bool) -> Result<String> {
     if let Some(query) = positional.filter(|s| !s.is_empty() && *s != "-") {
         return Ok(query.to_owned());
     }
@@ -43,7 +79,7 @@ fn parsed_or_string(text: String) -> Value {
 }
 /// A `--variable` value: booleans, `null` and canonically written numbers are
 /// coerced; anything else is a string.
-fn plain(text: &str) -> Result<Value, AppError> {
+fn plain(text: &str) -> Result<Value> {
     match text {
         "true" => return Ok(Value::Bool(true)),
         "false" => return Ok(Value::Bool(false)),
@@ -51,26 +87,21 @@ fn plain(text: &str) -> Result<Value, AppError> {
         _ => {}
     }
     if text.parse::<f64>().is_ok_and(|number| !number.is_finite()) {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("Variable value {text} is not a finite number"),
-        )
-        .with_suggestion("Pass a finite number, or a JSON string through --variables-json."));
+        return Err(
+            Error::new(format!("Variable value {text} is not a finite number"))
+                .with_hint("Pass a finite number, or a JSON string through --variables-json."),
+        );
     }
     Ok(match serde_json::from_str::<Number>(text) {
         Ok(number) if number.to_string() == text => Value::Number(number),
         _ => Value::String(text.to_owned()),
     })
 }
-pub fn variables(action: &Api) -> Result<Map<String, Value>, AppError> {
+fn variables(action: &Api) -> Result<Map<String, Value>> {
     let mut variables = Map::new();
     if let Some(text) = action.variables_json.as_deref().filter(|s| !s.is_empty()) {
         let value = decode(text).ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                format!("Invalid JSON for --variables-json: {text}"),
-            )
-            .with_suggestion(
+            Error::new(format!("Invalid JSON for --variables-json: {text}")).with_hint(
                 "Provide a valid JSON object, e.g. --variables-json '{\"key\": \"value\"}'",
             )
         })?;
@@ -86,13 +117,10 @@ pub fn variables(action: &Api) -> Result<Map<String, Value>, AppError> {
             Value::Array(_) => Some("array"),
         };
         if let Some(kind) = kind {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("--variables-json must be a JSON object, got {kind}"),
-            )
-            .with_suggestion(
-                "Provide a JSON object, e.g. --variables-json '{\"key\": \"value\"}'",
-            ));
+            return Err(Error::new(format!(
+                "--variables-json must be a JSON object, got {kind}"
+            ))
+            .with_hint("Provide a JSON object, e.g. --variables-json '{\"key\": \"value\"}'"));
         }
     }
     for entry in &action.variable {
@@ -100,22 +128,15 @@ pub fn variables(action: &Api) -> Result<Map<String, Value>, AppError> {
         let value = if raw == "@-" {
             let text = stdin_all()?;
             if text.is_empty() {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "No data on stdin for @- value",
-                ));
+                return Err(Error::new("No data on stdin for @- value"));
             }
             parsed_or_string(text)
         } else if let Some(path) = raw.strip_prefix('@') {
             let text = text_input::read_file(path).map_err(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {
-                    AppError::new(AppErrorKind::Validation, format!("File not found: {path}"))
+                    Error::new(format!("File not found: {path}"))
                 } else {
-                    AppError::new(
-                        AppErrorKind::IoProcess,
-                        format!("Failed to read file: {path}"),
-                    )
-                    .with_source(e)
+                    Error::new(format!("Failed to read file: {path}")).with_source(e)
                 }
             })?;
             parsed_or_string(text.trim().to_owned())
@@ -126,7 +147,7 @@ pub fn variables(action: &Api) -> Result<Map<String, Value>, AppError> {
     }
     Ok(variables)
 }
-pub fn request(query: &str, variables: &Map<String, Value>) -> String {
+fn request(query: &str, variables: &Map<String, Value>) -> String {
     let mut body = Map::new();
     body.insert("query".into(), Value::String(query.into()));
     if !variables.is_empty() {
@@ -134,20 +155,15 @@ pub fn request(query: &str, variables: &Map<String, Value>) -> String {
     }
     Value::Object(body).to_string()
 }
-pub struct ApiOutput {
-    pub status: ExitStatus,
-    pub stdout: String,
-    pub stderr: String,
-    pub console: bool,
+enum Response {
+    /// The response body as printed.
+    Data(String),
+    /// GraphQL errors, or a body that is not JSON, as printed.
+    Errors(String),
+    /// A failed HTTP status, with the body for stderr.
+    HttpError(String),
 }
-fn output(status: ExitStatus, text: String, tty: bool, raw: bool, silent: bool) -> ApiOutput {
-    ApiOutput {
-        status,
-        stdout: if silent { String::new() } else { text },
-        stderr: String::new(),
-        console: tty || raw,
-    }
-}
+
 fn json_output(value: &Value, raw: &str, tty: bool) -> String {
     if tty {
         format!("{value:#}\n")
@@ -205,14 +221,13 @@ fn find_page(value: &Value) -> Option<Page> {
         _ => None,
     }
 }
-pub async fn execute(
+async fn execute(
     transport: &GraphQlTransport,
     query: &str,
     variables: Map<String, Value>,
     paginate: bool,
-    silent: bool,
     tty: bool,
-) -> Result<ApiOutput, AppError> {
+) -> Result<Response> {
     let mut nodes = Vec::new();
     let mut cursor: Option<String> = None;
     let mut sent = HashSet::new();
@@ -220,8 +235,7 @@ pub async fn execute(
         let mut vars = variables.clone();
         if paginate {
             if !sent.insert(cursor.clone()) {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
+                return Err(Error::new(
                     "Repeated pagination cursor; request not sent, prior requests may have had effects",
                 ));
             }
@@ -232,80 +246,32 @@ pub async fn execute(
         }
         let (status, text) = transport.fetch_api(request(query, &vars)).await?;
         if status >= 400 {
-            return Ok(ApiOutput {
-                status: ExitStatus::HandledFailure,
-                stdout: String::new(),
-                stderr: if silent {
-                    String::new()
-                } else {
-                    format!("{text}\n")
-                },
-                console: true,
-            });
+            return Ok(Response::HttpError(format!("{text}\n")));
         }
         let Some(parsed) = decode(&text) else {
-            return Ok(output(
-                if paginate {
-                    ExitStatus::HandledFailure
-                } else {
-                    ExitStatus::Success
-                },
-                format!("{text}\n"),
-                tty,
-                true,
-                silent,
-            ));
+            return Ok(Response::Errors(format!("{text}\n")));
         };
         if parsed.is_null() {
             if paginate {
-                return Err(AppError::new(
-                    AppErrorKind::GraphQl,
-                    "Linear returned a null response body",
-                ));
+                return Err(Error::new("Linear returned a null response body"));
             }
-            return Ok(output(
-                ExitStatus::Success,
-                format!("{text}\n"),
-                tty,
-                true,
-                silent,
-            ));
+            return Ok(Response::Data(format!("{text}\n")));
         }
         if has_errors(&parsed) {
-            return Ok(output(
-                ExitStatus::HandledFailure,
-                json_output(&parsed, &text, tty),
-                tty,
-                false,
-                silent,
-            ));
+            return Ok(Response::Errors(json_output(&parsed, &text, tty)));
         }
         if !paginate {
-            return Ok(output(
-                ExitStatus::Success,
-                json_output(&parsed, &text, tty),
-                tty,
-                false,
-                silent,
-            ));
+            return Ok(Response::Data(json_output(&parsed, &text, tty)));
         }
         if nodes.is_empty()
             && parsed
                 .get("data")
                 .is_some_and(|data| count_connections(data) > 1)
         {
-            return Err(AppError::new(AppErrorKind::Validation,"--paginate does not support queries with multiple paginated connections").with_suggestion("Use cursor-based pagination manually with $after and pageInfo { hasNextPage endCursor }."));
+            return Err(Error::new("--paginate does not support queries with multiple paginated connections").with_hint("Use cursor-based pagination manually with $after and pageInfo { hasNextPage endCursor }."));
         }
         match find_page(&parsed) {
-            None => {
-                return Ok(output(
-                    ExitStatus::Success,
-                    json_output(&parsed, &text, tty),
-                    tty,
-                    false,
-                    silent,
-                ));
-            }
+            None => return Ok(Response::Data(json_output(&parsed, &text, tty))),
             Some(page) => {
                 nodes.extend(page.nodes);
                 match page.end_cursor {
@@ -316,25 +282,5 @@ pub async fn execute(
         }
     }
     let all = Value::Array(nodes);
-    Ok(output(
-        ExitStatus::Success,
-        json_output(&all, &all.to_string(), tty),
-        tty,
-        false,
-        silent,
-    ))
-}
-
-/// Reports a stdout write failure with the underlying IO message, keeping the
-/// typed output failure as the error source so stream routing still works.
-pub fn stdout_write_error(mut error: AppError) -> AppError {
-    use std::error::Error;
-    if let Some(source) = error
-        .source()
-        .and_then(Error::source)
-        .and_then(|source| source.downcast_ref::<std::io::Error>())
-    {
-        error.message = source.to_string();
-    }
-    error
+    Ok(Response::Data(json_output(&all, &all.to_string(), tty)))
 }

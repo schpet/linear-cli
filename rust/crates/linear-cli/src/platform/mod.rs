@@ -1,3 +1,4 @@
+pub mod child;
 pub mod collation;
 pub mod markdown_terminal;
 pub mod opener;
@@ -6,6 +7,7 @@ pub mod pager;
 pub mod prompt;
 pub mod selector;
 pub mod spinner;
+pub mod style;
 
 pub mod vcs;
 

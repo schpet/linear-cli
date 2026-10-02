@@ -116,14 +116,14 @@ fn validation_order_and_source_preservation() {
     assert!(
         initiative_create::validate(&options)
             .unwrap_err()
-            .message
+            .message()
             .starts_with("Invalid status")
     );
     options.status = None;
     assert!(
         initiative_create::validate(&options)
             .unwrap_err()
-            .message
+            .message()
             .starts_with("Color must")
     );
     options.color = None;
@@ -131,7 +131,7 @@ fn validation_order_and_source_preservation() {
     assert!(
         initiative_create::validate(&options)
             .unwrap_err()
-            .message
+            .message()
             .starts_with("Target date")
     );
 }
@@ -165,7 +165,7 @@ fn line_script_rejects_raw_invalid_custom_color_before_write() {
     let mut session =
         PromptSession::script(Cursor::new(b"New\n\n\n\n\ncustom\n #ABCDEF\n"), Vec::new());
     let error = initiative_create::prompt(&mut options, &mut session).unwrap_err();
-    assert!(error.message.contains("Please enter a valid hex color"));
+    assert!(error.message().contains("Please enter a valid hex color"));
     assert!(options.color.is_none());
 }
 
@@ -210,6 +210,6 @@ async fn timed_out_create_warns_about_ambiguous_write_without_retrying() {
     )
     .await
     .unwrap_err();
-    assert!(error.message.contains("initiative may already exist"));
+    assert!(error.message().contains("initiative may already exist"));
     assert_eq!(server.join().unwrap(), 1);
 }

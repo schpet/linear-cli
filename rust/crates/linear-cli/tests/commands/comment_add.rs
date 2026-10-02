@@ -14,7 +14,6 @@ use std::{
 };
 
 use linear_cli::commands::comment_add::{self, CommentTarget};
-use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::comment_create::{AddComment, GetDocumentCommentTarget};
 use linear_cli::platform::prompt::{PromptOutcome, PromptSession};
@@ -48,8 +47,10 @@ fn scratch() -> PathBuf {
 #[test]
 fn body_flags_conflict_before_file_io_and_keep_supplied_text_exactly() {
     let error = comment_add::resolve_body(Some("x"), Some("/definitely/missing")).unwrap_err();
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert_eq!(error.message, "Cannot specify both --body and --body-file");
+    assert_eq!(
+        error.message(),
+        "Cannot specify both --body and --body-file"
+    );
     let literal = "  **Bold** `code`\nline two ☃\t ";
     assert_eq!(
         comment_add::resolve_body(Some(literal), None).unwrap(),
@@ -57,9 +58,9 @@ fn body_flags_conflict_before_file_io_and_keep_supplied_text_exactly() {
     );
     for blank in [" \t\n", "\u{a0}\u{3000}", "\u{2028}"] {
         let error = comment_add::resolve_body(Some(blank), None).unwrap_err();
-        assert_eq!(error.message, "Comment body cannot be empty");
+        assert_eq!(error.message(), "Comment body cannot be empty");
         assert_eq!(
-            error.suggestion.as_deref(),
+            error.hint(),
             Some("Pass text with --body, or omit it to be prompted.")
         );
     }
@@ -84,9 +85,9 @@ fn body_files_strip_a_bom_and_reject_invalid_or_unreadable_files() {
     );
     let bom = write("bom.md", b"\xef\xbb\xbf \n");
     let error = comment_add::resolve_body(None, Some(&bom)).unwrap_err();
-    assert_eq!(error.message, format!("Body file is empty: {bom}"));
+    assert_eq!(error.message(), format!("Body file is empty: {bom}"));
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some("Write the comment into the file, or use --body.")
     );
     for (name, bytes) in [
@@ -97,10 +98,9 @@ fn body_files_strip_a_bom_and_reject_invalid_or_unreadable_files() {
     ] {
         let path = write(name, bytes);
         let error = comment_add::resolve_body(None, Some(&path)).unwrap_err();
-        assert_eq!(error.kind, AppErrorKind::Validation, "{name}");
-        assert_eq!(error.message, "Body file must be valid UTF-8", "{name}");
+        assert_eq!(error.message(), "Body file must be valid UTF-8", "{name}");
         assert_eq!(
-            error.suggestion,
+            error.hint().map(str::to_owned),
             Some(format!("Re-save {path} as UTF-8 text, or use --body."))
         );
     }
@@ -108,18 +108,15 @@ fn body_files_strip_a_bom_and_reject_invalid_or_unreadable_files() {
     let missing = missing.to_str().unwrap();
     let error = comment_add::resolve_body(None, Some(missing)).unwrap_err();
     assert_eq!(
-        error.message,
+        error.message(),
         format!("Failed to read body file: {missing}")
     );
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some("Error: No such file or directory (os error 2)")
     );
     let error = comment_add::resolve_body(None, Some(dir.to_str().unwrap())).unwrap_err();
-    assert_eq!(
-        error.suggestion.as_deref(),
-        Some("Error: Is a directory (os error 21)")
-    );
+    assert_eq!(error.hint(), Some("Error: Is a directory (os error 21)"));
     fs::remove_dir_all(dir).unwrap();
 }
 
@@ -198,7 +195,7 @@ fn parent_comment_links_get_specific_guidance_before_other_linear_urls() {
     let link = "https://linear.app/acme/issue/ENG-1/title#comment-abcdef12";
     let error = comment_add::build_input(target(), "x".into(), Some(link), None).unwrap_err();
     assert_eq!(
-        error.message,
+        error.message(),
         format!(
             "\"{link}\" links to a comment, but a comment URL only carries the first eight characters of its ID."
         )
@@ -206,11 +203,11 @@ fn parent_comment_links_get_specific_guidance_before_other_linear_urls() {
     let url = "https://linear.app/acme/issue/ENG-1";
     let error = comment_add::build_input(target(), "x".into(), Some(url), None).unwrap_err();
     assert_eq!(
-        error.message,
+        error.message(),
         format!("\"{url}\" is a Linear URL, and this command does not take one.")
     );
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some("Pass the UUID of the comment to reply to.")
     );
 }
@@ -267,8 +264,8 @@ fn prompt_answer_is_trimmed_and_blank_fails_after_submission() {
         "? Comment body\n? Comment body › Prompted body\n"
     );
     let error = comment_add::require_prompted(String::new()).unwrap_err();
-    assert_eq!(error.message, "Comment body cannot be empty");
-    assert_eq!(error.suggestion, None);
+    assert_eq!(error.message(), "Comment body cannot be empty");
+    assert_eq!(error.hint(), None);
 }
 
 /// Serve `replies` in order, then prove no further request arrives.

@@ -112,7 +112,7 @@ fn scope() -> WorkspaceScope<'static> {
         cli_workspace: Some("acme"),
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &ApiKeyInput::Absent,
+        api_key: ApiKeyInput::Absent.clone(),
     }
 }
 fn target(id: &str) -> Target {
@@ -215,7 +215,7 @@ fn bulk_ids_reject_invalid_utf8_and_split_on_commas_and_whitespace() {
     assert!(
         initiative_bulk::collect_ids(&input, &mut &b"ENG-2,\xff"[..])
             .unwrap_err()
-            .message
+            .message()
             .starts_with("Bulk file must be valid UTF-8")
     );
     std::fs::write(&file, "\u{feff}ENG-1,ENG-2\n ENG-1\tjoined\n").unwrap();
@@ -239,7 +239,7 @@ fn bulk_ids_reject_invalid_utf8_and_split_on_commas_and_whitespace() {
     assert_eq!(
         initiative_bulk::collect_ids(&strict_stdin, &mut &b"\xff"[..])
             .unwrap_err()
-            .message,
+            .message(),
         "Bulk stdin must be valid UTF-8"
     );
     std::fs::remove_dir_all(dir).unwrap();
@@ -421,7 +421,7 @@ async fn single_paths_preserve_source_display_false_errors_and_resolved_mutation
             command::submit_single(&transport, "ENG-1", &found, mode)
                 .await
                 .unwrap_err()
-                .message,
+                .message(),
             match mode {
                 Mode::Archive => "Linear reported the archive as unsuccessful",
                 Mode::Delete => "Failed to delete issue",
@@ -473,7 +473,7 @@ async fn single_client_errors_preserve_empty_first_and_non_json_raw_sdk_fallback
                 Err(error) => error,
             };
             assert_eq!(worker.join().unwrap().len(), 1);
-            assert_eq!(error.message, expected, "{mode:?} {status} {mime}");
+            assert_eq!(error.message(), expected, "{mode:?} {status} {mime}");
         }
     }
 }

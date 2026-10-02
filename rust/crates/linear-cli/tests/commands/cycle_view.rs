@@ -86,7 +86,7 @@ async fn first_page_validation_precedes_next_request() {
     .await
     .expect_err("disabled");
     assert_eq!(*calls.borrow(), 1);
-    assert_eq!(error.message, "Cycles are not enabled for team ENG");
+    assert_eq!(error.message(), "Cycles are not enabled for team ENG");
 }
 
 #[tokio::test]
@@ -100,7 +100,11 @@ async fn repeated_cursor_is_a_protocol_error() {
     })
     .await
     .expect_err("repeated cursor");
-    assert!(error.message.contains("repeated a cycle pagination cursor"));
+    assert!(
+        error
+            .message()
+            .contains("repeated a cycle pagination cursor")
+    );
 }
 
 #[test]
@@ -158,23 +162,23 @@ fn null_connection_preserves_page_one_validation_order_and_key() {
     let mismatch = classify_lookup_page(response(false), 1, Some(&url), &mut first_key)
         .expect_err("URL mismatch precedes disabled and null connection");
     assert_eq!(
-        mismatch.message,
+        mismatch.message(),
         "That cycle URL is for team URL, but this command is working in team WIRE."
     );
     assert_eq!(first_key.as_deref(), Some("WIRE"));
     let disabled = classify_lookup_page(response(false), 1, None, &mut first_key)
         .expect_err("disabled precedes null connection");
-    assert_eq!(disabled.message, "Cycles are not enabled for team WIRE");
+    assert_eq!(disabled.message(), "Cycles are not enabled for team WIRE");
     let first_null =
         classify_lookup_page(response(true), 1, None, &mut first_key).expect_err("null first page");
     assert_eq!(
-        first_null.message,
+        first_null.message(),
         "Linear returned a null cycle connection for team WIRE on page 1"
     );
     let later =
         classify_lookup_page(response(true), 2, None, &mut first_key).expect_err("null later page");
     assert_eq!(
-        later.message,
+        later.message(),
         "Linear returned a null cycle connection for team WIRE on page 2"
     );
 }
@@ -213,7 +217,7 @@ async fn unicode_url_team_case_matches_page_one_wire_key() {
     let error = classify_lookup_page(response, 1, Some(&url), &mut None)
         .expect_err("null connection after matching Unicode team");
     assert_eq!(
-        error.message,
+        error.message(),
         "Linear returned a null cycle connection for team é on page 1"
     );
 }
@@ -231,7 +235,7 @@ async fn missing_and_nonadjacent_repeated_cursors_stop_without_extra_requests() 
     .await
     .expect_err("missing cursor");
     assert_eq!(*calls.borrow(), 1);
-    assert!(missing.message.contains("no cycle pagination cursor"));
+    assert!(missing.message().contains("no cycle pagination cursor"));
 
     let pages = Rc::new(RefCell::new(VecDeque::from([
         page(vec![], true, Some("A"), true),
@@ -252,7 +256,7 @@ async fn missing_and_nonadjacent_repeated_cursors_stop_without_extra_requests() 
     assert_eq!(*calls.borrow(), 3);
     assert!(
         repeated
-            .message
+            .message()
             .contains("repeated a cycle pagination cursor")
     );
 }

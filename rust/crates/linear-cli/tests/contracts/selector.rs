@@ -152,7 +152,7 @@ fn empty_options_and_writer_failure_are_explicit() {
     assert_eq!(
         run_with(&[], &labels(), 80, || Ok(Key::Enter), &mut sink)
             .unwrap_err()
-            .display_message(),
+            .to_string(),
         "selector requires at least one option"
     );
     let rows = options();
@@ -169,8 +169,8 @@ fn empty_options_and_writer_failure_are_explicit() {
     assert_eq!(
         run_with(&rows, &labels(), 80, || Ok(Key::Enter), &mut writer)
             .unwrap_err()
-            .display_message(),
-        "failed to write stdout"
+            .to_string(),
+        "failed to write to stdout: unavailable"
     );
 }
 
@@ -230,7 +230,7 @@ fn prompt_configuration_rejects_zero_rows_before_writing() {
     let mut output = Vec::new();
     let error = run_with(&rows, &zero_rows, 80, || Ok(Key::Enter), &mut output).unwrap_err();
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "selector prompt labels, row limit, and width must be valid"
     );
     assert!(output.is_empty());
@@ -265,7 +265,7 @@ fn broken_stdout_is_reported_before_waiting_for_a_key() {
         &mut writer,
     )
     .unwrap_err();
-    assert_eq!(error.display_message(), "failed to write stdout");
+    assert_eq!(error.kind(), linear_cli::error::ErrorKind::BrokenPipe);
 }
 
 #[test]

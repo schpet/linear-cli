@@ -1,5 +1,5 @@
 //! Complete release name/version lookup, insertion-ordered UUID deduplication.
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::{
     envelope::GraphQlRequest, operations::releases::*, transport::GraphQlTransport,
 };
@@ -14,16 +14,16 @@ pub fn request(input: &str, after: Option<String>) -> GraphQlRequest<ResolveRele
         after,
     }))
 }
-pub async fn resolve(transport: &GraphQlTransport, input: &str) -> Result<String, AppError> {
+pub async fn resolve(transport: &GraphQlTransport, input: &str) -> Result<String, Error> {
     resolve_with(input, |query| async move {
-        transport.execute(&query).await.map_err(AppError::from)
+        transport.execute(&query).await.map_err(Error::from)
     })
     .await
 }
-pub async fn resolve_with<F, Fut>(input: &str, mut fetch: F) -> Result<String, AppError>
+pub async fn resolve_with<F, Fut>(input: &str, mut fetch: F) -> Result<String, Error>
 where
     F: FnMut(GraphQlRequest<ResolveReleasesVariables>) -> Fut,
-    Fut: Future<Output = Result<ResolveReleases, AppError>>,
+    Fut: Future<Output = Result<ResolveReleases, Error>>,
 {
     crate::refs::reject_linear_url(input, "a release name, version, or UUID")?;
     if crate::refs::is_linear_uuid(input) {
@@ -37,12 +37,9 @@ where
         let data = fetch(request(input, after.clone())).await?;
         for node in data.releases.nodes {
             if let Some(index) = indexes.get(node.id.inner()).copied() {
-                *ordered.get_mut(index).ok_or_else(|| {
-                    AppError::new(
-                        AppErrorKind::Invariant,
-                        "Release deduplication index missing",
-                    )
-                })? = node;
+                *ordered
+                    .get_mut(index)
+                    .ok_or_else(|| Error::new("Release deduplication index missing"))? = node;
             } else {
                 indexes.insert(node.id.inner().to_owned(), ordered.len());
                 ordered.push(node);
@@ -53,22 +50,16 @@ where
             break;
         }
         let cursor = info.end_cursor.ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Linear reported more releases but returned no pagination cursor",
-            )
+            Error::new("Linear reported more releases but returned no pagination cursor")
         })?;
         if !cursors.insert(cursor.clone()) {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                "Linear repeated a release pagination cursor",
-            ));
+            return Err(Error::new("Linear repeated a release pagination cursor"));
         }
         after = Some(cursor);
     }
     if ordered.is_empty() {
-        return Err(AppError::not_found("Release", input)
-            .with_suggestion("Pass a release UUID, exact release name, or exact version."));
+        return Err(Error::not_found("Release", input)
+            .with_hint("Pass a release UUID, exact release name, or exact version."));
     }
     if ordered.len() > 1 {
         let listing = ordered
@@ -85,11 +76,10 @@ where
             })
             .collect::<Vec<_>>()
             .join("\n");
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("Release \"{input}\" is ambiguous; it matches multiple releases:\n{listing}"),
-        )
-        .with_suggestion("Pass the release UUID instead."));
+        return Err(Error::new(format!(
+            "Release \"{input}\" is ambiguous; it matches multiple releases:\n{listing}"
+        ))
+        .with_hint("Pass the release UUID instead."));
     }
     Ok(ordered.remove(0).id.into_inner())
 }

@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 
 use cynic::MutationBuilder;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_create::{
     CreateInitiative, CreateInitiativeVariables, InitiativeCreateInput,
@@ -49,7 +49,7 @@ fn choice(label: &str, value: &str, token: &str) -> PlainOption {
 pub fn prompt<R: Read, W: Write>(
     options: &mut Options,
     session: &mut PromptSession<R, W>,
-) -> Result<PromptResult, AppError> {
+) -> Result<PromptResult, Error> {
     macro_rules! answer {
         ($call:expr) => {
             match $call? {
@@ -148,10 +148,9 @@ fn valid_date(value: &str) -> bool {
     [a, b, c, d, e, f, g, h].into_iter().all(u8::is_ascii_digit)
 }
 
-pub fn validate(options: &Options) -> Result<Option<InitiativeStatus>, AppError> {
+pub fn validate(options: &Options) -> Result<Option<InitiativeStatus>, Error> {
     if options.name.as_deref().is_none_or(str::is_empty) {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
+        return Err(Error::new(
             "Initiative name is required. Use --name or -n flag.",
         ));
     }
@@ -161,10 +160,9 @@ pub fn validate(options: &Options) -> Result<Option<InitiativeStatus>, AppError>
         Some(value) if value.eq_ignore_ascii_case("active") => Some(InitiativeStatus::Active),
         Some(value) if value.eq_ignore_ascii_case("completed") => Some(InitiativeStatus::Completed),
         Some(value) => {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("Invalid status: {value}. Valid values: planned, active, completed"),
-            ));
+            return Err(Error::new(format!(
+                "Invalid status: {value}. Valid values: planned, active, completed"
+            )));
         }
     };
     if options
@@ -172,20 +170,14 @@ pub fn validate(options: &Options) -> Result<Option<InitiativeStatus>, AppError>
         .as_deref()
         .is_some_and(|value| !value.is_empty() && !valid_color(value))
     {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Color must be a valid hex code (e.g., #5E6AD2)",
-        ));
+        return Err(Error::new("Color must be a valid hex code (e.g., #5E6AD2)"));
     }
     if options
         .target_date
         .as_deref()
         .is_some_and(|value| !value.is_empty() && !valid_date(value))
     {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Target date must be in YYYY-MM-DD format",
-        ));
+        return Err(Error::new("Target date must be in YYYY-MM-DD format"));
     }
     Ok(status)
 }
@@ -193,13 +185,13 @@ pub fn validate(options: &Options) -> Result<Option<InitiativeStatus>, AppError>
 pub async fn resolve_owner(
     transport: &GraphQlTransport,
     owner: Option<&str>,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     match owner.filter(|value| !value.is_empty()) {
         Some(owner) => {
             crate::refs::reject_linear_url(owner, "an email, username, display name, or @me")?;
             let id = super::initiative_list::resolve_owner(transport, owner).await?;
             if id.inner().is_empty() {
-                return Err(AppError::not_found("Owner", owner));
+                return Err(Error::not_found("Owner", owner));
             }
             Ok(Some(id.inner().to_owned()))
         }
@@ -212,10 +204,10 @@ pub async fn submit_create(
     options: Options,
     status: Option<InitiativeStatus>,
     owner_id: Option<String>,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let name = options
         .name
-        .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "validated name vanished"))?;
+        .ok_or_else(|| Error::new("validated name vanished"))?;
     let request =
         GraphQlRequest::with_variables(CreateInitiative::build(CreateInitiativeVariables {
             input: InitiativeCreateInput {
@@ -233,19 +225,13 @@ pub async fn submit_create(
         }));
     let result: CreateInitiative = transport.execute(&request).await.map_err(|failure| {
         if matches!(failure, TransportFailure::Timeout { .. }) {
-            AppError::new(
-                AppErrorKind::Transport,
-                format!("{failure}; initiative may already exist"),
-            )
+            Error::new(format!("{failure}; initiative may already exist"))
         } else {
-            AppError::from(failure)
+            Error::from(failure)
         }
     })?;
     if !result.initiative_create.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to create initiative",
-        ));
+        return Err(Error::new("Failed to create initiative"));
     }
     let initiative = result.initiative_create.initiative;
     let mut output = format!(

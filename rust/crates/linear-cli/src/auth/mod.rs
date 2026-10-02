@@ -7,9 +7,8 @@ mod path;
 mod resolve;
 
 pub use format::{
-    CredentialFormat, CredentialFormatError, CredentialFormatErrorKind, CredentialInvariantError,
-    CredentialManifest, CredentialStore, CredentialWarning, LookupFailureCategory, LookupReply,
-    LookupResult, hydrate, parse_credentials,
+    CredentialFormat, CredentialFormatError, CredentialFormatErrorKind, CredentialManifest,
+    CredentialStore, CredentialWarning, LookupFailureCategory, LookupResult, parse_credentials,
 };
 pub use path::credentials_path;
 pub use resolve::{

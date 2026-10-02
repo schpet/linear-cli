@@ -1,6 +1,6 @@
 //! Shell scripts from the native command grammar and saved-script value data.
 use crate::cli::{self, AgentSessionStatus, Sort, TemplateType, fish_completion};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use clap::{Command, ValueEnum};
 use clap_complete::{Shell, generate};
 pub const DEFAULT_COMMAND_NAME: &str = "linear";
@@ -49,16 +49,14 @@ fn completion_view(native: &Command) -> Command {
     view
 }
 
-pub fn script(shell: CompletionShell, supplied_name: Option<&str>) -> Result<Vec<u8>, AppError> {
+pub fn script(shell: CompletionShell, supplied_name: Option<&str>) -> Result<Vec<u8>, Error> {
     let name = supplied_name.unwrap_or(DEFAULT_COMMAND_NAME);
     if !valid_command_name(name) {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("Invalid command name \"{name}\""),
-        )
-        .with_suggestion(
-            "Use ASCII letters, digits, '_', '-' or '.', starting with a letter, digit or '_'.",
-        ));
+        return Err(
+            Error::new(format!("Invalid command name \"{name}\"")).with_hint(
+                "Use ASCII letters, digits, '_', '-' or '.', starting with a letter, digit or '_'.",
+            ),
+        );
     }
     let mut command = cli::command();
     command.build();
@@ -83,7 +81,7 @@ fn enum_values<T: ValueEnum>() -> Vec<String> {
 }
 /// Saved scripts select a command path before `--`; literal words stay separate.
 /// The output is LF-separated data without a trailing newline.
-pub fn complete(action: &cli::completions::CompletionsComplete) -> Result<Vec<u8>, AppError> {
+pub fn complete(action: &cli::completions::CompletionsComplete) -> Result<Vec<u8>, Error> {
     let mut tree = cli::command();
     tree.build();
     let mut command = &tree;
@@ -97,10 +95,9 @@ pub fn complete(action: &cli::completions::CompletionsComplete) -> Result<Vec<u8
                         || child.get_all_aliases().any(|alias| alias == word))
             })
             .ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Validation,
-                    format!("Auto-completion failed. Unknown command \"{word}\"."),
-                )
+                Error::new(format!(
+                    "Auto-completion failed. Unknown command \"{word}\"."
+                ))
             })?;
         path.push(command.get_name());
     }

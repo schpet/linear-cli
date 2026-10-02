@@ -75,7 +75,7 @@ fn validation_defaults_omissions_and_explicit_colors() {
         assert_eq!(
             label_create::validate(&options(Some("A"), Some(color)))
                 .unwrap_err()
-                .message,
+                .message(),
             "Color must be a valid hex code (e.g., #EB5757)"
         );
     }
@@ -83,8 +83,8 @@ fn validation_defaults_omissions_and_explicit_colors() {
         assert!(label_create::validate(&options(Some("A"), Some(color))).is_ok());
     }
     let error = label_create::validate(&options(None, Some("red"))).unwrap_err();
-    assert_eq!(error.message, "Label name is required");
-    assert!(error.suggestion.unwrap().contains("--name"));
+    assert_eq!(error.message(), "Label name is required");
+    assert!(error.hint().unwrap().contains("--name"));
 }
 
 #[test]
@@ -186,7 +186,7 @@ fn prompt_eof_and_bad_custom_color_stop_before_team() {
     assert_eq!(
         label_create::prompt_fields(&mut supplied, &mut session)
             .unwrap_err()
-            .message,
+            .message(),
         "Please enter a valid hex color (e.g., #FF5733)"
     );
 }
@@ -231,7 +231,7 @@ fn render_preserves_scope_description_and_rejects_malformed_payloads() {
     assert_eq!(
         label_create::render(&decode(false, label.clone()).issue_label_create)
             .unwrap_err()
-            .message,
+            .message(),
         "Failed to create label"
     );
     let mut workspace = label;

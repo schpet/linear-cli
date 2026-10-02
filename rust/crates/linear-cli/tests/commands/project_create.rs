@@ -248,7 +248,7 @@ async fn caught_nonclient_join_preserves_entire_success_json_and_exit_contract()
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &api_key,
+        api_key: api_key.clone(),
     };
     for body in [r#"{"data":{"initiativeToProjectCreate":null}}"#, "bad json"] {
         let (transport, server) = super::delete_server::serve(body);
@@ -330,7 +330,7 @@ async fn duplicate_status_types_keep_both_choices_and_refetch_first_type_id() {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &api_key,
+        api_key: api_key.clone(),
     };
     let input = create::input(&transport, &scope, &fields, None)
         .await

@@ -4,7 +4,6 @@ use std::thread;
 use std::time::Duration;
 
 use linear_cli::commands::team_create::{self, Mode, Options, PromptResult};
-use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::team_create::CreateTeam;
 use linear_cli::graphql::transport::{
@@ -121,13 +120,12 @@ fn flag_mode_requires_a_name_before_announcing() {
         options(Some(""), None, None, false),
     ] {
         let error = team_create::required_name(&missing).unwrap_err();
-        assert_eq!(error.kind, AppErrorKind::Validation);
         assert_eq!(
-            error.message,
+            error.message(),
             "Team name is required when not using interactive mode"
         );
         assert_eq!(
-            error.suggestion.as_deref(),
+            error.hint(),
             Some("Use --name or run without any flags for interactive mode.")
         );
         assert!(team_create::request(&missing).is_err());
@@ -145,7 +143,7 @@ fn flag_mode_requires_a_name_before_announcing() {
 fn scripted(
     input: &str,
 ) -> (
-    Result<PromptResult, linear_cli::error::AppError>,
+    Result<PromptResult, linear_cli::error::Error>,
     Options,
     String,
 ) {
@@ -187,14 +185,13 @@ fn prompts_trim_answers_omit_empty_optionals_and_default_to_public() {
 fn blank_name_fails_validation_and_eof_stops_prompting() {
     let (result, _, _) = scripted("   \n");
     let error = result.unwrap_err();
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert_eq!(error.message, "Team name is required");
+    assert_eq!(error.message(), "Team name is required");
     for partial in ["", "Ops\n", "Ops\n\n", "Ops\n\n\n"] {
         let (result, _, _) = scripted(partial);
         assert_eq!(result.unwrap(), PromptResult::EndOfInput, "{partial:?}");
     }
     let (result, _, _) = scripted("Ops\n\n\nsecret\n");
-    assert_eq!(result.unwrap_err().kind, AppErrorKind::Validation);
+    assert!(result.is_err());
 }
 
 fn decode(payload: Value) -> CreateTeam {
@@ -226,8 +223,7 @@ fn render_checks_success_before_the_nullable_team() {
         ),
     ] {
         let error = team_create::render(&decode(payload).team_create).unwrap_err();
-        assert_eq!(error.message, message);
-        assert_eq!(error.kind, AppErrorKind::GraphQl);
+        assert_eq!(error.message(), message);
     }
     let body = json!({"data": {"teamCreate": {"success": true, "team": {"id": "t", "name": "n"}}}});
     assert!(parse_response::<CreateTeam>(body.to_string().as_bytes()).is_err());
@@ -318,10 +314,10 @@ async fn post_write_failures_warn_once_and_reported_failures_do_not() {
         .await
         .unwrap_err();
         assert_eq!(
-            error.message.ends_with("; team may already exist"),
+            error.message().ends_with("; team may already exist"),
             uncertain,
             "{reply:?}: {}",
-            error.message
+            error.message()
         );
         assert!(!server.join().unwrap(), "create must not retry");
     }

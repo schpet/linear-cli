@@ -1,7 +1,7 @@
 //! `issue relation`: add, delete and list relations between issues.
 use crate::cli::issue::RelationType;
 use crate::commands::issue_id;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_relations::{
     ApiRelationType, CreateIssueRelation, CreateVariables, DeleteIssueRelation, DeleteVariables,
@@ -84,7 +84,7 @@ pub fn list_output(issue: &ListedIssue) -> Vec<u8> {
     }
     text.into_bytes()
 }
-pub async fn list(transport: &GraphQlTransport, identifier: &str) -> Result<Vec<u8>, AppError> {
+pub async fn list(transport: &GraphQlTransport, identifier: &str) -> Result<Vec<u8>, Error> {
     let data: ListIssueRelations = transport
         .execute(&list_request(identifier))
         .await
@@ -97,7 +97,7 @@ async fn lookup_pair(
     kind: RelationType,
     a: &str,
     b: &str,
-) -> Result<RelationInput, AppError> {
+) -> Result<RelationInput, Error> {
     let a_id = issue_id::fetch(transport, a).await?;
     // Even equal identifiers must be looked up twice, sequentially.
     let b_id = issue_id::fetch(transport, b).await?;
@@ -108,11 +108,11 @@ pub async fn add(
     kind: RelationType,
     a: &str,
     b: &str,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let input = lookup_pair(transport, kind, a, b).await?;
     let data: CreateIssueRelation = transport.execute(&create_request(input)).await?;
     if !data.issue_relation_create.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, ADD_CONTEXT));
+        return Err(Error::new(ADD_CONTEXT));
     }
     Ok(format!("✓ Created relation: {a} {} {b}\n", kind.spelling()).into_bytes())
 }
@@ -121,7 +121,7 @@ pub async fn delete(
     kind: RelationType,
     a: &str,
     b: &str,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let input = lookup_pair(transport, kind, a, b).await?;
     let data: FindIssueRelation = transport.execute(&find_request(&input.issue_id)).await?;
     let relation = data
@@ -134,7 +134,7 @@ pub async fn delete(
                 && relation.related_issue.id.inner() == input.related_issue_id
         })
         .ok_or_else(|| {
-            AppError::not_found(
+            Error::not_found(
                 "Relation",
                 &format!("{} between {a} and {b}", kind.spelling()),
             )
@@ -143,7 +143,7 @@ pub async fn delete(
         .execute(&delete_request(relation.id.inner()))
         .await?;
     if !deleted.issue_relation_delete.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, DELETE_CONTEXT));
+        return Err(Error::new(DELETE_CONTEXT));
     }
     Ok(format!("✓ Deleted relation: {a} {} {b}\n", kind.spelling()).into_bytes())
 }

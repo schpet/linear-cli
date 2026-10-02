@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use linear_cli::auth::ApiKeyInput;
 use linear_cli::commands::label_list::{Options, Selection, render_text, run_with, select};
-use linear_cli::error::{AppError, AppErrorKind};
+use linear_cli::error::Error;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::issue_labels::{GetIssueLabels, IssueLabel, Team};
 use linear_cli::refs::{ResolvedTeam, WorkspaceScope};
@@ -16,7 +16,7 @@ fn scope<'a>(api_key: &'a ApiKeyInput<'a>) -> WorkspaceScope<'a> {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key,
+        api_key: api_key.clone(),
     }
 }
 
@@ -106,7 +106,7 @@ fn explicit_blank_team_is_rejected_before_workspace_only_and_all() {
             );
             let error = result.expect_err("explicit blank team must not fall through");
             assert_eq!(
-                error.display_message(),
+                error.to_string(),
                 "Failed to fetch labels: Team reference is empty"
             );
         }
@@ -285,12 +285,7 @@ async fn resolver_and_later_page_failures_return_context_without_partial_output(
     .unwrap();
     let resolver_failure = run_with(
         selection,
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::Validation,
-                "team vanished",
-            )))
-        },
+        |_| ready(Err(Error::new("team vanished"))),
         |_| ready(Ok(page(vec![], false, None))),
         true,
         120,
@@ -298,7 +293,7 @@ async fn resolver_and_later_page_failures_return_context_without_partial_output(
     .await
     .expect_err("resolver failure");
     assert_eq!(
-        resolver_failure.display_message(),
+        resolver_failure.to_string(),
         "Failed to fetch labels: team vanished"
     );
 
@@ -313,7 +308,7 @@ async fn resolver_and_later_page_failures_return_context_without_partial_output(
                 if *calls.borrow() == 1 {
                     ready(Ok(page(vec![label("first", "Alpha")], true, Some("next"))))
                 } else {
-                    ready(Err(AppError::new(AppErrorKind::Transport, "page failed")))
+                    ready(Err(Error::new("page failed")))
                 }
             }
         },
@@ -324,7 +319,7 @@ async fn resolver_and_later_page_failures_return_context_without_partial_output(
     .expect_err("later page failure");
     assert_eq!(*calls.borrow(), 2);
     assert_eq!(
-        later_page_failure.display_message(),
+        later_page_failure.to_string(),
         "Failed to fetch labels: page failed"
     );
 }
@@ -355,7 +350,7 @@ async fn missing_or_repeated_cursor_aborts_without_third_request() {
         } else {
             "Failed to fetch labels: Linear reported more labels but returned no pagination cursor"
         };
-        assert_eq!(result.display_message(), expected);
+        assert_eq!(result.to_string(), expected);
     }
 }
 

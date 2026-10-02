@@ -5,8 +5,7 @@ use serde::Serialize;
 
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::terminal_color;
-use crate::config::NoColor;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_view::{
     DetailVariables, GetInitiativeByNameForView, GetInitiativeBySlugForView, GetInitiativeDetails,
@@ -29,7 +28,7 @@ pub enum Reference {
     NameOrSlug(String),
 }
 
-pub fn prepare_reference(input: &str, scope: &WorkspaceScope<'_>) -> Result<Reference, AppError> {
+pub fn prepare_reference(input: &str, scope: &WorkspaceScope<'_>) -> Result<Reference, Error> {
     match expect_url_kind(
         input,
         LinearUrlKind::Initiative,
@@ -37,10 +36,7 @@ pub fn prepare_reference(input: &str, scope: &WorkspaceScope<'_>) -> Result<Refe
         scope,
     )? {
         Some(LinearUrlRef::Initiative { slug_id, .. }) => Ok(Reference::UrlSlug(slug_id)),
-        Some(_) => Err(AppError::new(
-            AppErrorKind::Invariant,
-            "initiative URL kind mismatch",
-        )),
+        Some(_) => Err(Error::new("initiative URL kind mismatch")),
         None if is_linear_uuid(input) => Ok(Reference::Id(input.to_owned())),
         None => Ok(Reference::NameOrSlug(input.to_owned())),
     }
@@ -50,7 +46,7 @@ async fn resolve_text(
     transport: &GraphQlTransport,
     text: &str,
     original: &str,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let request =
         GraphQlRequest::with_variables(GetInitiativeBySlugForView::build(SlugVariables {
             slug_id: text.to_owned(),
@@ -58,8 +54,8 @@ async fn resolve_text(
     let slug: GetInitiativeBySlugForView = transport
         .execute(&request)
         .await
-        .map_err(AppError::from)
-        .map_err(|e| e.with_context(RESOLVE_CONTEXT))?;
+        .map_err(Error::from)
+        .context(RESOLVE_CONTEXT)?;
     if let Some(node) = slug.initiatives.nodes.first() {
         return Ok(node.id.inner().to_owned());
     }
@@ -70,20 +66,20 @@ async fn resolve_text(
     let name: GetInitiativeByNameForView = transport
         .execute(&request)
         .await
-        .map_err(AppError::from)
-        .map_err(|e| e.with_context(RESOLVE_CONTEXT))?;
+        .map_err(Error::from)
+        .context(RESOLVE_CONTEXT)?;
     name.initiatives
         .nodes
         .first()
         .map(|node| node.id.inner().to_owned())
-        .ok_or_else(|| AppError::not_found("Initiative", original).with_context(RESOLVE_CONTEXT))
+        .ok_or_else(|| Error::not_found("Initiative", original).context(RESOLVE_CONTEXT))
 }
 
 pub async fn resolve_reference(
     transport: &GraphQlTransport,
     reference: &Reference,
     original: &str,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     match reference {
         Reference::Id(id) => Ok(id.clone()),
         Reference::NameOrSlug(text) => resolve_text(transport, text, original).await,
@@ -96,16 +92,14 @@ pub async fn resolve_reference(
             let result: ResolveInitiativeBySlug = transport
                 .execute(&request)
                 .await
-                .map_err(AppError::from)
-                .map_err(|e| e.with_context(RESOLVE_CONTEXT))?;
+                .map_err(Error::from)
+                .context(RESOLVE_CONTEXT)?;
             let id = result
                 .initiatives
                 .nodes
                 .first()
                 .map(|node| node.id.inner().to_owned())
-                .ok_or_else(|| {
-                    AppError::not_found("Initiative", original).with_context(RESOLVE_CONTEXT)
-                })?;
+                .ok_or_else(|| Error::not_found("Initiative", original).context(RESOLVE_CONTEXT))?;
             if is_linear_uuid(&id) {
                 Ok(id)
             } else {
@@ -119,40 +113,37 @@ pub async fn fetch_details(
     transport: &GraphQlTransport,
     id: String,
     original: &str,
-) -> Result<InitiativeDetails, AppError> {
+) -> Result<InitiativeDetails, Error> {
     let request =
         GraphQlRequest::with_variables(GetInitiativeDetails::build(DetailVariables { id }));
     let result: GetInitiativeDetails = transport
         .execute(&request)
         .await
-        .map_err(AppError::from)
-        .map_err(|e| e.with_context(FETCH_CONTEXT))?;
+        .map_err(Error::from)
+        .context(FETCH_CONTEXT)?;
     let detail = result
         .initiative
-        .ok_or_else(|| AppError::not_found("Initiative", original).with_context(FETCH_CONTEXT))?;
-    verify_detail(&detail).map_err(|e| e.with_context(FETCH_CONTEXT))?;
+        .ok_or_else(|| Error::not_found("Initiative", original).context(FETCH_CONTEXT))?;
+    verify_detail(&detail).context(FETCH_CONTEXT)?;
     Ok(detail)
 }
 
-fn verify_detail(detail: &InitiativeDetails) -> Result<(), AppError> {
+fn verify_detail(detail: &InitiativeDetails) -> Result<(), Error> {
     if let InitiativeStatus::Unknown(value) = &detail.status {
-        return Err(AppError::new(
-            AppErrorKind::Invariant,
-            format!("Linear returned an unknown initiative status: {value}"),
-        ));
+        return Err(Error::new(format!(
+            "Linear returned an unknown initiative status: {value}"
+        )));
     }
     if let Some(InitiativeUpdateHealthType::Unknown(value)) = &detail.health {
-        return Err(AppError::new(
-            AppErrorKind::Invariant,
-            format!("Linear returned an unknown initiative health: {value}"),
-        ));
+        return Err(Error::new(format!(
+            "Linear returned an unknown initiative health: {value}"
+        )));
     }
     for project in &detail.projects.nodes {
         if let ProjectStatusType::Unknown(value) = &project.status.status_type {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                format!("Linear returned an unknown project status type: {value}"),
-            ));
+            return Err(Error::new(format!(
+                "Linear returned an unknown project status type: {value}"
+            )));
         }
     }
     Ok(())
@@ -204,7 +195,7 @@ struct JsonProjectStatus<'a> {
     status_type: &'a str,
 }
 
-pub fn render_json(detail: &InitiativeDetails) -> Result<Vec<u8>, AppError> {
+pub fn render_json(detail: &InitiativeDetails) -> Result<Vec<u8>, Error> {
     let projection = JsonDetail {
         id: &detail.id,
         slug_id: &detail.slug_id,
@@ -244,9 +235,8 @@ pub fn render_json(detail: &InitiativeDetails) -> Result<Vec<u8>, AppError> {
                 .collect(),
         },
     };
-    let mut bytes = serde_json::to_vec_pretty(&projection).map_err(|e| {
-        AppError::new(AppErrorKind::Invariant, "could not serialize initiative").with_source(e)
-    })?;
+    let mut bytes = serde_json::to_vec_pretty(&projection)
+        .map_err(|e| Error::new("could not serialize initiative").with_source(e))?;
     bytes.push(b'\n');
     Ok(bytes)
 }
@@ -345,17 +335,17 @@ pub fn render_text(
     detail: &InitiativeDetails,
     terminal: bool,
     columns: std::num::NonZeroU16,
-    no_color: NoColor,
-) -> Result<Vec<u8>, AppError> {
+    color: bool,
+) -> Result<Vec<u8>, Error> {
     let now = Utc::now();
     let body = markdown(detail, now, terminal);
     if !terminal {
         return Ok(format!("{body}\n").into_bytes());
     }
-    let options = RenderOptions::for_terminal(columns, no_color, true, None, HostSource::System);
+    let options = RenderOptions::for_terminal(columns, color, None, HostSource::System);
     let rendered = markdown_terminal::render(&body, &options)?;
     let line = format!("**Status:** {}", detail.status.as_str());
-    let colored = if no_color == NoColor::Nonempty {
+    let colored = if !color {
         line
     } else {
         let hex = match detail.status {
@@ -365,12 +355,8 @@ pub fn render_text(
             InitiativeStatus::Canceled => "#EB5757",
             InitiativeStatus::Unknown(_) => "#6B6F76",
         };
-        let sgr = terminal_color(hex).ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "invalid built-in initiative status color",
-            )
-        })?;
+        let sgr = terminal_color(hex)
+            .ok_or_else(|| Error::new("invalid built-in initiative status color"))?;
         format!("{sgr}{line}\x1b[0m")
     };
     Ok(format!("{colored}\n{rendered}\n").into_bytes())

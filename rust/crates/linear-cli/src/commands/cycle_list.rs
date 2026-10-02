@@ -5,7 +5,7 @@ use serde::Serialize;
 use std::future::Future;
 
 use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::cycles::{self, GetTeamCycles, GetTeamCyclesVariables};
 use crate::graphql::operations::number::WholeNumber;
@@ -37,7 +37,7 @@ struct JsonConnection<'a> {
     page_info: &'a PageInfo,
 }
 
-fn render_json(nodes: &[cycles::Cycle], page_info: &PageInfo) -> Result<Vec<u8>, AppError> {
+fn render_json(nodes: &[cycles::Cycle], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
     let nodes = nodes
         .iter()
         .map(|cycle| {
@@ -53,12 +53,12 @@ fn render_json(nodes: &[cycles::Cycle], page_info: &PageInfo) -> Result<Vec<u8>,
                 is_past: cycle.is_past,
             })
         })
-        .collect::<Result<Vec<_>, AppError>>()?;
+        .collect::<Result<Vec<_>, Error>>()?;
     let mut output =
         serde_json::to_vec_pretty(&JsonConnection { nodes, page_info }).map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize cycles")
+            Error::new("could not serialize cycles")
                 .with_source(error)
-                .with_context(CONTEXT)
+                .context(CONTEXT)
         })?;
     output.push(b'\n');
     Ok(output)
@@ -70,10 +70,10 @@ pub async fn run_with<F, Fut>(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnMut(GraphQlRequest<GetTeamCyclesVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeamCycles, AppError>>,
+    Fut: Future<Output = Result<GetTeamCycles, Error>>,
 {
     let result = pagination::paginate(|after| {
         let request =
@@ -85,7 +85,7 @@ where
         let future = fetch(request);
         async move {
             let data = future.await?;
-            Ok::<Page<cycles::Cycle>, AppError>(Page {
+            Ok::<Page<cycles::Cycle>, Error>(Page {
                 nodes: data.team.cycles.nodes,
                 page_info: data.team.cycles.page_info.into(),
             })
@@ -93,19 +93,17 @@ where
     })
     .await
     .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source.with_context(CONTEXT),
-        PaginationError::MissingCursor { .. } => AppError::new(
-            AppErrorKind::Validation,
-            "Linear reported more cycles but returned no pagination cursor",
-        )
-        .with_suggestion("Retry the command.")
-        .with_context(CONTEXT),
-        PaginationError::RepeatedCursor { page, .. } => AppError::new(
-            AppErrorKind::Validation,
-            format!("Linear repeated a cycle pagination cursor on page {page}"),
-        )
-        .with_suggestion("Retry the command.")
-        .with_context(CONTEXT),
+        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
+        PaginationError::MissingCursor { .. } => {
+            Error::new("Linear reported more cycles but returned no pagination cursor")
+                .with_hint("Retry the command.")
+                .context(CONTEXT)
+        }
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated a cycle pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command.")
+        .context(CONTEXT),
     })?;
 
     let mut nodes = result.nodes;
@@ -127,10 +125,10 @@ pub async fn run(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(
         team_id,
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
         json,
         columns,
         color,
@@ -165,11 +163,7 @@ fn date_prefix(date: &str) -> String {
     date.chars().take(10).collect()
 }
 
-pub fn render_text(
-    nodes: &[cycles::Cycle],
-    columns: usize,
-    color: bool,
-) -> Result<String, AppError> {
+pub fn render_text(nodes: &[cycles::Cycle], columns: usize, color: bool) -> Result<String, Error> {
     if nodes.is_empty() {
         return Ok("No cycles found for this team.\n".to_owned());
     }

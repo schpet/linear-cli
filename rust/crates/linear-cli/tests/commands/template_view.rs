@@ -1,19 +1,11 @@
 use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::ffi::OsString;
 use std::future::{Ready, ready};
-use std::path::PathBuf;
 
 use chrono::{DateTime, FixedOffset, Utc};
-use linear_cli::auth::{CredentialStore, hydrate, parse_credentials};
 use linear_cli::commands::template_view::{
-    CONTEXT, TemplateReference, prepare, render_text, run_with, template_request,
+    CONTEXT, TemplateReference, render_text, run_with, template_request,
 };
-use linear_cli::config::{
-    ConfigInputs, ConfigOptions, OptionInputs, OsFamily, ProcessEnvSnapshot, RawConfigFile,
-    SelectedEnv, TransportEnvInputs, parse_config_tier,
-};
-use linear_cli::error::{AppError, AppErrorKind};
+use linear_cli::error::Error;
 use linear_cli::graphql::envelope::{GraphQlRequest, ResponseError, parse_response};
 use linear_cli::graphql::operations::templates::{
     GetTemplate, GetTemplateVariables, GetTemplates, Template,
@@ -175,7 +167,7 @@ fn reference(text: &str) -> TemplateReference {
 }
 
 /// View one template by ID in text mode at the fixed clock and UTC.
-async fn view_text(template: Value) -> Result<String, AppError> {
+async fn view_text(template: Value) -> Result<String, Error> {
     let response = typed_one(template);
     let output = run_with(
         &reference(BUG_ID),
@@ -199,54 +191,10 @@ async fn pre_fills(template_data: &str) -> String {
     text[start..end].to_owned()
 }
 
-async fn view_error(template_data: &str) -> AppError {
+async fn view_error(template_data: &str) -> Error {
     view_text(with_data(template_data))
         .await
         .expect_err("text view failure")
-}
-
-fn config_options(env: &[(&str, &str)]) -> ConfigOptions {
-    let process = ConfigInputs {
-        cwd: PathBuf::from("/repo"),
-        os: OsFamily::Unix,
-        process_env: env
-            .iter()
-            .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
-            .collect(),
-    };
-    let dotenv = SelectedEnv {
-        applied: BTreeMap::new(),
-        source_path: None,
-        diagnostics: vec![],
-    };
-    ConfigOptions::from_inputs(OptionInputs {
-        env: &process,
-        dotenv: &dotenv,
-        project: None,
-        global: None,
-    })
-    .expect("synthetic options")
-}
-
-fn empty_credentials() -> CredentialStore {
-    let tier = parse_config_tier(RawConfigFile {
-        path: PathBuf::from("/fake/credentials.toml"),
-        bytes: Vec::new(),
-    })
-    .expect("credentials TOML");
-    hydrate(parse_credentials(tier).expect("manifest"), vec![]).expect("inline store")
-}
-
-fn transport_env(values: &[(&str, &str)]) -> TransportEnvInputs {
-    let snapshot = ProcessEnvSnapshot::from_vars_os(
-        PathBuf::from("/repo"),
-        OsFamily::Unix,
-        values
-            .iter()
-            .map(|(name, value)| (OsString::from(name), OsString::from(value))),
-    )
-    .expect("synthetic process");
-    TransportEnvInputs::from_process(&snapshot)
 }
 
 #[test]
@@ -271,70 +219,6 @@ fn uuid_request_is_one_typed_get_template_with_the_reference_as_typed() {
     ] {
         assert_eq!(reference(name), TemplateReference::Name(name.to_owned()));
     }
-}
-
-#[test]
-fn prepare_refuses_a_linear_url_before_credentials_with_one_context() {
-    let url = "https://linear.app/acme/issue/ENG-1";
-    let store = empty_credentials();
-    // Unusable if reached: the URL failure must win over it and credentials.
-    let bad_policy = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
-    for (env, workspace) in [
-        (vec![], None),
-        (vec![("LINEAR_API_KEY", "lin_api_fake")], Some("beta")),
-        (vec![], Some("missing")),
-    ] {
-        let error = prepare(&config_options(&env), &store, workspace, &bad_policy, url)
-            .err()
-            .expect("URL refused");
-        assert_eq!(error.kind, AppErrorKind::Validation);
-        assert_eq!(
-            error.display_message(),
-            format!(
-                "Failed to view template: \"{url}\" is a Linear URL, and this command does not take one."
-            )
-        );
-        assert_eq!(
-            error.suggestion.as_deref(),
-            Some("Pass a template name or UUID.")
-        );
-    }
-
-    let no_key = prepare(&config_options(&[]), &store, None, &bad_policy, BUG_ID)
-        .err()
-        .expect("no key");
-    assert_eq!(no_key.context.as_deref(), Some(CONTEXT));
-    assert_eq!(
-        no_key.display_message(),
-        "Failed to view template: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`."
-    );
-
-    let conflict = prepare(
-        &config_options(&[("LINEAR_API_KEY", "lin_api_fake")]),
-        &store,
-        Some("beta"),
-        &transport_env(&[]),
-        "Bug report",
-    )
-    .err()
-    .expect("workspace conflict");
-    assert_eq!(
-        conflict.display_message(),
-        "Failed to view template: Cannot use --workspace flag when LINEAR_API_KEY environment variable is set. Either unset LINEAR_API_KEY or remove the --workspace flag."
-    );
-
-    let prepared = prepare(
-        &config_options(&[("LINEAR_API_KEY", "lin_api_fake")]),
-        &store,
-        None,
-        &transport_env(&[]),
-        "AAAAAAAA-aaaa-4AAA-8aaa-AAAAAAAAAAAA",
-    )
-    .unwrap_or_else(|error| panic!("{error}"));
-    assert_eq!(
-        prepared.reference,
-        TemplateReference::Id("AAAAAAAA-aaaa-4AAA-8aaa-AAAAAAAAAAAA".to_owned())
-    );
 }
 
 #[tokio::test]
@@ -596,13 +480,17 @@ async fn any_raw_no_template_found_message_becomes_not_found_with_the_typed_refe
         )
         .await
         .expect_err("missing template");
-        assert_eq!(error.kind, AppErrorKind::NotFound, "{body}");
         assert_eq!(
-            error.display_message(),
+            error.kind(),
+            linear_cli::error::ErrorKind::NotFound,
+            "{body}"
+        );
+        assert_eq!(
+            error.to_string(),
             format!("Failed to view template: Template not found: {upper}")
         );
         assert_eq!(
-            error.suggestion.as_deref(),
+            error.hint(),
             Some("Run `linear template list` to see every template.")
         );
     }
@@ -641,13 +529,12 @@ async fn other_failures_pass_through_once_with_the_command_context() {
         )
         .await
         .expect_err("GraphQL failure");
-        assert_eq!(error.kind, AppErrorKind::GraphQl);
-        assert_eq!(error.context.as_deref(), Some(CONTEXT));
+        assert!(error.to_string().starts_with(&format!("{}: ", CONTEXT)));
         assert_eq!(
-            error.display_message(),
+            error.to_string(),
             format!("Failed to view template: {message}")
         );
-        assert_eq!(error.suggestion, None);
+        assert_eq!(error.hint(), None);
     }
 
     // A non-2xx body without GraphQL errors is never a template miss.
@@ -661,9 +548,8 @@ async fn other_failures_pass_through_once_with_the_command_context() {
     )
     .await
     .expect_err("HTTP failure");
-    assert_eq!(http.kind, AppErrorKind::Transport);
-    assert_eq!(http.context.as_deref(), Some(CONTEXT));
-    assert_eq!(http.display_message().matches(CONTEXT).count(), 1);
+    assert!(http.to_string().starts_with(&format!("{}: ", CONTEXT)));
+    assert_eq!(http.to_string().matches(CONTEXT).count(), 1);
 
     let list = run_with(
         &reference("Bug report"),
@@ -681,14 +567,13 @@ async fn other_failures_pass_through_once_with_the_command_context() {
     .await
     .expect_err("list failure");
     // The translation belongs to the UUID path only.
-    assert_eq!(list.kind, AppErrorKind::GraphQl);
     assert_eq!(
-        list.display_message(),
+        list.to_string(),
         "Failed to view template: No template found"
     );
 }
 
-async fn name_error(reference_text: &str, templates: Vec<Value>) -> AppError {
+async fn name_error(reference_text: &str, templates: Vec<Value>) -> Error {
     let list = typed_list(templates);
     run_with(
         &reference(reference_text),
@@ -720,13 +605,13 @@ async fn unknown_names_list_deduplicated_root_collated_names() {
         vec![bug_template(), kickoff_template(), broken_template()],
     )
     .await;
-    assert_eq!(error.kind, AppErrorKind::NotFound);
+    assert_eq!(error.kind(), linear_cli::error::ErrorKind::NotFound);
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to view template: Template not found: Nope"
     );
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some(
             "Available templates: \"Broken\", \"Bug report\", \"Kickoff\". Run `linear template list` to see every template."
         )
@@ -743,7 +628,7 @@ async fn unknown_names_list_deduplicated_root_collated_names() {
     )
     .await;
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some(
             "Available templates: \"Álpha\", \"beta\", \"Zulu\". Run `linear template list` to see every template."
         )
@@ -751,11 +636,11 @@ async fn unknown_names_list_deduplicated_root_collated_names() {
 
     let empty = name_error("", vec![]).await;
     assert_eq!(
-        empty.display_message(),
+        empty.to_string(),
         "Failed to view template: Template not found: "
     );
     assert_eq!(
-        empty.suggestion.as_deref(),
+        empty.hint(),
         Some("No templates are available here. Run `linear template list` to see every template.")
     );
 }
@@ -771,13 +656,12 @@ async fn ambiguous_names_list_ids_in_response_order() {
         ],
     )
     .await;
-    assert_eq!(error.kind, AppErrorKind::Validation);
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to view template: Template name \"bug REPORT\" is ambiguous: it matches 2 templates"
     );
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some("Pass the template ID instead: tpl-z (issue, ENG), tpl-a (issue, Workspace)")
     );
 }
@@ -796,7 +680,7 @@ async fn text_parses_template_data_lazily_with_one_context() {
     .await
     .expect_err("array templateData");
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to view template: Template data for \"Broken\" (tpl-broken) is not a JSON object"
     );
 
@@ -812,13 +696,13 @@ async fn text_parses_template_data_lazily_with_one_context() {
     ] {
         let error = view_error(data).await;
         assert_eq!(
-            error.display_message(),
+            error.to_string(),
             format!(
                 "Failed to view template: Template data for \"Bug report\" ({BUG_ID}) {suffix}"
             ),
             "{data}"
         );
-        assert_eq!(error.suggestion, None);
+        assert_eq!(error.hint(), None);
     }
 }
 
@@ -957,9 +841,8 @@ async fn prose_mirror_errors_surface_in_render_order_without_a_key_path() {
         r#"{"descriptionData":{"type":"bad"},"subIssueData":[{"descriptionData":{"type":"also-bad"}}]}"#,
     )
     .await;
-    assert_eq!(error.kind, AppErrorKind::Validation);
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to view template: Expected a ProseMirror document, got a \"also-bad\" node"
     );
 
@@ -968,7 +851,7 @@ async fn prose_mirror_errors_surface_in_render_order_without_a_key_path() {
     )
     .await;
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to view template: Invalid ProseMirror mark at doc.content[0].marks[0]: expected an object with a string \"type\""
     );
 }

@@ -1,9 +1,10 @@
 use clap::{Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct Issue {
     #[command(subcommand)]
-    pub command: Option<IssueCommand>,
+    pub command: IssueCommand,
 }
 
 #[derive(Debug, Subcommand)]
@@ -570,9 +571,10 @@ pub struct IssueUpdate {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct IssueComment {
     #[command(subcommand)]
-    pub command: Option<IssueCommentCommand>,
+    pub command: IssueCommentCommand,
 }
 
 #[derive(Debug, Subcommand)]
@@ -668,9 +670,10 @@ pub struct IssueLink {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct IssueRelation {
     #[command(subcommand)]
-    pub command: Option<IssueRelationCommand>,
+    pub command: IssueRelationCommand,
 }
 
 #[derive(Debug, Subcommand)]
@@ -730,9 +733,10 @@ pub struct IssueRelationList {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct IssueAgentSession {
     #[command(subcommand)]
-    pub command: Option<IssueAgentSessionCommand>,
+    pub command: IssueAgentSessionCommand,
 }
 
 #[derive(Debug, Subcommand)]

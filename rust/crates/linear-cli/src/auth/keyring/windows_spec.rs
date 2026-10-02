@@ -1,8 +1,5 @@
 //! Windows credential names and secret decoding.
-use crate::{
-    config::ConfigSecret,
-    error::{AppError, AppErrorKind},
-};
+use crate::{config::ConfigSecret, error::Error};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WindowsCredentialSpec {
     pub username: String,
@@ -11,7 +8,7 @@ pub struct WindowsCredentialSpec {
     pub comment: String,
 }
 impl WindowsCredentialSpec {
-    pub fn new(workspace: &str) -> Result<Self, AppError> {
+    pub fn new(workspace: &str) -> Result<Self, Error> {
         let spec = Self {
             username: workspace.to_owned(),
             target_name: format!("linear-cli:{workspace}"),
@@ -26,25 +23,19 @@ impl WindowsCredentialSpec {
             ("comment", &spec.comment, 256),
         ] {
             if value.len() > limit || value.contains('\0') {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    format!("Windows credential {name} is not representable"),
-                ));
+                return Err(Error::new(format!(
+                    "Windows credential {name} is not representable"
+                )));
             }
         }
         Ok(spec)
     }
 }
-pub fn decode_windows_secret(bytes: Vec<u8>) -> Result<Option<ConfigSecret>, AppError> {
+pub fn decode_windows_secret(bytes: Vec<u8>) -> Result<Option<ConfigSecret>, Error> {
     if bytes.is_empty() {
         return Ok(None);
     }
-    let invalid = || {
-        AppError::new(
-            AppErrorKind::Validation,
-            "System keyring secret is not valid UTF-16LE",
-        )
-    };
+    let invalid = || Error::new("System keyring secret is not valid UTF-16LE");
     if !bytes.len().is_multiple_of(2) {
         return Err(invalid());
     }

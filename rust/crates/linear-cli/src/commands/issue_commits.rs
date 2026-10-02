@@ -2,7 +2,7 @@
 use crate::{
     commands::issue_id,
     config::Vcs,
-    error::{AppError, AppErrorKind, ExitStatus},
+    error::{Error, Result},
     graphql::{
         bulk_error::{self, ObservedExchangeFailure},
         transport::GraphQlTransport,
@@ -12,14 +12,11 @@ use crate::{
 use serde::Deserialize;
 use std::{num::NonZeroU8, path::Path};
 pub const CONTEXT: &str = "Failed to show commits";
-pub fn check_vcs(vcs: Vcs) -> Result<(), AppError> {
+pub fn check_vcs(vcs: Vcs) -> Result<(), Error> {
     match vcs {
         Vcs::Jj => Ok(()),
-        Vcs::Git => Err(AppError::new(
-            AppErrorKind::Validation,
-            "commits is only supported with jj-vcs",
-        )
-        .with_suggestion("This command requires jujutsu (jj) version control.")),
+        Vcs::Git => Err(Error::new("commits is only supported with jj-vcs")
+            .with_hint("This command requires jujutsu (jj) version control.")),
     }
 }
 #[derive(Deserialize)]
@@ -58,7 +55,7 @@ impl<'de> Deserialize<'de> for LookupIssue {
     }
 }
 /// Look up the issue; a missing or null issue is "not found".
-pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<(), AppError> {
+pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<(), Error> {
     let mut request = issue_id::request(identifier);
     request.query = request.query.trim_end_matches('\n').to_owned();
     let result: Lookup = bulk_error::execute_observed(transport, &request)
@@ -71,19 +68,18 @@ pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<()
     {
         Ok(())
     } else {
-        Err(AppError::not_found("Issue", identifier))
+        Err(Error::not_found("Issue", identifier))
     }
 }
-pub fn lookup_failure(failure: ObservedExchangeFailure, identifier: &str) -> AppError {
+pub fn lookup_failure(failure: ObservedExchangeFailure, identifier: &str) -> Error {
     match failure {
         ObservedExchangeFailure::Strict(error) => error,
         ObservedExchangeFailure::Ordinary(error) if error.is_not_found() => {
-            AppError::not_found("Issue", identifier)
+            Error::not_found("Issue", identifier)
         }
-        ObservedExchangeFailure::Ordinary(error) => AppError::new(
-            AppErrorKind::GraphQl,
-            error.preferred_message.unwrap_or(error.message),
-        ),
+        ObservedExchangeFailure::Ordinary(error) => {
+            Error::new(error.preferred_message.unwrap_or(error.message))
+        }
     }
 }
 pub fn revset(identifier: &str) -> String {
@@ -117,37 +113,36 @@ pub fn show_spec(identifier: &str) -> CommandSpec {
         ],
     )
 }
-pub fn child_status(outcome: ChildOutcome) -> Result<ExitStatus, AppError> {
+/// Passes a child's failing exit status through as this command's own.
+pub fn child_status(outcome: ChildOutcome) -> Result<()> {
     let code = match outcome {
         ChildOutcome::Code(code) => code,
         ChildOutcome::Signal(signal) => 128_i32.checked_add(signal).ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::IoProcess,
-                format!("Child signal {signal} cannot be represented as an exit code"),
-            )
+            Error::new(format!(
+                "Child signal {signal} cannot be represented as an exit code"
+            ))
         })?,
     };
     let code = u8::try_from(code).map_err(|_| {
-        AppError::new(
-            AppErrorKind::IoProcess,
-            format!("Child exit code {code} is outside supported range 0..255"),
-        )
+        Error::new(format!(
+            "Child exit code {code} is outside supported range 0..255"
+        ))
     })?;
-    Ok(match NonZeroU8::new(code) {
-        Some(code) => ExitStatus::ChildCode(code),
-        None => ExitStatus::Success,
-    })
+    match NonZeroU8::new(code) {
+        Some(code) => Err(Error::exit(code)),
+        None => Ok(()),
+    }
 }
 pub fn show(
     runner: &mut impl ProcessRunner,
     identifier: &str,
     cwd: &Path,
     env: &crate::config::ChildEnvOverlay,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     let captured = runner.capture(&probe_spec(identifier), cwd, env)?;
     // The probe's exit status and stderr are ignored; only its output matters.
     if vcs_script::decoded_trim(&captured.stdout).is_empty() {
-        return Err(AppError::not_found("Commits", identifier));
+        return Err(Error::not_found("Commits", identifier));
     }
     child_status(runner.inherit(&show_spec(identifier), cwd, env)?)
 }

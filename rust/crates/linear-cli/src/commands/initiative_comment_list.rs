@@ -5,7 +5,7 @@ use std::future::Future;
 use chrono::{DateTime, Utc};
 use cynic::QueryBuilder;
 
-use crate::error::AppError;
+use crate::error::Error;
 use crate::graphql::envelope::{GraphQlRequest, is_not_found};
 use crate::graphql::operations::comments::CommentNode;
 use crate::graphql::operations::initiative_comments::{
@@ -34,7 +34,7 @@ pub async fn run(
     id: &str,
     json: bool,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(
         original,
         id,
@@ -58,10 +58,10 @@ pub async fn run_with<F, Fut>(
     json: bool,
     color: bool,
     now: DateTime<Utc>,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnMut(GraphQlRequest<GetInitiativeCommentsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetInitiativeComments, AppError>>,
+    Fut: Future<Output = Result<GetInitiativeComments, Error>>,
 {
     let result = pagination::paginate_with_policy(EmptyCursorPolicy::Allow, |after| {
         let query = request(id, after);
@@ -69,9 +69,9 @@ where
         async move {
             let data = pending.await?;
             if data.initiative.is_none() {
-                return Err(AppError::not_found("Initiative", original));
+                return Err(Error::not_found("Initiative", original));
             }
-            Ok::<Page<CommentNode>, AppError>(Page {
+            Ok::<Page<CommentNode>, Error>(Page {
                 nodes: data.comments.nodes,
                 page_info: data.comments.page_info.into(),
             })
@@ -90,16 +90,16 @@ where
     }
 }
 
-fn translate_failure(failure: TransportFailure, original: &str) -> AppError {
+fn translate_failure(failure: TransportFailure, original: &str) -> Error {
     if let TransportFailure::GraphQl { errors, .. } = &failure
         && is_not_found(errors)
     {
-        return AppError::not_found("Initiative", original);
+        return Error::not_found("Initiative", original);
     }
-    AppError::from(failure)
+    Error::from(failure)
 }
 
-pub fn render_json(nodes: &[CommentNode], page_info: &PageInfo) -> Result<Vec<u8>, AppError> {
+pub fn render_json(nodes: &[CommentNode], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
     super::comments::render_json(nodes, page_info, "initiative", CONTEXT)
 }
 pub fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String {

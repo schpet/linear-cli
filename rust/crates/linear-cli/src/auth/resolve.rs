@@ -2,8 +2,9 @@ use std::fmt;
 
 use crate::config::{ConfigOptions, ConfigSecret, OptionSource};
 
-use super::format::{CredentialInvariantError, CredentialStore};
+use super::format::CredentialStore;
 
+#[derive(Clone)]
 pub enum ApiKeyInput<'a> {
     Raw {
         value: &'a ConfigSecret,
@@ -19,22 +20,22 @@ pub enum ApiKeyInput<'a> {
 impl<'a> ApiKeyInput<'a> {
     /// Classifies the configured API key by where it came from, without
     /// copying the secret.
-    pub fn from_options(options: &'a ConfigOptions) -> Result<Self, CredentialInvariantError> {
+    pub fn from_options(options: &'a ConfigOptions) -> Self {
         let Some(selected) = options.api_key() else {
-            return Ok(Self::Absent);
+            return Self::Absent;
         };
         match selected.source() {
-            source @ (OptionSource::Env | OptionSource::ProjectEnv { .. }) => Ok(Self::Raw {
+            source @ (OptionSource::Env | OptionSource::ProjectEnv { .. }) => Self::Raw {
                 value: selected.value(),
                 source: source.clone(),
-            }),
+            },
             source @ (OptionSource::ProjectConfig { .. } | OptionSource::GlobalConfig { .. }) => {
-                Ok(Self::Sourced {
+                Self::Sourced {
                     value: selected.value(),
                     source: source.clone(),
-                })
+                }
             }
-            OptionSource::Cli => Err(CredentialInvariantError::UnexpectedApiKeySource),
+            OptionSource::Cli => unreachable!("no command-line flag sets the API key"),
         }
     }
 }

@@ -107,10 +107,7 @@ fn script_choice_is_typed_and_numeric_ambiguity_fails() {
             default_hint: None,
         })
         .unwrap_err();
-    assert_eq!(
-        error.display_message(),
-        "ambiguous numeric prompt selection"
-    );
+    assert_eq!(error.to_string(), "ambiguous numeric prompt selection");
     let mut unknown = PromptSession::script(Cursor::new(b"SKIP\n"), Vec::new());
     assert!(unknown.select(&status(&rows)).is_err());
 }
@@ -119,7 +116,7 @@ fn script_choice_is_typed_and_numeric_ambiguity_fails() {
 fn script_invalid_raw_answer_does_not_consume_following_line() {
     let mut session = PromptSession::script(Cursor::new(b"\nGood\n"), Vec::new());
     let error = session.text("Name:", 1, |_| Ok(())).unwrap_err();
-    assert!(error.display_message().contains("at least 1"));
+    assert!(error.to_string().contains("at least 1"));
     assert_eq!(
         session.text("Name:", 1, |_| Ok(())).unwrap(),
         PromptOutcome::Submitted("Good".into())
@@ -139,7 +136,7 @@ fn script_invalid_raw_answer_does_not_consume_following_line() {
         color
             .text("Color:", 0, check_color)
             .unwrap_err()
-            .display_message(),
+            .to_string(),
         "invalid hex"
     );
     assert_eq!(
@@ -164,7 +161,7 @@ fn script_rejects_incomplete_control_invalid_utf8_and_oversize() {
             session
                 .text("Name:", 0, |_| Ok(()))
                 .unwrap_err()
-                .display_message(),
+                .to_string(),
             expected
         );
     }
@@ -343,7 +340,7 @@ fn interruption_eof_io_and_close_are_explicit() {
         output_failure
             .text("Name:", 1, |_| Ok(()))
             .unwrap_err()
-            .display_message(),
+            .to_string(),
         "failed to write prompt stdout"
     );
     struct FailingReader;
@@ -357,7 +354,7 @@ fn interruption_eof_io_and_close_are_explicit() {
         input_failure
             .text("Name:", 1, |_| Ok(()))
             .unwrap_err()
-            .display_message(),
+            .to_string(),
         "failed to read prompt stdin"
     );
 }
@@ -384,20 +381,17 @@ fn flush_occurs_before_key_read_and_cleanup_errors_merge() {
     })
     .unwrap();
     let prompt_error = session.text("Name:", 1, |_| Ok(())).unwrap_err();
-    assert_eq!(
-        prompt_error.display_message(),
-        "failed to flush prompt stdout"
-    );
+    assert_eq!(prompt_error.to_string(), "failed to flush prompt stdout");
     assert_eq!(read_count.get(), 0);
     let combined = session
         .finish_result::<String>(Err(prompt_error))
         .unwrap_err();
     assert!(
         combined
-            .display_message()
+            .to_string()
             .contains("failed to flush prompt stdout")
     );
-    assert!(combined.display_message().contains("prompt also failed"));
+    assert!(combined.to_string().contains("prompt also failed"));
 }
 
 #[test]
@@ -419,7 +413,7 @@ fn cleanup_errors_override_interrupt_and_eof() {
         interrupted
             .finish_result::<String>(Ok(PromptOutcome::Interrupted))
             .unwrap_err()
-            .display_message(),
+            .to_string(),
         "failed to flush prompt stdout"
     );
 
@@ -429,7 +423,7 @@ fn cleanup_errors_override_interrupt_and_eof() {
     assert_eq!(
         eof.finish::<String>(PromptOutcome::EndOfInput)
             .unwrap_err()
-            .display_message(),
+            .to_string(),
         "failed to flush prompt stdout"
     );
 }
@@ -503,10 +497,7 @@ fn confirmation_scripts_accept_raw_answers_and_preserve_next_prompt() {
     for raw in [" ", " y", "yes ", "true", "1", "é"] {
         let mut session = PromptSession::script(Cursor::new(format!("{raw}\ny\n")), Vec::new());
         assert_eq!(
-            session
-                .confirm("Delete?", false)
-                .unwrap_err()
-                .display_message(),
+            session.confirm("Delete?", false).unwrap_err().to_string(),
             "Invalid answer."
         );
         assert_eq!(
@@ -605,8 +596,8 @@ fn confirmation_output_failures_finish_without_consuming_keys() {
         let result = session.confirm("Delete?", false);
         let error = session.finish_result(result).unwrap_err();
         assert_eq!(reads.get(), 0);
-        assert!(error.message.contains("prompt also failed"));
-        assert!(error.message.contains("failed to flush prompt stdout"));
+        assert!(error.message().contains("prompt also failed"));
+        assert!(error.message().contains("failed to flush prompt stdout"));
     }
 }
 

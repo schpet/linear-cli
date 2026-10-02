@@ -1,8 +1,5 @@
 //! Response MIME failures preserve each source catch and already-sent effect stage.
-use linear_cli::{
-    commands::{initiative_bulk as bulk, initiative_view::Reference, issue_update},
-    error::AppErrorKind,
-};
+use linear_cli::commands::{initiative_bulk as bulk, initiative_view::Reference, issue_update};
 use serde_json::{Value, json};
 const ID: &str = "00000000-0000-4000-8000-000000000001";
 const OTHER: &str = "00000000-0000-4000-8000-000000000002";
@@ -34,11 +31,10 @@ async fn required_team_text_response_stops_before_later_lookup_or_issue_update()
     )
     .await
     .unwrap_err();
-    // This command keeps its existing handled-observer AppError kind; the
+    // This command keeps its existing handled-observer Error kind; the
     // ordinary transport and source exception classes are separately table-tested.
-    assert_eq!(error.kind, AppErrorKind::GraphQl);
     assert_eq!(
-        error.message,
+        error.message(),
         format!("Invalid execution result: result is not object or array. \nGot:\n{body}")
     );
     let sent = server.join().unwrap();

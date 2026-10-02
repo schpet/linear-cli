@@ -1,17 +1,15 @@
 //! Issue create/update prompt and dispatch wiring, kept command-local.
+use super::spinner;
 use super::{
-    AppContext, StartPromptOutput, block_on_network, initiative_interrupt_status, project_ticks,
-    resolve_issue, script_status, start_snapshot, start_work_on_created_issue,
+    StartPromptOutput, block_on_network, initiative_interrupt_status, project_ticks, resolve_issue,
+    script_status, start_snapshot, start_work_on_created_issue,
 };
 use crate::{
     cli,
     commands::{client, team_key::configured_team_key},
-    config::{NoColor, StartupConfig},
-    error::{AppError, AppErrorKind, ExitStatus},
-    platform::{
-        output::{Output, OutputPolicy, Stream},
-        spinner,
-    },
+    config::StartupConfig,
+    ctx::Ctx,
+    error::{Error, ErrorKind, Result, ResultExt},
 };
 use std::io::Write;
 
@@ -19,7 +17,6 @@ struct IssueCreateUi<'a> {
     output: StartPromptOutput<'a>,
     stderr: &'a mut dyn Write,
     env: crate::config::ChildEnvOverlay,
-    temporary_root: std::path::PathBuf,
     spin: bool,
     spinning: bool,
 }
@@ -29,7 +26,7 @@ impl crate::commands::issue_write::Ui for IssueCreateUi<'_> {
         message: &str,
         required: bool,
         default: Option<&str>,
-    ) -> Result<String, AppError> {
+    ) -> Result<String, Error> {
         self.stop_spinner()?;
         let message = crate::platform::prompt::escaped_display(message);
         let answer = self.output.prompt()?.text_with_display_default(
@@ -47,7 +44,7 @@ impl crate::commands::issue_write::Ui for IssueCreateUi<'_> {
         options: &[crate::commands::issue_write::Named],
         default: usize,
         search: bool,
-    ) -> Result<String, AppError> {
+    ) -> Result<String, Error> {
         self.stop_spinner()?;
         let message = crate::platform::prompt::escaped_display(message);
         // Rows are identified by position, so duplicate or control-character names
@@ -101,7 +98,7 @@ impl crate::commands::issue_write::Ui for IssueCreateUi<'_> {
         message: &str,
         options: &[crate::commands::issue_write::Named],
         search: bool,
-    ) -> Result<Vec<String>, AppError> {
+    ) -> Result<Vec<String>, Error> {
         self.stop_spinner()?;
         let rows: Vec<_> = options
             .iter()
@@ -125,38 +122,31 @@ impl crate::commands::issue_write::Ui for IssueCreateUi<'_> {
             .map(|selected| issue_create_menu_value(selected, options))
             .collect()
     }
-    fn suspend(&mut self) -> Result<(), AppError> {
+    fn suspend(&mut self) -> Result<(), Error> {
         // Every method returns only after suspending. No blind second suspend.
         self.output.writer().map(|_| ())
     }
-    fn output(&mut self, text: &str) -> Result<(), AppError> {
+    fn output(&mut self, text: &str) -> Result<(), Error> {
         script_status(self.output.writer()?, text.as_bytes())
     }
-    fn error(&mut self, text: &str) -> Result<(), AppError> {
-        Output::new(&mut *self.stderr, Stream::Stderr).write(text.as_bytes())
+    fn error(&mut self, text: &str) -> Result<(), Error> {
+        self.stderr.write_all(text.as_bytes()).map_err(|error| {
+            Error::new(format!("failed to write to stderr: {error}")).with_source(error)
+        })
     }
-    fn discover_editor(&mut self) -> Result<Option<String>, AppError> {
-        crate::platform::editor::discover(&self.env)
+    fn discover_editor(&mut self) -> Result<Option<String>, Error> {
+        crate::platform::editor::configured(&self.env)
             .map(|name| {
-                name.into_string().map_err(|_| {
-                    AppError::new(
-                        AppErrorKind::Validation,
-                        "Editor executable is not representable as text",
-                    )
-                })
+                name.into_string()
+                    .map_err(|_| Error::new("Editor executable is not representable as text"))
             })
             .transpose()
     }
-    fn optional_editor(&mut self) -> Result<Option<String>, AppError> {
-        use crate::platform::editor::{self, EditorOutcome};
-        match editor::open(&self.env, None, &self.temporary_root)? {
-            EditorOutcome::Content(content) => Ok(content),
-            EditorOutcome::Missing => {
-                self.error("No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>\n")?;
-                Ok(None)
-            }
-            EditorOutcome::Failed(error) => {
-                self.error(&format!("{}\n", error.message))?;
+    fn optional_editor(&mut self) -> Result<Option<String>, Error> {
+        match crate::platform::editor::edit("", &self.env) {
+            Ok(text) => Ok(crate::commands::text_input::edited_body(&text)),
+            Err(error) => {
+                self.error(&format!("{error}\n"))?;
                 Ok(None)
             }
         }
@@ -165,54 +155,41 @@ impl crate::commands::issue_write::Ui for IssueCreateUi<'_> {
 fn issue_create_menu_value(
     selected: &str,
     options: &[crate::commands::issue_write::Named],
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let index = selected.parse::<usize>().map_err(|error| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "issue-create menu returned a non-index value",
-        )
-        .with_source(error)
+        Error::new("issue-create menu returned a non-index value").with_source(error)
     })?;
     options
         .get(index)
         .map(|option| option.id.clone())
-        .ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "issue-create menu returned an out-of-range value",
-            )
-        })
+        .ok_or_else(|| Error::new("issue-create menu returned an out-of-range value"))
 }
-fn create_answer<T>(answer: crate::platform::prompt::PromptOutcome<T>) -> Result<T, AppError> {
+fn create_answer<T>(answer: crate::platform::prompt::PromptOutcome<T>) -> Result<T, Error> {
     use crate::platform::prompt::PromptOutcome;
     match answer {
         PromptOutcome::Submitted(value) => Ok(value),
-        PromptOutcome::EndOfInput => Err(AppError::new(
-            AppErrorKind::Validation,
+        PromptOutcome::EndOfInput => Err(Error::new(
             "Input ended before issue creation prompts completed",
         )),
-        PromptOutcome::Interrupted => Err(AppError::new(
-            AppErrorKind::Cancellation,
-            "Issue creation interrupted",
-        )),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
     }
 }
 impl IssueCreateUi<'_> {
-    fn stop_spinner(&mut self) -> Result<(), AppError> {
+    fn stop_spinner(&mut self) -> Result<(), Error> {
         if self.spinning {
             script_status(self.output.writer()?, spinner::CLEAR)?;
             self.spinning = false;
         }
         Ok(())
     }
-    fn resume_spinner(&mut self) -> Result<(), AppError> {
+    fn resume_spinner(&mut self) -> Result<(), Error> {
         if self.spin && !self.spinning {
             script_status(self.output.writer()?, spinner::frame(0).as_bytes())?;
             self.spinning = true;
         }
         Ok(())
     }
-    fn close(&mut self) -> Result<(), AppError> {
+    fn close(&mut self) -> Result<(), Error> {
         self.stop_spinner()?;
         self.output.close()
     }
@@ -221,7 +198,7 @@ fn issue_write_backend(
     config: &StartupConfig,
     credentials: &crate::auth::CredentialStore,
     workspace: Option<&str>,
-) -> Result<crate::commands::issue_write_network::NetworkBackend, AppError> {
+) -> Result<crate::commands::issue_write_network::NetworkBackend, Error> {
     Ok(crate::commands::issue_write_network::NetworkBackend {
         transport: client::prepare_transport(
             &config.options,
@@ -259,9 +236,9 @@ fn issue_create_settings(config: &StartupConfig) -> crate::commands::issue_write
 }
 fn issue_write_wait<T>(
     writer: &mut dyn Write,
-    pending: impl std::future::Future<Output = Result<T, AppError>>,
+    pending: impl std::future::Future<Output = Result<T, Error>>,
     spin: bool,
-) -> Result<T, AppError> {
+) -> Result<T, Error> {
     if spin {
         script_status(writer, spinner::frame(0).as_bytes())?;
     }
@@ -285,10 +262,10 @@ fn issue_write_wait<T>(
     result
 }
 pub(super) fn dispatch_issue_create(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueCreate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::{
         issue_create as command,
         issue_write::{Backend, Ui},
@@ -297,28 +274,23 @@ pub(super) fn dispatch_issue_create(
     let description = match fields.local() {
         Ok(description) => description,
         Err(error) => {
-            context.write_stderr(format!("✗ {}\n", error.message).as_bytes())?;
-            return Ok(ExitStatus::HandledFailure);
+            context.eprint(format!("✗ {}\n", error.message()).as_bytes())?;
+            return Err(Error::reported());
         }
     };
-    let interactive = fields.full_interactive(description.as_deref(), context.stdout_tty);
+    let interactive = fields.full_interactive(description.as_deref(), context.stdout_tty());
     if !interactive && let Err(error) = fields.require_flag_title() {
-        context.write_stderr(format!("✗ {}\n", error.message).as_bytes())?;
-        return Ok(ExitStatus::HandledFailure);
+        context.eprint(format!("✗ {}\n", error.message()).as_bytes())?;
+        return Err(Error::reported());
     }
     let result = (|| {
-        let (config, credentials) = start_snapshot(&context.startup)?;
-        let spin = !interactive
-            && spinner::enabled(
-                false,
-                context.stdout_tty,
-                context.startup.settings.no_color == NoColor::Absent,
-            );
+        let (config, credentials) = start_snapshot(context)?;
+        let spin = !interactive && spinner::enabled(false, context.stdout_tty(), true);
+        let mut stderr = std::io::stderr();
         let mut ui = IssueCreateUi {
-            output: StartPromptOutput::new(&mut *context.stdout),
-            stderr: &mut *context.stderr,
+            output: StartPromptOutput::new(context.stdout()),
+            stderr: &mut stderr,
             env: config.child_env.clone(),
-            temporary_root: std::env::temp_dir(),
             spin,
             spinning: false,
         };
@@ -339,7 +311,7 @@ pub(super) fn dispatch_issue_create(
                     &settings,
                     &fields,
                     description,
-                    !fields.no_interactive && context.stdout_tty,
+                    !fields.no_interactive && context.stdout_tty(),
                 ))?;
                 ui.stop_spinner()?;
                 ui.output(&command::flag_header(&assembled.team_display))?;
@@ -366,54 +338,43 @@ pub(super) fn dispatch_issue_create(
                     &issue.id,
                     &team,
                     &mut ui.output,
-                    &context.cwd,
-                    spinner::enabled(
-                        false,
-                        context.stdout_tty,
-                        context.startup.settings.no_color == NoColor::Absent,
-                    ),
-                    context.stdin_tty,
+                    context.cwd(),
+                    spinner::enabled(false, context.stdout_tty(), true),
+                    context.stdin_tty(),
                     None,
                     None,
                 );
             }
-            Ok(ExitStatus::Success)
+            Ok(())
         })();
         ui.close()?;
         action_result
     })();
     match result {
-        Err(error) if error.kind == AppErrorKind::Cancellation => initiative_interrupt_status(),
-        other => other.map_err(|error: AppError| error.with_context("Failed to create issue")),
+        Err(error) if error.kind() == ErrorKind::Cancelled => initiative_interrupt_status(),
+        other => other.context("Failed to create issue"),
     }
 }
 pub(super) fn dispatch_issue_update(
-    context: &mut AppContext<'_>,
+    context: &Ctx,
     action: &cli::issue::IssueUpdate,
     workspace: Option<&str>,
-) -> Result<ExitStatus, AppError> {
+) -> Result<()> {
     use crate::commands::{issue_update as command, issue_write::Backend};
-    let result = (|| {
+    let result: Result<()> = (|| {
         let fields = command::Fields::from(action);
         let description = fields.local()?;
         let identifier = resolve_issue(context, action.issue_id.as_deref(), workspace).map_err(|error|
-            if error.message=="Could not determine issue ID" {
-                error.with_suggestion("Please provide an issue ID like 'ENG-123' or run from a branch with an issue ID.")
+            if error.message() == "Could not determine issue ID" {
+                error.with_hint("Please provide an issue ID like 'ENG-123' or run from a branch with an issue ID.")
             }else{error})?;
-        let spin = spinner::enabled(
-            false,
-            context.stdout_tty,
-            context.startup.settings.no_color == NoColor::Absent,
-        );
+        let spin = spinner::enabled(false, context.stdout_tty(), true);
         if spin {
-            context.write_stdout_with_policy(
-                spinner::frame(0).as_bytes(),
-                OutputPolicy::ConsoleLike,
-            )?;
+            context.print(spinner::frame(0).as_bytes())?;
         }
         let assembled = (|| {
             let backend = {
-                let (config, credentials) = start_snapshot(&context.startup)?;
+                let (config, credentials) = start_snapshot(context)?;
                 issue_write_backend(config, credentials, workspace)?
             };
             let input = project_ticks(
@@ -421,22 +382,20 @@ pub(super) fn dispatch_issue_update(
                 command::input(&backend, &identifier, &fields, description),
                 spin,
             )?;
-            Ok::<_, AppError>((backend, input))
+            Ok::<_, Error>((backend, input))
         })();
         if spin {
-            context.write_stdout_with_policy(spinner::CLEAR, OutputPolicy::ConsoleLike)?;
+            context.print(spinner::CLEAR)?;
         }
         let (backend, input) = assembled?;
-        context.write_stdout_with_policy(
-            command::header(&identifier).as_bytes(),
-            OutputPolicy::ConsoleLike,
+        context.print(command::header(&identifier).as_bytes())?;
+        let issue = issue_write_wait(
+            &mut context.stdout(),
+            backend.update(identifier, input),
+            spin,
         )?;
-        let issue = issue_write_wait(context.stdout, backend.update(identifier, input), spin)?;
-        context.write_stdout_with_policy(
-            command::output(&issue).as_bytes(),
-            OutputPolicy::ConsoleLike,
-        )?;
-        Ok(ExitStatus::Success)
+        context.print(command::output(&issue).as_bytes())?;
+        Ok(())
     })();
-    result.map_err(|error: AppError| error.with_context("Failed to update issue"))
+    result.context("Failed to update issue")
 }

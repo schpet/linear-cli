@@ -1,6 +1,6 @@
 //! TOML parsing for an already selected, size-bounded config or credentials file.
 
-use std::error::Error;
+use std::error::Error as StdError;
 use std::fmt;
 use std::path::PathBuf;
 
@@ -54,7 +54,7 @@ impl fmt::Display for ConfigParseError {
     }
 }
 
-impl Error for ConfigParseError {}
+impl StdError for ConfigParseError {}
 
 pub fn parse_config_tier(raw: RawConfigFile) -> Result<ConfigTier, ConfigParseError> {
     let RawConfigFile { path, bytes } = raw;

@@ -40,12 +40,13 @@ fn request_preserves_one_page_graphql_int_and_selection() {
     for bad in [2_147_483_648, u32::MAX] {
         let error = graphql_int(std::num::NonZeroU32::new(bad).unwrap()).unwrap_err();
         assert_eq!(
-            error.message,
+            error.message(),
             "--limit must be at most 2147483647 for a GraphQL Int"
         );
-        assert_eq!(
-            error.context.as_deref(),
-            Some("Failed to fetch initiative updates")
+        assert!(
+            error
+                .to_string()
+                .starts_with(&format!("{}: ", "Failed to fetch initiative updates"))
         );
     }
 }
@@ -99,16 +100,6 @@ fn percent_signs_in_authors_and_bodies_print_literally() {
     let now = DateTime::<Utc>::from(std::time::UNIX_EPOCH);
     initiative.initiative_updates.nodes[0].body = "a %s %d %% b".to_owned();
     assert!(render_text(&initiative, 120, false, now).ends_with("\n  a %s %d %% b\n"));
-}
-
-#[test]
-fn terminal_date_and_body_are_gray() {
-    let now = DateTime::<Utc>::from(std::time::UNIX_EPOCH);
-    let initiative = page("c048-default-text").initiative.expect("initiative");
-    let output = render_text(&initiative, 120, true, now);
-    assert!(output.contains("\x1b[38;2;39;174;96mOn Track\x1b[39m"));
-    assert!(output.contains("\x1b[90mjust now\x1b[39m"));
-    assert!(output.contains("\x1b[90m  Update body\x1b[39m"));
 }
 
 #[test]

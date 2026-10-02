@@ -1,7 +1,9 @@
 //! Credential add, remove and migrate effects.
+use crate::{LookupReply, hydrate};
+use linear_cli::error::ErrorKind;
 use linear_cli::{
     auth::{
-        CredentialFormat, LookupReply, LookupResult, hydrate,
+        CredentialFormat, LookupResult,
         mutation::{
             CredentialMutationBackend, CredentialMutationFileWriter, CredentialMutationState,
             MutationFailure,
@@ -10,7 +12,7 @@ use linear_cli::{
     },
     commands::{auth_login, auth_logout},
     config::{ConfigSecret, RawConfigFile, parse_config_tier},
-    error::{AppError, AppErrorKind},
+    error::Error,
 };
 use std::{
     cell::RefCell,
@@ -194,7 +196,7 @@ async fn failed_inline_conversion_prepares_directory_before_missing_cache_withou
         .err()
         .unwrap()
         .outer();
-    assert!(error.message.contains("alpha"));
+    assert!(error.message().contains("alpha"));
     assert_eq!(*file.events.borrow(), ["mkdir"]);
     assert!(backend.events.borrow().is_empty());
 }
@@ -223,7 +225,7 @@ async fn rollback_is_forward_best_effort_deletes_overwritten_entry_and_retains_f
     assert_eq!(backend.entries.borrow().get("b").unwrap(), "dummy_b");
     assert!(
         error
-            .message
+            .message()
             .ends_with("Rolled back 2 already-written entries.")
     );
     assert!(file.events.borrow().is_empty());
@@ -267,13 +269,12 @@ async fn metadata_logout_clear_precedes_write_failure_and_force_never_bypasses_p
 #[test]
 fn login_rejects_keys_that_clean_to_empty_and_whole_inner_401_custom_bypass() {
     let error = auth_login::clean_key(secret(" \u{feff}!!!\u{feff} ")).unwrap_err();
-    assert_eq!(error.message, "No API key provided");
+    assert_eq!(error.message(), "No API key provided");
     let error = MutationFailure::Ordinary("post-save backend401".into()).login();
-    assert_eq!(error.kind, AppErrorKind::Auth);
-    let error =
-        MutationFailure::Typed(AppError::new(AppErrorKind::Validation, "native prompt401")).login();
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert_eq!(error.message, "native prompt401");
+    assert_eq!(error.kind(), ErrorKind::Auth);
+    let error = MutationFailure::Typed(Error::new("native prompt401")).login();
+    assert_eq!(error.kind(), ErrorKind::Other);
+    assert_eq!(error.message(), "native prompt401");
 }
 #[test]
 fn windows_owned_layout_and_decoder_bind_safe_library_boundary_without_os_calls() {
@@ -339,7 +340,7 @@ async fn inline_names_are_sorted_quoted_when_needed_and_reserved_names_rejected(
         else {
             panic!("{reserved} must be rejected");
         };
-        assert_eq!(error.kind, AppErrorKind::Validation);
+        assert_eq!(error.kind(), ErrorKind::Other);
     }
     assert!(backend.events.borrow().is_empty());
 }

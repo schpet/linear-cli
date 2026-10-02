@@ -1,6 +1,6 @@
 //! `issue view`: the issue as Markdown with comment threads, or JSON.
 use crate::{
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{envelope::GraphQlRequest, operations::issue_read::*, transport::GraphQlTransport},
     platform::{
         markdown_assets, markdown_ast, markdown_serializer,
@@ -20,14 +20,12 @@ pub enum Fetched {
     With(Issue),
 }
 impl Fetched {
-    pub fn json(&self) -> Result<String, AppError> {
+    pub fn json(&self) -> Result<String, Error> {
         match self {
             Self::Without(i) => serde_json::to_string_pretty(i),
             Self::With(i) => serde_json::to_string_pretty(i),
         }
-        .map_err(|e| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize issue JSON").with_source(e)
-        })
+        .map_err(|e| Error::new("could not serialize issue JSON").with_source(e))
     }
     pub fn into_issue(self) -> Issue {
         match self {
@@ -59,7 +57,7 @@ pub async fn fetch(
     transport: &GraphQlTransport,
     id: String,
     comments: bool,
-) -> Result<Fetched, AppError> {
+) -> Result<Fetched, Error> {
     if comments {
         let data: GetIssueDetailsWithComments = super::issue_read::exchange(
             transport,
@@ -85,9 +83,9 @@ pub async fn download_images<E>(
     issue: &mut Issue,
     root: &Path,
     emit: E,
-) -> Result<(), AppError>
+) -> Result<(), Error>
 where
-    E: FnMut(&[u8]) -> Result<(), AppError>,
+    E: FnMut(&[u8]) -> Result<(), Error>,
 {
     let mut sources = vec![];
     if let Some(body) = issue.description.as_deref() {
@@ -118,9 +116,9 @@ pub async fn download_attachments<E>(
     issue: &Issue,
     root: &str,
     mut emit: E,
-) -> Result<HashMap<String, String>, AppError>
+) -> Result<HashMap<String, String>, Error>
 where
-    E: FnMut(&[u8]) -> Result<(), AppError>,
+    E: FnMut(&[u8]) -> Result<(), Error>,
 {
     let mut paths = HashMap::new();
     if issue.attachments.nodes.is_empty() {
@@ -129,7 +127,7 @@ where
     let directory = markdown_assets::posix_join(&[root, &issue.identifier]);
     std::fs::create_dir_all(&directory).map_err(io_error)?;
     for attachment in &issue.attachments.nodes {
-        let result: Result<Option<String>, AppError> = async {
+        let result: Result<Option<String>, Error> = async {
             let Ok(url) = reqwest::Url::parse(&attachment.url) else {
                 return Ok(None);
             };
@@ -158,7 +156,8 @@ where
             Err(error) => emit(
                 format!(
                     "Failed to download attachment \"{}\": {}\n",
-                    attachment.title, error.message
+                    attachment.title,
+                    error.message()
                 )
                 .as_bytes(),
             )?,
@@ -166,8 +165,8 @@ where
     }
     Ok(paths)
 }
-fn io_error(error: std::io::Error) -> AppError {
-    AppError::new(AppErrorKind::IoProcess, error.to_string()).with_source(error)
+fn io_error(error: std::io::Error) -> Error {
+    Error::new(error.to_string()).with_source(error)
 }
 fn hierarchy(issue: &Issue) -> String {
     let mut out = String::new();
@@ -220,7 +219,7 @@ fn documents(issue: &Issue) -> String {
     }
     out
 }
-fn body(issue: &Issue) -> Result<String, AppError> {
+fn body(issue: &Issue) -> Result<String, Error> {
     let mut parts = vec![
         format!("**State:** {}", issue.state.name),
         format!(
@@ -289,7 +288,7 @@ fn chronological(a: &Comment, b: &Comment) -> std::cmp::Ordering {
         _ => std::cmp::Ordering::Equal,
     }
 }
-pub fn threads(comments: &[Comment], show_resolved: bool) -> Result<Threads<'_>, AppError> {
+pub fn threads(comments: &[Comment], show_resolved: bool) -> Result<Threads<'_>, Error> {
     let mut roots = comments
         .iter()
         .filter(|c| c.parent.is_none())
@@ -305,10 +304,7 @@ pub fn threads(comments: &[Comment], show_resolved: bool) -> Result<Threads<'_>,
         let mut seen = HashSet::new();
         loop {
             if !seen.insert(id) {
-                return Err(AppError::new(
-                    AppErrorKind::GraphQl,
-                    "Issue comment parent graph contains a cycle",
-                ));
+                return Err(Error::new("Issue comment parent graph contains a cycle"));
             }
             match by_id.get(id).and_then(|c| c.parent.as_ref()) {
                 Some(parent) => id = parent.id.inner(),
@@ -386,7 +382,7 @@ pub fn markdown(
     paths: &HashMap<String, String>,
     show_resolved: bool,
     now: DateTime<Utc>,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let mut out = body(issue)?;
     out.push_str(&hierarchy(issue));
     out.push_str(&attachments(issue, paths));
@@ -424,7 +420,7 @@ pub fn terminal(
     now: DateTime<Utc>,
     options: &RenderOptions,
     links: bool,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let mut out = markdown_terminal::render(&body(issue)?, options)?;
     for section in [
         hierarchy(issue),

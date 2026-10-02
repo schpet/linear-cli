@@ -1,155 +1,68 @@
-use std::error::Error;
-use std::fmt;
-use std::io::{self, Write};
+//! Buffered stdout. A reader that closes the pipe early (`linear issue list |
+//! head`) ends the command quietly with success; every other write failure is
+//! an error.
+use std::cell::RefCell;
+use std::io::{self, BufWriter, Write};
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, Result};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Stream {
-    Stdout,
-    Stderr,
+pub struct Stdout {
+    inner: RefCell<BufWriter<io::Stdout>>,
 }
 
-impl Stream {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Stdout => "stdout",
-            Self::Stderr => "stderr",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Operation {
-    Write,
-    Flush,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum OutputPolicy {
-    Strict,
-    ConsoleLike,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum OutputOutcome {
-    Written,
-    QuietBrokenPipe,
-}
-
-impl Operation {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Write => "write",
-            Self::Flush => "flush",
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct OutputFailure {
-    pub stream: Stream,
-    operation: Operation,
-    source: io::Error,
-}
-
-impl OutputFailure {
-    pub fn is_broken_pipe(&self) -> bool {
-        self.source.kind() == io::ErrorKind::BrokenPipe
-    }
-
-    fn app_error(self) -> AppError {
-        AppError::new(
-            AppErrorKind::IoProcess,
-            format!(
-                "failed to {} {}",
-                self.operation.label(),
-                self.stream.label()
-            ),
-        )
-        .with_source(self)
-    }
-}
-
-impl fmt::Display for OutputFailure {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "failed to {} {}",
-            self.operation.label(),
-            self.stream.label()
-        )
-    }
-}
-
-impl Error for OutputFailure {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.source)
-    }
-}
-
-pub fn failed_stream(error: &AppError) -> Option<Stream> {
-    error
-        .source()
-        .and_then(|source| source.downcast_ref::<OutputFailure>())
-        .map(|failure| failure.stream)
-}
-
-pub struct Output<'a> {
-    writer: &'a mut dyn Write,
-    stream: Stream,
-}
-
-impl<'a> Output<'a> {
-    pub fn new(writer: &'a mut dyn Write, stream: Stream) -> Self {
-        Self { writer, stream }
-    }
-
-    pub fn write(&mut self, bytes: &[u8]) -> Result<(), AppError> {
-        self.write_with_policy(bytes, OutputPolicy::Strict)
-            .map(|_| ())
-    }
-
-    pub fn flush(&mut self) -> Result<(), AppError> {
-        self.flush_with_policy(OutputPolicy::Strict).map(|_| ())
-    }
-
-    pub fn write_with_policy(
-        &mut self,
-        bytes: &[u8],
-        policy: OutputPolicy,
-    ) -> Result<OutputOutcome, AppError> {
-        match self.writer.write_all(bytes) {
-            Ok(()) => self.flush_with_policy(policy),
-            Err(source) => self.resolve_failure(Operation::Write, source, policy),
+impl Stdout {
+    pub fn new() -> Self {
+        Self {
+            inner: RefCell::new(BufWriter::new(io::stdout())),
         }
     }
 
-    pub fn flush_with_policy(&mut self, policy: OutputPolicy) -> Result<OutputOutcome, AppError> {
-        match self.writer.flush() {
-            Ok(()) => Ok(OutputOutcome::Written),
-            Err(source) => self.resolve_failure(Operation::Flush, source, policy),
-        }
+    pub fn write(&self, bytes: &[u8]) -> Result<()> {
+        self.inner
+            .borrow_mut()
+            .write_all(bytes)
+            .map_err(write_error)
     }
 
-    fn resolve_failure(
-        &self,
-        operation: Operation,
-        source: io::Error,
-        policy: OutputPolicy,
-    ) -> Result<OutputOutcome, AppError> {
-        let failure = OutputFailure {
-            stream: self.stream,
-            operation,
-            source,
-        };
-        if policy == OutputPolicy::ConsoleLike
-            && failure.stream == Stream::Stdout
-            && failure.is_broken_pipe()
-        {
-            Ok(OutputOutcome::QuietBrokenPipe)
-        } else {
-            Err(failure.app_error())
-        }
+    pub fn flush(&self) -> Result<()> {
+        self.inner.borrow_mut().flush().map_err(write_error)
     }
+
+    /// An `io::Write` handle for code that streams into a writer.
+    pub fn writer(&self) -> StdoutWriter<'_> {
+        StdoutWriter(self)
+    }
+}
+
+impl Default for Stdout {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub struct StdoutWriter<'a>(&'a Stdout);
+
+impl Write for StdoutWriter<'_> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.inner.borrow_mut().write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.inner.borrow_mut().flush()
+    }
+}
+
+pub fn write_error(error: io::Error) -> Error {
+    if error.kind() == io::ErrorKind::BrokenPipe {
+        Error::broken_pipe(error)
+    } else {
+        Error::new(format!("failed to write to stdout: {error}")).with_source(error)
+    }
+}
+
+/// Writes to stderr, unbuffered.
+pub fn eprint(bytes: &[u8]) -> Result<()> {
+    io::stderr().write_all(bytes).map_err(|error| {
+        Error::new(format!("failed to write to stderr: {error}")).with_source(error)
+    })
 }

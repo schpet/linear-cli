@@ -75,7 +75,7 @@ async fn image_failure_reports_the_http_status() {
         .await
         .unwrap_err();
     assert_eq!(
-        error.message,
+        error.message(),
         "Failed to download image: 500 Internal Server Error"
     );
     server.join().unwrap();
@@ -93,7 +93,7 @@ async fn only_http_urls_are_downloaded() {
                 .download_markdown_image(url)
                 .await
                 .unwrap_err()
-                .message,
+                .message(),
             format!("Failed to download image: unsupported URL scheme '{scheme}'")
         );
     }
@@ -102,7 +102,7 @@ async fn only_http_urls_are_downloaded() {
             .download_markdown_image("foo.png")
             .await
             .unwrap_err()
-            .message,
+            .message(),
         "Invalid URL: 'foo.png'"
     );
     assert_eq!(
@@ -110,7 +110,7 @@ async fn only_http_urls_are_downloaded() {
             .download_markdown_image("http://[bad")
             .await
             .unwrap_err()
-            .message,
+            .message(),
         "Invalid URL: 'http://[bad'"
     );
 }
@@ -157,7 +157,7 @@ async fn issue_attachment_download_uses_its_own_error_prefix() {
             .download_issue_attachment(&url)
             .await
             .unwrap_err()
-            .message,
+            .message(),
         "Failed to download: 500 Internal Server Error"
     );
     server.join().unwrap();
@@ -200,7 +200,7 @@ async fn downloads_follow_twenty_redirects_and_refuse_the_twenty_first() {
             if redirects == 20 {
                 assert_eq!(result.unwrap(), b"FAKE");
             } else {
-                let message = result.unwrap_err().message;
+                let message = result.unwrap_err().message().to_owned();
                 assert!(message.starts_with("Failed to download"), "{message}");
                 assert!(message.contains("redirect"), "{message}");
             }

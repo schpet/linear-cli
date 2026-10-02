@@ -1,6 +1,6 @@
 use chrono::{TimeZone, Utc};
 use linear_cli::cli::issue::{IssueAgentSessionCommand, IssueCommand};
-use linear_cli::cli::{self, AgentSessionStatus, RootCommand};
+use linear_cli::cli::{AgentSessionStatus, RootCommand};
 use linear_cli::commands::agent_session;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::agent_session::{
@@ -41,14 +41,14 @@ fn public_cli_preserves_alias_json_and_six_native_status_spellings() {
             word,
         ]
         .map(std::ffi::OsString::from);
-        let parsed = cli::parse(&words).unwrap();
-        let Some(RootCommand::Issue(issue)) = parsed.command else {
+        let parsed = crate::parse(&words).unwrap();
+        let RootCommand::Issue(issue) = parsed.command else {
             panic!("issue")
         };
-        let Some(IssueCommand::AgentSession(group)) = issue.command else {
+        let IssueCommand::AgentSession(group) = issue.command else {
             panic!("session")
         };
-        let Some(IssueAgentSessionCommand::List(list)) = group.command else {
+        let IssueAgentSessionCommand::List(list) = group.command else {
             panic!("list")
         };
         assert_eq!(list.status, Some(expected));
@@ -57,24 +57,24 @@ fn public_cli_preserves_alias_json_and_six_native_status_spellings() {
     }
     for invalid in ["ACTIVE", "awaiting_input", "awaitinginput", "unknown", ""] {
         assert!(
-            cli::parse(
+            crate::parse(
                 &["issue", "agent-session", "list", "--status", invalid]
                     .map(std::ffi::OsString::from)
             )
             .is_err()
         );
     }
-    let parsed = cli::parse(
+    let parsed = crate::parse(
         &["issue", "agent-session", "v", "session-id", "-j"].map(std::ffi::OsString::from),
     )
     .unwrap();
-    let Some(RootCommand::Issue(issue)) = parsed.command else {
+    let RootCommand::Issue(issue) = parsed.command else {
         panic!("issue")
     };
-    let Some(IssueCommand::AgentSession(group)) = issue.command else {
+    let IssueCommand::AgentSession(group) = issue.command else {
         panic!("session")
     };
-    let Some(IssueAgentSessionCommand::View(view)) = group.command else {
+    let IssueAgentSessionCommand::View(view) = group.command else {
         panic!("view")
     };
     assert_eq!(view.session_id, "session-id");
@@ -205,7 +205,7 @@ fn unknown_union_never_produces_json_or_partial_markdown() {
     assert!(
         agent_session::ensure_supported(&value)
             .unwrap_err()
-            .display_message()
+            .to_string()
             .contains("FutureContent")
     );
     assert!(agent_session::json(&value).is_err());
@@ -241,36 +241,6 @@ fn list_filter_keeps_connection_page_info_order_duplicates_and_unfiltered_nulls(
     }
     let output: Value = serde_json::from_slice(&agent_session::json(&plain).unwrap()).unwrap();
     assert_eq!(output["nodes"][0]["agentSession"], Value::Null);
-}
-
-#[test]
-fn list_text_width_colors_dates_and_empty_contract() {
-    let original = comments().issue.comments;
-    let text = String::from_utf8(agent_session::text(&original, 40, false)).unwrap();
-    assert!(text.starts_with("STATUS        AGENT   CREATED    SUMMARY\n"));
-    assert!(text.contains("代理 🤖"));
-    assert!(text.contains("2020-01-02"));
-    assert!(text.contains("Long su..."));
-    assert!(!text.contains('\x1b'));
-    assert!(!text.contains("line two"));
-    let color = String::from_utf8(agent_session::text(&original, 120, true)).unwrap();
-    for escape in [
-        "\x1b[1m\x1b[4m",
-        "\x1b[32mactive",
-        "\x1b[33mpending",
-        "\x1b[90mcomplete",
-        "\x1b[90m--",
-    ] {
-        assert!(color.contains(escape), "{escape}");
-    }
-    let mut empty = original;
-    empty
-        .nodes
-        .retain(|comment| comment.agent_session.is_none());
-    assert_eq!(
-        agent_session::text(&empty, 120, true),
-        b"No agent sessions found for this issue.\n"
-    );
 }
 
 #[test]

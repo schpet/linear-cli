@@ -3,13 +3,13 @@
 //! `rust/parity/manifest.json`, never read back from clap.
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, Output};
 
 use serde_json::Value;
 
 use super::fish_completion::{Candidate, FILE, complete_lines, fish_available, words};
-use super::startup::BinarySandbox;
+use super::sandbox::BinarySandbox;
 
 const BASH: &[u8] = include_bytes!("expected/completions-bash.txt");
 const FISH: &[u8] = include_bytes!("expected/completions-fish.txt");
@@ -269,9 +269,10 @@ fn unsafe_or_missing_names_fail_before_generation() {
 }
 
 #[test]
-fn completions_parent_prints_native_help_and_inherits_workspace() {
-    let help = run(&["completions", "--help"]);
-    assert_success(&run(&["completions"]), &help.stdout, "bare parent");
+fn completions_parent_prints_help_and_inherits_workspace() {
+    let bare = run(&["completions"]);
+    assert_eq!(bare.status.code(), Some(2), "bare parent exit");
+    assert!(text(&bare.stderr).contains("Usage: linear completions"));
     assert_success(
         &run(&["completions", "bash", "--workspace", "x"]),
         BASH,
@@ -882,41 +883,30 @@ fn with_credentials(fixture: &str, args: &[&str]) -> (Output, PathBuf) {
     (output, config)
 }
 
-fn credentials_error(config: &Path) -> String {
-    format!(
-        "✗ invalid credentials file {}/linear/credentials.toml: invalid TOML at line 1, column 15: unclosed array, expected `]`\n  Fix or remove the credentials file, then run `linear auth login`.\n",
-        config.display()
-    )
-}
-
 #[cfg(target_os = "linux")]
 #[test]
-fn startup_warnings_keep_script_stdout_clean() {
-    let (warning, _) = with_credentials("c086-invalid-default", &["completions", "bash"]);
-    assert_eq!(warning.status.code(), Some(0));
-    assert!(warning.stdout == BASH);
-    assert_eq!(
-        text(&warning.stderr),
-        "Warning: Default workspace \"ghost\" is not in the workspaces list. Run `linear auth default <workspace>` to set a valid default.\nWarning: Failed to read keyring for workspace \"fake-workspace\": keyring tool unavailable\n"
-    );
+fn completions_do_not_read_credentials() {
+    let (output, _) = with_credentials("c086-invalid-default", &["completions", "bash"]);
+    assert_eq!(output.status.code(), Some(0));
+    assert!(output.stdout == BASH);
+    assert!(output.stderr.is_empty());
 }
 
 #[test]
-fn fatal_startup_errors_precede_output() {
+fn malformed_credentials_do_not_break_completions() {
     for args in [
         &["completions", "bash"][..],
         &["completions", "complete", "sort", "issue", "mine"][..],
     ] {
-        let (fatal, config) = with_credentials("c086-malformed", args);
-        assert_eq!(fatal.status.code(), Some(1), "{args:?}");
-        assert!(fatal.stdout.is_empty(), "{args:?}");
-        assert_eq!(text(&fatal.stderr), credentials_error(&config), "{args:?}");
+        let (output, _) = with_credentials("c086-malformed", args);
+        assert_eq!(output.status.code(), Some(0), "{args:?}");
+        assert!(output.stderr.is_empty(), "{args:?}");
     }
 }
 
 #[cfg(unix)]
 #[test]
-fn closed_stdout_is_quiet_for_scripts_and_strict_for_hidden_complete() {
+fn closed_stdout_ends_quietly() {
     use std::io::Read;
     use std::os::fd::OwnedFd;
     use std::os::unix::net::UnixStream;
@@ -936,8 +926,8 @@ fn closed_stdout_is_quiet_for_scripts_and_strict_for_hidden_complete() {
     assert_eq!(script.status.code(), Some(0));
     assert!(script.stderr.is_empty());
     let shim = closed(&["completions", "complete", "sort", "issue", "mine"]);
-    assert_eq!(shim.status.code(), Some(1));
-    assert_eq!(text(&shim.stderr), "✗ failed to write stdout\n");
+    assert_eq!(shim.status.code(), Some(0));
+    assert!(shim.stderr.is_empty());
     let empty = closed(&["completions", "complete", "string", "issue", "create"]);
     assert_eq!(empty.status.code(), Some(0));
     assert!(empty.stderr.is_empty());

@@ -1,21 +1,18 @@
 //! Complete PR template/body/argv policy; gh owns its browser/editor/interactive flow.
 use crate::{
-    commands::text_input,
-    config::ChildEnvOverlay,
-    error::{AppError, AppErrorKind},
-    platform::gh_script::GhRunner,
+    commands::text_input, config::ChildEnvOverlay, error::Error, platform::gh_script::GhRunner,
 };
 use std::path::Path;
 pub const CONTEXT: &str = "Failed to create pull request";
 pub const TEMPLATE_SUGGESTION: &str = "Pass a readable file to --template, fix the pr_template config option, or use --no-template to skip the template.";
-fn unusable(reason: impl Into<String>) -> AppError {
-    AppError::new(
-        AppErrorKind::Validation,
-        format!("Cannot read pull request template: {}", reason.into()),
-    )
-    .with_suggestion(TEMPLATE_SUGGESTION)
+fn unusable(reason: impl Into<String>) -> Error {
+    Error::new(format!(
+        "Cannot read pull request template: {}",
+        reason.into()
+    ))
+    .with_hint(TEMPLATE_SUGGESTION)
 }
-pub fn read_template(path: &Path) -> Result<String, AppError> {
+pub fn read_template(path: &Path) -> Result<String, Error> {
     let display = path.to_string_lossy();
     if display.trim().is_empty() {
         return Err(unusable("the path is empty"));
@@ -97,13 +94,10 @@ pub fn create(
     args: &[String],
     cwd: &Path,
     env: &ChildEnvOverlay,
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     if runner.create(args, cwd, env)? {
         Ok(())
     } else {
-        Err(AppError::new(
-            AppErrorKind::IoProcess,
-            "Failed to create pull request",
-        ))
+        Err(Error::new("Failed to create pull request"))
     }
 }

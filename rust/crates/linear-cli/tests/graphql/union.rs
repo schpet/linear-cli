@@ -1,5 +1,4 @@
 use cynic::QueryBuilder;
-use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::agent_session::{
     AgentActivityContent, AgentActivityType, AgentSessionStatus, AgentSessionType,
@@ -79,8 +78,6 @@ fn unknown_typename_lands_in_the_fallback_and_is_rejected_at_the_boundary() {
         error.to_string(),
         "unsupported agent activity content type: AgentActivityFutureContent"
     );
-    let app: linear_cli::error::AppError = error.into();
-    assert_eq!(app.kind, AppErrorKind::GraphQl);
     let serialize_error = to_value(&parsed).expect_err("fallback must not render");
     assert!(
         serialize_error

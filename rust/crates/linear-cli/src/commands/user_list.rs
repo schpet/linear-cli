@@ -5,7 +5,7 @@ use std::future::Future;
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::organization_members::{
     self, GetOrganizationMembers, GetOrganizationMembersVariables,
@@ -27,10 +27,10 @@ pub async fn run_with<F, Fut>(
     mut fetch: F,
     include_disabled: bool,
     json: bool,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnMut(GraphQlRequest<GetOrganizationMembersVariables>) -> Fut,
-    Fut: Future<Output = Result<GetOrganizationMembers, AppError>>,
+    Fut: Future<Output = Result<GetOrganizationMembers, Error>>,
 {
     let result = pagination::paginate_with_policy(pagination::EmptyCursorPolicy::Allow, |after| {
         let request = GraphQlRequest::with_variables(GetOrganizationMembers::build(
@@ -44,7 +44,7 @@ where
         async move {
             let data = future.await?;
             let users = data.viewer.organization.users;
-            Ok::<Page<organization_members::User>, AppError>(Page {
+            Ok::<Page<organization_members::User>, Error>(Page {
                 nodes: users.nodes,
                 page_info: pagination::PageInfo {
                     has_next_page: users.page_info.has_next_page,
@@ -55,13 +55,10 @@ where
     })
     .await
     .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source.with_context(CONTEXT),
+        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
         PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Linear reported more workspace members but did not advance the page cursor",
-            )
-            .with_context(CONTEXT)
+            Error::new("Linear reported more workspace members but did not advance the page cursor")
+                .context(CONTEXT)
         }
     })?;
 
@@ -86,12 +83,9 @@ where
             },
         })
         .map_err(|error| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "could not serialize workspace members",
-            )
-            .with_source(error)
-            .with_context(CONTEXT)
+            Error::new("could not serialize workspace members")
+                .with_source(error)
+                .context(CONTEXT)
         })?;
         output.push(b'\n');
         return Ok(output);
@@ -103,9 +97,9 @@ pub async fn run(
     transport: &GraphQlTransport,
     include_disabled: bool,
     json: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
         include_disabled,
         json,
     )

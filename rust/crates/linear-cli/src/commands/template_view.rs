@@ -23,7 +23,7 @@ use crate::commands::prosemirror;
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::{template_json, template_list};
 use crate::config::{ConfigOptions, TransportEnvInputs};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::templates::{
     GetTemplate, GetTemplateVariables, GetTemplates, Template,
@@ -53,7 +53,7 @@ pub enum TemplateReference {
 
 impl TemplateReference {
     /// Refuse any recognized Linear URL, then classify.
-    pub fn parse(reference: &str) -> Result<Self, AppError> {
+    pub fn parse(reference: &str) -> Result<Self, Error> {
         reject_linear_url(reference, "a template name or UUID")?;
         Ok(if is_linear_uuid(reference) {
             Self::Id(reference.to_owned())
@@ -75,7 +75,7 @@ pub fn prepare(
     cli_workspace: Option<&str>,
     transport_env: &TransportEnvInputs,
     reference: &str,
-) -> Result<Prepared, AppError> {
+) -> Result<Prepared, Error> {
     prepare_uncontextualized(
         options,
         credentials,
@@ -83,7 +83,7 @@ pub fn prepare(
         transport_env,
         reference,
     )
-    .map_err(|error| error.with_context(CONTEXT))
+    .context(CONTEXT)
 }
 
 fn prepare_uncontextualized(
@@ -92,7 +92,7 @@ fn prepare_uncontextualized(
     cli_workspace: Option<&str>,
     transport_env: &TransportEnvInputs,
     reference: &str,
-) -> Result<Prepared, AppError> {
+) -> Result<Prepared, Error> {
     let reference = TemplateReference::parse(reference)?;
     let transport = client::prepare_transport(options, credentials, cli_workspace, transport_env)?;
     Ok(Prepared {
@@ -116,7 +116,7 @@ pub async fn run_with<OF, OFut, AF, AFut, Tz, Now>(
     zone: &Tz,
     template_fetch: OF,
     templates_fetch: AF,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     OF: FnOnce(GraphQlRequest<GetTemplateVariables>) -> OFut,
     OFut: Future<Output = Result<GetTemplate, TransportFailure>>,
@@ -127,7 +127,7 @@ where
 {
     run_uncontextualized(reference, json, now, zone, template_fetch, templates_fetch)
         .await
-        .map_err(|error| error.with_context(CONTEXT))
+        .context(CONTEXT)
 }
 
 async fn run_uncontextualized<OF, OFut, AF, AFut, Tz, Now>(
@@ -137,7 +137,7 @@ async fn run_uncontextualized<OF, OFut, AF, AFut, Tz, Now>(
     zone: &Tz,
     template_fetch: OF,
     templates_fetch: AF,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     OF: FnOnce(GraphQlRequest<GetTemplateVariables>) -> OFut,
     OFut: Future<Output = Result<GetTemplate, TransportFailure>>,
@@ -160,7 +160,7 @@ pub async fn run<Tz: TimeZone>(
     reference: &TemplateReference,
     json: bool,
     zone: &Tz,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(
         reference,
         json,
@@ -190,7 +190,7 @@ async fn resolve<OF, OFut, AF, AFut>(
     reference: &TemplateReference,
     template_fetch: OF,
     templates_fetch: AF,
-) -> Result<Template, AppError>
+) -> Result<Template, Error>
 where
     OF: FnOnce(GraphQlRequest<GetTemplateVariables>) -> OFut,
     OFut: Future<Output = Result<GetTemplate, TransportFailure>>,
@@ -201,21 +201,21 @@ where
         TemplateReference::Id(id) => match template_fetch(template_request(id)).await {
             Ok(response) => Ok(response.template),
             Err(failure) if is_missing_template(&failure) => {
-                Err(AppError::not_found("Template", id).with_suggestion(LIST_SUGGESTION))
+                Err(Error::not_found("Template", id).with_hint(LIST_SUGGESTION))
             }
-            Err(failure) => Err(AppError::from(failure)),
+            Err(failure) => Err(Error::from(failure)),
         },
         TemplateReference::Name(name) => {
             let templates = templates_fetch(template_list::request())
                 .await
-                .map_err(AppError::from)?
+                .map_err(Error::from)?
                 .templates;
             select_by_name(name, templates)
         }
     }
 }
 
-fn select_by_name(reference: &str, templates: Vec<Template>) -> Result<Template, AppError> {
+fn select_by_name(reference: &str, templates: Vec<Template>) -> Result<Template, Error> {
     let wanted = reference.to_lowercase();
     let (mut matches, others): (Vec<Template>, Vec<Template>) = templates
         .into_iter()
@@ -239,7 +239,7 @@ fn select_by_name(reference: &str, templates: Vec<Template>) -> Result<Template,
                     quoted.join(", ")
                 )
             };
-            Err(AppError::not_found("Template", reference).with_suggestion(suggestion))
+            Err(Error::not_found("Template", reference).with_hint(suggestion))
         }
         count => {
             let ids: Vec<String> = matches
@@ -256,11 +256,10 @@ fn select_by_name(reference: &str, templates: Vec<Template>) -> Result<Template,
                     )
                 })
                 .collect();
-            Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("Template name \"{reference}\" is ambiguous: it matches {count} templates"),
-            )
-            .with_suggestion(format!("Pass the template ID instead: {}", ids.join(", "))))
+            Err(Error::new(format!(
+                "Template name \"{reference}\" is ambiguous: it matches {count} templates"
+            ))
+            .with_hint(format!("Pass the template ID instead: {}", ids.join(", "))))
         }
     }
 }
@@ -274,25 +273,17 @@ fn capitalize(text: &str) -> String {
 }
 
 /// Decode a template's stringified `templateData` into its top-level object.
-fn parse_template_data(template: &Template) -> Result<Map<String, Value>, AppError> {
+fn parse_template_data(template: &Template) -> Result<Map<String, Value>, Error> {
     let subject = format!(
         "Template data for \"{}\" ({})",
         template.name,
         template.id.inner()
     );
-    let decoded: Value = serde_json::from_str(&template.template_data.0).map_err(|error| {
-        AppError::new(
-            AppErrorKind::Validation,
-            format!("{subject} is not valid JSON"),
-        )
-        .with_source(error)
-    })?;
+    let decoded: Value = serde_json::from_str(&template.template_data.0)
+        .map_err(|error| Error::new(format!("{subject} is not valid JSON")).with_source(error))?;
     match decoded {
         Value::Object(object) => Ok(object),
-        _ => Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("{subject} is not a JSON object"),
-        )),
+        _ => Err(Error::new(format!("{subject} is not a JSON object"))),
     }
 }
 
@@ -302,7 +293,7 @@ pub fn render_text<Tz: TimeZone>(
     template: &Template,
     now: DateTime<Utc>,
     zone: &Tz,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let data = parse_template_data(template)?;
     let mut lines: Vec<String> = vec![
         template.name.clone(),
@@ -365,7 +356,7 @@ fn is_rich_text_key(key: &str) -> bool {
 fn render_entries<'a>(
     entries: impl Iterator<Item = (&'a String, &'a Value)> + Clone,
     indent: &str,
-) -> Result<Vec<String>, AppError> {
+) -> Result<Vec<String>, Error> {
     let mut lines = Vec::new();
     let plain = entries.clone().filter(|(key, _)| !is_rich_text_key(key));
     let rich = entries.filter(|(key, _)| is_rich_text_key(key));
@@ -401,7 +392,7 @@ fn priority_name(value: &Number) -> Option<&'static str> {
 }
 
 /// One pre-filled value at any depth.
-fn render_pre_fill(key: &str, value: &Value, indent: &str) -> Result<Vec<String>, AppError> {
+fn render_pre_fill(key: &str, value: &Value, indent: &str) -> Result<Vec<String>, Error> {
     let nested = format!("{indent}{INDENT}");
     Ok(match value {
         Value::Object(_) if is_rich_text_key(key) => {
@@ -461,7 +452,7 @@ fn item_label(item: &Map<String, Value>) -> Option<&str> {
 
 /// An item of a list such as `subIssueData`: its label, then its other fields.
 /// A `title` or `name` equal to the label is not repeated.
-fn render_item(item: &Value, indent: &str) -> Result<Vec<String>, AppError> {
+fn render_item(item: &Value, indent: &str) -> Result<Vec<String>, Error> {
     let Value::Object(object) = item else {
         return Ok(vec![format!("{indent}- {item}")]);
     };

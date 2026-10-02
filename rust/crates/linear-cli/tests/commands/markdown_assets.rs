@@ -1,6 +1,6 @@
 //! Public extraction, exact serializer and cache contracts.
 use linear_cli::{
-    error::{AppError, AppErrorKind},
+    error::Error,
     platform::{
         markdown_assets::{self, Asset},
         markdown_ast, markdown_serializer,
@@ -230,8 +230,7 @@ async fn individual_failures_emit_before_next_fetch_and_zero_success_does_not_au
         |url| {
             events.borrow_mut().push(format!("fetch {url}"));
             async {
-                Err(AppError::new(
-                    AppErrorKind::Transport,
+                Err(Error::new(
                     "Failed to download image: 500 Internal Server Error",
                 ))
             }
@@ -309,12 +308,7 @@ async fn invalid_relative_url_creates_hash_directory_before_transport_and_preser
         |url| {
             assert_eq!(url, "foo.png");
             assert!(directory.is_dir());
-            async {
-                Err(AppError::new(
-                    AppErrorKind::Transport,
-                    "Invalid URL: 'foo.png'",
-                ))
-            }
+            async { Err(Error::new("Invalid URL: 'foo.png'")) }
         },
         |bytes| {
             stderr.extend_from_slice(bytes);

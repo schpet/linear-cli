@@ -1,10 +1,12 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::error::Error;
+use std::cell::{OnceCell, RefCell};
+use std::collections::BTreeMap;
+use std::error::Error as StdError;
 use std::fmt;
 use std::path::PathBuf;
 
 use serde::Deserialize;
 
+use crate::auth::keyring::KeyringReader;
 use crate::config::{ConfigSecret, ConfigTier};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -36,7 +38,7 @@ impl fmt::Display for CredentialFormatError {
         )
     }
 }
-impl Error for CredentialFormatError {}
+impl StdError for CredentialFormatError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LookupFailureCategory {
@@ -99,13 +101,6 @@ impl CredentialManifest {
     }
     pub fn warnings(&self) -> &[CredentialWarning] {
         &self.warnings
-    }
-    pub fn lookup_requests(&self) -> Vec<&str> {
-        if self.format == CredentialFormat::Metadata {
-            self.workspaces.iter().map(String::as_str).collect()
-        } else {
-            Vec::new()
-        }
     }
 }
 
@@ -198,32 +193,17 @@ pub enum LookupResult {
     Miss,
     Failed(LookupFailureCategory),
 }
-#[derive(Clone, Debug)]
-pub struct LookupReply {
-    pub workspace: String,
-    pub result: LookupResult,
-}
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum CredentialInvariantError {
-    ExtraReply { workspace: String },
-    DuplicateReply { workspace: String },
-    MissingReply { workspace: String },
-    UnexpectedApiKeySource,
-}
-impl fmt::Display for CredentialInvariantError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "credential lookup invariant failed: {self:?}")
-    }
-}
-impl Error for CredentialInvariantError {}
-
+/// Stored credentials. Keyring-backed keys are looked up lazily, at most once
+/// per workspace, so a command reads only the entry it uses.
 pub struct CredentialStore {
     format: CredentialFormat,
     workspaces: Vec<String>,
     default: Option<String>,
-    keys: BTreeMap<String, ConfigSecret>,
-    warnings: Vec<CredentialWarning>,
+    inline_keys: BTreeMap<String, ConfigSecret>,
+    keyring: Box<dyn KeyringReader>,
+    lookups: BTreeMap<String, OnceCell<LookupResult>>,
+    warnings: RefCell<Vec<CredentialWarning>>,
 }
 impl fmt::Debug for CredentialStore {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -231,26 +211,28 @@ impl fmt::Debug for CredentialStore {
             .field("format", &self.format)
             .field("workspaces", &self.workspaces)
             .field("default", &self.default)
-            .field("keys", &"<redacted>")
-            .field("warnings", &self.warnings)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 impl CredentialStore {
-    pub(crate) fn mutation_parts(
-        &self,
-    ) -> (
-        CredentialFormat,
-        Vec<String>,
-        Option<String>,
-        BTreeMap<String, ConfigSecret>,
-    ) {
-        (
-            self.format,
-            self.workspaces.clone(),
-            self.default.clone(),
-            self.keys.clone(),
-        )
+    pub fn new(manifest: CredentialManifest, keyring: Box<dyn KeyringReader>) -> Self {
+        let lookups = match manifest.format {
+            CredentialFormat::Metadata => manifest
+                .workspaces
+                .iter()
+                .map(|workspace| (workspace.clone(), OnceCell::new()))
+                .collect(),
+            CredentialFormat::Inline => BTreeMap::new(),
+        };
+        Self {
+            format: manifest.format,
+            workspaces: manifest.workspaces,
+            default: manifest.default,
+            inline_keys: manifest.inline_keys.into_iter().collect(),
+            keyring,
+            lookups,
+            warnings: RefCell::new(manifest.warnings),
+        }
     }
 
     pub fn format(&self) -> CredentialFormat {
@@ -259,75 +241,67 @@ impl CredentialStore {
     pub fn workspaces(&self) -> &[String] {
         &self.workspaces
     }
+    /// The default workspace; a store with a single workspace needs none set.
     pub fn default(&self) -> Option<&str> {
-        self.default.as_deref()
+        self.default
+            .as_deref()
+            .or(match self.workspaces.as_slice() {
+                [only] => Some(only.as_str()),
+                _ => None,
+            })
     }
-    pub fn key(&self, workspace: &str) -> Option<&ConfigSecret> {
-        self.keys.get(workspace)
-    }
-    pub fn warnings(&self) -> &[CredentialWarning] {
-        &self.warnings
-    }
-}
 
-/// Combines a parsed credentials file with keyring lookup results. Every
-/// metadata workspace must have exactly one reply.
-pub fn hydrate(
-    manifest: CredentialManifest,
-    replies: Vec<LookupReply>,
-) -> Result<CredentialStore, CredentialInvariantError> {
-    let expected = manifest
-        .lookup_requests()
-        .into_iter()
-        .map(str::to_owned)
-        .collect::<BTreeSet<_>>();
-    let mut reply_map = BTreeMap::new();
-    for reply in replies {
-        if !expected.contains(&reply.workspace) {
-            return Err(CredentialInvariantError::ExtraReply {
-                workspace: reply.workspace,
-            });
+    /// The key stored for `workspace`, reading the keyring on first use.
+    pub fn key(&self, workspace: &str) -> Option<&ConfigSecret> {
+        if let Some(key) = self.inline_keys.get(workspace) {
+            return Some(key);
         }
-        if reply_map
-            .insert(reply.workspace.clone(), reply.result)
-            .is_some()
-        {
-            return Err(CredentialInvariantError::DuplicateReply {
-                workspace: reply.workspace,
-            });
-        }
-    }
-    for workspace in &manifest.workspaces {
-        if manifest.format == CredentialFormat::Metadata && !reply_map.contains_key(workspace) {
-            return Err(CredentialInvariantError::MissingReply {
-                workspace: workspace.clone(),
-            });
+        let cell = self.lookups.get(workspace)?;
+        let result = cell.get_or_init(|| {
+            let result = self.keyring.lookup(workspace);
+            let warning = match &result {
+                LookupResult::Hit(_) => None,
+                LookupResult::Miss => Some(CredentialWarning::LookupMiss {
+                    workspace: workspace.to_owned(),
+                }),
+                LookupResult::Failed(category) => Some(CredentialWarning::LookupFailed {
+                    workspace: workspace.to_owned(),
+                    category: *category,
+                }),
+            };
+            self.warnings.borrow_mut().extend(warning);
+            result
+        });
+        match result {
+            LookupResult::Hit(secret) => Some(secret),
+            LookupResult::Miss | LookupResult::Failed(_) => None,
         }
     }
-    let mut keys = manifest.inline_keys.into_iter().collect::<BTreeMap<_, _>>();
-    let mut warnings = manifest.warnings;
-    for workspace in &manifest.workspaces {
-        match reply_map.remove(workspace) {
-            Some(LookupResult::Hit(secret)) => {
-                keys.insert(workspace.clone(), secret);
-            }
-            Some(LookupResult::Miss) => warnings.push(CredentialWarning::LookupMiss {
-                workspace: workspace.clone(),
-            }),
-            Some(LookupResult::Failed(category)) => {
-                warnings.push(CredentialWarning::LookupFailed {
-                    workspace: workspace.clone(),
-                    category,
-                })
-            }
-            None => {}
-        }
+
+    /// Warnings gathered so far (an invalid default, keyring misses), each returned once.
+    pub fn take_warnings(&self) -> Vec<CredentialWarning> {
+        self.warnings.take()
     }
-    Ok(CredentialStore {
-        format: manifest.format,
-        workspaces: manifest.workspaces,
-        default: manifest.default,
-        keys,
-        warnings,
-    })
+
+    /// Every workspace's key, reading the keyring as needed, for rewriting the file.
+    pub(crate) fn mutation_parts(
+        &self,
+    ) -> (
+        CredentialFormat,
+        Vec<String>,
+        Option<String>,
+        BTreeMap<String, ConfigSecret>,
+    ) {
+        let keys = self
+            .workspaces
+            .iter()
+            .filter_map(|workspace| Some((workspace.clone(), self.key(workspace)?.clone())))
+            .collect();
+        (
+            self.format,
+            self.workspaces.clone(),
+            self.default.clone(),
+            keys,
+        )
+    }
 }

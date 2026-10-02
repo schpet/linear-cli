@@ -1,7 +1,7 @@
 //! `milestone update`: direct milestone id, optional project resolution, one write.
 use cynic::MutationBuilder;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestone_update::{
     ProjectMilestoneUpdateInput, UpdateProjectMilestone, UpdateProjectMilestoneVariables,
@@ -30,12 +30,9 @@ fn truthy(value: &Option<String>) -> Option<String> {
 impl Options {
     /// Check before starting the spinner or preparing transport. Typed callers
     /// also cannot send NaN/infinity and accidentally serialize JSON null.
-    pub fn require_update(&self) -> Result<(), AppError> {
+    pub fn require_update(&self) -> Result<(), Error> {
         if self.sort_order.is_some_and(|value| !value.is_finite()) {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                "Sort order must be a finite number",
-            ));
+            return Err(Error::new("Sort order must be a finite number"));
         }
         if truthy(&self.name).is_none()
             && truthy(&self.description).is_none()
@@ -43,13 +40,11 @@ impl Options {
             && self.sort_order.is_none()
             && truthy(&self.project_id).is_none()
         {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                "At least one update option must be provided",
-            )
-            .with_suggestion(
-                "Use --name, --description, --target-date, --sort-order, or --project",
-            ));
+            return Err(
+                Error::new("At least one update option must be provided").with_hint(
+                    "Use --name, --description, --target-date, --sort-order, or --project",
+                ),
+            );
         }
         Ok(())
     }
@@ -60,7 +55,7 @@ impl Options {
 pub fn request(
     id: &str,
     options: &Options,
-) -> Result<GraphQlRequest<UpdateProjectMilestoneVariables>, AppError> {
+) -> Result<GraphQlRequest<UpdateProjectMilestoneVariables>, Error> {
     options.require_update()?;
     Ok(GraphQlRequest::with_variables(
         UpdateProjectMilestone::build(UpdateProjectMilestoneVariables {
@@ -83,16 +78,16 @@ pub async fn submit(
     transport: &GraphQlTransport,
     id: &str,
     options: &Options,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let result: UpdateProjectMilestone = transport.execute(&request(id, options)?).await?;
     let payload = result.project_milestone_update;
     if !payload.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, CONTEXT));
+        return Err(Error::new(CONTEXT));
     }
     render(&payload.project_milestone)
 }
 
-pub fn render(milestone: &UpdatedMilestone) -> Result<Vec<u8>, AppError> {
+pub fn render(milestone: &UpdatedMilestone) -> Result<Vec<u8>, Error> {
     let mut output = format!(
         "✓ Updated milestone: {}\n  ID: {}\n",
         milestone.name,

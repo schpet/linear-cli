@@ -1,15 +1,12 @@
 //! Builds, sorts and prints a schema from an introspection result for
 //! `linear schema`. Adapted from graphql-js 16.13.2 (MIT, GraphQL
 //! Contributors; see rust/licenses/graphql-js-MIT.txt).
-use crate::{
-    error::{AppError, AppErrorKind},
-    graphql::schema_defaults,
-};
+use crate::{error::Error, graphql::schema_defaults};
 use serde::Deserialize;
 use std::{cmp::Ordering, collections::BTreeMap};
 pub const QUERY: &str = include_str!("introspection.graphql");
-pub fn shape(message: impl Into<String>) -> AppError {
-    AppError::new(AppErrorKind::Validation, message)
+pub fn shape(message: impl Into<String>) -> Error {
+    Error::new(message)
 }
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -31,12 +28,12 @@ pub struct TypeRef {
     pub of_type: Option<Box<TypeRef>>,
 }
 impl TypeRef {
-    pub fn inner(&self) -> Result<&TypeRef, AppError> {
+    pub fn inner(&self) -> Result<&TypeRef, Error> {
         self.of_type
             .as_deref()
             .ok_or_else(|| shape("Decorated type deeper than introspection query."))
     }
-    pub fn render(&self) -> Result<String, AppError> {
+    pub fn render(&self) -> Result<String, Error> {
         match self.kind {
             Kind::List => Ok(format!("[{}]", self.inner()?.render()?)),
             Kind::NonNull => Ok(format!("{}!", self.inner()?.render()?)),
@@ -157,7 +154,7 @@ pub fn natural(a: &str, b: &str) -> Ordering {
     }
     a.len().cmp(&b.len())
 }
-pub fn name(name: &str) -> Result<(), AppError> {
+pub fn name(name: &str) -> Result<(), Error> {
     let mut chars = name.bytes();
     if !chars
         .next()
@@ -180,7 +177,7 @@ fn sorted_dedup<T>(values: &[T], get: impl Fn(&T) -> &str) -> Vec<&T> {
     v
 }
 impl Model {
-    pub fn parse(value: &serde_json::Value) -> Result<Self, AppError> {
+    pub fn parse(value: &serde_json::Value) -> Result<Self, Error> {
         let data = Introspection::deserialize(value).map_err(|e| {
             shape(format!("Invalid or incomplete introspection result: {e}")).with_source(e)
         })?;
@@ -198,11 +195,7 @@ impl Model {
         // builtins. This is the standard meta-schema only, never application SDL.
         let builtins: Vec<TypeDef> =
             serde_json::from_str(include_str!("schema_builtin_types.json")).map_err(|e| {
-                AppError::new(
-                    crate::error::AppErrorKind::Invariant,
-                    "Invalid compiled GraphQL standard types",
-                )
-                .with_source(e)
+                Error::new("Invalid compiled GraphQL standard types").with_source(e)
             })?;
         for builtin in builtins {
             if types.contains_key(&builtin.name) {
@@ -216,14 +209,14 @@ impl Model {
         model.validate()?;
         Ok(model)
     }
-    pub fn named(&self, reference: &TypeRef) -> Result<&TypeDef, AppError> {
+    pub fn named(&self, reference: &TypeRef) -> Result<&TypeDef, Error> {
         let name = reference
             .name
             .as_deref()
             .ok_or_else(|| shape("Unknown type reference"))?;
         self.types.get(name).ok_or_else(||shape(format!("Invalid or incomplete schema, unknown type: {name}. Ensure that a full introspection query is used in order to build a client schema.")))
     }
-    fn reference(&self, r: &TypeRef, input: bool) -> Result<(), AppError> {
+    fn reference(&self, r: &TypeRef, input: bool) -> Result<(), Error> {
         match r.kind {
             Kind::List => self.reference(r.inner()?, input),
             Kind::NonNull => {
@@ -254,7 +247,7 @@ impl Model {
             }
         }
     }
-    fn inputs(&self, values: &[InputValue]) -> Result<(), AppError> {
+    fn inputs(&self, values: &[InputValue]) -> Result<(), Error> {
         for v in values {
             name(&v.name)?;
             self.reference(&v.r#type, true)?;
@@ -264,7 +257,7 @@ impl Model {
         }
         Ok(())
     }
-    fn validate(&self) -> Result<(), AppError> {
+    fn validate(&self) -> Result<(), Error> {
         for root in [
             &self.schema.query_type,
             &self.schema.mutation_type,
@@ -377,7 +370,7 @@ impl Model {
     pub fn sorted_inputs<'a>(&self, v: &'a [InputValue]) -> Vec<&'a InputValue> {
         sorted_dedup(v, |i| &i.name)
     }
-    pub fn input(&self, v: &InputValue) -> Result<String, AppError> {
+    pub fn input(&self, v: &InputValue) -> Result<String, Error> {
         let mut text = format!("{}: {}", v.name, v.r#type.render()?);
         if let Some(raw) = &v.default_value
             && let Some(default) =
@@ -388,7 +381,7 @@ impl Model {
         text.push_str(&deprecated(v.deprecation_reason.as_deref()));
         Ok(text)
     }
-    fn args(&self, args: &[InputValue], indent: &str) -> Result<String, AppError> {
+    fn args(&self, args: &[InputValue], indent: &str) -> Result<String, Error> {
         let args = self.sorted_inputs(args);
         if args.is_empty() {
             return Ok(String::new());
@@ -417,7 +410,7 @@ impl Model {
         }
         Ok(format!("(\n{}\n{indent})", out.join("\n")))
     }
-    pub fn print(&self) -> Result<String, AppError> {
+    pub fn print(&self) -> Result<String, Error> {
         let mut blocks = Vec::new();
         let roots = [
             ("query", self.schema.query_type.as_ref(), "Query"),
@@ -570,7 +563,7 @@ impl Model {
                                     self.input(v)?
                                 ))
                             })
-                            .collect::<Result<Vec<_>, AppError>>()?,
+                            .collect::<Result<Vec<_>, Error>>()?,
                     ));
                 }
                 Kind::List | Kind::NonNull => return Err(shape("Unexpected wrapped named type")),

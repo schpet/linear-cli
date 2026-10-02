@@ -14,7 +14,7 @@ use super::{KeyringReader, ReaderFlavor};
 use crate::auth::mutation::MutationFailure;
 use crate::auth::{LookupFailureCategory, LookupResult};
 use crate::config::{ChildEnvOverlay, ConfigSecret};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 /// How long one keyring command may run before it is killed.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -246,8 +246,7 @@ impl ProcessMutationBackend {
 
     async fn run(&self, args: &[String], input: Option<&[u8]>) -> Result<Output, MutationFailure> {
         if args.iter().any(|arg| arg.contains('\0')) {
-            return Err(MutationFailure::Typed(AppError::new(
-                AppErrorKind::Validation,
+            return Err(MutationFailure::Typed(Error::new(
                 "Keyring arguments cannot contain a NUL character",
             )));
         }

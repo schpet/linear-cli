@@ -77,7 +77,7 @@ async fn submit_preserves_raw_id_exact_success_and_false_failure_with_one_send()
         if success {
             assert_eq!(result.unwrap(), "✓ Deleted milestone  raw id \n".as_bytes());
         } else {
-            assert_eq!(result.unwrap_err().message, milestone_delete::CONTEXT);
+            assert_eq!(result.unwrap_err().message(), milestone_delete::CONTEXT);
         }
         assert_eq!(
             server.join().unwrap()["variables"],

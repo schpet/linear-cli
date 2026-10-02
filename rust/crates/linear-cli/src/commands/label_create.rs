@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 
 use cynic::MutationBuilder;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::label_create::{
     CreateIssueLabel, CreateIssueLabelPayload, CreateIssueLabelVariables, IssueLabelCreateInput,
@@ -41,7 +41,7 @@ fn choice(label: &str, value: &str, token: &str) -> PlainOption {
 pub fn prompt_fields<R: Read, W: Write>(
     options: &mut Options,
     session: &mut PromptSession<R, W>,
-) -> Result<PromptOutcome<()>, AppError> {
+) -> Result<PromptOutcome<()>, Error> {
     macro_rules! answer {
         ($call:expr) => {
             match $call? {
@@ -104,7 +104,7 @@ pub fn prompt_team<R: Read, W: Write>(
     session: &mut PromptSession<R, W>,
     teams: &[ResolvedTeam],
     configured_key: Option<&str>,
-) -> Result<PromptOutcome<()>, AppError> {
+) -> Result<PromptOutcome<()>, Error> {
     let mut choices = vec![choice(
         "Workspace (shared by all teams)",
         "__workspace__",
@@ -139,22 +139,17 @@ fn valid_color(value: &str) -> bool {
     value.len() == 7 && value.starts_with('#') && value[1..].bytes().all(|b| b.is_ascii_hexdigit())
 }
 
-pub fn validate(options: &Options) -> Result<(), AppError> {
+pub fn validate(options: &Options) -> Result<(), Error> {
     if options.name.as_deref().is_none_or(str::is_empty) {
-        return Err(
-            AppError::new(AppErrorKind::Validation, "Label name is required")
-                .with_suggestion("Use --name or -n flag to specify a label name."),
-        );
+        return Err(Error::new("Label name is required")
+            .with_hint("Use --name or -n flag to specify a label name."));
     }
     if options
         .color
         .as_deref()
         .is_some_and(|c| !c.is_empty() && !valid_color(c))
     {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Color must be a valid hex code (e.g., #EB5757)",
-        ));
+        return Err(Error::new("Color must be a valid hex code (e.g., #EB5757)"));
     }
     Ok(())
 }
@@ -162,12 +157,12 @@ pub fn validate(options: &Options) -> Result<(), AppError> {
 pub fn request(
     options: &Options,
     team_id: Option<String>,
-) -> Result<GraphQlRequest<CreateIssueLabelVariables>, AppError> {
+) -> Result<GraphQlRequest<CreateIssueLabelVariables>, Error> {
     validate(options)?;
     let name = options
         .name
         .clone()
-        .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "validated label name vanished"))?;
+        .ok_or_else(|| Error::new("validated label name vanished"))?;
     Ok(GraphQlRequest::with_variables(CreateIssueLabel::build(
         CreateIssueLabelVariables {
             input: IssueLabelCreateInput {
@@ -189,27 +184,24 @@ pub async fn submit(
     transport: &GraphQlTransport,
     options: &Options,
     team_id: Option<String>,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let result: CreateIssueLabel = transport
         .execute(&request(options, team_id)?)
         .await
         .map_err(|failure| {
             let uncertain = super::milestone_create::outcome_unknown(&failure);
-            let mut error = AppError::from(failure);
+            let mut error = Error::from(failure);
             if uncertain {
-                error.message.push_str("; label may already exist");
+                error.push_message("; label may already exist");
             }
             error
         })?;
     render(&result.issue_label_create)
 }
 
-pub fn render(payload: &CreateIssueLabelPayload) -> Result<Vec<u8>, AppError> {
+pub fn render(payload: &CreateIssueLabelPayload) -> Result<Vec<u8>, Error> {
     if !payload.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to create label",
-        ));
+        return Err(Error::new("Failed to create label"));
     }
     let label = &payload.issue_label;
     let mut output = format!(

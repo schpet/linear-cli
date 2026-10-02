@@ -120,13 +120,13 @@ fn file_policy_keeps_raw_body_and_stage_specific_missing_errors() {
         assert_eq!(
             command::file(missing.to_str().unwrap(), mode, false)
                 .unwrap_err()
-                .message,
+                .message(),
             format!("File not found: {}", missing.display())
         );
         assert!(
             command::file(root.to_str().unwrap(), mode, false)
                 .unwrap_err()
-                .message
+                .message()
                 .starts_with("Failed to read body file: ")
         );
     }
@@ -134,13 +134,13 @@ fn file_policy_keeps_raw_body_and_stage_specific_missing_errors() {
     assert!(
         command::file(missing.to_str().unwrap(), Mode::Initiative, true)
             .unwrap_err()
-            .message
+            .message()
             .starts_with("Failed to read file: ")
     );
     assert_eq!(
         command::file(missing.to_str().unwrap(), Mode::Project, true)
             .unwrap_err()
-            .message,
+            .message(),
         format!("File not found: {}", missing.display())
     );
     std::fs::remove_dir_all(root).unwrap();
@@ -209,7 +209,7 @@ async fn full_typed_mutations_print_server_metadata_and_unknown_returned_health(
             command::create(&transport, "parent", Fields::default(), mode)
                 .await
                 .unwrap_err()
-                .message,
+                .message(),
             mode.context()
         );
         assert_eq!(worker.join().unwrap().len(), 1);
@@ -232,8 +232,12 @@ async fn decode_first_keeps_false_null_precedence_and_only_boolean_true_confirms
             let error = command::create(&transport, "parent", Fields::default(), mode)
                 .await
                 .unwrap_err();
-            assert!(error.message.starts_with("UPDATE-CREATE-UNEXPECTED-SHAPE:"));
-            assert!(error.message.contains(if success == json!(true) {
+            assert!(
+                error
+                    .message()
+                    .starts_with("UPDATE-CREATE-UNEXPECTED-SHAPE:")
+            );
+            assert!(error.message().contains(if success == json!(true) {
                 "creation confirmed by success:true"
             } else {
                 "creation outcome unknown"
@@ -287,58 +291,12 @@ async fn initiative_specific_slug_name_first_match_and_display_fallback_are_orde
     )
     .await
     .unwrap_err();
-    assert!(error.message.starts_with("UPDATE-CREATE-UNEXPECTED-SHAPE:"));
-    assert_eq!(worker.join().unwrap().len(), 1);
-}
-
-/// Physical signal fixture: run this ignored entry in a fresh private process.
-/// It exercises the production editor policy, including outside-editor default,
-/// without replacing signal handling or publishing a second implementation.
-#[test]
-#[ignore = "requires private physical editor/signal driver"]
-fn editor_signal_process_probe() {
-    use linear_cli::{
-        config::{OsFamily, ProcessEnvSnapshot, RealFileSource, load_startup},
-        platform::editor,
-    };
-    use std::io::Write;
-    let root = std::path::PathBuf::from(
-        std::env::var_os("QA_EDITOR_PROBE_TMP").expect("private probe root required"),
+    assert!(
+        error
+            .message()
+            .starts_with("UPDATE-CREATE-UNEXPECTED-SHAPE:")
     );
-    let process =
-        ProcessEnvSnapshot::capture(std::env::current_dir().unwrap(), OsFamily::Unix).unwrap();
-    let startup = load_startup(&process, &RealFileSource).result.unwrap();
-    let outcome = editor::open_update(&startup.child_env, &root).unwrap();
-    match outcome {
-        editor::UpdateEditorOutcome::Content(body) => {
-            println!("PROBE_RETURN_CONTENT:{}", body.unwrap_or_default())
-        }
-        editor::UpdateEditorOutcome::Missing => println!("PROBE_RETURN_MISSING"),
-        editor::UpdateEditorOutcome::Failed(error) => {
-            println!("PROBE_RETURN_FAILED:{}", error.message)
-        }
-        editor::UpdateEditorOutcome::ChildFailed(status) => {
-            #[cfg(unix)]
-            {
-                use std::os::unix::process::ExitStatusExt;
-                println!(
-                    "PROBE_RETURN_CHILD:code={:?};signal={:?}",
-                    status.code(),
-                    status.signal()
-                );
-            }
-            #[cfg(not(unix))]
-            {
-                println!("PROBE_RETURN_CHILD:{status}");
-            }
-        }
-    }
-    if std::env::var("QA_EDITOR_WAIT_OUTSIDE").unwrap_or_default() == "1" {
-        println!("PROBE_OUTSIDE_READY");
-        std::io::stdout().flush().unwrap();
-        let mut byte = [0];
-        std::io::stdin().read_exact(&mut byte).unwrap();
-    }
+    assert_eq!(worker.join().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -353,9 +311,9 @@ async fn url_lookup_failure_has_only_outer_mode_context() {
     )
     .await
     .unwrap_err()
-    .with_context(Mode::Initiative.context());
+    .context(Mode::Initiative.context());
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to create initiative status update: URL lookup failed"
     );
     let requests = worker.join().unwrap();

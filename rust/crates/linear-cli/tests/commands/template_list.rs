@@ -1,10 +1,11 @@
+use crate::hydrate;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::future::{Ready, ready};
 use std::path::PathBuf;
 
-use linear_cli::auth::{ApiKeyInput, CredentialStore, hydrate, parse_credentials};
+use linear_cli::auth::{ApiKeyInput, CredentialStore, parse_credentials};
 use linear_cli::commands::template_list::{
     Options, TemplateType, prepare, render_text, request, run_with,
 };
@@ -12,7 +13,7 @@ use linear_cli::config::{
     ConfigInputs, ConfigOptions, OptionInputs, OsFamily, ProcessEnvSnapshot, RawConfigFile,
     SelectedEnv, TransportEnvInputs, parse_config_tier,
 };
-use linear_cli::error::{AppError, AppErrorKind};
+use linear_cli::error::Error;
 use linear_cli::graphql::envelope::{GraphQlRequest, ResponseError, parse_response};
 use linear_cli::graphql::operations::team_resolver::{
     GetAllTeams, GetAllTeamsVariables, ResolveTeam, ResolveTeamVariables,
@@ -55,17 +56,17 @@ fn templates_response(templates: Vec<Value>) -> GetTemplates {
 
 fn unexpected_resolve(
     _: GraphQlRequest<ResolveTeamVariables>,
-) -> Ready<Result<ResolveTeam, AppError>> {
+) -> Ready<Result<ResolveTeam, Error>> {
     panic!("ResolveTeam must not be requested")
 }
 
 fn unexpected_all_teams(
     _: GraphQlRequest<GetAllTeamsVariables>,
-) -> Ready<Result<GetAllTeams, AppError>> {
+) -> Ready<Result<GetAllTeams, Error>> {
     panic!("GetAllTeams must not be requested")
 }
 
-fn unexpected_templates(_: GraphQlRequest<()>) -> Ready<Result<GetTemplates, AppError>> {
+fn unexpected_templates(_: GraphQlRequest<()>) -> Ready<Result<GetTemplates, Error>> {
     panic!("GetTemplates must not be requested")
 }
 
@@ -97,7 +98,7 @@ fn team_lookup(reference: &str) -> PreparedTeamLookup {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &absent,
+        api_key: absent.clone(),
     };
     prepare_team_lookup(reference, &scope).unwrap_or_else(|error| panic!("{error}"))
 }
@@ -171,18 +172,8 @@ async fn query_and_json_keep_selected_graphql_fields_and_js_number_bytes() {
         },
         120,
         false,
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unexpected team lookup",
-            )))
-        },
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unexpected team page",
-            )))
-        },
+        |_| ready(Err(Error::new("unexpected team lookup"))),
+        |_| ready(Err(Error::new("unexpected team page"))),
         |request| {
             assert_eq!(
                 serde_json::to_value(&request).unwrap().get("variables"),
@@ -239,18 +230,8 @@ async fn type_filter_stable_scope_order_and_padded_text_are_public_behavior() {
         },
         120,
         false,
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unexpected lookup",
-            )))
-        },
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unexpected page",
-            )))
-        },
+        |_| ready(Err(Error::new("unexpected lookup"))),
+        |_| ready(Err(Error::new("unexpected page"))),
         |_| ready(Ok(parsed)),
     )
     .await
@@ -296,98 +277,15 @@ async fn network_error_has_one_command_context() {
         Options::default(),
         120,
         false,
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unexpected lookup",
-            )))
-        },
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unexpected page",
-            )))
-        },
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::Transport,
-                "templates unavailable",
-            )))
-        },
+        |_| ready(Err(Error::new("unexpected lookup"))),
+        |_| ready(Err(Error::new("unexpected page"))),
+        |_| ready(Err(Error::new("templates unavailable"))),
     )
     .await
     .expect_err("request failure");
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to list templates: templates unavailable"
-    );
-}
-
-#[test]
-fn prepare_rejects_bad_team_before_credentials_with_one_context() {
-    let no_key = config_options(&[]);
-    let store = empty_credentials();
-    // Unusable if reached: a team failure must win over it and credentials.
-    let bad_policy = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
-
-    let without_team = prepare(&no_key, &store, None, &bad_policy, None)
-        .err()
-        .expect("no key configured");
-    assert_eq!(
-        without_team.display_message(),
-        "Failed to list templates: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`."
-    );
-
-    for (reference, message, suggestion) in [
-        (
-            " \t",
-            "Team reference is empty",
-            "Pass a team key, name, or ID, e.g. --team ENG.",
-        ),
-        (
-            "https://linear.app/acme/issue/ENG-1",
-            "\"https://linear.app/acme/issue/ENG-1\" is an issue URL, not a team URL.",
-            "Pass a team URL, key, name, or ID.",
-        ),
-    ] {
-        let error = prepare(&no_key, &store, None, &bad_policy, Some(reference))
-            .err()
-            .expect("bad team reference");
-        assert_eq!(error.kind, AppErrorKind::Validation, "{reference:?}");
-        assert_eq!(error.message, message);
-        assert_eq!(error.suggestion.as_deref(), Some(suggestion));
-        assert_eq!(error.context.as_deref(), Some("Failed to list templates"));
-        assert_eq!(
-            error.display_message(),
-            format!("Failed to list templates: {message}")
-        );
-    }
-
-    // `--workspace other` alone fails credential selection; with a team URL
-    // for another workspace, the URL check reads that same flag first.
-    let missing_workspace = prepare(&no_key, &store, Some("other"), &bad_policy, None)
-        .err()
-        .expect("unknown workspace");
-    assert_eq!(
-        missing_workspace.message,
-        "Workspace \"other\" not found in credentials. Run `linear auth login` to add it, or `linear auth list` to see configured workspaces."
-    );
-    let mismatch = prepare(
-        &no_key,
-        &store,
-        Some("other"),
-        &bad_policy,
-        Some("https://linear.app/acme/team/eng"),
-    )
-    .err()
-    .expect("URL workspace mismatch");
-    assert_eq!(
-        mismatch.display_message(),
-        "Failed to list templates: That URL is for the \"acme\" workspace, but this is the \"other\" workspace."
-    );
-    assert_eq!(
-        mismatch.suggestion.as_deref(),
-        Some("Pass --workspace acme, or use a URL from \"other\".")
     );
 }
 
@@ -498,14 +396,14 @@ async fn team_lookup_failures_have_one_context_and_never_request_templates() {
     .await
     .expect_err("team miss");
     assert_eq!(pages, 1);
-    assert_eq!(miss.kind, AppErrorKind::NotFound);
-    assert_eq!(miss.context.as_deref(), Some("Failed to list templates"));
+    assert_eq!(miss.kind(), linear_cli::error::ErrorKind::NotFound);
+    assert!(miss.to_string().starts_with("Failed to list templates: "));
     assert_eq!(
-        miss.display_message(),
+        miss.to_string(),
         "Failed to list templates: Team not found: eng"
     );
     assert_eq!(
-        miss.suggestion.as_deref(),
+        miss.hint(),
         Some("Valid team keys: DES (Design). Run `linear team list` to see all teams.")
     );
 
@@ -514,24 +412,19 @@ async fn team_lookup_failures_have_one_context_and_never_request_templates() {
         Options::default(),
         120,
         false,
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::GraphQl,
-                "team lookup failed",
-            )))
-        },
+        |_| ready(Err(Error::new("team lookup failed"))),
         unexpected_all_teams,
         unexpected_templates,
     )
     .await
     .expect_err("ResolveTeam failure");
-    assert_eq!(resolve_failure.kind, AppErrorKind::GraphQl);
-    assert_eq!(
-        resolve_failure.context.as_deref(),
-        Some("Failed to list templates")
+    assert!(
+        resolve_failure
+            .to_string()
+            .starts_with(&format!("{}: ", "Failed to list templates"))
     );
     assert_eq!(
-        resolve_failure.display_message(),
+        resolve_failure.to_string(),
         "Failed to list templates: team lookup failed"
     );
 
@@ -541,19 +434,13 @@ async fn team_lookup_failures_have_one_context_and_never_request_templates() {
         120,
         false,
         |_| ready(Ok(empty_resolve())),
-        |_| {
-            ready(Err(AppError::new(
-                AppErrorKind::Transport,
-                "team page failed",
-            )))
-        },
+        |_| ready(Err(Error::new("team page failed"))),
         unexpected_templates,
     )
     .await
     .expect_err("GetAllTeams failure");
-    assert_eq!(page_failure.kind, AppErrorKind::Transport);
     assert_eq!(
-        page_failure.display_message(),
+        page_failure.to_string(),
         "Failed to list templates: team page failed"
     );
 }

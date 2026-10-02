@@ -1,6 +1,6 @@
 //! `team delete`: optionally move the team's issues elsewhere, then delete it.
 use crate::{
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{edit::Edit, envelope::GraphQlRequest, operations::team_delete::*},
 };
 use cynic::{MutationBuilder, QueryBuilder};
@@ -26,10 +26,10 @@ pub fn page_request(team_id: &str, after: Edit<String>) -> GraphQlRequest<MovePa
         after,
     }))
 }
-pub async fn all_issues<F, Fut>(team_id: &str, mut fetch: F) -> Result<Vec<MoveIssue>, AppError>
+pub async fn all_issues<F, Fut>(team_id: &str, mut fetch: F) -> Result<Vec<MoveIssue>, Error>
 where
     F: FnMut(GraphQlRequest<MovePageVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeamIssuesForMove, AppError>>,
+    Fut: Future<Output = Result<GetTeamIssuesForMove, Error>>,
 {
     let mut nodes = Vec::new();
     let mut after = Edit::Unchanged;
@@ -43,16 +43,10 @@ where
             break;
         }
         let cursor = issues.page_info.end_cursor.ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Linear reported more team issues but returned no pagination cursor",
-            )
+            Error::new("Linear reported more team issues but returned no pagination cursor")
         })?;
         if !seen.insert(cursor.clone()) {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                "Linear repeated a team issue pagination cursor",
-            ));
+            return Err(Error::new("Linear repeated a team issue pagination cursor"));
         }
         after = Edit::Set(cursor);
     }
@@ -65,11 +59,11 @@ pub async fn move_all<F, Fut, P>(
     target: &str,
     mut submit: F,
     mut progress: P,
-) -> Result<usize, AppError>
+) -> Result<usize, Error>
 where
     F: FnMut(GraphQlRequest<MoveVariables>) -> Fut,
-    Fut: Future<Output = Result<MoveIssueToTeam, AppError>>,
-    P: FnMut(usize, usize) -> Result<(), AppError>,
+    Fut: Future<Output = Result<MoveIssueToTeam, Error>>,
+    P: FnMut(usize, usize) -> Result<(), Error>,
 {
     let mut moved = 0;
     for issue in issues {

@@ -1,7 +1,7 @@
 //! Source ClientError messages for bulk executors that expose exception.message.
 //! Ordinary command failures retain the existing friendly error path.
 use crate::{
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         envelope::GraphQlRequest,
         transport::{GraphQlTransport, RawHttpResponse, TransportFailure},
@@ -15,19 +15,19 @@ use serde::{
 use serde_json::Value;
 
 pub enum BulkExchangeFailure {
-    Strict(AppError),
+    Strict(Error),
     Ordinary(String),
 }
 impl BulkExchangeFailure {
-    pub fn into_error(self) -> AppError {
+    pub fn into_error(self) -> Error {
         match self {
             Self::Strict(error) => error,
-            Self::Ordinary(message) => AppError::new(AppErrorKind::GraphQl, message),
+            Self::Ordinary(message) => Error::new(message),
         }
     }
 }
 fn strict(message: &str) -> BulkExchangeFailure {
-    BulkExchangeFailure::Strict(AppError::new(AppErrorKind::GraphQl, message))
+    BulkExchangeFailure::Strict(Error::new(message))
 }
 /// JS property enumeration and binary64 JSON numbers, including integer-backed values.
 pub(crate) struct JsValue<'a>(pub(crate) &'a Value);
@@ -172,11 +172,7 @@ fn source_error_classified<V: Serialize>(
         .transpose()
         .map_err(|e| {
             BulkExchangeFailure::Strict(
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "could not serialize request metadata",
-                )
-                .with_source(e),
+                Error::new("could not serialize request metadata").with_source(e),
             )
         })?;
     let metadata = Metadata {
@@ -195,11 +191,7 @@ fn source_error_classified<V: Serialize>(
     };
     let serialized = serde_json::to_string(&metadata).map_err(|e| {
         BulkExchangeFailure::Strict(
-            AppError::new(
-                AppErrorKind::Invariant,
-                "could not serialize source bulk exception metadata",
-            )
-            .with_source(e),
+            Error::new("could not serialize source bulk exception metadata").with_source(e),
         )
     })?;
     Ok(Some(format!("{first}: {serialized}")))
@@ -211,7 +203,7 @@ pub async fn execute<T: DeserializeOwned, V: Serialize>(
     let response = transport
         .send_request(request)
         .await
-        .map_err(|e| BulkExchangeFailure::Ordinary(AppError::from(e).to_string()))?;
+        .map_err(|e| BulkExchangeFailure::Ordinary(Error::from(e).to_string()))?;
     let source = super::source_response::SourceResponse::classify(&response);
     let message = source_error_classified(&response, request, &source)?;
     let result = super::transport::classify_typed(response);
@@ -220,9 +212,9 @@ pub async fn execute<T: DeserializeOwned, V: Serialize>(
     }
     result.map_err(|error| match error {
         TransportFailure::Response(_) | TransportFailure::RequestBody(_) => {
-            BulkExchangeFailure::Strict(AppError::from(error))
+            BulkExchangeFailure::Strict(Error::from(error))
         }
-        other => BulkExchangeFailure::Ordinary(AppError::from(other).to_string()),
+        other => BulkExchangeFailure::Ordinary(Error::from(other).to_string()),
     })
 }
 
@@ -252,14 +244,14 @@ impl SourceException {
     }
 }
 pub enum ObservedExchangeFailure {
-    Strict(AppError),
+    Strict(Error),
     Ordinary(SourceException),
 }
 impl ObservedExchangeFailure {
-    pub fn into_error(self) -> AppError {
+    pub fn into_error(self) -> Error {
         match self {
             Self::Strict(error) => error,
-            Self::Ordinary(error) => AppError::new(AppErrorKind::GraphQl, error.message),
+            Self::Ordinary(error) => Error::new(error.message),
         }
     }
 }
@@ -325,7 +317,7 @@ pub async fn execute_observed<T: DeserializeOwned, V: Serialize>(
     let response = transport.send_request(request).await.map_err(|error| {
         ObservedExchangeFailure::Ordinary(SourceException {
             kind: SourceExceptionKind::Plain,
-            message: AppError::from(error).to_string(),
+            message: Error::from(error).to_string(),
             preferred_message: None,
         })
     })?;
@@ -348,11 +340,11 @@ pub async fn execute_observed<T: DeserializeOwned, V: Serialize>(
     }
     super::transport::classify_typed(response).map_err(|error| match error {
         TransportFailure::Response(_) | TransportFailure::RequestBody(_) => {
-            ObservedExchangeFailure::Strict(AppError::from(error))
+            ObservedExchangeFailure::Strict(Error::from(error))
         }
         other => ObservedExchangeFailure::Ordinary(SourceException {
             kind: SourceExceptionKind::Plain,
-            message: AppError::from(other).to_string(),
+            message: Error::from(other).to_string(),
             preferred_message: None,
         }),
     })

@@ -6,23 +6,20 @@ use serde::Serialize;
 
 use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::style;
 use crate::commands::table::underlined_header;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_updates::{
     ListInitiativeUpdates, ListInitiativeUpdatesVariables, UpdateInitiative, UpdateNode,
 };
 use crate::graphql::operations::initiatives::InitiativeUpdateHealthType;
 use crate::graphql::transport::GraphQlTransport;
+use crate::platform::style;
 
 pub const CONTEXT: &str = "Failed to fetch initiative updates";
 
-pub fn graphql_int(value: std::num::NonZeroU32) -> Result<i32, AppError> {
-    crate::commands::project_update_list::graphql_int(value).map_err(|mut error| {
-        error.context = Some(CONTEXT.to_owned());
-        error
-    })
+pub fn graphql_int(value: std::num::NonZeroU32) -> Result<i32, Error> {
+    crate::commands::project_update_list::graphql_int(value).context(CONTEXT)
 }
 
 pub fn request(id: &str, first: i32) -> GraphQlRequest<ListInitiativeUpdatesVariables> {
@@ -42,22 +39,21 @@ pub async fn run(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let result: ListInitiativeUpdates = transport
         .execute(&request(id, first))
         .await
-        .map_err(AppError::from)
-        .map_err(|error| error.with_context(CONTEXT))?;
+        .map_err(Error::from)
+        .context(CONTEXT)?;
     let initiative = result
         .initiative
-        .ok_or_else(|| AppError::not_found("Initiative", original).with_context(CONTEXT))?;
+        .ok_or_else(|| Error::not_found("Initiative", original).context(CONTEXT))?;
     for update in &initiative.initiative_updates.nodes {
         if let InitiativeUpdateHealthType::Unknown(value) = &update.health {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                format!("Linear returned an unknown initiative update health: {value}"),
-            )
-            .with_context(CONTEXT));
+            return Err(Error::new(format!(
+                "Linear returned an unknown initiative update health: {value}"
+            ))
+            .context(CONTEXT));
         }
     }
     if json {
@@ -96,7 +92,7 @@ struct JsonUser<'a> {
     name: &'a str,
 }
 
-pub fn render_json(initiative: &UpdateInitiative) -> Result<Vec<u8>, AppError> {
+pub fn render_json(initiative: &UpdateInitiative) -> Result<Vec<u8>, Error> {
     let value = JsonInitiative {
         name: &initiative.name,
         slug_id: &initiative.slug_id,
@@ -117,12 +113,9 @@ pub fn render_json(initiative: &UpdateInitiative) -> Result<Vec<u8>, AppError> {
         },
     };
     let mut output = serde_json::to_vec_pretty(&value).map_err(|error| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "could not serialize initiative updates",
-        )
-        .with_source(error)
-        .with_context(CONTEXT)
+        Error::new("could not serialize initiative updates")
+            .with_source(error)
+            .context(CONTEXT)
     })?;
     output.push(b'\n');
     Ok(output)

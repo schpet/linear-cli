@@ -1,7 +1,7 @@
 //! `initiative update`: resolve the initiative, apply flag or prompted fields, one mutation.
 use crate::{
     commands::{initiative_list::select_owner, initiative_view::Reference},
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error,
         envelope::GraphQlRequest,
@@ -82,11 +82,11 @@ impl Fields {
     }
 }
 enum Failure {
-    Ordinary(AppError),
-    Shape(AppError),
+    Ordinary(Error),
+    Shape(Error),
 }
 impl Failure {
-    fn error(self) -> AppError {
+    fn error(self) -> Error {
         match self {
             Self::Ordinary(e) | Self::Shape(e) => e,
         }
@@ -105,14 +105,11 @@ async fn exchange<T: DeserializeOwned, V: Serialize>(
     let observed = bulk_error::observe_source_error(&response, request)
         .map_err(|e| Failure::Ordinary(e.into_error()))?;
     if let Some(e) = observed {
-        return Err(Failure::Ordinary(AppError::new(
-            AppErrorKind::GraphQl,
-            if raw {
-                e.message
-            } else {
-                e.preferred_message.unwrap_or(e.message)
-            },
-        )));
+        return Err(Failure::Ordinary(Error::new(if raw {
+            e.message
+        } else {
+            e.preferred_message.unwrap_or(e.message)
+        })));
     }
     let data: serde_json::Value =
         classify_typed(response).map_err(|e| Failure::Ordinary(e.into()))?;
@@ -123,19 +120,16 @@ async fn exchange<T: DeserializeOwned, V: Serialize>(
         == Some(true);
     serde_json::from_value(data).map_err(|e| {
         Failure::Shape(
-            AppError::new(
-                AppErrorKind::GraphQl,
-                format!(
-                    "Linear returned an unexpected response: {e}{}",
-                    if !mutation {
-                        ""
-                    } else if confirmed {
-                        "; update confirmed by success:true; do not retry automatically"
-                    } else {
-                        "; update outcome unknown; do not retry automatically"
-                    }
-                ),
-            )
+            Error::new(format!(
+                "Linear returned an unexpected response: {e}{}",
+                if !mutation {
+                    ""
+                } else if confirmed {
+                    "; update confirmed by success:true; do not retry automatically"
+                } else {
+                    "; update outcome unknown; do not retry automatically"
+                }
+            ))
             .with_source(e),
         )
     })
@@ -144,7 +138,7 @@ pub async fn resolve(
     transport: &GraphQlTransport,
     reference: &Reference,
     original: &str,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     match reference {
         Reference::Id(id) => Ok(id.clone()),
         Reference::UrlSlug(slug) => {
@@ -161,12 +155,11 @@ pub async fn resolve(
                 .nodes
                 .first()
                 .map(|n| n.id.inner().to_owned())
-                .ok_or_else(|| AppError::not_found("Initiative", original))?;
+                .ok_or_else(|| Error::not_found("Initiative", original))?;
             if is_linear_uuid(&id) {
                 Ok(id)
             } else {
-                Err(AppError::new(
-                    AppErrorKind::GraphQl,
+                Err(Error::new(
                     "Linear returned a non-UUID initiative ID for the URL; no update attempted",
                 ))
             }
@@ -200,13 +193,13 @@ pub async fn resolve(
                 Err(Failure::Ordinary(_)) => {}
                 Err(e) => return Err(e.error()),
             }
-            Err(AppError::not_found("Initiative", original))
+            Err(Error::not_found("Initiative", original))
         }
     }
 }
-fn selected_id(id: &str, original: &str) -> Result<String, AppError> {
+fn selected_id(id: &str, original: &str) -> Result<String, Error> {
     if id.is_empty() {
-        Err(AppError::not_found("Initiative", original))
+        Err(Error::not_found("Initiative", original))
     } else {
         Ok(id.to_owned())
     }
@@ -215,21 +208,21 @@ pub async fn details(
     transport: &GraphQlTransport,
     id: &str,
     original: &str,
-) -> Result<CurrentInitiative, AppError> {
+) -> Result<CurrentInitiative, Error> {
     let req = GraphQlRequest::with_variables(GetInitiativeForUpdate::build(DetailVariables {
         id: id.to_owned(),
     }));
     let result: GetInitiativeForUpdate = exchange(transport, &req, false, false)
         .await
-        .map_err(|e| e.error().with_context("Failed to fetch initiative details"))?;
+        .map_err(|e| e.error().context("Failed to fetch initiative details"))?;
     result
         .initiative
-        .ok_or_else(|| AppError::not_found("Initiative", original))
+        .ok_or_else(|| Error::not_found("Initiative", original))
 }
 pub async fn owner(
     transport: &GraphQlTransport,
     input: Option<&str>,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     let Some(input) = input else { return Ok(None) };
     reject_linear_url(input, "an email, username, display name, or @me")?;
     let id = if input == "@me" || input == "self" {
@@ -249,24 +242,23 @@ pub async fn owner(
     };
     id.filter(|id| !id.inner().is_empty())
         .map(|id| Some(id.into_inner()))
-        .ok_or_else(|| AppError::not_found("Owner", input))
+        .ok_or_else(|| Error::not_found("Owner", input))
 }
 pub async fn submit(
     transport: &GraphQlTransport,
     id: &str,
     input: InitiativeUpdateInput,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let req = GraphQlRequest::with_variables(UpdateInitiative::build(UpdateVariables {
         id: id.to_owned(),
         input,
     }));
     let result: UpdateInitiative = exchange(transport, &req, false, true)
         .await
-        .map_err(|e| e.error().with_context("Failed to update initiative"))?;
+        .map_err(|e| e.error().context("Failed to update initiative"))?;
     if !result.initiative_update.success {
         return Err(
-            AppError::new(AppErrorKind::GraphQl, "Failed to update initiative")
-                .with_context("Failed to update initiative"),
+            Error::new("Failed to update initiative").context("Failed to update initiative")
         );
     }
     let updated = result.initiative_update.initiative;
@@ -280,7 +272,7 @@ pub async fn submit(
 pub fn prompt<R: Read, W: Write>(
     session: &mut PromptSession<R, W>,
     current: &CurrentInitiative,
-) -> Result<PromptOutcome<Fields>, AppError> {
+) -> Result<PromptOutcome<Fields>, Error> {
     let mut fields = Fields::default();
     macro_rules! text {
         ($message:expr,$default:expr) => {

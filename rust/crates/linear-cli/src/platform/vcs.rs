@@ -5,7 +5,7 @@ use std::process::{Command, ExitStatus, Stdio};
 use std::thread;
 
 use crate::config::Vcs;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::refs::find_issue_identifier;
 
 pub const JJ_TEMPLATE: &str = "trailers.map(|t| if(t.key() == \"Linear-issue\", t.value(), \"\"))";
@@ -29,26 +29,19 @@ pub fn parse_git_branch(
     success: bool,
     stdout: &str,
     stderr: &str,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     if !success {
         let error = stderr.trim();
         if error.contains("not a symbolic ref") {
             return Ok(None);
         }
-        return Err(AppError::new(
-            AppErrorKind::IoProcess,
-            format!("Failed to get current branch: {error}"),
-        ));
+        return Err(Error::new(format!("Failed to get current branch: {error}")));
     }
     Ok(find_issue_identifier(stdout.trim()))
 }
 
-fn process_error(stage: &str, error: io::Error) -> AppError {
-    AppError::new(
-        AppErrorKind::IoProcess,
-        format!("Failed to {stage}: {error}"),
-    )
-    .with_source(error)
+fn process_error(stage: &str, error: io::Error) -> Error {
+    Error::new(format!("Failed to {stage}: {error}")).with_source(error)
 }
 
 fn read_output(mut input: impl Read) -> io::Result<Vec<u8>> {
@@ -61,7 +54,7 @@ fn probe(
     program: &str,
     args: &[&str],
     cwd: &Path,
-) -> Result<(ExitStatus, Vec<u8>, Vec<u8>), AppError> {
+) -> Result<(ExitStatus, Vec<u8>, Vec<u8>), Error> {
     let mut child = Command::new(program)
         .args(args)
         .current_dir(cwd)
@@ -75,33 +68,33 @@ fn probe(
             } else {
                 format!("Failed to spawn '{program}': {error}")
             };
-            AppError::new(AppErrorKind::IoProcess, message).with_source(error)
+            Error::new(message).with_source(error)
         })?;
     let stdout = child
         .stdout
         .take()
-        .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "VCS stdout was not piped"))?;
+        .ok_or_else(|| Error::new("VCS stdout was not piped"))?;
     let stderr = child
         .stderr
         .take()
-        .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "VCS stderr was not piped"))?;
+        .ok_or_else(|| Error::new("VCS stderr was not piped"))?;
     thread::scope(|scope| {
         let out = scope.spawn(|| read_output(stdout));
         let err = scope.spawn(|| read_output(stderr));
         let status = child.wait().map_err(|e| process_error("wait for VCS", e));
         let stdout = out
             .join()
-            .map_err(|_| AppError::new(AppErrorKind::Invariant, "VCS stdout reader panicked"))?
+            .map_err(|_| Error::new("VCS stdout reader panicked"))?
             .map_err(|e| process_error("read VCS stdout", e))?;
         let stderr = err
             .join()
-            .map_err(|_| AppError::new(AppErrorKind::Invariant, "VCS stderr reader panicked"))?
+            .map_err(|_| Error::new("VCS stderr reader panicked"))?
             .map_err(|e| process_error("read VCS stderr", e))?;
         Ok((status?, stdout, stderr))
     })
 }
 
-pub fn infer_issue(vcs: Vcs, cwd: &Path) -> Result<Option<String>, AppError> {
+pub fn infer_issue(vcs: Vcs, cwd: &Path) -> Result<Option<String>, Error> {
     match vcs {
         Vcs::Git => {
             let (status, stdout, stderr) = probe("git", &["symbolic-ref", "--short", "HEAD"], cwd)?;

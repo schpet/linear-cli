@@ -1,6 +1,6 @@
 use super::issue_write::{self as shared, Backend};
 use crate::{
-    error::AppError,
+    error::Error,
     graphql::{edit::Edit, operations::issue_update::IssueUpdateInput, scalars::TimelessDate},
 };
 #[derive(Clone, Debug, Default)]
@@ -31,7 +31,7 @@ pub struct Fields {
 }
 impl Fields {
     /// Flag conflicts, checked before reading files, inferring an issue or any request.
-    pub fn local(&self) -> Result<Option<String>, AppError> {
+    pub fn local(&self) -> Result<Option<String>, Error> {
         let conflicts = [
             (
                 self.unassign && self.assignee.is_some(),
@@ -87,7 +87,7 @@ impl Fields {
         ];
         for (conflict, message, suggestion) in conflicts {
             if conflict {
-                return Err(shared::validation(message).with_suggestion(suggestion));
+                return Err(shared::validation(message).with_hint(suggestion));
             }
         }
         shared::description(
@@ -100,7 +100,7 @@ async fn labels<B: Backend>(
     backend: &B,
     team: &str,
     names: Option<&[String]>,
-) -> Result<Vec<String>, AppError> {
+) -> Result<Vec<String>, Error> {
     let mut ids = Vec::new();
     for name in names.unwrap_or_default() {
         let id = backend
@@ -108,7 +108,7 @@ async fn labels<B: Backend>(
             .await?
             .filter(|id| !id.is_empty())
             .ok_or_else(|| {
-                AppError::not_found("Issue label", name).with_suggestion(format!(
+                Error::not_found("Issue label", name).with_hint(format!(
                     "Run `linear label list --team {team}` to see available labels."
                 ))
             })?;
@@ -123,7 +123,7 @@ pub async fn input<B: Backend>(
     issue_id: &str,
     fields: &Fields,
     description: Option<String>,
-) -> Result<IssueUpdateInput, AppError> {
+) -> Result<IssueUpdateInput, Error> {
     // Always resolve team, including a no-flags update. No no-op shortcut.
     let reference = fields
         .team
@@ -139,7 +139,7 @@ pub async fn input<B: Backend>(
         Some(value) => {
             let id = backend.user(value.clone()).await?;
             if id.is_empty() {
-                return Err(AppError::not_found("User", value));
+                return Err(Error::not_found("User", value));
             }
             Some(id)
         }
@@ -151,14 +151,12 @@ pub async fn input<B: Backend>(
     if added.iter().any(|id| removed.contains(id)) {
         return Err(
             shared::validation("Cannot add and remove the same label in one update")
-                .with_suggestion(
-                    "Remove the duplicate label from either --add-label or --remove-label.",
-                ),
+                .with_hint("Remove the duplicate label from either --add-label or --remove-label."),
         );
     }
     let project = match &fields.project {
         Some(value) => Some(backend.project(value.clone()).await?.ok_or_else(|| {
-            AppError::not_found("Project", value).with_suggestion(
+            Error::not_found("Project", value).with_hint(
                 "Pass a project UUID, slug ID (from `linear project list`), or exact project name.",
             )
         })?),
@@ -172,7 +170,7 @@ pub async fn input<B: Backend>(
                 None => backend.issue_project(issue_id.to_owned()).await?,
             };
             let project=project.ok_or_else(||shared::validation("--milestone requires --project to be set (issue has no existing project)")
-                .with_suggestion("Use --project to specify the project for the milestone, or pass a milestone UUID directly."))?;
+                .with_hint("Use --project to specify the project for the milestone, or pass a milestone UUID directly."))?;
             Some(backend.milestone(project, value.clone()).await?)
         }
         None => None,

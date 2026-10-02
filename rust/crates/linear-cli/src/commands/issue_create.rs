@@ -1,6 +1,6 @@
 use super::issue_write::{self as shared, AssignSelf, Backend, CreateSettings, Parent, Ui};
 use crate::{
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{edit::Edit, scalars::TimelessDate},
 };
 #[derive(Clone, Debug, Default)]
@@ -26,7 +26,7 @@ pub struct Fields {
 }
 pub type Input = crate::graphql::operations::issue_create::IssueCreateInput;
 impl Fields {
-    pub fn local(&self) -> Result<Option<String>, AppError> {
+    pub fn local(&self) -> Result<Option<String>, Error> {
         shared::description(
             self.description.as_deref(),
             self.description_file.as_deref(),
@@ -49,10 +49,10 @@ impl Fields {
             && !self.start
             && self.template.is_none()
     }
-    pub fn require_flag_title(&self) -> Result<(), AppError> {
+    pub fn require_flag_title(&self) -> Result<(), Error> {
         if shared::truthy(self.title.as_deref()).is_none() && self.template.is_none() {
             return Err(shared::validation("Title is required when not using interactive mode")
-                .with_suggestion("Use --title, pass --template to take the title from a template, or run without any flags (or only --parent/--project) for interactive mode."));
+                .with_hint("Use --title, pass --template to take the title from a template, or run without any flags (or only --parent/--project) for interactive mode."));
         }
         Ok(())
     }
@@ -64,12 +64,12 @@ pub trait Templates {
         &self,
         reference: String,
         team_id: String,
-    ) -> impl std::future::Future<Output = Result<String, AppError>> + Send;
+    ) -> impl std::future::Future<Output = Result<String, Error>> + Send;
 }
 pub async fn parent<B: Backend>(
     backend: &B,
     reference: Option<&str>,
-) -> Result<(Option<String>, Option<Parent>), AppError> {
+) -> Result<(Option<String>, Option<Parent>), Error> {
     match shared::truthy(reference) {
         None => Ok((None, None)),
         Some(reference) => {
@@ -84,7 +84,7 @@ pub async fn project<B: Backend, U: Ui>(
     ui: &mut U,
     value: &str,
     interactive: bool,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     if let Some(id) = backend.project(value.to_owned()).await? {
         return Ok(id);
     }
@@ -96,7 +96,7 @@ pub async fn project<B: Backend, U: Ui>(
             return Ok(id);
         }
     }
-    Err(AppError::not_found("Project", value))
+    Err(Error::not_found("Project", value))
 }
 pub struct FlagInput {
     pub input: Input,
@@ -109,7 +109,7 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
     fields: &Fields,
     description: Option<String>,
     interactive_fallback: bool,
-) -> Result<FlagInput, AppError> {
+) -> Result<FlagInput, Error> {
     let (team_id, team_reference) = match &fields.team {
         Some(value) => {
             let team = backend.team(value.clone()).await?;
@@ -135,7 +135,7 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
                         None
                     };
                     (
-                        id.ok_or_else(|| AppError::not_found("Team", &reference))?,
+                        id.ok_or_else(|| Error::not_found("Team", &reference))?,
                         reference,
                     )
                 }
@@ -186,7 +186,7 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
         }
         label_ids.push(
             id.filter(|id| !id.is_empty())
-                .ok_or_else(|| AppError::not_found("Issue label", value))?,
+                .ok_or_else(|| Error::not_found("Issue label", value))?,
         );
     }
     let project = match &fields.project {
@@ -197,7 +197,7 @@ pub async fn flag_input<B: Backend + Templates, U: Ui>(
         Some(value) if crate::refs::is_linear_uuid(value) => Some(value.clone()),
         Some(value) => {
             let project=project.clone().ok_or_else(||shared::validation("--milestone requires --project to be set")
-                .with_suggestion("Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly."))?;
+                .with_hint("Use --project to specify which project the milestone belongs to, or pass a milestone UUID directly."))?;
             Some(backend.milestone(project, value.clone()).await?)
         }
         None => None,
@@ -259,7 +259,7 @@ pub fn select_option<U: Ui>(
     kind: &str,
     original: &str,
     options: &[shared::Named],
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     let mut seen = std::collections::HashSet::new();
     let candidates: Vec<&shared::Named> = options
         .iter()
@@ -294,9 +294,9 @@ pub fn select_option<U: Ui>(
         })
         .collect();
     let selected = ui.choose(&message, &menu, 0, false)?;
-    let index = selected.parse::<usize>().map_err(|error| {
-        AppError::new(AppErrorKind::Invariant, "menu returned an unknown choice").with_source(error)
-    })?;
+    let index = selected
+        .parse::<usize>()
+        .map_err(|error| Error::new("menu returned an unknown choice").with_source(error))?;
     Ok(candidates.get(index).map(|option| option.id.clone()))
 }
 

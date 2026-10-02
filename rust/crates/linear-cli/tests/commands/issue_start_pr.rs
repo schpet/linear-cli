@@ -2,7 +2,7 @@
 use linear_cli::{
     commands::{issue_pull_request as pr, issue_start as start},
     config::{ChildEnvOverlay, FileKind, FileSource, OsFamily, ProcessEnvSnapshot},
-    error::AppError,
+    error::Error,
     graphql::{
         bulk_error::{ObservedExchangeFailure, SourceException, SourceExceptionKind},
         operations::workflow_states::WorkflowState,
@@ -63,7 +63,7 @@ impl ProcessRunner for Runner {
         spec: &CommandSpec,
         _: &Path,
         _: &ChildEnvOverlay,
-    ) -> Result<Captured, AppError> {
+    ) -> Result<Captured, Error> {
         self.calls.push(spec.clone());
         Ok(self.outcomes.pop_front().expect("unexpected process"))
     }
@@ -72,20 +72,22 @@ impl ProcessRunner for Runner {
         _: &CommandSpec,
         _: &Path,
         _: &ChildEnvOverlay,
-    ) -> Result<ChildOutcome, AppError> {
+    ) -> Result<ChildOutcome, Error> {
         panic!("start may not inherit Git/jj")
     }
 }
 #[test]
 fn team_preempts_conflict_and_picker_filters_preserve_assignee_shapes() {
     assert_eq!(
-        start::team_and_flags(None, true, true).unwrap_err().message,
+        start::team_and_flags(None, true, true)
+            .unwrap_err()
+            .message(),
         "Could not determine team ID"
     );
     assert_eq!(
         start::team_and_flags(Some("ENG"), true, true)
             .unwrap_err()
-            .message,
+            .message(),
         "Cannot specify both --all-assignees and --unassigned"
     );
     for (all, unassigned, expected) in [
@@ -122,7 +124,10 @@ fn git_switch_and_suffix_failures_keep_exact_argv_and_correct_branch_diagnostics
         &env,
     )
     .unwrap_err();
-    assert_eq!(err.message, "Failed to switch to branch 'B': DUMMY switch");
+    assert_eq!(
+        err.message(),
+        "Failed to switch to branch 'B': DUMMY switch"
+    );
     assert_eq!(
         runner.calls,
         vec![CommandSpec::new(Program::Git, &["checkout", "B"])]
@@ -142,7 +147,7 @@ fn git_switch_and_suffix_failures_keep_exact_argv_and_correct_branch_diagnostics
         &env,
     )
     .unwrap_err();
-    assert_eq!(err.message, "Failed to create branch 'B-3': DUMMY create");
+    assert_eq!(err.message(), "Failed to create branch 'B-3': DUMMY create");
     assert_eq!(
         runner.calls,
         vec![
@@ -166,7 +171,7 @@ fn jj_probes_ignore_status_and_failures_decode_without_trimming_plus_extra_lf() 
     assert_eq!(
         start::prepare_jj(&mut runner, cwd, &env, &mut err)
             .unwrap_err()
-            .message,
+            .message(),
         "Failed to create new jj change"
     );
     assert_eq!(err, "DUMMY\u{fffd} \n\n".as_bytes());
@@ -187,7 +192,7 @@ fn jj_probes_ignore_status_and_failures_decode_without_trimming_plus_extra_lf() 
             &mut err
         )
         .unwrap_err()
-        .message,
+        .message(),
         "Failed to set jj description"
     );
     assert_eq!(err, "DUMMY\u{fffd} \n\n".as_bytes());
@@ -222,7 +227,7 @@ fn state_chooses_lowest_started_with_stable_ties_and_raw_sdk_not_preferred() {
     .unwrap();
     assert_eq!(chosen.id.inner(), "first");
     assert_eq!(
-        start::started(vec![]).unwrap_err().message,
+        start::started(vec![]).unwrap_err().message(),
         "No 'started' state found in workflow"
     );
     let failure = ObservedExchangeFailure::Ordinary(SourceException {
@@ -308,21 +313,21 @@ fn pr_template_follows_symlink_strips_bom_and_refuses_invalid_nul_missing_direct
         (root.clone(), "is a directory, not a file"),
     ] {
         let error = pr::read_template(&path).unwrap_err();
-        assert!(error.message.contains(reason));
-        assert_eq!(error.suggestion.as_deref(), Some(pr::TEMPLATE_SUGGESTION));
+        assert!(error.message().contains(reason));
+        assert_eq!(error.hint(), Some(pr::TEMPLATE_SUGGESTION));
     }
     std::fs::write(&file, b"DUMMY\xff").unwrap();
     assert!(
         pr::read_template(&file)
             .unwrap_err()
-            .message
+            .message()
             .ends_with("is not valid UTF-8 text")
     );
     std::fs::write(&file, b"DUMMY\0").unwrap();
     assert!(
         pr::read_template(&file)
             .unwrap_err()
-            .message
+            .message()
             .ends_with("is not a text file")
     );
     std::fs::remove_dir_all(root).unwrap();
@@ -339,7 +344,7 @@ fn gh_non_success_is_handled_not_forwarded_and_has_no_retry() {
             args: &[String],
             _: &Path,
             _: &ChildEnvOverlay,
-        ) -> Result<bool, AppError> {
+        ) -> Result<bool, Error> {
             self.calls += 1;
             assert_eq!(args, ["pr"]);
             Ok(self.success)
@@ -350,7 +355,7 @@ fn gh_non_success_is_handled_not_forwarded_and_has_no_retry() {
         let result = pr::create(&mut gh, &["pr".into()], Path::new("/dummy"), &overlay());
         assert_eq!(result.is_ok(), success);
         if let Err(error) = result {
-            assert_eq!(error.message, "Failed to create pull request");
+            assert_eq!(error.message(), "Failed to create pull request");
         }
         assert_eq!(gh.calls, 1);
     }

@@ -8,7 +8,7 @@ use crate::{
         },
     },
     config::{ConfigOptions, ConfigSecret, TransportEnvInputs},
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error::{ObservedExchangeFailure, execute_observed},
         envelope::GraphQlRequest,
@@ -30,16 +30,13 @@ pub fn supplied_key(input: Option<&str>) -> Option<ConfigSecret> {
         .filter(|key| !key.is_empty())
         .map(|key| ConfigSecret::new(key.to_owned()))
 }
-pub fn clean_key(key: ConfigSecret) -> Result<ConfigSecret, AppError> {
+pub fn clean_key(key: ConfigSecret) -> Result<ConfigSecret, Error> {
     let trimmed = key
         .expose()
         .trim()
         .trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '_');
     if trimmed.is_empty() {
-        return Err(
-            AppError::new(AppErrorKind::Validation, "No API key provided")
-                .with_suggestion(SECRET_HINT),
-        );
+        return Err(Error::new("No API key provided").with_hint(SECRET_HINT));
     }
     Ok(ConfigSecret::new(trimmed.to_owned()))
 }
@@ -47,20 +44,16 @@ pub fn prepare_transport(
     options: &ConfigOptions,
     env: &TransportEnvInputs,
     key: &ConfigSecret,
-) -> Result<GraphQlTransport, AppError> {
+) -> Result<GraphQlTransport, Error> {
     let api_key = ApiKey::new(key.expose().to_owned()).map_err(|error| {
-        AppError::new(
-            AppErrorKind::Validation,
-            "API key cannot be used as an HTTP header",
-        )
-        .with_source(error)
+        Error::new("API key cannot be used as an HTTP header").with_source(error)
     })?;
     GraphQlTransport::new(
         options.endpoint().value().clone(),
         api_key,
         env.production(),
     )
-    .map_err(AppError::from)
+    .map_err(Error::from)
 }
 pub async fn authenticate(
     transport: &GraphQlTransport,
@@ -100,8 +93,7 @@ pub async fn add_authenticated(
         no_color,
     } = options;
     if !plaintext && state.format() != CredentialFormat::Inline && !backend.available().await {
-        return Err(MutationFailure::Typed(AppError::new(
-            AppErrorKind::Validation,
+        return Err(MutationFailure::Typed(Error::new(
             "No system keyring found. Use `--plaintext` to store credentials in the config file, or set `LINEAR_API_KEY`.",
         )));
     }
@@ -170,9 +162,8 @@ pub async fn migrate(
     )
     .into_bytes())
 }
-pub fn environment_warning(options: &ConfigOptions, no_color: bool) -> Result<Vec<u8>, AppError> {
-    let input = crate::auth::ApiKeyInput::from_options(options)
-        .map_err(|error| AppError::new(AppErrorKind::Invariant, error.to_string()))?;
+pub fn environment_warning(options: &ConfigOptions, no_color: bool) -> Result<Vec<u8>, Error> {
+    let input = crate::auth::ApiKeyInput::from_options(options);
     if !matches!(input, crate::auth::ApiKeyInput::Raw { value, .. } if !value.expose().is_empty()) {
         return Ok(Vec::new());
     }

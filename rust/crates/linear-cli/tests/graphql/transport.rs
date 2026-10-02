@@ -15,7 +15,6 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use cynic::{MutationBuilder, QueryBuilder};
-use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::edit::Edit;
 use linear_cli::graphql::envelope::{
     GraphQlRequest, ResponseError, graphql_message, require_entity, require_success,
@@ -381,11 +380,9 @@ fn ca_bundle_must_be_a_readable_pem_file_with_certificates() {
         matches!(error, TransportBuildError::CaInvalid { .. }),
         "{error:?}"
     );
-    let app = linear_cli::error::AppError::from(error);
-    assert_eq!(app.kind, AppErrorKind::Validation);
+    let app = linear_cli::error::Error::from(error);
     assert!(
-        app.display_message()
-            .starts_with("SSL_CERT_FILE: CA bundle "),
+        app.to_string().starts_with("SSL_CERT_FILE: CA bundle "),
         "{app}"
     );
     std::fs::remove_dir_all(&dir).expect("cleanup");
@@ -447,8 +444,7 @@ async fn failures_never_expose_query_tokens_or_the_api_key() {
         assert!(!text.contains("SECRET_KEY"), "{text}");
         assert!(!text.contains("/graphql"), "{text}");
     }
-    let app: linear_cli::error::AppError = failure.into();
-    assert_eq!(app.kind, AppErrorKind::Transport);
+    let app: linear_cli::error::Error = failure.into();
     assert!(std::error::Error::source(&app).is_some());
 }
 
@@ -663,8 +659,6 @@ async fn silent_server_hits_the_total_deadline() {
             server.port
         )
     );
-    let app: linear_cli::error::AppError = failure.into();
-    assert_eq!(app.kind, AppErrorKind::Transport);
     let observed = server.stop();
     assert!(observed.accepted);
 }
@@ -1169,8 +1163,6 @@ async fn graphql_errors_classify_ahead_of_http_status() {
         failure.to_string(),
         "Something went wrong. Please try again."
     );
-    let app: linear_cli::error::AppError = failure.into();
-    assert_eq!(app.kind, AppErrorKind::GraphQl);
 
     let failure = transport
         .execute::<GetTeams, _>(&page_one)
@@ -1289,8 +1281,6 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
         !debug.contains("Too Many Requests\\n"),
         "body bytes stay out of Debug: {debug}"
     );
-    let app: linear_cli::error::AppError = failure.into();
-    assert_eq!(app.kind, AppErrorKind::Transport);
 
     let failure = next().await.expect_err("502");
     let TransportFailure::Http { response, body } = &failure else {
@@ -1345,8 +1335,6 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
         ),
         "{failure:?}"
     );
-    let app: linear_cli::error::AppError = failure.into();
-    assert_eq!(app.kind, AppErrorKind::GraphQl);
 
     let failure = next().await.expect_err("wrong shape");
     assert!(
@@ -1356,8 +1344,6 @@ async fn http_failures_keep_raw_bytes_and_bad_bodies_classify_separately() {
         ),
         "{failure:?}"
     );
-    let app: linear_cli::error::AppError = failure.into();
-    assert_eq!(app.kind, AppErrorKind::Invariant);
 
     let report = server.finish();
     report.assert_clean();

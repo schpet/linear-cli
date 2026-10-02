@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use super::{CredentialFormat, CredentialStore};
 use crate::config::ConfigSecret;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 pub trait CredentialFileWriter {
     fn write_credentials(&self, path: &Path, contents: &[u8]) -> io::Result<()>;
@@ -42,17 +42,14 @@ impl fmt::Debug for CredentialWritePlan {
     }
 }
 impl CredentialWritePlan {
-    pub fn save(&self, writer: &impl CredentialFileWriter) -> Result<(), AppError> {
+    pub fn save(&self, writer: &impl CredentialFileWriter) -> Result<(), Error> {
         writer
             .write_credentials(&self.path, &self.contents)
             .map_err(|error| {
-                AppError::new(
-                    AppErrorKind::IoProcess,
-                    format!(
-                        "Failed to write credentials file at {}: {error}",
-                        self.path.display()
-                    ),
-                )
+                Error::new(format!(
+                    "Failed to write credentials file at {}: {error}",
+                    self.path.display()
+                ))
                 .with_source(error)
             })
     }
@@ -83,7 +80,7 @@ pub(crate) fn credentials_text(
     default: Option<&str>,
     workspaces: &[String],
     keys: &BTreeMap<String, ConfigSecret>,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let mut names = workspaces.iter().map(String::as_str).collect::<Vec<_>>();
     names.sort_unstable();
     let mut output = String::new();
@@ -101,17 +98,12 @@ pub(crate) fn credentials_text(
         CredentialFormat::Inline => {
             for name in names {
                 if name == "default" || name == "workspaces" {
-                    return Err(AppError::new(
-                        AppErrorKind::Validation,
-                        format!(
-                            "A workspace named \"{name}\" cannot be stored in a plaintext credentials file"
-                        ),
-                    ));
+                    return Err(Error::new(format!(
+                        "A workspace named \"{name}\" cannot be stored in a plaintext credentials file"
+                    )));
                 }
                 let key = keys.get(name).ok_or_else(|| {
-                    AppError::new(
-                        AppErrorKind::Invariant,
-                        format!(
+                    Error::new(format!(
                             "Cannot save inline credentials: API key for workspace \"{name}\" is missing from cache"
                         ),
                     )
@@ -132,19 +124,11 @@ pub fn prepare_default_write(
     store: &CredentialStore,
     workspace: &str,
     path: Option<&Path>,
-) -> Result<CredentialWritePlan, AppError> {
+) -> Result<CredentialWritePlan, Error> {
     if !store.workspaces().iter().any(|name| name == workspace) {
-        return Err(AppError::new(
-            AppErrorKind::Invariant,
-            "default write requires a stored workspace",
-        ));
+        return Err(Error::new("default write requires a stored workspace"));
     }
-    let path = path.ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::IoProcess,
-            "Could not determine credentials path",
-        )
-    })?;
+    let path = path.ok_or_else(|| Error::new("Could not determine credentials path"))?;
     let (format, workspaces, _, keys) = store.mutation_parts();
     let contents = credentials_text(format, Some(workspace), &workspaces, &keys)?;
     Ok(CredentialWritePlan {

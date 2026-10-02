@@ -1,9 +1,10 @@
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct User {
     #[command(subcommand)]
-    pub command: Option<UserCommand>,
+    pub command: UserCommand,
 }
 
 #[derive(Debug, Subcommand)]

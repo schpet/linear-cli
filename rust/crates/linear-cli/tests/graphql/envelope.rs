@@ -1,4 +1,3 @@
-use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::{
     ResponseError, graphql_message, is_not_found, parse_response, require_entity, require_success,
 };
@@ -46,9 +45,8 @@ fn errors_only_classify_as_graphql_without_partial_data() {
         other => panic!("expected GraphQl, got {other:?}"),
     }
     assert_eq!(error.to_string(), "Could not find referenced Issue.");
-    let app: linear_cli::error::AppError = error.into();
-    assert_eq!(app.kind, AppErrorKind::GraphQl);
-    assert_eq!(app.display_message(), "Could not find referenced Issue.");
+    let app: linear_cli::error::Error = error.into();
+    assert_eq!(app.to_string(), "Could not find referenced Issue.");
 }
 
 #[test]
@@ -90,8 +88,6 @@ fn null_data_without_errors_is_missing_data() {
             matches!(error, ResponseError::MissingData),
             "{body}: {error:?}"
         );
-        let app: linear_cli::error::AppError = error.into();
-        assert_eq!(app.kind, AppErrorKind::GraphQl);
     }
 }
 
@@ -120,8 +116,6 @@ fn errors_with_null_root_field_incompatible_with_the_type_are_graphql_errors() {
         other => panic!("expected GraphQl, got {other:?}"),
     }
     assert_eq!(error.to_string(), "Could not find referenced Issue.");
-    let app: linear_cli::error::AppError = error.into();
-    assert_eq!(app.kind, AppErrorKind::GraphQl);
 
     let body = r#"{"data":{"agentSession":null},"errors":[{"message":"Entity not found: AgentSession","path":["agentSession"]}]}"#;
     let error = parse_response::<GetAgentSessionDetails>(body.as_bytes()).expect_err("errors");
@@ -136,9 +130,8 @@ fn errors_with_null_root_field_incompatible_with_the_type_are_graphql_errors() {
         }
         other => panic!("expected GraphQl, got {other:?}"),
     }
-    let app: linear_cli::error::AppError = error.into();
-    assert_eq!(app.kind, AppErrorKind::GraphQl);
-    assert_eq!(app.display_message(), "Entity not found: AgentSession");
+    let app: linear_cli::error::Error = error.into();
+    assert_eq!(app.to_string(), "Entity not found: AgentSession");
 }
 
 #[test]
@@ -177,8 +170,6 @@ fn malformed_json_syntax_classifies_as_malformed_json() {
             "{body}: {error}"
         );
         assert!(std::error::Error::source(&error).is_some());
-        let app: linear_cli::error::AppError = error.into();
-        assert_eq!(app.kind, AppErrorKind::Transport);
     }
 }
 
@@ -213,10 +204,9 @@ fn well_formed_json_with_the_wrong_shape_is_unexpected_shape_not_malformed() {
         );
         assert!(message.contains(fragment), "{body}: {message}");
         assert!(std::error::Error::source(&error).is_some());
-        let app: linear_cli::error::AppError = error.into();
-        assert_eq!(app.kind, AppErrorKind::Invariant);
+        let app: linear_cli::error::Error = error.into();
         assert_eq!(
-            app.with_context("Failed to update issue").display_message(),
+            app.context("Failed to update issue").to_string(),
             format!("Failed to update issue: {message}")
         );
     }
@@ -231,10 +221,9 @@ fn false_success_and_null_entity_are_typed_payload_failures() {
     assert_eq!(rejected.to_string(), "operation reported success: false");
     let missing = require_entity(data.issue_update.issue).expect_err("missing");
     assert!(matches!(missing, ResponseError::MissingPayloadEntity));
-    let app: linear_cli::error::AppError = missing.into();
-    assert_eq!(app.kind, AppErrorKind::GraphQl);
+    let app: linear_cli::error::Error = missing.into();
     assert_eq!(
-        app.with_context("Failed to update issue").display_message(),
+        app.context("Failed to update issue").to_string(),
         "Failed to update issue: operation succeeded but returned no entity"
     );
 }

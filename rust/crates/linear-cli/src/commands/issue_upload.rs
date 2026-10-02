@@ -1,6 +1,6 @@
 //! Issue-specific comment ID/body composition and attachment mutation/output.
 use super::upload::UploadedFile;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::{GraphQlRequest, is_not_found};
 use crate::graphql::operations::upload::{
     AttachmentCreate, AttachmentCreateInput, AttachmentCreateVariables, CreatedAttachment,
@@ -9,24 +9,19 @@ use crate::graphql::operations::upload::{
 use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use cynic::{MutationBuilder, QueryBuilder};
 pub const ATTACH_CONTEXT: &str = "Failed to attach file";
-pub fn unresolved() -> AppError {
-    AppError::new(AppErrorKind::Validation, "Could not determine issue ID")
-        .with_suggestion("Please provide an issue ID like 'ENG-123'.")
+pub fn unresolved() -> Error {
+    Error::new("Could not determine issue ID")
+        .with_hint("Please provide an issue ID like 'ENG-123'.")
 }
-pub fn validate_comment_id(id: Option<&str>) -> Result<(), AppError> {
+pub fn validate_comment_id(id: Option<&str>) -> Result<(), Error> {
     if let Some(id) = id {
         let bytes = id.as_bytes();
         if !(crate::refs::is_linear_uuid(id)
             && bytes.get(14) == Some(&b'4')
             && matches!(bytes.get(19), Some(b'8' | b'9' | b'a' | b'A' | b'b' | b'B')))
         {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("Invalid comment ID: {id}"),
-            )
-            .with_suggestion(
-                "--id must be a v4 UUID, like 123e4567-e89b-42d3-a456-426614174000.",
-            ));
+            return Err(Error::new(format!("Invalid comment ID: {id}"))
+                .with_hint("--id must be a v4 UUID, like 123e4567-e89b-42d3-a456-426614174000."));
         }
     }
     Ok(())
@@ -51,7 +46,7 @@ pub fn lookup_request(identifier: &str) -> GraphQlRequest<GetIssueIdVariables> {
         id: identifier.to_owned(),
     }))
 }
-pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<String, AppError> {
+pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<String, Error> {
     let data: GetIssueId = transport
         .execute(&lookup_request(identifier))
         .await
@@ -59,15 +54,15 @@ pub async fn lookup(transport: &GraphQlTransport, identifier: &str) -> Result<St
             if let TransportFailure::GraphQl { errors, .. } = &failure
                 && is_not_found(errors)
             {
-                AppError::not_found("Issue", identifier)
+                Error::not_found("Issue", identifier)
             } else {
-                AppError::from(failure)
+                Error::from(failure)
             }
         })?;
     data.issue
         .map(|x| x.id.into_inner())
         .filter(|x| !x.is_empty())
-        .ok_or_else(|| AppError::not_found("Issue", identifier))
+        .ok_or_else(|| Error::not_found("Issue", identifier))
 }
 pub fn attach_request(
     issue_uuid: &str,
@@ -93,16 +88,13 @@ pub async fn attach(
     file: &UploadedFile,
     title: Option<&str>,
     comment: Option<&str>,
-) -> Result<CreatedAttachment, AppError> {
+) -> Result<CreatedAttachment, Error> {
     let data: AttachmentCreate = transport
         .execute(&attach_request(issue_uuid, file, title, comment))
         .await
-        .map_err(AppError::from)?;
+        .map_err(Error::from)?;
     if !data.attachment_create.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to create attachment",
-        ));
+        return Err(Error::new("Failed to create attachment"));
     }
     Ok(data.attachment_create.attachment)
 }

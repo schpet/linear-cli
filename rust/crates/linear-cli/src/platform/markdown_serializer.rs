@@ -1,8 +1,8 @@
 //! Markdown serialization through the vendored mdast serializer.
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use markdown::mdast::Node;
 
-pub fn serialize(node: &Node) -> Result<String, AppError> {
+pub fn serialize(node: &Node) -> Result<String, Error> {
     mdast_util_to_markdown::to_markdown_with_options(
         node,
         &mdast_util_to_markdown::Options {
@@ -10,10 +10,5 @@ pub fn serialize(node: &Node) -> Result<String, AppError> {
             ..mdast_util_to_markdown::Options::default()
         },
     )
-    .map_err(|error| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            format!("Could not rewrite document Markdown: {error}"),
-        )
-    })
+    .map_err(|error| Error::new(format!("Could not rewrite document Markdown: {error}")))
 }

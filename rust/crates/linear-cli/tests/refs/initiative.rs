@@ -1,5 +1,5 @@
 use linear_cli::auth::ApiKeyInput;
-use linear_cli::error::AppError;
+use linear_cli::error::Error;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::refs::{
     InitiativeReference, WorkspaceScope, prepare_initiative_lookup, resolve_document_reference,
@@ -14,7 +14,7 @@ fn scope<'a>(key: &'a ApiKeyInput<'a>) -> WorkspaceScope<'a> {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: key,
+        api_key: key.clone(),
     }
 }
 #[test]
@@ -55,13 +55,13 @@ fn comment_references_validate_urls_locally_and_reduce_only_document_urls() {
             &local
         )
         .expect_err("kind")
-        .message
+        .message()
         .contains("not an initiative URL")
     );
     assert!(
         resolve_document_reference("https://linear.app/acme/project/X-abc123def456", &local)
             .expect_err("kind")
-            .message
+            .message()
             .contains("not a document URL")
     );
     local.sourced_workspace = Some("other");
@@ -71,14 +71,14 @@ fn comment_references_validate_urls_locally_and_reduce_only_document_urls() {
             &local
         )
         .expect_err("workspace first")
-        .message
+        .message()
         .starts_with("That URL is for")
     );
 }
 #[tokio::test]
 async fn strict_initiative_uuid_and_url_hits_never_fall_through_to_names() {
-    let no_slug = |_| ready(Err(AppError::not_found("unexpected", "slug")));
-    let no_name = |_| ready(Err(AppError::not_found("unexpected", "name")));
+    let no_slug = |_| ready(Err(Error::not_found("unexpected", "slug")));
+    let no_name = |_| ready(Err(Error::not_found("unexpected", "name")));
     assert_eq!(
         resolve_initiative_with(&InitiativeReference::Id(ID.into()), ID, no_slug, no_name)
             .await
@@ -98,7 +98,7 @@ async fn strict_initiative_uuid_and_url_hits_never_fall_through_to_names() {
                         .to_string()
                         .as_bytes(),
                 )
-                .map_err(AppError::from),
+                .map_err(Error::from),
             )
         },
         no_name,
@@ -113,25 +113,25 @@ async fn strict_initiative_uuid_and_url_hits_never_fall_through_to_names() {
 }
 #[tokio::test]
 async fn strict_initiative_slug_miss_then_exact_name_preserves_full_ambiguity() {
-    let result = resolve_initiative_with(&InitiativeReference::NameOrSlug("Growth".into()), "Growth", |_| ready(parse_response(json!({"data":{"initiatives":{"nodes":[]}}}).to_string().as_bytes()).map_err(AppError::from)), |query| {
+    let result = resolve_initiative_with(&InitiativeReference::NameOrSlug("Growth".into()), "Growth", |_| ready(parse_response(json!({"data":{"initiatives":{"nodes":[]}}}).to_string().as_bytes()).map_err(Error::from)), |query| {
         assert!(query.query.contains("eqIgnoreCase: $name"));
         assert_eq!(serde_json::to_value(query.variables).expect("variables"), json!({"name":"Growth"}));
-        ready(parse_response(json!({"data":{"initiatives":{"nodes":[{"id":ID,"name":"Growth","slugId":"abc123def456"},{"id":"other","name":"growth","slugId":"other-slug"}]}}}).to_string().as_bytes()).map_err(AppError::from))
+        ready(parse_response(json!({"data":{"initiatives":{"nodes":[{"id":ID,"name":"Growth","slugId":"abc123def456"},{"id":"other","name":"growth","slugId":"other-slug"}]}}}).to_string().as_bytes()).map_err(Error::from))
     }).await.expect_err("ambiguous");
     assert_eq!(
-        result.message,
+        result.message(),
         format!(
             "Initiative \"Growth\" is ambiguous; it matches multiple initiatives:\n  Growth — abc123def456 ({ID})\n  growth — other-slug (other)"
         )
     );
     assert_eq!(
-        result.suggestion.as_deref(),
+        result.hint(),
         Some("Pass the initiative's slug ID or UUID instead.")
     );
 }
 #[tokio::test]
 async fn strict_initiative_missing_url_never_attempts_name_and_slug_errors_propagate() {
-    let no_name = |_| ready(Err(AppError::not_found("unexpected", "name")));
+    let no_name = |_| ready(Err(Error::not_found("unexpected", "name")));
     let error = resolve_initiative_with(
         &InitiativeReference::UrlSlug("abc123def456".into()),
         "original URL",
@@ -142,16 +142,16 @@ async fn strict_initiative_missing_url_never_attempts_name_and_slug_errors_propa
                         .to_string()
                         .as_bytes(),
                 )
-                .map_err(AppError::from),
+                .map_err(Error::from),
             )
         },
         no_name,
     )
     .await
     .expect_err("missing url");
-    assert_eq!(error.message, "Initiative not found: original URL");
+    assert_eq!(error.message(), "Initiative not found: original URL");
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some(
             "The initiative in that URL may have been deleted, or be in a workspace this key cannot see."
         )
@@ -159,10 +159,10 @@ async fn strict_initiative_missing_url_never_attempts_name_and_slug_errors_propa
     let error = resolve_initiative_with(
         &InitiativeReference::NameOrSlug("Growth".into()),
         "Growth",
-        |_| ready(Err(AppError::not_found("API", "unavailable"))),
+        |_| ready(Err(Error::not_found("API", "unavailable"))),
         no_name,
     )
     .await
     .expect_err("slug API error");
-    assert_eq!(error.message, "API not found: unavailable");
+    assert_eq!(error.message(), "API not found: unavailable");
 }

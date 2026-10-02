@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use chrono::{TimeZone, Utc};
 use linear_cli::commands::project_comment_list::{render_json, render_text, request, run_with};
-use linear_cli::error::AppError;
+use linear_cli::error::Error;
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::project_comments::{
     GetProjectComments, GetProjectCommentsVariables,
@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 
 const PROJECT: &str = "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d";
 type Sent = Rc<RefCell<Vec<Value>>>;
-type PageResult = Result<GetProjectComments, AppError>;
+type PageResult = Result<GetProjectComments, Error>;
 type Request = GraphQlRequest<GetProjectCommentsVariables>;
 
 fn frozen(id: &str) -> Value {
@@ -140,7 +140,7 @@ async fn pages_aggregate_without_sorting_json_and_send_the_prior_cursor() {
                     .to_string()
                     .as_bytes(),
             )
-            .map_err(AppError::from)
+            .map_err(Error::from)
         })
         .collect();
     let (sent, fetch) = scripted(pages);
@@ -186,7 +186,7 @@ async fn cursor_failure_and_later_null_project_discard_prior_pages() {
             "Failed to list comments: Linear reported more comments but did not return a usable cursor"
         );
         assert_eq!(
-            error.suggestion.as_deref(),
+            error.hint(),
             Some("Rerun the command; if it persists, report it.")
         );
         assert!(!sent.borrow().is_empty());
@@ -206,7 +206,7 @@ async fn cursor_failure_and_later_null_project_discard_prior_pages() {
         error.to_string(),
         "Failed to list comments: Project not found: Original Name"
     );
-    assert_eq!(error.suggestion, None);
+    assert_eq!(error.hint(), None);
     assert_eq!(sent.borrow().len(), 2);
 }
 

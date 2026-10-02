@@ -227,7 +227,7 @@ fn missing_key_commits_infers_once_before_key_error_and_never_queries_or_probes(
     assert!(output.stdout.is_empty());
     assert_eq!(
         String::from_utf8(output.stderr).unwrap(),
-        "✗ Failed to show commits: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n"
+        "✗ Failed to show commits: No API key configured\n  Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`.\n"
     );
     let trace = events(&home);
     assert_eq!(trace.len(), 1);

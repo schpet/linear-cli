@@ -4,7 +4,7 @@ use std::future::Future;
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_members::{self, GetTeamMembers, GetTeamMembersVariables};
 use crate::graphql::operations::teams::PageInfo;
@@ -28,18 +28,18 @@ struct JsonConnection<'a> {
     page_info: &'a PageInfo,
 }
 
-fn cursor_error() -> AppError {
-    AppError::new(AppErrorKind::Validation, CURSOR_ERROR)
+fn cursor_error() -> Error {
+    Error::new(CURSOR_ERROR)
 }
 
 pub async fn run_with<F, Fut>(
     mut fetch: F,
     team_key: &str,
     options: Options,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnMut(GraphQlRequest<GetTeamMembersVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeamMembers, AppError>>,
+    Fut: Future<Output = Result<GetTeamMembers, Error>>,
 {
     let result = pagination::paginate_with_policy(EmptyCursorPolicy::Allow, |after| {
         let request =
@@ -53,7 +53,7 @@ where
         async move {
             let data = future.await?;
             let page = data.team.members;
-            Ok::<Page<team_members::Member>, AppError>(Page {
+            Ok::<Page<team_members::Member>, Error>(Page {
                 nodes: page.nodes,
                 page_info: page.page_info.into(),
             })
@@ -61,9 +61,9 @@ where
     })
     .await
     .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source.with_context(CONTEXT),
+        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
         PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
-            cursor_error().with_context(CONTEXT)
+            cursor_error().context(CONTEXT)
         }
     })?;
     let mut nodes = result.nodes;
@@ -88,9 +88,9 @@ where
             page_info: &page_info,
         })
         .map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize team members")
+            Error::new("could not serialize team members")
                 .with_source(error)
-                .with_context(CONTEXT)
+                .context(CONTEXT)
         })?;
         output.push(b'\n');
         return Ok(output);
@@ -102,9 +102,9 @@ pub async fn run(
     transport: &GraphQlTransport,
     team_key: &str,
     options: Options,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
         team_key,
         options,
     )

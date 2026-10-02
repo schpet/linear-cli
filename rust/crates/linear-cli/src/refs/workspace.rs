@@ -1,26 +1,35 @@
 use crate::auth::{ApiKeyInput, CredentialSelectionInputs, CredentialStore};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 use super::url::{LinearUrlKind, LinearUrlParse, LinearUrlRef, parse_linear_url};
 
-/// Borrowed local inputs. Neither URL parsing nor the workspace check reads process state.
+/// Local workspace knowledge for checking Linear URLs. No process state is read.
 pub struct WorkspaceScope<'a> {
     pub cli_workspace: Option<&'a str>,
     pub sourced_workspace: Option<&'a str>,
     pub default_workspace: Option<&'a str>,
-    pub api_key: &'a ApiKeyInput<'a>,
+    pub api_key: ApiKeyInput<'a>,
 }
 
 impl<'a> WorkspaceScope<'a> {
+    pub fn new(inputs: CredentialSelectionInputs<'a>, default_workspace: Option<&'a str>) -> Self {
+        Self {
+            cli_workspace: inputs.cli_workspace,
+            sourced_workspace: inputs.sourced_workspace.map(|(value, _)| value),
+            default_workspace,
+            api_key: inputs.api_key,
+        }
+    }
+
     pub fn from_selection(
-        inputs: &'a CredentialSelectionInputs<'a>,
+        inputs: &CredentialSelectionInputs<'a>,
         store: &'a CredentialStore,
     ) -> Self {
         Self {
             cli_workspace: inputs.cli_workspace,
             sourced_workspace: inputs.sourced_workspace.as_ref().map(|(value, _)| *value),
             default_workspace: store.default(),
-            api_key: &inputs.api_key,
+            api_key: inputs.api_key.clone(),
         }
     }
 
@@ -46,20 +55,18 @@ impl<'a> WorkspaceScope<'a> {
         }
     }
 
-    fn check(&self, url_workspace: &str) -> Result<(), AppError> {
+    fn check(&self, url_workspace: &str) -> Result<(), Error> {
         let Some(current) = self.effective_workspace() else {
             return Ok(());
         };
         if current.to_lowercase() == url_workspace.to_lowercase() {
             return Ok(());
         }
-        Err(AppError::new(
-            AppErrorKind::Validation,
-            format!(
+        Err(Error::new(format!(
                 "That URL is for the \"{url_workspace}\" workspace, but this is the \"{current}\" workspace."
             ),
         )
-        .with_suggestion(self.switch_suggestion(url_workspace, current)))
+        .with_hint(self.switch_suggestion(url_workspace, current)))
     }
 }
 
@@ -70,50 +77,45 @@ pub fn expect_url_kind(
     kind: LinearUrlKind,
     entity_label: &str,
     scope: &WorkspaceScope<'_>,
-) -> Result<Option<LinearUrlRef>, AppError> {
+) -> Result<Option<LinearUrlRef>, Error> {
     let suggestion = || format!("Pass {entity_label}.");
     let parsed = match parse_linear_url(input) {
         LinearUrlParse::NotLinear => return Ok(None),
         LinearUrlParse::Unsupported(reason) => {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("\"{input}\" is a Linear URL, but {reason}."),
-            )
-            .with_suggestion(suggestion()));
+            return Err(
+                Error::new(format!("\"{input}\" is a Linear URL, but {reason}."))
+                    .with_hint(suggestion()),
+            );
         }
         LinearUrlParse::Known(reference) => reference,
     };
     scope.check(parsed.workspace())?;
     if parsed.kind() != kind {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!(
-                "\"{input}\" is {} URL, not {} URL.",
-                parsed.kind().label(),
-                kind.label()
-            ),
-        )
-        .with_suggestion(suggestion()));
+        return Err(Error::new(format!(
+            "\"{input}\" is {} URL, not {} URL.",
+            parsed.kind().label(),
+            kind.label()
+        ))
+        .with_hint(suggestion()));
     }
     Ok(Some(parsed))
 }
 
 /// Reject any recognized Linear URL for commands that accept only plain references.
-pub fn reject_linear_url(input: &str, entity_label: &str) -> Result<(), AppError> {
+pub fn reject_linear_url(input: &str, entity_label: &str) -> Result<(), Error> {
     if matches!(parse_linear_url(input), LinearUrlParse::NotLinear) {
         return Ok(());
     }
-    Err(AppError::new(
-        AppErrorKind::Validation,
-        format!("\"{input}\" is a Linear URL, and this command does not take one."),
-    )
-    .with_suggestion(format!("Pass {entity_label}.")))
+    Err(Error::new(format!(
+        "\"{input}\" is a Linear URL, and this command does not take one."
+    ))
+    .with_hint(format!("Pass {entity_label}.")))
 }
 
 /// Reject an issue comment link in any workspace: its anchor carries only the
 /// first eight characters of the comment id. Other URLs, including issue URLs
 /// with a non-comment anchor, are left to `reject_linear_url`.
-pub fn reject_comment_url(input: &str) -> Result<(), AppError> {
+pub fn reject_comment_url(input: &str) -> Result<(), Error> {
     if !matches!(
         parse_linear_url(input),
         LinearUrlParse::Known(LinearUrlRef::Issue {
@@ -123,20 +125,15 @@ pub fn reject_comment_url(input: &str) -> Result<(), AppError> {
     ) {
         return Ok(());
     }
-    Err(AppError::new(
-        AppErrorKind::Validation,
-        format!(
+    Err(Error::new(format!(
             "\"{input}\" links to a comment, but a comment URL only carries the first eight characters of its ID."
         ),
     )
-    .with_suggestion("Pass the comment's full UUID, from `linear issue comment list <issue> --json`."))
+    .with_hint("Pass the comment's full UUID, from `linear issue comment list <issue> --json`."))
 }
 
 /// Prepare a team URL for the later GraphQL resolver without selecting credentials.
-pub fn expect_team_url(
-    input: &str,
-    scope: &WorkspaceScope<'_>,
-) -> Result<Option<String>, AppError> {
+pub fn expect_team_url(input: &str, scope: &WorkspaceScope<'_>) -> Result<Option<String>, Error> {
     match expect_url_kind(
         input,
         LinearUrlKind::Team,
@@ -145,9 +142,6 @@ pub fn expect_team_url(
     )? {
         Some(LinearUrlRef::Team { team_key, .. }) => Ok(Some(team_key)),
         None => Ok(None),
-        Some(_) => Err(AppError::new(
-            AppErrorKind::Invariant,
-            "team URL kind check returned a different kind",
-        )),
+        Some(_) => Err(Error::new("team URL kind check returned a different kind")),
     }
 }

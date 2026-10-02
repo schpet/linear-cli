@@ -9,7 +9,7 @@
 //! results never become a completed result.
 
 use std::collections::HashSet;
-use std::error::Error;
+use std::error::Error as StdError;
 use std::fmt;
 
 use crate::graphql::operations::teams;
@@ -80,8 +80,8 @@ impl<E: fmt::Display> fmt::Display for PaginationError<E> {
     }
 }
 
-impl<E: Error + 'static> Error for PaginationError<E> {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl<E: StdError + 'static> StdError for PaginationError<E> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Self::Fetch { source, .. } => Some(source),
             Self::MissingCursor { .. } | Self::RepeatedCursor { .. } => None,

@@ -2,7 +2,7 @@
 use crate::{
     commands::{initiative_view::Reference, text_input},
     config::ChildEnvOverlay,
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error,
         envelope::GraphQlRequest,
@@ -13,7 +13,7 @@ use crate::{
         transport::{GraphQlTransport, classify_typed},
     },
     platform::{
-        editor::{self, UpdateEditorOutcome},
+        editor,
         prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession},
         prompt_text::TextOptions,
     },
@@ -21,10 +21,7 @@ use crate::{
 };
 use cynic::{MutationBuilder, QueryBuilder};
 use serde::{Serialize, de::DeserializeOwned};
-use std::{
-    io::{Read, Write},
-    path::Path,
-};
+use std::io::{Read, Write};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
     Project,
@@ -51,20 +48,18 @@ pub enum Health {
     OffTrack,
 }
 impl Health {
-    pub fn parse(value: Option<&str>, mode: Mode) -> Result<Option<Self>, AppError> {
+    pub fn parse(value: Option<&str>, mode: Mode) -> Result<Option<Self>, Error> {
         match value.filter(|v| !v.is_empty()) {
             None => Ok(None),
             Some("onTrack") => Ok(Some(Self::OnTrack)),
             Some("atRisk") => Ok(Some(Self::AtRisk)),
             Some("offTrack") => Ok(Some(Self::OffTrack)),
-            Some(value) => Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("Invalid health value: {value}"),
-            )
-            .with_suggestion(match mode {
-                Mode::Project => "Must be one of: onTrack, atRisk, offTrack",
-                Mode::Initiative => "Valid values: onTrack, atRisk, offTrack",
-            })),
+            Some(value) => Err(
+                Error::new(format!("Invalid health value: {value}")).with_hint(match mode {
+                    Mode::Project => "Must be one of: onTrack, atRisk, offTrack",
+                    Mode::Initiative => "Valid values: onTrack, atRisk, offTrack",
+                }),
+            ),
         }
     }
     fn project(self) -> ProjectHealthInput {
@@ -94,15 +89,13 @@ pub fn attended(
     body: Option<&str>,
     file: Option<&str>,
     health: Option<&str>,
-) -> Result<bool, AppError> {
+) -> Result<bool, Error> {
     if explicit && !(stdin_tty && stdout_tty) {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Interactive mode requires terminal stdin and stdout",
-        )
-        .with_suggestion(
-            "Use --body, --body-file, or --health without --interactive when piping.",
-        ));
+        return Err(
+            Error::new("Interactive mode requires terminal stdin and stdout").with_hint(
+                "Use --body, --body-file, or --health without --interactive when piping.",
+            ),
+        );
     }
     Ok(explicit
         || (stdin_tty
@@ -111,31 +104,28 @@ pub fn attended(
                 .iter()
                 .all(|value| value.is_none_or(str::is_empty))))
 }
-pub fn file(path: &str, mode: Mode, interactive: bool) -> Result<String, AppError> {
+pub fn file(path: &str, mode: Mode, interactive: bool) -> Result<String, Error> {
     match text_input::read_file(path) {
         Ok(text) => Ok(text),
         Err(error)
             if error.kind() == std::io::ErrorKind::NotFound
                 && (!interactive || mode == Mode::Project) =>
         {
-            Err(AppError::not_found("File", path))
+            Err(Error::not_found("File", path))
         }
-        Err(error) => Err(AppError::new(
-            AppErrorKind::IoProcess,
-            format!(
-                "Failed to read {}file: {error}",
-                if interactive { "" } else { "body " }
-            ),
-        )
+        Err(error) => Err(Error::new(format!(
+            "Failed to read {}file: {error}",
+            if interactive { "" } else { "body " }
+        ))
         .with_source(error)),
     }
 }
 pub enum ExchangeFailure {
-    Ordinary(AppError),
-    Shape(AppError),
+    Ordinary(Error),
+    Shape(Error),
 }
 impl ExchangeFailure {
-    pub fn into_error(self) -> AppError {
+    pub fn into_error(self) -> Error {
         match self {
             Self::Ordinary(error) | Self::Shape(error) => error,
         }
@@ -150,17 +140,16 @@ async fn exchange<T: DeserializeOwned, V: Serialize>(
     let response = transport
         .send_request(request)
         .await
-        .map_err(|e| ExchangeFailure::Ordinary(AppError::from(e)))?;
+        .map_err(|e| ExchangeFailure::Ordinary(Error::from(e)))?;
     let observed = bulk_error::observe_source_error(&response, request)
         .map_err(|e| ExchangeFailure::Ordinary(e.into_error()))?;
     if let Some(error) = observed {
-        return Err(ExchangeFailure::Ordinary(AppError::new(
-            AppErrorKind::GraphQl,
+        return Err(ExchangeFailure::Ordinary(Error::new(
             error.preferred_message.unwrap_or(error.message),
         )));
     }
     let data: serde_json::Value =
-        classify_typed(response).map_err(|e| ExchangeFailure::Ordinary(AppError::from(e)))?;
+        classify_typed(response).map_err(|e| ExchangeFailure::Ordinary(Error::from(e)))?;
     let confirmed = mutation.is_some_and(|field| {
         data.get(field)
             .and_then(|payload| payload.get("success"))
@@ -169,18 +158,15 @@ async fn exchange<T: DeserializeOwned, V: Serialize>(
     });
     serde_json::from_value(data).map_err(|error| {
         ExchangeFailure::Shape(
-            AppError::new(
-                AppErrorKind::GraphQl,
-                format!(
-                    "UPDATE-CREATE-UNEXPECTED-SHAPE: {error}{}",
-                    match mutation {
-                        None => "",
-                        Some(_) if confirmed =>
-                            "; creation confirmed by success:true; do not retry automatically",
-                        Some(_) => "; creation outcome unknown; do not retry automatically",
-                    }
-                ),
-            )
+            Error::new(format!(
+                "UPDATE-CREATE-UNEXPECTED-SHAPE: {error}{}",
+                match mutation {
+                    None => "",
+                    Some(_) if confirmed =>
+                        "; creation confirmed by success:true; do not retry automatically",
+                    Some(_) => "; creation outcome unknown; do not retry automatically",
+                }
+            ))
             .with_source(error),
         )
     })
@@ -189,7 +175,7 @@ async fn resolve_text(
     transport: &GraphQlTransport,
     text: &str,
     original: &str,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let request =
         GraphQlRequest::with_variables(GetInitiativeBySlugForStatusUpdate::build(SlugVariables {
             slug_id: text.to_owned(),
@@ -218,14 +204,14 @@ async fn resolve_text(
             .into_iter()
             .next()
             .map(|node| nonempty(node.id.into_inner(), original))
-            .unwrap_or_else(|| Err(AppError::not_found("Initiative", original))),
-        Err(ExchangeFailure::Ordinary(_)) => Err(AppError::not_found("Initiative", original)),
+            .unwrap_or_else(|| Err(Error::not_found("Initiative", original))),
+        Err(ExchangeFailure::Ordinary(_)) => Err(Error::not_found("Initiative", original)),
         Err(error @ ExchangeFailure::Shape(_)) => Err(error.into_error()),
     }
 }
-fn nonempty(id: String, original: &str) -> Result<String, AppError> {
+fn nonempty(id: String, original: &str) -> Result<String, Error> {
     if id.is_empty() {
-        Err(AppError::not_found("Initiative", original))
+        Err(Error::not_found("Initiative", original))
     } else {
         Ok(id)
     }
@@ -234,7 +220,7 @@ pub async fn initiative_id(
     transport: &GraphQlTransport,
     reference: &Reference,
     original: &str,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     match reference {
         Reference::Id(id) => Ok(id.clone()),
         Reference::NameOrSlug(text) => resolve_text(transport, text, original).await,
@@ -252,7 +238,7 @@ pub async fn initiative_id(
                 .nodes
                 .into_iter()
                 .next()
-                .ok_or_else(|| AppError::not_found("Initiative", original))?;
+                .ok_or_else(|| Error::not_found("Initiative", original))?;
             let id = nonempty(first.id.into_inner(), original)?;
             if is_linear_uuid(&id) {
                 Ok(id)
@@ -301,7 +287,7 @@ pub async fn create(
     id: &str,
     fields: Fields,
     mode: Mode,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let (success, name, health, url) = match mode {
         Mode::Project => {
             let data: CreateProjectUpdate = exchange(
@@ -347,7 +333,7 @@ pub async fn create(
         }
     };
     if !success {
-        return Err(AppError::new(AppErrorKind::GraphQl, mode.context()));
+        return Err(Error::new(mode.context()));
     }
     let mut out = format!("Created status update for: {name}\n");
     if let Some(health) = health.filter(|v| !v.is_empty()) {
@@ -358,26 +344,23 @@ pub async fn create(
     }
     Ok(out.into_bytes())
 }
+/// Opens an empty editor. A missing editor is reported on stderr and leaves
+/// the body empty; Ctrl-C in the editor cancels.
 pub fn edit(
     env: &ChildEnvOverlay,
-    root: &Path,
     stderr: &mut dyn Write,
-) -> Result<PromptOutcome<Option<String>>, AppError> {
-    let outcome = editor::open_update(env, root)?;
-    if outcome.interrupted() {
-        return Ok(PromptOutcome::Interrupted);
-    }
-    match outcome {
-        UpdateEditorOutcome::Content(content) => Ok(PromptOutcome::Submitted(content)),
-        UpdateEditorOutcome::Missing => {
-            writeln!(stderr,"No editor found. Please set EDITOR environment variable or configure git editor with: git config --global core.editor <editor>").map_err(|e|AppError::new(AppErrorKind::IoProcess,"Failed to write editor diagnostic").with_source(e))?;
+) -> Result<PromptOutcome<Option<String>>, Error> {
+    match editor::edit("", env) {
+        Ok(text) => Ok(PromptOutcome::Submitted(text_input::edited_body(&text))),
+        Err(error) if error.kind() == crate::error::ErrorKind::Cancelled => {
+            Ok(PromptOutcome::Interrupted)
+        }
+        Err(error) if editor::configured(env).is_none() => {
+            writeln!(stderr, "{error}")
+                .map_err(|e| Error::new("Failed to write editor diagnostic").with_source(e))?;
             Ok(PromptOutcome::Submitted(None))
         }
-        UpdateEditorOutcome::Failed(error) => Err(error),
-        UpdateEditorOutcome::ChildFailed(_) => Err(AppError::new(
-            AppErrorKind::IoProcess,
-            "Editor exited with an error",
-        )),
+        Err(error) => Err(error),
     }
 }
 fn choice(label: &str, value: &str) -> PlainOption {
@@ -391,9 +374,8 @@ pub fn prompt<R: Read, W: Write>(
     session: &mut PromptSession<R, W>,
     stderr: &mut dyn Write,
     env: &ChildEnvOverlay,
-    root: &Path,
     mode: Mode,
-) -> Result<PromptOutcome<Fields>, AppError> {
+) -> Result<PromptOutcome<Fields>, Error> {
     macro_rules! answer {
         ($value:expr) => {
             match $value? {
@@ -404,7 +386,7 @@ pub fn prompt<R: Read, W: Write>(
         };
     }
     let health = answer!(prompt_health(session, mode));
-    let editor = editor::discover(env);
+    let editor = editor::configured(env);
     let label = editor
         .as_deref()
         .and_then(crate::commands::document_write::editor_label);
@@ -446,12 +428,10 @@ pub fn prompt<R: Read, W: Write>(
             true,
         )?),
         "editor" => {
-            let label = label.ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "editor choice has no label")
-            })?;
+            let label = label.ok_or_else(|| Error::new("editor choice has no label"))?;
             session.print_line(&format!("Opening {label}..."))?;
             session.suspend()?;
-            let result = edit(env, root, stderr);
+            let result = edit(env, stderr);
             session.resume()?;
             let body = answer!(result);
             if let Some(body) = &body {
@@ -463,10 +443,7 @@ pub fn prompt<R: Read, W: Write>(
             body
         }
         _ => {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unknown update body method",
-            ));
+            return Err(Error::new("unknown update body method"));
         }
     };
     Ok(PromptOutcome::Submitted(Fields { body, health }))
@@ -476,7 +453,7 @@ pub fn prompt<R: Read, W: Write>(
 pub fn prompt_health<R: Read, W: Write>(
     session: &mut PromptSession<R, W>,
     mode: Mode,
-) -> Result<PromptOutcome<Option<Health>>, AppError> {
+) -> Result<PromptOutcome<Option<Health>>, Error> {
     let options = match mode {
         Mode::Project => vec![
             choice("On Track", "onTrack"),

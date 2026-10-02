@@ -5,8 +5,7 @@ use serde::Serialize;
 
 use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::style;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::agent_session::{
     AgentActivityContent, AgentActivityType, AgentSession, AgentSessionStatus, AgentSessionType,
@@ -14,6 +13,7 @@ use crate::graphql::operations::agent_session::{
     GetIssueAgentSessionsVariables, SessionComments,
 };
 use crate::graphql::transport::GraphQlTransport;
+use crate::platform::style;
 
 pub const VIEW_CONTEXT: &str = "Failed to fetch agent session details";
 pub const LIST_CONTEXT: &str = "Failed to list agent sessions";
@@ -32,11 +32,11 @@ pub fn list_request(issue_id: &str) -> GraphQlRequest<GetIssueAgentSessionsVaria
     ))
 }
 
-pub async fn view(transport: &GraphQlTransport, id: &str) -> Result<AgentSession, AppError> {
+pub async fn view(transport: &GraphQlTransport, id: &str) -> Result<AgentSession, Error> {
     let data: GetAgentSessionDetails = transport
         .execute(&view_request(id))
         .await
-        .map_err(AppError::from)?;
+        .map_err(Error::from)?;
     ensure_supported(&data.agent_session)?;
     Ok(data.agent_session)
 }
@@ -45,15 +45,15 @@ pub async fn list(
     transport: &GraphQlTransport,
     id: &str,
     status: Option<crate::cli::AgentSessionStatus>,
-) -> Result<SessionComments, AppError> {
+) -> Result<SessionComments, Error> {
     let data: GetIssueAgentSessions = transport
         .execute(&list_request(id))
         .await
-        .map_err(AppError::from)?;
+        .map_err(Error::from)?;
     Ok(filter(data.issue.comments, status))
 }
 
-pub fn ensure_supported(session: &AgentSession) -> Result<(), AppError> {
+pub fn ensure_supported(session: &AgentSession) -> Result<(), Error> {
     for activity in &session.activities.nodes {
         activity.content.ensure_supported()?;
     }
@@ -83,14 +83,9 @@ pub fn filter(
     comments
 }
 
-pub fn json(value: &impl Serialize) -> Result<Vec<u8>, AppError> {
-    let mut bytes = serde_json::to_vec_pretty(value).map_err(|error| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "could not serialize agent sessions",
-        )
-        .with_source(error)
-    })?;
+pub fn json(value: &impl Serialize) -> Result<Vec<u8>, Error> {
+    let mut bytes = serde_json::to_vec_pretty(value)
+        .map_err(|error| Error::new("could not serialize agent sessions").with_source(error))?;
     bytes.push(b'\n');
     Ok(bytes)
 }
@@ -117,9 +112,7 @@ fn activity_type_name(kind: AgentActivityType) -> &'static str {
     }
 }
 
-fn activity_detail(
-    content: &AgentActivityContent,
-) -> Result<(AgentActivityType, String), AppError> {
+fn activity_detail(content: &AgentActivityContent) -> Result<(AgentActivityType, String), Error> {
     let body = |kind, body: &str| {
         (
             kind,
@@ -156,10 +149,7 @@ fn activity_detail(
         ),
         AgentActivityContent::Unsupported(_) => {
             content.ensure_supported()?;
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                "unsupported activity was accepted",
-            ));
+            return Err(Error::new("unsupported activity was accepted"));
         }
     })
 }
@@ -168,7 +158,7 @@ pub fn markdown<Tz: TimeZone>(
     session: &AgentSession,
     now: DateTime<Utc>,
     zone: &Tz,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     ensure_supported(session)?;
     let mut lines = vec![
         "# Agent Session".to_owned(),
@@ -270,23 +260,21 @@ pub fn text(comments: &SessionComments, columns: usize, color: bool) -> Vec<u8> 
     .join(" ");
     let mut output = format!(
         "{}\n",
-        style::bold(&style::apply(4, 24, &header, color), color)
+        style::bold(&style::underline(&header, color), color)
     );
     for session in sessions {
         let status = pad(status_name(session.status), 13);
         let status = match session.status {
-            AgentSessionStatus::Active => style::apply(32, 39, &status, color),
+            AgentSessionStatus::Active => style::green(&status, color),
             AgentSessionStatus::Pending | AgentSessionStatus::AwaitingInput => {
-                style::apply(33, 39, &status, color)
+                style::yellow(&status, color)
             }
-            AgentSessionStatus::Complete | AgentSessionStatus::Stale => {
-                style::apply(90, 39, &status, color)
-            }
+            AgentSessionStatus::Complete | AgentSessionStatus::Stale => style::gray(&status, color),
             AgentSessionStatus::Error => status,
         };
         let summary = match session.summary.as_deref().filter(|value| !value.is_empty()) {
             Some(summary) => truncate_text(&summary.replace('\n', " "), available_width),
-            None => style::apply(90, 39, "--", color),
+            None => style::gray("--", color),
         };
         output.push_str(&format!(
             "{status} {} {} {summary}\n",

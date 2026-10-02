@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 
 use cynic::{MutationBuilder, QueryBuilder};
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
 use crate::graphql::operations::label_delete::{
     DeleteIssueLabel, GetLabelById, GetLabelByName, IdVariables, Label, NameVariables,
@@ -30,7 +30,7 @@ pub fn delete_request(id: &str) -> GraphQlRequest<IdVariables> {
 
 // A failed lookup counts as "not found by this route". Malformed responses
 // still stop the command rather than risk deleting the wrong label.
-fn lookup_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, AppError> {
+fn lookup_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, Error> {
     match result {
         Ok(value) => Ok(Some(value)),
         Err(
@@ -53,7 +53,7 @@ fn lookup_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, Ap
                 | ResponseError::MutationRejected
                 | ResponseError::MissingPayloadEntity,
             )),
-        ) => Err(AppError::from(error)),
+        ) => Err(Error::from(error)),
     }
 }
 
@@ -62,7 +62,7 @@ pub enum Lookup {
     Named(Vec<Label>),
 }
 
-pub async fn lookup(transport: &GraphQlTransport, original: &str) -> Result<Lookup, AppError> {
+pub async fn lookup(transport: &GraphQlTransport, original: &str) -> Result<Lookup, Error> {
     reject_linear_url(original, "a label name or UUID")?;
     if is_linear_uuid(original) {
         let data: Option<GetLabelById> =
@@ -105,10 +105,10 @@ pub fn scoped(lookup: Lookup, team: Option<&str>) -> Vec<Label> {
     }
 }
 
-pub fn missing(original: &str, team: Option<&str>) -> AppError {
-    let error = AppError::not_found("Label", original);
+pub fn missing(original: &str, team: Option<&str>) -> Error {
+    let error = Error::not_found("Label", original);
     match team.filter(|key| !key.is_empty()) {
-        Some(key) => error.with_suggestion(format!("Searched in team {key} and workspace.")),
+        Some(key) => error.with_hint(format!("Searched in team {key} and workspace.")),
         None => error,
     }
 }
@@ -127,7 +127,7 @@ pub fn choose<R: Read, W: Write>(
     session: &mut PromptSession<R, W>,
     original: &str,
     labels: &[Label],
-) -> Result<PromptOutcome<Label>, AppError> {
+) -> Result<PromptOutcome<Label>, Error> {
     let options: Vec<_> = labels
         .iter()
         .map(|label| PlainOption {
@@ -147,16 +147,16 @@ pub fn choose<R: Read, W: Write>(
             .find(|label| label.id.inner() == id)
             .cloned()
             .map(PromptOutcome::Submitted)
-            .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "selected label ID is missing")),
+            .ok_or_else(|| Error::new("selected label ID is missing")),
         PromptOutcome::Interrupted => Ok(PromptOutcome::Interrupted),
         PromptOutcome::EndOfInput => Ok(PromptOutcome::EndOfInput),
     }
 }
 
-pub async fn submit(transport: &GraphQlTransport, label: &Label) -> Result<Vec<u8>, AppError> {
+pub async fn submit(transport: &GraphQlTransport, label: &Label) -> Result<Vec<u8>, Error> {
     let data: DeleteIssueLabel = transport.execute(&delete_request(label.id.inner())).await?;
     if !data.issue_label_delete.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, CONTEXT));
+        return Err(Error::new(CONTEXT));
     }
     Ok(format!("✓ Deleted label: {}\n", display(label)).into_bytes())
 }

@@ -1,5 +1,5 @@
 //! Download images referenced in Markdown into a local cache; extraction is in markdown_ast.
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
@@ -11,7 +11,7 @@ pub struct Asset {
     pub url: String,
     pub alt: Option<String>,
 }
-pub fn ordered_assets(content: &str) -> Result<Vec<Asset>, AppError> {
+pub fn ordered_assets(content: &str) -> Result<Vec<Asset>, Error> {
     let (images, links) = super::markdown_ast::extract(content)?;
     let mut seen = HashSet::new();
     Ok(images
@@ -96,13 +96,10 @@ pub fn cache_root(tmpdir: Option<&str>, tmp: Option<&str>, temp: Option<&str>) -
         .unwrap_or("/tmp");
     PathBuf::from(posix_join(&[root, "linear-cli-images"]))
 }
-fn cache_location(root: &Path, asset: &Asset) -> Result<(PathBuf, PathBuf), AppError> {
-    let root = root.to_str().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Validation,
-            "Image cache root is not valid UTF-8",
-        )
-    })?;
+fn cache_location(root: &Path, asset: &Asset) -> Result<(PathBuf, PathBuf), Error> {
+    let root = root
+        .to_str()
+        .ok_or_else(|| Error::new("Image cache root is not valid UTF-8"))?;
     let digest = Sha256::digest(asset.url.as_bytes());
     let mut prefix = String::new();
     for byte in digest.iter().take(8) {
@@ -114,7 +111,7 @@ fn cache_location(root: &Path, asset: &Asset) -> Result<(PathBuf, PathBuf), AppE
     let path = posix_join(&[&directory, &filename]);
     Ok((PathBuf::from(directory), PathBuf::from(path)))
 }
-pub fn cache_path(root: &Path, asset: &Asset) -> Result<PathBuf, AppError> {
+pub fn cache_path(root: &Path, asset: &Asset) -> Result<PathBuf, Error> {
     cache_location(root, asset).map(|(_, path)| path)
 }
 pub struct Downloaded {
@@ -125,11 +122,11 @@ pub async fn download_with<F, Fut, E>(
     root: &Path,
     fetch: F,
     emit_failure: E,
-) -> Result<Downloaded, AppError>
+) -> Result<Downloaded, Error>
 where
     F: FnMut(String) -> Fut,
-    Fut: Future<Output = Result<Vec<u8>, AppError>>,
-    E: FnMut(&[u8]) -> Result<(), AppError>,
+    Fut: Future<Output = Result<Vec<u8>, Error>>,
+    E: FnMut(&[u8]) -> Result<(), Error>,
 {
     download_sources_with(&[content], root, fetch, emit_failure).await
 }
@@ -140,11 +137,11 @@ pub async fn download_sources_with<F, Fut, E>(
     root: &Path,
     mut fetch: F,
     mut emit_failure: E,
-) -> Result<Downloaded, AppError>
+) -> Result<Downloaded, Error>
 where
     F: FnMut(String) -> Fut,
-    Fut: Future<Output = Result<Vec<u8>, AppError>>,
-    E: FnMut(&[u8]) -> Result<(), AppError>,
+    Fut: Future<Output = Result<Vec<u8>, Error>>,
+    E: FnMut(&[u8]) -> Result<(), Error>,
 {
     let mut assets = Vec::new();
     let mut seen = HashSet::new();
@@ -165,12 +162,9 @@ where
                 let body = fetch(asset.url.clone()).await?;
                 std::fs::write(&path, body).map_err(io_error)?;
             }
-            path.to_str().map(str::to_owned).ok_or_else(|| {
-                AppError::new(
-                    AppErrorKind::Validation,
-                    "Image cache path is not valid UTF-8",
-                )
-            })
+            path.to_str()
+                .map(str::to_owned)
+                .ok_or_else(|| Error::new("Image cache path is not valid UTF-8"))
         }
         .await;
         match result {
@@ -179,15 +173,15 @@ where
             }
             Err(error) => {
                 emit_failure(
-                    format!("Failed to download {}: {}\n", asset.url, error.message).as_bytes(),
+                    format!("Failed to download {}: {}\n", asset.url, error.message()).as_bytes(),
                 )?;
             }
         }
     }
     Ok(Downloaded { paths })
 }
-fn io_error(error: std::io::Error) -> AppError {
-    AppError::new(AppErrorKind::IoProcess, error.to_string()).with_source(error)
+fn io_error(error: std::io::Error) -> Error {
+    Error::new(error.to_string()).with_source(error)
 }
 
 /// Attachments sanitize the supplied title without the image alt fallback.

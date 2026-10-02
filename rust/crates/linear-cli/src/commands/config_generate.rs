@@ -2,7 +2,7 @@
 use crate::{
     auth::{ApiKeyInput, CredentialStore},
     config::{ChildEnvOverlay, ConfigOptions},
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error,
         envelope::GraphQlRequest,
@@ -38,9 +38,8 @@ pub fn workspace_choice(
     options: &ConfigOptions,
     store: &CredentialStore,
     cli: Option<&str>,
-) -> Result<WorkspaceChoice, AppError> {
-    let key = ApiKeyInput::from_options(options)
-        .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+) -> Result<WorkspaceChoice, Error> {
+    let key = ApiKeyInput::from_options(options);
     let explicit = match key {
         ApiKeyInput::Raw { value, .. } | ApiKeyInput::Sourced { value, .. } => {
             !value.expose().is_empty()
@@ -51,17 +50,14 @@ pub fn workspace_choice(
         return Ok(WorkspaceChoice::Existing);
     }
     match store.workspaces() {
-        [] => Err(
-            AppError::new(AppErrorKind::Auth, "No authentication configured")
-                .with_suggestion("Run `linear auth login` to add a workspace."),
-        ),
+        [] => Err(Error::auth("No authentication configured")
+            .with_hint("Run `linear auth login` to add a workspace.")),
         [only] => Ok(WorkspaceChoice::Only(only.clone())),
         names => {
             // Only values that actually need this native menu are preflighted.
             for name in names {
                 if name.trim().is_empty() || name.chars().any(char::is_control) {
-                    return Err(AppError::new(
-                        AppErrorKind::Validation,
+                    return Err(Error::new(
                         "Workspace names containing control characters or only whitespace cannot be selected interactively",
                     ));
                 }
@@ -91,39 +87,31 @@ pub fn workspace_choice(
 pub fn request() -> GraphQlRequest<()> {
     GraphQlRequest::without_variables(Config::build(()))
 }
-pub async fn fetch(transport: &GraphQlTransport) -> Result<Config, AppError> {
+pub async fn fetch(transport: &GraphQlTransport) -> Result<Config, Error> {
     let query = request();
     let response = transport.send_request(&query).await?;
     if let Some(error) = bulk_error::observe_source_error(&response, &query)
         .map_err(|failure| failure.into_error())?
     {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            error.preferred_message.unwrap_or(error.message),
-        ));
+        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
     }
     crate::graphql::transport::classify_typed(response).map_err(|error| match error {
         crate::graphql::transport::TransportFailure::Response(
             crate::graphql::envelope::ResponseError::UnexpectedShape(source),
-        ) => AppError::new(
-            AppErrorKind::Invariant,
-            format!("Linear returned an unexpected response: {source}; no configuration written"),
-        )
+        ) => Error::new(format!(
+            "Linear returned an unexpected response: {source}; no configuration written"
+        ))
         .with_source(source),
-        error => AppError::from(error),
+        error => Error::from(error),
     })
 }
-pub fn prepare_teams(mut teams: Vec<ConfigTeam>) -> Result<Vec<ConfigTeam>, AppError> {
+pub fn prepare_teams(mut teams: Vec<ConfigTeam>) -> Result<Vec<ConfigTeam>, Error> {
     if teams.is_empty() {
-        return Err(AppError::new(
-            AppErrorKind::NotFound,
-            "No teams available to select",
-        ));
+        return Err(Error::new("No teams available to select"));
     }
     for team in &teams {
         if team.id.inner().trim().is_empty() || team.id.inner().chars().any(char::is_control) {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
+            return Err(Error::new(
                 "Team IDs containing control characters or only whitespace cannot be selected interactively",
             ));
         }
@@ -142,12 +130,12 @@ pub fn team_options(teams: &[ConfigTeam]) -> Vec<SelectOption> {
         })
         .collect()
 }
-pub fn team_key<'a>(teams: &'a [ConfigTeam], id: &str) -> Result<&'a str, AppError> {
+pub fn team_key<'a>(teams: &'a [ConfigTeam], id: &str) -> Result<&'a str, Error> {
     teams
         .iter()
         .find(|team| team.id.inner() == id)
         .map(|team| team.key.as_str())
-        .ok_or_else(|| AppError::not_found("Team", id))
+        .ok_or_else(|| Error::not_found("Team", id))
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SortChoice {
@@ -164,7 +152,7 @@ impl SortChoice {
 }
 pub fn sort_prompt<R: Read, W: Write>(
     session: &mut PromptSession<R, W>,
-) -> Result<PromptOutcome<SortChoice>, AppError> {
+) -> Result<PromptOutcome<SortChoice>, Error> {
     let options = [
         PlainOption {
             label: "manual".into(),
@@ -186,21 +174,17 @@ pub fn sort_prompt<R: Read, W: Write>(
         PromptOutcome::Submitted(value) => match value.as_str() {
             "manual" => Ok(PromptOutcome::Submitted(SortChoice::Manual)),
             "priority" => Ok(PromptOutcome::Submitted(SortChoice::Priority)),
-            _ => Err(AppError::new(
-                AppErrorKind::Invariant,
-                "sort menu produced an unknown value",
-            )),
+            _ => Err(Error::new("sort menu produced an unknown value")),
         },
         PromptOutcome::Interrupted => Ok(PromptOutcome::Interrupted),
         PromptOutcome::EndOfInput => Ok(PromptOutcome::EndOfInput),
     }
 }
-pub fn stage<T>(outcome: PromptOutcome<T>, name: &str) -> Result<PromptOutcome<T>, AppError> {
+pub fn stage<T>(outcome: PromptOutcome<T>, name: &str) -> Result<PromptOutcome<T>, Error> {
     match outcome {
-        PromptOutcome::EndOfInput => Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("unexpected EOF while selecting {name}"),
-        )),
+        PromptOutcome::EndOfInput => {
+            Err(Error::new(format!("unexpected EOF while selecting {name}")))
+        }
         outcome => Ok(outcome),
     }
 }
@@ -234,17 +218,17 @@ enum ProbeFailure {
     Wait(std::io::Error),
     Cap,
 }
-fn git_bound(message: impl Into<String>) -> AppError {
-    AppError::new(
-        AppErrorKind::IoProcess,
-        format!("Could not find the repository root: {}", message.into()),
-    )
+fn git_bound(message: impl Into<String>) -> Error {
+    Error::new(format!(
+        "Could not find the repository root: {}",
+        message.into()
+    ))
 }
 pub async fn late_root(
     cwd: &Path,
     overlay: &ChildEnvOverlay,
     limits: GitLimits,
-) -> Result<LateRoot, AppError> {
+) -> Result<LateRoot, Error> {
     late_root_with_program(cwd, overlay, limits, Path::new("git")).await
 }
 
@@ -254,7 +238,7 @@ pub async fn late_root_with_program(
     overlay: &ChildEnvOverlay,
     limits: GitLimits,
     program: &Path,
-) -> Result<LateRoot, AppError> {
+) -> Result<LateRoot, Error> {
     let cap = limits
         .bytes
         .checked_add(1)
@@ -317,10 +301,7 @@ pub async fn late_root_with_program(
                 }
                 Ok(Err(ProbeFailure::Cap)) => Err(git_bound("late Git stdout exceeds 65536 bytes")),
                 Err(_) => Err(git_bound("late Git deadline exceeded")),
-                Ok(Ok(_)) => Err(AppError::new(
-                    AppErrorKind::Invariant,
-                    "completed late Git branch became failure",
-                )),
+                Ok(Ok(_)) => Err(Error::new("completed late Git branch became failure")),
             }
         }
     }
@@ -348,7 +329,7 @@ pub fn destination(root: &LateRoot, mut stat: impl FnMut(&Path) -> bool) -> Stri
         }
     }
 }
-pub fn write_config(cwd: &Path, display: &str, content: &str) -> Result<Vec<u8>, AppError> {
+pub fn write_config(cwd: &Path, display: &str, content: &str) -> Result<Vec<u8>, Error> {
     let path = if Path::new(display).is_absolute() {
         PathBuf::from(display)
     } else {
@@ -356,10 +337,9 @@ pub fn write_config(cwd: &Path, display: &str, content: &str) -> Result<Vec<u8>,
     };
     // Direct truncate/create write, no parent creation/atomic rename/TOML escaping.
     std::fs::write(&path, content).map_err(|source| {
-        AppError::new(
-            AppErrorKind::IoProcess,
-            format!("Failed to write configuration: {display}: {source}"),
-        )
+        Error::new(format!(
+            "Failed to write configuration: {display}: {source}"
+        ))
         .with_source(source)
     })?;
     Ok(format!("Configuration written to {display}\n").into_bytes())
@@ -367,24 +347,20 @@ pub fn write_config(cwd: &Path, display: &str, content: &str) -> Result<Vec<u8>,
 
 /// Refuses prompting when stdout is a FIFO. Call before the first prompt: after
 /// the teams are fetched on the automatic path, before the workspace menu otherwise.
-pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), AppError> {
+pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), Error> {
     if stdin_tty && stdout_fifo {
-        return Err(AppError::new(AppErrorKind::Validation,"Configuration prompts require terminal or regular-file stdout when stdin is a terminal").with_suggestion("Keep stdout on the terminal, redirect it to a regular file, or provide piped prompt answers."));
+        return Err(Error::new("Configuration prompts require terminal or regular-file stdout when stdin is a terminal").with_hint("Keep stdout on the terminal, redirect it to a regular file, or provide piped prompt answers."));
     }
     Ok(())
 }
 #[cfg(unix)]
-pub fn stdout_is_fifo() -> Result<bool, AppError> {
+pub fn stdout_is_fifo() -> Result<bool, Error> {
     let stat = rustix::fs::fstat(std::io::stdout()).map_err(|source| {
-        AppError::new(
-            AppErrorKind::IoProcess,
-            "Failed to inspect configuration prompt stdout",
-        )
-        .with_source(source)
+        Error::new("Failed to inspect configuration prompt stdout").with_source(source)
     })?;
     Ok(rustix::fs::FileType::from_raw_mode(stat.st_mode) == rustix::fs::FileType::Fifo)
 }
 #[cfg(not(unix))]
-pub fn stdout_is_fifo() -> Result<bool, AppError> {
+pub fn stdout_is_fifo() -> Result<bool, Error> {
     Ok(false)
 }

@@ -1,10 +1,10 @@
 //! Local document URL reduction, before credential selection.
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 pub fn resolve_document_reference(
     input: &str,
     scope: &WorkspaceScope<'_>,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     match expect_url_kind(
         input,
         LinearUrlKind::Document,
@@ -12,8 +12,7 @@ pub fn resolve_document_reference(
         scope,
     )? {
         Some(LinearUrlRef::Document { slug_id, .. }) => Ok(slug_id),
-        Some(_) => Err(AppError::new(
-            AppErrorKind::Invariant,
+        Some(_) => Err(Error::new(
             "document URL kind check returned a different kind",
         )),
         None => Ok(input.to_owned()),

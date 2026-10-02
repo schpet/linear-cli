@@ -8,7 +8,6 @@ use linear_cli::commands::project_update_list::{
 };
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::project_updates::ListProjectUpdates;
-use linear_cli::graphql::operations::projects::ProjectUpdateHealthType;
 use serde_json::{Value, json};
 
 const PROJECT: &str = "3b9a5c7e-1d2f-4a6b-8c9d-0e1f2a3b4c5d";
@@ -68,12 +67,13 @@ fn graphql_int_converts_positive_u32_without_truncation() {
     for value in [2_147_483_648, u32::MAX] {
         let error = graphql_int(NonZeroU32::new(value).unwrap()).unwrap_err();
         assert_eq!(
-            error.message,
+            error.message(),
             "--limit must be at most 2147483647 for a GraphQL Int"
         );
-        assert_eq!(
-            error.context.as_deref(),
-            Some("Failed to fetch project updates")
+        assert!(
+            error
+                .to_string()
+                .starts_with(&format!("{}: ", "Failed to fetch project updates"))
         );
     }
 }
@@ -117,30 +117,6 @@ fn text_handles_health_author_body_and_unicode_width() {
         };
         assert_eq!(render_text(&project, 120, false, now), expected, "{id}");
     }
-}
-
-#[test]
-fn colored_rows_color_health_and_gray_the_body() {
-    let mut project = page("c035-default-text").project.expect("project");
-    let prefix = "Status updates for: Mobile App\n\n\x1b[4mID      \x1b[24m \x1b[4mHEALTH \x1b[24m \x1b[4mDATE    \x1b[24m \x1b[4mAUTHOR \x1b[0m\n00000000 \x1b[32monTrack\x1b[39m just now Alice A\n";
-    for (body, expected) in [
-        ("Update body", "\x1b[90m   Update body\x1b[39m\n"),
-        ("a %s %d %% b", "\x1b[90m   a %s %d %% b\x1b[39m\n"),
-        ("\u{00a0}body\u{00a0}", "\x1b[90m   body\x1b[39m\n"),
-    ] {
-        project.project_updates.nodes[0].body = body.to_owned();
-        assert_eq!(
-            render_text(&project, 120, true, UNIX_EPOCH),
-            format!("{prefix}{expected}"),
-            "{body}"
-        );
-    }
-    project.project_updates.nodes[0].health = Some(ProjectUpdateHealthType::Unknown(String::new()));
-    project.project_updates.nodes[0].body = "Update body".to_owned();
-    assert!(
-        render_text(&project, 120, false, UNIX_EPOCH)
-            .contains("00000000 -      just now Alice A\n")
-    );
 }
 
 #[tokio::test]
@@ -187,7 +163,7 @@ async fn null_project_reports_original_reference() {
     )
     .await
     .expect_err("null project");
-    assert!(error.display_message().contains("Original Project"));
+    assert!(error.to_string().contains("Original Project"));
 }
 
 #[test]

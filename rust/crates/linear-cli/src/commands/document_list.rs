@@ -2,15 +2,15 @@
 use crate::commands::{
     display::{display_width, fit, pad},
     relative_time::format_relative_time,
-    style,
     table::underlined_header,
 };
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::{
     envelope::GraphQlRequest,
     operations::{documents::*, teams::PageInfo},
     transport::GraphQlTransport,
 };
+use crate::platform::style;
 use cynic::QueryBuilder;
 use std::time::SystemTime;
 pub const CONTEXT: &str = "Failed to list documents";
@@ -27,11 +27,11 @@ pub async fn fetch(
     transport: &GraphQlTransport,
     filter: Option<DocumentFilter>,
     first: i32,
-) -> Result<DocumentConnection, AppError> {
+) -> Result<DocumentConnection, Error> {
     let data: ListDocuments = transport
         .execute(&request(filter, first))
         .await
-        .map_err(AppError::from)?;
+        .map_err(Error::from)?;
     Ok(data.documents.unwrap_or(DocumentConnection {
         nodes: Vec::new(),
         page_info: PageInfo {
@@ -40,10 +40,9 @@ pub async fn fetch(
         },
     }))
 }
-pub fn json(documents: &DocumentConnection) -> Result<Vec<u8>, AppError> {
-    let mut out = serde_json::to_vec_pretty(documents).map_err(|error| {
-        AppError::new(AppErrorKind::Invariant, "could not serialize documents").with_source(error)
-    })?;
+pub fn json(documents: &DocumentConnection) -> Result<Vec<u8>, Error> {
+    let mut out = serde_json::to_vec_pretty(documents)
+        .map_err(|error| Error::new("could not serialize documents").with_source(error))?;
     out.push(b'\n');
     Ok(out)
 }

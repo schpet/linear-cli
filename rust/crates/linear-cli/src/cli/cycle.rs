@@ -1,9 +1,10 @@
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct Cycle {
     #[command(subcommand)]
-    pub command: Option<CycleCommand>,
+    pub command: CycleCommand,
 }
 
 #[derive(Debug, Subcommand)]

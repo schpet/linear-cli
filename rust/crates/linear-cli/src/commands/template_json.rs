@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::operations::number::Float;
 use crate::graphql::operations::templates::{
     InheritedTemplate, Template, TemplateCreator, TemplateTeam,
@@ -32,29 +32,27 @@ struct JsonTemplate<'a> {
 }
 
 /// Serialize a template list in GraphQL field order.
-pub fn render_list(templates: &[Template]) -> Result<Vec<u8>, AppError> {
+pub fn render_list(templates: &[Template]) -> Result<Vec<u8>, Error> {
     let projected = templates
         .iter()
         .map(project)
         .collect::<Result<Vec<_>, _>>()?;
-    let mut output = serde_json::to_vec_pretty(&projected).map_err(|error| {
-        AppError::new(AppErrorKind::Invariant, "could not serialize templates").with_source(error)
-    })?;
+    let mut output = serde_json::to_vec_pretty(&projected)
+        .map_err(|error| Error::new("could not serialize templates").with_source(error))?;
     output.push(b'\n');
     Ok(output)
 }
 
 /// Serialize one template with the same field order and number spelling as the list.
-pub fn render_one(template: &Template) -> Result<Vec<u8>, AppError> {
+pub fn render_one(template: &Template) -> Result<Vec<u8>, Error> {
     let projected = project(template)?;
-    let mut output = serde_json::to_vec_pretty(&projected).map_err(|error| {
-        AppError::new(AppErrorKind::Invariant, "could not serialize template").with_source(error)
-    })?;
+    let mut output = serde_json::to_vec_pretty(&projected)
+        .map_err(|error| Error::new("could not serialize template").with_source(error))?;
     output.push(b'\n');
     Ok(output)
 }
 
-fn project(template: &Template) -> Result<JsonTemplate<'_>, AppError> {
+fn project(template: &Template) -> Result<JsonTemplate<'_>, Error> {
     Ok(JsonTemplate {
         id: template.id.inner(),
         name: &template.name,

@@ -3,7 +3,7 @@
 use crate::{
     auth::{CredentialFormat, CredentialStore},
     config::ConfigSecret,
-    error::{AppError, AppErrorKind},
+    error::Error,
 };
 use std::{collections::BTreeMap, future::Future, io, path::Path};
 
@@ -11,26 +11,21 @@ pub enum MutationFailure {
     /// A failure whose message `login` inspects (a 401 means an invalid key).
     Ordinary(String),
     /// A failure reported as is.
-    Typed(AppError),
+    Typed(Error),
 }
 impl MutationFailure {
-    pub fn outer(self) -> AppError {
+    pub fn outer(self) -> Error {
         match self {
-            Self::Ordinary(message) => AppError::new(AppErrorKind::IoProcess, message),
+            Self::Ordinary(message) => Error::new(message),
             Self::Typed(error) => error,
         }
     }
-    pub fn login(self) -> AppError {
+    pub fn login(self) -> Error {
         match self {
             Self::Typed(error) => error,
-            Self::Ordinary(message) if message.contains("401") => {
-                AppError::new(AppErrorKind::Auth, "Invalid API key")
-                    .with_suggestion("Check that your API key is correct and not expired.")
-            }
-            Self::Ordinary(message) => AppError::new(
-                AppErrorKind::GraphQl,
-                format!("Failed to authenticate: {message}"),
-            ),
+            Self::Ordinary(message) if message.contains("401") => Error::auth("Invalid API key")
+                .with_hint("Check that your API key is correct and not expired."),
+            Self::Ordinary(message) => Error::new(format!("Failed to authenticate: {message}")),
         }
     }
 }

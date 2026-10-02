@@ -2,7 +2,7 @@
 use crate::{
     commands::{issue_read, team_states},
     config::ChildEnvOverlay,
-    error::{AppError, AppErrorKind},
+    error::{Error, ResultExt},
     graphql::{
         bulk_error::{self, ObservedExchangeFailure, SourceExceptionKind},
         envelope::GraphQlRequest,
@@ -22,13 +22,12 @@ use crate::{
 use cynic::{MutationBuilder, QueryBuilder};
 use std::{io::Write, path::Path};
 pub const CONTEXT: &str = "Failed to start issue";
-pub fn team_and_flags(team: Option<&str>, all: bool, unassigned: bool) -> Result<&str, AppError> {
+pub fn team_and_flags(team: Option<&str>, all: bool, unassigned: bool) -> Result<&str, Error> {
     let team = team
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| AppError::new(AppErrorKind::Validation, "Could not determine team ID"))?;
+        .ok_or_else(|| Error::new("Could not determine team ID"))?;
     if all && unassigned {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
+        return Err(Error::new(
             "Cannot specify both --all-assignees and --unassigned",
         ));
     }
@@ -77,18 +76,15 @@ pub async fn list(
     transport: &GraphQlTransport,
     filter: IssueFilter,
     priority: bool,
-) -> Result<Vec<GetIssuesForStateIssuesNodes>, AppError> {
+) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
     issue_read::mine_with_requests(transport, filter, priority, None, list_request).await
 }
 pub fn choices(
     issues: &[GetIssuesForStateIssuesNodes],
     team: &str,
-) -> Result<Vec<SelectOption>, AppError> {
+) -> Result<Vec<SelectOption>, Error> {
     if issues.is_empty() {
-        return Err(AppError::new(
-            AppErrorKind::NotFound,
-            format!("Unstarted issues not found: {team}"),
-        ));
+        return Err(Error::new(format!("Unstarted issues not found: {team}")));
     }
     issues
         .iter()
@@ -132,51 +128,42 @@ pub enum ExistingBranch {
     Switch,
     Suffix,
 }
-pub fn existing_branch(value: &str) -> Result<ExistingBranch, AppError> {
+pub fn existing_branch(value: &str) -> Result<ExistingBranch, Error> {
     match value {
         "switch" => Ok(ExistingBranch::Switch),
         "create" => Ok(ExistingBranch::Suffix),
-        _ => Err(AppError::new(
-            AppErrorKind::Invariant,
-            "branch menu returned an unknown action",
-        )),
+        _ => Err(Error::new("branch menu returned an unknown action")),
     }
 }
-pub fn stage<T>(outcome: PromptOutcome<T>, name: &str) -> Result<PromptOutcome<T>, AppError> {
+pub fn stage<T>(outcome: PromptOutcome<T>, name: &str) -> Result<PromptOutcome<T>, Error> {
     match outcome {
-        PromptOutcome::EndOfInput => Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("unexpected EOF while selecting {name}"),
-        )),
+        PromptOutcome::EndOfInput => {
+            Err(Error::new(format!("unexpected EOF while selecting {name}")))
+        }
         outcome => Ok(outcome),
     }
 }
-pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), AppError> {
+pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), Error> {
     if stdin_tty && stdout_fifo {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
+        return Err(Error::new(
             "issue start prompts require terminal or regular-file stdout when stdin is a terminal",
         )
-        .with_suggestion(
+        .with_hint(
             "Run without piping stdout, or use a branch that does not require a selection.",
         ));
     }
     Ok(())
 }
 #[cfg(unix)]
-pub fn stdout_is_fifo() -> Result<bool, AppError> {
+pub fn stdout_is_fifo() -> Result<bool, Error> {
     use rustix::fs::{FileType, fstat};
     let stat = fstat(std::io::stdout()).map_err(|error| {
-        AppError::new(
-            AppErrorKind::IoProcess,
-            format!("could not inspect stdout: {error}"),
-        )
-        .with_source(error)
+        Error::new(format!("could not inspect stdout: {error}")).with_source(error)
     })?;
     Ok(FileType::from_raw_mode(stat.st_mode) == FileType::Fifo)
 }
 #[cfg(not(unix))]
-pub fn stdout_is_fifo() -> Result<bool, AppError> {
+pub fn stdout_is_fifo() -> Result<bool, Error> {
     Ok(false)
 }
 pub fn branch_name<'a>(custom: Option<&'a str>, returned: &'a str) -> &'a str {
@@ -187,7 +174,7 @@ pub fn verify(
     branch: &str,
     cwd: &Path,
     env: &ChildEnvOverlay,
-) -> Result<bool, AppError> {
+) -> Result<bool, Error> {
     runner
         .capture(
             &CommandSpec::new(Program::Git, &["rev-parse", "--verify", branch]),
@@ -195,7 +182,7 @@ pub fn verify(
             env,
         )
         .map(|captured| captured.outcome.success())
-        .map_err(|error| error.with_context("Failed to check if branch exists"))
+        .context("Failed to check if branch exists")
 }
 pub fn create_branch(
     runner: &mut impl ProcessRunner,
@@ -203,7 +190,7 @@ pub fn create_branch(
     from: Option<&str>,
     cwd: &Path,
     env: &ChildEnvOverlay,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let from = from.filter(|value| !value.is_empty()).unwrap_or("HEAD");
     let result = runner.capture(
         &CommandSpec::new(Program::Git, &["checkout", "-b", branch, from]),
@@ -211,13 +198,10 @@ pub fn create_branch(
         env,
     )?;
     if !result.outcome.success() {
-        return Err(AppError::new(
-            AppErrorKind::IoProcess,
-            format!(
-                "Failed to create branch '{branch}': {}",
-                decoded_trim(&result.stderr)
-            ),
-        ));
+        return Err(Error::new(format!(
+            "Failed to create branch '{branch}': {}",
+            decoded_trim(&result.stderr)
+        )));
     }
     Ok(format!("✓ Created and switched to branch '{branch}'\n").into_bytes())
 }
@@ -228,7 +212,7 @@ pub fn existing_git(
     from: Option<&str>,
     cwd: &Path,
     env: &ChildEnvOverlay,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     match action {
         ExistingBranch::Switch => {
             let result = runner.capture(
@@ -237,13 +221,10 @@ pub fn existing_git(
                 env,
             )?;
             if !result.outcome.success() {
-                return Err(AppError::new(
-                    AppErrorKind::IoProcess,
-                    format!(
-                        "Failed to switch to branch '{branch}': {}",
-                        decoded_trim(&result.stderr)
-                    ),
-                ));
+                return Err(Error::new(format!(
+                    "Failed to switch to branch '{branch}': {}",
+                    decoded_trim(&result.stderr)
+                )));
             }
             Ok(format!("✓ Switched to '{branch}'\n").into_bytes())
         }
@@ -254,9 +235,9 @@ pub fn existing_git(
                 if !verify(runner, &candidate, cwd, env)? {
                     return create_branch(runner, &candidate, from, cwd, env);
                 }
-                suffix = suffix.checked_add(1).ok_or_else(|| {
-                    AppError::new(AppErrorKind::Invariant, "branch suffix counter exhausted")
-                })?;
+                suffix = suffix
+                    .checked_add(1)
+                    .ok_or_else(|| Error::new("branch suffix counter exhausted"))?;
             }
         }
     }
@@ -270,7 +251,7 @@ pub fn prepare_jj(
     cwd: &Path,
     env: &ChildEnvOverlay,
     stderr: &mut (impl Write + ?Sized),
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     let description = runner.capture(
         &CommandSpec::new(
             Program::Jj,
@@ -295,14 +276,9 @@ pub fn prepare_jj(
     if needs_new {
         let result = runner.capture(&CommandSpec::new(Program::Jj, &["new"]), cwd, env)?;
         if !result.outcome.success() {
-            writeln!(stderr, "{}", decoded(&result.stderr)).map_err(|error| {
-                AppError::new(AppErrorKind::IoProcess, "could not write jj failure")
-                    .with_source(error)
-            })?;
-            return Err(AppError::new(
-                AppErrorKind::IoProcess,
-                "Failed to create new jj change",
-            ));
+            writeln!(stderr, "{}", decoded(&result.stderr))
+                .map_err(|error| Error::new("could not write jj failure").with_source(error))?;
+            return Err(Error::new("Failed to create new jj change"));
         }
     }
     Ok(())
@@ -315,7 +291,7 @@ pub fn describe_jj(
     cwd: &Path,
     env: &ChildEnvOverlay,
     stderr: &mut (impl Write + ?Sized),
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let description = format!(
         "{identifier} {title}\n\nLinear-issue: Fixes {identifier}\nLinear-issue-url: {url}"
     );
@@ -325,17 +301,13 @@ pub fn describe_jj(
         env,
     )?;
     if !result.outcome.success() {
-        writeln!(stderr, "{}", decoded(&result.stderr)).map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "could not write jj failure").with_source(error)
-        })?;
-        return Err(AppError::new(
-            AppErrorKind::IoProcess,
-            "Failed to set jj description",
-        ));
+        writeln!(stderr, "{}", decoded(&result.stderr))
+            .map_err(|error| Error::new("could not write jj failure").with_source(error))?;
+        return Err(Error::new("Failed to set jj description"));
     }
     Ok(format!("✓ Prepared jj change for issue {identifier}\n").into_bytes())
 }
-pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, AppError> {
+pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, Error> {
     crate::workflow_states::sort(&mut states);
     let mut selected: Option<WorkflowState> = None;
     for state in states {
@@ -347,12 +319,7 @@ pub fn started(mut states: Vec<WorkflowState>) -> Result<WorkflowState, AppError
             selected = Some(state);
         }
     }
-    selected.ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::NotFound,
-            "No 'started' state found in workflow",
-        )
-    })
+    selected.ok_or_else(|| Error::new("No 'started' state found in workflow"))
 }
 pub fn update_request(identifier: &str, state_id: &str) -> GraphQlRequest<Variables> {
     let mut request = GraphQlRequest::with_variables(UpdateIssueState::build(Variables {
@@ -364,7 +331,7 @@ pub fn update_request(identifier: &str, state_id: &str) -> GraphQlRequest<Variab
 }
 pub fn post_failure(error: ObservedExchangeFailure) -> String {
     match error {
-        ObservedExchangeFailure::Strict(error) => format!("Error: {}", error.display_message()),
+        ObservedExchangeFailure::Strict(error) => format!("Error: {}", error),
         ObservedExchangeFailure::Ordinary(error) => format!(
             "{}: {}",
             match error.kind {
@@ -385,8 +352,7 @@ pub async fn update_state(
     let response: GetWorkflowStates = bulk_error::execute_observed(transport, &request)
         .await
         .map_err(post_failure)?;
-    let state = started(response.team.states.nodes)
-        .map_err(|error| format!("Error: {}", error.display_message()))?;
+    let state = started(response.team.states.nodes).map_err(|error| format!("Error: {}", error))?;
     let response: UpdateIssueState =
         bulk_error::execute_observed(transport, &update_request(identifier, state.id.inner()))
             .await

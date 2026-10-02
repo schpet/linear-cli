@@ -1,6 +1,6 @@
 //! two fixed eager phases, each scoped worker/current-thread runtime.
 //! No general executor framework/inbox, detached thread or new Tokio features.
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use futures_util::future::{AbortHandle, Abortable, join};
 use std::{
     future::Future,
@@ -8,16 +8,12 @@ use std::{
     thread::{self, Scope, ScopedJoinHandle},
 };
 pub struct Pending<T> {
-    receiver: mpsc::Receiver<Result<T, AppError>>,
+    receiver: mpsc::Receiver<Result<T, Error>>,
 }
 impl<T> Pending<T> {
-    pub fn take(self) -> Result<T, AppError> {
+    pub fn take(self) -> Result<T, Error> {
         self.receiver.recv().map_err(|error| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "issue-create phase result channel closed unexpectedly",
-            )
-            .with_source(error)
+            Error::new("issue-create phase result channel closed unexpectedly").with_source(error)
         })?
     }
 }
@@ -26,20 +22,17 @@ pub struct Phase<'scope> {
     aborts: Vec<AbortHandle>,
 }
 impl Phase<'_> {
-    pub fn close(mut self) -> Result<(), AppError> {
+    pub fn close(mut self) -> Result<(), Error> {
         self.finish()
     }
-    fn finish(&mut self) -> Result<(), AppError> {
+    fn finish(&mut self) -> Result<(), Error> {
         for abort in &self.aborts {
             abort.abort()
         }
         if let Some(worker) = self.worker.take() {
-            worker.join().map_err(|_| {
-                AppError::new(
-                    AppErrorKind::Invariant,
-                    "issue-create phase worker panicked",
-                )
-            })?
+            worker
+                .join()
+                .map_err(|_| Error::new("issue-create phase worker panicked"))?
         }
         Ok(())
     }
@@ -51,20 +44,16 @@ impl Drop for Phase<'_> {
         }
     }
 }
-fn ready_runtime() -> Result<tokio::runtime::Runtime, AppError> {
+fn ready_runtime() -> Result<tokio::runtime::Runtime, Error> {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(|error| {
-            AppError::new(
-                AppErrorKind::IoProcess,
-                "Could not create issue-create preload runtime",
-            )
-            .with_source(error)
+            Error::new("Could not create issue-create preload runtime").with_source(error)
         })
 }
 fn task<'a, T: Send + 'a>(
-    future: impl Future<Output = Result<T, AppError>> + Send + 'a,
+    future: impl Future<Output = Result<T, Error>> + Send + 'a,
 ) -> (
     impl Future<Output = ()> + Send + 'a,
     Pending<T>,
@@ -84,9 +73,9 @@ fn task<'a, T: Send + 'a>(
 }
 pub fn pair<'scope, 'env, T: Send + 'scope, U: Send + 'scope>(
     scope: &'scope Scope<'scope, 'env>,
-    first: impl Future<Output = Result<T, AppError>> + Send + 'scope,
-    second: impl Future<Output = Result<U, AppError>> + Send + 'scope,
-) -> Result<(Phase<'scope>, Pending<T>, Pending<U>), AppError> {
+    first: impl Future<Output = Result<T, Error>> + Send + 'scope,
+    second: impl Future<Output = Result<U, Error>> + Send + 'scope,
+) -> Result<(Phase<'scope>, Pending<T>, Pending<U>), Error> {
     let runtime = ready_runtime()?;
     let (first, a, abort_a) = task(first);
     let (second, b, abort_b) = task(second);
@@ -96,11 +85,7 @@ pub fn pair<'scope, 'env, T: Send + 'scope, U: Send + 'scope>(
             runtime.block_on(join(first, second));
         })
         .map_err(|error| {
-            AppError::new(
-                AppErrorKind::IoProcess,
-                "Could not start issue-create preload worker",
-            )
-            .with_source(error)
+            Error::new("Could not start issue-create preload worker").with_source(error)
         })?;
     Ok((
         Phase {
@@ -114,10 +99,10 @@ pub fn pair<'scope, 'env, T: Send + 'scope, U: Send + 'scope>(
 pub type Triple<'scope, T, U, V> = (Phase<'scope>, Pending<T>, Pending<U>, Pending<V>);
 pub fn triple<'scope, 'env, T: Send + 'scope, U: Send + 'scope, V: Send + 'scope>(
     scope: &'scope Scope<'scope, 'env>,
-    first: impl Future<Output = Result<T, AppError>> + Send + 'scope,
-    second: impl Future<Output = Result<U, AppError>> + Send + 'scope,
-    third: impl Future<Output = Result<V, AppError>> + Send + 'scope,
-) -> Result<Triple<'scope, T, U, V>, AppError> {
+    first: impl Future<Output = Result<T, Error>> + Send + 'scope,
+    second: impl Future<Output = Result<U, Error>> + Send + 'scope,
+    third: impl Future<Output = Result<V, Error>> + Send + 'scope,
+) -> Result<Triple<'scope, T, U, V>, Error> {
     let runtime = ready_runtime()?;
     let (first, a, abort_a) = task(first);
     let (second, b, abort_b) = task(second);
@@ -128,11 +113,7 @@ pub fn triple<'scope, 'env, T: Send + 'scope, U: Send + 'scope, V: Send + 'scope
             runtime.block_on(join(join(first, second), third));
         })
         .map_err(|error| {
-            AppError::new(
-                AppErrorKind::IoProcess,
-                "Could not start issue-create preload worker",
-            )
-            .with_source(error)
+            Error::new("Could not start issue-create preload worker").with_source(error)
         })?;
     Ok((
         Phase {

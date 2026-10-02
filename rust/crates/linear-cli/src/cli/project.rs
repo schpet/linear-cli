@@ -1,9 +1,10 @@
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct Project {
     #[command(subcommand)]
-    pub command: Option<ProjectCommand>,
+    pub command: ProjectCommand,
 }
 
 #[derive(Debug, Subcommand)]
@@ -194,9 +195,10 @@ pub struct ProjectDelete {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct ProjectComment {
     #[command(subcommand)]
-    pub command: Option<ProjectCommentCommand>,
+    pub command: ProjectCommentCommand,
 }
 
 #[derive(Debug, Subcommand)]

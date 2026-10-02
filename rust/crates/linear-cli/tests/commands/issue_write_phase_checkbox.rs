@@ -1,5 +1,5 @@
 use linear_cli::{
-    error::AppError,
+    error::Error,
     platform::prompt::{PlainOption, PromptKey, PromptOutcome, PromptSession},
 };
 use std::{
@@ -116,12 +116,12 @@ fn eager_phase_drives_both_tasks_and_abort_drops_them_before_owner_returns() {
             async move {
                 let _guard = Guard(first_drop);
                 first_ready.send("auto").expect("notify");
-                futures_util::future::pending::<Result<bool, AppError>>().await
+                futures_util::future::pending::<Result<bool, Error>>().await
             },
             async move {
                 let _guard = Guard(second_drop);
                 ready.send("team").expect("notify");
-                futures_util::future::pending::<Result<bool, AppError>>().await
+                futures_util::future::pending::<Result<bool, Error>>().await
             },
         )
         .expect("spawn");
@@ -146,16 +146,11 @@ fn early_phase_return_joins_without_waiting_for_unconsumed_request() {
     std::thread::scope(|scope| {
         let (phase, first, _second) = network_owner::pair(
             scope,
-            async {
-                Err::<bool, _>(AppError::new(
-                    linear_cli::error::AppErrorKind::GraphQl,
-                    "team failed",
-                ))
-            },
-            futures_util::future::pending::<Result<bool, AppError>>(),
+            async { Err::<bool, _>(Error::new("team failed")) },
+            futures_util::future::pending::<Result<bool, Error>>(),
         )
         .expect("spawn");
-        assert_eq!(first.take().expect_err("failure").message, "team failed");
+        assert_eq!(first.take().expect_err("failure").message(), "team failed");
         drop(phase);
     });
 }
@@ -166,9 +161,9 @@ fn project_result_is_awaitable_while_both_other_preloads_remain_pending() {
     std::thread::scope(|scope| {
         let (phase, _states, _labels, projects) = network_owner::triple(
             scope,
-            futures_util::future::pending::<Result<bool, AppError>>(),
-            futures_util::future::pending::<Result<bool, AppError>>(),
-            async { Ok::<_, AppError>("ready projects") },
+            futures_util::future::pending::<Result<bool, Error>>(),
+            futures_util::future::pending::<Result<bool, Error>>(),
+            async { Ok::<_, Error>("ready projects") },
         )
         .unwrap();
         assert_eq!(projects.take().unwrap(), "ready projects");

@@ -354,3 +354,21 @@ fn autolinks_fails_when_gh_fails_or_config_is_missing() {
     cli.run(&["team", "autolinks"]).failure();
     assert!(cli.calls("gh").is_empty());
 }
+
+#[test]
+fn id_prints_the_configured_team() {
+    Cli::new()
+        .env("LINEAR_TEAM_ID", "ENG")
+        .run(&["team", "id"])
+        .success()
+        .stdout_has("ENG\n");
+}
+
+#[test]
+fn id_without_a_configured_team_fails() {
+    Cli::new()
+        .run(&["team", "id"])
+        .failure()
+        .stderr_has("No team id configured")
+        .stderr_has("linear config");
+}

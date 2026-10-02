@@ -9,7 +9,7 @@ use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::{terminal_color, underlined_header};
 use crate::config::ConfigOptions;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::teams::{self, GetTeams, GetTeamsVariables};
 use crate::graphql::pagination::{self, Page, PaginationError};
@@ -37,7 +37,7 @@ pub fn web_opening(
     cli_workspace: Option<&str>,
     options: &ConfigOptions,
     app: bool,
-) -> Result<(String, Vec<u8>), AppError> {
+) -> Result<(String, Vec<u8>), Error> {
     let workspace = cli_workspace
         .or_else(|| {
             options
@@ -46,11 +46,8 @@ pub fn web_opening(
         })
         .filter(|workspace| !workspace.is_empty())
         .ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "workspace is not set via command line, configuration file, or environment",
-            )
-            .with_context(CONTEXT)
+            Error::new("workspace is not set via command line, configuration file, or environment")
+                .context(CONTEXT)
         })?;
     let url = format!("https://linear.app/{workspace}/settings/teams");
     let destination = if app { "Linear.app" } else { "web browser" };
@@ -58,8 +55,8 @@ pub fn web_opening(
     Ok((url, line))
 }
 
-pub fn open(url: &str, app: bool) -> Result<(), AppError> {
-    opener::open(url, app).map_err(|error| error.with_context(CONTEXT))
+pub fn open(url: &str, app: bool) -> Result<(), Error> {
+    opener::open(url, app).context(CONTEXT)
 }
 
 pub async fn run_with<F, Fut, Now>(
@@ -67,10 +64,10 @@ pub async fn run_with<F, Fut, Now>(
     json: bool,
     now: Now,
     columns: usize,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnMut(GraphQlRequest<GetTeamsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeams, AppError>>,
+    Fut: Future<Output = Result<GetTeams, Error>>,
     Now: FnOnce() -> SystemTime,
 {
     run_with_style(&mut fetch, json, now, columns, false).await
@@ -82,10 +79,10 @@ async fn run_with_style<F, Fut, Now>(
     now: Now,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnMut(GraphQlRequest<GetTeamsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeams, AppError>>,
+    Fut: Future<Output = Result<GetTeams, Error>>,
     Now: FnOnce() -> SystemTime,
 {
     let result = pagination::paginate(|after| {
@@ -97,7 +94,7 @@ where
         let future = fetch(request);
         async move {
             let data = future.await?;
-            Ok::<Page<teams::Team>, AppError>(Page {
+            Ok::<Page<teams::Team>, Error>(Page {
                 nodes: data.teams.nodes,
                 page_info: data.teams.page_info.into(),
             })
@@ -105,19 +102,17 @@ where
     })
     .await
     .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source.with_context(CONTEXT),
-        PaginationError::MissingCursor { .. } => AppError::new(
-            AppErrorKind::Validation,
-            "Linear reported more teams but returned no pagination cursor",
-        )
-        .with_suggestion("Retry the command.")
-        .with_context(CONTEXT),
-        PaginationError::RepeatedCursor { page, .. } => AppError::new(
-            AppErrorKind::Validation,
-            format!("Linear repeated a team pagination cursor on page {page}"),
-        )
-        .with_suggestion("Retry the command.")
-        .with_context(CONTEXT),
+        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
+        PaginationError::MissingCursor { .. } => {
+            Error::new("Linear reported more teams but returned no pagination cursor")
+                .with_hint("Retry the command.")
+                .context(CONTEXT)
+        }
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated a team pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command.")
+        .context(CONTEXT),
     })?;
 
     let mut teams: Vec<_> = result
@@ -140,9 +135,9 @@ where
             page_info: &page_info,
         })
         .map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize teams")
+            Error::new("could not serialize teams")
                 .with_source(error)
-                .with_context(CONTEXT)
+                .context(CONTEXT)
         })?;
         output.push(b'\n');
         return Ok(output);
@@ -155,9 +150,9 @@ pub async fn run(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with_style(
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
         json,
         SystemTime::now,
         columns,

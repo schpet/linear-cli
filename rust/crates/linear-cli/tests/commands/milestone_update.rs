@@ -1,5 +1,4 @@
 use linear_cli::commands::milestone_update::{self, Options};
-use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::milestone_update::UpdateProjectMilestone;
 use linear_cli::graphql::operations::number::Float;
@@ -93,10 +92,9 @@ fn truthy_optionals_zero_and_server_dates_follow_source() {
         sort_order: None,
     };
     let error = milestone_update::request(ID, &empty).unwrap_err();
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert_eq!(error.context, None);
+    assert!(!error.has_context());
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some("Use --name, --description, --target-date, --sort-order, or --project")
     );
 }
@@ -109,8 +107,7 @@ fn public_request_rejects_nonfinite_typed_values_before_json_null() {
             ..name_options()
         };
         let error = milestone_update::request(ID, &options).unwrap_err();
-        assert_eq!(error.kind, AppErrorKind::Validation);
-        assert_eq!(error.message, "Sort order must be a finite number");
+        assert_eq!(error.message(), "Sort order must be a finite number");
     }
 }
 
@@ -245,13 +242,12 @@ async fn update_failures_never_retry_or_append_create_uncertainty() {
             .await
             .unwrap_err();
         assert!(
-            !error.message.contains("may already"),
+            !error.message().contains("may already"),
             "{response:?}: {}",
-            error.message
+            error.message()
         );
         if matches!(response, Reply::Respond(_, body) if body.contains("\"success\":false")) {
-            assert_eq!(error.message, "Failed to update milestone");
-            assert_eq!(error.kind, AppErrorKind::GraphQl);
+            assert_eq!(error.message(), "Failed to update milestone");
         }
         assert!(!server.join().unwrap(), "update must not retry");
     }

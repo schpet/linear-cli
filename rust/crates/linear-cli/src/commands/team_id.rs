@@ -1,14 +1,12 @@
-use crate::app::AppContext;
 use crate::commands::team_key::configured_team_key;
-use crate::error::{AppError, AppErrorKind};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result};
 
-pub fn render(context: &AppContext<'_>) -> Result<String, AppError> {
-    match configured_team_key(&context.config()?.options) {
+pub fn render(ctx: &Ctx) -> Result<String> {
+    match configured_team_key(ctx.options()) {
         Some(key) => Ok(format!("{key}\n")),
-        None => Err(
-            AppError::new(AppErrorKind::Validation, "No team id configured")
-                .with_context("Failed to get team id")
-                .with_suggestion("Run `linear config` to set a team."),
-        ),
+        None => Err(Error::new("No team id configured")
+            .context("Failed to get team id")
+            .with_hint("Run `linear config` to set a team.")),
     }
 }

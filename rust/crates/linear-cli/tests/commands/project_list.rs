@@ -9,7 +9,8 @@ use linear_cli::commands::project_list::{
     Options, check_conflicting_flags, filter, opening, render_text, run_with,
 };
 use linear_cli::graphql::envelope::{GraphQlRequest, ResponseError, parse_response};
-use linear_cli::graphql::operations::projects::{GetProjects, GetProjectsVariables, GetViewer};
+use linear_cli::graphql::operations::projects::{GetProjects, GetProjectsVariables};
+use linear_cli::graphql::operations::viewer::GetViewer;
 use serde_json::{Value, json};
 
 fn project(id: &str, name: &str, sort_order: Value) -> Value {
@@ -181,11 +182,7 @@ async fn empty_cursor_is_sent_but_missing_and_repeated_cursors_stop() {
     )
     .await
     .expect_err("missing cursor");
-    assert!(
-        error
-            .display_message()
-            .contains("no pagination cursor on page 1")
-    );
+    assert!(error.to_string().contains("no pagination cursor on page 1"));
     let calls = Rc::new(RefCell::new(0));
     let error = run_with(
         {
@@ -207,7 +204,7 @@ async fn empty_cursor_is_sent_but_missing_and_repeated_cursors_stop() {
     assert_eq!(*calls.borrow(), 2);
     assert!(
         error
-            .display_message()
+            .to_string()
             .contains("repeated a project pagination cursor")
     );
 }
@@ -228,7 +225,7 @@ fn text_dates_unknown_status_and_browser_precedence_are_explicit() {
         .expect_err("unknown text status");
     assert!(
         error
-            .display_message()
+            .to_string()
             .contains("unknown project status type: futureStatus")
     );
 

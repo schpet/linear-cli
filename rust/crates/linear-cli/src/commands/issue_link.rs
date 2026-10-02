@@ -1,6 +1,6 @@
 //! `issue link`: attach a URL to an issue (the issue may be inferred from the branch).
 use crate::commands::issue_id;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_link::{AttachmentLinkURL, Variables};
 use crate::graphql::transport::GraphQlTransport;
@@ -15,23 +15,18 @@ fn looks_like_url(value: &str) -> bool {
 pub fn inputs<'a>(
     first: &'a str,
     second: Option<&'a str>,
-) -> Result<(Option<&'a str>, &'a str), AppError> {
+) -> Result<(Option<&'a str>, &'a str), Error> {
     let (issue, url) = match second {
         Some(url) => (Some(first), url),
         None if looks_like_url(first) => (None, first),
         None => {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("Expected a URL but got '{first}'"),
-            )
-            .with_suggestion(URL_SUGGESTION));
+            return Err(
+                Error::new(format!("Expected a URL but got '{first}'")).with_hint(URL_SUGGESTION)
+            );
         }
     };
     if !looks_like_url(url) {
-        return Err(
-            AppError::new(AppErrorKind::Validation, format!("Invalid URL: '{url}'"))
-                .with_suggestion(URL_SUGGESTION),
-        );
+        return Err(Error::new(format!("Invalid URL: '{url}'")).with_hint(URL_SUGGESTION));
     }
     Ok((issue, url))
 }
@@ -47,14 +42,11 @@ pub async fn submit(
     identifier: &str,
     url: &str,
     title: Option<&str>,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let id = issue_id::fetch(transport, identifier).await?;
     let result: AttachmentLinkURL = transport.execute(&request(&id, url, title)).await?;
     if !result.attachment_link_url.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to link URL to issue",
-        ));
+        return Err(Error::new("Failed to link URL to issue"));
     }
     Ok(format!(
         "✓ Linked to {identifier}: {}\n",

@@ -193,7 +193,7 @@ fn api_response_stage_table_preserves_raw_body_status_silent_and_typed_refusal()
     for (status, text, silent, code, stdout, stderr) in [
         (500, " raw error ", false, 1, "", " raw error \n"),
         (500, "error", true, 1, "", ""),
-        (200, " nonJSON ", false, 0, " nonJSON \n", ""),
+        (200, " nonJSON ", false, 1, " nonJSON \n", ""),
         (200, " \"str\" \n", false, 0, " \"str\" \n", ""),
         (200, " null ", false, 0, " null \n", ""),
         (
@@ -229,7 +229,7 @@ fn api_response_stage_table_preserves_raw_body_status_silent_and_typed_refusal()
         let home = Home::new();
         let server = Server::new(vec![Reply::text(200, text)]);
         let out = home.run(&server.url, &["api", "mutation { opaque }", "--silent"], "");
-        assert_eq!(out.status.code(), Some(0));
+        assert_eq!(out.status.code(), Some(1));
         assert!(out.stderr.is_empty());
         assert!(out.stdout.is_empty());
         assert_eq!(server.finish().len(), 1);

@@ -1,9 +1,10 @@
 use clap::{Args, Subcommand};
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct Document {
     #[command(subcommand)]
-    pub command: Option<DocumentCommand>,
+    pub command: DocumentCommand,
 }
 
 #[derive(Debug, Subcommand)]
@@ -141,9 +142,10 @@ pub struct DocumentDelete {
 }
 
 #[derive(Debug, Args)]
+#[command(arg_required_else_help = true)]
 pub struct DocumentComment {
     #[command(subcommand)]
-    pub command: Option<DocumentCommentCommand>,
+    pub command: DocumentCommentCommand,
 }
 
 #[derive(Debug, Subcommand)]

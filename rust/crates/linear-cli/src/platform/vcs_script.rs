@@ -1,7 +1,7 @@
 //! Running jj/git for `issue commits` and `issue describe` with captured output.
 use crate::{
     config::{ChildEnvOverlay, Vcs},
-    error::{AppError, AppErrorKind},
+    error::Error,
     platform::vcs,
 };
 use std::{
@@ -61,21 +61,17 @@ pub trait ProcessRunner {
         spec: &CommandSpec,
         cwd: &Path,
         env: &ChildEnvOverlay,
-    ) -> Result<Captured, AppError>;
+    ) -> Result<Captured, Error>;
     fn inherit(
         &mut self,
         spec: &CommandSpec,
         cwd: &Path,
         env: &ChildEnvOverlay,
-    ) -> Result<ChildOutcome, AppError>;
+    ) -> Result<ChildOutcome, Error>;
 }
 pub struct NativeProcessRunner;
-fn process_error(stage: &str, error: io::Error) -> AppError {
-    AppError::new(
-        AppErrorKind::IoProcess,
-        format!("Failed to {stage}: {error}"),
-    )
-    .with_source(error)
+fn process_error(stage: &str, error: io::Error) -> Error {
+    Error::new(format!("Failed to {stage}: {error}")).with_source(error)
 }
 fn outcome(status: std::process::ExitStatus) -> io::Result<ChildOutcome> {
     if let Some(code) = status.code() {
@@ -131,7 +127,7 @@ impl Drop for OwnedChild {
         }
     }
 }
-fn abort_child(owner: &mut impl ChildControl, error: AppError) -> AppError {
+fn abort_child(owner: &mut impl ChildControl, error: Error) -> Error {
     let killed = owner.kill();
     let reaped = owner.wait();
     if killed.is_err() || reaped.is_err() {
@@ -157,7 +153,7 @@ pub fn collect_captured<O, E>(
     owner: &mut impl ChildControl,
     stdout: O,
     stderr: E,
-) -> Result<Captured, AppError>
+) -> Result<Captured, Error>
 where
     O: Read + Send,
     E: Read + Send,
@@ -182,7 +178,7 @@ where
                     if output.replace(bytes).is_some() {
                         break Err(abort_child(
                             owner,
-                            AppError::new(AppErrorKind::Invariant, "duplicate VCS stdout result"),
+                            Error::new("duplicate VCS stdout result"),
                         ));
                     }
                 }
@@ -190,7 +186,7 @@ where
                     if error_output.replace(bytes).is_some() {
                         break Err(abort_child(
                             owner,
-                            AppError::new(AppErrorKind::Invariant, "duplicate VCS stderr result"),
+                            Error::new("duplicate VCS stderr result"),
                         ));
                     }
                 }
@@ -206,10 +202,7 @@ where
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
                     break Err(abort_child(
                         owner,
-                        AppError::new(
-                            AppErrorKind::Invariant,
-                            "VCS reader terminated without a result",
-                        ),
+                        Error::new("VCS reader terminated without a result"),
                     ));
                 }
             }
@@ -236,10 +229,7 @@ where
                     _ => {
                         break Err(abort_child(
                             owner,
-                            AppError::new(
-                                AppErrorKind::Invariant,
-                                "completed VCS reader result disappeared",
-                            ),
+                            Error::new("completed VCS reader result disappeared"),
                         ));
                     }
                 }
@@ -264,20 +254,14 @@ where
                     _ => {
                         break Err(abort_child(
                             owner,
-                            AppError::new(
-                                AppErrorKind::Invariant,
-                                "completed VCS capture state disappeared",
-                            ),
+                            Error::new("completed VCS capture state disappeared"),
                         ));
                     }
                 }
             }
         };
         if out.join().is_err() || err.join().is_err() {
-            return Err(abort_child(
-                owner,
-                AppError::new(AppErrorKind::Invariant, "VCS reader panicked"),
-            ));
+            return Err(abort_child(owner, Error::new("VCS reader panicked")));
         }
         result
     })
@@ -291,7 +275,7 @@ fn command(spec: &CommandSpec, cwd: &Path, env: &ChildEnvOverlay) -> Command {
         .stdin(Stdio::null());
     command
 }
-fn spawn(command: &mut Command, program: Program) -> Result<OwnedChild, AppError> {
+fn spawn(command: &mut Command, program: Program) -> Result<OwnedChild, Error> {
     command
         .spawn()
         .map(|child| OwnedChild {
@@ -304,7 +288,7 @@ fn spawn(command: &mut Command, program: Program) -> Result<OwnedChild, AppError
             } else {
                 format!("Failed to spawn '{}': {error}", program.name())
             };
-            AppError::new(AppErrorKind::IoProcess, message).with_source(error)
+            Error::new(message).with_source(error)
         })
 }
 impl ProcessRunner for NativeProcessRunner {
@@ -313,18 +297,20 @@ impl ProcessRunner for NativeProcessRunner {
         spec: &CommandSpec,
         cwd: &Path,
         env: &ChildEnvOverlay,
-    ) -> Result<Captured, AppError> {
+    ) -> Result<Captured, Error> {
         let mut command = command(spec, cwd, env);
         command.stdout(Stdio::piped()).stderr(Stdio::piped());
         let mut owner = spawn(&mut command, spec.program)?;
-        let stdout =
-            owner.child.stdout.take().ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "VCS stdout was not piped")
-            })?;
-        let stderr =
-            owner.child.stderr.take().ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "VCS stderr was not piped")
-            })?;
+        let stdout = owner
+            .child
+            .stdout
+            .take()
+            .ok_or_else(|| Error::new("VCS stdout was not piped"))?;
+        let stderr = owner
+            .child
+            .stderr
+            .take()
+            .ok_or_else(|| Error::new("VCS stderr was not piped"))?;
         collect_captured(&mut owner, stdout, stderr)
     }
     fn inherit(
@@ -332,7 +318,7 @@ impl ProcessRunner for NativeProcessRunner {
         spec: &CommandSpec,
         cwd: &Path,
         env: &ChildEnvOverlay,
-    ) -> Result<ChildOutcome, AppError> {
+    ) -> Result<ChildOutcome, Error> {
         let mut command = command(spec, cwd, env);
         command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
         let mut owner = spawn(&mut command, spec.program)?;
@@ -364,7 +350,7 @@ pub fn infer_issue(
     vcs: Vcs,
     cwd: &Path,
     env: &ChildEnvOverlay,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     let captured = runner.capture(&inference_spec(vcs), cwd, env)?;
     let stdout = decoded_trim(&captured.stdout);
     match vcs {

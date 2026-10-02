@@ -4,7 +4,7 @@ use crate::{
         project_collections::{self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef},
         project_write as shared,
     },
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         edit::Edit,
         envelope::GraphQlRequest,
@@ -67,29 +67,24 @@ impl Options {
         }
     }
 }
-pub fn replace_conflict(
-    kind: &str,
-    replace: bool,
-    add: bool,
-    remove: bool,
-) -> Result<(), AppError> {
+pub fn replace_conflict(kind: &str, replace: bool, add: bool, remove: bool) -> Result<(), Error> {
     if replace && (add || remove) {
-        return Err(shared::validation(format!("Cannot combine --{kind} with --add-{kind} or --remove-{kind}")).with_suggestion(format!("--{kind} replaces the project's entire {kind} set. Use it alone to set the exact set, or use --add-{kind}/--remove-{kind} alone to change it incrementally.")));
+        return Err(shared::validation(format!("Cannot combine --{kind} with --add-{kind} or --remove-{kind}")).with_hint(format!("--{kind} replaces the project's entire {kind} set. Use it alone to set the exact set, or use --add-{kind}/--remove-{kind} alone to change it incrementally.")));
     }
     Ok(())
 }
-pub fn overlap(kind: &str, add: &[ResolvedRef], remove: &[ResolvedRef]) -> Result<(), AppError> {
+pub fn overlap(kind: &str, add: &[ResolvedRef], remove: &[ResolvedRef]) -> Result<(), Error> {
     if project_collections::has_add_remove_overlap(add, remove) {
         return Err(shared::validation(format!(
             "Cannot add and remove the same {kind} in one update"
         ))
-        .with_suggestion(format!(
+        .with_hint(format!(
             "Remove the duplicate {kind} from either --add-{kind} or --remove-{kind}."
         )));
     }
     Ok(())
 }
-pub fn local(options: &Options) -> Result<ProjectUpdateInput, AppError> {
+pub fn local(options: &Options) -> Result<ProjectUpdateInput, Error> {
     let has_option = shared::truthy(options.name.as_deref()).is_some()
         || options.description.is_some()
         || options.description_file.is_some()
@@ -112,7 +107,7 @@ pub fn local(options: &Options) -> Result<ProjectUpdateInput, AppError> {
         || options.add_initiative.is_some()
         || options.remove_initiative.is_some();
     if !has_option {
-        return Err(shared::validation("At least one update option must be provided").with_suggestion("Use --name, --description, --description-file, --content, --content-file, --status, --lead, --clear-lead, --start-date, --clear-start-date, --target-date, --clear-target-date, --team, --add-team, --remove-team, --label, --add-label, --remove-label, --initiative, --add-initiative, or --remove-initiative"));
+        return Err(shared::validation("At least one update option must be provided").with_hint("Use --name, --description, --description-file, --content, --content-file, --status, --lead, --clear-lead, --start-date, --clear-start-date, --target-date, --clear-target-date, --team, --add-team, --remove-team, --label, --add-label, --remove-label, --initiative, --add-initiative, or --remove-initiative"));
     }
     for (name, clear, value, noun) in [
         ("lead", options.clear_lead, options.lead.as_ref(), "user"),
@@ -133,7 +128,7 @@ pub fn local(options: &Options) -> Result<ProjectUpdateInput, AppError> {
             return Err(shared::validation(format!(
                 "Cannot specify both --{name} and --clear-{name}"
             ))
-            .with_suggestion(format!(
+            .with_hint(format!(
                 "Use --{name} <{noun}> to set a {}, or --clear-{name} on its own to remove it.",
                 if name == "lead" {
                     "lead"
@@ -172,7 +167,7 @@ pub fn local(options: &Options) -> Result<ProjectUpdateInput, AppError> {
     {
         if value.trim().is_empty() {
             return Err(shared::validation("Project label cannot be empty")
-                .with_suggestion("Provide a label name, e.g. --label \"My Label\"."));
+                .with_hint("Provide a label name, e.g. --label \"My Label\"."));
         }
     }
     let description = shared::description(
@@ -220,25 +215,20 @@ fn next_cursor(
     after: Option<&str>,
     page: &PageInfo,
     seen: &mut HashSet<String>,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     if !page.has_next_page {
         return Ok(None);
     }
     let cursor = page.end_cursor.as_ref().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::GraphQl,
-            "Linear reported another page of results but returned no cursor to fetch it",
-        )
+        Error::new("Linear reported another page of results but returned no cursor to fetch it")
     })?;
     if Some(cursor.as_str()) == after {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
+        return Err(Error::new(
             "Linear reported another page of results but returned the same cursor again",
         ));
     }
     if !seen.insert(cursor.clone()) {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
+        return Err(Error::new(
             "Linear returned a pagination cursor seen earlier in this pagination walk",
         ));
     }
@@ -247,7 +237,7 @@ fn next_cursor(
 pub async fn current_teams(
     transport: &GraphQlTransport,
     id: &str,
-) -> Result<Vec<ProjectTeam>, AppError> {
+) -> Result<Vec<ProjectTeam>, Error> {
     let mut result: Vec<ProjectTeam> = Vec::new();
     let mut after = None;
     let mut seen = HashSet::new();
@@ -258,7 +248,7 @@ pub async fn current_teams(
                 after: after.clone(),
             }));
         let data: GetProjectTeamsForUpdate =
-            transport.execute(&query).await.map_err(AppError::from)?;
+            transport.execute(&query).await.map_err(Error::from)?;
         for node in data.project.teams.nodes {
             if !result.iter().any(|kept| kept.id == node.id) {
                 result.push(node);
@@ -273,7 +263,7 @@ pub async fn current_teams(
 pub async fn current_labels(
     transport: &GraphQlTransport,
     id: &str,
-) -> Result<Vec<ProjectLabel>, AppError> {
+) -> Result<Vec<ProjectLabel>, Error> {
     let mut result: Vec<ProjectLabel> = Vec::new();
     let mut after = None;
     let mut seen = HashSet::new();
@@ -284,7 +274,7 @@ pub async fn current_labels(
                 after: after.clone(),
             }));
         let data: GetProjectLabelsForUpdate =
-            transport.execute(&query).await.map_err(AppError::from)?;
+            transport.execute(&query).await.map_err(Error::from)?;
         for node in data.project.labels.nodes {
             if !result.iter().any(|kept| kept.id == node.id) {
                 result.push(node);
@@ -304,7 +294,7 @@ pub struct DisplayProject {
 pub async fn current_links(
     transport: &GraphQlTransport,
     id: &str,
-) -> Result<(Vec<InitiativeLink>, DisplayProject), AppError> {
+) -> Result<(Vec<InitiativeLink>, DisplayProject), Error> {
     let mut result: Vec<InitiativeLink> = Vec::new();
     let mut after = None;
     let mut seen = HashSet::new();
@@ -316,7 +306,7 @@ pub async fn current_links(
             },
         ));
         let data: GetProjectInitiativeLinksForUpdate =
-            transport.execute(&query).await.map_err(AppError::from)?;
+            transport.execute(&query).await.map_err(Error::from)?;
         let display = DisplayProject {
             name: data.project.name,
             url: data.project.url,
@@ -358,7 +348,7 @@ pub async fn plan(
     original: &str,
     options: &Options,
     mut input: ProjectUpdateInput,
-) -> Result<Plan, AppError> {
+) -> Result<Plan, Error> {
     let reference = refs::prepare_project_lookup(original, scope)?;
     let id = refs::resolve_project_with_transport(&reference, original, transport).await?;
     if let Some(value) = shared::truthy(options.status.as_deref()) {
@@ -401,7 +391,7 @@ pub async fn plan(
                     "Cannot remove team \"{}\": it is not on this project",
                     missing.0.label
                 ))
-                .with_suggestion(format!(
+                .with_hint(format!(
                     "Current teams: {}. Use --add-team to add one.",
                     current
                         .iter()
@@ -411,7 +401,7 @@ pub async fn plan(
                 ))
             })?;
         if result.is_empty() {
-            return Err(shared::validation("Removing these teams would leave the project with no teams; Linear requires at least one").with_suggestion("Keep at least one team, or use --team to replace the set."));
+            return Err(shared::validation("Removing these teams would leave the project with no teams; Linear requires at least one").with_hint("Keep at least one team, or use --team to replace the set."));
         }
         input.team_ids = Some(result);
     }
@@ -430,7 +420,7 @@ pub async fn plan(
                         "Cannot remove label \"{}\": it is not on this project",
                         missing.0.label
                     ))
-                    .with_suggestion(if current.is_empty() {
+                    .with_hint(if current.is_empty() {
                         "The project has no labels. Use --add-label to add one.".to_owned()
                     } else {
                         format!(
@@ -462,7 +452,7 @@ pub async fn plan(
         overlap("initiative", &added, &removed)?;
         let (links, last_page) = current_links(transport, &id).await?;
         let current_ids: Vec<_> = links.iter().map(|l| l.initiative_id.clone()).collect();
-        let desired=match &replacement{Some(refs)=>ids(refs),None=>project_collections::apply_collection_edit(&current_ids,&added,&removed).map_err(|missing|shared::validation(format!("Cannot remove initiative \"{}\": it is not linked to this project",missing.0.label)).with_suggestion(if links.is_empty(){"The project is not linked to any initiative. Use --add-initiative to link one.".to_owned()}else{format!("Current initiatives: {}. Use --add-initiative to link one.",links.iter().map(|l|l.initiative_name.clone()).collect::<Vec<_>>().join(", "))}))?};
+        let desired=match &replacement{Some(refs)=>ids(refs),None=>project_collections::apply_collection_edit(&current_ids,&added,&removed).map_err(|missing|shared::validation(format!("Cannot remove initiative \"{}\": it is not linked to this project",missing.0.label)).with_hint(if links.is_empty(){"The project is not linked to any initiative. Use --add-initiative to link one.".to_owned()}else{format!("Current initiatives: {}. Use --add-initiative to link one.",links.iter().map(|l|l.initiative_name.clone()).collect::<Vec<_>>().join(", "))}))?};
         let mut labels = replacement.unwrap_or_default();
         labels.extend(added);
         changes = project_collections::plan_initiative_changes(&links, &desired, &labels);
@@ -480,7 +470,7 @@ pub async fn apply(
     id: &str,
     changes: &[InitiativeChange],
     prior_fields: bool,
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     for (applied, change) in changes.iter().enumerate() {
         let result = match change {
             InitiativeChange::Add { initiative_id, .. } => {
@@ -511,23 +501,20 @@ pub async fn apply(
             Ok(true) => continue,
             Ok(false) => (
                 FailedWrite::Rejected,
-                AppError::new(
-                    AppErrorKind::GraphQl,
-                    format!(
-                        "Linear reported failure for initiative \"{}\"",
-                        match change {
-                            InitiativeChange::Add { label, .. }
-                            | InitiativeChange::Remove { label, .. } => label,
-                        }
-                    ),
-                ),
+                Error::new(format!(
+                    "Linear reported failure for initiative \"{}\"",
+                    match change {
+                        InitiativeChange::Add { label, .. }
+                        | InitiativeChange::Remove { label, .. } => label,
+                    }
+                )),
             ),
-            Err(error) => (FailedWrite::Unknown, AppError::from(error)),
+            Err(error) => (FailedWrite::Unknown, Error::from(error)),
         };
         let diagnostic =
             project_collections::partial_diagnostic(changes, applied, outcome, prior_fields)?;
-        return Err(AppError::new(AppErrorKind::GraphQl, diagnostic.message)
-            .with_suggestion(diagnostic.suggestion)
+        return Err(Error::new(diagnostic.message)
+            .with_hint(diagnostic.suggestion)
             .with_source(cause));
     }
     Ok(())
@@ -535,19 +522,16 @@ pub async fn apply(
 pub async fn submit(
     transport: &GraphQlTransport,
     plan: Plan,
-) -> Result<Option<DisplayProject>, AppError> {
+) -> Result<Option<DisplayProject>, Error> {
     let prior_fields = has_fields(&plan.input);
     let display = if prior_fields {
         let query = GraphQlRequest::with_variables(UpdateProject::build(UpdateProjectVariables {
             id: plan.project_id.clone(),
             input: plan.input,
         }));
-        let result: UpdateProject = transport.execute(&query).await.map_err(AppError::from)?;
+        let result: UpdateProject = transport.execute(&query).await.map_err(Error::from)?;
         if !result.project_update.success {
-            return Err(AppError::new(
-                AppErrorKind::GraphQl,
-                "Failed to update project",
-            ));
+            return Err(Error::new("Failed to update project"));
         }
         result.project_update.project.map(|p| DisplayProject {
             name: p.name,

@@ -1,4 +1,3 @@
-use linear_cli::cli;
 use linear_cli::commands::issue_link;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::issue_link::AttachmentLinkURL;
@@ -15,11 +14,11 @@ fn url_input_is_case_sensitive_prefix_only_and_untouched() {
     }
     for bad in ["HTTPS://example.com", "ftp://x", " ENG-1", "", "https:/"] {
         let single = issue_link::inputs(bad, None).unwrap_err();
-        assert_eq!(single.message, format!("Expected a URL but got '{bad}'"));
+        assert_eq!(single.message(), format!("Expected a URL but got '{bad}'"));
         let double = issue_link::inputs("ENG-1", Some(bad)).unwrap_err();
-        assert_eq!(double.message, format!("Invalid URL: '{bad}'"));
+        assert_eq!(double.message(), format!("Invalid URL: '{bad}'"));
         assert_eq!(
-            double.suggestion.as_deref(),
+            double.hint(),
             Some("Provide a URL starting with http:// or https://.")
         );
     }
@@ -80,7 +79,7 @@ fn native_link_cli_rejects_empty_title_missing_url_and_json() {
         vec!["issue", "link", "https://example.com", "--json"],
     ] {
         assert!(
-            cli::parse(
+            crate::parse(
                 &args
                     .iter()
                     .map(std::ffi::OsString::from)
@@ -110,7 +109,7 @@ async fn link_uses_returned_title_and_reports_false_success_after_lookup() {
         if success {
             assert_eq!(result.unwrap(), "✓ Linked to ENG-1: API title\n".as_bytes());
         } else {
-            assert_eq!(result.unwrap_err().message, "Failed to link URL to issue");
+            assert_eq!(result.unwrap_err().message(), "Failed to link URL to issue");
         }
         let requests: Vec<Value> = server.join().unwrap();
         assert_eq!(requests[0]["variables"], json!({"id":"ENG-1"}));
@@ -128,6 +127,6 @@ async fn link_empty_lookup_id_never_reaches_attachment_mutation() {
     let error = issue_link::submit(&transport, "ENG-1", "https://example.com", None)
         .await
         .unwrap_err();
-    assert_eq!(error.message, "Issue not found: ENG-1");
+    assert_eq!(error.message(), "Issue not found: ENG-1");
     assert_eq!(server.join().unwrap().len(), 1);
 }

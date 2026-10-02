@@ -9,7 +9,7 @@ use tokio::task::JoinSet;
 use crate::auth::{self, CredentialStore};
 use crate::commands::display::{display_width, pad};
 use crate::config::TransportEnvInputs;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
 use crate::graphql::operations::auth_list::AuthListViewer;
 use crate::graphql::transport::{
@@ -98,8 +98,8 @@ pub fn classify(store: &CredentialStore) -> Vec<Row<StoredKey>> {
 /// later build failure cannot follow an earlier request.
 pub fn prepare_with<T>(
     rows: Vec<Row<StoredKey>>,
-    mut build: impl FnMut(ApiKey) -> Result<T, AppError>,
-) -> Result<Vec<Row<Prepared<T>>>, AppError> {
+    mut build: impl FnMut(ApiKey) -> Result<T, Error>,
+) -> Result<Vec<Row<Prepared<T>>>, Error> {
     rows.into_iter()
         .map(|row| {
             let state = match row.state {
@@ -121,7 +121,7 @@ pub fn prepare_transports(
     rows: Vec<Row<StoredKey>>,
     endpoint: &EndpointUrl,
     transport_env: &TransportEnvInputs,
-) -> Result<Vec<Row<Prepared<GraphQlTransport>>>, AppError> {
+) -> Result<Vec<Row<Prepared<GraphQlTransport>>>, Error> {
     let usable = rows
         .iter()
         .any(|row| matches!(row.state, StoredKey::Usable(_)));
@@ -131,14 +131,11 @@ pub fn prepare_transports(
         None
     };
     prepare_with(rows, |key| {
-        let config = config.clone().ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "transport policy was not resolved for a usable key",
-            )
-        })?;
+        let config = config
+            .clone()
+            .ok_or_else(|| Error::new("transport policy was not resolved for a usable key"))?;
         GraphQlTransport::new(endpoint.clone(), key, config)
-            .map_err(|error: TransportBuildError| AppError::from(error))
+            .map_err(|error: TransportBuildError| Error::from(error))
     })
 }
 
@@ -147,7 +144,7 @@ pub fn prepare_transports(
 pub async fn fetch_with<T, F, Fut>(
     rows: Vec<Row<Prepared<T>>>,
     fetch: F,
-) -> Result<Vec<Row<Outcome>>, AppError>
+) -> Result<Vec<Row<Outcome>>, Error>
 where
     F: Fn(T, GraphQlRequest<()>) -> Fut,
     Fut: Future<Output = Result<AuthListViewer, TransportFailure>> + Send + 'static,
@@ -168,21 +165,13 @@ where
         }
     }
     while let Some(joined) = tasks.join_next().await {
-        let (index, result) = joined.map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "a workspace request task failed")
-                .with_source(error)
-        })?;
-        let slot = outcomes.get_mut(index).ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                "workspace request index out of range",
-            )
-        })?;
+        let (index, result) = joined
+            .map_err(|error| Error::new("a workspace request task failed").with_source(error))?;
+        let slot = outcomes
+            .get_mut(index)
+            .ok_or_else(|| Error::new("workspace request index out of range"))?;
         if slot.is_some() {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                "workspace request completed twice",
-            ));
+            return Err(Error::new("workspace request completed twice"));
         }
         *slot = Some(match result {
             Ok(data) => Outcome::Viewer {
@@ -197,9 +186,7 @@ where
         .into_iter()
         .zip(outcomes)
         .map(|((workspace, is_default), outcome)| {
-            let state = outcome.ok_or_else(|| {
-                AppError::new(AppErrorKind::Invariant, "workspace request never completed")
-            })?;
+            let state = outcome.ok_or_else(|| Error::new("workspace request never completed"))?;
             Ok(Row {
                 workspace,
                 is_default,
@@ -209,9 +196,7 @@ where
         .collect()
 }
 
-pub async fn fetch(
-    rows: Vec<Row<Prepared<GraphQlTransport>>>,
-) -> Result<Vec<Row<Outcome>>, AppError> {
+pub async fn fetch(rows: Vec<Row<Prepared<GraphQlTransport>>>) -> Result<Vec<Row<Outcome>>, Error> {
     fetch_with(rows, |transport, request| async move {
         transport.execute::<AuthListViewer, ()>(&request).await
     })

@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use cynic::MutationBuilder;
 use linear_cli::commands::milestone_create::{self, Options};
-use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::milestone_create::{
     CreateProjectMilestone, CreateProjectMilestoneVariables, ProjectMilestoneCreateInput,
@@ -234,14 +233,13 @@ async fn uncertain_failures_warn_once_and_rejections_do_not() {
         .await
         .unwrap_err();
         assert_eq!(
-            error.message.ends_with("; milestone may already exist"),
+            error.message().ends_with("; milestone may already exist"),
             uncertain,
             "{response:?}: {}",
-            error.message
+            error.message()
         );
         if matches!(response, Reply::Respond(_, body) if body.contains("\"success\":false")) {
-            assert_eq!(error.message, "Failed to create milestone");
-            assert_eq!(error.kind, AppErrorKind::GraphQl);
+            assert_eq!(error.message(), "Failed to create milestone");
         }
         assert!(!server.join().unwrap(), "create must not retry");
     }
@@ -260,9 +258,9 @@ async fn refused_connection_is_not_reported_as_a_possible_create() {
     .await
     .unwrap_err();
     assert!(
-        error.message.starts_with("connection to "),
+        error.message().starts_with("connection to "),
         "{}",
-        error.message
+        error.message()
     );
-    assert!(!error.message.contains("may already exist"));
+    assert!(!error.message().contains("may already exist"));
 }

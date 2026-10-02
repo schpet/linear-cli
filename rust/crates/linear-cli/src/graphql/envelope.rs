@@ -7,7 +7,7 @@
 //! with neither, malformed JSON, or well-formed JSON that does not match the
 //! operation's types. HTTP status handling lives in the transport.
 
-use std::error::Error;
+use std::error::Error as StdError;
 use std::fmt;
 
 use cynic::{GraphQlError, Operation};
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_json::error::Category;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 /// The JSON body sent for one GraphQL operation.
 ///
@@ -159,8 +159,8 @@ impl fmt::Display for ResponseError {
     }
 }
 
-impl Error for ResponseError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl StdError for ResponseError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Self::MalformedJson(source)
             | Self::UnexpectedShape(source)
@@ -173,25 +173,19 @@ impl Error for ResponseError {
     }
 }
 
-impl From<ResponseError> for AppError {
+impl From<ResponseError> for Error {
     fn from(error: ResponseError) -> Self {
         let message = error.to_string();
         match error {
-            ResponseError::MalformedJson(source) => {
-                AppError::new(AppErrorKind::Transport, message).with_source(source)
-            }
-            ResponseError::NotJson { source, .. } => {
-                AppError::new(AppErrorKind::Transport, message).with_source(source)
-            }
+            ResponseError::MalformedJson(source) => Error::new(message).with_source(source),
+            ResponseError::NotJson { source, .. } => Error::new(message).with_source(source),
             // Valid JSON that contradicts the schema the types were compiled
             // against is a broken contract, not a transport or GraphQL failure.
-            ResponseError::UnexpectedShape(source) => {
-                AppError::new(AppErrorKind::Invariant, message).with_source(source)
-            }
+            ResponseError::UnexpectedShape(source) => Error::new(message).with_source(source),
             ResponseError::GraphQl { .. }
             | ResponseError::MissingData
             | ResponseError::MutationRejected
-            | ResponseError::MissingPayloadEntity => AppError::new(AppErrorKind::GraphQl, message),
+            | ResponseError::MissingPayloadEntity => Error::new(message),
         }
     }
 }

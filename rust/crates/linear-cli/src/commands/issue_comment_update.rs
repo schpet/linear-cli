@@ -1,6 +1,6 @@
 //! `issue comment update`: body from a flag, a file or a prompt, then one mutation.
 use crate::{
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error,
         envelope::{GraphQlRequest, ResponseError},
@@ -23,26 +23,20 @@ pub fn prepare_body(
     id: &str,
     body: Option<&str>,
     file: Option<&str>,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     reject_comment_url(id)?;
     reject_linear_url(id, "a comment UUID")?;
     let file = file.filter(|value| !value.is_empty());
     if body.is_some_and(|value| !value.is_empty()) && file.is_some() {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Cannot specify both --body and --body-file",
-        ));
+        return Err(Error::new("Cannot specify both --body and --body-file"));
     }
     match file {
         Some(path) => crate::commands::text_input::read_file(path)
             .map(Some)
             .map_err(|error| {
-                AppError::new(
-                    AppErrorKind::Validation,
-                    format!("Failed to read body file: {path}"),
-                )
-                .with_suggestion(format!("Error: {error}"))
-                .with_source(error)
+                Error::new(format!("Failed to read body file: {path}"))
+                    .with_hint(format!("Error: {error}"))
+                    .with_source(error)
             }),
         None => Ok(body.map(str::to_owned)),
     }
@@ -52,28 +46,22 @@ pub fn needs_prompt(body: Option<&str>) -> bool {
 }
 /// Refuses prompting when stdout is a FIFO; checked after the fetch and before raw mode.
 /// Pipe stdin and regular redirected files remain eligible for their native prompts.
-pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), AppError> {
+pub fn check_prompt_topology(stdin_tty: bool, stdout_fifo: bool) -> Result<(), Error> {
     if stdin_tty && stdout_fifo {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Comment text prompt requires terminal or regular-file stdout when stdin is a terminal",
-        ).with_suggestion("Keep stdout on the terminal, redirect it to a regular file, or supply --body/--body-file."));
+        return Err(Error::new("Comment text prompt requires terminal or regular-file stdout when stdin is a terminal",
+        ).with_hint("Keep stdout on the terminal, redirect it to a regular file, or supply --body/--body-file."));
     }
     Ok(())
 }
 #[cfg(unix)]
-pub fn stdout_is_fifo() -> Result<bool, AppError> {
+pub fn stdout_is_fifo() -> Result<bool, Error> {
     let stat = rustix::fs::fstat(std::io::stdout()).map_err(|source| {
-        AppError::new(
-            AppErrorKind::IoProcess,
-            "Failed to inspect comment text prompt stdout",
-        )
-        .with_source(source)
+        Error::new("Failed to inspect comment text prompt stdout").with_source(source)
     })?;
     Ok(rustix::fs::FileType::from_raw_mode(stat.st_mode) == rustix::fs::FileType::Fifo)
 }
 #[cfg(not(unix))]
-pub fn stdout_is_fifo() -> Result<bool, AppError> {
+pub fn stdout_is_fifo() -> Result<bool, Error> {
     Ok(false)
 }
 pub fn get_request(id: &str) -> GraphQlRequest<GetCommentVariables> {
@@ -90,33 +78,27 @@ async fn exchange<T: DeserializeOwned, V: Serialize>(
     transport: &GraphQlTransport,
     request: &GraphQlRequest<V>,
     mutation: bool,
-) -> Result<T, AppError> {
+) -> Result<T, Error> {
     let response = transport.send_request(request).await?;
     if let Some(error) =
         bulk_error::observe_source_error(&response, request).map_err(|error| error.into_error())?
     {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            error.preferred_message.unwrap_or(error.message),
-        ));
+        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
     }
     classify_typed(response).map_err(|error| match error {
-        TransportFailure::Response(ResponseError::UnexpectedShape(source)) => AppError::new(
-            AppErrorKind::Invariant,
-            format!(
-                "Linear returned an unexpected response: {source}{}",
-                if mutation {
-                    "; update outcome unknown; do not retry automatically"
-                } else {
-                    "; no update attempted"
-                }
-            ),
-        )
+        TransportFailure::Response(ResponseError::UnexpectedShape(source)) => Error::new(format!(
+            "Linear returned an unexpected response: {source}{}",
+            if mutation {
+                "; update outcome unknown; do not retry automatically"
+            } else {
+                "; no update attempted"
+            }
+        ))
         .with_source(source),
-        error => AppError::from(error),
+        error => Error::from(error),
     })
 }
-pub async fn existing_body(transport: &GraphQlTransport, id: &str) -> Result<String, AppError> {
+pub async fn existing_body(transport: &GraphQlTransport, id: &str) -> Result<String, Error> {
     let result: GetComment = exchange(transport, &get_request(id), false).await?;
     Ok(result
         .comment
@@ -126,7 +108,7 @@ pub async fn existing_body(transport: &GraphQlTransport, id: &str) -> Result<Str
 pub fn prompt_body<R: Read, W: Write>(
     session: &mut PromptSession<R, W>,
     existing: &str,
-) -> Result<PromptOutcome<String>, AppError> {
+) -> Result<PromptOutcome<String>, Error> {
     match session.text_with_display_default(
         "New comment body",
         TextOptions {
@@ -136,17 +118,13 @@ pub fn prompt_body<R: Read, W: Write>(
     )? {
         PromptOutcome::Submitted(body) => {
             if body.trim().is_empty() {
-                Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "Comment body cannot be empty",
-                ))
+                Err(Error::new("Comment body cannot be empty"))
             } else {
                 Ok(PromptOutcome::Submitted(body))
             }
         }
         PromptOutcome::Interrupted => Ok(PromptOutcome::Interrupted),
-        PromptOutcome::EndOfInput => Err(AppError::new(
-            AppErrorKind::Validation,
+        PromptOutcome::EndOfInput => Err(Error::new(
             "unexpected EOF while prompting for comment body",
         )),
     }
@@ -155,18 +133,16 @@ pub async fn submit(
     transport: &GraphQlTransport,
     id: &str,
     body: String,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let result: UpdateComment = exchange(transport, &update_request(id, body), true).await?;
     if !result.comment_update.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, CONTEXT));
+        return Err(Error::new(CONTEXT));
     }
     // `success: true` with a null comment means the update happened but its
     // result is unavailable; report that without retrying.
-    let comment = result.comment_update.comment.ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::GraphQl,
-            "Comment update failed - no comment returned",
-        )
-    })?;
+    let comment = result
+        .comment_update
+        .comment
+        .ok_or_else(|| Error::new("Comment update failed - no comment returned"))?;
     Ok(format!("✓ Comment updated\n{}\n", comment.url).into_bytes())
 }

@@ -208,7 +208,7 @@ async fn real_exchange_failures_fall_back_but_shapes_do_not() {
             command::resolve_reference(&transport, &Reference::NameOrSlug("Name".into()), "Name")
                 .await
                 .unwrap_err();
-        assert!(error.message.contains("expected operation shape"));
+        assert!(error.message().contains("expected operation shape"));
         assert_eq!(worker.join().unwrap().len(), 1);
     }
 }
@@ -270,13 +270,12 @@ async fn active_truthiness_and_details_missing_context_preserve_source() {
         );
     }
     let (transport, worker) = server(vec![nodes(json!([]))]);
-    assert_eq!(
+    assert!(
         command::fetch_details(&transport, "id", "raw URL")
             .await
             .unwrap_err()
-            .context
-            .as_deref(),
-        Some("Failed to resolve initiative")
+            .to_string()
+            .starts_with(concat!("Failed to resolve initiative", ": "))
     );
     worker.join().unwrap();
 }
@@ -303,7 +302,7 @@ async fn nullable_entity_empty_fields_and_false_success_are_distinct() {
         match expected {
             Some(output) => assert_eq!(result.unwrap(), output.as_bytes()),
             None => assert_eq!(
-                result.unwrap_err().message,
+                result.unwrap_err().message(),
                 "Failed to unarchive initiative"
             ),
         }
@@ -354,7 +353,11 @@ async fn mutation_exchange_errors_are_contextual_and_never_retry_or_fall_back() 
         let error = command::submit(&transport, "resolved-id")
             .await
             .unwrap_err();
-        assert_eq!(error.context.as_deref(), Some(command::CONTEXT));
+        assert!(
+            error
+                .to_string()
+                .starts_with(&format!("{}: ", command::CONTEXT))
+        );
         let requests = worker.join().unwrap();
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0]["operationName"], "UnarchiveInitiative");

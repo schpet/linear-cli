@@ -1,5 +1,5 @@
+use linear_cli::cli::RootCommand;
 use linear_cli::cli::issue::{IssueCommand, IssueRelationCommand, RelationType};
-use linear_cli::cli::{self, RootCommand};
 use linear_cli::commands::{issue_id, issue_relations};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::issue_id::GetIssueId;
@@ -18,14 +18,14 @@ fn public_cli_relation_enum_is_case_insensitive_and_rejects_other_values() {
     ] {
         let words =
             ["issue", "relation", "add", "eng-1", word, "eng-2"].map(std::ffi::OsString::from);
-        let parsed = cli::parse(&words).unwrap();
-        let Some(RootCommand::Issue(issue)) = parsed.command else {
+        let parsed = crate::parse(&words).unwrap();
+        let RootCommand::Issue(issue) = parsed.command else {
             panic!("issue")
         };
-        let Some(IssueCommand::Relation(relation)) = issue.command else {
+        let IssueCommand::Relation(relation) = issue.command else {
             panic!("relation")
         };
-        let Some(IssueRelationCommand::Add(add)) = relation.command else {
+        let IssueRelationCommand::Add(add) = relation.command else {
             panic!("add")
         };
         assert_eq!(add.relation_type, expected);
@@ -40,7 +40,7 @@ fn public_cli_relation_enum_is_case_insensitive_and_rejects_other_values() {
         vec!["issue", "relation", "list", "A-1", "--json"],
     ] {
         assert!(
-            cli::parse(
+            crate::parse(
                 &words
                     .iter()
                     .map(std::ffi::OsString::from)
@@ -344,7 +344,7 @@ async fn delete_first_exact_outgoing_match_and_directional_no_matches() {
             .await
             .unwrap_err();
         assert_eq!(
-            error.message,
+            error.message(),
             format!(
                 "Relation not found: {} between ENG-1 and ENG-2",
                 kind.spelling()
@@ -366,7 +366,7 @@ async fn lookup_not_found_stops_the_sequence_and_false_success_is_an_error() {
             .await
             .unwrap_err();
         assert_eq!(
-            error.message,
+            error.message(),
             if second {
                 "Issue not found: ENG-2"
             } else {
@@ -384,7 +384,7 @@ async fn lookup_not_found_stops_the_sequence_and_false_success_is_an_error() {
         issue_relations::add(&transport, RelationType::Blocks, "A-1", "B-2")
             .await
             .unwrap_err()
-            .message,
+            .message(),
         "Failed to create relation"
     );
     assert_eq!(server.join().unwrap().len(), 3);
@@ -410,7 +410,7 @@ async fn empty_lookup_ids_are_not_found_and_stop_before_any_write() {
                     .unwrap_err()
             };
             assert_eq!(
-                error.message,
+                error.message(),
                 if second {
                     "Issue not found: ENG-2"
                 } else {

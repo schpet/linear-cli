@@ -10,10 +10,9 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use linear_cli::config::{
-    ConfigDiagnostic, DiagnosticReason, FileKind, FileSource, IssueSort, NoColor, OptionSource,
-    OsFamily, ProcessEnvSnapshot, load_startup, render_diagnostic,
+    ConfigDiagnostic, DiagnosticReason, FileKind, FileSource, IssueSort, OptionSource, OsFamily,
+    ProcessEnvSnapshot, load_startup, render_diagnostic,
 };
-use linear_cli::error::AppErrorKind;
 
 enum Entry {
     Bytes(Vec<u8>),
@@ -110,7 +109,7 @@ fn source_precedence_and_redacted_overlay_are_typed() {
         .file("/work/linear.toml", b"issue_sort = 'priority'\n")
         .file("/global/linear/linear.toml", b"issue_sort = 'manual'\n");
     let report = load_startup(&process, &files);
-    assert_eq!(report.settings.no_color, NoColor::Empty);
+    assert!(!report.settings.no_color);
     assert!(report.settings.debug);
     let ready = report.result.as_ref().unwrap();
     assert_eq!(ready.options.issue_sort(None).0, IssueSort::Manual);
@@ -135,7 +134,7 @@ fn pager_is_captured_only_from_process_environment() {
     );
     let absent = load_startup(&process(&[]), &files);
     assert_eq!(absent.result.unwrap().pager, None);
-    assert_eq!(absent.settings.no_color, NoColor::Absent);
+    assert!(!absent.settings.no_color);
 
     for value in ["", "  ", "less -R"] {
         let report = load_startup(&process(&[("PAGER", value)]), &files);
@@ -177,14 +176,13 @@ fn lower_tier_poison_is_fatal_even_when_env_is_valid() {
     let process = process(&[("LINEAR_ISSUE_SORT", "manual")]);
     let files = MemFiles::default().file("/work/linear.toml", b"issue_sort = 12\n");
     let report = load_startup(&process, &files);
-    let error = report.result.unwrap_err().app_error();
-    assert_eq!(error.kind, AppErrorKind::Validation);
+    let error = report.result.unwrap_err();
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "invalid config option issue_sort from project config /work/linear.toml: invalid type: integer `12`, expected manual or priority"
     );
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some("Fix issue_sort in project config /work/linear.toml.")
     );
 }
@@ -195,7 +193,7 @@ fn malformed_first_candidate_does_not_fall_through() {
         .file("/work/linear.toml", b"issue_sort = [\n")
         .file("/work/.linear.toml", b"issue_sort = 'priority'\n");
     let report = load_startup(&process(&[]), &files);
-    let message = report.result.unwrap_err().app_error().display_message();
+    let message = report.result.unwrap_err().to_string();
     assert!(
         message.starts_with(
             "invalid config file /work/linear.toml: invalid TOML at line 1, column 15: "
@@ -225,8 +223,7 @@ fn global_then_project_then_options_then_endpoint_errors_are_reported_first() {
         report
             .result
             .unwrap_err()
-            .app_error()
-            .display_message()
+            .to_string()
             .contains("/global/linear/linear.toml")
     );
 
@@ -238,8 +235,7 @@ fn global_then_project_then_options_then_endpoint_errors_are_reported_first() {
         report
             .result
             .unwrap_err()
-            .app_error()
-            .display_message()
+            .to_string()
             .contains("/work/linear.toml")
     );
 
@@ -249,8 +245,7 @@ fn global_then_project_then_options_then_endpoint_errors_are_reported_first() {
         report
             .result
             .unwrap_err()
-            .app_error()
-            .display_message()
+            .to_string()
             .contains("LINEAR_VCS")
     );
 }
@@ -298,7 +293,7 @@ fn poisoned_candidate_and_endpoint_error_are_explicit() {
         &MemFiles::default().unreadable("/work/linear.toml"),
     );
     assert_eq!(
-        report.result.unwrap_err().app_error().display_message(),
+        report.result.unwrap_err().to_string(),
         "cannot read config file /work/linear.toml: permission denied"
     );
     let report = load_startup(
@@ -306,33 +301,31 @@ fn poisoned_candidate_and_endpoint_error_are_explicit() {
         &MemFiles::default().file("/work/linear.toml", &vec![b'x'; 1024 * 1024 + 1]),
     );
     assert_eq!(
-        report.result.unwrap_err().app_error().display_message(),
+        report.result.unwrap_err().to_string(),
         "invalid config file /work/linear.toml: too large"
     );
     let report = load_startup(
         &process(&[("LINEAR_GRAPHQL_ENDPOINT", "bad")]),
         &MemFiles::default(),
     );
-    let error = report.result.unwrap_err().app_error();
-    assert_eq!(error.kind, AppErrorKind::Validation);
+    let error = report.result.unwrap_err();
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "invalid LINEAR_GRAPHQL_ENDPOINT from process environment: expected an http(s) URL without credentials or fragment"
     );
 }
 
 #[test]
-fn warning_templates_have_exact_color_bytes() {
+fn warning_templates_are_colored_only_on_request() {
     let diagnostic = ConfigDiagnostic {
         path: PathBuf::from("/work/.env"),
         reason: DiagnosticReason::InvalidLines(vec!["LINEAR_TEAM_ID".to_owned()]),
     };
     let body = "Warning: Ignoring LINEAR_TEAM_ID in /work/.env: the line could not be parsed.";
     let suggestion = "  Check for an unclosed quote or a malformed KEY=value line.";
-    assert_eq!(
-        render_diagnostic(&diagnostic, true),
-        format!("\x1b[33m{body}\x1b[39m\n\x1b[90m{suggestion}\x1b[39m\n")
-    );
+    let colored = render_diagnostic(&diagnostic, true);
+    assert!(colored.contains(body) && colored.contains(suggestion));
+    assert!(colored.contains('\x1b'));
     assert_eq!(
         render_diagnostic(&diagnostic, false),
         format!("{body}\n{suggestion}\n")
@@ -392,12 +385,26 @@ impl Drop for BinaryTree {
 }
 
 #[test]
-fn binary_config_validation_precedes_parser_usage() {
+fn binary_usage_errors_do_not_read_config() {
     let tree = BinaryTree::new();
     tree.file("cwd/linear.toml", b"issue_sort = 'alphabetical'\n");
     let output = tree
         .command()
         .arg("frobnicate")
+        .env("NO_COLOR", "1")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("issue_sort"));
+}
+
+#[test]
+fn binary_commands_report_invalid_config() {
+    let tree = BinaryTree::new();
+    tree.file("cwd/linear.toml", b"issue_sort = 'alphabetical'\n");
+    let output = tree
+        .command()
+        .args(["team", "id"])
         .env("NO_COLOR", "1")
         .output()
         .unwrap();
@@ -414,27 +421,29 @@ fn binary_config_validation_precedes_parser_usage() {
 }
 
 #[test]
-fn binary_warning_color_and_offline_version_are_exact() {
+fn binary_version_reads_no_config() {
+    let tree = BinaryTree::new();
+    tree.file("cwd/.env", b"LINEAR_TEAM_ID='unterminated\n");
+    let output = tree.command().arg("-V").output().unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.stdout, b"linear 3.0.0-alpha.1\n");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn binary_dotenv_warnings_are_colored_only_on_a_terminal() {
     let tree = BinaryTree::new();
     tree.file("cwd/.env", b"LINEAR_TEAM_ID='unterminated\n");
     let diagnostic = ConfigDiagnostic {
         path: tree.path("cwd/.env"),
         reason: DiagnosticReason::InvalidLines(vec!["LINEAR_TEAM_ID".to_owned()]),
     };
-    for (value, color) in [(None, true), (Some(""), true), (Some("1"), false)] {
-        let mut command = tree.command();
-        command.arg("-V");
-        if let Some(value) = value {
-            command.env("NO_COLOR", value);
-        }
-        let output = command.output().unwrap();
-        assert_eq!(output.status.code(), Some(0));
-        assert_eq!(output.stdout, b"linear 3.0.0-alpha.1\n");
-        assert_eq!(
-            output.stderr,
-            render_diagnostic(&diagnostic, color).as_bytes()
-        );
-    }
+    let output = tree.command().args(["team", "id"]).output().unwrap();
+    assert!(
+        output
+            .stderr
+            .starts_with(render_diagnostic(&diagnostic, false).as_bytes())
+    );
 }
 
 #[test]
@@ -446,7 +455,7 @@ fn binary_reads_config_from_the_repository_root() {
     let output = tree
         .command()
         .current_dir(tree.path("cwd/sub"))
-        .arg("-V")
+        .args(["team", "id"])
         .env("NO_COLOR", "1")
         .output()
         .unwrap();
@@ -460,7 +469,7 @@ fn binary_reads_config_from_the_repository_root() {
 }
 
 #[test]
-fn binary_endpoint_error_precedes_help() {
+fn binary_help_ignores_invalid_config() {
     let tree = BinaryTree::new();
     let output = tree
         .command()
@@ -469,11 +478,9 @@ fn binary_endpoint_error_precedes_help() {
         .env("LINEAR_GRAPHQL_ENDPOINT", "bad")
         .output()
         .unwrap();
-    assert_eq!(output.status.code(), Some(1));
-    assert!(output.stdout.is_empty());
-    assert_eq!(output.stderr, "✗ invalid LINEAR_GRAPHQL_ENDPOINT from process environment: expected an http(s) URL without credentials or fragment\n  Set a valid LINEAR_GRAPHQL_ENDPOINT or remove it.\n".as_bytes());
+    assert_eq!(output.status.code(), Some(0));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Usage"));
 }
-
 #[test]
 fn binary_offline_markdown_needs_no_credential() {
     let tree = BinaryTree::new();

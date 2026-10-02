@@ -9,14 +9,14 @@ use serde::Serialize;
 
 use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::style;
 use crate::commands::table::underlined_header;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::project_updates::{
     ListProjectUpdates, ListProjectUpdatesVariables, UpdateNode, UpdateProject,
 };
 use crate::graphql::transport::GraphQlTransport;
+use crate::platform::style;
 
 pub const CONTEXT: &str = "Failed to fetch project updates";
 
@@ -26,14 +26,11 @@ pub fn output_color(stdout_tty: bool, no_color: bool) -> bool {
 
 /// CLI page sizes are positive u32 values; GraphQL has a signed Int boundary.
 /// Conversion fails before transport or project resolution; nothing truncates.
-pub fn graphql_int(value: NonZeroU32) -> Result<i32, AppError> {
+pub fn graphql_int(value: NonZeroU32) -> Result<i32, Error> {
     i32::try_from(value.get()).map_err(|error| {
-        AppError::new(
-            AppErrorKind::Validation,
-            "--limit must be at most 2147483647 for a GraphQL Int",
-        )
-        .with_source(error)
-        .with_context(CONTEXT)
+        Error::new("--limit must be at most 2147483647 for a GraphQL Int")
+            .with_source(error)
+            .context(CONTEXT)
     })
 }
 
@@ -58,16 +55,16 @@ pub async fn run_with<F, Fut>(
     first: i32,
     fetch: F,
     options: RenderOptions,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnOnce(GraphQlRequest<ListProjectUpdatesVariables>) -> Fut,
-    Fut: Future<Output = Result<ListProjectUpdates, AppError>>,
+    Fut: Future<Output = Result<ListProjectUpdates, Error>>,
 {
     let project = fetch(request(id, first))
         .await
-        .map_err(|error| error.with_context(CONTEXT))?
+        .context(CONTEXT)?
         .project
-        .ok_or_else(|| AppError::not_found("Project", original).with_context(CONTEXT))?;
+        .ok_or_else(|| Error::not_found("Project", original).context(CONTEXT))?;
     if options.json {
         render_json(&project)
     } else {
@@ -83,12 +80,12 @@ pub async fn run(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(
         original,
         id,
         first,
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
         RenderOptions {
             json,
             columns,
@@ -132,7 +129,7 @@ struct JsonUser<'a> {
     display_name: &'a str,
 }
 
-pub fn render_json(project: &UpdateProject) -> Result<Vec<u8>, AppError> {
+pub fn render_json(project: &UpdateProject) -> Result<Vec<u8>, Error> {
     let nodes = project
         .project_updates
         .nodes
@@ -158,12 +155,9 @@ pub fn render_json(project: &UpdateProject) -> Result<Vec<u8>, AppError> {
         },
     };
     let mut output = serde_json::to_vec_pretty(&value).map_err(|error| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "could not serialize project updates",
-        )
-        .with_source(error)
-        .with_context(CONTEXT)
+        Error::new("could not serialize project updates")
+            .with_source(error)
+            .context(CONTEXT)
     })?;
     output.push(b'\n');
     Ok(output)

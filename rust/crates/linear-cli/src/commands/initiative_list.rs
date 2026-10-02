@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::commands::display::{display_width, pad, truncate_text};
 use crate::commands::table::underlined_header;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiatives::{
     GetInitiatives, GetInitiativesPage, GetInitiativesPageVariables, GetInitiativesVariables,
@@ -32,7 +32,7 @@ pub struct Options {
     pub archived: bool,
 }
 
-pub fn status_filter(status: Option<&str>, all_statuses: bool) -> Result<Option<String>, AppError> {
+pub fn status_filter(status: Option<&str>, all_statuses: bool) -> Result<Option<String>, Error> {
     match status {
         Some(value) => {
             let api = match value.to_lowercase().as_str() {
@@ -40,12 +40,9 @@ pub fn status_filter(status: Option<&str>, all_statuses: bool) -> Result<Option<
                 "planned" => "Planned",
                 "completed" => "Completed",
                 _ => {
-                    return Err(AppError::new(
-                        AppErrorKind::Validation,
-                        format!(
-                            "Invalid status: {value}. Valid values: active, planned, completed"
-                        ),
-                    ));
+                    return Err(Error::new(format!(
+                        "Invalid status: {value}. Valid values: active, planned, completed"
+                    )));
                 }
             };
             Ok(Some(api.to_owned()))
@@ -55,7 +52,7 @@ pub fn status_filter(status: Option<&str>, all_statuses: bool) -> Result<Option<
     }
 }
 
-pub fn validate_owner(owner: Option<&str>) -> Result<(), AppError> {
+pub fn validate_owner(owner: Option<&str>) -> Result<(), Error> {
     if let Some(owner) = owner {
         reject_linear_url(owner, "an email, username, display name, or @me")?;
     }
@@ -69,31 +66,27 @@ pub fn opening(workspace: &str, app: bool) -> (String, Vec<u8>) {
     (url, line)
 }
 
-pub async fn viewer_workspace(transport: &GraphQlTransport) -> Result<String, AppError> {
+pub async fn viewer_workspace(transport: &GraphQlTransport) -> Result<String, Error> {
     let request = GraphQlRequest::without_variables(GetViewerForInitiatives::build(()));
-    let result: GetViewerForInitiatives =
-        transport.execute(&request).await.map_err(AppError::from)?;
+    let result: GetViewerForInitiatives = transport.execute(&request).await.map_err(Error::from)?;
     Ok(result.viewer.organization.url_key)
 }
 
-pub fn open(url: &str, app: bool) -> Result<(), AppError> {
-    opener::open(url, app).map_err(|error| error.with_context(OPEN_CONTEXT))
+pub fn open(url: &str, app: bool) -> Result<(), Error> {
+    opener::open(url, app).context(OPEN_CONTEXT)
 }
 
-pub async fn resolve_owner(
-    transport: &GraphQlTransport,
-    input: &str,
-) -> Result<cynic::Id, AppError> {
+pub async fn resolve_owner(transport: &GraphQlTransport, input: &str) -> Result<cynic::Id, Error> {
     if input == "self" || input == "@me" {
         let request = GraphQlRequest::with_variables(GetViewerId::build(GetViewerIdVariables {}));
-        let result: GetViewerId = transport.execute(&request).await.map_err(AppError::from)?;
+        let result: GetViewerId = transport.execute(&request).await.map_err(Error::from)?;
         return Ok(result.viewer.id);
     }
     let request = GraphQlRequest::with_variables(LookupUser::build(LookupUserVariables {
         input: input.to_owned(),
     }));
-    let result: LookupUser = transport.execute(&request).await.map_err(AppError::from)?;
-    select_owner(&result.users.nodes, input).ok_or_else(|| AppError::not_found("Owner", input))
+    let result: LookupUser = transport.execute(&request).await.map_err(Error::from)?;
+    select_owner(&result.users.nodes, input).ok_or_else(|| Error::not_found("Owner", input))
 }
 
 /// Pick the user matching an owner reference; callers fetch the users.
@@ -137,7 +130,7 @@ pub async fn run(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let owner_id = match owner {
         Some(input) => Some(resolve_owner(transport, input).await?),
         None => None,
@@ -155,7 +148,7 @@ pub async fn run(
                         },
                     ));
                     let data: GetInitiatives =
-                        transport.execute(&request).await.map_err(AppError::from)?;
+                        transport.execute(&request).await.map_err(Error::from)?;
                     data.initiatives
                 }
                 Some(after) => {
@@ -167,12 +160,9 @@ pub async fn run(
                         },
                     ));
                     let data: GetInitiativesPage =
-                        transport.execute(&request).await.map_err(AppError::from)?;
+                        transport.execute(&request).await.map_err(Error::from)?;
                     Some(data.initiatives.ok_or_else(|| {
-                        AppError::new(
-                            AppErrorKind::Invariant,
-                            "Linear returned a null initiatives connection on a later page",
-                        )
+                        Error::new("Linear returned a null initiatives connection on a later page")
                     })?)
                 }
             };
@@ -185,7 +175,7 @@ pub async fn run(
                     },
                 }
             });
-            Ok::<Page<Initiative>, AppError>(Page {
+            Ok::<Page<Initiative>, Error>(Page {
                 nodes: connection.nodes,
                 page_info: connection.page_info.into(),
             })
@@ -197,38 +187,32 @@ pub async fn run(
             if page == 1 {
                 source
             } else {
-                source.with_context(format!("page {page}"))
+                source.context(format!("page {page}"))
             }
         }
-        PaginationError::MissingCursor { page } => AppError::new(
-            AppErrorKind::Validation,
-            format!(
-                "Linear reported more initiatives but returned no pagination cursor on page {page}"
-            ),
-        )
-        .with_suggestion("Retry the command."),
-        PaginationError::RepeatedCursor { page, .. } => AppError::new(
-            AppErrorKind::Validation,
-            format!("Linear repeated an initiative pagination cursor on page {page}"),
-        )
-        .with_suggestion("Retry the command."),
+        PaginationError::MissingCursor { page } => Error::new(format!(
+            "Linear reported more initiatives but returned no pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command."),
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated an initiative pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command."),
     })?;
     let mut initiatives = pages.nodes;
     for item in &initiatives {
         if let InitiativeStatus::Unknown(value) = &item.status {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                format!("Linear returned an unknown initiative status: {value}"),
-            ));
+            return Err(Error::new(format!(
+                "Linear returned an unknown initiative status: {value}"
+            )));
         }
         if let Some(crate::graphql::operations::initiatives::InitiativeUpdateHealthType::Unknown(
             value,
         )) = &item.health
         {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                format!("Linear returned an unknown initiative health: {value}"),
-            ));
+            return Err(Error::new(format!(
+                "Linear returned an unknown initiative health: {value}"
+            )));
         }
     }
     if !initiatives.is_empty() {
@@ -277,7 +261,7 @@ struct JsonInitiative<'a> {
     projects: &'a crate::graphql::operations::initiatives::InitiativeProjects,
 }
 
-pub fn render_json(initiatives: &[Initiative], page_info: &PageInfo) -> Result<Vec<u8>, AppError> {
+pub fn render_json(initiatives: &[Initiative], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
     let nodes = initiatives
         .iter()
         .map(|item| JsonInitiative {
@@ -296,11 +280,8 @@ pub fn render_json(initiatives: &[Initiative], page_info: &PageInfo) -> Result<V
             projects: &item.projects,
         })
         .collect();
-    let mut bytes =
-        serde_json::to_vec_pretty(&JsonConnection { nodes, page_info }).map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize initiatives")
-                .with_source(error)
-        })?;
+    let mut bytes = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
+        .map_err(|error| Error::new("could not serialize initiatives").with_source(error))?;
     bytes.push(b'\n');
     Ok(bytes)
 }

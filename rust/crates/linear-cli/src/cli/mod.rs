@@ -25,6 +25,7 @@ pub mod user;
 #[command(
     name = "linear",
     version,
+    arg_required_else_help = true,
     about = "Handy linear commands from the command line.",
     long_about = "Handy linear commands from the command line.\n\nEnvironment Variables:\n  LINEAR_DEBUG=1              Show full error details including stack traces\n  LINEAR_IGNORE_ENV_FILE=1    Skip loading .env files"
 )]
@@ -32,7 +33,7 @@ pub struct Cli {
     #[arg(long, global = true, value_name = "slug", value_parser = nonempty_string, help = "Target workspace (uses credentials)")]
     pub workspace: Option<String>,
     #[command(subcommand)]
-    pub command: Option<RootCommand>,
+    pub command: RootCommand,
 }
 
 #[derive(Debug, Subcommand)]
@@ -85,7 +86,7 @@ pub enum RootCommand {
     #[command(
         name = "markdown",
         about = "Linear-flavored Markdown: mentions and collapsible sections",
-        long_about = "Linear-flavored Markdown: mentions and collapsible sections\n\nThese rules apply to comment bodies, issue descriptions, document content,\nproject overviews, and status update bodies.\n\nMENTIONS\n\nA resource's plain Linear URL becomes a linked mention. A literal `@name`, an\n`@[Name](id)`, or a Markdown link such as `[Name](url)` does not — it stays\nplain text and notifies nobody. Put the bare URL in the body:\n\nhttps://linear.app/acme/profiles/someuser can you take a look?\n\nRESOLVING PEOPLE\n\nLook the person up in the relevant team first. The team can usually be\ninferred from the issue identifier or the current directory:\n\nlinear team members ENG --json\n\nPaste the selected member's `url` field verbatim. If the intended person is\nnot a member of that team, stop and confirm before searching the whole\nworkspace with `linear user list --json`; mentioning someone outside the team\nis likely accidental.\n\nTo mention an issue, use its URL the same way:\n\nlinear issue url ENG-123\n\nCOLLAPSIBLE SECTIONS\n\nOpen a section with `+++ [title]` and close it with `+++`:\n\n+++ [Server log]\n\nMarkdown content that is initially hidden.\n\n+++\n\nThe square brackets around the title and the closing `+++` are both required."
+        long_about = include_str!("markdown.txt").trim_end()
     )]
     Markdown(markdown::Markdown),
 }
@@ -126,13 +127,6 @@ pub enum TemplateType {
 
 pub fn command() -> Command {
     Cli::command()
-}
-
-pub fn parse(args: &[std::ffi::OsString]) -> Result<Cli, crate::error::AppError> {
-    Cli::try_parse_from(
-        std::iter::once(std::ffi::OsString::from("linear")).chain(args.iter().cloned()),
-    )
-    .map_err(crate::error::AppError::native_parser)
 }
 
 pub(crate) fn nonempty_string(value: &str) -> Result<String, String> {

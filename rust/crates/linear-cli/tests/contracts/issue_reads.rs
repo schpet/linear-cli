@@ -150,7 +150,7 @@ fn user() -> Reply {
     )
 }
 fn invoke(server: &Server, args: &[&str], sort: Option<&str>) -> std::process::Output {
-    let sandbox = super::startup::BinarySandbox::new();
+    let sandbox = super::sandbox::BinarySandbox::new();
     let mut command = sandbox.command();
     command
         .env("LINEAR_API_KEY", "lin_api_fake")
@@ -178,19 +178,15 @@ fn invalid_configured_sort_fails_at_startup() {
             .starts_with("✗ invalid config option LINEAR_ISSUE_SORT")
     );
     assert!(server.finish().is_empty());
-    let sandbox = super::startup::BinarySandbox::new();
+    // Help never reads configuration.
+    let sandbox = super::sandbox::BinarySandbox::new();
     let output = sandbox
         .command()
         .env("LINEAR_ISSUE_SORT", "invalid")
         .args(["team", "list", "--help"])
         .output()
         .unwrap();
-    assert_eq!(output.status.code(), Some(1));
-    assert!(
-        String::from_utf8(output.stderr)
-            .unwrap()
-            .contains("invalid config option LINEAR_ISSUE_SORT")
-    );
+    assert_eq!(output.status.code(), Some(0));
 }
 #[test]
 fn date_failures_drop_only_final_issue_read_after_source_resolvers() {

@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     config::ConfigOptions,
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error, envelope::GraphQlRequest, operations::issue_write as ops,
         transport::GraphQlTransport,
@@ -27,15 +27,14 @@ fn request<F, V: Serialize>(operation: cynic::Operation<F, V>) -> GraphQlRequest
 async fn fetch<T: DeserializeOwned, V: Serialize>(
     transport: &GraphQlTransport,
     request: &GraphQlRequest<V>,
-) -> Result<T, AppError> {
+) -> Result<T, Error> {
     bulk_error::execute_observed(transport, request)
         .await
         .map_err(|failure| match failure {
             bulk_error::ObservedExchangeFailure::Strict(error) => error,
-            bulk_error::ObservedExchangeFailure::Ordinary(error) => AppError::new(
-                AppErrorKind::GraphQl,
-                error.preferred_message.unwrap_or(error.message),
-            ),
+            bulk_error::ObservedExchangeFailure::Ordinary(error) => {
+                Error::new(error.preferred_message.unwrap_or(error.message))
+            }
         })
 }
 fn sorted_names(mut rows: Vec<Named>) -> Vec<Named> {
@@ -50,12 +49,11 @@ impl NetworkBackend {
             cli_workspace: self.cli_workspace.as_deref(),
             sourced_workspace: self.options.workspace().map(|v| v.value().as_str()),
             default_workspace: self.default_workspace.as_deref(),
-            api_key: key,
+            api_key: key.clone(),
         }
     }
-    async fn parent_reference(&self, reference: &str) -> Result<String, AppError> {
-        let key = crate::auth::ApiKeyInput::from_options(&self.options)
-            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+    async fn parent_reference(&self, reference: &str) -> Result<String, Error> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let team = crate::commands::team_key::configured_team_key(&self.options);
         match refs::prepare_issue_reference(Some(reference), team.as_deref(), &self.scope(&key))? {
             refs::IssueReference::Identifier(id) => Ok(id),
@@ -68,9 +66,8 @@ impl NetworkBackend {
     }
 }
 impl Backend for NetworkBackend {
-    async fn team(&self, reference: String) -> Result<Team, AppError> {
-        let key = crate::auth::ApiKeyInput::from_options(&self.options)
-            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+    async fn team(&self, reference: String) -> Result<Team, Error> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
         let team = refs::resolve_team(
             &prepared,
@@ -84,9 +81,8 @@ impl Backend for NetworkBackend {
             name: team.name,
         })
     }
-    async fn find_team(&self, reference: String) -> Result<Option<Team>, AppError> {
-        let key = crate::auth::ApiKeyInput::from_options(&self.options)
-            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+    async fn find_team(&self, reference: String) -> Result<Option<Team>, Error> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::prepare_team_lookup(&reference, &self.scope(&key))?;
         Ok(refs::find_team(&prepared, |req| async move {
             fetch(&self.transport, &req).await
@@ -98,7 +94,7 @@ impl Backend for NetworkBackend {
             name: team.name,
         }))
     }
-    async fn teams(&self) -> Result<Vec<Team>, AppError> {
+    async fn teams(&self) -> Result<Vec<Team>, Error> {
         Ok(
             refs::fetch_all_teams(|req| async move { fetch(&self.transport, &req).await })
                 .await?
@@ -111,7 +107,7 @@ impl Backend for NetworkBackend {
                 .collect(),
         )
     }
-    async fn team_options(&self, reference: String) -> Result<Vec<Named>, AppError> {
+    async fn team_options(&self, reference: String) -> Result<Vec<Named>, Error> {
         let data: ops::GetTeamIdOptionsByKey = fetch(
             &self.transport,
             &request(ops::GetTeamIdOptionsByKey::build(ops::TeamSubstring {
@@ -131,7 +127,7 @@ impl Backend for NetworkBackend {
             })
             .collect())
     }
-    async fn viewer(&self) -> Result<String, AppError> {
+    async fn viewer(&self) -> Result<String, Error> {
         use crate::graphql::operations::initiatives::{GetViewerId, GetViewerIdVariables};
         let data: GetViewerId = fetch(
             &self.transport,
@@ -140,7 +136,7 @@ impl Backend for NetworkBackend {
         .await?;
         Ok(data.viewer.id.into_inner())
     }
-    async fn auto_assign(&self) -> Result<bool, AppError> {
+    async fn auto_assign(&self) -> Result<bool, Error> {
         let data: ops::GetUserSettings = fetch(
             &self.transport,
             &GraphQlRequest::without_variables(ops::GetUserSettings::build(())),
@@ -148,7 +144,7 @@ impl Backend for NetworkBackend {
         .await?;
         Ok(data.user_settings.auto_assign_to_self)
     }
-    async fn user(&self, reference: String) -> Result<String, AppError> {
+    async fn user(&self, reference: String) -> Result<String, Error> {
         refs::reject_linear_url(&reference, "an email, username, display name, or @me")?;
         if reference == "self" || reference == "@me" {
             return self.viewer().await;
@@ -163,9 +159,9 @@ impl Backend for NetworkBackend {
         .await?;
         crate::commands::initiative_list::select_owner(&data.users.nodes, &reference)
             .map(cynic::Id::into_inner)
-            .ok_or_else(|| AppError::not_found("User", &reference))
+            .ok_or_else(|| Error::not_found("User", &reference))
     }
-    async fn states(&self, team_key: String) -> Result<Vec<State>, AppError> {
+    async fn states(&self, team_key: String) -> Result<Vec<State>, Error> {
         use crate::graphql::operations::workflow_states::{
             GetWorkflowStates, GetWorkflowStatesVariables,
         };
@@ -188,7 +184,7 @@ impl Backend for NetworkBackend {
             })
             .collect())
     }
-    async fn state(&self, team_key: String, reference: String) -> Result<String, AppError> {
+    async fn state(&self, team_key: String, reference: String) -> Result<String, Error> {
         let states = self.states(team_key.clone()).await?;
         refs::reject_linear_url(&reference, "a workflow state name or type")?;
         if let Some(state) = states
@@ -223,13 +219,13 @@ impl Backend for NetworkBackend {
                     .join(", ")
             )
         };
-        Err(AppError::not_found(
+        Err(Error::not_found(
             "Workflow state",
             &format!("'{reference}' for team {team_key}"),
         )
-        .with_suggestion(suggestion))
+        .with_hint(suggestion))
     }
-    async fn label(&self, team_key: String, reference: String) -> Result<Option<String>, AppError> {
+    async fn label(&self, team_key: String, reference: String) -> Result<Option<String>, Error> {
         refs::reject_linear_url(&reference, "a label name")?;
         let data: ops::GetIssueLabelIdByNameForTeam = fetch(
             &self.transport,
@@ -252,7 +248,7 @@ impl Backend for NetworkBackend {
         &self,
         team_key: String,
         reference: String,
-    ) -> Result<Vec<Named>, AppError> {
+    ) -> Result<Vec<Named>, Error> {
         let data: ops::GetIssueLabelIdOptionsByNameForTeam = fetch(
             &self.transport,
             &request(ops::GetIssueLabelIdOptionsByNameForTeam::build(
@@ -274,7 +270,7 @@ impl Backend for NetworkBackend {
                 .collect(),
         ))
     }
-    async fn labels(&self, team_key: String) -> Result<Vec<Label>, AppError> {
+    async fn labels(&self, team_key: String) -> Result<Vec<Label>, Error> {
         let data: ops::GetLabelsForTeam = fetch(
             &self.transport,
             &request(ops::GetLabelsForTeam::build(ops::TeamKey { team_key })),
@@ -293,15 +289,14 @@ impl Backend for NetworkBackend {
             })
             .collect())
     }
-    async fn project(&self, reference: String) -> Result<Option<String>, AppError> {
-        let key = crate::auth::ApiKeyInput::from_options(&self.options)
-            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+    async fn project(&self, reference: String) -> Result<Option<String>, Error> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let prepared = refs::prepare_project_lookup(&reference, &self.scope(&key))?;
         // The same project lookup as the issue read commands: exact-name ambiguity checks and slug fallback.
         crate::commands::issue_read::project_id_without_terminal_lf(&self.transport, &prepared)
             .await
     }
-    async fn project_options(&self, reference: String) -> Result<Vec<Named>, AppError> {
+    async fn project_options(&self, reference: String) -> Result<Vec<Named>, Error> {
         use crate::graphql::operations::issue_read::{
             GetProjectIdOptionsByName, GetProjectIdOptionsByNameVariables,
         };
@@ -322,7 +317,7 @@ impl Backend for NetworkBackend {
             })
             .collect())
     }
-    async fn projects(&self, team_key: String) -> Result<Vec<Named>, AppError> {
+    async fn projects(&self, team_key: String) -> Result<Vec<Named>, Error> {
         use crate::graphql::operations::{
             projects::{ProjectFilter, TeamCollectionFilter},
             teams::{StringComparator, TeamFilter},
@@ -373,7 +368,7 @@ impl Backend for NetworkBackend {
         }
         Ok(sorted_names(rows))
     }
-    async fn milestone(&self, project_id: String, reference: String) -> Result<String, AppError> {
+    async fn milestone(&self, project_id: String, reference: String) -> Result<String, Error> {
         crate::commands::issue_read::milestone_id_without_terminal_lf(
             &self.transport,
             &reference,
@@ -381,9 +376,8 @@ impl Backend for NetworkBackend {
         )
         .await
     }
-    async fn cycle(&self, team_id: String, reference: String) -> Result<String, AppError> {
-        let key = crate::auth::ApiKeyInput::from_options(&self.options)
-            .map_err(|e| AppError::new(AppErrorKind::Invariant, e.to_string()))?;
+    async fn cycle(&self, team_id: String, reference: String) -> Result<String, Error> {
+        let key = crate::auth::ApiKeyInput::from_options(&self.options);
         let url = refs::expect_url_kind(
             &reference,
             refs::LinearUrlKind::Cycle,
@@ -398,7 +392,7 @@ impl Backend for NetworkBackend {
         )
         .await
     }
-    async fn parent_id(&self, reference: String) -> Result<String, AppError> {
+    async fn parent_id(&self, reference: String) -> Result<String, Error> {
         let identifier = self.parent_reference(&reference).await?;
         // Object-only optional selected shape: reuse the already approved pattern,
         // but return its ID rather than committing the old strict GetIssueId model.
@@ -407,9 +401,9 @@ impl Backend for NetworkBackend {
         data.issue
             .and_then(|i| i.id)
             .filter(|id| !id.is_empty())
-            .ok_or_else(|| AppError::not_found("Parent issue", &identifier))
+            .ok_or_else(|| Error::not_found("Parent issue", &identifier))
     }
-    async fn parent_metadata(&self, id: String) -> Result<Option<Parent>, AppError> {
+    async fn parent_metadata(&self, id: String) -> Result<Option<Parent>, Error> {
         let req = request(ops::GetParentIssueData::build(ops::IssueVariables { id }));
         // Only request and GraphQL errors make the parent optional; a malformed
         // response is still an error.
@@ -424,11 +418,8 @@ impl Backend for NetworkBackend {
         }
         let data: OptionalParent =
             crate::graphql::transport::classify_typed(response).map_err(|error| {
-                AppError::new(
-                    AppErrorKind::GraphQl,
-                    "Linear returned parent issue metadata with an unexpected shape",
-                )
-                .with_source(error)
+                Error::new("Linear returned parent issue metadata with an unexpected shape")
+                    .with_source(error)
             })?;
         let Some(data) = data.issue else {
             return Ok(None);
@@ -442,7 +433,7 @@ impl Backend for NetworkBackend {
                 .filter(|id| !id.is_empty()),
         }))
     }
-    async fn issue_project(&self, id: String) -> Result<Option<String>, AppError> {
+    async fn issue_project(&self, id: String) -> Result<Option<String>, Error> {
         let data: ops::GetIssueProjectId = fetch(
             &self.transport,
             &request(ops::GetIssueProjectId::build(ops::IssueVariables { id })),
@@ -453,7 +444,7 @@ impl Backend for NetworkBackend {
             .and_then(|i| i.project)
             .map(|p| p.id.into_inner()))
     }
-    async fn create(&self, input: Input) -> Result<Created, AppError> {
+    async fn create(&self, input: Input) -> Result<Created, Error> {
         use crate::graphql::operations::issue_create::{CreateIssue, CreateIssueVariables};
         let data: CreateIssue = fetch(
             &self.transport,
@@ -461,17 +452,12 @@ impl Backend for NetworkBackend {
         )
         .await?;
         if !data.issue_create.success {
-            return Err(AppError::new(
-                AppErrorKind::GraphQl,
-                "Issue creation failed",
-            ));
+            return Err(Error::new("Issue creation failed"));
         }
-        let issue = data.issue_create.issue.ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::GraphQl,
-                "Issue creation failed - no issue returned",
-            )
-        })?;
+        let issue = data
+            .issue_create
+            .issue
+            .ok_or_else(|| Error::new("Issue creation failed - no issue returned"))?;
         Ok(Created {
             id: issue.id.into_inner(),
             identifier: issue.identifier,
@@ -483,7 +469,7 @@ impl Backend for NetworkBackend {
         &self,
         id: String,
         input: crate::graphql::operations::issue_update::IssueUpdateInput,
-    ) -> Result<Updated, AppError> {
+    ) -> Result<Updated, Error> {
         use crate::graphql::operations::issue_update::{UpdateIssue, UpdateIssueVariables};
         let data: UpdateIssue = fetch(
             &self.transport,
@@ -491,14 +477,12 @@ impl Backend for NetworkBackend {
         )
         .await?;
         if !data.issue_update.success {
-            return Err(AppError::new(AppErrorKind::GraphQl, "Issue update failed"));
+            return Err(Error::new("Issue update failed"));
         }
-        let issue = data.issue_update.issue.ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::GraphQl,
-                "Issue update failed - no issue returned",
-            )
-        })?;
+        let issue = data
+            .issue_update
+            .issue
+            .ok_or_else(|| Error::new("Issue update failed - no issue returned"))?;
         Ok(Updated {
             identifier: issue.identifier,
             title: issue.title,
@@ -546,7 +530,7 @@ impl<'de> serde::Deserialize<'de> for OptionalId {
     }
 }
 impl Templates for NetworkBackend {
-    async fn issue_template(&self, reference: String, team_id: String) -> Result<String, AppError> {
+    async fn issue_template(&self, reference: String, team_id: String) -> Result<String, Error> {
         use super::issue_template_scope::{self, TemplateScope};
         use crate::graphql::operations::templates::{
             GetTemplate, GetTemplateVariables, GetTemplates,
@@ -561,7 +545,7 @@ impl Templates for NetworkBackend {
                 .transport
                 .send_request(&req)
                 .await
-                .map_err(AppError::from)?;
+                .map_err(Error::from)?;
             let observed = bulk_error::observe_source_error(&response, &req)
                 .map_err(bulk_error::BulkExchangeFailure::into_error)?;
             let typed: Result<GetTemplate, _> = crate::graphql::transport::classify_typed(response);
@@ -572,17 +556,14 @@ impl Templates for NetworkBackend {
                     .iter()
                     .any(|e| e.message.to_lowercase().contains("no template found")) =>
                 {
-                    return Err(AppError::not_found("Template", &reference)
-                        .with_suggestion("Run `linear template list` to see every template."));
+                    return Err(Error::not_found("Template", &reference)
+                        .with_hint("Run `linear template list` to see every template."));
                 }
                 other => {
                     if let Some(error) = observed {
-                        return Err(AppError::new(
-                            AppErrorKind::GraphQl,
-                            error.preferred_message.unwrap_or(error.message),
-                        ));
+                        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
                     }
-                    let template = other.map_err(AppError::from)?.template;
+                    let template = other.map_err(Error::from)?.template;
                     issue_template_scope::assert_scope(&template, &team_ids, TemplateScope::Issue)?;
                     template
                 }

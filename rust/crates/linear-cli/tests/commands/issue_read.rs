@@ -54,11 +54,11 @@ fn strict_date_accepts_only_complete_ascii_real_calendar_and_utc_milliseconds() 
     ] {
         let e = read::date_filter(value, "--created-after").unwrap_err();
         assert_eq!(
-            e.message,
+            e.message(),
             format!("Invalid date for --created-after: \"{value}\"")
         );
         assert!(
-            e.suggestion
+            e.hint()
                 .unwrap()
                 .starts_with("Use YYYY-MM-DD or ISO 8601 format")
         );
@@ -80,7 +80,7 @@ fn strict_date_accepts_only_complete_ascii_real_calendar_and_utc_milliseconds() 
         assert_eq!(
             read::date_filter(value, "--updated-after")
                 .unwrap_err()
-                .message,
+                .message(),
             format!("Invalid date format for --updated-after: \"{value}\"")
         );
     }
@@ -88,7 +88,7 @@ fn strict_date_accepts_only_complete_ascii_real_calendar_and_utc_milliseconds() 
     assert!(
         read::apply_dates(&mut filter, Some("yesterday"), Some("tomorrow"))
             .unwrap_err()
-            .message
+            .message()
             .contains("--created-after")
     );
 }
@@ -232,7 +232,7 @@ fn thread_roots_resolution_hidden_count_orphans_duplicates_and_cycles_are_distin
     assert!(
         view::threads(&i.comments.nodes, true)
             .unwrap_err()
-            .message
+            .message()
             .contains("cycle")
     );
 }
@@ -375,8 +375,7 @@ fn source_valid_project_menu_controls_have_command_validation_before_raw() {
         ("Plan\r?", "yes"),
     ] {
         let error = read::project_menu_text(message, &[label]).unwrap_err();
-        assert_eq!(error.kind, linear_cli::error::AppErrorKind::Validation);
-        assert!(error.message.contains("no control characters"));
+        assert!(error.message().contains("no control characters"));
     }
 }
 

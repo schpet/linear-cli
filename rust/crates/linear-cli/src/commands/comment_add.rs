@@ -4,7 +4,7 @@
 use cynic::{MutationBuilder, QueryBuilder};
 
 use crate::commands::text_input;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::{GraphQlRequest, is_not_found};
 use crate::graphql::operations::comment_create::{
     AddComment, AddCommentVariables, CommentCreateInput, CreatedComment,
@@ -33,47 +33,32 @@ fn is_blank(value: &str) -> bool {
 
 /// Turn `--body` / `--body-file` into a body, or `None` so the caller prompts.
 /// Supplied text is returned unchanged; blank supplied input is an error.
-pub fn resolve_body(
-    body: Option<&str>,
-    body_file: Option<&str>,
-) -> Result<Option<String>, AppError> {
+pub fn resolve_body(body: Option<&str>, body_file: Option<&str>) -> Result<Option<String>, Error> {
     match (body, body_file) {
-        (Some(_), Some(_)) => Err(AppError::new(
-            AppErrorKind::Validation,
-            "Cannot specify both --body and --body-file",
-        )),
+        (Some(_), Some(_)) => Err(Error::new("Cannot specify both --body and --body-file")),
         (None, Some(path)) => read_body_file(path).map(Some),
-        (Some(text), None) if is_blank(text) => Err(AppError::new(
-            AppErrorKind::Validation,
-            "Comment body cannot be empty",
-        )
-        .with_suggestion("Pass text with --body, or omit it to be prompted.")),
+        (Some(text), None) if is_blank(text) => Err(Error::new("Comment body cannot be empty")
+            .with_hint("Pass text with --body, or omit it to be prompted.")),
         (Some(text), None) => Ok(Some(text.to_owned())),
         (None, None) => Ok(None),
     }
 }
 
 /// Invalid UTF-8 is rejected rather than replaced, so a comment never silently changes.
-fn read_body_file(path: &str) -> Result<String, AppError> {
+fn read_body_file(path: &str) -> Result<String, Error> {
     let content = text_input::read_file(path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::InvalidData {
-            AppError::new(AppErrorKind::Validation, "Body file must be valid UTF-8")
-                .with_suggestion(format!("Re-save {path} as UTF-8 text, or use --body."))
+            Error::new("Body file must be valid UTF-8")
+                .with_hint(format!("Re-save {path} as UTF-8 text, or use --body."))
                 .with_source(error)
         } else {
-            AppError::new(
-                AppErrorKind::Validation,
-                format!("Failed to read body file: {path}"),
-            )
-            .with_suggestion(format!("Error: {error}"))
+            Error::new(format!("Failed to read body file: {path}"))
+                .with_hint(format!("Error: {error}"))
         }
     })?;
     if is_blank(&content) {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("Body file is empty: {path}"),
-        )
-        .with_suggestion("Write the comment into the file, or use --body."));
+        return Err(Error::new(format!("Body file is empty: {path}"))
+            .with_hint("Write the comment into the file, or use --body."));
     }
     Ok(content)
 }
@@ -82,17 +67,14 @@ fn read_body_file(path: &str) -> Result<String, AppError> {
 /// answer is checked by the caller after the session is closed.
 pub fn prompt_body<R: std::io::Read, W: std::io::Write>(
     session: &mut PromptSession<R, W>,
-) -> Result<PromptOutcome<String>, AppError> {
+) -> Result<PromptOutcome<String>, Error> {
     session.text(PROMPT_MESSAGE, 0, |_| Ok(()))
 }
 
 /// Reject a blank submitted prompt answer, without the flag suggestion.
-pub fn require_prompted(body: String) -> Result<String, AppError> {
+pub fn require_prompted(body: String) -> Result<String, Error> {
     if is_blank(&body) {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Comment body cannot be empty",
-        ));
+        return Err(Error::new("Comment body cannot be empty"));
     }
     Ok(body)
 }
@@ -104,7 +86,7 @@ pub fn build_input(
     body: String,
     parent_id: Option<&str>,
     id: Option<&str>,
-) -> Result<CommentCreateInput, AppError> {
+) -> Result<CommentCreateInput, Error> {
     if let Some(parent) = parent_id {
         reject_comment_url(parent)?;
         reject_linear_url(parent, "the UUID of the comment to reply to")?;
@@ -138,23 +120,20 @@ pub fn request(input: CommentCreateInput) -> GraphQlRequest<AddCommentVariables>
 pub async fn create(
     transport: &GraphQlTransport,
     input: CommentCreateInput,
-) -> Result<CreatedComment, AppError> {
+) -> Result<CreatedComment, Error> {
     let result: AddComment = transport
         .execute(&request(input))
         .await
         .map_err(|failure| {
             let uncertain = super::milestone_create::outcome_unknown(&failure);
-            let mut error = AppError::from(failure);
+            let mut error = Error::from(failure);
             if uncertain {
-                error.message.push_str("; comment may already exist");
+                error.push_message("; comment may already exist");
             }
             error
         })?;
     if !result.comment_create.success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Failed to create comment",
-        ));
+        return Err(Error::new("Failed to create comment"));
     }
     Ok(result.comment_create.comment)
 }
@@ -169,7 +148,7 @@ pub fn output(noun: &str, original: &str, comment: &CreatedComment) -> Vec<u8> {
 pub async fn document_content_id(
     transport: &GraphQlTransport,
     document: &str,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let request = GraphQlRequest::with_variables(GetDocumentCommentTarget::build(
         DocumentCommentTargetVariables {
             id: document.to_owned(),
@@ -179,19 +158,17 @@ pub async fn document_content_id(
         if let TransportFailure::GraphQl { errors, .. } = &failure
             && is_not_found(errors)
         {
-            return AppError::not_found("Document", document);
+            return Error::not_found("Document", document);
         }
-        AppError::from(failure)
+        Error::from(failure)
     })?;
     let target = data.document;
     target.document_content_id.ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Validation,
-            format!(
+        Error::new(format!(
                 "Document \"{}\" has no content record to comment on",
                 target.title
             ),
         )
-        .with_suggestion("Linear attaches document comments to the document's content; open the document in Linear once so it gets one, then retry.")
+        .with_hint("Linear attaches document comments to the document's content; open the document in Linear once so it gets one, then retry.")
     })
 }

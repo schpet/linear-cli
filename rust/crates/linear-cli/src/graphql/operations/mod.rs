@@ -89,3 +89,4 @@ pub mod issue_start_state;
 pub mod issue_create;
 
 pub mod issue_write;
+pub mod viewer;

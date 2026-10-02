@@ -70,7 +70,7 @@ fn scope() -> WorkspaceScope<'static> {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &linear_cli::auth::ApiKeyInput::Absent,
+        api_key: linear_cli::auth::ApiKeyInput::Absent.clone(),
     }
 }
 fn entity(id: &str) -> Entity {
@@ -136,13 +136,12 @@ async fn uppercase_duplicate_is_failure_and_success_metadata_never_reclassifies(
         200,
         json!({"errors":[{"message":"Duplicate"}]}).to_string(),
     )]);
-    assert_eq!(
+    assert!(
         command::add(&transport, &entity("i"), &entity("p"), None)
             .await
             .unwrap_err()
-            .context
-            .as_deref(),
-        Some(command::ADD_CONTEXT)
+            .to_string()
+            .starts_with(&format!("{}: ", command::ADD_CONTEXT))
     );
     worker.join().unwrap();
     let (transport,worker)=server(vec![(200,json!({"data":{"initiativeToProjectCreate":{"success":true,"initiativeToProject":{"id":"duplicate"}}}}).to_string())]);
@@ -160,8 +159,12 @@ async fn false_success_preserves_double_context_for_both_mutations() {
     let error = command::add(&transport, &entity("i"), &entity("p"), None)
         .await
         .unwrap_err();
-    assert_eq!(error.message, command::ADD_CONTEXT);
-    assert_eq!(error.context.as_deref(), Some(command::ADD_CONTEXT));
+    assert_eq!(error.message(), command::ADD_CONTEXT);
+    assert!(
+        error
+            .to_string()
+            .starts_with(&format!("{}: ", command::ADD_CONTEXT))
+    );
     worker.join().unwrap();
     let (transport, worker) = server(vec![(
         200,
@@ -170,8 +173,12 @@ async fn false_success_preserves_double_context_for_both_mutations() {
     let error = command::remove(&transport, "l", &entity("i"), &entity("p"))
         .await
         .unwrap_err();
-    assert_eq!(error.message, command::REMOVE_CONTEXT);
-    assert_eq!(error.context.as_deref(), Some(command::REMOVE_CONTEXT));
+    assert_eq!(error.message(), command::REMOVE_CONTEXT);
+    assert!(
+        error
+            .to_string()
+            .starts_with(&format!("{}: ", command::REMOVE_CONTEXT))
+    );
     worker.join().unwrap();
 }
 #[tokio::test]

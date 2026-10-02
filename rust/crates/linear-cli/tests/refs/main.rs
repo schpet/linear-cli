@@ -1,6 +1,8 @@
-use linear_cli::auth::{ApiKeyInput, CredentialManifest, CredentialSelectionInputs, hydrate};
+use linear_cli::auth::keyring::UnsupportedKeyringReader;
+use linear_cli::auth::{
+    ApiKeyInput, CredentialManifest, CredentialSelectionInputs, CredentialStore,
+};
 use linear_cli::config::{ConfigSecret, OptionSource};
-use linear_cli::error::AppErrorKind;
 use linear_cli::refs::{
     CycleSelector, LinearUrlParse, LinearUrlRef, WorkspaceScope, expect_team_url, parse_linear_url,
 };
@@ -48,7 +50,7 @@ fn absent_scope<'a>(key: &'a ApiKeyInput<'a>) -> WorkspaceScope<'a> {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: key,
+        api_key: key.clone(),
     }
 }
 
@@ -58,10 +60,9 @@ fn assert_url_error(name: &str, scope: &WorkspaceScope<'_>) {
         .err()
         .unwrap_or_else(|| panic!("{} should fail", spec["id"]));
     let (message, suggestion) = expected_error(&spec);
-    assert_eq!(error.kind, AppErrorKind::Validation, "{}", spec["id"]);
-    assert_eq!(error.message, message, "{}", spec["id"]);
-    assert_eq!(error.suggestion.as_deref(), suggestion, "{}", spec["id"]);
-    assert_eq!(error.context, None, "{}", spec["id"]);
+    assert_eq!(error.message(), message, "{}", spec["id"]);
+    assert_eq!(error.hint(), suggestion, "{}", spec["id"]);
+    assert!(!error.has_context(), "{}", spec["id"]);
 }
 
 fn assert_url_prepared(name: &str, scope: &WorkspaceScope<'_>) {
@@ -222,14 +223,14 @@ fn url_normalization_and_error_order() {
         .unwrap_or_else(|| panic!("foreign URL"));
     assert!(
         error
-            .message
+            .message()
             .starts_with("That URL is for the \"foreign\" workspace")
     );
     let error = expect_team_url("https://linear.app/acme/project/X-ABCDEF123456", &scope)
         .err()
         .unwrap_or_else(|| panic!("wrong kind"));
     assert_eq!(
-        error.message,
+        error.message(),
         "\"https://linear.app/acme/project/X-ABCDEF123456\" is a project URL, not a team URL."
     );
     // An unknown cycle selector is rejected as an invalid URL before the
@@ -241,7 +242,7 @@ fn url_normalization_and_error_order() {
     .err()
     .unwrap_or_else(|| panic!("inherited alias"));
     assert_eq!(
-        error.message,
+        error.message(),
         "\"https://linear.app/foreign/team/eng/cycle/Constructor\" is a Linear URL, but \"Constructor\" is not a cycle number."
     );
 }
@@ -336,8 +337,10 @@ fn workspace_names_are_trimmed_and_case_folded() {
 
 #[test]
 fn scope_borrows_existing_credential_selection_inputs() {
-    let store = hydrate(CredentialManifest::empty(), Vec::new())
-        .unwrap_or_else(|error| panic!("empty fake store: {error}"));
+    let store = CredentialStore::new(
+        CredentialManifest::empty(),
+        Box::new(UnsupportedKeyringReader),
+    );
     let inputs = CredentialSelectionInputs {
         api_key: ApiKeyInput::Absent,
         cli_workspace: None,
@@ -347,8 +350,7 @@ fn scope_borrows_existing_credential_selection_inputs() {
     let error = expect_team_url("https://linear.app/foreign/team/eng", &scope)
         .err()
         .unwrap_or_else(|| panic!("sourced workspace mismatch"));
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert!(error.message.contains("this is the \"acme\" workspace"));
+    assert!(error.message().contains("this is the \"acme\" workspace"));
 }
 
 #[test]

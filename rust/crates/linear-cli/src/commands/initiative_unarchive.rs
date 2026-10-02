@@ -1,6 +1,6 @@
 //! `initiative unarchive`: find the archived initiative by id, slug or name, then restore it.
 use crate::commands::initiative_view::{FETCH_CONTEXT, RESOLVE_CONTEXT, Reference};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
 use crate::graphql::operations::initiative_unarchive::{
     DetailVariables, GetInitiativeByNameIncludeArchived, GetInitiativeBySlugIncludeArchived,
@@ -15,7 +15,7 @@ pub const CONTEXT: &str = "Failed to unarchive initiative";
 
 // A failed name or slug lookup counts as "not found by this route". Malformed
 // responses still stop the command rather than resolve the wrong initiative.
-fn text_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, AppError> {
+fn text_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, Error> {
     match result {
         Ok(value) => Ok(Some(value)),
         Err(
@@ -38,17 +38,17 @@ fn text_result<T>(result: Result<T, TransportFailure>) -> Result<Option<T>, AppE
                 | ResponseError::MutationRejected
                 | ResponseError::MissingPayloadEntity,
             )),
-        ) => Err(AppError::from(error)),
+        ) => Err(Error::from(error)),
     }
 }
-fn missing(original: &str) -> AppError {
-    AppError::not_found("Initiative", original)
+fn missing(original: &str) -> Error {
+    Error::not_found("Initiative", original)
 }
 async fn resolve_text(
     transport: &GraphQlTransport,
     token: &str,
     original: &str,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let request =
         GraphQlRequest::with_variables(GetInitiativeBySlugIncludeArchived::build(SlugVariables {
             slug_id: token.to_owned(),
@@ -78,7 +78,7 @@ pub async fn resolve_reference(
     transport: &GraphQlTransport,
     reference: &Reference,
     original: &str,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let result = async {
         match reference {
             Reference::Id(id) => Ok(id.clone()),
@@ -91,7 +91,7 @@ pub async fn resolve_reference(
                     },
                 ));
                 let data: ResolveInitiativeBySlug =
-                    transport.execute(&request).await.map_err(AppError::from)?;
+                    transport.execute(&request).await.map_err(Error::from)?;
                 let id = data
                     .initiatives
                     .nodes
@@ -108,13 +108,13 @@ pub async fn resolve_reference(
         }
     }
     .await;
-    result.map_err(|error| error.with_context(RESOLVE_CONTEXT))
+    result.context(RESOLVE_CONTEXT)
 }
 pub async fn fetch_details(
     transport: &GraphQlTransport,
     id: &str,
     original: &str,
-) -> Result<UnarchiveDetail, AppError> {
+) -> Result<UnarchiveDetail, Error> {
     let request =
         GraphQlRequest::with_variables(GetInitiativeForUnarchive::build(DetailVariables {
             id: cynic::Id::new(id),
@@ -122,13 +122,13 @@ pub async fn fetch_details(
     let data: GetInitiativeForUnarchive = transport
         .execute(&request)
         .await
-        .map_err(AppError::from)
-        .map_err(|error| error.with_context(FETCH_CONTEXT))?;
+        .map_err(Error::from)
+        .context(FETCH_CONTEXT)?;
     data.initiatives
         .nodes
         .into_iter()
         .next()
-        .ok_or_else(|| missing(original).with_context(RESOLVE_CONTEXT))
+        .ok_or_else(|| missing(original).context(RESOLVE_CONTEXT))
 }
 pub fn active_output(detail: &UnarchiveDetail) -> Option<Vec<u8>> {
     if detail
@@ -141,17 +141,17 @@ pub fn active_output(detail: &UnarchiveDetail) -> Option<Vec<u8>> {
         None
     }
 }
-pub async fn submit(transport: &GraphQlTransport, id: &str) -> Result<Vec<u8>, AppError> {
+pub async fn submit(transport: &GraphQlTransport, id: &str) -> Result<Vec<u8>, Error> {
     let request = GraphQlRequest::with_variables(UnarchiveInitiative::build(UnarchiveVariables {
         id: id.to_owned(),
     }));
     let data: UnarchiveInitiative = transport
         .execute(&request)
         .await
-        .map_err(AppError::from)
-        .map_err(|error| error.with_context(CONTEXT))?;
+        .map_err(Error::from)
+        .context(CONTEXT)?;
     if !data.initiative_unarchive.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, CONTEXT).with_context(CONTEXT));
+        return Err(Error::new(CONTEXT).context(CONTEXT));
     }
     let entity = data.initiative_unarchive.entity;
     let mut output = format!(

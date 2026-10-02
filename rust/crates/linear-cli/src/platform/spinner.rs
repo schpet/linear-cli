@@ -1,19 +1,60 @@
-//! Console spinner bytes shared by read commands.
-
+//! A progress spinner on stderr, drawn by a background thread while a guard lives.
+use std::io::{self, Write};
+use std::sync::mpsc::{self, RecvTimeoutError, Sender};
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-const FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const FRAMES: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const TICK: Duration = Duration::from_millis(80);
+/// Commands that finish quickly never show a frame.
+const DELAY: Duration = Duration::from_millis(150);
+const CLEAR_LINE: &[u8] = b"\r\x1b[2K";
 
-pub const CLEAR: &[u8] = b"\r\x1b[K";
-pub const TICK_INTERVAL: Duration = Duration::from_millis(75);
-
-/// The spinner belongs to non-JSON terminal stdout only when `NO_COLOR` is
-/// absent. An empty `NO_COLOR` still suppresses it.
-pub fn enabled(json: bool, stdout_tty: bool, no_color_absent: bool) -> bool {
-    !json && stdout_tty && no_color_absent
+/// Stops the spinner and clears its line when dropped.
+pub struct Spinner {
+    running: Option<(Sender<()>, JoinHandle<()>)>,
 }
 
-pub fn frame(index: usize) -> String {
-    let symbol = FRAMES.get(index % FRAMES.len()).copied().unwrap_or("⠋");
-    format!("\r\x1b[K{symbol}\x1b[0m ")
+impl Spinner {
+    /// A spinner that draws nothing.
+    pub fn hidden() -> Self {
+        Self { running: None }
+    }
+
+    pub fn start() -> Self {
+        let (stop, stopped) = mpsc::channel::<()>();
+        let handle = thread::spawn(move || {
+            if !matches!(stopped.recv_timeout(DELAY), Err(RecvTimeoutError::Timeout)) {
+                return;
+            }
+            let mut drawn = false;
+            for frame in FRAMES.iter().cycle() {
+                let mut stderr = io::stderr().lock();
+                // A spinner frame that cannot be drawn is not worth reporting.
+                let _ignored = write!(stderr, "\r{frame} ").and_then(|()| stderr.flush());
+                drawn = true;
+                drop(stderr);
+                if !matches!(stopped.recv_timeout(TICK), Err(RecvTimeoutError::Timeout)) {
+                    break;
+                }
+            }
+            if drawn {
+                let mut stderr = io::stderr().lock();
+                let _ignored = stderr.write_all(CLEAR_LINE).and_then(|()| stderr.flush());
+            }
+        });
+        Self {
+            running: Some((stop, handle)),
+        }
+    }
+}
+
+impl Drop for Spinner {
+    fn drop(&mut self) {
+        if let Some((stop, handle)) = self.running.take() {
+            // The thread may already have exited; either way it stops drawing.
+            let _ignored = stop.send(());
+            let _ignored = handle.join();
+        }
+    }
 }

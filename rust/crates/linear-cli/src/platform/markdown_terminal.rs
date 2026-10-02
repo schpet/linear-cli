@@ -17,8 +17,7 @@ use pulldown_cmark::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use crate::config::NoColor;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 /// Renderer width when a terminal reports no usable size.
 pub const FALLBACK_COLUMNS: NonZeroU16 = NonZeroU16::MIN.saturating_add(79);
@@ -64,30 +63,25 @@ impl ImageHyperlinks {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RenderOptions {
     pub columns: NonZeroU16,
-    /// SGR styling; only a nonempty `NO_COLOR` turns it off.
     pub styled: bool,
     pub image_hyperlinks: Option<ImageHyperlinks>,
 }
 
 impl RenderOptions {
-    /// Styling is off when `NO_COLOR` is nonempty, while image
-    /// hyperlinks need a nonempty format, TTY stdout and an absent `NO_COLOR`.
+    /// Image hyperlinks are terminal escapes too, so they need `color`.
     pub fn for_terminal(
         columns: NonZeroU16,
-        no_color: NoColor,
-        stdout_tty: bool,
+        color: bool,
         hyperlink_format: Option<&str>,
         host: HostSource,
     ) -> Self {
         let image_hyperlinks = match hyperlink_format {
-            Some(format) if !format.is_empty() && stdout_tty && no_color == NoColor::Absent => {
-                Some(ImageHyperlinks::new(format, host))
-            }
+            Some(format) if !format.is_empty() && color => Some(ImageHyperlinks::new(format, host)),
             Some(_) | None => None,
         };
         Self {
             columns,
-            styled: no_color != NoColor::Nonempty,
+            styled: color,
             image_hyperlinks,
         }
     }
@@ -95,7 +89,7 @@ impl RenderOptions {
 
 /// Render Markdown for a terminal. The result ends with the renderer's own
 /// line feed for nonempty documents; callers printing it directly add one more.
-pub fn render(markdown: &str, options: &RenderOptions) -> Result<String, AppError> {
+pub fn render(markdown: &str, options: &RenderOptions) -> Result<String, Error> {
     let blocks = parse(markdown)?;
     let mut renderer = Renderer {
         options,
@@ -111,15 +105,14 @@ pub fn render(markdown: &str, options: &RenderOptions) -> Result<String, AppErro
     Ok(rendered.join("\n"))
 }
 
-fn invariant(message: impl Into<String>) -> AppError {
-    AppError::new(AppErrorKind::Invariant, message)
+fn invariant(message: impl Into<String>) -> Error {
+    Error::new(message)
 }
 
-fn too_deep() -> AppError {
-    AppError::new(
-        AppErrorKind::Validation,
-        format!("Markdown nesting deeper than {MAX_NESTING} levels cannot be rendered"),
-    )
+fn too_deep() -> Error {
+    Error::new(format!(
+        "Markdown nesting deeper than {MAX_NESTING} levels cannot be rendered"
+    ))
 }
 
 #[derive(Debug)]
@@ -192,7 +185,7 @@ fn sanitize(text: &str) -> String {
         .collect()
 }
 
-fn parse(markdown: &str) -> Result<Vec<Block>, AppError> {
+fn parse(markdown: &str) -> Result<Vec<Block>, Error> {
     let parser = Parser::new_ext(
         markdown,
         Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH,
@@ -223,7 +216,7 @@ fn parse(markdown: &str) -> Result<Vec<Block>, AppError> {
 }
 
 /// The label as written between the first unescaped brackets.
-fn definition_label(raw: &str) -> Result<&str, AppError> {
+fn definition_label(raw: &str) -> Result<&str, Error> {
     let open = raw
         .find('[')
         .ok_or_else(|| invariant("a Markdown link definition has no label"))?;
@@ -274,7 +267,7 @@ fn is_inline(event: &Event<'_>) -> bool {
     }
 }
 
-fn unexpected(event: &Event<'_>) -> AppError {
+fn unexpected(event: &Event<'_>) -> Error {
     invariant(format!("unexpected Markdown event {event:?}"))
 }
 
@@ -285,7 +278,7 @@ struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    fn next_event(&mut self) -> Result<(Event<'a>, Range<usize>), AppError> {
+    fn next_event(&mut self) -> Result<(Event<'a>, Range<usize>), Error> {
         self.events
             .next()
             .ok_or_else(|| invariant("Markdown events ended inside an open element"))
@@ -307,7 +300,7 @@ impl<'a> Builder<'a> {
         }
     }
 
-    fn blocks(&mut self, end: Option<TagEnd>, depth: usize) -> Result<Vec<Spanned>, AppError> {
+    fn blocks(&mut self, end: Option<TagEnd>, depth: usize) -> Result<Vec<Spanned>, Error> {
         if depth > MAX_NESTING {
             return Err(too_deep());
         }
@@ -358,7 +351,7 @@ impl<'a> Builder<'a> {
         &mut self,
         start: usize,
         depth: usize,
-    ) -> Result<(Vec<Inline>, Range<usize>), AppError> {
+    ) -> Result<(Vec<Inline>, Range<usize>), Error> {
         let mut children = Vec::new();
         let mut end = start;
         while let Some((event, _)) = self.events.peek() {
@@ -372,7 +365,7 @@ impl<'a> Builder<'a> {
         Ok((children, start..end))
     }
 
-    fn block(&mut self, tag: Tag<'a>, depth: usize) -> Result<Block, AppError> {
+    fn block(&mut self, tag: Tag<'a>, depth: usize) -> Result<Block, Error> {
         let end = tag.to_end();
         Ok(match tag {
             Tag::Paragraph => Block::Paragraph(self.inlines(end, depth)?),
@@ -470,7 +463,7 @@ impl<'a> Builder<'a> {
         })
     }
 
-    fn table_row(&mut self, end: TagEnd, depth: usize) -> Result<Vec<Vec<Inline>>, AppError> {
+    fn table_row(&mut self, end: TagEnd, depth: usize) -> Result<Vec<Vec<Inline>>, Error> {
         let mut cells = Vec::new();
         loop {
             let (event, _) = self.next_event()?;
@@ -482,7 +475,7 @@ impl<'a> Builder<'a> {
         }
     }
 
-    fn literal(&mut self, end: TagEnd) -> Result<String, AppError> {
+    fn literal(&mut self, end: TagEnd) -> Result<String, Error> {
         let mut text = String::new();
         loop {
             let (event, _) = self.next_event()?;
@@ -494,7 +487,7 @@ impl<'a> Builder<'a> {
         }
     }
 
-    fn inlines(&mut self, end: TagEnd, depth: usize) -> Result<Vec<Inline>, AppError> {
+    fn inlines(&mut self, end: TagEnd, depth: usize) -> Result<Vec<Inline>, Error> {
         if depth > MAX_NESTING {
             return Err(too_deep());
         }
@@ -508,7 +501,7 @@ impl<'a> Builder<'a> {
         }
     }
 
-    fn inline(&mut self, event: Event<'a>, depth: usize) -> Result<Inline, AppError> {
+    fn inline(&mut self, event: Event<'a>, depth: usize) -> Result<Inline, Error> {
         Ok(match event {
             Event::Text(text) => Inline::Text(sanitize(&text)),
             Event::Code(code) => Inline::Code(sanitize(&code)),
@@ -755,13 +748,10 @@ pub(crate) fn hyperlink(text: &str, url: &str) -> String {
     format!("\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\")
 }
 
-fn system_hostname() -> Result<String, AppError> {
-    gethostname::gethostname().into_string().map_err(|_| {
-        AppError::new(
-            AppErrorKind::IoProcess,
-            "the hostname for a local image link is not valid UTF-8",
-        )
-    })
+fn system_hostname() -> Result<String, Error> {
+    gethostname::gethostname()
+        .into_string()
+        .map_err(|_| Error::new("the hostname for a local image link is not valid UTF-8"))
 }
 
 struct Renderer<'o> {
@@ -771,7 +761,7 @@ struct Renderer<'o> {
 }
 
 impl Renderer<'_> {
-    fn block(&mut self, block: &Block, item_level: Option<usize>) -> Result<String, AppError> {
+    fn block(&mut self, block: &Block, item_level: Option<usize>) -> Result<String, Error> {
         Ok(match block {
             Block::Paragraph(children) => format!("{}\n", self.inlines(children)?),
             Block::Heading(depth, children) => {
@@ -837,7 +827,7 @@ impl Renderer<'_> {
         start: Option<u64>,
         items: &[Item],
         item_level: Option<usize>,
-    ) -> Result<String, AppError> {
+    ) -> Result<String, Error> {
         let level = item_level.map_or(0, |parent| parent + 1);
         let mut out = String::new();
         for (index, item) in items.iter().enumerate() {
@@ -933,7 +923,7 @@ impl Renderer<'_> {
         &mut self,
         alignments: &[Alignment],
         rows: &[Vec<Vec<Inline>>],
-    ) -> Result<String, AppError> {
+    ) -> Result<String, Error> {
         let columns = rows.iter().map(Vec::len).max().unwrap_or_default();
         let mut cells: Vec<Vec<String>> = Vec::with_capacity(rows.len());
         for (row_index, row) in rows.iter().enumerate() {
@@ -1004,7 +994,7 @@ impl Renderer<'_> {
         ))
     }
 
-    fn inlines(&mut self, children: &[Inline]) -> Result<String, AppError> {
+    fn inlines(&mut self, children: &[Inline]) -> Result<String, Error> {
         let paint = self.paint;
         let mut out = String::new();
         for child in children {
@@ -1040,7 +1030,7 @@ impl Renderer<'_> {
         Ok(out)
     }
 
-    fn image(&mut self, url: &str, alt: &str) -> Result<String, AppError> {
+    fn image(&mut self, url: &str, alt: &str) -> Result<String, Error> {
         let Some(links) = &self.options.image_hyperlinks else {
             return Ok(self
                 .paint

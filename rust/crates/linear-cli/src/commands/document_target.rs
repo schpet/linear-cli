@@ -1,6 +1,6 @@
 //! Document target cardinality, strict local preparation and six typed resolvers.
 use crate::cli::document::DocumentList;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::{GraphQlRequest, is_not_found};
 use crate::graphql::operations::documents::*;
 use crate::graphql::operations::initiatives::IDComparator;
@@ -72,7 +72,7 @@ impl TargetOptions<'_> {
             || self.cycle.is_some()
             || self.release.is_some()
     }
-    pub fn cardinality(self, required: bool) -> Result<(), AppError> {
+    pub fn cardinality(self, required: bool) -> Result<(), Error> {
         let mut flags = Vec::new();
         if self.project.is_some() {
             flags.push("--project");
@@ -92,21 +92,16 @@ impl TargetOptions<'_> {
             flags.push("--release");
         }
         if flags.len() > 1 {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!(
-                    "Only one attachment target may be set (got {})",
-                    flags.join(", ")
-                ),
-            )
-            .with_suggestion(TARGET_SUGGESTION));
+            return Err(Error::new(format!(
+                "Only one attachment target may be set (got {})",
+                flags.join(", ")
+            ))
+            .with_hint(TARGET_SUGGESTION));
         }
         if required && flags.is_empty() {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                "A document attachment target is required",
-            )
-            .with_suggestion(TARGET_SUGGESTION));
+            return Err(
+                Error::new("A document attachment target is required").with_hint(TARGET_SUGGESTION)
+            );
         }
         Ok(())
     }
@@ -115,14 +110,14 @@ pub fn prepare(
     action: &DocumentList,
     scope: &WorkspaceScope<'_>,
     configured_team: Option<&str>,
-) -> Result<Option<PreparedTarget>, AppError> {
+) -> Result<Option<PreparedTarget>, Error> {
     prepare_options(action.into(), scope, configured_team)
 }
 pub fn prepare_options(
     action: TargetOptions<'_>,
     scope: &WorkspaceScope<'_>,
     configured_team: Option<&str>,
-) -> Result<Option<PreparedTarget>, AppError> {
+) -> Result<Option<PreparedTarget>, Error> {
     action.cardinality(false)?;
     if let Some(original) = &action.project {
         return Ok(Some(PreparedTarget::Project {
@@ -140,10 +135,7 @@ pub fn prepare_options(
         let id = match url {
             Some(LinearUrlRef::Issue { identifier, .. }) => identifier,
             Some(_) => {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
-                    "issue URL preparation returned wrong kind",
-                ));
+                return Err(Error::new("issue URL preparation returned wrong kind"));
             }
             None if refs::is_linear_uuid(original) => (*original).to_owned(),
             None => original.to_uppercase(),
@@ -164,11 +156,8 @@ pub fn prepare_options(
             .filter(|team| !team.is_empty())
             .map(str::to_uppercase);
         let team = action.team.or(configured.as_deref()).ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "--cycle requires a team to look the cycle up in",
-            )
-            .with_suggestion("Pass --team <key, name, or ID> or configure a default team.")
+            Error::new("--cycle requires a team to look the cycle up in")
+                .with_hint("Pass --team <key, name, or ID> or configure a default team.")
         })?;
         return Ok(Some(PreparedTarget::Cycle {
             team: refs::prepare_team_lookup(team, scope)?,
@@ -195,7 +184,7 @@ pub fn prepare_options(
 pub async fn resolve(
     target: &PreparedTarget,
     transport: &GraphQlTransport,
-) -> Result<(Kind, String), AppError> {
+) -> Result<(Kind, String), Error> {
     match target {
         PreparedTarget::Project {
             original,
@@ -222,8 +211,8 @@ pub async fn resolve(
                 GetDocumentVariables { id: id.clone() },
             ));
             let not_found = || {
-                AppError::not_found("Issue", original)
-                    .with_suggestion("Provide a valid issue identifier (e.g., TC-123) or UUID.")
+                Error::not_found("Issue", original)
+                    .with_hint("Provide a valid issue identifier (e.g., TC-123) or UUID.")
             };
             let data: GetIssueForDocumentTarget =
                 transport
@@ -233,7 +222,7 @@ pub async fn resolve(
                         TransportFailure::GraphQl { errors, .. } if is_not_found(errors) => {
                             not_found()
                         }
-                        _ => AppError::from(failure),
+                        _ => Error::from(failure),
                     })?;
             Ok((
                 Kind::Issue,
@@ -250,7 +239,7 @@ pub async fn resolve(
                 &team.id,
                 reference,
                 url.as_ref(),
-                |query| async move { transport.execute(&query).await.map_err(AppError::from) },
+                |query| async move { transport.execute(&query).await.map_err(Error::from) },
             )
             .await?;
             Ok((Kind::Cycle, id))

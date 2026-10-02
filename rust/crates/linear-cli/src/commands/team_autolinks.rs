@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 
 use crate::commands::team_key::configured_team_key;
 use crate::config::StartupConfig;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 
 const CONTEXT: &str = "Failed to configure autolinks";
 
@@ -12,21 +12,18 @@ pub fn execute(
     config: &StartupConfig,
     cli_workspace: Option<&str>,
     cwd: &Path,
-) -> Result<(), AppError> {
-    execute_inner(config, cli_workspace, cwd).map_err(|error| error.with_context(CONTEXT))
+) -> Result<(), Error> {
+    execute_inner(config, cli_workspace, cwd).context(CONTEXT)
 }
 
 fn execute_inner(
     config: &StartupConfig,
     cli_workspace: Option<&str>,
     cwd: &Path,
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     let team = configured_team_key(&config.options).ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Validation,
-            "Could not determine team id from directory name",
-        )
-        .with_suggestion("Run `linear config` to set a team.")
+        Error::new("Could not determine team id from directory name")
+            .with_hint("Run `linear config` to set a team.")
     })?;
     let workspace = cli_workspace
         .or_else(|| {
@@ -37,10 +34,7 @@ fn execute_inner(
         })
         .filter(|workspace| !workspace.is_empty())
         .ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "workspace is not set via command line, configuration file, or environment",
-            )
+            Error::new("workspace is not set via command line, configuration file, or environment")
         })?;
     let mut child = Command::new("gh")
         .args([
@@ -63,14 +57,14 @@ fn execute_inner(
             } else {
                 format!("Failed to spawn 'gh': {error}")
             };
-            AppError::new(AppErrorKind::IoProcess, message).with_source(error)
+            Error::new(message).with_source(error)
         })?;
-    let status = child.wait().map_err(|error| {
-        AppError::new(AppErrorKind::IoProcess, "Failed to wait for 'gh'").with_source(error)
-    })?;
+    let status = child
+        .wait()
+        .map_err(|error| Error::new("Failed to wait for 'gh'").with_source(error))?;
     if status.success() {
         Ok(())
     } else {
-        Err(AppError::new(AppErrorKind::IoProcess, CONTEXT))
+        Err(Error::new(CONTEXT))
     }
 }

@@ -1,5 +1,5 @@
 //! Delete exactly one resolved project; preserve the original argument fallback.
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::project_delete::{DeleteProject, DeleteProjectVariables};
 use crate::graphql::transport::GraphQlTransport;
@@ -17,10 +17,10 @@ pub async fn submit(
     transport: &GraphQlTransport,
     original: &str,
     id: &str,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let result: DeleteProject = transport.execute(&request(id)).await?;
     if !result.project_delete.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, CONTEXT));
+        return Err(Error::new(CONTEXT));
     }
     let name = result
         .project_delete

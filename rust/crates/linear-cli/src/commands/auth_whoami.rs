@@ -6,7 +6,7 @@ use cynic::QueryBuilder;
 use crate::auth::CredentialStore;
 use crate::commands::client;
 use crate::config::{ConfigOptions, TransportEnvInputs};
-use crate::error::AppError;
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::auth_whoami::AuthStatus;
 use crate::graphql::transport::GraphQlTransport;
@@ -34,21 +34,18 @@ pub fn render(status: &AuthStatus) -> Vec<u8> {
 
 /// The operation is injected at this boundary so the command can be tested
 /// without process credentials, network policy or a live workspace.
-pub async fn run_with<F, Fut>(fetch: F) -> Result<Vec<u8>, AppError>
+pub async fn run_with<F, Fut>(fetch: F) -> Result<Vec<u8>, Error>
 where
     F: FnOnce(GraphQlRequest<()>) -> Fut,
-    Fut: Future<Output = Result<AuthStatus, AppError>>,
+    Fut: Future<Output = Result<AuthStatus, Error>>,
 {
     let request = GraphQlRequest::without_variables(AuthStatus::build(()));
-    let status = fetch(request)
-        .await
-        .map_err(|error| error.with_context(CONTEXT))?;
+    let status = fetch(request).await.context(CONTEXT)?;
     Ok(render(&status))
 }
 
-pub async fn run(transport: &GraphQlTransport) -> Result<Vec<u8>, AppError> {
-    run_with(|request| async move { transport.execute(&request).await.map_err(AppError::from) })
-        .await
+pub async fn run(transport: &GraphQlTransport) -> Result<Vec<u8>, Error> {
+    run_with(|request| async move { transport.execute(&request).await.map_err(Error::from) }).await
 }
 
 /// Select from already loaded credentials, then resolve the ambient
@@ -58,7 +55,6 @@ pub fn prepare_transport(
     credentials: &CredentialStore,
     cli_workspace: Option<&str>,
     transport_env: &TransportEnvInputs,
-) -> Result<GraphQlTransport, AppError> {
-    client::prepare_transport(options, credentials, cli_workspace, transport_env)
-        .map_err(|error| error.with_context(CONTEXT))
+) -> Result<GraphQlTransport, Error> {
+    client::prepare_transport(options, credentials, cli_workspace, transport_env).context(CONTEXT)
 }

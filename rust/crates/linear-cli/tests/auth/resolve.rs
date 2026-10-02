@@ -1,6 +1,7 @@
+use crate::{LookupReply, hydrate};
 use linear_cli::auth::{
-    ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialSource, LookupReply,
-    LookupResult, hydrate, parse_credentials, resolve,
+    ApiKeyInput, CredentialSelection, CredentialSelectionInputs, CredentialSource, LookupResult,
+    parse_credentials, resolve,
 };
 use linear_cli::config::{
     ConfigInputs, ConfigOptions, ConfigSecret, OptionInputs, OptionSource, OsFamily, RawConfigFile,
@@ -282,7 +283,7 @@ fn configured_secret_maps_to_raw_or_sourced_without_copying() {
     })
     .expect("process options");
     assert!(matches!(
-        ApiKeyInput::from_options(&options).expect("raw"),
+        ApiKeyInput::from_options(&options),
         ApiKeyInput::Raw {
             source: OptionSource::Env,
             ..
@@ -301,7 +302,7 @@ fn configured_secret_maps_to_raw_or_sourced_without_copying() {
     })
     .expect("dotenv options");
     assert!(matches!(
-        ApiKeyInput::from_options(&options).expect("raw dotenv"),
+        ApiKeyInput::from_options(&options),
         ApiKeyInput::Raw {
             source: OptionSource::ProjectEnv { .. },
             ..
@@ -320,7 +321,7 @@ fn configured_secret_maps_to_raw_or_sourced_without_copying() {
     })
     .expect("project options");
     assert!(matches!(
-        ApiKeyInput::from_options(&options).expect("sourced"),
+        ApiKeyInput::from_options(&options),
         ApiKeyInput::Sourced {
             source: OptionSource::ProjectConfig { .. },
             ..
@@ -334,7 +335,7 @@ fn configured_secret_maps_to_raw_or_sourced_without_copying() {
     })
     .expect("global options");
     assert!(matches!(
-        ApiKeyInput::from_options(&options).expect("sourced global"),
+        ApiKeyInput::from_options(&options),
         ApiKeyInput::Sourced {
             source: OptionSource::GlobalConfig { .. },
             ..

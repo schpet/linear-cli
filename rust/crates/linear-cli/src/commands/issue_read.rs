@@ -1,5 +1,5 @@
 //! Command-local issue read filters, lookups, pagination and presentation.
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::operations::number::{Float, WholeNumber};
 use crate::graphql::scalars::DateTimeOrDuration;
 use crate::graphql::{
@@ -18,37 +18,28 @@ use std::num::NonZeroU32;
 pub async fn exchange<T: DeserializeOwned, V: Serialize>(
     transport: &GraphQlTransport,
     request: &GraphQlRequest<V>,
-) -> Result<T, AppError> {
-    let response = transport
-        .send_request(request)
-        .await
-        .map_err(AppError::from)?;
+) -> Result<T, Error> {
+    let response = transport.send_request(request).await.map_err(Error::from)?;
     if let Some(error) = bulk_error::observe_source_error(&response, request)
         .map_err(bulk_error::BulkExchangeFailure::into_error)?
     {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            error.preferred_message.unwrap_or(error.message),
-        ));
+        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
     }
     classify_typed(response).map_err(|error| match error {
         crate::graphql::transport::TransportFailure::Response(
             crate::graphql::envelope::ResponseError::UnexpectedShape(error),
-        ) => AppError::new(
-            AppErrorKind::GraphQl,
-            "Linear returned issue read data with an unexpected shape",
-        )
-        .with_source(error),
-        error => AppError::from(error),
+        ) => Error::new("Linear returned issue read data with an unexpected shape")
+            .with_source(error),
+        error => Error::from(error),
     })
 }
-fn validation(message: impl Into<String>) -> AppError {
-    AppError::new(AppErrorKind::Validation, message)
+fn validation(message: impl Into<String>) -> Error {
+    Error::new(message)
 }
 const DATE_SUGGESTION: &str =
     "Use YYYY-MM-DD or ISO 8601 format (e.g. 2024-01-15 or 2024-01-15T09:00:00Z).";
 /// ISSUE-READ-DATE-STRICT is invoked at filter construction, after resolver reads.
-pub fn date_filter(value: &str, flag: &str) -> Result<DateTimeOrDuration, AppError> {
+pub fn date_filter(value: &str, flag: &str) -> Result<DateTimeOrDuration, Error> {
     let bytes = value.as_bytes();
     let date_shape = bytes.len() >= 10
         && bytes.get(4) == Some(&b'-')
@@ -98,7 +89,7 @@ pub fn date_filter(value: &str, flag: &str) -> Result<DateTimeOrDuration, AppErr
             "Invalid date{} for {flag}: \"{value}\"",
             if format { " format" } else { "" }
         ))
-        .with_suggestion(DATE_SUGGESTION)
+        .with_hint(DATE_SUGGESTION)
     };
     if !date_shape || !time_shape {
         return Err(err(true));
@@ -173,7 +164,7 @@ pub fn apply_dates(
     filter: &mut IssueFilter,
     created: Option<&str>,
     updated: Option<&str>,
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     if let Some(value) = created.filter(|s| !s.is_empty()) {
         filter.created_at = Some(DateComparator {
             gte: Some(date_filter(value, "--created-after")?),
@@ -247,7 +238,7 @@ pub async fn state_filter(
     transport: &GraphQlTransport,
     values: &[String],
     keys: Option<&[String]>,
-) -> Result<Option<WorkflowStateFilter>, AppError> {
+) -> Result<Option<WorkflowStateFilter>, Error> {
     if values.is_empty() {
         return Ok(None);
     }
@@ -256,12 +247,10 @@ pub async fn state_filter(
     for value in values {
         reject_linear_url(value, "a workflow state name, type, or ID")?;
         if value.chars().all(char::is_whitespace) {
-            return Err(
-                validation("--state value is empty").with_suggestion(format!(
-                    "Pass a state type ({}), name, or ID.",
-                    STATE_TYPES.join(", ")
-                )),
-            );
+            return Err(validation("--state value is empty").with_hint(format!(
+                "Pass a state type ({}), name, or ID.",
+                STATE_TYPES.join(", ")
+            )));
         }
         let selected = if STATE_TYPES.contains(&value.as_str()) {
             &mut types
@@ -296,7 +285,7 @@ pub async fn state_filter(
                 return Err(validation(
                     "Linear reported more workflow states but returned no new pagination cursor",
                 )
-                .with_suggestion("Retry the command."));
+                .with_hint("Retry the command."));
             }
             after = next;
         }
@@ -332,11 +321,7 @@ pub async fn state_filter(
                 .iter()
                 .map(|s| {
                     let name = serde_json::to_string(&s.name).map_err(|error| {
-                        AppError::new(
-                            AppErrorKind::Invariant,
-                            "Could not serialize workflow state name",
-                        )
-                        .with_source(error)
+                        Error::new("Could not serialize workflow state name").with_source(error)
                     })?;
                     Ok(format!(
                         "{name} ({})",
@@ -347,13 +332,13 @@ pub async fn state_filter(
                         }
                     ))
                 })
-                .collect::<Result<Vec<_>, AppError>>()?
+                .collect::<Result<Vec<_>, Error>>()?
                 .join(", ");
-            return Err(AppError::not_found(
+            return Err(Error::not_found(
                 "Workflow state",
                 &format!("'{value}' in {where_text}"),
             )
-            .with_suggestion(format!(
+            .with_hint(format!(
                 "{}State types: {}. Run `linear team states <team>` to list a team's states.",
                 if listed.is_empty() {
                     String::new()
@@ -455,7 +440,7 @@ pub async fn assignee_filter(
     input: Option<&str>,
     unassigned: bool,
     mine: bool,
-) -> Result<Option<NullableUserFilter>, AppError> {
+) -> Result<Option<NullableUserFilter>, Error> {
     if mine {
         return Ok(Some(NullableUserFilter {
             is_me: Some(BooleanComparator { eq: Some(true) }),
@@ -491,7 +476,7 @@ pub async fn assignee_filter(
         )
         .await?;
         crate::commands::initiative_list::select_owner(&data.users.nodes, input)
-            .ok_or_else(|| AppError::not_found("User", input))?
+            .ok_or_else(|| Error::not_found("User", input))?
     };
     Ok(Some(NullableUserFilter {
         id: Some(IDComparator {
@@ -510,20 +495,20 @@ fn issue_write_query_ending<V>(
 pub async fn project_id(
     transport: &GraphQlTransport,
     reference: &ProjectReference,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     project_id_query_ending(transport, reference, true).await
 }
 pub async fn project_id_without_terminal_lf(
     transport: &GraphQlTransport,
     reference: &ProjectReference,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     project_id_query_ending(transport, reference, false).await
 }
 async fn project_id_query_ending(
     transport: &GraphQlTransport,
     reference: &ProjectReference,
     terminal_lf: bool,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     use crate::graphql::operations::project_view::{
         GetProjectIdByName, GetProjectIdBySlugId, ProjectReferenceVariables, ProjectSlugVariables,
     };
@@ -552,7 +537,7 @@ async fn project_id_query_ending(
                         .collect::<Vec<_>>()
                         .join("\n")
                 ))
-                .with_suggestion(
+                .with_hint(
                     "Pass the project's UUID or slug ID instead. `linear project list` shows both.",
                 ));
             }
@@ -589,14 +574,14 @@ pub async fn milestone_id(
     transport: &GraphQlTransport,
     value: &str,
     project: Option<&str>,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     milestone_id_query_ending(transport, value, project, true).await
 }
 pub async fn milestone_id_without_terminal_lf(
     transport: &GraphQlTransport,
     value: &str,
     project: Option<&str>,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     milestone_id_query_ending(transport, value, project, false).await
 }
 async fn milestone_id_query_ending(
@@ -604,12 +589,12 @@ async fn milestone_id_query_ending(
     value: &str,
     project: Option<&str>,
     terminal_lf: bool,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     if is_linear_uuid(value) {
         return Ok(value.to_owned());
     }
     reject_linear_url(value, "a milestone name or UUID")?;
-    let project = project.ok_or_else(|| validation(format!("Cannot resolve milestone \"{value}\" without --project")).with_suggestion("Pass a milestone UUID, or specify --project so the milestone name can be looked up within that project."))?;
+    let project = project.ok_or_else(|| validation(format!("Cannot resolve milestone \"{value}\" without --project")).with_hint("Pass a milestone UUID, or specify --project so the milestone name can be looked up within that project."))?;
     use crate::graphql::operations::milestone_view::{
         GetProjectMilestonesForLookup, LookupVariables,
     };
@@ -625,14 +610,14 @@ async fn milestone_id_query_ending(
     .await?;
     let rows = result
         .project
-        .ok_or_else(|| AppError::not_found("Project", project))?
+        .ok_or_else(|| Error::not_found("Project", project))?
         .project_milestones
         .map(|p| p.nodes)
         .unwrap_or_default();
     rows.into_iter()
         .find(|m| m.name.to_lowercase() == value.to_lowercase())
         .map(|m| m.id.into_inner())
-        .ok_or_else(|| AppError::not_found("Milestone", value))
+        .ok_or_else(|| Error::not_found("Milestone", value))
 }
 /// The page size to request: what is still wanted, capped at Linear's maximum of 100.
 fn page_size(limit: Option<NonZeroU32>, fetched: usize, unlimited: i32) -> i32 {
@@ -653,7 +638,7 @@ fn truncate_to<T>(rows: &mut Vec<T>, limit: Option<NonZeroU32>) {
         rows.truncate(usize::try_from(limit.get()).unwrap_or(usize::MAX));
     }
 }
-fn next_cursor(next: Option<String>, seen: &mut HashSet<String>) -> Result<String, AppError> {
+fn next_cursor(next: Option<String>, seen: &mut HashSet<String>) -> Result<String, Error> {
     let next = next.ok_or_else(|| {
         validation("Linear reported more issues but returned no pagination cursor")
     })?;
@@ -667,7 +652,7 @@ pub async fn mine(
     filter: IssueFilter,
     priority: bool,
     limit: Option<NonZeroU32>,
-) -> Result<Vec<GetIssuesForStateIssuesNodes>, AppError> {
+) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
     mine_with_requests(transport, filter, priority, limit, |variables| {
         GraphQlRequest::with_variables(GetIssuesForState::build(variables))
     })
@@ -680,7 +665,7 @@ pub(crate) async fn mine_with_requests(
     priority: bool,
     limit: Option<NonZeroU32>,
     mut request: impl FnMut(GetIssuesForStateVariables) -> GraphQlRequest<GetIssuesForStateVariables>,
-) -> Result<Vec<GetIssuesForStateIssuesNodes>, AppError> {
+) -> Result<Vec<GetIssuesForStateIssuesNodes>, Error> {
     let page_size = page_size(limit, 0, 50);
     let mut after = None;
     let mut seen = HashSet::new();
@@ -715,7 +700,7 @@ pub async fn query(
     priority: bool,
     limit: Option<NonZeroU32>,
     archived: bool,
-) -> Result<GetIssuesForQueryIssues, AppError> {
+) -> Result<GetIssuesForQueryIssues, Error> {
     let size = page_size(limit, 0, 100);
     let mut after = None;
     let mut seen = HashSet::new();
@@ -753,7 +738,7 @@ pub async fn search(
     limit: Option<NonZeroU32>,
     archived: bool,
     comments: bool,
-) -> Result<SearchIssuesSearchIssues, AppError> {
+) -> Result<SearchIssuesSearchIssues, Error> {
     let mut after = None;
     let mut seen = HashSet::new();
     let mut rows = vec![];
@@ -996,7 +981,7 @@ pub fn table(
     columns: usize,
     color: bool,
     now: std::time::SystemTime,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     use crate::commands::display::{display_width, pad, truncate_text};
     if rows.is_empty() {
         return Ok("No issues found.".to_owned());
@@ -1149,18 +1134,14 @@ pub fn table(
         if show_cycle {
             let (c, kind) = cycles
                 .get(i)
-                .ok_or_else(|| AppError::new(AppErrorKind::Invariant, "Missing cycle display"))?;
+                .ok_or_else(|| Error::new("Missing cycle display"))?;
             cells.push(format!(
                 "{}{}",
                 match *kind {
                     "active" => style(c, "32", color),
                     "past" | "none" => style(c, "90", color),
                     "future" => c.clone(),
-                    _ =>
-                        return Err(AppError::new(
-                            AppErrorKind::Invariant,
-                            "Unknown cycle display kind"
-                        )),
+                    _ => return Err(Error::new("Unknown cycle display kind")),
                 },
                 " ".repeat(cw.saturating_sub(display_width(c)))
             ));
@@ -1182,9 +1163,9 @@ pub fn table(
         ));
         cells.push(style(
             &pad(
-                times.get(i).ok_or_else(|| {
-                    AppError::new(AppErrorKind::Invariant, "Missing time display")
-                })?,
+                times
+                    .get(i)
+                    .ok_or_else(|| Error::new("Missing time display"))?,
                 uw,
             ),
             "90",
@@ -1196,7 +1177,7 @@ pub fn table(
 }
 
 /// Refuse menu text the selector cannot display (control characters).
-pub fn project_menu_text(message: &str, labels: &[&str]) -> Result<(), AppError> {
+pub fn project_menu_text(message: &str, labels: &[&str]) -> Result<(), Error> {
     if std::iter::once(message)
         .chain(labels.iter().copied())
         .any(|s| s.trim().is_empty() || s.chars().any(char::is_control))
@@ -1204,9 +1185,7 @@ pub fn project_menu_text(message: &str, labels: &[&str]) -> Result<(), AppError>
         return Err(validation(
             "Project menu text must be nonempty and contain no control characters",
         )
-        .with_suggestion(
-            "Use an exact project name or UUID to avoid selecting similar projects.",
-        ));
+        .with_hint("Use an exact project name or UUID to avoid selecting similar projects."));
     }
     Ok(())
 }

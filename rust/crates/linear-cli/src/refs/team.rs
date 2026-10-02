@@ -6,7 +6,7 @@ use std::future::Future;
 
 use cynic::QueryBuilder;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::edit::Edit;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_resolver::{
@@ -55,12 +55,10 @@ impl From<TeamNode> for ResolvedTeam {
 pub fn prepare_team_lookup(
     original: &str,
     scope: &WorkspaceScope<'_>,
-) -> Result<PreparedTeamLookup, AppError> {
+) -> Result<PreparedTeamLookup, Error> {
     if original.trim().is_empty() {
-        return Err(
-            AppError::new(AppErrorKind::Validation, "Team reference is empty")
-                .with_suggestion("Pass a team key, name, or ID, e.g. --team ENG."),
-        );
+        return Err(Error::new("Team reference is empty")
+            .with_hint("Pass a team key, name, or ID, e.g. --team ENG."));
     }
     let lookup = expect_team_url(original, scope)?.unwrap_or_else(|| original.to_owned());
     Ok(PreparedTeamLookup {
@@ -73,10 +71,10 @@ pub fn prepare_team_lookup(
 pub async fn find_team<F, Fut>(
     prepared: &PreparedTeamLookup,
     fetch: F,
-) -> Result<Option<ResolvedTeam>, AppError>
+) -> Result<Option<ResolvedTeam>, Error>
 where
     F: FnOnce(GraphQlRequest<ResolveTeamVariables>) -> Fut,
-    Fut: Future<Output = Result<ResolveTeam, AppError>>,
+    Fut: Future<Output = Result<ResolveTeam, Error>>,
 {
     let is_uuid = is_linear_uuid(&prepared.lookup);
     let request = GraphQlRequest::with_variables(ResolveTeam::build(ResolveTeamVariables {
@@ -109,19 +107,16 @@ where
         .filter(|team| team.name.to_lowercase() == wanted)
         .collect();
     if by_name.len() > 1 {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            format!(
-                "Team name \"{}\" is ambiguous: {}",
-                prepared.lookup,
-                by_name
-                    .iter()
-                    .map(|team| format!("{} ({})", team.key, team.name))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-        )
-        .with_suggestion("Use the team key instead of the name."));
+        return Err(Error::new(format!(
+            "Team name \"{}\" is ambiguous: {}",
+            prepared.lookup,
+            by_name
+                .iter()
+                .map(|team| format!("{} ({})", team.key, team.name))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ))
+        .with_hint("Use the team key instead of the name."));
     }
     Ok(by_name.into_iter().next())
 }
@@ -132,12 +127,12 @@ pub async fn resolve_team<ResolveFetch, ResolveFuture, AllFetch, AllFuture>(
     prepared: &PreparedTeamLookup,
     resolve_fetch: ResolveFetch,
     all_fetch: AllFetch,
-) -> Result<ResolvedTeam, AppError>
+) -> Result<ResolvedTeam, Error>
 where
     ResolveFetch: FnOnce(GraphQlRequest<ResolveTeamVariables>) -> ResolveFuture,
-    ResolveFuture: Future<Output = Result<ResolveTeam, AppError>>,
+    ResolveFuture: Future<Output = Result<ResolveTeam, Error>>,
     AllFetch: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> AllFuture,
-    AllFuture: Future<Output = Result<GetAllTeams, AppError>>,
+    AllFuture: Future<Output = Result<GetAllTeams, Error>>,
 {
     if let Some(team) = find_team(prepared, resolve_fetch).await? {
         return Ok(team);
@@ -161,27 +156,27 @@ where
                 .join(", ")
         )
     };
-    Err(AppError::not_found("Team", &prepared.original).with_suggestion(suggestion))
+    Err(Error::not_found("Team", &prepared.original).with_hint(suggestion))
 }
 
 /// Execute through a client that the caller already built after preparation.
 pub async fn resolve_team_with_transport(
     prepared: &PreparedTeamLookup,
     transport: &GraphQlTransport,
-) -> Result<ResolvedTeam, AppError> {
+) -> Result<ResolvedTeam, Error> {
     resolve_team(
         prepared,
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
     )
     .await
 }
 
 /// Fetches every team, sorted by lowercased name.
-pub async fn fetch_all_teams<F, Fut>(mut all_fetch: F) -> Result<Vec<ResolvedTeam>, AppError>
+pub async fn fetch_all_teams<F, Fut>(mut all_fetch: F) -> Result<Vec<ResolvedTeam>, Error>
 where
     F: FnMut(GraphQlRequest<GetAllTeamsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetAllTeams, AppError>>,
+    Fut: Future<Output = Result<GetAllTeams, Error>>,
 {
     let mut teams = Vec::new();
     let mut after = Edit::Unchanged;
@@ -199,11 +194,10 @@ where
         }
         let cursor = response.teams.page_info.end_cursor;
         if !seen.insert(cursor.clone()) {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                format!("Linear repeated a team pagination cursor on page {page}"),
-            )
-            .with_suggestion("Retry the command."));
+            return Err(Error::new(format!(
+                "Linear repeated a team pagination cursor on page {page}"
+            ))
+            .with_hint("Retry the command."));
         }
         after = Edit::set_or_clear(cursor);
         page += 1;
@@ -217,9 +211,7 @@ where
 
 pub async fn fetch_all_teams_with_transport(
     transport: &GraphQlTransport,
-) -> Result<Vec<ResolvedTeam>, AppError> {
-    fetch_all_teams(
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
-    )
-    .await
+) -> Result<Vec<ResolvedTeam>, Error> {
+    fetch_all_teams(|request| async move { transport.execute(&request).await.map_err(Error::from) })
+        .await
 }

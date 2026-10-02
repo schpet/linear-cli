@@ -1,7 +1,6 @@
 use std::ffi::OsString;
 
 use cynic::QueryBuilder;
-use linear_cli::cli;
 use linear_cli::commands::initiative_view::{markdown, render_json};
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::initiative_view::{
@@ -158,12 +157,8 @@ fn args(values: &[&str]) -> Vec<OsString> {
 
 #[test]
 fn empty_reference_is_native_usage_and_help_is_native() {
-    let error = cli::parse(&args(&["initiative", "view", ""])).unwrap_err();
-    assert_eq!(error.kind, linear_cli::error::AppErrorKind::Usage);
-    assert!(error.message.contains("expected a nonempty value"));
-    let error = cli::parse(&args(&["initiative", "view", "--help"])).unwrap_err();
-    assert_eq!(
-        error.native_parser_error().unwrap().kind(),
-        clap::error::ErrorKind::DisplayHelp
-    );
+    let error = crate::parse(&args(&["initiative", "view", ""])).unwrap_err();
+    assert!(error.to_string().contains("expected a nonempty value"));
+    let error = crate::parse(&args(&["initiative", "view", "--help"])).unwrap_err();
+    assert_eq!(error.kind(), clap::error::ErrorKind::DisplayHelp);
 }

@@ -1,6 +1,6 @@
 //! Public command contracts through fake local HTTP.
+use crate::block_on_network;
 use linear_cli::{
-    app::block_on_network,
     commands::{issue_commits, issue_describe},
     graphql::{
         bulk_error::{ObservedExchangeFailure, SourceException, SourceExceptionKind},
@@ -114,7 +114,7 @@ fn optional_commits_selected_absence_is_notfound_after_exact_one_read() {
     ] {
         let (transport, worker) = server(vec![Reply::data(response)]);
         let error = block_on_network(issue_commits::lookup(&transport, "ENG-7")).unwrap_err();
-        assert_eq!(error.message, "Issue not found: ENG-7");
+        assert_eq!(error.message(), "Issue not found: ENG-7");
         let requests = worker.join().unwrap();
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0]["operationName"], "GetIssueId");
@@ -158,7 +158,7 @@ fn opaque_id_is_presence_but_wrong_selected_types_are_strict_after_one_read() {
     ] {
         let (transport, worker) = server(vec![Reply::data(response)]);
         let error = block_on_network(issue_commits::lookup(&transport, "ENG-7")).unwrap_err();
-        assert_ne!(error.message, "Issue not found: ENG-7");
+        assert_ne!(error.message(), "Issue not found: ENG-7");
         assert_eq!(worker.join().unwrap().len(), 1);
     }
 }
@@ -176,12 +176,12 @@ fn both_leaves_keep_raw_http_fallback_but_only_commits_translate_client_notfound
             block_on_network(issue_describe::fetch(&transport, "ENG-7")).unwrap_err()
         };
         if leaf == "commits" {
-            assert_eq!(error.message, "Issue not found: ENG-7");
+            assert_eq!(error.message(), "Issue not found: ENG-7");
         } else {
-            assert!(error.message.starts_with("GraphQL Error (Code: 500): "));
-            assert!(error.message.contains("DUMMY Entity not found"));
-            assert!(error.message.contains("\"response\""));
-            assert!(error.message.contains("\"request\""));
+            assert!(error.message().starts_with("GraphQL Error (Code: 500): "));
+            assert!(error.message().contains("DUMMY Entity not found"));
+            assert!(error.message().contains("\"response\""));
+            assert!(error.message().contains("\"request\""));
         }
         assert_eq!(worker.join().unwrap().len(), 1);
     }
@@ -198,12 +198,12 @@ fn first_empty_message_preserves_sdk_metadata_and_presentable_message_wins() {
             block_on_network(issue_describe::fetch(&transport, "ENG-7")).unwrap_err()
         };
         if leaf == "commits" {
-            assert_eq!(error.message, "Issue not found: ENG-7");
+            assert_eq!(error.message(), "Issue not found: ENG-7");
         } else {
-            assert!(error.message.starts_with(": {"));
+            assert!(error.message().starts_with(": {"));
             assert!(
                 error
-                    .message
+                    .message()
                     .contains("\"errors\":[{\"message\":\"\"},{\"message\":\"Entity not found\"}]")
             );
         }
@@ -216,7 +216,7 @@ fn first_empty_message_preserves_sdk_metadata_and_presentable_message_wins() {
         } else {
             block_on_network(issue_describe::fetch(&transport, "ENG-7")).unwrap_err()
         };
-        assert_eq!(error.message, "DUMMY preferred");
+        assert_eq!(error.message(), "DUMMY preferred");
         assert_eq!(worker.join().unwrap().len(), 1);
     }
     let plain = SourceException {
@@ -225,7 +225,7 @@ fn first_empty_message_preserves_sdk_metadata_and_presentable_message_wins() {
         preferred_message: None,
     };
     assert_eq!(
-        issue_commits::lookup_failure(ObservedExchangeFailure::Ordinary(plain), "ENG-7").message,
+        issue_commits::lookup_failure(ObservedExchangeFailure::Ordinary(plain), "ENG-7").message(),
         "Entity not found"
     );
 }

@@ -229,7 +229,7 @@ async fn ordered_lookups_details_and_owner_selection_preserve_requests() {
     let error = command::resolve(&transport, &Reference::UrlSlug("slug".to_owned()), "URL")
         .await
         .unwrap_err();
-    assert!(error.message.contains("non-UUID"));
+    assert!(error.message().contains("non-UUID"));
     assert_eq!(worker.join().unwrap().len(), 1);
 }
 #[tokio::test]
@@ -237,16 +237,16 @@ async fn owner_raw_sdk_error_details_handled_error_and_null_precedence() {
     let body = json!({"errors":[{"message":"owner failed"}]}).to_string();
     let (transport, worker) = super::project_write_server::serve(vec![body.clone()]);
     let error = command::owner(&transport, Some("@me")).await.unwrap_err();
-    assert!(error.message.starts_with("owner failed:"));
-    assert!(error.message.contains("GetViewerId"));
-    assert!(!error.message.contains("Failed to fetch"));
+    assert!(error.message().starts_with("owner failed:"));
+    assert!(error.message().contains("GetViewerId"));
+    assert!(!error.message().contains("Failed to fetch"));
     assert_eq!(worker.join().unwrap().len(), 1);
     let (transport, worker) = super::project_write_server::serve(vec![body]);
     let error = command::details(&transport, "id", "original")
         .await
         .unwrap_err();
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to fetch initiative details: owner failed"
     );
     assert_eq!(worker.join().unwrap().len(), 1);
@@ -256,7 +256,7 @@ async fn owner_raw_sdk_error_details_handled_error_and_null_precedence() {
         command::details(&transport, "id", "original")
             .await
             .unwrap_err()
-            .message,
+            .message(),
         "Initiative not found: original"
     );
     assert_eq!(worker.join().unwrap().len(), 1);
@@ -285,10 +285,10 @@ async fn full_decode_before_false_and_only_boolean_true_confirms_mutation() {
         .unwrap_err();
         assert!(
             error
-                .message
+                .message()
                 .contains("Linear returned an unexpected response")
         );
-        assert!(error.message.contains(if success == json!(true) {
+        assert!(error.message().contains(if success == json!(true) {
             "update confirmed"
         } else {
             "update outcome unknown"
@@ -310,7 +310,7 @@ async fn full_decode_before_false_and_only_boolean_true_confirms_mutation() {
             );
         } else {
             assert_eq!(
-                result.unwrap_err().display_message(),
+                result.unwrap_err().to_string(),
                 "Failed to update initiative: Failed to update initiative"
             );
         }
@@ -354,14 +354,14 @@ async fn shared_owner_list_and_create_keep_selection_and_friendly_error_policy()
         initiative_list::resolve_owner(&transport, "owner")
             .await
             .unwrap_err()
-            .message,
+            .message(),
         "Friendly owner"
     );
     assert!(
         command::owner(&transport, Some("owner"))
             .await
             .unwrap_err()
-            .message
+            .message()
             .starts_with("raw owner:")
     );
     assert_eq!(worker.join().unwrap().len(), 2);
@@ -369,7 +369,7 @@ async fn shared_owner_list_and_create_keep_selection_and_friendly_error_policy()
     let error = command::owner(&transport, Some("Owner")).await.unwrap_err();
     assert!(
         error
-            .message
+            .message()
             .contains("Linear returned an unexpected response")
     );
     assert_eq!(worker.join().unwrap().len(), 1);

@@ -6,7 +6,7 @@ use crate::{
             MutationFailure,
         },
     },
-    error::{AppError, AppErrorKind},
+    error::Error,
 };
 use std::path::Path;
 pub const CONTEXT: &str = "Failed to migrate credentials";
@@ -20,9 +20,8 @@ pub async fn run(
         return Ok(b"Credentials are already using the system keyring.\n".to_vec());
     }
     if !backend.available().await {
-        return Err(MutationFailure::Typed(AppError::new(AppErrorKind::Validation,
-            "No system keyring found. Cannot migrate credentials.")
-            .with_suggestion("Install libsecret (e.g. `apt install libsecret-tools` or `pacman -S libsecret`), or set `LINEAR_API_KEY` instead.")));
+        return Err(MutationFailure::Typed(Error::new("No system keyring found. Cannot migrate credentials.")
+            .with_hint("Install libsecret (e.g. `apt install libsecret-tools` or `pacman -S libsecret`), or set `LINEAR_API_KEY` instead.")));
     }
     let migrated = state.migrate(path, backend, writer).await?;
     if migrated.is_empty() {

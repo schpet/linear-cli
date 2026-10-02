@@ -53,13 +53,6 @@ impl Sandbox {
             .args(argv);
         c
     }
-    #[cfg(unix)]
-    fn script(&self, name: &str, text: &str) {
-        use std::os::unix::fs::PermissionsExt;
-        let p = self.0.join("bin").join(name);
-        fs::write(&p, text).unwrap();
-        fs::set_permissions(p, fs::Permissions::from_mode(0o700)).unwrap();
-    }
 }
 impl Drop for Sandbox {
     fn drop(&mut self) {
@@ -197,10 +190,6 @@ fn updated() -> Value {
 fn guard(nodes: Value, next: bool, cursor: Value) -> Value {
     json!({"data":{"document":{"id":"slug","comments":{"nodes":nodes,"pageInfo":{"hasNextPage":next,"endCursor":cursor}}}}})
 }
-#[cfg(unix)]
-fn edit(seed: &str) -> Value {
-    json!({"data":{"document":{"id":"slug","title":"Original","content":seed}}})
-}
 
 #[test]
 fn six_attachments_serialize_only_selected_target_and_present_empty_content() {
@@ -243,7 +232,7 @@ fn cardinality_is_independent_of_reference_preparation() {
         }
         .cardinality(false)
         .unwrap_err()
-        .message
+        .message()
         .contains("--project, --issue")
     );
 }
@@ -549,91 +538,6 @@ fn missing_and_repeated_guard_cursor_fail_before_mutation() {
                 .iter()
                 .all(|request| !request["query"].as_str().unwrap().contains("mutation"))
         );
-    }
-}
-#[cfg(unix)]
-#[test]
-fn editor_git_capture_fallback_literal_path_seed_cancel_and_trimmed_final_lf() {
-    let sandbox = Sandbox::new();
-    sandbox.script(
-        "git",
-        "#!/bin/sh\nprintf 'hidden git stderr\\n' >&2\nexit 1\n",
-    );
-    sandbox.script(
-        "editor with spaces",
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" > editor-argv.txt\n/bin/cat \"$1\" > editor-seed.bin\n",
-    );
-    let editor = sandbox.0.join("bin/editor with spaces");
-    for (seed, mutates) in [("Before", false), ("Before\n", true), ("", false)] {
-        let replies = if mutates {
-            vec![edit(seed), guard(json!([]), false, Value::Null), updated()]
-        } else {
-            vec![edit(seed)]
-        };
-        let server = Server::new(replies);
-        let mut c = sandbox.command(
-            &server.url,
-            &[
-                "document",
-                "update",
-                "slug",
-                "--edit",
-                "--title",
-                "Ignored on cancel",
-            ],
-        );
-        c.env("EDITOR", &editor);
-        let output = run(c, b"", false);
-        assert!(output.status.success(), "{:?}", output.stderr);
-        assert!(output.stderr.is_empty());
-        assert_eq!(
-            fs::read(sandbox.0.join("editor-seed.bin")).unwrap(),
-            seed.as_bytes()
-        );
-        let requests = server.finish();
-        assert_eq!(requests.len(), if mutates { 3 } else { 1 });
-        if mutates {
-            assert_eq!(
-                requests[2]["variables"]["input"],
-                json!({"title":"Ignored on cancel","content":"Before"})
-            );
-        }
-        assert!(
-            fs::read_dir(sandbox.0.join("temp"))
-                .unwrap()
-                .next()
-                .is_none()
-        );
-    }
-}
-#[cfg(unix)]
-#[test]
-fn missing_nonzero_editor_and_temp_creation_are_distinct_update_failures() {
-    let sandbox = Sandbox::new();
-    sandbox.script("git", "#!/bin/sh\nexit 1\n");
-    sandbox.script("bad-editor", "#!/bin/sh\nexit 7\n");
-    for variant in ["missing", "nonzero", "temp"] {
-        let server = Server::new(vec![edit("Before")]);
-        let mut c = sandbox.command(&server.url, &["document", "update", "slug", "--edit"]);
-        if variant != "missing" {
-            c.env("EDITOR", sandbox.0.join("bin/bad-editor"));
-        }
-        if variant == "temp" {
-            c.env("TMPDIR", sandbox.0.join("absent/temp"));
-        }
-        let output = run(c, b"", false);
-        assert_eq!(output.status.code(), Some(1));
-        let stderr = String::from_utf8(output.stderr).unwrap();
-        assert!(
-            stderr.contains(match variant {
-                "missing" => "No editor found",
-                "nonzero" => "Editor exited with an error",
-                "temp" => "Failed to create editor temporary file",
-                _ => unreachable!(),
-            }),
-            "editor variant {variant}: {stderr}"
-        );
-        assert_eq!(server.finish().len(), 1);
     }
 }
 

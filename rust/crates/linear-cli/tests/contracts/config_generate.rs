@@ -1,12 +1,11 @@
 //! Public configuration contracts qualified with synthetic inputs.
 use linear_cli::{
-    auth::{CredentialStore, hydrate, parse_credentials},
+    auth::{CredentialStore, keyring::UnsupportedKeyringReader, parse_credentials},
     commands::config_generate as command,
     config::{
         ConfigInputs, ConfigOptions, OptionInputs, OsFamily, RawConfigFile, SelectedEnv,
         parse_config_tier,
     },
-    error::AppErrorKind,
     graphql::{
         envelope::parse_response,
         operations::config_generate::{Config, ConfigTeam},
@@ -56,7 +55,10 @@ fn store(toml: &str) -> CredentialStore {
         bytes: toml.as_bytes().to_vec(),
     })
     .unwrap();
-    hydrate(parse_credentials(tier).unwrap(), vec![]).unwrap()
+    CredentialStore::new(
+        parse_credentials(tier).unwrap(),
+        Box::new(UnsupportedKeyringReader),
+    )
 }
 fn response(teams: Vec<Value>, workspace: &str) -> Config {
     parse_response(
@@ -79,7 +81,7 @@ fn explicit_auth_and_ephemeral_workspace_ignore_project_default_without_store_ch
     assert!(
         matches!(command::workspace_choice(&config_options,&one,None).unwrap(),command::WorkspaceChoice::Only(name) if name=="sole")
     );
-    assert_eq!(one.default(), None);
+    assert_eq!(one.default(), Some("sole"));
     let multi =
         store("default = \"beta\"\nalpha = \"lin_api_alpha_fake\"\nbeta = \"lin_api_beta_fake\"\n");
     match command::workspace_choice(&config_options, &multi, None).unwrap() {
@@ -131,8 +133,7 @@ fn native_unselectable_values_are_typed_before_each_prompt_but_single_auto_stays
             "\"{name}\" = \"lin_api_fake\"\nnormal = \"lin_api_fake\"\n"
         ));
         let error = command::workspace_choice(&config_options, &multi, None).unwrap_err();
-        assert_eq!(error.kind, AppErrorKind::Validation);
-        assert!(error.message.contains("cannot be selected interactively"));
+        assert!(error.message().contains("cannot be selected interactively"));
     }
     let single = store("\" \" = \"lin_api_fake\"\n");
     assert!(matches!(
@@ -142,8 +143,7 @@ fn native_unselectable_values_are_typed_before_each_prompt_but_single_auto_stays
     for id in ["", " ", "bad\nID"] {
         let decoded = response(vec![team(id, "K", "Name")], "wire-workspace");
         let error = command::prepare_teams(decoded.teams.nodes).unwrap_err();
-        assert_eq!(error.kind, AppErrorKind::Validation);
-        assert!(error.message.contains("cannot be selected interactively"));
+        assert!(error.message().contains("cannot be selected interactively"));
     }
 }
 #[test]
@@ -166,7 +166,7 @@ fn stable_lowercase_names_and_duplicate_ids_choose_first_sorted_key() {
     assert!(
         command::prepare_teams(empty)
             .unwrap_err()
-            .message
+            .message()
             .contains("No teams available to select")
     );
     let wire = serde_json::to_value(command::request()).unwrap();
@@ -234,7 +234,7 @@ fn owned_search_no_match_enter_stays_editable_and_recovers_with_backspace() {
         no_match
             .searchable_select("Select a team:", "Search teams", &choices)
             .unwrap_err()
-            .message
+            .message()
             .contains("no teams match submitted search query")
     );
 }
@@ -243,9 +243,9 @@ fn staged_eof_error_and_exact_raw_template_keep_source_bytes() {
     for stage in ["workspace", "team", "sort order"] {
         let error = command::stage::<String>(PromptOutcome::EndOfInput, stage)
             .unwrap_err()
-            .with_context(command::CONTEXT);
+            .context(command::CONTEXT);
         assert_eq!(
-            error.display_message(),
+            error.to_string(),
             format!("Failed to generate configuration: unexpected EOF while selecting {stage}")
         );
     }
@@ -430,8 +430,8 @@ async fn config_fetch_preserves_handled_raw_fallback_and_full_required_decode_wi
         let error = command::fetch(&transport)
             .await
             .unwrap_err()
-            .with_context(command::CONTEXT);
-        let output = error.display_message();
+            .context(command::CONTEXT);
+        let output = error.to_string();
         assert!(output.starts_with("Failed to generate configuration: "));
         assert!(output.contains("boom") && output.contains("request") && output.contains("Config"));
         assert!(!output.contains("ClientError:") && !output.contains("unexpected HTTP status"));
@@ -449,9 +449,9 @@ async fn config_fetch_preserves_handled_raw_fallback_and_full_required_decode_wi
         let error = command::fetch(&transport).await.unwrap_err();
         assert!(
             error
-                .message
+                .message()
                 .contains("Linear returned an unexpected response")
-                && error.message.contains("no configuration written")
+                && error.message().contains("no configuration written")
         );
         assert_eq!(worker.join().unwrap().len(), 1);
     }
@@ -531,7 +531,7 @@ async fn fresh_late_git_uses_dotenv_overlay_lossy_trim_ignored_exit_and_bounded_
         command::late_root_with_program(&root, &loaded.child_env, bounded, &git)
             .await
             .unwrap_err()
-            .message
+            .message()
             .contains("Could not find the repository root")
     );
     script("time.sleep(10)");
@@ -544,7 +544,7 @@ async fn fresh_late_git_uses_dotenv_overlay_lossy_trim_ignored_exit_and_bounded_
         command::late_root_with_program(&root, &loaded.child_env, timed, &git)
             .await
             .unwrap_err()
-            .message
+            .message()
             .contains("deadline")
     );
     assert!(started.elapsed() < Duration::from_secs(2));
@@ -570,8 +570,7 @@ fn config_mixed_output_refusal_is_only_terminal_stdin_actual_fifo_and_has_helpfu
     }
     let error = command::check_prompt_topology(true, true)
         .unwrap_err()
-        .with_context(command::CONTEXT);
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert!(error.display_message().starts_with("Failed to generate configuration: Configuration prompts require terminal or regular-file stdout"));
-    assert!(error.suggestion.unwrap().contains("piped prompt answers"));
+        .context(command::CONTEXT);
+    assert!(error.to_string().starts_with("Failed to generate configuration: Configuration prompts require terminal or regular-file stdout"));
+    assert!(error.hint().unwrap().contains("piped prompt answers"));
 }

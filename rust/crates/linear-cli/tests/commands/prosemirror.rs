@@ -1,5 +1,4 @@
 use linear_cli::commands::prosemirror::to_markdown;
-use linear_cli::error::AppErrorKind;
 use serde_json::{Value, json};
 
 fn markdown(doc: Value) -> String {
@@ -8,9 +7,8 @@ fn markdown(doc: Value) -> String {
 
 fn error(doc: Value) -> String {
     let error = to_markdown(&doc).expect_err("invalid document");
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert_eq!(error.suggestion, None);
-    error.message
+    assert_eq!(error.hint(), None);
+    error.message().to_owned()
 }
 
 fn text(value: &str) -> Value {

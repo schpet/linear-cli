@@ -15,7 +15,7 @@
 //! only print the endpoint's scheme/host/port, never its path or query.
 //! `ApiKey` redacts itself in `Debug` and `Display`.
 
-use std::error::Error;
+use std::error::Error as StdError;
 use std::fmt;
 use std::fs;
 use std::io;
@@ -31,7 +31,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::{
     GraphQlRequest, ResponseError, ResponseGraphQlError, graphql_message, parse_response,
 };
@@ -88,7 +88,7 @@ impl fmt::Display for EndpointUrlError {
     }
 }
 
-impl Error for EndpointUrlError {}
+impl StdError for EndpointUrlError {}
 
 impl EndpointUrl {
     /// Parses and validates an endpoint. Path and query are preserved.
@@ -175,7 +175,7 @@ impl fmt::Display for ApiKeyError {
     }
 }
 
-impl Error for ApiKeyError {}
+impl StdError for ApiKeyError {}
 
 impl ApiKey {
     /// Accepts non-empty visible ASCII including spaces; rejects everything
@@ -268,7 +268,7 @@ impl fmt::Display for ConfigError {
     }
 }
 
-impl Error for ConfigError {}
+impl StdError for ConfigError {}
 
 /// Everything the transport needs beyond endpoint and key.
 #[derive(Clone, Debug)]
@@ -307,7 +307,7 @@ impl SanitizedReqwestError {
     /// The innermost message of the source chain (for example the OS
     /// connection error), used to give failures a concrete reason.
     fn root_message(&self) -> String {
-        let mut current: &(dyn Error + 'static) = &self.0;
+        let mut current: &(dyn StdError + 'static) = &self.0;
         while let Some(next) = current.source() {
             current = next;
         }
@@ -321,8 +321,8 @@ impl fmt::Display for SanitizedReqwestError {
     }
 }
 
-impl Error for SanitizedReqwestError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl StdError for SanitizedReqwestError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         self.0.source()
     }
 }
@@ -364,8 +364,8 @@ impl fmt::Display for TransportBuildError {
     }
 }
 
-impl Error for TransportBuildError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl StdError for TransportBuildError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Self::CaRead { source, .. } => Some(source),
             Self::CaInvalid { source, .. } | Self::Client(source) => Some(source),
@@ -374,7 +374,7 @@ impl Error for TransportBuildError {
     }
 }
 
-impl From<TransportBuildError> for AppError {
+impl From<TransportBuildError> for Error {
     fn from(error: TransportBuildError) -> Self {
         let message = match &error {
             TransportBuildError::CaRead { .. }
@@ -382,7 +382,7 @@ impl From<TransportBuildError> for AppError {
             | TransportBuildError::CaEmpty { .. } => format!("SSL_CERT_FILE: {error}"),
             TransportBuildError::Client(_) => error.to_string(),
         };
-        AppError::new(AppErrorKind::Validation, message).with_source(error)
+        Error::new(message).with_source(error)
     }
 }
 
@@ -608,8 +608,8 @@ impl fmt::Display for TransportFailure {
     }
 }
 
-impl Error for TransportFailure {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl StdError for TransportFailure {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Self::RequestBody(source) => Some(source),
             Self::Response(source) => Some(source),
@@ -629,13 +629,11 @@ impl Error for TransportFailure {
     }
 }
 
-impl From<TransportFailure> for AppError {
+impl From<TransportFailure> for Error {
     fn from(failure: TransportFailure) -> Self {
         let message = failure.to_string();
         match failure {
-            TransportFailure::RequestBody(source) => {
-                AppError::new(AppErrorKind::Invariant, message).with_source(source)
-            }
+            TransportFailure::RequestBody(source) => Error::new(message).with_source(source),
             TransportFailure::GraphQl {
                 status,
                 errors,
@@ -644,25 +642,23 @@ impl From<TransportFailure> for AppError {
             } => {
                 // The summary omits arbitrary response extensions, headers and
                 // the request URL.
-                AppError::new(AppErrorKind::GraphQl, message).with_debug_detail(format!(
+                Error::new(message).with_debug_detail(format!(
                     "GraphQL HTTP {status}; errors={}; partial_data={partial_data}",
                     errors.len()
                 ))
             }
-            TransportFailure::Response(source) => AppError::from(source),
+            TransportFailure::Response(source) => Error::from(source),
             TransportFailure::Http {
                 body: HttpBodyShape::Unusable(source),
                 ..
-            } => AppError::new(AppErrorKind::Transport, message).with_source(source),
+            } => Error::new(message).with_source(source),
             TransportFailure::Http {
                 body: HttpBodyShape::Data,
                 ..
             }
             | TransportFailure::ResponseTooLarge { .. }
-            | TransportFailure::Timeout { .. } => AppError::new(AppErrorKind::Transport, message),
-            TransportFailure::Network { source, .. } => {
-                AppError::new(AppErrorKind::Transport, message).with_source(source)
-            }
+            | TransportFailure::Timeout { .. } => Error::new(message),
+            TransportFailure::Network { source, .. } => Error::new(message).with_source(source),
         }
     }
 }
@@ -786,13 +782,9 @@ async fn collect(
 }
 
 /// A short, display-safe description of a failed non-GraphQL request.
-fn request_error(prefix: &str, error: reqwest::Error) -> AppError {
+fn request_error(prefix: &str, error: reqwest::Error) -> Error {
     let error = SanitizedReqwestError::new(error);
-    AppError::new(
-        AppErrorKind::Transport,
-        format!("{prefix}: {}", error.root_message()),
-    )
-    .with_source(error)
+    Error::new(format!("{prefix}: {}", error.root_message())).with_source(error)
 }
 
 // ---------------------------------------------------------------------------
@@ -828,33 +820,25 @@ impl GraphQlTransport {
     }
 
     /// Downloads an image referenced from Markdown.
-    pub async fn download_markdown_image(&self, url: &str) -> Result<Vec<u8>, AppError> {
+    pub async fn download_markdown_image(&self, url: &str) -> Result<Vec<u8>, Error> {
         self.download(url, "Failed to download image").await
     }
 
     /// Downloads an issue attachment.
-    pub async fn download_issue_attachment(&self, url: &str) -> Result<Vec<u8>, AppError> {
+    pub async fn download_issue_attachment(&self, url: &str) -> Result<Vec<u8>, Error> {
         self.download(url, "Failed to download").await
     }
 
     /// GETs an `http(s)` URL. The API key is sent only to Linear's private
     /// upload host; reqwest drops it if a redirect leaves that host.
-    async fn download(&self, original: &str, failure_prefix: &str) -> Result<Vec<u8>, AppError> {
-        let url = Url::parse(original).map_err(|error| {
-            AppError::new(
-                AppErrorKind::Transport,
-                format!("Invalid URL: '{original}'"),
-            )
-            .with_source(error)
-        })?;
+    async fn download(&self, original: &str, failure_prefix: &str) -> Result<Vec<u8>, Error> {
+        let url = Url::parse(original)
+            .map_err(|error| Error::new(format!("Invalid URL: '{original}'")).with_source(error))?;
         if !matches!(url.scheme(), "http" | "https") {
-            return Err(AppError::new(
-                AppErrorKind::Transport,
-                format!(
-                    "{failure_prefix}: unsupported URL scheme '{}'",
-                    url.scheme()
-                ),
-            ));
+            return Err(Error::new(format!(
+                "{failure_prefix}: unsupported URL scheme '{}'",
+                url.scheme()
+            )));
         }
         let authenticated = url.host_str() == Some("uploads.linear.app");
         let mut request = self.client.get(url);
@@ -867,10 +851,7 @@ impl GraphQlTransport {
             .map_err(|error| request_error(failure_prefix, error))?;
         let status = response.status();
         if !status.is_success() {
-            return Err(AppError::new(
-                AppErrorKind::Transport,
-                format!("{failure_prefix}: {status}"),
-            ));
+            return Err(Error::new(format!("{failure_prefix}: {status}")));
         }
         let body = response
             .bytes()
@@ -881,7 +862,7 @@ impl GraphQlTransport {
 
     /// POSTs a raw GraphQL body for the `api` command and returns the status
     /// and body text unclassified, with no deadline or size cap.
-    pub async fn fetch_api(&self, body: String) -> Result<(u16, String), AppError> {
+    pub async fn fetch_api(&self, body: String) -> Result<(u16, String), Error> {
         let response = self
             .client
             .post(self.endpoint.url.clone())
@@ -974,19 +955,16 @@ impl GraphQlTransport {
         url: &str,
         headers: HeaderMap,
         body: Vec<u8>,
-    ) -> Result<(), AppError> {
-        let invalid = || AppError::new(AppErrorKind::Validation, "Invalid signed upload URL");
+    ) -> Result<(), Error> {
+        let invalid = || Error::new("Invalid signed upload URL");
         let mut url = Url::parse(url).map_err(|_| invalid())?;
         url.set_fragment(None);
         let target = EndpointUrl::from_url(url).map_err(|_| invalid())?;
         let failed = |reason: String| {
-            AppError::new(
-                AppErrorKind::Transport,
-                format!(
-                    "Signed upload to {target} failed: {reason}; the object may already be \
+            Error::new(format!(
+                "Signed upload to {target} failed: {reason}; the object may already be \
                      stored remotely; no comment or attachment was created"
-                ),
-            )
+            ))
         };
         let response = self
             .client
@@ -1013,13 +991,10 @@ impl GraphQlTransport {
                     failed(source.root_message()).with_source(source)
                 }
             })?;
-        Err(AppError::new(
-            AppErrorKind::Transport,
-            format!(
-                "Failed to upload file: {} - {}",
-                response.status,
-                String::from_utf8_lossy(&response.body)
-            ),
-        ))
+        Err(Error::new(format!(
+            "Failed to upload file: {} - {}",
+            response.status,
+            String::from_utf8_lossy(&response.body)
+        )))
     }
 }

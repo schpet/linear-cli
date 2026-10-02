@@ -1,29 +1,26 @@
 //! Resource-independent comment JSON and thread rendering.
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::style::bold;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::operations::comments::{
     CommentBotActor, CommentExternalUser, CommentNode, CommentParent, CommentUser,
 };
 use crate::graphql::operations::teams::PageInfo;
 use crate::graphql::pagination::PaginationError;
+use crate::platform::style::bold;
 use chrono::{DateTime, Local, Utc};
 use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
-pub fn pagination_error(error: PaginationError<AppError>, context: &str) -> AppError {
+pub fn pagination_error(error: PaginationError<Error>, context: &str) -> Error {
     let error = match error {
         PaginationError::Fetch { source, .. } => source,
         PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
-            AppError::new(
-                AppErrorKind::Validation,
-                "Linear reported more comments but did not return a usable cursor",
-            )
-            .with_suggestion("Rerun the command; if it persists, report it.")
+            Error::new("Linear reported more comments but did not return a usable cursor")
+                .with_hint("Rerun the command; if it persists, report it.")
         }
     };
-    error.with_context(context)
+    error.context(context)
 }
 
 #[derive(Serialize)]
@@ -54,7 +51,7 @@ pub fn render_json(
     page_info: &PageInfo,
     entity: &str,
     context: &str,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let nodes = nodes
         .iter()
         .map(|node| JsonComment {
@@ -73,12 +70,9 @@ pub fn render_json(
         .collect();
     let mut output =
         serde_json::to_vec_pretty(&JsonConnection { nodes, page_info }).map_err(|error| {
-            AppError::new(
-                AppErrorKind::Invariant,
-                format!("could not serialize {entity} comments"),
-            )
-            .with_source(error)
-            .with_context(context)
+            Error::new(format!("could not serialize {entity} comments"))
+                .with_source(error)
+                .context(context)
         })?;
     output.push(b'\n');
     Ok(output)

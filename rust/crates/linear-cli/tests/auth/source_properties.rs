@@ -1,6 +1,5 @@
-use linear_cli::auth::{
-    CredentialFormatErrorKind, LookupReply, LookupResult, hydrate, parse_credentials,
-};
+use crate::{LookupReply, hydrate};
+use linear_cli::auth::{CredentialFormatErrorKind, LookupResult, parse_credentials};
 use linear_cli::config::{RawConfigFile, parse_config_tier};
 use std::path::PathBuf;
 
@@ -17,7 +16,7 @@ fn unusual_workspace_names_are_ordinary_values() {
         "default='__proto__'\nworkspaces=['__proto__','constructor']\n",
     ))
     .unwrap();
-    assert_eq!(manifest.lookup_requests(), ["__proto__", "constructor"]);
+    assert_eq!(manifest.workspaces(), ["__proto__", "constructor"]);
     let store = hydrate(
         manifest,
         vec![

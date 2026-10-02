@@ -1,18 +1,14 @@
 //! Public process contracts with isolated fake executable fixtures.
 use linear_cli::{
-    auth::file::{CredentialFileSource, CredentialReadFailure},
-    auth::keyring::UnsupportedKeyringReader,
     commands::issue_commits,
     config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot, Vcs},
-    error::AppError,
+    error::Error,
     platform::vcs_script::{
         self, Captured, ChildControl, ChildOutcome, CommandSpec, ProcessRunner, Program,
     },
-    startup::{self, AppStartupReport},
 };
 use std::{
     collections::VecDeque,
-    ffi::OsString,
     io::{self, Cursor, Read},
     path::{Path, PathBuf},
     sync::{
@@ -31,32 +27,17 @@ impl FileSource for EmptyFiles {
         Err(io::Error::from(io::ErrorKind::NotFound))
     }
 }
-struct EmptyCredentials;
-impl CredentialFileSource for EmptyCredentials {
-    fn read_credentials(&self, _path: &Path) -> Result<Option<Vec<u8>>, CredentialReadFailure> {
-        Ok(None)
-    }
-}
-
-fn startup(env: &[(&str, &str)]) -> AppStartupReport {
-    let cwd = PathBuf::from("/c067-c068-test");
-    let variables = env
-        .iter()
-        .map(|(name, value)| (OsString::from(name), OsString::from(value)));
-    let snapshot =
-        ProcessEnvSnapshot::from_vars_os(cwd, OsFamily::Unix, variables).expect("test environment");
-    let report = startup::load(
-        &snapshot,
-        &EmptyFiles,
-        &EmptyCredentials,
-        &UnsupportedKeyringReader,
-    );
-    assert!(report.result.is_ok(), "test startup");
-    report
-}
-
 fn overlay() -> linear_cli::config::ChildEnvOverlay {
-    startup(&[]).result.unwrap().config.child_env
+    let snapshot = ProcessEnvSnapshot::from_vars_os(
+        PathBuf::from("/vcs-script-test"),
+        OsFamily::Unix,
+        std::iter::empty(),
+    )
+    .expect("test environment");
+    linear_cli::config::load_startup(&snapshot, &EmptyFiles)
+        .result
+        .expect("test startup")
+        .child_env
 }
 struct Runner {
     captures: VecDeque<Captured>,
@@ -69,7 +50,7 @@ impl ProcessRunner for Runner {
         spec: &CommandSpec,
         _cwd: &Path,
         _env: &linear_cli::config::ChildEnvOverlay,
-    ) -> Result<Captured, AppError> {
+    ) -> Result<Captured, Error> {
         self.requests.push(spec.clone());
         Ok(self
             .captures
@@ -81,7 +62,7 @@ impl ProcessRunner for Runner {
         spec: &CommandSpec,
         _cwd: &Path,
         _env: &linear_cli::config::ChildEnvOverlay,
-    ) -> Result<ChildOutcome, AppError> {
+    ) -> Result<ChildOutcome, Error> {
         self.requests.push(spec.clone());
         Ok(self.final_outcome)
     }
@@ -94,19 +75,20 @@ fn child_exit_code_is_checked_and_signal_mapping_preserves_supported_status() {
         (ChildOutcome::Code(255), 255),
         (ChildOutcome::Signal(15), 143),
     ] {
-        assert_eq!(
-            issue_commits::child_status(outcome).unwrap().code(),
-            expected
-        );
+        let code = match issue_commits::child_status(outcome) {
+            Ok(()) => 0,
+            Err(error) => error.exit_code(),
+        };
+        assert_eq!(code, expected);
     }
     for code in [-1, 256, i32::MAX, i32::MIN] {
         let error = issue_commits::child_status(ChildOutcome::Code(code)).unwrap_err();
         assert_eq!(
-            error.message,
+            error.message(),
             format!("Child exit code {code} is outside supported range 0..255")
         );
         assert_eq!(
-            error.with_context(issue_commits::CONTEXT).display_message(),
+            error.context(issue_commits::CONTEXT).to_string(),
             format!(
                 "Failed to show commits: Child exit code {code} is outside supported range 0..255"
             )
@@ -126,8 +108,8 @@ fn probe_ignores_status_and_stderr_while_exact_final_args_are_opaque() {
     };
     assert_eq!(
         issue_commits::show(&mut runner, "ENG-7", Path::new("/fake"), &overlay())
-            .unwrap()
-            .code(),
+            .unwrap_err()
+            .exit_code(),
         7
     );
     assert_eq!(
@@ -171,7 +153,7 @@ fn probe_ignores_status_and_stderr_while_exact_final_args_are_opaque() {
     assert_eq!(
         issue_commits::show(&mut empty, "ENG-7", Path::new("/fake"), &overlay())
             .unwrap_err()
-            .message,
+            .message(),
         "Commits not found: ENG-7"
     );
     assert_eq!(empty.requests.len(), 1);
@@ -232,12 +214,12 @@ fn opt_in_inference_preserves_existing_parsers_and_distinct_nonzero_policy() {
     assert_eq!(
         linear_cli::platform::vcs::parse_git_branch(false, "", " DUMMY failure \n")
             .unwrap_err()
-            .message,
+            .message(),
         "Failed to get current branch: DUMMY failure"
     );
     assert!(issue_commits::check_vcs(Vcs::Jj).is_ok());
     assert_eq!(
-        issue_commits::check_vcs(Vcs::Git).unwrap_err().message,
+        issue_commits::check_vcs(Vcs::Git).unwrap_err().message(),
         "commits is only supported with jj-vcs"
     );
 }
@@ -317,7 +299,7 @@ fn reader_and_wait_fault_notify_owner_before_wait_and_release_other_pipe() {
         done.store(true, Ordering::SeqCst);
         watchdog.join().unwrap();
         assert!(!forced.load(Ordering::SeqCst));
-        assert!(error.message.contains(if wait_fault {
+        assert!(error.message().contains(if wait_fault {
             "DUMMY wait fault"
         } else {
             "DUMMY reader fault"

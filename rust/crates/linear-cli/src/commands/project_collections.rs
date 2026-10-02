@@ -1,6 +1,6 @@
 //! Ordered collection edits and partial initiative-write diagnostics.
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedRef {
@@ -137,19 +137,13 @@ pub fn partial_diagnostic(
     applied: usize,
     outcome: FailedWrite,
     prior_fields_applied: bool,
-) -> Result<PartialDiagnostic, AppError> {
-    let (completed, pending) = changes.split_at_checked(applied).ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "failed write index exceeds initiative plan",
-        )
-    })?;
-    let (current, after_current) = pending.split_first().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "failed write is missing from initiative plan",
-        )
-    })?;
+) -> Result<PartialDiagnostic, Error> {
+    let (completed, pending) = changes
+        .split_at_checked(applied)
+        .ok_or_else(|| Error::new("failed write index exceeds initiative plan"))?;
+    let (current, after_current) = pending
+        .split_first()
+        .ok_or_else(|| Error::new("failed write is missing from initiative plan"))?;
     let mut done = Vec::new();
     if prior_fields_applied {
         done.push("updated the project's other fields".to_owned());

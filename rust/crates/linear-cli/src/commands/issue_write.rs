@@ -1,5 +1,5 @@
 use crate::{
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{edit::Edit, operations::issue_update::IssueUpdateInput},
 };
 use std::future::Future;
@@ -60,13 +60,13 @@ pub struct CreateSettings {
     pub ask_project: bool,
 }
 
-pub fn validation(message: impl Into<String>) -> AppError {
-    AppError::new(AppErrorKind::Validation, message)
+pub fn validation(message: impl Into<String>) -> Error {
+    Error::new(message)
 }
 pub fn truthy(value: Option<&str>) -> Option<&str> {
     value.filter(|value| !value.is_empty())
 }
-pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<String>, AppError> {
+pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<String>, Error> {
     if truthy(inline).is_some() && truthy(file).is_some() {
         return Err(validation(
             "Cannot specify both --description and --description-file",
@@ -78,12 +78,12 @@ pub fn description(inline: Option<&str>, file: Option<&str>) -> Result<Option<St
             .map(Some)
             .map_err(|error| {
                 validation(format!("Failed to read description file: {path}"))
-                    .with_suggestion(format!("Error: {error}"))
+                    .with_hint(format!("Error: {error}"))
                     .with_source(error)
             }),
     }
 }
-pub fn integer(value: Option<f64>, field: &str) -> Result<Option<i32>, AppError> {
+pub fn integer(value: Option<f64>, field: &str) -> Result<Option<i32>, Error> {
     value
         .map(|value| {
             if !value.is_finite() || value.fract() != 0.0 {
@@ -98,7 +98,7 @@ pub fn integer(value: Option<f64>, field: &str) -> Result<Option<i32>, AppError>
 }
 /// The leading integer of a prompted estimate. Blank or non-numeric input means
 /// no estimate; an integer outside the i32 range is an error.
-pub fn menu_estimate(value: &str) -> Result<Option<i32>, AppError> {
+pub fn menu_estimate(value: &str) -> Result<Option<i32>, Error> {
     let value = value.trim_start();
     let (negative, value) = match value.strip_prefix('-') {
         Some(value) => (true, value),
@@ -123,7 +123,7 @@ pub fn menu_estimate(value: &str) -> Result<Option<i32>, AppError> {
         validation("estimate is outside the GraphQL integer range").with_source(error)
     })
 }
-pub fn default_state(states: &[State]) -> Result<Option<String>, AppError> {
+pub fn default_state(states: &[State]) -> Result<Option<String>, Error> {
     let mut lowest: Option<&State> = None;
     for state in states.iter().filter(|state| state.kind == "unstarted") {
         if lowest.is_none_or(|old| state.position < old.position) {
@@ -145,79 +145,73 @@ pub fn edit<T>(clear: bool, value: Option<T>) -> Edit<T> {
 /// preferred/errors[0]/raw observation before full selected-model decode.
 /// No generic transport/friendly-error wrapper is allowed here.
 pub trait Backend: Clone + Send + 'static {
-    fn team(&self, reference: String) -> impl Future<Output = Result<Team, AppError>> + Send;
+    fn team(&self, reference: String) -> impl Future<Output = Result<Team, Error>> + Send;
     fn find_team(
         &self,
         reference: String,
-    ) -> impl Future<Output = Result<Option<Team>, AppError>> + Send;
-    fn teams(&self) -> impl Future<Output = Result<Vec<Team>, AppError>> + Send;
+    ) -> impl Future<Output = Result<Option<Team>, Error>> + Send;
+    fn teams(&self) -> impl Future<Output = Result<Vec<Team>, Error>> + Send;
     fn team_options(
         &self,
         reference: String,
-    ) -> impl Future<Output = Result<Vec<Named>, AppError>> + Send;
-    fn viewer(&self) -> impl Future<Output = Result<String, AppError>> + Send;
-    fn auto_assign(&self) -> impl Future<Output = Result<bool, AppError>> + Send;
-    fn user(&self, reference: String) -> impl Future<Output = Result<String, AppError>> + Send;
-    fn states(&self, team_key: String)
-    -> impl Future<Output = Result<Vec<State>, AppError>> + Send;
+    ) -> impl Future<Output = Result<Vec<Named>, Error>> + Send;
+    fn viewer(&self) -> impl Future<Output = Result<String, Error>> + Send;
+    fn auto_assign(&self) -> impl Future<Output = Result<bool, Error>> + Send;
+    fn user(&self, reference: String) -> impl Future<Output = Result<String, Error>> + Send;
+    fn states(&self, team_key: String) -> impl Future<Output = Result<Vec<State>, Error>> + Send;
     fn state(
         &self,
         team_key: String,
         reference: String,
-    ) -> impl Future<Output = Result<String, AppError>> + Send;
+    ) -> impl Future<Output = Result<String, Error>> + Send;
     fn label(
         &self,
         team_key: String,
         reference: String,
-    ) -> impl Future<Output = Result<Option<String>, AppError>> + Send;
+    ) -> impl Future<Output = Result<Option<String>, Error>> + Send;
     fn label_options(
         &self,
         team_key: String,
         reference: String,
-    ) -> impl Future<Output = Result<Vec<Named>, AppError>> + Send;
-    fn labels(&self, team_key: String)
-    -> impl Future<Output = Result<Vec<Label>, AppError>> + Send;
+    ) -> impl Future<Output = Result<Vec<Named>, Error>> + Send;
+    fn labels(&self, team_key: String) -> impl Future<Output = Result<Vec<Label>, Error>> + Send;
     fn project(
         &self,
         reference: String,
-    ) -> impl Future<Output = Result<Option<String>, AppError>> + Send;
+    ) -> impl Future<Output = Result<Option<String>, Error>> + Send;
     fn project_options(
         &self,
         reference: String,
-    ) -> impl Future<Output = Result<Vec<Named>, AppError>> + Send;
-    fn projects(
-        &self,
-        team_key: String,
-    ) -> impl Future<Output = Result<Vec<Named>, AppError>> + Send;
+    ) -> impl Future<Output = Result<Vec<Named>, Error>> + Send;
+    fn projects(&self, team_key: String) -> impl Future<Output = Result<Vec<Named>, Error>> + Send;
     fn milestone(
         &self,
         project_id: String,
         reference: String,
-    ) -> impl Future<Output = Result<String, AppError>> + Send;
+    ) -> impl Future<Output = Result<String, Error>> + Send;
     fn cycle(
         &self,
         team_id: String,
         reference: String,
-    ) -> impl Future<Output = Result<String, AppError>> + Send;
-    fn parent_id(&self, reference: String)
-    -> impl Future<Output = Result<String, AppError>> + Send;
+    ) -> impl Future<Output = Result<String, Error>> + Send;
+    fn parent_id(&self, reference: String) -> impl Future<Output = Result<String, Error>> + Send;
     fn parent_metadata(
         &self,
         id: String,
-    ) -> impl Future<Output = Result<Option<Parent>, AppError>> + Send;
+    ) -> impl Future<Output = Result<Option<Parent>, Error>> + Send;
     fn issue_project(
         &self,
         id: String,
-    ) -> impl Future<Output = Result<Option<String>, AppError>> + Send;
+    ) -> impl Future<Output = Result<Option<String>, Error>> + Send;
     fn create(
         &self,
         input: super::issue_create::Input,
-    ) -> impl Future<Output = Result<Created, AppError>> + Send;
+    ) -> impl Future<Output = Result<Created, Error>> + Send;
     fn update(
         &self,
         id: String,
         input: IssueUpdateInput,
-    ) -> impl Future<Output = Result<Updated, AppError>> + Send;
+    ) -> impl Future<Output = Result<Updated, Error>> + Send;
 }
 /// Owned UI adapter suspends before network/editor/output, resumes only for the
 /// next prompt; same stdin reader and raw owner survive all prompts.
@@ -227,23 +221,23 @@ pub trait Ui {
         message: &str,
         required: bool,
         default: Option<&str>,
-    ) -> Result<String, AppError>;
+    ) -> Result<String, Error>;
     fn choose(
         &mut self,
         message: &str,
         options: &[Named],
         default: usize,
         search: bool,
-    ) -> Result<String, AppError>;
+    ) -> Result<String, Error>;
     fn checkbox(
         &mut self,
         message: &str,
         options: &[Named],
         search: bool,
-    ) -> Result<Vec<String>, AppError>;
-    fn suspend(&mut self) -> Result<(), AppError>;
-    fn output(&mut self, text: &str) -> Result<(), AppError>;
-    fn error(&mut self, text: &str) -> Result<(), AppError>;
-    fn discover_editor(&mut self) -> Result<Option<String>, AppError>;
-    fn optional_editor(&mut self) -> Result<Option<String>, AppError>;
+    ) -> Result<Vec<String>, Error>;
+    fn suspend(&mut self) -> Result<(), Error>;
+    fn output(&mut self, text: &str) -> Result<(), Error>;
+    fn error(&mut self, text: &str) -> Result<(), Error>;
+    fn discover_editor(&mut self) -> Result<Option<String>, Error>;
+    fn optional_editor(&mut self) -> Result<Option<String>, Error>;
 }

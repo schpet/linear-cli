@@ -1,5 +1,5 @@
 //! `initiative add-project` / `remove-project`: resolve both sides, then link or unlink.
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::initiative_projects::*;
 use crate::graphql::operations::initiative_view::{ResolveInitiativeBySlug, UrlSlugVariables};
@@ -24,7 +24,7 @@ pub async fn resolve_initiative(
     original: &str,
     scope: &WorkspaceScope<'_>,
     mode: Mode,
-) -> Result<Entity, AppError> {
+) -> Result<Entity, Error> {
     let url = expect_url_kind(
         original,
         LinearUrlKind::Initiative,
@@ -34,10 +34,7 @@ pub async fn resolve_initiative(
     let mut token = original.to_owned();
     if let Some(url) = url {
         let LinearUrlRef::Initiative { slug_id, .. } = url else {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                "initiative URL kind mismatch",
-            ));
+            return Err(Error::new("initiative URL kind mismatch"));
         };
         let request =
             GraphQlRequest::with_variables(ResolveInitiativeBySlug::build(UrlSlugVariables {
@@ -45,13 +42,13 @@ pub async fn resolve_initiative(
                 include_archived: Some(false),
             }));
         let data: ResolveInitiativeBySlug =
-            transport.execute(&request).await.map_err(AppError::from)?;
+            transport.execute(&request).await.map_err(Error::from)?;
         token = data
             .initiatives
             .nodes
             .into_iter()
             .next()
-            .ok_or_else(|| AppError::not_found("Initiative", original))?
+            .ok_or_else(|| Error::not_found("Initiative", original))?
             .id
             .into_inner();
     }
@@ -145,14 +142,14 @@ pub async fn resolve_initiative(
         id: node.id.into_inner(),
         name: node.name,
     })
-    .ok_or_else(|| AppError::not_found("Initiative", original))
+    .ok_or_else(|| Error::not_found("Initiative", original))
 }
 pub async fn resolve_project(
     transport: &GraphQlTransport,
     original: &str,
     scope: &WorkspaceScope<'_>,
     mode: Mode,
-) -> Result<Entity, AppError> {
+) -> Result<Entity, Error> {
     let url = expect_url_kind(
         original,
         LinearUrlKind::Project,
@@ -162,23 +159,19 @@ pub async fn resolve_project(
     let mut token = original.to_owned();
     if let Some(url) = url {
         let LinearUrlRef::Project { slug_id, .. } = url else {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                "project URL kind mismatch",
-            ));
+            return Err(Error::new("project URL kind mismatch"));
         };
         let request =
             GraphQlRequest::with_variables(GetProjectIdBySlugId::build(ProjectSlugVariables {
                 slug_id,
             }));
-        let data: GetProjectIdBySlugId =
-            transport.execute(&request).await.map_err(AppError::from)?;
+        let data: GetProjectIdBySlugId = transport.execute(&request).await.map_err(Error::from)?;
         token = data
             .projects
             .nodes
             .into_iter()
             .next()
-            .ok_or_else(|| AppError::not_found("Project", original))?
+            .ok_or_else(|| Error::not_found("Project", original))?
             .id
             .into_inner();
     }
@@ -268,7 +261,7 @@ pub async fn resolve_project(
         id: node.id.into_inner(),
         name: node.name,
     })
-    .ok_or_else(|| AppError::not_found("Project", original))
+    .ok_or_else(|| Error::not_found("Project", original))
 }
 fn duplicate_text(text: &str) -> bool {
     text.contains("already exists") || text.contains("duplicate")
@@ -279,13 +272,13 @@ fn duplicate_text(text: &str) -> bool {
 fn duplicate_exchange<V: serde::Serialize>(
     body: &[u8],
     request: &GraphQlRequest<V>,
-) -> Result<bool, AppError> {
+) -> Result<bool, Error> {
     let response_text = match serde_json::from_slice::<serde_json::Value>(body) {
         Ok(value) => value.to_string(),
         Err(_) => String::from_utf8_lossy(body).into_owned(),
     };
-    let request_text = serde_json::to_string(request)
-        .map_err(|error| AppError::new(AppErrorKind::Invariant, error.to_string()))?;
+    let request_text =
+        serde_json::to_string(request).map_err(|error| Error::new(error.to_string()))?;
     Ok(duplicate_text(&response_text) || duplicate_text(&request_text))
 }
 pub async fn add(
@@ -293,7 +286,7 @@ pub async fn add(
     initiative: &Entity,
     project: &Entity,
     sort_order: Option<f64>,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let request = GraphQlRequest::with_variables(AddProjectToInitiative::build(AddVariables {
         input: InitiativeToProjectCreateInput {
             initiative_id: initiative.id.clone(),
@@ -304,8 +297,8 @@ pub async fn add(
     let response = transport
         .send_request(&request)
         .await
-        .map_err(AppError::from)
-        .map_err(|error| error.with_context(ADD_CONTEXT))?;
+        .map_err(Error::from)
+        .context(ADD_CONTEXT)?;
     let duplicate = duplicate_exchange(&response.body, &request)?;
     let result: Result<AddProjectToInitiative, _> = classify_typed(response);
     match result {
@@ -316,9 +309,9 @@ pub async fn add(
             )
             .into_bytes())
         }
-        Err(error) => Err(AppError::from(error).with_context(ADD_CONTEXT)),
+        Err(error) => Err(Error::from(error).context(ADD_CONTEXT)),
         Ok(data) if !data.initiative_to_project_create.success => {
-            Err(AppError::new(AppErrorKind::GraphQl, ADD_CONTEXT).with_context(ADD_CONTEXT))
+            Err(Error::new(ADD_CONTEXT).context(ADD_CONTEXT))
         }
         Ok(_) => Ok(format!(
             "✓ Added \"{}\" to initiative \"{}\"\n",
@@ -331,16 +324,15 @@ pub async fn find_link(
     transport: &GraphQlTransport,
     initiative: &Entity,
     project: &Entity,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<String>, Error> {
     let request = GraphQlRequest::with_variables(GetInitiativeToProjects::build(LinksVariables {
         first: Some(250),
     }));
-    let data: GetInitiativeToProjects =
-        transport
-            .execute(&request)
-            .await
-            .map_err(AppError::from)
-            .map_err(|error| error.with_context("Failed to find project link"))?;
+    let data: GetInitiativeToProjects = transport
+        .execute(&request)
+        .await
+        .map_err(Error::from)
+        .context("Failed to find project link")?;
     Ok(data
         .initiative_to_projects
         .nodes
@@ -362,19 +354,17 @@ pub async fn remove(
     link_id: &str,
     initiative: &Entity,
     project: &Entity,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let request = GraphQlRequest::with_variables(RemoveProjectFromInitiative::build(IdVariables {
         id: link_id.to_owned(),
     }));
     let data: RemoveProjectFromInitiative = transport
         .execute(&request)
         .await
-        .map_err(AppError::from)
-        .map_err(|error| error.with_context(REMOVE_CONTEXT))?;
+        .map_err(Error::from)
+        .context(REMOVE_CONTEXT)?;
     if !data.initiative_to_project_delete.success {
-        return Err(
-            AppError::new(AppErrorKind::GraphQl, REMOVE_CONTEXT).with_context(REMOVE_CONTEXT)
-        );
+        return Err(Error::new(REMOVE_CONTEXT).context(REMOVE_CONTEXT));
     }
     Ok(format!(
         "✓ Removed \"{}\" from initiative \"{}\"\n",

@@ -1,7 +1,7 @@
 //! Full typed issue read and exact plaintext description.
 use crate::{
     commands::issue_details,
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error::{self, ObservedExchangeFailure},
         operations::issue_details::{GetIssueDetails, IssueDetails},
@@ -9,19 +9,15 @@ use crate::{
     },
 };
 pub const CONTEXT: &str = "Failed to get issue description";
-pub fn exchange_failure(failure: ObservedExchangeFailure) -> AppError {
+pub fn exchange_failure(failure: ObservedExchangeFailure) -> Error {
     match failure {
         ObservedExchangeFailure::Strict(error) => error,
-        ObservedExchangeFailure::Ordinary(error) => AppError::new(
-            AppErrorKind::GraphQl,
-            error.preferred_message.unwrap_or(error.message),
-        ),
+        ObservedExchangeFailure::Ordinary(error) => {
+            Error::new(error.preferred_message.unwrap_or(error.message))
+        }
     }
 }
-pub async fn fetch(
-    transport: &GraphQlTransport,
-    identifier: &str,
-) -> Result<IssueDetails, AppError> {
+pub async fn fetch(transport: &GraphQlTransport, identifier: &str) -> Result<IssueDetails, Error> {
     let mut request = issue_details::request(identifier.to_owned());
     request.query = request.query.trim_end_matches('\n').to_owned();
     let response: GetIssueDetails = bulk_error::execute_observed(transport, &request)

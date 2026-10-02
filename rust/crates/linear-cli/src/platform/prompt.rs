@@ -9,7 +9,7 @@ use std::io::{self, BufReader, IsTerminal, Read, Write};
 
 use unicode_width::UnicodeWidthChar;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 const MAX_LINE_BYTES: usize = 64 * 1024;
 const MAX_OPTIONS_VISIBLE: usize = 10;
@@ -93,7 +93,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         message: &str,
         options: &[PlainOption],
         searchable: bool,
-    ) -> Result<PromptOutcome<Vec<String>>, AppError> {
+    ) -> Result<PromptOutcome<Vec<String>>, Error> {
         self.check_ready(message)?;
         // Existing strict member/token domain, no implicit sanitizer of raw values.
         if options.is_empty() {
@@ -120,19 +120,16 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                         .iter()
                         .position(|o| o.script_token == token)
                         .ok_or_else(|| {
-                            AppError::new(
-                                AppErrorKind::Validation,
-                                format!("Unknown checkbox member: {}", escaped_display(token)),
-                            )
+                            Error::new(format!(
+                                "Unknown checkbox member: {}",
+                                escaped_display(token)
+                            ))
                         })?;
                     let member = selected
                         .get_mut(index)
                         .unwrap_or_else(|| unreachable!("option index is within selection"));
                     if *member {
-                        return Err(AppError::new(
-                            AppErrorKind::Validation,
-                            "Checkbox member was submitted more than once",
-                        ));
+                        return Err(Error::new("Checkbox member was submitted more than once"));
                     }
                     *member = true;
                 }
@@ -256,7 +253,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         message: &str,
         search_label: &str,
         options: &[crate::platform::selector::SelectOption],
-    ) -> Result<PromptOutcome<String>, AppError> {
+    ) -> Result<PromptOutcome<String>, Error> {
         self.searchable_select_with_no_match(
             message,
             search_label,
@@ -273,13 +270,12 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         search_label: &str,
         options: &[crate::platform::selector::SelectOption],
         no_match: &str,
-    ) -> Result<PromptOutcome<String>, AppError> {
+    ) -> Result<PromptOutcome<String>, Error> {
         use crate::platform::selector::{Key, Selection, Selector};
         self.check_ready(message)?;
         self.check_ready(search_label)?;
-        let mut selector = Selector::new(options).map_err(|error| {
-            AppError::new(AppErrorKind::Validation, error.to_string()).with_source(error)
-        })?;
+        let mut selector = Selector::new(options)
+            .map_err(|error| Error::new(error.to_string()).with_source(error))?;
         match &mut self.input {
             InputSource::Script(_) => {
                 self.write(format!("? {message}\n{search_label}:\n").as_bytes())?;
@@ -300,7 +296,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                         )?;
                         Ok(PromptOutcome::Submitted(value))
                     }
-                    None => Err(AppError::new(AppErrorKind::Validation, no_match)),
+                    None => Err(Error::new(no_match)),
                     Some(Selection::Interrupted | Selection::EndOfInput) => {
                         Err(invariant("script Enter produced non-selection control"))
                     }
@@ -409,7 +405,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         columns: usize,
         rows: usize,
         next_key: impl FnMut() -> io::Result<PromptKey> + 'static,
-    ) -> Result<Self, AppError> {
+    ) -> Result<Self, Error> {
         if columns < 4 || rows < 3 {
             return Err(invariant(
                 "prompt terminal must be at least 4 columns and 3 rows",
@@ -433,7 +429,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         message: &str,
         min_length: usize,
         validate: impl Fn(&str) -> Result<(), String>,
-    ) -> Result<PromptOutcome<String>, AppError> {
+    ) -> Result<PromptOutcome<String>, Error> {
         self.check_ready(message)?;
         match &mut self.input {
             InputSource::Script(_) => {
@@ -442,8 +438,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 let Some(raw) = self.read_script_line()? else {
                     return Ok(PromptOutcome::EndOfInput);
                 };
-                validate_text(&raw, min_length, &validate)
-                    .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+                validate_text(&raw, min_length, &validate).map_err(Error::new)?;
                 self.write(format!("? {message} › {}\n", raw.trim()).as_bytes())?;
                 Ok(PromptOutcome::Submitted(raw.trim().to_owned()))
             }
@@ -456,11 +451,9 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         &mut self,
         message: &str,
         options: crate::platform::prompt_text::TextOptions<'_>,
-    ) -> Result<PromptOutcome<String>, AppError> {
+    ) -> Result<PromptOutcome<String>, Error> {
         self.check_ready(message)?;
-        options
-            .preflight()
-            .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+        options.preflight().map_err(Error::new)?;
         let header = match options.default {
             Some(value) => format!("{message} ({value})"),
             None => message.to_owned(),
@@ -472,9 +465,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 let Some(raw) = self.read_script_line()? else {
                     return Ok(PromptOutcome::EndOfInput);
                 };
-                let answer = options
-                    .answer(&raw)
-                    .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+                let answer = options.answer(&raw).map_err(Error::new)?;
                 self.write(format!("? {message} › {answer}\n").as_bytes())?;
                 Ok(PromptOutcome::Submitted(answer))
             }
@@ -491,7 +482,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         &mut self,
         message: &str,
         options: crate::platform::prompt_text::TextOptions<'_>,
-    ) -> Result<PromptOutcome<String>, AppError> {
+    ) -> Result<PromptOutcome<String>, Error> {
         self.check_ready(message)?;
         let header = match options.default {
             Some(value) => format!("{message} ({})", escaped_display(value)),
@@ -504,9 +495,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 let Some(raw) = self.read_script_line()? else {
                     return Ok(PromptOutcome::EndOfInput);
                 };
-                let answer = options
-                    .answer(&raw)
-                    .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+                let answer = options.answer(&raw).map_err(Error::new)?;
                 self.write(format!("? {message} › {}\n", escaped_display(&answer)).as_bytes())?;
                 Ok(PromptOutcome::Submitted(answer))
             }
@@ -522,7 +511,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         &mut self,
         message: &str,
         hint: &str,
-    ) -> Result<PromptOutcome<crate::config::ConfigSecret>, AppError> {
+    ) -> Result<PromptOutcome<crate::config::ConfigSecret>, Error> {
         self.check_ready(message)?;
         let parse = |raw: &str| {
             let value = raw.trim().to_owned();
@@ -537,8 +526,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 let Some(raw) = self.read_script_line()? else {
                     return Ok(PromptOutcome::EndOfInput);
                 };
-                let (answer, mask) = parse(&raw)
-                    .map_err(|reason: String| AppError::new(AppErrorKind::Validation, reason))?;
+                let (answer, mask) = parse(&raw).map_err(|reason: String| Error::new(reason))?;
                 self.write(format!("? {message} › {mask}\n").as_bytes())?;
                 Ok(PromptOutcome::Submitted(answer))
             }
@@ -552,11 +540,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
 
     /// Confirm a destructive action. Only an exactly empty answer takes the
     /// default; explicit whitespace and padded answers are invalid.
-    pub fn confirm(
-        &mut self,
-        message: &str,
-        default: bool,
-    ) -> Result<PromptOutcome<bool>, AppError> {
+    pub fn confirm(&mut self, message: &str, default: bool) -> Result<PromptOutcome<bool>, Error> {
         self.check_ready(message)?;
         let header = format!("{message} ({})", if default { "Y/n" } else { "y/N" });
         let parse = |raw: &str| {
@@ -570,8 +554,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 let Some(raw) = self.read_script_line()? else {
                     return Ok(PromptOutcome::EndOfInput);
                 };
-                let (answer, label) = parse(&raw)
-                    .map_err(|reason| AppError::new(AppErrorKind::Validation, reason))?;
+                let (answer, label) = parse(&raw).map_err(Error::new)?;
                 self.write(format!("? {message} › {label}\n").as_bytes())?;
                 Ok(PromptOutcome::Submitted(answer))
             }
@@ -579,7 +562,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
-    pub fn select(&mut self, select: &PlainSelect<'_>) -> Result<PromptOutcome<String>, AppError> {
+    pub fn select(&mut self, select: &PlainSelect<'_>) -> Result<PromptOutcome<String>, Error> {
         self.check_ready(select.message)?;
         validate_select(select)?;
         match &mut self.input {
@@ -603,7 +586,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
 
     /// Restore the terminal and cursor before network work, retaining unread
     /// script bytes and the key source. A suspended session cannot prompt.
-    pub fn suspend(&mut self) -> Result<(), AppError> {
+    pub fn suspend(&mut self) -> Result<(), Error> {
         if self.state != SessionState::Active {
             return Err(invariant("only an active prompt session can suspend"));
         }
@@ -612,7 +595,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
     }
 
     /// Re-enter prompt mode after the network call, without replacing input.
-    pub fn resume(&mut self) -> Result<(), AppError> {
+    pub fn resume(&mut self) -> Result<(), Error> {
         if self.state != SessionState::Suspended {
             return Err(invariant("only a suspended prompt session can resume"));
         }
@@ -624,7 +607,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
     }
 
     /// Explicitly restore terminal state. Cleanup errors override any prompt outcome.
-    pub fn close(&mut self) -> Result<(), AppError> {
+    pub fn close(&mut self) -> Result<(), Error> {
         if self.state == SessionState::Closed {
             return Ok(());
         }
@@ -632,7 +615,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         self.restore_terminal()
     }
 
-    fn restore_terminal(&mut self) -> Result<(), AppError> {
+    fn restore_terminal(&mut self) -> Result<(), Error> {
         let restore_error = self.raw.as_mut().and_then(|raw| raw.restore().err());
         let cursor_error = if self.raw.is_some() {
             self.write(b"\x1b[?25h").err()
@@ -647,17 +630,14 @@ impl<R: Read, W: Write> PromptSession<R, W> {
             return Ok(());
         };
         for secondary in errors {
-            primary.message.push_str(&format!(
-                "; cleanup also failed: {}",
-                secondary.display_message()
-            ));
+            primary.push_message(&format!("; cleanup also failed: {}", secondary));
         }
         Err(primary)
     }
 
     /// Cleanup must succeed before an interrupt, EOF, or answer is returned to
     /// the command. This makes a restoration failure take precedence.
-    pub fn finish<T>(&mut self, outcome: PromptOutcome<T>) -> Result<PromptOutcome<T>, AppError> {
+    pub fn finish<T>(&mut self, outcome: PromptOutcome<T>) -> Result<PromptOutcome<T>, Error> {
         self.close()?;
         Ok(outcome)
     }
@@ -666,17 +646,14 @@ impl<R: Read, W: Write> PromptSession<R, W> {
     /// restoration or final flush fail. Cleanup is the primary error.
     pub fn finish_result<T>(
         &mut self,
-        result: Result<PromptOutcome<T>, AppError>,
-    ) -> Result<PromptOutcome<T>, AppError> {
+        result: Result<PromptOutcome<T>, Error>,
+    ) -> Result<PromptOutcome<T>, Error> {
         match (result, self.close()) {
             (Ok(outcome), Ok(())) => Ok(outcome),
             (Err(error), Ok(())) => Err(error),
             (Ok(_), Err(error)) => Err(error),
             (Err(prompt), Err(mut cleanup)) => {
-                cleanup.message.push_str(&format!(
-                    "; prompt also failed: {}",
-                    prompt.display_message()
-                ));
+                cleanup.push_message(&format!("; prompt also failed: {}", prompt));
                 Err(cleanup)
             }
         }
@@ -684,7 +661,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
 
     /// Start's retained input session may emit spinner/status bytes only after
     /// restoring raw mode. A second menu can resume the same buffered input.
-    pub(crate) fn suspended_output(&mut self) -> Result<&mut W, AppError> {
+    pub(crate) fn suspended_output(&mut self) -> Result<&mut W, Error> {
         if self.state != SessionState::Suspended {
             return Err(invariant(
                 "ordinary command output requires suspended prompt mode",
@@ -693,18 +670,18 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         Ok(&mut self.output)
     }
 
-    pub fn into_output(mut self) -> Result<W, AppError> {
+    pub fn into_output(mut self) -> Result<W, Error> {
         self.close()?;
         Ok(self.output)
     }
 
     /// Write a command's ordinary status line while retaining the session input.
-    pub fn print_line(&mut self, line: &str) -> Result<(), AppError> {
+    pub fn print_line(&mut self, line: &str) -> Result<(), Error> {
         self.write(format!("{line}\n").as_bytes())?;
         self.flush()
     }
 
-    fn check_ready(&self, message: &str) -> Result<(), AppError> {
+    fn check_ready(&self, message: &str) -> Result<(), Error> {
         if self.state != SessionState::Active
             || message.trim().is_empty()
             || message.chars().any(char::is_control)
@@ -714,21 +691,19 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         Ok(())
     }
 
-    fn write(&mut self, bytes: &[u8]) -> Result<(), AppError> {
-        self.output.write_all(bytes).map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to write prompt stdout")
-                .with_source(error)
-        })
+    fn write(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.output
+            .write_all(bytes)
+            .map_err(|error| Error::new("failed to write prompt stdout").with_source(error))
     }
 
-    fn flush(&mut self) -> Result<(), AppError> {
-        self.output.flush().map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to flush prompt stdout")
-                .with_source(error)
-        })
+    fn flush(&mut self) -> Result<(), Error> {
+        self.output
+            .flush()
+            .map_err(|error| Error::new("failed to flush prompt stdout").with_source(error))
     }
 
-    fn read_script_line(&mut self) -> Result<Option<String>, AppError> {
+    fn read_script_line(&mut self) -> Result<Option<String>, Error> {
         if self.framing == ScriptFraming::CrOrLf {
             return self.read_script_cr_or_lf();
         }
@@ -738,25 +713,18 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         let mut bytes = Vec::new();
         loop {
             let mut one = [0_u8; 1];
-            let count = reader.read(&mut one).map_err(|error| {
-                AppError::new(AppErrorKind::IoProcess, "failed to read prompt stdin")
-                    .with_source(error)
-            })?;
+            let count = reader
+                .read(&mut one)
+                .map_err(|error| Error::new("failed to read prompt stdin").with_source(error))?;
             if count == 0 {
                 if bytes.is_empty() {
                     return Ok(None);
                 }
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "incomplete prompt script line at EOF",
-                ));
+                return Err(Error::new("incomplete prompt script line at EOF"));
             }
             bytes.push(one[0]);
             if bytes.len() > MAX_LINE_BYTES {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "prompt script line exceeds 65536 bytes",
-                ));
+                return Err(Error::new("prompt script line exceeds 65536 bytes"));
             }
             if one[0] == b'\n' {
                 break;
@@ -766,41 +734,34 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         if bytes.last() == Some(&b'\r') {
             bytes.pop();
         }
-        let value = String::from_utf8(bytes).map_err(|error| {
-            AppError::new(AppErrorKind::Validation, "prompt script line is not UTF-8")
-                .with_source(error)
-        })?;
+        let value = String::from_utf8(bytes)
+            .map_err(|error| Error::new("prompt script line is not UTF-8").with_source(error))?;
         if value
             .chars()
             .any(|character| character <= '\u{1f}' || character == '\u{7f}')
         {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
+            return Err(Error::new(
                 "prompt script line contains a control character",
             ));
         }
         Ok(Some(value))
     }
 
-    fn read_script_cr_or_lf(&mut self) -> Result<Option<String>, AppError> {
+    fn read_script_cr_or_lf(&mut self) -> Result<Option<String>, Error> {
         let InputSource::Script(reader) = &mut self.input else {
             return Err(invariant("script read requires script input"));
         };
         let mut bytes = Vec::new();
         loop {
             let mut byte = [0];
-            let count = reader.read(&mut byte).map_err(|error| {
-                AppError::new(AppErrorKind::IoProcess, "failed to read prompt stdin")
-                    .with_source(error)
-            })?;
+            let count = reader
+                .read(&mut byte)
+                .map_err(|error| Error::new("failed to read prompt stdin").with_source(error))?;
             if count == 0 {
                 return if bytes.is_empty() {
                     Ok(None)
                 } else {
-                    Err(AppError::new(
-                        AppErrorKind::Validation,
-                        "incomplete prompt script line at EOF",
-                    ))
+                    Err(Error::new("incomplete prompt script line at EOF"))
                 };
             }
             if self.pending_optional_lf {
@@ -810,10 +771,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 }
             }
             if bytes.len() + 1 > MAX_LINE_BYTES {
-                return Err(AppError::new(
-                    AppErrorKind::Validation,
-                    "prompt script line exceeds 65536 bytes",
-                ));
+                return Err(Error::new("prompt script line exceeds 65536 bytes"));
             }
             match byte[0] {
                 b'\r' => {
@@ -824,33 +782,28 @@ impl<R: Read, W: Write> PromptSession<R, W> {
                 value => bytes.push(value),
             }
         }
-        let value = String::from_utf8(bytes).map_err(|error| {
-            AppError::new(AppErrorKind::Validation, "prompt script line is not UTF-8")
-                .with_source(error)
-        })?;
+        let value = String::from_utf8(bytes)
+            .map_err(|error| Error::new("prompt script line is not UTF-8").with_source(error))?;
         if value
             .chars()
             .any(|character| character <= '\u{1f}' || character == '\u{7f}')
         {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
+            return Err(Error::new(
                 "prompt script line contains a control character",
             ));
         }
         Ok(Some(value))
     }
 
-    fn next_key(&mut self) -> Result<PromptKey, AppError> {
+    fn next_key(&mut self) -> Result<PromptKey, Error> {
         self.flush()?;
         let InputSource::Keys(next) = &mut self.input else {
             return Err(invariant("key read requires terminal input"));
         };
-        next().map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to read prompt key").with_source(error)
-        })
+        next().map_err(|error| Error::new("failed to read prompt key").with_source(error))
     }
 
-    fn clear_frame(&mut self, lines: usize) -> Result<(), AppError> {
+    fn clear_frame(&mut self, lines: usize) -> Result<(), Error> {
         if lines > 0 {
             self.write(format!("\x1b[{lines}A\r\x1b[J").as_bytes())?;
         }
@@ -862,7 +815,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         message: &str,
         min_length: usize,
         validate: impl Fn(&str) -> Result<(), String>,
-    ) -> Result<PromptOutcome<String>, AppError> {
+    ) -> Result<PromptOutcome<String>, Error> {
         self.edit_keys(message, message, |raw| {
             validate_text(raw, min_length, &validate)?;
             Ok((raw.trim().to_owned(), raw.trim().to_owned()))
@@ -874,7 +827,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         header: &str,
         message: &str,
         parse: impl Fn(&str) -> Result<(T, String), String>,
-    ) -> Result<PromptOutcome<T>, AppError> {
+    ) -> Result<PromptOutcome<T>, Error> {
         self.edit_keys_with_display(header, message, parse, |value, cursor| {
             (value.to_vec(), cursor)
         })
@@ -886,7 +839,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         message: &str,
         parse: impl Fn(&str) -> Result<(T, String), String>,
         display: impl Fn(&[char], usize) -> (Vec<char>, usize),
-    ) -> Result<PromptOutcome<T>, AppError> {
+    ) -> Result<PromptOutcome<T>, Error> {
         let mut value = Vec::<char>::new();
         let mut cursor = 0_usize;
         let mut drawn = false;
@@ -954,7 +907,7 @@ impl<R: Read, W: Write> PromptSession<R, W> {
         }
     }
 
-    fn select_keys(&mut self, select: &PlainSelect<'_>) -> Result<PromptOutcome<String>, AppError> {
+    fn select_keys(&mut self, select: &PlainSelect<'_>) -> Result<PromptOutcome<String>, Error> {
         let mut active = select.default_index;
         let mut previous_lines = 0_usize;
         let visible = MAX_OPTIONS_VISIBLE.min(self.rows.saturating_sub(2)).max(1);
@@ -1019,20 +972,17 @@ impl<R: Read, W: Write> PromptSession<R, W> {
 impl<W: Write> PromptSession<io::Stdin, W> {
     /// Confirmation is gated by stdin alone. Use a terminal whose attended
     /// check follows stdin, even when both output streams are redirected.
-    pub fn confirmation_stdio(writer: W) -> Result<Self, AppError> {
+    pub fn confirmation_stdio(writer: W) -> Result<Self, Error> {
         if !io::stdin().is_terminal() {
-            return Err(AppError::new(
-                AppErrorKind::Validation,
-                "Interactive confirmation required",
-            )
-            .with_suggestion("Use --force to skip confirmation."));
+            return Err(Error::new("Interactive confirmation required")
+                .with_hint("Use --force to skip confirmation."));
         }
         Self::attended(writer, attended_key)
     }
 
     /// Choose attended keys or the script protocol from stdin alone. The caller
     /// controls prompt eligibility; stdout and CI do not affect this constructor.
-    pub fn stdin_stdio(writer: W) -> Result<Self, AppError> {
+    pub fn stdin_stdio(writer: W) -> Result<Self, Error> {
         if io::stdin().is_terminal() {
             Self::attended(writer, attended_key)
         } else {
@@ -1042,7 +992,7 @@ impl<W: Write> PromptSession<io::Stdin, W> {
 
     /// Ungated stdin-owned prompts with CR-or-LF script framing. Output topology
     /// does not select the attended decoder; older constructors are unchanged.
-    pub fn stdin_stdio_cr_or_lf(writer: W) -> Result<Self, AppError> {
+    pub fn stdin_stdio_cr_or_lf(writer: W) -> Result<Self, Error> {
         let mut session = Self::stdin_stdio(writer)?;
         session.framing = ScriptFraming::CrOrLf;
         Ok(session)
@@ -1051,7 +1001,7 @@ impl<W: Write> PromptSession<io::Stdin, W> {
     fn attended(
         writer: W,
         next_key: impl FnMut() -> io::Result<PromptKey> + 'static,
-    ) -> Result<Self, AppError> {
+    ) -> Result<Self, Error> {
         let (columns, rows) = terminal_size::terminal_size_of(io::stdin())
             .map(|(terminal_size::Width(w), terminal_size::Height(h))| {
                 (usize::from(w), usize::from(h))
@@ -1063,7 +1013,7 @@ impl<W: Write> PromptSession<io::Stdin, W> {
     }
 
     /// A terminal session where CR submits; the caller decides whether stdout permits prompting.
-    pub fn stdio_cr_or_lf(writer: W) -> Result<Self, AppError> {
+    pub fn stdio_cr_or_lf(writer: W) -> Result<Self, Error> {
         let mut session = Self::stdio(writer)?;
         session.framing = ScriptFraming::CrOrLf;
         Ok(session)
@@ -1071,7 +1021,7 @@ impl<W: Write> PromptSession<io::Stdin, W> {
 
     /// A terminal session without the search selector's CI or
     /// stdin-TTY gate. The command must decide whether stdout permits prompts.
-    pub fn stdio(writer: W) -> Result<Self, AppError> {
+    pub fn stdio(writer: W) -> Result<Self, Error> {
         if !io::stdin().is_terminal() {
             return Ok(Self::script(io::stdin(), writer));
         }
@@ -1209,7 +1159,7 @@ fn validate_text(
     validate(raw)
 }
 
-fn validate_select(select: &PlainSelect<'_>) -> Result<(), AppError> {
+fn validate_select(select: &PlainSelect<'_>) -> Result<(), Error> {
     if select.options.is_empty() || select.default_index >= select.options.len() {
         return Err(invariant(
             "plain selection requires options and a valid default",
@@ -1249,7 +1199,7 @@ fn select_header(select: &PlainSelect<'_>) -> String {
     }
 }
 
-fn script_selection(line: &str, select: &PlainSelect<'_>) -> Result<usize, AppError> {
+fn script_selection(line: &str, select: &PlainSelect<'_>) -> Result<usize, Error> {
     if line.is_empty() {
         return Ok(select.default_index);
     }
@@ -1266,13 +1216,11 @@ fn script_selection(line: &str, select: &PlainSelect<'_>) -> Result<usize, AppEr
         None
     };
     match (by_token, by_index) {
-        (Some(left), Some(right)) if left != right => Err(AppError::new(
-            AppErrorKind::Validation,
-            "ambiguous numeric prompt selection",
-        )),
+        (Some(left), Some(right)) if left != right => {
+            Err(Error::new("ambiguous numeric prompt selection"))
+        }
         (Some(index), _) | (_, Some(index)) => Ok(index),
-        (None, None) => Err(AppError::new(
-            AppErrorKind::Validation,
+        (None, None) => Err(Error::new(
             "unknown prompt selection; use a menu number or exact choice token",
         )),
     }
@@ -1327,8 +1275,8 @@ fn text_line(message: &str, value: &[char], cursor: usize, limit: usize) -> (Str
     (format!("{prefix}{shown}"), cursor_column)
 }
 
-fn invariant(message: &str) -> AppError {
-    AppError::new(AppErrorKind::Invariant, message)
+fn invariant(message: &str) -> Error {
+    Error::new(message)
 }
 
 #[cfg(unix)]
@@ -1340,24 +1288,20 @@ struct RawPrompt {
 
 #[cfg(unix)]
 impl RawPrompt {
-    fn enter_attended() -> Result<Self, AppError> {
+    fn enter_attended() -> Result<Self, Error> {
         Self::enter()
     }
 
-    fn enter() -> Result<Self, AppError> {
+    fn enter() -> Result<Self, Error> {
         use rustix::termios::{OptionalActions, tcgetattr, tcsetattr};
         let input = io::stdin();
-        let original = tcgetattr(&input).map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to read terminal mode")
-                .with_source(error)
-        })?;
+        let original = tcgetattr(&input)
+            .map_err(|error| Error::new("failed to read terminal mode").with_source(error))?;
         let mut raw = original.clone();
         raw.make_raw();
         raw.output_modes = original.output_modes;
-        tcsetattr(&input, OptionalActions::Now, &raw).map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
-                .with_source(error)
-        })?;
+        tcsetattr(&input, OptionalActions::Now, &raw)
+            .map_err(|error| Error::new("failed to enable terminal input").with_source(error))?;
         Ok(Self {
             input,
             original,
@@ -1365,30 +1309,24 @@ impl RawPrompt {
         })
     }
 
-    fn resume(&mut self) -> Result<(), AppError> {
+    fn resume(&mut self) -> Result<(), Error> {
         let mut raw = self.original.clone();
         raw.make_raw();
         raw.output_modes = self.original.output_modes;
         rustix::termios::tcsetattr(&self.input, rustix::termios::OptionalActions::Now, &raw)
-            .map_err(|error| {
-                AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
-                    .with_source(error)
-            })?;
+            .map_err(|error| Error::new("failed to enable terminal input").with_source(error))?;
         self.restore_attempted = false;
         Ok(())
     }
 
-    fn restore(&mut self) -> Result<(), AppError> {
+    fn restore(&mut self) -> Result<(), Error> {
         self.restore_attempted = true;
         rustix::termios::tcsetattr(
             &self.input,
             rustix::termios::OptionalActions::Now,
             &self.original,
         )
-        .map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to restore terminal input")
-                .with_source(error)
-        })?;
+        .map_err(|error| Error::new("failed to restore terminal input").with_source(error))?;
         Ok(())
     }
 }
@@ -1426,38 +1364,34 @@ struct RawPrompt {
 
 #[cfg(not(unix))]
 impl RawPrompt {
-    fn enter() -> Result<Self, AppError> {
+    fn enter() -> Result<Self, Error> {
         Ok(Self {
             confirmation: false,
             active: false,
         })
     }
-    fn enter_attended() -> Result<Self, AppError> {
-        crossterm::terminal::enable_raw_mode().map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
-                .with_source(error)
-        })?;
+    fn enter_attended() -> Result<Self, Error> {
+        crossterm::terminal::enable_raw_mode()
+            .map_err(|error| Error::new("failed to enable terminal input").with_source(error))?;
         Ok(Self {
             confirmation: true,
             active: true,
         })
     }
-    fn resume(&mut self) -> Result<(), AppError> {
+    fn resume(&mut self) -> Result<(), Error> {
         if self.confirmation {
             crossterm::terminal::enable_raw_mode().map_err(|error| {
-                AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
-                    .with_source(error)
+                Error::new("failed to enable terminal input").with_source(error)
             })?;
             self.active = true;
         }
         Ok(())
     }
-    fn restore(&mut self) -> Result<(), AppError> {
+    fn restore(&mut self) -> Result<(), Error> {
         if self.active {
             self.active = false;
             crossterm::terminal::disable_raw_mode().map_err(|error| {
-                AppError::new(AppErrorKind::IoProcess, "failed to restore terminal input")
-                    .with_source(error)
+                Error::new("failed to restore terminal input").with_source(error)
             })?;
         }
         Ok(())

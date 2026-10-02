@@ -114,10 +114,10 @@ async fn empty_cursor_is_sent_once_then_rejected_on_nonadvance() {
     .await
     .expect_err("stalled empty cursor");
     assert_eq!(
-        result.display_message(),
+        result.to_string(),
         "Failed to fetch team members: Linear reported more team members but did not advance the page cursor"
     );
-    assert_eq!(result.suggestion, None);
+    assert_eq!(result.hint(), None);
     let requests = requests.borrow();
     assert_eq!(requests.len(), 2);
     assert!(requests[0]["variables"].get("after").is_none());
@@ -152,7 +152,7 @@ async fn cursor_cycle_is_stopped_after_the_repeated_page() {
     .await
     .expect_err("cursor cycle");
     assert_eq!(
-        result.message,
+        result.message(),
         "Linear reported more team members but did not advance the page cursor"
     );
     let requests = requests.borrow();

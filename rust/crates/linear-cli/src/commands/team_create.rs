@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 
 use cynic::MutationBuilder;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_create::{
     CreateTeam, CreateTeamPayload, CreateTeamVariables, TeamCreateInput,
@@ -66,7 +66,7 @@ pub enum PromptResult {
 pub fn prompt<R: Read, W: Write>(
     options: &mut Options,
     session: &mut PromptSession<R, W>,
-) -> Result<PromptResult, AppError> {
+) -> Result<PromptResult, Error> {
     macro_rules! answer {
         ($call:expr) => {
             match $call? {
@@ -116,10 +116,9 @@ pub fn prompt<R: Read, W: Write>(
         "private" => true,
         "public" => false,
         other => {
-            return Err(AppError::new(
-                AppErrorKind::Invariant,
-                format!("unexpected team visibility choice {other:?}"),
-            ));
+            return Err(Error::new(format!(
+                "unexpected team visibility choice {other:?}"
+            )));
         }
     };
     Ok(PromptResult::Complete)
@@ -131,14 +130,13 @@ fn optional(value: String) -> Option<String> {
 
 /// The name the progress line and mutation use. Flag mode requires one;
 /// prompt mode always has one after a completed prompt.
-pub fn required_name(options: &Options) -> Result<&str, AppError> {
+pub fn required_name(options: &Options) -> Result<&str, Error> {
     match options.name.as_deref() {
         Some(name) if !name.is_empty() => Ok(name),
-        _ => Err(AppError::new(
-            AppErrorKind::Validation,
-            "Team name is required when not using interactive mode",
-        )
-        .with_suggestion("Use --name or run without any flags for interactive mode.")),
+        _ => Err(
+            Error::new("Team name is required when not using interactive mode")
+                .with_hint("Use --name or run without any flags for interactive mode."),
+        ),
     }
 }
 
@@ -152,7 +150,7 @@ pub fn announcement(name: &str, mode: Mode) -> Vec<u8> {
     .into_bytes()
 }
 
-pub fn request(options: &Options) -> Result<GraphQlRequest<CreateTeamVariables>, AppError> {
+pub fn request(options: &Options) -> Result<GraphQlRequest<CreateTeamVariables>, Error> {
     let name = required_name(options)?.to_owned();
     Ok(GraphQlRequest::with_variables(CreateTeam::build(
         CreateTeamVariables {
@@ -171,13 +169,13 @@ pub fn request(options: &Options) -> Result<GraphQlRequest<CreateTeamVariables>,
 
 /// Sends the mutation once. Failures after the request may have reached
 /// Linear say the team may already exist; nothing is retried.
-pub async fn submit(transport: &GraphQlTransport, options: &Options) -> Result<Vec<u8>, AppError> {
+pub async fn submit(transport: &GraphQlTransport, options: &Options) -> Result<Vec<u8>, Error> {
     let request = request(options)?;
     let result: CreateTeam = transport.execute(&request).await.map_err(|failure| {
         let uncertain = super::milestone_create::outcome_unknown(&failure);
-        let mut error = AppError::from(failure);
+        let mut error = Error::from(failure);
         if uncertain {
-            error.message.push_str("; team may already exist");
+            error.push_message("; team may already exist");
         }
         error
     })?;
@@ -185,15 +183,12 @@ pub async fn submit(transport: &GraphQlTransport, options: &Options) -> Result<V
 }
 
 /// `success: false` is reported before a missing team.
-pub fn render(payload: &CreateTeamPayload) -> Result<Vec<u8>, AppError> {
+pub fn render(payload: &CreateTeamPayload) -> Result<Vec<u8>, Error> {
     if !payload.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, "Team creation failed"));
+        return Err(Error::new("Team creation failed"));
     }
     let Some(team) = &payload.team else {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "Team creation failed - no team returned",
-        ));
+        return Err(Error::new("Team creation failed - no team returned"));
     };
     Ok(format!("✓ Created team {}: {}\n", team.key, team.name).into_bytes())
 }

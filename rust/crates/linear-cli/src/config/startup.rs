@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::fmt;
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
+use crate::platform::style;
 
 use super::discover::{ConfigCandidate, discover_config_paths};
 use super::dotenv::{ConfigDiagnostic, ConfigFailure, DiagnosticReason, SelectedEnv, load_env};
@@ -14,26 +15,10 @@ use super::source::{FileSource, OsFamily, ReadCandidate, read_config_candidate, 
 use super::transport::TransportEnvInputs;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum NoColor {
-    Absent,
-    Empty,
-    Nonempty,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DisplaySettings {
     pub debug: bool,
-    pub no_color: NoColor,
-}
-
-impl DisplaySettings {
-    pub fn help_color(self) -> bool {
-        self.no_color != NoColor::Nonempty
-    }
-
-    pub fn no_color(self) -> bool {
-        self.no_color == NoColor::Nonempty
-    }
+    /// `NO_COLOR` is set to a nonempty value.
+    pub no_color: bool,
 }
 
 /// Applied dotenv values for later child processes. These can contain secrets.
@@ -86,35 +71,10 @@ impl fmt::Debug for StartupConfig {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct StartupError {
-    kind: AppErrorKind,
-    message: String,
-    suggestion: Option<String>,
-}
-
-impl StartupError {
-    fn new(kind: AppErrorKind, message: impl Into<String>, suggestion: Option<String>) -> Self {
-        Self {
-            kind,
-            message: message.into(),
-            suggestion,
-        }
-    }
-
-    pub fn app_error(&self) -> AppError {
-        let mut error = AppError::new(self.kind, self.message.clone());
-        if let Some(suggestion) = &self.suggestion {
-            error = error.with_suggestion(suggestion.clone());
-        }
-        error
-    }
-}
-
 pub struct StartupReport {
     pub settings: DisplaySettings,
     pub diagnostics: Vec<ConfigDiagnostic>,
-    pub result: Result<StartupConfig, StartupError>,
+    pub result: Result<StartupConfig, Error>,
 }
 
 impl fmt::Debug for StartupReport {
@@ -148,11 +108,10 @@ fn effective<'a>(
 }
 
 fn settings(process: &ProcessEnvSnapshot, dotenv: Option<&SelectedEnv>) -> DisplaySettings {
-    let no_color = match process.inputs.env("NO_COLOR") {
-        None => NoColor::Absent,
-        Some("") => NoColor::Empty,
-        Some(_) => NoColor::Nonempty,
-    };
+    let no_color = process
+        .inputs
+        .env("NO_COLOR")
+        .is_some_and(|value| !value.is_empty());
     let debug = match dotenv {
         Some(dotenv) => matches!(
             effective(process, dotenv, "LINEAR_DEBUG"),
@@ -163,43 +122,34 @@ fn settings(process: &ProcessEnvSnapshot, dotenv: Option<&SelectedEnv>) -> Displ
     DisplaySettings { debug, no_color }
 }
 
-fn option_error(error: ConfigOptionError) -> StartupError {
-    let app = AppError::from(error);
-    StartupError::new(app.kind, app.message, app.suggestion)
+fn option_error(error: ConfigOptionError) -> Error {
+    Error::from(error)
 }
 
-fn parse_error(error: ConfigParseError) -> StartupError {
-    StartupError::new(
-        AppErrorKind::Validation,
-        format!("invalid config file {error}"),
-        Some("Fix or remove the config file.".to_owned()),
-    )
+fn parse_error(error: ConfigParseError) -> Error {
+    Error::new(format!("invalid config file {error}")).with_hint("Fix or remove the config file.")
 }
 
-fn config_failure(error: ConfigFailure) -> StartupError {
+fn config_failure(error: ConfigFailure) -> Error {
     match error {
-        ConfigFailure::Oversize { path } => StartupError::new(
-            AppErrorKind::Validation,
-            format!("invalid environment file {}: too large", path.display()),
-            Some("Fix the .env file or set LINEAR_IGNORE_ENV_FILE=1.".to_owned()),
-        ),
-        ConfigFailure::InvalidUtf8 { path } => StartupError::new(
-            AppErrorKind::Validation,
-            format!("invalid environment file {}: invalid UTF-8", path.display()),
-            Some("Fix the .env file or set LINEAR_IGNORE_ENV_FILE=1.".to_owned()),
-        ),
-        ConfigFailure::InvalidInput(_) => StartupError::new(
-            AppErrorKind::Invariant,
-            "config working directory must be absolute",
-            None,
-        ),
+        ConfigFailure::Oversize { path } => Error::new(format!(
+            "invalid environment file {}: too large",
+            path.display()
+        ))
+        .with_hint("Fix the .env file or set LINEAR_IGNORE_ENV_FILE=1."),
+        ConfigFailure::InvalidUtf8 { path } => Error::new(format!(
+            "invalid environment file {}: invalid UTF-8",
+            path.display()
+        ))
+        .with_hint("Fix the .env file or set LINEAR_IGNORE_ENV_FILE=1."),
+        ConfigFailure::InvalidInput(_) => Error::new("config working directory must be absolute"),
     }
 }
 
 fn read_tier(
     candidates: &[ConfigCandidate],
     files: &impl FileSource,
-) -> Result<Option<ConfigTier>, StartupError> {
+) -> Result<Option<ConfigTier>, Error> {
     for candidate in candidates {
         match read_config_candidate(files, &candidate.path) {
             ReadCandidate::Absent => {}
@@ -207,18 +157,18 @@ fn read_tier(
                 return parse_config_tier(raw).map(Some).map_err(parse_error);
             }
             ReadCandidate::TooLarge { path } => {
-                return Err(StartupError::new(
-                    AppErrorKind::Validation,
-                    format!("invalid config file {}: too large", path.display()),
-                    Some("Fix or remove the config file.".to_owned()),
-                ));
+                return Err(Error::new(format!(
+                    "invalid config file {}: too large",
+                    path.display()
+                ))
+                .with_hint("Fix or remove the config file."));
             }
             ReadCandidate::Poisoned { path, reason } => {
-                return Err(StartupError::new(
-                    AppErrorKind::Validation,
-                    format!("cannot read config file {}: {reason}", path.display()),
-                    Some("Fix or remove the config file.".to_owned()),
-                ));
+                return Err(Error::new(format!(
+                    "cannot read config file {}: {reason}",
+                    path.display()
+                ))
+                .with_hint("Fix or remove the config file."));
             }
         }
     }
@@ -228,7 +178,7 @@ fn read_tier(
 fn fail(
     settings: DisplaySettings,
     diagnostics: Vec<ConfigDiagnostic>,
-    error: StartupError,
+    error: Error,
 ) -> StartupReport {
     StartupReport {
         settings,
@@ -326,9 +276,9 @@ pub fn render_diagnostic(diagnostic: &ConfigDiagnostic, color: bool) -> String {
             "  Check for an unclosed quote or a malformed KEY=value line.",
         ),
     };
-    if color {
-        format!("\x1b[33m{message}\x1b[39m\n\x1b[90m{suggestion}\x1b[39m\n")
-    } else {
-        format!("{message}\n{suggestion}\n")
-    }
+    format!(
+        "{}\n{}\n",
+        style::warning(&message, color),
+        style::gray(suggestion, color)
+    )
 }

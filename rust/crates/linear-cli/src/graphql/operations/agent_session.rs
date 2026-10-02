@@ -4,13 +4,13 @@
 //! Cynic adds `__typename` to the union selection so it can dispatch
 //! variants; the `--json` shape below never emits it.
 
-use std::error::Error;
+use std::error::Error as StdError;
 use std::fmt;
 
 use serde::Serialize;
 use serde::ser::{Error as _, Serializer};
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::scalars::{DateTime, JsonObject};
 use crate::graphql::schema;
 
@@ -199,11 +199,11 @@ impl fmt::Display for UnsupportedActivityContent {
     }
 }
 
-impl Error for UnsupportedActivityContent {}
+impl StdError for UnsupportedActivityContent {}
 
-impl From<UnsupportedActivityContent> for AppError {
+impl From<UnsupportedActivityContent> for Error {
     fn from(error: UnsupportedActivityContent) -> Self {
-        AppError::new(AppErrorKind::GraphQl, error.to_string())
+        Error::new(error.to_string())
     }
 }
 

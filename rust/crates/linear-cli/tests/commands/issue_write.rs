@@ -6,7 +6,7 @@ use linear_cli::{
             State, Team, Ui, Updated,
         },
     },
-    error::AppError,
+    error::Error,
     graphql::operations::issue_update::IssueUpdateInput,
 };
 use std::{
@@ -32,7 +32,7 @@ impl Fake {
     }
 }
 impl Backend for Fake {
-    async fn team(&self, value: String) -> Result<Team, AppError> {
+    async fn team(&self, value: String) -> Result<Team, Error> {
         self.note(format!("Team:{value}"));
         Ok(Team {
             id: "team-id".into(),
@@ -40,7 +40,7 @@ impl Backend for Fake {
             name: "Engineering".into(),
         })
     }
-    async fn find_team(&self, value: String) -> Result<Option<Team>, AppError> {
+    async fn find_team(&self, value: String) -> Result<Option<Team>, Error> {
         self.note(format!("FindTeam:{value}"));
         Ok(Some(Team {
             id: "team-id".into(),
@@ -48,29 +48,29 @@ impl Backend for Fake {
             name: "Engineering".into(),
         }))
     }
-    async fn teams(&self) -> Result<Vec<Team>, AppError> {
+    async fn teams(&self) -> Result<Vec<Team>, Error> {
         panic!("unexpected all-team request")
     }
-    async fn team_options(&self, _: String) -> Result<Vec<Named>, AppError> {
+    async fn team_options(&self, _: String) -> Result<Vec<Named>, Error> {
         panic!("unexpected team options")
     }
-    async fn viewer(&self) -> Result<String, AppError> {
+    async fn viewer(&self) -> Result<String, Error> {
         self.note("Viewer");
         Ok("self-id".into())
     }
-    async fn auto_assign(&self) -> Result<bool, AppError> {
+    async fn auto_assign(&self) -> Result<bool, Error> {
         self.note("Auto");
         Ok(true)
     }
-    async fn user(&self, value: String) -> Result<String, AppError> {
+    async fn user(&self, value: String) -> Result<String, Error> {
         self.note(format!("User:{value}"));
         Ok(format!("user-{value}"))
     }
-    async fn states(&self, key: String) -> Result<Vec<State>, AppError> {
+    async fn states(&self, key: String) -> Result<Vec<State>, Error> {
         self.note(format!("States:{key}"));
         Ok(Vec::new())
     }
-    async fn state(&self, key: String, value: String) -> Result<String, AppError> {
+    async fn state(&self, key: String, value: String) -> Result<String, Error> {
         self.note(format!("State:{key}:{value}"));
         if self.state_fails {
             Err(shared::validation("missing state"))
@@ -78,27 +78,27 @@ impl Backend for Fake {
             Ok("state-id".into())
         }
     }
-    async fn label(&self, key: String, value: String) -> Result<Option<String>, AppError> {
+    async fn label(&self, key: String, value: String) -> Result<Option<String>, Error> {
         self.note(format!("Label:{key}:{value}"));
         Ok(Some(value.to_lowercase()))
     }
-    async fn label_options(&self, _: String, _: String) -> Result<Vec<Named>, AppError> {
+    async fn label_options(&self, _: String, _: String) -> Result<Vec<Named>, Error> {
         panic!("unexpected label options")
     }
-    async fn labels(&self, key: String) -> Result<Vec<Label>, AppError> {
+    async fn labels(&self, key: String) -> Result<Vec<Label>, Error> {
         self.note(format!("Labels:{key}"));
         Ok(Vec::new())
     }
-    async fn project(&self, value: String) -> Result<Option<String>, AppError> {
+    async fn project(&self, value: String) -> Result<Option<String>, Error> {
         self.note(format!("Project:{value}"));
         Ok(Some(
             if self.empty_project { "" } else { "project-id" }.into(),
         ))
     }
-    async fn project_options(&self, _: String) -> Result<Vec<Named>, AppError> {
+    async fn project_options(&self, _: String) -> Result<Vec<Named>, Error> {
         panic!("unexpected project options")
     }
-    async fn projects(&self, key: String) -> Result<Vec<Named>, AppError> {
+    async fn projects(&self, key: String) -> Result<Vec<Named>, Error> {
         self.note(format!("Projects:{key}"));
         Ok(if self.empty_project {
             vec![Named {
@@ -109,19 +109,19 @@ impl Backend for Fake {
             Vec::new()
         })
     }
-    async fn milestone(&self, project: String, value: String) -> Result<String, AppError> {
+    async fn milestone(&self, project: String, value: String) -> Result<String, Error> {
         self.note(format!("Milestone:{project}:{value}"));
         Ok("milestone-id".into())
     }
-    async fn cycle(&self, team: String, value: String) -> Result<String, AppError> {
+    async fn cycle(&self, team: String, value: String) -> Result<String, Error> {
         self.note(format!("Cycle:{team}:{value}"));
         Ok("cycle-id".into())
     }
-    async fn parent_id(&self, value: String) -> Result<String, AppError> {
+    async fn parent_id(&self, value: String) -> Result<String, Error> {
         self.note(format!("Parent:{value}"));
         Ok("parent-id".into())
     }
-    async fn parent_metadata(&self, id: String) -> Result<Option<Parent>, AppError> {
+    async fn parent_metadata(&self, id: String) -> Result<Option<Parent>, Error> {
         self.note(format!("ParentMetadata:{id}"));
         Ok(self.parent_project.clone().map(|project_id| Parent {
             title: "P".into(),
@@ -129,19 +129,19 @@ impl Backend for Fake {
             project_id,
         }))
     }
-    async fn issue_project(&self, id: String) -> Result<Option<String>, AppError> {
+    async fn issue_project(&self, id: String) -> Result<Option<String>, Error> {
         self.note(format!("IssueProject:{id}"));
         Ok(Some("existing-project".into()))
     }
-    async fn create(&self, _: create::Input) -> Result<Created, AppError> {
+    async fn create(&self, _: create::Input) -> Result<Created, Error> {
         panic!("unexpected CreateIssue")
     }
-    async fn update(&self, _: String, _: IssueUpdateInput) -> Result<Updated, AppError> {
+    async fn update(&self, _: String, _: IssueUpdateInput) -> Result<Updated, Error> {
         panic!("unexpected UpdateIssue")
     }
 }
 impl create::Templates for Fake {
-    async fn issue_template(&self, value: String, team: String) -> Result<String, AppError> {
+    async fn issue_template(&self, value: String, team: String) -> Result<String, Error> {
         self.note(format!("Template:{team}:{value}"));
         Ok("template-id".into())
     }
@@ -159,7 +159,7 @@ impl Ui for Prompt {
         message: &str,
         required: bool,
         default: Option<&str>,
-    ) -> Result<String, AppError> {
+    ) -> Result<String, Error> {
         self.messages.push(message.into());
         let raw = self.answers.pop_front().expect("missing answer");
         linear_cli::platform::prompt_text::TextOptions { required, default }
@@ -172,7 +172,7 @@ impl Ui for Prompt {
         options: &[Named],
         default: usize,
         _: bool,
-    ) -> Result<String, AppError> {
+    ) -> Result<String, Error> {
         self.messages.push(message.into());
         self.menus.push((message.into(), options.to_vec()));
         Ok(self
@@ -185,7 +185,7 @@ impl Ui for Prompt {
         message: &str,
         options: &[Named],
         _: bool,
-    ) -> Result<Vec<String>, AppError> {
+    ) -> Result<Vec<String>, Error> {
         self.menus.push((message.into(), options.to_vec()));
         Ok(if message == "Select additional fields to configure" {
             self.selected_fields.clone()
@@ -193,21 +193,21 @@ impl Ui for Prompt {
             Vec::new()
         })
     }
-    fn suspend(&mut self) -> Result<(), AppError> {
+    fn suspend(&mut self) -> Result<(), Error> {
         Ok(())
     }
-    fn output(&mut self, text: &str) -> Result<(), AppError> {
+    fn output(&mut self, text: &str) -> Result<(), Error> {
         self.messages.push(text.into());
         Ok(())
     }
-    fn error(&mut self, text: &str) -> Result<(), AppError> {
+    fn error(&mut self, text: &str) -> Result<(), Error> {
         self.messages.push(text.into());
         Ok(())
     }
-    fn discover_editor(&mut self) -> Result<Option<String>, AppError> {
+    fn discover_editor(&mut self) -> Result<Option<String>, Error> {
         Ok(None)
     }
-    fn optional_editor(&mut self) -> Result<Option<String>, AppError> {
+    fn optional_editor(&mut self) -> Result<Option<String>, Error> {
         panic!("unexpected editor")
     }
 }
@@ -236,7 +236,7 @@ async fn failing_state_precedes_always_self_and_mutation() {
         .await
         .err()
         .expect("must fail");
-    assert_eq!(error.message, "missing state");
+    assert_eq!(error.message(), "missing state");
     assert_eq!(
         backend.calls(),
         [
@@ -333,7 +333,7 @@ async fn update_label_dedupe_overlap_stops_before_project_parent_and_mutation() 
         .await
         .map_or_else(std::convert::identity, |_| panic!("overlap"));
     assert_eq!(
-        error.message,
+        error.message(),
         "Cannot add and remove the same label in one update"
     );
     assert_eq!(
@@ -515,7 +515,7 @@ async fn parent_optional_observation_distinguishes_absence_transport_failure_and
             .parent_metadata("opaque".into())
             .await
             .unwrap_err()
-            .message
+            .message()
             .contains("unexpected shape")
     );
     assert_eq!(server.join().unwrap().len(), 1);
@@ -527,7 +527,11 @@ async fn parent_optional_observation_distinguishes_absence_transport_failure_and
     ] {
         let (backend, server) = network(vec![reply]);
         assert_eq!(
-            backend.parent_id("ENG-9".into()).await.unwrap_err().message,
+            backend
+                .parent_id("ENG-9".into())
+                .await
+                .unwrap_err()
+                .message(),
             "Parent issue not found: ENG-9"
         );
         assert_eq!(server.join().unwrap().len(), 1);
@@ -561,7 +565,7 @@ async fn full_mutation_decode_precedes_false_null_and_preserves_raw_first_error(
                 .await
                 .err()
                 .unwrap()
-                .message,
+                .message(),
             want
         );
         assert_eq!(server.join().unwrap().len(), 1);
@@ -579,7 +583,7 @@ async fn full_mutation_decode_precedes_false_null_and_preserves_raw_first_error(
             .await
             .err()
             .unwrap();
-        assert_ne!(error.message, "Issue creation failed");
+        assert_ne!(error.message(), "Issue creation failed");
         assert_eq!(server.join().unwrap().len(), 1);
     }
     let (backend, server) = network(vec![json!({"errors":[{"message":""},{"message":"later"}]})]);
@@ -588,7 +592,7 @@ async fn full_mutation_decode_precedes_false_null_and_preserves_raw_first_error(
         .await
         .err()
         .unwrap();
-    assert!(error.message.contains("later"));
+    assert!(error.message().contains("later"));
     assert_eq!(server.join().unwrap().len(), 1);
 }
 #[test]
@@ -612,22 +616,22 @@ fn issue_and_project_templates_share_scope_rules_with_exact_project_regression()
     );
     let error = project_write::select_template("Plan", vec![template("issue")], &[]).unwrap_err();
     assert_eq!(
-        error.message,
+        error.message(),
         "Template \"Plan\" is an issue template, not a project template"
     );
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some("Run `linear template list --type project` to see the project templates.")
     );
     let error =
         issue_template_scope::select("Plan", vec![template("project")], &[], TemplateScope::Issue)
             .unwrap_err();
     assert_eq!(
-        error.message,
+        error.message(),
         "Template \"Plan\" is a project template, not an issue template"
     );
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some("Run `linear template list --type issue` to see the issue templates.")
     );
 }
@@ -807,7 +811,7 @@ async fn update_false_corrupt_model_fails_full_decode_before_false_message() {
         .await
         .err()
         .unwrap();
-    assert_ne!(error.message, "Issue update failed");
+    assert_ne!(error.message(), "Issue update failed");
     assert_eq!(server.join().unwrap().len(), 1);
 }
 
@@ -864,11 +868,12 @@ async fn update_empty_returned_label_ids_stop_at_each_label_prefix() {
                 panic!("empty returned label must be NotFound")
             });
         assert_eq!(
-            error.message, "Issue label not found: DUMMY label",
+            error.message(),
+            "Issue label not found: DUMMY label",
             "{mode}"
         );
         assert_eq!(
-            error.suggestion.as_deref(),
+            error.hint(),
             Some("Run `linear label list --team ENG` to see available labels.")
         );
         let sent = server.join().unwrap();
@@ -907,8 +912,8 @@ async fn update_empty_returned_assignee_ids_stop_before_labels_or_mutation() {
             .map_or_else(std::convert::identity, |_| {
                 panic!("empty returned user must be NotFound")
             });
-        assert_eq!(error.message, format!("User not found: {reference}"));
-        assert!(error.suggestion.is_none());
+        assert_eq!(error.message(), format!("User not found: {reference}"));
+        assert!(error.hint().is_none());
         let sent = server.join().unwrap();
         assert_eq!(sent.len(), 2);
         assert_eq!(sent[0]["operationName"], "ResolveTeam");
@@ -958,7 +963,7 @@ async fn m2_empty_project_name_continues_slug_before_create_or_update() {
                 panic!("expected prefix refusal")
             })
         };
-        assert_eq!(error.message, "Project not found: Name");
+        assert_eq!(error.message(), "Project not found: Name");
         let sent = server.join().unwrap();
         assert_eq!(
             sent.iter()
@@ -991,11 +996,11 @@ async fn m2_empty_existing_project_stops_update_before_milestone_lookup() {
         panic!("expected prefix refusal")
     });
     assert_eq!(
-        error.message,
+        error.message(),
         "Cannot resolve milestone \"Name\" without --project"
     );
     assert_eq!(
-        error.suggestion.as_deref(),
+        error.hint(),
         Some(
             "Pass a milestone UUID, or specify --project so the milestone name can be looked up within that project."
         )
@@ -1036,7 +1041,7 @@ async fn m2_empty_slug_project_stops_create_before_milestone_lookup_but_uuid_byp
     .err()
     .expect("expected prefix refusal");
     assert_eq!(
-        error.message,
+        error.message(),
         "Cannot resolve milestone \"Name\" without --project"
     );
     let sent = server.join().unwrap();

@@ -1,21 +1,14 @@
 //! Pull-request-only child policy: inherit all three descriptors, no status forwarding.
 //! Git/jj capture/inference policies remain in vcs_script and are unchanged.
-use crate::{
-    config::ChildEnvOverlay,
-    error::{AppError, AppErrorKind},
-};
+use crate::{config::ChildEnvOverlay, error::Error};
 use std::{
     io,
     path::Path,
     process::{Child, Command, Stdio},
 };
 pub trait GhRunner {
-    fn create(
-        &mut self,
-        args: &[String],
-        cwd: &Path,
-        env: &ChildEnvOverlay,
-    ) -> Result<bool, AppError>;
+    fn create(&mut self, args: &[String], cwd: &Path, env: &ChildEnvOverlay)
+    -> Result<bool, Error>;
 }
 pub struct NativeGhRunner;
 struct OwnedGh {
@@ -30,12 +23,8 @@ impl Drop for OwnedGh {
         }
     }
 }
-fn failure(stage: &str, error: io::Error) -> AppError {
-    AppError::new(
-        AppErrorKind::IoProcess,
-        format!("Failed to {stage}: {error}"),
-    )
-    .with_source(error)
+fn failure(stage: &str, error: io::Error) -> Error {
+    Error::new(format!("Failed to {stage}: {error}")).with_source(error)
 }
 impl GhRunner for NativeGhRunner {
     fn create(
@@ -43,7 +32,7 @@ impl GhRunner for NativeGhRunner {
         args: &[String],
         cwd: &Path,
         env: &ChildEnvOverlay,
-    ) -> Result<bool, AppError> {
+    ) -> Result<bool, Error> {
         let mut command = Command::new("gh");
         command
             .args(args)
@@ -57,11 +46,7 @@ impl GhRunner for NativeGhRunner {
         }
         let child = command.spawn().map_err(|error| {
             if error.kind() == io::ErrorKind::NotFound {
-                AppError::new(
-                    AppErrorKind::IoProcess,
-                    "Failed to spawn 'gh': entity not found",
-                )
-                .with_source(error)
+                Error::new("Failed to spawn 'gh': entity not found").with_source(error)
             } else {
                 failure("spawn gh", error)
             }

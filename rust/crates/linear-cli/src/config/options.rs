@@ -3,7 +3,7 @@
 //!
 //! Every tier that sets an option is validated, even when a higher tier
 //! overrides it, so a typo never lies dormant. No process state is read here.
-use std::error::Error;
+use std::error::Error as StdError;
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
 
@@ -257,7 +257,7 @@ impl fmt::Display for ConfigOptionError {
     }
 }
 
-impl Error for ConfigOptionError {}
+impl StdError for ConfigOptionError {}
 
 impl ConfigOptionError {
     /// The spelling the user wrote: `LINEAR_FOO` in the environment,
@@ -284,20 +284,12 @@ impl ConfigOptionError {
     }
 }
 
-impl From<ConfigOptionError> for crate::error::AppError {
+impl From<ConfigOptionError> for crate::error::Error {
     fn from(error: ConfigOptionError) -> Self {
-        use crate::error::{AppError, AppErrorKind};
-        let kind = match error.reason {
-            OptionErrorReason::InvalidCwd | OptionErrorReason::MissingDotenvPath => {
-                AppErrorKind::Invariant
-            }
-            OptionErrorReason::Invalid(_)
-            | OptionErrorReason::EmptyTemplate
-            | OptionErrorReason::InvalidEndpoint => AppErrorKind::Validation,
-        };
-        let app = AppError::new(kind, error.to_string());
+        use crate::error::Error;
+        let app = Error::new(error.to_string());
         match error.suggestion() {
-            Some(suggestion) => app.with_suggestion(suggestion),
+            Some(suggestion) => app.with_hint(suggestion),
             None => app,
         }
     }

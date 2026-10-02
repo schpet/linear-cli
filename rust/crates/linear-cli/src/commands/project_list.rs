@@ -10,14 +10,15 @@ use serde::Serialize;
 use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::commands::relative_time::format_relative_time;
 use crate::commands::table::underlined_header;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::number::Float;
 use crate::graphql::operations::projects::{
-    GetProjects, GetProjectsVariables, GetViewer, Project, ProjectFilter, ProjectStatusFilter,
+    GetProjects, GetProjectsVariables, Project, ProjectFilter, ProjectStatusFilter,
     ProjectStatusType, TeamCollectionFilter,
 };
 use crate::graphql::operations::teams::{PageInfo, StringComparator, TeamFilter};
+use crate::graphql::operations::viewer::GetViewer;
 use crate::graphql::pagination::{self, EmptyCursorPolicy, Page, PaginationError};
 use crate::graphql::scalars::{DateTime, TimelessDate};
 use crate::graphql::transport::GraphQlTransport;
@@ -36,12 +37,9 @@ pub struct Options {
     pub app: bool,
 }
 
-pub fn check_conflicting_flags(options: &Options) -> Result<(), AppError> {
+pub fn check_conflicting_flags(options: &Options) -> Result<(), Error> {
     if options.team.is_some() && options.all_teams {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
-            "Cannot use both --team and --all-teams flags",
-        ));
+        return Err(Error::new("Cannot use both --team and --all-teams flags"));
     }
     Ok(())
 }
@@ -80,15 +78,15 @@ pub async fn run_with<F, Fut, Now>(
     now: Now,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnMut(GraphQlRequest<GetProjectsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetProjects, AppError>>,
+    Fut: Future<Output = Result<GetProjects, Error>>,
     Now: FnOnce() -> SystemTime,
 {
     run_uncontextualized(&mut fetch, team_key, status, json, now, columns, color)
         .await
-        .map_err(|error| error.with_context(FETCH_CONTEXT))
+        .context(FETCH_CONTEXT)
 }
 
 async fn run_uncontextualized<F, Fut, Now>(
@@ -99,10 +97,10 @@ async fn run_uncontextualized<F, Fut, Now>(
     now: Now,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnMut(GraphQlRequest<GetProjectsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetProjects, AppError>>,
+    Fut: Future<Output = Result<GetProjects, Error>>,
     Now: FnOnce() -> SystemTime,
 {
     let filter = filter(team_key, status);
@@ -115,7 +113,7 @@ where
         let future = fetch(request);
         async move {
             let data = future.await?;
-            Ok::<Page<Project>, AppError>(Page {
+            Ok::<Page<Project>, Error>(Page {
                 nodes: data.projects.nodes,
                 page_info: data.projects.page_info.into(),
             })
@@ -124,18 +122,14 @@ where
     .await
     .map_err(|error| match error {
         PaginationError::Fetch { source, .. } => source,
-        PaginationError::MissingCursor { page } => AppError::new(
-            AppErrorKind::Validation,
-            format!(
-                "Linear reported more projects but returned no pagination cursor on page {page}"
-            ),
-        )
-        .with_suggestion("Retry the command."),
-        PaginationError::RepeatedCursor { page, .. } => AppError::new(
-            AppErrorKind::Validation,
-            format!("Linear repeated a project pagination cursor on page {page}"),
-        )
-        .with_suggestion("Retry the command."),
+        PaginationError::MissingCursor { page } => Error::new(format!(
+            "Linear reported more projects but returned no pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command."),
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated a project pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command."),
     })?;
 
     let mut projects = pages.nodes;
@@ -172,9 +166,9 @@ pub async fn run(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
         team_key,
         status,
         json,
@@ -217,7 +211,7 @@ struct JsonProject<'a> {
     teams: &'a crate::graphql::operations::projects::ProjectTeams,
 }
 
-fn render_json(projects: &[Project], page_info: &PageInfo) -> Result<Vec<u8>, AppError> {
+fn render_json(projects: &[Project], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
     let nodes = projects
         .iter()
         .map(|project| {
@@ -244,12 +238,9 @@ fn render_json(projects: &[Project], page_info: &PageInfo) -> Result<Vec<u8>, Ap
                 teams: &project.teams,
             })
         })
-        .collect::<Result<Vec<_>, AppError>>()?;
-    let mut bytes =
-        serde_json::to_vec_pretty(&JsonConnection { nodes, page_info }).map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize projects")
-                .with_source(error)
-        })?;
+        .collect::<Result<Vec<_>, Error>>()?;
+    let mut bytes = serde_json::to_vec_pretty(&JsonConnection { nodes, page_info })
+        .map_err(|error| Error::new("could not serialize projects").with_source(error))?;
     bytes.push(b'\n');
     Ok(bytes)
 }
@@ -265,7 +256,7 @@ fn priority_label(priority: i32) -> String {
     }
 }
 
-fn display_date(project: &Project, now: SystemTime) -> Result<String, AppError> {
+fn display_date(project: &Project, now: SystemTime) -> Result<String, Error> {
     let updated = || {
         format!(
             "Updated {}",
@@ -319,11 +310,10 @@ fn display_date(project: &Project, now: SystemTime) -> Result<String, AppError> 
             |date| format!("Start: {}", date.0),
         )),
         ProjectStatusType::Backlog | ProjectStatusType::Paused => Ok(updated()),
-        ProjectStatusType::Unknown(value) => Err(AppError::new(
-            AppErrorKind::Validation,
-            format!("Linear returned an unknown project status type: {value}"),
-        )
-        .with_suggestion("Update the CLI, or report this if it persists.")),
+        ProjectStatusType::Unknown(value) => Err(Error::new(format!(
+            "Linear returned an unknown project status type: {value}"
+        ))
+        .with_hint("Update the CLI, or report this if it persists.")),
     }
 }
 
@@ -332,7 +322,7 @@ pub fn render_text(
     now: SystemTime,
     columns: usize,
     color: bool,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     if projects.is_empty() {
         return Ok("No projects found.\n".to_owned());
     }
@@ -482,12 +472,12 @@ pub fn opening(workspace: &str, team_key: Option<&str>, app: bool) -> (String, V
     (url, line)
 }
 
-pub async fn viewer_workspace(transport: &GraphQlTransport) -> Result<String, AppError> {
+pub async fn viewer_workspace(transport: &GraphQlTransport) -> Result<String, Error> {
     let request = GraphQlRequest::without_variables(GetViewer::build(()));
-    let result: GetViewer = transport.execute(&request).await.map_err(AppError::from)?;
+    let result: GetViewer = transport.execute(&request).await.map_err(Error::from)?;
     Ok(result.viewer.organization.url_key)
 }
 
-pub fn open(url: &str, app: bool) -> Result<(), AppError> {
-    opener::open(url, app).map_err(|error| error.with_context(OPEN_CONTEXT))
+pub fn open(url: &str, app: bool) -> Result<(), Error> {
+    opener::open(url, app).context(OPEN_CONTEXT)
 }

@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::future::ready;
 
 use linear_cli::auth::ApiKeyInput;
-use linear_cli::error::{AppError, AppErrorKind};
+use linear_cli::error::{Error, ErrorKind};
 use linear_cli::graphql::edit::Edit;
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::team_resolver::{
@@ -18,7 +18,7 @@ fn scope_for<'a>(spec: &'a Value, key: &'a ApiKeyInput<'a>) -> WorkspaceScope<'a
         cli_workspace: spec["cli_workspace"].as_str(),
         sourced_workspace: spec["workspace_env"].as_str(),
         default_workspace: spec["default_workspace"].as_str(),
-        api_key: key,
+        api_key: key.clone(),
     }
 }
 
@@ -49,21 +49,18 @@ fn request_variables<V: serde::Serialize>(request: &GraphQlRequest<V>) -> Value 
         .clone()
 }
 
-fn assert_error(spec: &Value, error: &AppError, kind: AppErrorKind) {
+fn assert_error(spec: &Value, error: &Error, kind: ErrorKind) {
     let (message, suggestion) = expected_error(spec);
-    assert_eq!(error.kind, kind, "{}", spec["id"]);
-    assert_eq!(error.message, message, "{}", spec["id"]);
-    assert_eq!(error.suggestion.as_deref(), suggestion, "{}", spec["id"]);
-    assert_eq!(error.context, None, "{}", spec["id"]);
+    assert_eq!(error.kind(), kind, "{}", spec["id"]);
+    assert_eq!(error.message(), message, "{}", spec["id"]);
+    assert_eq!(error.hint(), suggestion, "{}", spec["id"]);
+    assert!(!error.has_context(), "{}", spec["id"]);
 }
 
 fn unexpected_all(
     _: GraphQlRequest<GetAllTeamsVariables>,
-) -> std::future::Ready<Result<GetAllTeams, AppError>> {
-    ready(Err(AppError::new(
-        AppErrorKind::Invariant,
-        "GetAllTeams was not expected",
-    )))
+) -> std::future::Ready<Result<GetAllTeams, Error>> {
+    ready(Err(Error::new("GetAllTeams was not expected")))
 }
 
 #[tokio::test]
@@ -114,7 +111,7 @@ async fn blank_and_ambiguous_errors_are_exact() {
         let error = prepare_team_lookup(argument(&spec), &scope_for(&spec, &absent))
             .err()
             .unwrap_or_else(|| panic!("{} should be blank", spec["id"]));
-        assert_error(&spec, &error, AppErrorKind::Validation);
+        assert_error(&spec, &error, ErrorKind::Other);
     }
 
     for name in ["ambiguous-name", "url-ambiguity-key"] {
@@ -130,7 +127,7 @@ async fn blank_and_ambiguous_errors_are_exact() {
         .await
         .err()
         .unwrap_or_else(|| panic!("{} should be ambiguous", spec["id"]));
-        assert_error(&spec, &error, AppErrorKind::Validation);
+        assert_error(&spec, &error, ErrorKind::Other);
     }
 }
 
@@ -181,7 +178,7 @@ async fn assert_miss(name: &str) {
     .unwrap_or_else(|| panic!("{} should miss", spec["id"]));
     assert_eq!(seen_pages, expected_page_count, "{} page count", spec["id"]);
     assert!(pages.is_empty());
-    assert_error(&spec, &error, AppErrorKind::NotFound);
+    assert_error(&spec, &error, ErrorKind::NotFound);
 }
 
 #[tokio::test]
@@ -205,13 +202,13 @@ async fn graphql_failures_pass_through_without_context() {
     let (message, _) = expected_error(&spec);
     let error = resolve_team(
         &prepared,
-        |_| ready(Err(AppError::new(AppErrorKind::GraphQl, message))),
+        |_| ready(Err(Error::new(message))),
         unexpected_all,
     )
     .await
     .err()
     .unwrap_or_else(|| panic!("ResolveTeam failure"));
-    assert_error(&spec, &error, AppErrorKind::GraphQl);
+    assert_error(&spec, &error, ErrorKind::Other);
 
     let spec = case("all-teams-error");
     let prepared = prepared_for(&spec, &absent);
@@ -220,12 +217,12 @@ async fn graphql_failures_pass_through_without_context() {
     let error = resolve_team(
         &prepared,
         |_| ready(Ok(response)),
-        |_| ready(Err(AppError::new(AppErrorKind::GraphQl, message))),
+        |_| ready(Err(Error::new(message))),
     )
     .await
     .err()
     .unwrap_or_else(|| panic!("GetAllTeams failure"));
-    assert_error(&spec, &error, AppErrorKind::GraphQl);
+    assert_error(&spec, &error, ErrorKind::Other);
 }
 
 #[test]
@@ -276,7 +273,7 @@ async fn disjoint_alias_prioritizes_key_then_id_then_name() {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &absent,
+        api_key: absent.clone(),
     };
     let uuid = "01234567-89ab-4cde-8f01-23456789abcd";
     let prepared = prepare_team_lookup(uuid, &scope).unwrap_or_else(|error| panic!("{error}"));
@@ -304,7 +301,7 @@ async fn repeated_cursor_fails_without_partial_result() {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &absent,
+        api_key: absent.clone(),
     };
     let prepared = prepare_team_lookup("Unknown", &scope).unwrap_or_else(|error| panic!("{error}"));
     for cursor in [None, Some(String::new()), Some("repeat".to_owned())] {
@@ -336,13 +333,12 @@ async fn repeated_cursor_fails_without_partial_result() {
         .err()
         .unwrap_or_else(|| panic!("repeated cursor should fail"));
         assert_eq!(pages, 2);
-        assert_eq!(error.kind, AppErrorKind::Validation);
         assert_eq!(
-            error.message,
+            error.message(),
             "Linear repeated a team pagination cursor on page 2"
         );
-        assert_eq!(error.suggestion.as_deref(), Some("Retry the command."));
-        assert_eq!(error.context, None);
+        assert_eq!(error.hint(), Some("Retry the command."));
+        assert!(!error.has_context());
     }
 }
 
@@ -353,7 +349,7 @@ async fn later_page_failure_passes_through_without_partial_result() {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &absent,
+        api_key: absent.clone(),
     };
     let prepared = prepare_team_lookup("Unknown", &scope).unwrap_or_else(|error| panic!("{error}"));
     let empty_resolve: ResolveTeam = serde_json::from_value(json!({"teams":{"nodes":[]}}))
@@ -379,10 +375,7 @@ async fn later_page_failure_passes_through_without_partial_result() {
                     request_variables(&request),
                     json!({"first":100,"after":"next"})
                 );
-                ready(Err(AppError::new(
-                    AppErrorKind::GraphQl,
-                    "later page failed",
-                )))
+                ready(Err(Error::new("later page failed")))
             }
         },
     )
@@ -390,9 +383,8 @@ async fn later_page_failure_passes_through_without_partial_result() {
     .err()
     .unwrap_or_else(|| panic!("later page should fail"));
     assert_eq!(calls, 2);
-    assert_eq!(error.kind, AppErrorKind::GraphQl);
-    assert_eq!(error.message, "later page failed");
-    assert_eq!(error.context, None);
+    assert_eq!(error.message(), "later page failed");
+    assert!(!error.has_context());
 }
 
 #[tokio::test]
@@ -403,9 +395,8 @@ async fn malformed_team_decode_fails_strictly_without_context() {
     let failure = parse_response::<ResolveTeam>(body)
         .err()
         .unwrap_or_else(|| panic!("Cynic should reject null key"));
-    let app = AppError::from(failure);
-    assert_eq!(app.kind, AppErrorKind::Invariant);
-    assert_eq!(app.context, None);
+    let app = Error::from(failure);
+    assert!(!app.has_context());
 
     for (label, body) in [
         (
@@ -429,15 +420,14 @@ async fn malformed_team_decode_fails_strictly_without_context() {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &absent,
+        api_key: absent.clone(),
     };
     let prepared = prepare_team_lookup("ENG", &scope).unwrap_or_else(|error| panic!("{error}"));
-    let original_message = app.message.clone();
+    let original_message = app.message().to_owned();
     let error = find_team(&prepared, |_| ready(Err(app)))
         .await
         .err()
         .unwrap_or_else(|| panic!("decode failure should pass through"));
-    assert_eq!(error.kind, AppErrorKind::Invariant);
-    assert_eq!(error.message, original_message);
-    assert_eq!(error.context, None);
+    assert_eq!(error.message(), original_message);
+    assert!(!error.has_context());
 }

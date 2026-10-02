@@ -9,15 +9,15 @@
 
 use clap::{Arg, Command};
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
-fn invariant(message: impl Into<String>) -> AppError {
-    AppError::new(AppErrorKind::Invariant, message)
+fn invariant(message: impl Into<String>) -> Error {
+    Error::new(message)
 }
 
 /// Command names, aliases, flags and enum values are embedded in `switch`
 /// patterns, `-a` word lists and conditions, so only plain words are accepted.
-fn plain_word<'a>(kind: &str, word: &'a str) -> Result<&'a str, AppError> {
+fn plain_word<'a>(kind: &str, word: &'a str) -> Result<&'a str, Error> {
     let mut chars = word.chars();
     let plain = chars
         .next()
@@ -52,7 +52,7 @@ fn collect_states<'a>(
     command: &'a Command,
     path: String,
     states: &mut Vec<State<'a>>,
-) -> Result<(), AppError> {
+) -> Result<(), Error> {
     if command.is_hide_set() {
         return Err(invariant("fish completion does not accept hidden commands"));
     }
@@ -72,7 +72,7 @@ fn options(command: &Command) -> impl Iterator<Item = &Arg> {
     command.get_arguments().filter(|arg| !arg.is_positional())
 }
 
-fn takes_value(arg: &Arg) -> Result<bool, AppError> {
+fn takes_value(arg: &Arg) -> Result<bool, Error> {
     arg.get_num_args()
         .map(|range| range.takes_values())
         .ok_or_else(|| invariant(format!("unbuilt fish completion argument {}", arg.get_id())))
@@ -101,7 +101,7 @@ impl Spelling<'_> {
 }
 
 /// Every spelling of an option, shorts first.
-fn spellings(arg: &Arg) -> Result<Vec<Spelling<'_>>, AppError> {
+fn spellings(arg: &Arg) -> Result<Vec<Spelling<'_>>, Error> {
     let mut spellings = Vec::new();
     for short in arg.get_short_and_visible_aliases().unwrap_or_default() {
         if !short.is_ascii_alphanumeric() {
@@ -125,7 +125,7 @@ fn spellings(arg: &Arg) -> Result<Vec<Spelling<'_>>, AppError> {
 /// must consume exactly one word. Leaf option spellings also belong in the
 /// table: a short option's attached value ends its cluster, even though a leaf
 /// has no further command words to select.
-fn value_spellings(state: &State<'_>) -> Result<Vec<String>, AppError> {
+fn value_spellings(state: &State<'_>) -> Result<Vec<String>, Error> {
     let parent = state.command.has_subcommands();
     if parent && state.command.get_positionals().next().is_some() {
         return Err(invariant(format!(
@@ -153,7 +153,7 @@ fn value_spellings(state: &State<'_>) -> Result<Vec<String>, AppError> {
     Ok(result)
 }
 
-fn helpers(function: &str, root: &str, states: &[State<'_>]) -> Result<String, AppError> {
+fn helpers(function: &str, root: &str, states: &[State<'_>]) -> Result<String, Error> {
     let mut parents = Vec::new();
     let mut children = String::new();
     let mut values = Vec::new();
@@ -293,7 +293,7 @@ end
     ))
 }
 
-fn value_completion(arg: &Arg) -> Result<String, AppError> {
+fn value_completion(arg: &Arg) -> Result<String, Error> {
     if !takes_value(arg)? {
         return Ok(String::new());
     }
@@ -323,7 +323,7 @@ fn value_completion(arg: &Arg) -> Result<String, AppError> {
     })
 }
 
-fn state_lines(bin_name: &str, function: &str, state: &State<'_>) -> Result<String, AppError> {
+fn state_lines(bin_name: &str, function: &str, state: &State<'_>) -> Result<String, Error> {
     let base = format!(
         "complete -c {bin_name} -n \"__fish_{function}_using_command {}\"",
         quoted(&state.path)
@@ -375,7 +375,7 @@ fn state_lines(bin_name: &str, function: &str, state: &State<'_>) -> Result<Stri
 }
 
 /// Generate the fish script registering completions for `bin_name`.
-pub fn script(mut command: Command, bin_name: &str) -> Result<Vec<u8>, AppError> {
+pub fn script(mut command: Command, bin_name: &str) -> Result<Vec<u8>, Error> {
     let valid_name = !bin_name.starts_with(['-', '.'])
         && bin_name
             .chars()

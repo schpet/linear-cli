@@ -190,10 +190,10 @@ async fn missing_and_empty_cursor_discard_partial_nodes() {
         .await
         .expect_err("missing cursor");
         assert_eq!(
-            result.display_message(),
+            result.to_string(),
             "Failed to list cycles: Linear reported more cycles but returned no pagination cursor"
         );
-        assert_eq!(result.suggestion.as_deref(), Some("Retry the command."));
+        assert_eq!(result.hint(), Some("Retry the command."));
     }
 }
 
@@ -222,7 +222,7 @@ async fn repeated_cursor_stops_without_requesting_a_third_page() {
     .expect_err("repeated cursor");
     assert_eq!(*requests.borrow(), 2);
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to list cycles: Linear repeated a cycle pagination cursor on page 2"
     );
 }

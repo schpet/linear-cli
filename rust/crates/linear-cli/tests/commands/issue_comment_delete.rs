@@ -1,5 +1,4 @@
 use linear_cli::commands::issue_comment_delete;
-use linear_cli::error::AppErrorKind;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::comment_delete::DeleteComment;
 use linear_cli::graphql::transport::{
@@ -81,15 +80,14 @@ fn comment_links_in_any_workspace_get_the_specific_rejection() {
         "https://linear.app/other/issue/ENG-1#comment-7d2e4f1a",
     ] {
         let error = reject_comment_url(input).unwrap_err();
-        assert_eq!(error.kind, AppErrorKind::Validation);
         assert_eq!(
-            error.message,
+            error.message(),
             format!(
                 "\"{input}\" links to a comment, but a comment URL only carries the first eight characters of its ID."
             )
         );
         assert_eq!(
-            error.suggestion.as_deref(),
+            error.hint(),
             Some("Pass the comment's full UUID, from `linear issue comment list <issue> --json`.")
         );
     }
@@ -103,10 +101,10 @@ fn comment_links_in_any_workspace_get_the_specific_rejection() {
         assert!(reject_comment_url(input).is_ok(), "{input}");
         let error = reject_linear_url(input, "a comment UUID").unwrap_err();
         assert_eq!(
-            error.message,
+            error.message(),
             format!("\"{input}\" is a Linear URL, and this command does not take one.")
         );
-        assert_eq!(error.suggestion.as_deref(), Some("Pass a comment UUID."));
+        assert_eq!(error.hint(), Some("Pass a comment UUID."));
     }
     for input in [
         ID,
@@ -240,13 +238,12 @@ async fn delete_failures_never_retry_or_add_uncertainty() {
             .await
             .unwrap_err();
         assert!(
-            !error.message.contains("may"),
+            !error.message().contains("may"),
             "{reply:?}: {}",
-            error.message
+            error.message()
         );
         if matches!(reply, Reply::Respond(_, body) if body.contains("\"success\":false")) {
-            assert_eq!(error.message, "Failed to delete comment");
-            assert_eq!(error.kind, AppErrorKind::GraphQl);
+            assert_eq!(error.message(), "Failed to delete comment");
         }
         assert!(!server.join().unwrap().1, "delete must not retry");
     }

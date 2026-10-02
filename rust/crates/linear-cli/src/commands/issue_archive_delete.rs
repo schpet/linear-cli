@@ -1,7 +1,7 @@
 //! `issue archive`/`delete`, single or bulk.
 use crate::{
     commands::initiative_bulk::{BulkOutcome, BulkResult, Progress},
-    error::{AppError, AppErrorKind},
+    error::Error,
     graphql::{
         bulk_error::{self, ObservedExchangeFailure},
         envelope::GraphQlRequest,
@@ -41,7 +41,7 @@ impl Mode {
 pub enum ReferenceOutcome {
     Resolved(String),
     Unresolved,
-    Failed(AppError),
+    Failed(Error),
 }
 pub struct Target {
     pub original: String,
@@ -52,8 +52,7 @@ impl Target {
         let reference = match refs::prepare_issue_reference(Some(&original), team, scope) {
             Ok(IssueReference::Identifier(id)) => ReferenceOutcome::Resolved(id),
             Ok(IssueReference::Unresolved) => ReferenceOutcome::Unresolved,
-            Ok(IssueReference::Inferred) => ReferenceOutcome::Failed(AppError::new(
-                AppErrorKind::Invariant,
+            Ok(IssueReference::Inferred) => ReferenceOutcome::Failed(Error::new(
                 "explicit bulk issue reference requested inference",
             )),
             Err(error) => ReferenceOutcome::Failed(error),
@@ -105,33 +104,27 @@ async fn single_exchange<T: serde::de::DeserializeOwned>(
     transport: &GraphQlTransport,
     request: &GraphQlRequest<IdVariables>,
     archive_not_found: Option<&str>,
-) -> Result<T, AppError> {
-    let response = transport
-        .send_request(request)
-        .await
-        .map_err(AppError::from)?;
+) -> Result<T, Error> {
+    let response = transport.send_request(request).await.map_err(Error::from)?;
     let observed = bulk_error::observe_source_error(&response, request)
         .map_err(bulk_error::BulkExchangeFailure::into_error)?;
     if let Some(error) = observed {
         if let Some(id) = archive_not_found
             && error.is_not_found()
         {
-            return Err(AppError::not_found("Issue", id));
+            return Err(Error::not_found("Issue", id));
         }
         // Prefer Linear's user-facing message; otherwise keep the full error
         // message, including its metadata.
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            error.preferred_message.unwrap_or(error.message),
-        ));
+        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
     }
-    classify_typed(response).map_err(AppError::from)
+    classify_typed(response).map_err(Error::from)
 }
 pub async fn single_details(
     transport: &GraphQlTransport,
     id: &str,
     mode: Mode,
-) -> Result<Details, AppError> {
+) -> Result<Details, Error> {
     let request = details_request(id, mode, false);
     let details = match mode {
         Mode::Archive => {
@@ -152,14 +145,14 @@ pub async fn single_details(
             })
         }
     };
-    details.ok_or_else(|| AppError::not_found("Issue", id))
+    details.ok_or_else(|| Error::not_found("Issue", id))
 }
 pub async fn submit_single(
     transport: &GraphQlTransport,
     id: &str,
     details: &Details,
     mode: Mode,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     let request = mutation_request(id, mode, false);
     let success = match mode {
         Mode::Archive => {
@@ -172,13 +165,10 @@ pub async fn submit_single(
         }
     };
     if !success {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            match mode {
-                Mode::Archive => "Linear reported the archive as unsuccessful",
-                Mode::Delete => "Failed to delete issue",
-            },
-        ));
+        return Err(Error::new(match mode {
+            Mode::Archive => "Linear reported the archive as unsuccessful",
+            Mode::Delete => "Failed to delete issue",
+        }));
     }
     Ok(format!("✓ Successfully {} issue: {}\n", mode.past(), details.name()).into_bytes())
 }
@@ -186,7 +176,7 @@ async fn bulk_resolved(
     transport: &GraphQlTransport,
     id: &str,
     mode: Mode,
-) -> Result<BulkResult, AppError> {
+) -> Result<BulkResult, Error> {
     let request = details_request(id, mode, true);
     let not_found = || BulkResult {
         id: id.to_owned(),
@@ -282,7 +272,7 @@ pub async fn run_item(transport: &GraphQlTransport, target: Target, mode: Mode) 
     result.unwrap_or_else(|error| BulkResult {
         id: target.original,
         name: None,
-        outcome: BulkOutcome::Failed(error.message),
+        outcome: BulkOutcome::Failed(error.message().to_owned()),
     })
 }
 async fn slot<F>(
@@ -293,9 +283,9 @@ async fn slot<F>(
     total: usize,
     succeeded: usize,
     progress: &RefCell<F>,
-) -> Result<Option<BulkResult>, AppError>
+) -> Result<Option<BulkResult>, Error>
 where
-    F: FnMut(Progress) -> Result<(), AppError>,
+    F: FnMut(Progress) -> Result<(), Error>,
 {
     let Some(target) = target else {
         return Ok(None);
@@ -315,9 +305,9 @@ pub async fn execute<F>(
     targets: Vec<Target>,
     mode: Mode,
     progress: F,
-) -> Result<Vec<BulkResult>, AppError>
+) -> Result<Vec<BulkResult>, Error>
 where
-    F: FnMut(Progress) -> Result<(), AppError>,
+    F: FnMut(Progress) -> Result<(), Error>,
 {
     let total = targets.len();
     let mut targets = targets.into_iter();
@@ -441,18 +431,14 @@ pub fn summary(results: &[BulkResult], mode: Mode) -> (Vec<u8>, bool) {
 }
 /// Descriptor type, not CI or a broad !stdoutTTY gate, defines the approved boundary.
 #[cfg(unix)]
-pub fn stdout_is_pipe() -> Result<bool, AppError> {
+pub fn stdout_is_pipe() -> Result<bool, Error> {
     let stat = rustix::fs::fstat(std::io::stdout()).map_err(|error| {
-        AppError::new(
-            AppErrorKind::IoProcess,
-            "Failed to inspect issue confirmation stdout",
-        )
-        .with_source(error)
+        Error::new("Failed to inspect issue confirmation stdout").with_source(error)
     })?;
     Ok(rustix::fs::FileType::from_raw_mode(stat.st_mode) == rustix::fs::FileType::Fifo)
 }
 #[cfg(not(unix))]
-pub fn stdout_is_pipe() -> Result<bool, AppError> {
+pub fn stdout_is_pipe() -> Result<bool, Error> {
     // The qualified FIFO refusal is Unix-only; other targets retain native prompts.
     Ok(false)
 }

@@ -1,5 +1,5 @@
 //! One milestone mutation, with no retry or local UUID validation.
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestone_delete::{
     DeleteProjectMilestone, DeleteProjectMilestoneVariables,
@@ -15,10 +15,10 @@ pub fn request(id: &str) -> GraphQlRequest<DeleteProjectMilestoneVariables> {
     ))
 }
 
-pub async fn submit(transport: &GraphQlTransport, id: &str) -> Result<Vec<u8>, AppError> {
+pub async fn submit(transport: &GraphQlTransport, id: &str) -> Result<Vec<u8>, Error> {
     let result: DeleteProjectMilestone = transport.execute(&request(id)).await?;
     if !result.project_milestone_delete.success {
-        return Err(AppError::new(AppErrorKind::GraphQl, CONTEXT));
+        return Err(Error::new(CONTEXT));
     }
     Ok(format!("✓ Deleted milestone {id}\n").into_bytes())
 }

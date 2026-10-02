@@ -1,7 +1,7 @@
 //! Issue reference precedence before credential selection or VCS inference.
 use super::url::issue_identifier;
 use super::{LinearUrlKind, LinearUrlRef, WorkspaceScope, expect_url_kind};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IssueReference {
@@ -14,7 +14,7 @@ pub fn prepare_issue_reference(
     input: Option<&str>,
     team_key: Option<&str>,
     scope: &WorkspaceScope<'_>,
-) -> Result<IssueReference, AppError> {
+) -> Result<IssueReference, Error> {
     let Some(input) = input else {
         return Ok(IssueReference::Inferred);
     };
@@ -29,10 +29,7 @@ pub fn prepare_issue_reference(
                 return Ok(IssueReference::Identifier(identifier));
             }
             Some(_) => {
-                return Err(AppError::new(
-                    AppErrorKind::Invariant,
-                    "issue URL kind mismatch",
-                ));
+                return Err(Error::new("issue URL kind mismatch"));
             }
             None => {}
         }
@@ -44,11 +41,8 @@ pub fn prepare_issue_reference(
         && input.bytes().all(|b| b.is_ascii_digit())
     {
         let team = team_key.filter(|value| !value.is_empty()).ok_or_else(|| {
-            AppError::new(
-                AppErrorKind::Validation,
-                "an integer id was provided, but no team is set",
-            )
-            .with_suggestion("Run `linear config` to set a team.")
+            Error::new("an integer id was provided, but no team is set")
+                .with_hint("Run `linear config` to set a team.")
         })?;
         return Ok(
             issue_identifier(&format!("{}-{input}", team.to_uppercase()))

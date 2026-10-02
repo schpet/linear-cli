@@ -3,7 +3,7 @@ use crate::{
         CredentialMutationBackend, CredentialMutationFileWriter, CredentialMutationState,
         MutationFailure,
     },
-    error::{AppError, AppErrorKind},
+    error::Error,
     platform::prompt::{PlainOption, escaped_display},
 };
 use std::path::Path;
@@ -16,12 +16,9 @@ pub enum LogoutTarget {
 pub fn prepare(
     state: &CredentialMutationState,
     explicit: Option<&str>,
-) -> Result<LogoutTarget, AppError> {
+) -> Result<LogoutTarget, Error> {
     if state.workspaces().is_empty() {
-        return Err(AppError::new(
-            AppErrorKind::Auth,
-            "No workspaces configured",
-        ));
+        return Err(Error::auth("No workspaces configured"));
     }
     if let Some(name) = explicit.filter(|value| !value.is_empty()) {
         return selected(state, name);
@@ -31,19 +28,18 @@ pub fn prepare(
     }
     let options = state.workspaces().iter().map(|name| {
         if name.trim().is_empty() || name.chars().any(char::is_control) {
-            return Err(AppError::new(AppErrorKind::Validation,
-                "Workspace names containing control characters or only whitespace cannot be selected interactively")
-                .with_suggestion("Specify the workspace explicitly with `linear auth logout <workspace>`."));
+            return Err(Error::new("Workspace names containing control characters or only whitespace cannot be selected interactively")
+                .with_hint("Specify the workspace explicitly with `linear auth logout <workspace>`."));
         }
         Ok(PlainOption { label: if state.default() == Some(name.as_str()) {
             format!("{} (default)", escaped_display(name))
         } else { escaped_display(name) }, value: name.clone(), script_token: name.clone() })
-    }).collect::<Result<Vec<_>, AppError>>()?;
+    }).collect::<Result<Vec<_>, Error>>()?;
     Ok(LogoutTarget::Select(options))
 }
-pub fn selected(state: &CredentialMutationState, name: &str) -> Result<LogoutTarget, AppError> {
+pub fn selected(state: &CredentialMutationState, name: &str) -> Result<LogoutTarget, Error> {
     if !state.has_workspace(name) {
-        return Err(AppError::not_found("Workspace", name));
+        return Err(Error::not_found("Workspace", name));
     }
     Ok(LogoutTarget::Selected(name.to_owned()))
 }

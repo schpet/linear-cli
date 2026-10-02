@@ -227,7 +227,7 @@ async fn pagination_failure_discards_partial_output_and_preserves_command_contex
     .expect_err("repeated cursor");
     assert_eq!(*calls.borrow(), 2);
     assert_eq!(
-        result.display_message(),
+        result.to_string(),
         "Failed to fetch workspace members: Linear reported more workspace members but did not advance the page cursor"
     );
 }

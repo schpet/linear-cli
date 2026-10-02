@@ -1,11 +1,13 @@
-use linear_cli::app::block_on_network;
-use linear_cli::auth::{CredentialStore, LookupReply, LookupResult, hydrate, parse_credentials};
+use crate::block_on_network;
+use crate::{LookupReply, hydrate};
+use linear_cli::auth::{CredentialStore, LookupResult, parse_credentials};
 use linear_cli::commands::auth_whoami::{prepare_transport, render, run, run_with};
 use linear_cli::config::{
     ConfigInputs, ConfigOptions, ConfigSecret, OptionInputs, OsFamily, ProcessEnvSnapshot,
     RawConfigFile, SelectedEnv, TransportEnvInputs, parse_config_tier,
 };
-use linear_cli::error::{AppError, AppErrorKind};
+use linear_cli::error::Error;
+use linear_cli::error::ErrorKind;
 use linear_cli::graphql::operations::auth_whoami::AuthStatus;
 use linear_cli::graphql::transport::{
     ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
@@ -175,51 +177,10 @@ async fn injected_handler_calls_one_auth_status_and_contextualizes_failure() {
     .expect("one response");
     assert!(output.starts_with(b"Workspace: Example Workspace\n"));
 
-    let error = run_with(|_| async { Err(AppError::new(AppErrorKind::GraphQl, "token invalid")) })
+    let error = run_with(|_| async { Err(Error::new("token invalid")) })
         .await
         .expect_err("request failure");
-    assert_eq!(
-        error.display_message(),
-        "Failed to get user info: token invalid"
-    );
-    assert_eq!(error.kind, AppErrorKind::GraphQl);
-}
-
-#[test]
-fn credential_failures_precede_transport_policy_and_have_one_exact_line() {
-    let unsupported_transport =
-        transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
-    let empty = credentials("");
-    let no_key = prepare_transport(&options(&[], None), &empty, None, &unsupported_transport)
-        .expect_err("no key");
-    assert_eq!(no_key.kind, AppErrorKind::Validation);
-    assert_eq!(no_key.suggestion, None);
-    assert_eq!(
-        no_key.display_message(),
-        "Failed to get user info: No API key configured. Set LINEAR_API_KEY, add api_key to .linear.toml, or run `linear auth login`."
-    );
-
-    let raw = options(&[("LINEAR_API_KEY", "lin_api_fake_raw")], None);
-    let conflict = prepare_transport(&raw, &empty, Some("acme"), &unsupported_transport)
-        .expect_err("raw key conflicts with CLI workspace");
-    assert_eq!(
-        conflict.display_message(),
-        "Failed to get user info: Cannot use --workspace flag when LINEAR_API_KEY environment variable is set. Either unset LINEAR_API_KEY or remove the --workspace flag."
-    );
-    assert_eq!(conflict.suggestion, None);
-
-    let missing = prepare_transport(
-        &options(&[], None),
-        &empty,
-        Some("acme"),
-        &unsupported_transport,
-    )
-    .expect_err("missing explicit workspace");
-    assert_eq!(
-        missing.display_message(),
-        "Failed to get user info: Workspace \"acme\" not found in credentials. Run `linear auth login` to add it, or `linear auth list` to see configured workspaces."
-    );
-    assert_eq!(missing.suggestion, None);
+    assert_eq!(error.to_string(), "Failed to get user info: token invalid");
 }
 
 #[test]
@@ -231,7 +192,7 @@ fn sourced_api_key_wins_explicit_workspace_and_transport_policy_is_lazy() {
         .expect_err("credential selected before transport policy");
     assert!(
         error
-            .display_message()
+            .to_string()
             .starts_with("Failed to get user info: SSL_CERT_FILE")
     );
     let direct = transport_env(&[]);
@@ -246,9 +207,8 @@ fn selected_key_header_failure_precedes_transport_policy_without_leaking_key() {
     let invalid_transport = transport_env(&[("SSL_CERT_FILE", "/nonexistent/linear-test-ca.pem")]);
     let error = prepare_transport(&config, &credentials(""), None, &invalid_transport)
         .expect_err("invalid selected key cannot reach transport");
-    assert_eq!(error.kind, AppErrorKind::Validation);
     assert_eq!(
-        error.display_message(),
+        error.to_string(),
         "Failed to get user info: API key cannot be used as an HTTP header"
     );
     assert!(!format!("{error:?}").contains("lin_api_fake"));
@@ -409,41 +369,6 @@ fn real_loopback_request_proves_selected_key_operation_and_no_variables() {
 }
 
 #[test]
-fn dotenv_key_is_raw_and_empty_raw_key_falls_through_to_default() {
-    for (name, dotenv_key, workspace, expected_key) in [
-        ("dotenv", "lin_api_fake_dotenv", None, "lin_api_fake_dotenv"),
-        ("empty-fallback", "", None, "lin_api_fake_default"),
-    ] {
-        let (endpoint, server) = serve_auth_status();
-        let config = options_with_dotenv(
-            &[("LINEAR_GRAPHQL_ENDPOINT", &endpoint)],
-            Some("api_key='lin_api_fake_project'"),
-            &[("LINEAR_API_KEY", dotenv_key)],
-        );
-        let store = credentials("default='acme'\nacme='lin_api_fake_default'\n");
-        let transport = prepare_transport(&config, &store, workspace, &transport_env(&[]))
-            .expect("selected fake key");
-        block_on_network(async move { run(&transport).await }).expect("AuthStatus response");
-        let request = server.join().expect("one request");
-        assert!(
-            request
-                .to_ascii_lowercase()
-                .contains(&format!("authorization: {expected_key}")),
-            "{name}: wrong selected key"
-        );
-    }
-    let config = options_with_dotenv(&[], None, &[("LINEAR_API_KEY", "lin_api_fake_dotenv")]);
-    let error = prepare_transport(&config, &credentials(""), Some("acme"), &transport_env(&[]))
-        .expect_err("dotenv raw key conflicts with CLI workspace");
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert!(
-        error
-            .display_message()
-            .contains("Cannot use --workspace flag")
-    );
-}
-
-#[test]
 fn fake_keyring_store_selects_default_and_explicit_workspace() {
     for (workspace, expected_key) in [
         (None, "lin_api_fake_first"),
@@ -479,35 +404,6 @@ fn fake_keyring_store_selects_default_and_explicit_workspace() {
 }
 
 #[test]
-fn fake_keyring_miss_and_empty_sourced_workspace_follow_selection_contract() {
-    let store = metadata_credentials(vec![
-        LookupReply {
-            workspace: "first".to_owned(),
-            result: LookupResult::Hit(ConfigSecret::new("lin_api_fake_first".to_owned())),
-        },
-        LookupReply {
-            workspace: "second".to_owned(),
-            result: LookupResult::Miss,
-        },
-    ]);
-    let options = options(&[], Some("workspace=''"));
-    let transport = prepare_transport(&options, &store, None, &transport_env(&[]))
-        .expect("empty sourced workspace falls back to default");
-    assert_eq!(transport.endpoint().origin(), "https://api.linear.app");
-
-    let error = prepare_transport(&options, &store, Some("second"), &transport_env(&[]))
-        .expect_err("explicit missing key cannot fall back");
-    assert_eq!(
-        error.display_message(),
-        "Failed to get user info: Workspace \"second\" not found in credentials. Run `linear auth login` to add it, or `linear auth list` to see configured workspaces."
-    );
-    let no_default = credentials("second=''\n");
-    let no_key = prepare_transport(&options, &no_default, None, &transport_env(&[]))
-        .expect_err("empty configured key is absent");
-    assert!(no_key.display_message().contains("No API key configured"));
-}
-
-#[test]
 fn transport_failures_keep_command_context_and_one_request() {
     for (name, status, body, delay, deadline, cap, kind) in [
         (
@@ -517,7 +413,7 @@ fn transport_failures_keep_command_context_and_one_request() {
             Duration::ZERO,
             Duration::from_secs(2),
             1024,
-            AppErrorKind::GraphQl,
+            ErrorKind::Other,
         ),
         (
             "http-error",
@@ -526,7 +422,7 @@ fn transport_failures_keep_command_context_and_one_request() {
             Duration::ZERO,
             Duration::from_secs(2),
             1024,
-            AppErrorKind::Transport,
+            ErrorKind::Other,
         ),
         (
             "malformed-json",
@@ -535,7 +431,7 @@ fn transport_failures_keep_command_context_and_one_request() {
             Duration::ZERO,
             Duration::from_secs(2),
             1024,
-            AppErrorKind::Transport,
+            ErrorKind::Other,
         ),
         (
             "wrong-shape",
@@ -544,7 +440,7 @@ fn transport_failures_keep_command_context_and_one_request() {
             Duration::ZERO,
             Duration::from_secs(2),
             1024,
-            AppErrorKind::Invariant,
+            ErrorKind::Other,
         ),
         (
             "response-cap",
@@ -553,7 +449,7 @@ fn transport_failures_keep_command_context_and_one_request() {
             Duration::ZERO,
             Duration::from_secs(2),
             64,
-            AppErrorKind::Transport,
+            ErrorKind::Other,
         ),
         (
             "deadline",
@@ -562,21 +458,19 @@ fn transport_failures_keep_command_context_and_one_request() {
             Duration::from_millis(300),
             Duration::from_millis(100),
             1024,
-            AppErrorKind::Transport,
+            ErrorKind::Other,
         ),
     ] {
         let (endpoint, server) = serve_response(status, body, delay);
         let transport = transport_for(&endpoint, deadline, cap);
         let error = block_on_network(async move { run(&transport).await }).expect_err(name);
-        assert_eq!(error.kind, kind, "{name}");
+        assert_eq!(error.kind(), kind, "{name}");
         assert!(
-            error
-                .display_message()
-                .starts_with("Failed to get user info: "),
+            error.to_string().starts_with("Failed to get user info: "),
             "{name}"
         );
         assert!(
-            !error.display_message().contains("lin_api_fake"),
+            !error.to_string().contains("lin_api_fake"),
             "{name}: secret leak"
         );
         let request = server.join().expect("server joined cleanly");

@@ -9,7 +9,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::relative_time::format_relative_time;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::milestone_view::{
     DetailIssue, DetailMilestone, DetailVariables, GetMilestoneDetails,
@@ -36,7 +36,7 @@ pub async fn resolve_id(
     transport: &GraphQlTransport,
     input: &str,
     project_id: &str,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     if is_linear_uuid(input) {
         return Ok(input.to_owned());
     }
@@ -45,10 +45,10 @@ pub async fn resolve_id(
             project_id: project_id.to_owned(),
         }));
     let data: GetProjectMilestonesForLookup =
-        transport.execute(&query).await.map_err(AppError::from)?;
+        transport.execute(&query).await.map_err(Error::from)?;
     let project = data
         .project
-        .ok_or_else(|| AppError::not_found("Project", project_id))?;
+        .ok_or_else(|| Error::not_found("Project", project_id))?;
     let name = input.to_lowercase();
     project
         .project_milestones
@@ -56,7 +56,7 @@ pub async fn resolve_id(
         .flat_map(|connection| connection.nodes)
         .find(|milestone| milestone.name.to_lowercase() == name)
         .map(|milestone| milestone.id.into_inner())
-        .ok_or_else(|| AppError::not_found("Milestone", input))
+        .ok_or_else(|| Error::not_found("Milestone", input))
 }
 
 pub async fn fetch(
@@ -64,9 +64,9 @@ pub async fn fetch(
     original: &str,
     request_id: &str,
     all: bool,
-) -> Result<DetailMilestone, AppError> {
+) -> Result<DetailMilestone, Error> {
     fetch_with(original, request_id, all, |request| async move {
-        transport.execute(&request).await.map_err(AppError::from)
+        transport.execute(&request).await.map_err(Error::from)
     })
     .await
 }
@@ -77,16 +77,16 @@ pub async fn fetch_with<F, Fut>(
     request_id: &str,
     all: bool,
     mut fetch: F,
-) -> Result<DetailMilestone, AppError>
+) -> Result<DetailMilestone, Error>
 where
     F: FnMut(GraphQlRequest<DetailVariables>) -> Fut,
-    Fut: Future<Output = Result<GetMilestoneDetails, AppError>>,
+    Fut: Future<Output = Result<GetMilestoneDetails, Error>>,
 {
     if !all {
         let data = fetch(detail_request(request_id, None)).await?;
         return data
             .project_milestone
-            .ok_or_else(|| AppError::not_found("Milestone", original));
+            .ok_or_else(|| Error::not_found("Milestone", original));
     }
     let first: Rc<RefCell<Option<DetailMilestone>>> = Rc::new(RefCell::new(None));
     let captured = Rc::clone(&first);
@@ -97,47 +97,42 @@ where
             let data = pending.await?;
             let milestone = data
                 .project_milestone
-                .ok_or_else(|| AppError::not_found("Milestone", original))?;
+                .ok_or_else(|| Error::not_found("Milestone", original))?;
             if captured.borrow().is_none() {
                 *captured.borrow_mut() = Some(milestone.clone());
             }
-            Ok::<Page<DetailIssue>, AppError>(Page {
+            Ok::<Page<DetailIssue>, Error>(Page {
                 nodes: milestone.issues.nodes,
                 page_info: milestone.issues.page_info.into(),
             })
         }
     })
     .await;
-    let result =
-        result.map_err(|error| match error {
-            PaginationError::Fetch { source, .. } => source,
-            PaginationError::MissingCursor { .. } => {
-                let id = first.borrow();
-                let suggestion = id.as_ref().map(|milestone| format!(
-                "Retry, or use `linear issue query --milestone {} --json` for the full list.",
-                milestone.id.inner()
-            ));
-                let error = AppError::new(
-                    AppErrorKind::Validation,
-                    "Linear reported more issues but returned no pagination cursor",
-                );
-                match suggestion {
-                    Some(suggestion) => error.with_suggestion(suggestion),
-                    None => error.with_suggestion("Retry the command."),
-                }
+    let result = result.map_err(|error| match error {
+        PaginationError::Fetch { source, .. } => source,
+        PaginationError::MissingCursor { .. } => {
+            let id = first.borrow();
+            let suggestion = id.as_ref().map(|milestone| {
+                format!(
+                    "Retry, or use `linear issue query --milestone {} --json` for the full list.",
+                    milestone.id.inner()
+                )
+            });
+            let error = Error::new("Linear reported more issues but returned no pagination cursor");
+            match suggestion {
+                Some(suggestion) => error.with_hint(suggestion),
+                None => error.with_hint("Retry the command."),
             }
-            PaginationError::RepeatedCursor { page, .. } => AppError::new(
-                AppErrorKind::Validation,
-                format!("Linear repeated an issue pagination cursor on page {page}"),
-            )
-            .with_suggestion("Retry the command."),
-        })?;
-    let mut milestone = first.borrow_mut().take().ok_or_else(|| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "pagination returned without a first milestone",
-        )
+        }
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated an issue pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command."),
     })?;
+    let mut milestone = first
+        .borrow_mut()
+        .take()
+        .ok_or_else(|| Error::new("pagination returned without a first milestone"))?;
     milestone.issues.nodes = result.nodes;
     milestone.issues.page_info.has_next_page = result.page_info.has_next_page;
     milestone.issues.page_info.end_cursor = result.page_info.end_cursor;
@@ -189,7 +184,7 @@ struct JsonState<'a> {
     state_type: &'a str,
 }
 
-pub fn json(milestone: &DetailMilestone) -> Result<Vec<u8>, AppError> {
+pub fn json(milestone: &DetailMilestone) -> Result<Vec<u8>, Error> {
     let output = JsonMilestone {
         id: &milestone.id,
         name: &milestone.name,
@@ -222,9 +217,8 @@ pub fn json(milestone: &DetailMilestone) -> Result<Vec<u8>, AppError> {
             page_info: &milestone.issues.page_info,
         },
     };
-    let mut bytes = serde_json::to_vec_pretty(&output).map_err(|error| {
-        AppError::new(AppErrorKind::Invariant, "could not serialize milestone").with_source(error)
-    })?;
+    let mut bytes = serde_json::to_vec_pretty(&output)
+        .map_err(|error| Error::new("could not serialize milestone").with_source(error))?;
     bytes.push(b'\n');
     Ok(bytes)
 }

@@ -4,9 +4,9 @@ use std::ffi::OsString;
 use std::future::ready;
 use std::rc::Rc;
 
-use linear_cli::cli::{self, Cli, RootCommand};
+use linear_cli::cli::{Cli, RootCommand};
 use linear_cli::commands::milestone_list::{CONTEXT, render_text, request, run_with};
-use linear_cli::error::{AppError, AppErrorKind};
+use linear_cli::error::Error;
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::milestones::{
     GetProjectMilestones, GetProjectMilestonesVariables,
@@ -38,7 +38,7 @@ fn milestone_steps(case: &Value) -> Vec<Value> {
 }
 
 /// The typed page a frozen step returns, from structured data or a raw body.
-fn response(step: &Value) -> Result<GetProjectMilestones, AppError> {
+fn response(step: &Value) -> Result<GetProjectMilestones, Error> {
     let response = &step["response"];
     let body = match response["kind"].as_str() {
         Some("data") => json!({"data": response["data"]}).to_string(),
@@ -48,9 +48,8 @@ fn response(step: &Value) -> Result<GetProjectMilestones, AppError> {
             .to_owned(),
         other => panic!("unsupported frozen response kind {other:?}"),
     };
-    parse_response(body.as_bytes()).map_err(|error| {
-        AppError::new(AppErrorKind::GraphQl, "typed page failed").with_source(error)
-    })
+    parse_response(body.as_bytes())
+        .map_err(|error| Error::new("typed page failed").with_source(error))
 }
 
 fn variables(request: &GraphQlRequest<GetProjectMilestonesVariables>) -> Value {
@@ -60,12 +59,12 @@ fn variables(request: &GraphQlRequest<GetProjectMilestonesVariables>) -> Value {
 type Sent = Rc<RefCell<Vec<Value>>>;
 
 fn scripted(
-    pages: Vec<Result<GetProjectMilestones, AppError>>,
+    pages: Vec<Result<GetProjectMilestones, Error>>,
 ) -> (
     Sent,
     impl FnMut(
         GraphQlRequest<GetProjectMilestonesVariables>,
-    ) -> std::future::Ready<Result<GetProjectMilestones, AppError>>,
+    ) -> std::future::Ready<Result<GetProjectMilestones, Error>>,
 ) {
     let sent: Sent = Rc::new(RefCell::new(Vec::new()));
     let queue = Rc::new(RefCell::new(VecDeque::from(pages)));
@@ -200,7 +199,7 @@ async fn null_root_reports_the_raw_reference_and_discards_earlier_pages() {
             error.to_string(),
             format!("{CONTEXT}: Project not found: {reference}")
         );
-        assert_eq!(error.suggestion, None);
+        assert_eq!(error.hint(), None);
         assert_eq!(sent.borrow().len(), 2);
     }
 }
@@ -216,7 +215,7 @@ async fn missing_and_empty_cursors_use_the_source_message_without_a_page_suffix(
             error.to_string(),
             "Failed to fetch milestones: Linear reported more milestones but returned no pagination cursor"
         );
-        assert_eq!(error.suggestion.as_deref(), Some("Retry the command."));
+        assert_eq!(error.hint(), Some("Retry the command."));
         assert_eq!(sent.borrow().len(), 1);
     }
 }
@@ -250,7 +249,7 @@ async fn repeated_cursors_stop_instead_of_looping() {
         error.to_string(),
         "Failed to fetch milestones: Linear repeated a milestone pagination cursor on page 3"
     );
-    assert_eq!(error.suggestion.as_deref(), Some("Retry the command."));
+    assert_eq!(error.hint(), Some("Retry the command."));
     assert_eq!(
         *sent.borrow(),
         vec![
@@ -265,10 +264,7 @@ async fn repeated_cursors_stop_instead_of_looping() {
 async fn page_errors_keep_their_message_and_gain_the_context_once() {
     let (_, fetch) = scripted(vec![
         Ok(page(json!([]), true, json!("cursor-1"))),
-        Err(AppError::new(
-            AppErrorKind::GraphQl,
-            "synthetic page failure",
-        )),
+        Err(Error::new("synthetic page failure")),
     ]);
     let error = run_with(PROJECT, PROJECT, fetch, true, 120, false)
         .await
@@ -277,7 +273,6 @@ async fn page_errors_keep_their_message_and_gain_the_context_once() {
         error.to_string(),
         "Failed to fetch milestones: synthetic page failure"
     );
-    assert_eq!(error.kind, AppErrorKind::GraphQl);
 }
 
 #[test]
@@ -323,18 +318,18 @@ fn narrow_tables_keep_a_minimum_name_width_and_header_style() {
     );
 }
 
-fn parse(args: &[&str]) -> Result<Cli, AppError> {
+fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
     let args: Vec<OsString> = args.iter().map(OsString::from).collect();
-    cli::parse(&args)
+    crate::parse(&args)
 }
 
 #[test]
 fn route_dispatches_and_requires_an_attached_hyphen_leading_project() {
     let cli = parse(&["milestone", "list", "--project=--json", "-j"]).expect("parse");
-    let Some(RootCommand::Milestone(group)) = cli.command else {
+    let RootCommand::Milestone(group) = cli.command else {
         panic!("group")
     };
-    let Some(cli::milestone::MilestoneCommand::List(action)) = group.command else {
+    let linear_cli::cli::milestone::MilestoneCommand::List(action) = group.command else {
         panic!("action")
     };
     assert_eq!(action.project, "--json");
@@ -346,14 +341,10 @@ fn route_dispatches_and_requires_an_attached_hyphen_leading_project() {
         ["milestone", "list", "--project=", "--json"],
     ] {
         let error = parse(&args).expect_err("v3 rejects a pending hyphen value");
-        assert!(matches!(error.kind, AppErrorKind::Usage), "{args:?}");
         let expected = linear_cli::cli::command()
             .try_get_matches_from(std::iter::once("linear").chain(args.iter().copied()))
             .expect_err("native missing value");
-        assert_eq!(error.message, expected.to_string(), "{args:?}");
-        assert_eq!(
-            error.native_parser_error().expect("native error").kind(),
-            expected.kind()
-        );
+        assert_eq!(error.to_string(), expected.to_string(), "{args:?}");
+        assert_eq!(error.kind(), expected.kind());
     }
 }

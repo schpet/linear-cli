@@ -7,8 +7,7 @@
 use std::io::{self, IsTerminal, Write};
 use unicode_width::UnicodeWidthChar;
 
-use crate::error::{AppError, AppErrorKind};
-use crate::platform::output::{Output, Stream};
+use crate::error::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SelectOption {
@@ -315,7 +314,7 @@ pub fn run_with(
     columns: usize,
     mut next_key: impl FnMut() -> io::Result<Key>,
     stdout: &mut dyn Write,
-) -> Result<Selection, AppError> {
+) -> Result<Selection, Error> {
     if labels.message.trim().is_empty()
         || labels.search_label.trim().is_empty()
         || labels.message.chars().any(char::is_control)
@@ -323,15 +322,13 @@ pub fn run_with(
         || labels.max_rows == 0
         || columns < 4
     {
-        return Err(AppError::new(
-            AppErrorKind::Invariant,
+        return Err(Error::new(
             "selector prompt labels, row limit, and width must be valid",
         ));
     }
-    let mut selector = Selector::new(options).map_err(|error| {
-        AppError::new(AppErrorKind::Invariant, error.to_string()).with_source(error)
-    })?;
-    let mut output = Output::new(stdout, Stream::Stdout);
+    let mut selector =
+        Selector::new(options).map_err(|error| Error::new(error.to_string()).with_source(error))?;
+    let mut output = SelectorOutput(stdout);
     let mut previous_lines = 0;
     loop {
         if previous_lines > 0 {
@@ -340,10 +337,8 @@ pub fn run_with(
         let rendered = frame(&selector, labels, columns);
         output.write(rendered.as_bytes())?;
         previous_lines = rendered.lines().count();
-        let key = next_key().map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to read selector input")
-                .with_source(error)
-        })?;
+        let key = next_key()
+            .map_err(|error| Error::new("failed to read selector input").with_source(error))?;
         let outcome = selector.on_key(key);
         if let Some(outcome) = outcome {
             output.write(format!("\x1b[{previous_lines}A\r\x1b[J").as_bytes())?;
@@ -368,22 +363,18 @@ struct RawPrompt {
 
 #[cfg(unix)]
 impl RawPrompt {
-    fn enter() -> Result<Self, AppError> {
+    fn enter() -> Result<Self, Error> {
         use rustix::termios::{OptionalActions, tcgetattr, tcsetattr};
 
         let input = io::stdin();
-        let original = tcgetattr(&input).map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to read terminal mode")
-                .with_source(error)
-        })?;
+        let original = tcgetattr(&input)
+            .map_err(|error| Error::new("failed to read terminal mode").with_source(error))?;
         let mut raw = original.clone();
         raw.make_raw();
         // Keep the terminal's newline translation while keys stay raw.
         raw.output_modes = original.output_modes;
-        tcsetattr(&input, OptionalActions::Now, &raw).map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to enable terminal input")
-                .with_source(error)
-        })?;
+        tcsetattr(&input, OptionalActions::Now, &raw)
+            .map_err(|error| Error::new("failed to enable terminal input").with_source(error))?;
         Ok(Self {
             input,
             original,
@@ -391,7 +382,7 @@ impl RawPrompt {
         })
     }
 
-    fn restore(&mut self) -> Result<(), AppError> {
+    fn restore(&mut self) -> Result<(), Error> {
         // A failed explicit restore is already returned to the caller. Do not
         // retry in Drop and report a second, unrelated error to stderr.
         self.restore_attempted = true;
@@ -400,10 +391,7 @@ impl RawPrompt {
             rustix::termios::OptionalActions::Now,
             &self.original,
         )
-        .map_err(|error| {
-            AppError::new(AppErrorKind::IoProcess, "failed to restore terminal input")
-                .with_source(error)
-        })?;
+        .map_err(|error| Error::new("failed to restore terminal input").with_source(error))?;
         Ok(())
     }
 }
@@ -427,10 +415,9 @@ pub fn run(
     labels: &PromptLabels<'_>,
     ci: Option<&str>,
     stdout: &mut dyn Write,
-) -> Result<Selection, AppError> {
+) -> Result<Selection, Error> {
     if !interactive_allowed(io::stdin().is_terminal(), io::stdout().is_terminal(), ci) {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
+        return Err(Error::new(
             "interactive selection requires a terminal outside CI",
         ));
     }
@@ -443,8 +430,7 @@ pub fn run(
         )
         .unwrap_or((80, 24));
     if columns < 4 || rows < 3 {
-        return Err(AppError::new(
-            AppErrorKind::Validation,
+        return Err(Error::new(
             "interactive selection requires a terminal at least 4 columns wide and 3 rows high",
         ));
     }
@@ -477,14 +463,22 @@ pub fn run(
             (Err(error), Ok(())) => Err(error),
             (Ok(_), Err(error)) => Err(error),
             (Err(mut error), Err(cleanup)) => {
-                error.message.push_str(&format!(
-                    "; terminal cleanup also failed: {}",
-                    cleanup.display_message()
-                ));
+                error.push_message(&format!("; terminal cleanup also failed: {}", cleanup));
                 Err(error)
             }
         }
     }
     #[cfg(not(unix))]
     selection
+}
+
+struct SelectorOutput<'a>(&'a mut dyn Write);
+
+impl SelectorOutput<'_> {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.0
+            .write_all(bytes)
+            .and_then(|()| self.0.flush())
+            .map_err(crate::platform::output::write_error)
+    }
 }

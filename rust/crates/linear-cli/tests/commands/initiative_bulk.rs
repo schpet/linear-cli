@@ -138,7 +138,7 @@ fn scope() -> WorkspaceScope<'static> {
         cli_workspace: None,
         sourced_workspace: None,
         default_workspace: None,
-        api_key: &ApiKeyInput::Absent,
+        api_key: ApiKeyInput::Absent.clone(),
     }
 }
 fn uuid(number: usize) -> String {
@@ -200,7 +200,7 @@ fn each_invalid_input_rejects_valid_neighbors_before_any_ids_are_returned() {
         &mut std::io::empty(),
     )
     .unwrap_err();
-    assert!(error.message.contains("Bulk file must be valid UTF-8"));
+    assert!(error.message().contains("Bulk file must be valid UTF-8"));
     let stdin = [uuid(1).as_bytes(), b",\xfe"].concat();
     let error = command::collect_ids(
         &BulkInput {
@@ -211,7 +211,7 @@ fn each_invalid_input_rejects_valid_neighbors_before_any_ids_are_returned() {
         &mut stdin.as_slice(),
     )
     .unwrap_err();
-    assert_eq!(error.message, "Bulk stdin must be valid UTF-8");
+    assert_eq!(error.message(), "Bulk stdin must be valid UTF-8");
     let missing = dir.join("missing");
     assert_eq!(
         command::collect_ids(
@@ -223,7 +223,7 @@ fn each_invalid_input_rejects_valid_neighbors_before_any_ids_are_returned() {
             &mut std::io::empty()
         )
         .unwrap_err()
-        .message,
+        .message(),
         format!("File not found: {}", missing.display())
     );
     std::fs::remove_dir_all(dir).unwrap();
@@ -349,9 +349,10 @@ async fn required_detail_shapes_and_false_mutations_fail_with_exact_single_conte
             let error = command::fetch_single(&transport, &uuid(1), mode)
                 .await
                 .unwrap_err();
-            assert_eq!(
-                error.context.as_deref(),
-                Some("Failed to fetch initiative details")
+            assert!(
+                error
+                    .to_string()
+                    .starts_with(&format!("{}: ", "Failed to fetch initiative details"))
             );
             assert_eq!(worker.join().unwrap().len(), 1);
         }

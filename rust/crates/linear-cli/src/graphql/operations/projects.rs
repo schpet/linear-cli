@@ -163,21 +163,3 @@ pub struct ProjectTeams {
 pub struct ProjectTeam {
     pub key: String,
 }
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Query")]
-pub struct GetViewer {
-    pub viewer: Viewer,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "User")]
-pub struct Viewer {
-    pub organization: ViewerOrganization,
-}
-
-#[derive(cynic::QueryFragment, Clone, Debug, PartialEq, Eq)]
-#[cynic(schema = "linear", graphql_type = "Organization")]
-pub struct ViewerOrganization {
-    pub url_key: String,
-}

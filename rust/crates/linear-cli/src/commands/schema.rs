@@ -1,6 +1,8 @@
-//! Runtime schema introspection; JSON capability is independent of SDL meta-shape.
+//! `linear schema`: print the API's GraphQL schema as SDL or introspection JSON.
 use crate::{
-    error::{AppError, AppErrorKind},
+    cli::schema::Schema,
+    ctx::Ctx,
+    error::{Error, Result, ResultExt},
     graphql::{
         bulk_error,
         envelope::GraphQlRequest,
@@ -8,8 +10,26 @@ use crate::{
         transport::{GraphQlTransport, classify_typed},
     },
 };
-pub const CONTEXT: &str = "Failed to fetch schema";
-pub async fn fetch(transport: &GraphQlTransport) -> Result<serde_json::Value, AppError> {
+pub fn run(ctx: &Ctx, args: &Schema) -> Result<()> {
+    write_schema(ctx, args).context("Failed to fetch schema")
+}
+
+fn write_schema(ctx: &Ctx, args: &Schema) -> Result<()> {
+    let client = ctx.client()?;
+    let value = ctx.spin(true, fetch(client))?;
+    let content = format!("{}\n", content(&value, args.json)?);
+    match &args.output {
+        Some(path) => {
+            std::fs::write(path, content).map_err(|error| {
+                Error::new(format!("Failed to write schema: {path}: {error}")).with_source(error)
+            })?;
+            ctx.print(format!("Schema written to {path}\n"))
+        }
+        None => ctx.print(content),
+    }
+}
+
+async fn fetch(transport: &GraphQlTransport) -> Result<serde_json::Value> {
     let request: GraphQlRequest<()> = GraphQlRequest {
         query: QUERY.to_owned(),
         variables: None,
@@ -19,18 +39,13 @@ pub async fn fetch(transport: &GraphQlTransport) -> Result<serde_json::Value, Ap
     if let Some(error) =
         bulk_error::observe_source_error(&response, &request).map_err(|e| e.into_error())?
     {
-        return Err(AppError::new(
-            AppErrorKind::GraphQl,
-            error.preferred_message.unwrap_or(error.message),
-        ));
+        return Err(Error::new(error.preferred_message.unwrap_or(error.message)));
     }
-    classify_typed(response).map_err(AppError::from)
+    classify_typed(response).map_err(Error::from)
 }
-pub fn content(value: &serde_json::Value, json: bool) -> Result<String, AppError> {
+fn content(value: &serde_json::Value, json: bool) -> Result<String> {
     if json {
-        serde_json::to_string_pretty(value).map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize schema").with_source(error)
-        })
+        Ok(serde_json::to_string_pretty(value).expect("a JSON value always serializes"))
     } else {
         Model::parse(value)?.print()
     }

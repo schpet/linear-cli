@@ -8,7 +8,7 @@ use linear_cli::refs::{
 fn references_preserve_presence_numbers_and_workspace_order() {
     let key = ApiKeyInput::Absent;
     let scope = WorkspaceScope {
-        api_key: &key,
+        api_key: key.clone(),
         cli_workspace: Some("acme"),
         sourced_workspace: None,
         default_workspace: None,
@@ -49,21 +49,18 @@ fn references_preserve_presence_numbers_and_workspace_order() {
     for team in [None, Some("")] {
         let error = prepare_issue_reference(Some("7"), team, &scope).expect_err("missing team");
         assert_eq!(
-            error.message,
+            error.message(),
             "an integer id was provided, but no team is set"
         );
-        assert_eq!(
-            error.suggestion.as_deref(),
-            Some("Run `linear config` to set a team.")
-        );
+        assert_eq!(error.hint(), Some("Run `linear config` to set a team."));
     }
     let error =
         prepare_issue_reference(Some("https://linear.app/foreign/issue/ENG-7"), None, &scope)
             .expect_err("foreign URL");
-    assert!(error.message.contains("this is the \"acme\" workspace"));
+    assert!(error.message().contains("this is the \"acme\" workspace"));
     let error = prepare_issue_reference(Some("https://linear.app/foreign/team/eng"), None, &scope)
         .expect_err("workspace before kind");
-    assert!(error.message.contains("this is the \"acme\" workspace"));
+    assert!(error.message().contains("this is the \"acme\" workspace"));
 }
 #[test]
 fn word_boundaries_are_ascii_only_including_non_ascii_neighbors() {
@@ -112,5 +109,8 @@ fn git_nonzero_is_detached_only_for_not_a_symbolic_ref() {
     );
     assert_eq!(parse_git_branch(true, "\n", "").expect("empty"), None);
     let error = parse_git_branch(false, "ENG-7", " fatal: denied\n").expect_err("fatal");
-    assert_eq!(error.message, "Failed to get current branch: fatal: denied");
+    assert_eq!(
+        error.message(),
+        "Failed to get current branch: fatal: denied"
+    );
 }

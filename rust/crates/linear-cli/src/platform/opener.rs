@@ -3,11 +3,11 @@
 use std::os::unix::process::ExitStatusExt;
 use std::process::{Command, Stdio};
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 /// Wait for the platform opener and discard its output. The caller prints its
 /// own opening line before invoking this function.
-pub fn open(url: &str, app: bool) -> Result<(), AppError> {
+pub fn open(url: &str, app: bool) -> Result<(), Error> {
     #[cfg(target_os = "linux")]
     let mut command = {
         let _ = app;
@@ -43,7 +43,7 @@ pub fn open(url: &str, app: bool) -> Result<(), AppError> {
             } else {
                 format!("Failed to spawn '{program}': {error}")
             };
-            AppError::new(AppErrorKind::IoProcess, message).with_source(error)
+            Error::new(message).with_source(error)
         })?;
     // Explorer commonly reports exit code 1 after handing a URL to the shell.
     // Its process exit does not tell us whether the handoff succeeded.
@@ -60,9 +60,8 @@ pub fn open(url: &str, app: bool) -> Result<(), AppError> {
             .code()
             .or_else(|| status.signal().and_then(|signal| signal.checked_add(128)))
             .map_or_else(|| "signal".to_owned(), |code| code.to_string());
-        Err(AppError::new(
-            AppErrorKind::IoProcess,
-            format!("Failed to open {url} (exit code: {code})"),
-        ))
+        Err(Error::new(format!(
+            "Failed to open {url} (exit code: {code})"
+        )))
     }
 }

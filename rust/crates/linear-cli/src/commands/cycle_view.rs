@@ -10,7 +10,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::relative_time::format_relative_time;
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::cycle_view::{
     ActiveCycle, DetailCycle, DetailVariables, GetCycleDetails, GetTeamCyclesForLookup,
@@ -23,8 +23,8 @@ use crate::refs::{CycleSelector, LinearUrlRef};
 pub const CONTEXT: &str = "Failed to fetch cycle details";
 const SIMPLE_SUGGESTION: &str = "Use a cycle number or name instead.";
 
-fn protocol(message: String) -> AppError {
-    AppError::new(AppErrorKind::Validation, message)
+fn protocol(message: String) -> Error {
+    Error::new(message)
 }
 
 pub fn lookup_request(team_id: &str, after: Option<String>) -> GraphQlRequest<LookupVariables> {
@@ -40,22 +40,18 @@ pub fn detail_request(id: &str) -> GraphQlRequest<DetailVariables> {
     }))
 }
 
-fn validate_first_team(
-    key: &str,
-    enabled: bool,
-    url: Option<&LinearUrlRef>,
-) -> Result<(), AppError> {
+fn validate_first_team(key: &str, enabled: bool, url: Option<&LinearUrlRef>) -> Result<(), Error> {
     if let Some(LinearUrlRef::Cycle { team_key, .. }) = url
         && team_key.to_uppercase() != key.to_uppercase()
     {
         return Err(protocol(format!(
             "That cycle URL is for team {team_key}, but this command is working in team {key}."
         ))
-        .with_suggestion(format!("Pass --team {team_key}.")));
+        .with_hint(format!("Pass --team {team_key}.")));
     }
     if !enabled {
         return Err(protocol(format!("Cycles are not enabled for team {key}"))
-            .with_suggestion("Enable cycles for the team in Linear's settings before filtering or assigning by cycle."));
+            .with_hint("Enable cycles for the team in Linear's settings before filtering or assigning by cycle."));
     }
     Ok(())
 }
@@ -66,15 +62,15 @@ pub async fn resolve_id_with<F, Fut>(
     reference: &str,
     url: Option<&LinearUrlRef>,
     mut fetch: F,
-) -> Result<String, AppError>
+) -> Result<String, Error>
 where
     F: FnMut(GraphQlRequest<LookupVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeamCyclesForLookup, AppError>>,
+    Fut: Future<Output = Result<GetTeamCyclesForLookup, Error>>,
 {
     let first = fetch(lookup_request(team_id, None)).await?;
     let team = first
         .team
-        .ok_or_else(|| AppError::not_found("Team", team_id))?;
+        .ok_or_else(|| Error::not_found("Team", team_id))?;
     validate_first_team(&team.key, team.cycles_enabled, url)?;
     let key = team.key;
     let active = team.active_cycle;
@@ -95,9 +91,7 @@ where
         }
         page += 1;
         let next = fetch(lookup_request(team_id, Some(cursor))).await?;
-        let next_team = next
-            .team
-            .ok_or_else(|| AppError::not_found("Team", team_id))?;
+        let next_team = next.team.ok_or_else(|| Error::not_found("Team", team_id))?;
         cycles.extend(next_team.cycles.nodes);
         page_info = next_team.cycles.page_info;
     }
@@ -111,7 +105,7 @@ pub fn classify_lookup_page(
     page: usize,
     url: Option<&LinearUrlRef>,
     first_key: &mut Option<String>,
-) -> Result<GetTeamCyclesForLookup, AppError> {
+) -> Result<GetTeamCyclesForLookup, Error> {
     if response.status.is_success()
         && let Ok(value) = serde_json::from_slice::<serde_json::Value>(&response.body)
     {
@@ -153,7 +147,7 @@ pub fn classify_lookup_page(
             }
         }
     }
-    crate::graphql::transport::classify_typed(response).map_err(AppError::from)
+    crate::graphql::transport::classify_typed(response).map_err(Error::from)
 }
 
 pub async fn resolve_id(
@@ -161,7 +155,7 @@ pub async fn resolve_id(
     team_id: &str,
     reference: &str,
     url: Option<&LinearUrlRef>,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let mut page = 0;
     let first_key = Rc::new(RefCell::new(None));
     resolve_id_with(team_id, reference, url, |request| {
@@ -172,7 +166,7 @@ pub async fn resolve_id(
             let response = transport
                 .send_request(&request)
                 .await
-                .map_err(AppError::from)?;
+                .map_err(Error::from)?;
             classify_lookup_page(response, current_page, url, &mut first_key.borrow_mut())
         }
     })
@@ -192,7 +186,7 @@ fn select(
     key: &str,
     original: &str,
     url: Option<&LinearUrlRef>,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let reference = match url {
         Some(LinearUrlRef::Cycle {
             cycle: CycleSelector::Number(number),
@@ -202,7 +196,7 @@ fn select(
                 .iter()
                 .find(|cycle| u64::from(cycle.number.0) == *number)
                 .map(|cycle| cycle.id.inner().to_owned())
-                .ok_or_else(|| AppError::not_found("Cycle", &format!("#{number} in team {key}")));
+                .ok_or_else(|| Error::not_found("Cycle", &format!("#{number} in team {key}")));
         }
         Some(LinearUrlRef::Cycle {
             cycle: CycleSelector::Active,
@@ -212,7 +206,7 @@ fn select(
             cycle: CycleSelector::Next,
             ..
         }) => "next",
-        Some(_) => return Err(AppError::new(AppErrorKind::Invariant, "expected cycle URL")),
+        Some(_) => return Err(Error::new("expected cycle URL")),
         None => original,
     };
     let keyword = reference.to_lowercase();
@@ -230,9 +224,7 @@ fn select(
             } else {
                 SIMPLE_SUGGESTION.to_owned()
             };
-            return Err(
-                protocol(format!("Team {key} has no active cycle")).with_suggestion(suggestion)
-            );
+            return Err(protocol(format!("Team {key} has no active cycle")).with_hint(suggestion));
         }
         "next" => {
             return cycles
@@ -241,7 +233,7 @@ fn select(
                 .map(|cycle| cycle.id.inner().to_owned())
                 .ok_or_else(|| {
                     protocol(format!("Team {key} has no upcoming cycle"))
-                        .with_suggestion(SIMPLE_SUGGESTION)
+                        .with_hint(SIMPLE_SUGGESTION)
                 });
         }
         "previous" => {
@@ -251,7 +243,7 @@ fn select(
                 .map(|cycle| cycle.id.inner().to_owned())
                 .ok_or_else(|| {
                     protocol(format!("Team {key} has no previous cycle"))
-                        .with_suggestion(SIMPLE_SUGGESTION)
+                        .with_hint(SIMPLE_SUGGESTION)
                 });
         }
         _ => {}
@@ -267,9 +259,7 @@ fn select(
             protocol(format!(
                 "Cannot resolve relative cycle {reference}: the team has no active cycle"
             ))
-            .with_suggestion(
-                "Use 'next', a cycle number, or a cycle name while no cycle is active.",
-            )
+            .with_hint("Use 'next', a cycle number, or a cycle name while no cycle is active.")
         })?;
         let signed = if reference.starts_with('-') {
             -magnitude
@@ -281,7 +271,7 @@ fn select(
             .iter()
             .find(|cycle| i64::from(cycle.number.0) == target)
             .map(|cycle| cycle.id.inner().to_owned())
-            .ok_or_else(|| AppError::not_found("Cycle", &format!("{reference} (cycle {target})")));
+            .ok_or_else(|| Error::not_found("Cycle", &format!("{reference} (cycle {target})")));
     }
     for cycle in cycles {
         if cycle
@@ -293,7 +283,7 @@ fn select(
             return Ok(cycle.id.inner().to_owned());
         }
     }
-    Err(AppError::not_found("Cycle", reference))
+    Err(Error::not_found("Cycle", reference))
 }
 
 #[derive(Serialize)]
@@ -340,7 +330,7 @@ struct JsonState<'a> {
     state_type: &'a str,
 }
 
-pub fn json(cycle: &DetailCycle) -> Result<Vec<u8>, AppError> {
+pub fn json(cycle: &DetailCycle) -> Result<Vec<u8>, Error> {
     let projected = JsonCycle {
         id: &cycle.id,
         number: cycle.number,
@@ -377,9 +367,8 @@ pub fn json(cycle: &DetailCycle) -> Result<Vec<u8>, AppError> {
             page_info: &cycle.issues.page_info,
         },
     };
-    let mut bytes = serde_json::to_vec_pretty(&projected).map_err(|error| {
-        AppError::new(AppErrorKind::Invariant, "could not serialize cycle").with_source(error)
-    })?;
+    let mut bytes = serde_json::to_vec_pretty(&projected)
+        .map_err(|error| Error::new("could not serialize cycle").with_source(error))?;
     bytes.push(b'\n');
     Ok(bytes)
 }
@@ -388,7 +377,7 @@ pub fn markdown<Tz: TimeZone>(
     cycle: &DetailCycle,
     now: DateTime<Utc>,
     zone: &Tz,
-) -> Result<String, AppError> {
+) -> Result<String, Error> {
     let number = cycle.number;
     let title = cycle
         .name

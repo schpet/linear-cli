@@ -7,7 +7,7 @@
 
 use serde_json::{Map, Value};
 
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 
 #[derive(Clone, Debug, PartialEq)]
 enum NodeKind {
@@ -109,8 +109,8 @@ enum Mark {
     Other,
 }
 
-fn validation(message: String) -> AppError {
-    AppError::new(AppErrorKind::Validation, message)
+fn validation(message: String) -> Error {
+    Error::new(message)
 }
 
 fn as_record(value: &Value) -> Option<&Map<String, Value>> {
@@ -149,7 +149,7 @@ fn optional_array<'a>(
     object: &'a Map<String, Value>,
     key: &str,
     path: &str,
-) -> Result<&'a [Value], AppError> {
+) -> Result<&'a [Value], Error> {
     match object.get(key) {
         None | Some(Value::Null) => Ok(&[]),
         Some(Value::Array(items)) => Ok(items),
@@ -159,7 +159,7 @@ fn optional_array<'a>(
     }
 }
 
-fn read_mark(value: &Value, path: &str) -> Result<Mark, AppError> {
+fn read_mark(value: &Value, path: &str) -> Result<Mark, Error> {
     let Some((object, name)) = as_record(value).and_then(|object| match object.get("type") {
         Some(Value::String(name)) => Some((object, name)),
         _ => None,
@@ -181,7 +181,7 @@ fn read_mark(value: &Value, path: &str) -> Result<Mark, AppError> {
 }
 
 /// Validate one node, then its children in order, then its marks.
-fn read_node(value: &Value, path: &str) -> Result<Node, AppError> {
+fn read_node(value: &Value, path: &str) -> Result<Node, Error> {
     let Some((object, name)) = as_record(value).and_then(|object| match object.get("type") {
         Some(Value::String(name)) => Some((object, name)),
         _ => None,
@@ -224,7 +224,7 @@ fn read_node(value: &Value, path: &str) -> Result<Node, AppError> {
 
 /// Convert a ProseMirror document to Markdown, or fail when the value is not
 /// a ProseMirror document at all.
-pub fn to_markdown(doc: &Value) -> Result<String, AppError> {
+pub fn to_markdown(doc: &Value) -> Result<String, Error> {
     let root = read_node(doc, "doc")?;
     if root.kind != NodeKind::Doc {
         return Err(validation(format!(

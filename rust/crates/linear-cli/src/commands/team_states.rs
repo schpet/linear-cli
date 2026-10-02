@@ -6,7 +6,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::display::{display_width, pad};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::number::Float;
 use crate::graphql::operations::workflow_states::{
@@ -28,10 +28,10 @@ pub async fn run_with<F, Fut>(
     json: bool,
     color: bool,
     fetch: F,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     F: FnOnce(GraphQlRequest<GetWorkflowStatesVariables>) -> Fut,
-    Fut: Future<Output = Result<GetWorkflowStates, AppError>>,
+    Fut: Future<Output = Result<GetWorkflowStates, Error>>,
 {
     let response = fetch(request(team_key)).await?;
     let mut states = response.team.states.nodes;
@@ -48,9 +48,9 @@ pub async fn run(
     team_key: String,
     json: bool,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with(team_key, json, color, |request| async move {
-        transport.execute(&request).await.map_err(AppError::from)
+        transport.execute(&request).await.map_err(Error::from)
     })
     .await
 }
@@ -69,7 +69,7 @@ struct JsonState<'a> {
     position: &'a Float,
 }
 
-fn render_json(states: &[WorkflowState]) -> Result<Vec<u8>, AppError> {
+fn render_json(states: &[WorkflowState]) -> Result<Vec<u8>, Error> {
     let nodes = states
         .iter()
         .map(|state| {
@@ -80,14 +80,9 @@ fn render_json(states: &[WorkflowState]) -> Result<Vec<u8>, AppError> {
                 position: &state.position,
             })
         })
-        .collect::<Result<Vec<_>, AppError>>()?;
-    let mut bytes = serde_json::to_vec_pretty(&JsonConnection { nodes }).map_err(|error| {
-        AppError::new(
-            AppErrorKind::Invariant,
-            "could not serialize workflow states",
-        )
-        .with_source(error)
-    })?;
+        .collect::<Result<Vec<_>, Error>>()?;
+    let mut bytes = serde_json::to_vec_pretty(&JsonConnection { nodes })
+        .map_err(|error| Error::new("could not serialize workflow states").with_source(error))?;
     bytes.push(b'\n');
     Ok(bytes)
 }

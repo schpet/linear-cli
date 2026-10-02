@@ -26,7 +26,6 @@ pub use source::{
     RealFileSource, read_config_candidate, repo_root,
 };
 pub use startup::{
-    ChildEnvOverlay, DisplaySettings, NoColor, StartupConfig, StartupError, StartupReport,
-    load_startup, render_diagnostic,
+    ChildEnvOverlay, DisplaySettings, StartupConfig, StartupReport, load_startup, render_diagnostic,
 };
 pub use transport::TransportEnvInputs;

@@ -5,7 +5,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::display::{display_width, fit, flexible_width, pad};
-use crate::error::{AppError, AppErrorKind};
+use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::issue_labels::{
     self, GetIssueLabels, GetIssueLabelsVariables, IssueLabelFilter, NullableTeamFilter,
@@ -67,17 +67,15 @@ pub fn select(
     options: &Options,
     configured_team: Option<&str>,
     scope: &WorkspaceScope<'_>,
-) -> Result<Selection, AppError> {
+) -> Result<Selection, Error> {
     if options
         .team
         .as_deref()
         .is_some_and(|team| team.trim().is_empty())
     {
-        return Err(
-            AppError::new(AppErrorKind::Validation, "Team reference is empty")
-                .with_suggestion("Pass a team key, name, or ID, e.g. --team ENG.")
-                .with_context(CONTEXT),
-        );
+        return Err(Error::new("Team reference is empty")
+            .with_hint("Pass a team key, name, or ID, e.g. --team ENG.")
+            .context(CONTEXT));
     }
     if options.workspace_only {
         return Ok(Selection::WorkspaceOnly);
@@ -85,17 +83,15 @@ pub fn select(
     if let Some(team) = options.team.as_deref() {
         return prepare_team_lookup(team, scope)
             .map(Selection::Team)
-            .map_err(|error| error.with_context(CONTEXT));
+            .context(CONTEXT);
     }
     if options.all {
         return Ok(Selection::Unfiltered);
     }
     match configured_team {
-        Some("") => Err(AppError::new(
-            AppErrorKind::Invariant,
-            "configured team key is empty; absent keys must be None",
-        )
-        .with_context(CONTEXT)),
+        Some("") => Err(
+            Error::new("configured team key is empty; absent keys must be None").context(CONTEXT),
+        ),
         Some(key) => Ok(Selection::ConfiguredTeam(key.to_owned())),
         None => Ok(Selection::Unfiltered),
     }
@@ -107,12 +103,12 @@ pub async fn run_with<R, RFut, F, Fut>(
     fetch: F,
     json: bool,
     columns: usize,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     R: FnOnce(PreparedTeamLookup) -> RFut,
-    RFut: Future<Output = Result<ResolvedTeam, AppError>>,
+    RFut: Future<Output = Result<ResolvedTeam, Error>>,
     F: FnMut(GraphQlRequest<GetIssueLabelsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetIssueLabels, AppError>>,
+    Fut: Future<Output = Result<GetIssueLabels, Error>>,
 {
     run_with_style(selection, resolve, fetch, json, columns, false).await
 }
@@ -124,19 +120,17 @@ async fn run_with_style<R, RFut, F, Fut>(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError>
+) -> Result<Vec<u8>, Error>
 where
     R: FnOnce(PreparedTeamLookup) -> RFut,
-    RFut: Future<Output = Result<ResolvedTeam, AppError>>,
+    RFut: Future<Output = Result<ResolvedTeam, Error>>,
     F: FnMut(GraphQlRequest<GetIssueLabelsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetIssueLabels, AppError>>,
+    Fut: Future<Output = Result<GetIssueLabels, Error>>,
 {
     let filter = match selection {
         Selection::WorkspaceOnly => Some(workspace_only_filter()),
         Selection::Team(prepared) => {
-            let team = resolve(prepared)
-                .await
-                .map_err(|error| error.with_context(CONTEXT))?;
+            let team = resolve(prepared).await.context(CONTEXT)?;
             Some(team_filter(team.key))
         }
         Selection::ConfiguredTeam(key) => Some(team_filter(key)),
@@ -153,7 +147,7 @@ where
         let future = fetch(request);
         async move {
             let data = future.await?;
-            Ok::<Page<issue_labels::IssueLabel>, AppError>(Page {
+            Ok::<Page<issue_labels::IssueLabel>, Error>(Page {
                 nodes: data.issue_labels.nodes,
                 page_info: data.issue_labels.page_info.into(),
             })
@@ -161,19 +155,17 @@ where
     })
     .await
     .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source.with_context(CONTEXT),
-        PaginationError::MissingCursor { .. } => AppError::new(
-            AppErrorKind::Validation,
-            "Linear reported more labels but returned no pagination cursor",
-        )
-        .with_suggestion("Retry the command.")
-        .with_context(CONTEXT),
-        PaginationError::RepeatedCursor { page, .. } => AppError::new(
-            AppErrorKind::Validation,
-            format!("Linear repeated a label pagination cursor on page {page}"),
-        )
-        .with_suggestion("Retry the command.")
-        .with_context(CONTEXT),
+        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
+        PaginationError::MissingCursor { .. } => {
+            Error::new("Linear reported more labels but returned no pagination cursor")
+                .with_hint("Retry the command.")
+                .context(CONTEXT)
+        }
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated a label pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command.")
+        .context(CONTEXT),
     })?;
 
     let mut labels = result.nodes;
@@ -190,9 +182,9 @@ where
             page_info: &page_info,
         })
         .map_err(|error| {
-            AppError::new(AppErrorKind::Invariant, "could not serialize labels")
+            Error::new("could not serialize labels")
                 .with_source(error)
-                .with_context(CONTEXT)
+                .context(CONTEXT)
         })?;
         output.push(b'\n');
         return Ok(output);
@@ -206,11 +198,11 @@ pub async fn run(
     json: bool,
     columns: usize,
     color: bool,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<Vec<u8>, Error> {
     run_with_style(
         selection,
         |prepared| async move { resolve_team_with_transport(&prepared, transport).await },
-        |request| async move { transport.execute(&request).await.map_err(AppError::from) },
+        |request| async move { transport.execute(&request).await.map_err(Error::from) },
         json,
         columns,
         color,

@@ -1,17 +1,10 @@
 //! Faithful mdast extraction/mutation; serializer selection remains a byte gate.
-use crate::{
-    error::{AppError, AppErrorKind},
-    platform::markdown_assets::Asset,
-};
+use crate::{error::Error, platform::markdown_assets::Asset};
 use markdown::{ParseOptions, mdast::Node};
 use std::collections::HashMap;
-pub fn parse(content: &str) -> Result<Node, AppError> {
-    markdown::to_mdast(content, &ParseOptions::gfm()).map_err(|error| {
-        AppError::new(
-            AppErrorKind::Validation,
-            format!("Could not parse document Markdown: {error}"),
-        )
-    })
+pub fn parse(content: &str) -> Result<Node, Error> {
+    markdown::to_mdast(content, &ParseOptions::gfm())
+        .map_err(|error| Error::new(format!("Could not parse document Markdown: {error}")))
 }
 fn host(url: &str) -> bool {
     reqwest::Url::parse(url).ok().is_some_and(|url| {
@@ -43,7 +36,7 @@ fn gather(node: &Node, images: &mut Vec<Asset>, links: &mut Vec<Asset>) {
         }
     }
 }
-pub fn extract(content: &str) -> Result<(Vec<Asset>, Vec<Asset>), AppError> {
+pub fn extract(content: &str) -> Result<(Vec<Asset>, Vec<Asset>), Error> {
     let node = parse(content)?;
     let mut images = Vec::new();
     let mut links = Vec::new();
@@ -76,9 +69,9 @@ pub fn rewrite_with<F>(
     content: &str,
     paths: &HashMap<String, String>,
     serialize: F,
-) -> Result<String, AppError>
+) -> Result<String, Error>
 where
-    F: FnOnce(&Node) -> Result<String, AppError>,
+    F: FnOnce(&Node) -> Result<String, Error>,
 {
     let mut node = parse(content)?;
     replace(&mut node, paths);

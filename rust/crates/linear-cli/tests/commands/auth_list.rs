@@ -1,7 +1,6 @@
-use linear_cli::app::block_on_network;
-use linear_cli::auth::{
-    CredentialStore, LookupFailureCategory, LookupReply, LookupResult, hydrate, parse_credentials,
-};
+use crate::block_on_network;
+use crate::{LookupReply, hydrate};
+use linear_cli::auth::{CredentialStore, LookupFailureCategory, LookupResult, parse_credentials};
 use linear_cli::commands::auth_list::{
     EMPTY_OUTPUT, Outcome, Prepared, Row, RowError, StoredKey, classify, fetch, fetch_with,
     prepare_transports, prepare_with, render,
@@ -11,7 +10,7 @@ use linear_cli::config::{
     ConfigSecret, OsFamily, ProcessEnvSnapshot, RawConfigFile, TransportEnvInputs,
     parse_config_tier,
 };
-use linear_cli::error::{AppError, AppErrorKind};
+use linear_cli::error::Error;
 use linear_cli::graphql::operations::auth_list::AuthListViewer;
 use linear_cli::graphql::transport::{
     ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig, TransportFailure,
@@ -233,8 +232,7 @@ fn transport_policy_is_resolved_only_when_some_key_is_usable() {
     let mixed = classify(&store("empty=''\nok='lin_api_fake_ok'\n"));
     let error =
         prepare_transports(mixed, &endpoint, &strict).expect_err("strict proxy policy is fatal");
-    assert_eq!(error.kind, AppErrorKind::Validation);
-    assert!(error.display_message().starts_with("SSL_CERT_FILE"));
+    assert!(error.to_string().starts_with("SSL_CERT_FILE"));
 }
 
 #[test]
@@ -246,16 +244,13 @@ fn injected_second_build_failure_is_fatal_before_any_request() {
     let error = prepare_with(rows, |_key: ApiKey| {
         builds.set(builds.get() + 1);
         if builds.get() == 2 {
-            Err(AppError::new(
-                AppErrorKind::Transport,
-                "second build failed",
-            ))
+            Err(Error::new("second build failed"))
         } else {
             Ok(builds.get())
         }
     })
     .expect_err("second build aborts preparation");
-    assert_eq!(error.display_message(), "second build failed");
+    assert_eq!(error.to_string(), "second build failed");
     assert_eq!(builds.get(), 2, "no build after the failed one");
     // Preparation owns no request; `fetch_with` is the only request start.
 }
@@ -341,8 +336,7 @@ async fn a_panicking_request_task_is_a_fatal_invariant() {
     })
     .await
     .expect_err("task panic is fatal");
-    assert_eq!(error.kind, AppErrorKind::Invariant);
-    assert_eq!(error.display_message(), "a workspace request task failed");
+    assert_eq!(error.to_string(), "a workspace request task failed");
 }
 
 /// Read one complete HTTP/1.1 request (headers plus Content-Length body).
