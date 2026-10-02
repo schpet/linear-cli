@@ -292,9 +292,8 @@ fn https_proxy_variables_route_requests_through_connect() {
 
 #[test]
 fn no_proxy_bypasses_the_proxy_for_listed_hosts() {
-    let closed = TcpListener::bind("127.0.0.1:0").expect("reserve closed port");
-    let proxy = PathBuf::from(format!("http://{}", closed.local_addr().expect("address")));
-    drop(closed);
+    // Nothing listens on port 1, so a request through this proxy fails.
+    let proxy = PathBuf::from("http://127.0.0.1:1");
     let (url, server) = serve_once(Duration::ZERO);
     let output = run_api(
         &url,
@@ -428,14 +427,10 @@ fn transport_debug_includes_a_source_chain() {
 
 #[test]
 fn real_network_failure_debug_omits_endpoint_query_and_api_key() {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("reserve closed endpoint");
-    let endpoint = format!(
-        "http://{}/graphql?sentinel_query=private",
-        listener.local_addr().expect("address")
-    );
-    drop(listener);
+    // Nothing listens on port 1, so the connection is refused.
+    let endpoint = "http://127.0.0.1:1/graphql?sentinel_query=private";
     let transport = GraphQlTransport::new(
-        EndpointUrl::parse(&endpoint).expect("endpoint"),
+        EndpointUrl::parse(endpoint).expect("endpoint"),
         fake_key(),
         config(Duration::from_millis(200)),
     )

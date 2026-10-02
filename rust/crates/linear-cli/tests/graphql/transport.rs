@@ -396,9 +396,8 @@ fn ca_bundle_must_be_a_readable_pem_file_with_certificates() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn failures_never_expose_query_tokens_or_the_api_key() {
-    let closed = TcpListener::bind("127.0.0.1:0").expect("bind");
-    let port = closed.local_addr().expect("addr").port();
-    drop(closed);
+    // Nothing listens on port 1, so the connection is refused.
+    let port = 1;
     let endpoint = EndpointUrl::parse(&format!(
         "http://127.0.0.1:{port}/graphql?signature=SIGNED-SECRET-TOKEN"
     ))
