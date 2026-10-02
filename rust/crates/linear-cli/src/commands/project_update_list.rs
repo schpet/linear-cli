@@ -8,6 +8,7 @@ use cynic::QueryBuilder;
 use serde::Serialize;
 
 use crate::commands::display::{display_width, pad, truncate_text};
+use crate::commands::style;
 use crate::commands::table::{time_ago, underlined_header};
 use crate::error::{AppError, AppErrorKind};
 use crate::graphql::envelope::GraphQlRequest;
@@ -185,66 +186,6 @@ fn short_id(id: &str) -> String {
     id.chars().take(8).collect()
 }
 
-/// Deno's console formatter sees the body inside `%c   {body}%c` with two
-/// style arguments. The opening `%c` consumes gray; body placeholders can
-/// consume the empty reset argument before the closing `%c` sees it.
-fn console_body(preview: &str, color: bool) -> String {
-    let format = format!("   {preview}%c");
-    let mut chars = format.chars().peekable();
-    let mut output = String::new();
-    let mut reset_available = true;
-    if color {
-        output.push_str("\x1b[38;2;128;128;128m");
-    }
-    while let Some(ch) = chars.next() {
-        if ch != '%' {
-            output.push(ch);
-            continue;
-        }
-        match chars.peek().copied() {
-            Some('%') => {
-                chars.next();
-                output.push('%');
-            }
-            Some('c') if reset_available => {
-                chars.next();
-                reset_available = false;
-                if color {
-                    output.push_str("\x1b[39m");
-                }
-            }
-            Some('s') if reset_available => {
-                chars.next();
-                reset_available = false;
-            }
-            Some('d' | 'i' | 'f') if reset_available => {
-                chars.next();
-                reset_available = false;
-                output.push_str("NaN");
-            }
-            Some('o' | 'O') if reset_available => {
-                chars.next();
-                reset_available = false;
-                if color {
-                    output.push_str("\x1b[32m");
-                }
-                output.push_str("\"\"");
-                if color {
-                    output.push_str("\x1b[39m");
-                }
-            }
-            _ => output.push('%'),
-        }
-    }
-    if color {
-        output.push_str("\x1b[0m");
-    }
-    if reset_available {
-        output.push(' ');
-    }
-    output
-}
-
 pub fn render_text(
     project: &UpdateProject,
     columns: usize,
@@ -315,20 +256,12 @@ pub fn render_text(
         output.push(' ');
         output.push_str(&pad(&time_ago(&node.created_at.0, now), date_width));
         output.push(' ');
-        let author_cell = pad(author(node), author_width);
-        if color_code.is_some() {
-            output.push_str(&author_cell.replace("%%", "%"));
-        } else {
-            output.push_str(&author_cell);
-        }
-        if color && color_code.is_some() {
-            output.push_str("\x1b[0m");
-        }
+        output.push_str(&pad(author(node), author_width));
         output.push('\n');
         if !node.body.is_empty() {
             let preview = node.body.replace('\n', " ");
             let preview = truncate_text(preview.trim(), available_width);
-            output.push_str(&console_body(&preview, color));
+            output.push_str(&style::gray(&format!("   {preview}"), color));
             output.push('\n');
         }
     }

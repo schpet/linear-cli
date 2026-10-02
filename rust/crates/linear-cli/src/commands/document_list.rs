@@ -1,6 +1,7 @@
 //! One requested document page with exact connection and source table output.
 use crate::commands::{
     display::{display_width, fit, pad},
+    style,
     table::{time_ago, underlined_header},
 };
 use crate::error::{AppError, AppErrorKind};
@@ -136,80 +137,13 @@ pub fn text(
         color,
     );
     for ((doc, label), age) in documents.nodes.iter().zip(labels).zip(ages) {
-        let row = format!(
-            "{} {} {} %c{}%c",
+        out.push_str(&format!(
+            "{} {} {} {}\n",
             pad(&doc.slug_id, slug_width),
             fit(&doc.title, title_width),
             pad(&label, attachment_width),
-            pad(&age, updated_width)
-        );
-        out.push_str(&console_row(&row, color));
-        out.push('\n');
+            style::gray(&pad(&age, updated_width), color)
+        ));
     }
     out
-}
-
-// Preserve Deno console placeholders in user fields: they consume the same
-// two style arguments as the trailing updated-column %c markers.
-fn console_row(format: &str, color: bool) -> String {
-    let arguments = ["color: gray", ""];
-    let mut next = 0;
-    let mut styled = false;
-    let mut output = String::new();
-    let mut characters = format.chars().peekable();
-    while let Some(character) = characters.next() {
-        if character != '%' {
-            output.push(character);
-            continue;
-        }
-        match characters.peek().copied() {
-            Some('%') => {
-                characters.next();
-                output.push('%');
-            }
-            Some(kind @ ('c' | 's' | 'd' | 'i' | 'f' | 'o' | 'O')) if next < arguments.len() => {
-                characters.next();
-                let argument = match next {
-                    0 => "color: gray",
-                    1 => "",
-                    _ => unreachable!("Console style argument index"),
-                };
-                next += 1;
-                match kind {
-                    'c' if color => {
-                        styled = true;
-                        output.push_str(if argument.is_empty() {
-                            "\x1b[39m"
-                        } else {
-                            "\x1b[38;2;128;128;128m"
-                        });
-                    }
-                    'c' => {}
-                    's' => output.push_str(argument),
-                    'd' | 'i' | 'f' => output.push_str("NaN"),
-                    'o' | 'O' => {
-                        if color {
-                            output.push_str("\x1b[32m");
-                        }
-                        output.push('"');
-                        output.push_str(argument);
-                        output.push('"');
-                        if color {
-                            output.push_str("\x1b[39m");
-                        }
-                    }
-                    _ => unreachable!("Matched console substitution"),
-                }
-            }
-            _ => output.push('%'),
-        }
-    }
-    if styled {
-        output.push_str("\x1b[0m");
-    }
-    for argument in arguments.iter().skip(next) {
-        output.push(' ');
-        output.push_str(argument);
-    }
-    output
 }

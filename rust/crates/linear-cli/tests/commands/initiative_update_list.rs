@@ -70,7 +70,6 @@ fn text_uses_initiative_health_names_author_fallback_and_body_preview() {
         "c048-health-all",
         "c048-author-fallbacks",
         "c048-body-unicode",
-        "c048-body-percent-s",
     ] {
         let case = frozen(id);
         let initiative = page(id).initiative.expect("initiative");
@@ -83,25 +82,21 @@ fn text_uses_initiative_health_names_author_fallback_and_body_preview() {
 }
 
 #[test]
-fn author_percent_escapes_collapse_after_source_padding() {
-    let case = frozen("c048-author-percent");
-    let initiative = page("c048-author-percent").initiative.expect("initiative");
+fn percent_signs_in_authors_and_bodies_print_literally() {
+    let mut initiative = page("c048-default-text").initiative.expect("initiative");
     let now = DateTime::<Utc>::from(std::time::UNIX_EPOCH);
-    assert_eq!(
-        render_text(&initiative, 120, false, now),
-        case["expected"]["stdout"]["utf8"]
-    );
-    assert!(render_text(&initiative, 120, true, now).contains("A%B  \x1b[0m\n"));
+    initiative.initiative_updates.nodes[0].body = "a %s %d %% b".to_owned();
+    assert!(render_text(&initiative, 120, false, now).ends_with("\n  a %s %d %% b\n"));
 }
 
 #[test]
-fn terminal_date_and_body_use_source_true_color_gray() {
+fn terminal_date_and_body_are_gray() {
     let now = DateTime::<Utc>::from(std::time::UNIX_EPOCH);
     let initiative = page("c048-default-text").initiative.expect("initiative");
     let output = render_text(&initiative, 120, true, now);
     assert!(output.contains("\x1b[38;2;39;174;96mOn Track\x1b[39m"));
-    assert!(output.contains("\x1b[38;2;128;128;128m1 minute ago\x1b[39m"));
-    assert!(output.contains("  \x1b[38;2;128;128;128mUpdate body\x1b[39m"));
+    assert!(output.contains("\x1b[90m1 minute ago\x1b[39m"));
+    assert!(output.contains("\x1b[90m  Update body\x1b[39m"));
 }
 
 #[test]

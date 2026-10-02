@@ -86,7 +86,7 @@ fn list_human_truncates_long_titles_by_display_width() {
     let page: ListDocuments = parse_response(response(&case, 0).to_string().as_bytes()).unwrap();
     assert_eq!(
         document_list::text(&page.documents.unwrap(), 120, false, SystemTime::now()),
-        "SLUG   TITLE                                                                          ATTACHMENT               UPDATED \nslug-0 A very long title 界 color: gray detail detail detail detail detail detail detail de... Cycle: ENG #7 — Sprint   just now%c\nslug-1 A very long title 界 color: gray detail detail detail detail detail detail detail de... Release: Summer (2026.8) just now%c\n"
+        "SLUG   TITLE                                                                          ATTACHMENT               UPDATED \nslug-0 A very long title 界 %s detail detail detail detail detail detail detail de... Cycle: ENG #7 — Sprint   just now\nslug-1 A very long title 界 %s detail detail detail detail detail detail detail de... Release: Summer (2026.8) just now\n"
     );
 }
 #[test]

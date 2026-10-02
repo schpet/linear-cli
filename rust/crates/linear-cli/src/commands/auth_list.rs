@@ -264,8 +264,8 @@ fn org_cell(row: &Row<Outcome>) -> &str {
     }
 }
 
-/// Render the whole table into one buffer. `color` mirrors Deno's console
-/// `%c` styling, which applies only when stdout is a color terminal.
+/// Render the whole table into one buffer. `color` is true only when stdout
+/// is a color terminal.
 pub fn render(rows: &[Row<Outcome>], color: bool) -> Vec<u8> {
     if rows.is_empty() {
         return EMPTY_OUTPUT.as_bytes().to_vec();
