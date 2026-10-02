@@ -768,10 +768,19 @@ async fn failures_never_expose_query_tokens_or_the_api_key() {
         panic!("expected Network, got {failure:?}");
     };
     assert_eq!(origin, &format!("http://127.0.0.1:{port}"));
-    assert_eq!(*phase, NetworkPhase::Connect);
+    // The listener is dropped before sending, so the fixture cannot guarantee
+    // whether reqwest reports a connection or request failure. Keep both
+    // origin-only diagnostics under the same complete redaction checks.
+    let action = match phase {
+        NetworkPhase::Connect => "connection to",
+        NetworkPhase::Request => "request to",
+        NetworkPhase::Body | NetworkPhase::Other => {
+            panic!("expected connect/request failure, got {failure:?}");
+        }
+    };
     let display = failure.to_string();
     assert!(
-        display.starts_with(&format!("connection to http://127.0.0.1:{port} failed: ")),
+        display.starts_with(&format!("{action} http://127.0.0.1:{port} failed: ")),
         "{display}"
     );
     let debug = format!("{failure:?}");
