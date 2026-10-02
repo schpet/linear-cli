@@ -46,8 +46,8 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (login)
 _arguments "${_arguments_options[@]}" : \
-'-k+[API key (prompted if not provided)]:key:_default' \
-'--key=[API key (prompted if not provided)]:key:_default' \
+'-k+[API key (prompted for, or read from stdin when it is piped)]:key:_default' \
+'--key=[API key (prompted for, or read from stdin when it is piped)]:key:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '--plaintext[Store API key in credentials file instead of system keyring]' \
 '-h[Print help]' \
@@ -1993,10 +1993,10 @@ _arguments "${_arguments_options[@]}" : \
 (list)
 _arguments "${_arguments_options[@]}" : \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'-w[Open in web browser]' \
-'--web[Open in web browser]' \
-'-a[Open in Linear.app]' \
-'--app[Open in Linear.app]' \
+'(-a --app -j --json)-w[Open in web browser]' \
+'(-a --app -j --json)--web[Open in web browser]' \
+'(-j --json)-a[Open in Linear.app]' \
+'(-j --json)--app[Open in Linear.app]' \
 '-j[Output as JSON]' \
 '--json[Output as JSON]' \
 '-h[Print help]' \
@@ -2144,10 +2144,10 @@ _arguments "${_arguments_options[@]}" : \
 (list)
 _arguments "${_arguments_options[@]}" : \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'-w[Open in web browser]' \
-'--web[Open in web browser]' \
-'-a[Open in Linear.app]' \
-'--app[Open in Linear.app]' \
+'(-a --app -j --json)-w[Open in web browser]' \
+'(-a --app -j --json)--web[Open in web browser]' \
+'(-j --json)-a[Open in Linear.app]' \
+'(-j --json)--app[Open in Linear.app]' \
 '-j[Output as JSON]' \
 '--json[Output as JSON]' \
 '-h[Print help]' \
@@ -2385,7 +2385,7 @@ _arguments "${_arguments_options[@]}" : \
 '--team=[Filter by team key, name, or ID]:team:_default' \
 '--status=[Filter by status name]:status:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--all-teams[Show projects from all teams]' \
+'(--team)--all-teams[Show projects from all teams]' \
 '-w[Open in web browser]' \
 '--web[Open in web browser]' \
 '-a[Open in Linear.app]' \
@@ -2428,23 +2428,23 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (create)
 _arguments "${_arguments_options[@]}" : \
-'-n+[Project name (required)]:name:_default' \
-'--name=[Project name (required)]:name:_default' \
-'-d+[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
-'--description=[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
+'-n+[Project name]:name:_default' \
+'--name=[Project name]:name:_default' \
+'(-f --description-file)-d+[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
+'(-f --description-file)--description=[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
 '-f+[Read project description from file (still subject to the 255-character API limit)]:path:_default' \
 '--description-file=[Read project description from file (still subject to the 255-character API limit)]:path:_default' \
-'--content=[Project overview markdown]:markdown:_default' \
+'(--content-file)--content=[Project overview markdown]:markdown:_default' \
 '--content-file=[Read project overview markdown from a file]:path:_default' \
-'*-t+[Team key, name, or ID (required, can be repeated for multiple teams)]:team:_default' \
-'*--team=[Team key, name, or ID (required, can be repeated for multiple teams)]:team:_default' \
+'-s+[Project status]:status:(planned started paused completed canceled backlog)' \
+'--status=[Project status]:status:(planned started paused completed canceled backlog)' \
 '-l+[Project lead (username, email, or @me)]:lead:_default' \
 '--lead=[Project lead (username, email, or @me)]:lead:_default' \
-'-s+[Project status (planned, started, paused, completed, canceled, backlog)]:status:_default' \
-'--status=[Project status (planned, started, paused, completed, canceled, backlog)]:status:_default' \
 '--start-date=[Start date (YYYY-MM-DD)]:startDate:_default' \
 '--target-date=[Target completion date (YYYY-MM-DD)]:targetDate:_default' \
-'--priority=[Project priority (none, urgent, high, medium, low)]:priority:_default' \
+'--priority=[Project priority]:priority:(none urgent high medium low)' \
+'*-t+[Team key, name, or ID (required, can be repeated for multiple teams)]:team:_default' \
+'*--team=[Team key, name, or ID (required, can be repeated for multiple teams)]:team:_default' \
 '*--label=[Project label associated with the project. May be repeated.]:label:_default' \
 '*--member=[Project member (username, email, display name, or @me). May be repeated.]:user:_default' \
 '--icon=[Project icon]:icon:_default' \
@@ -2464,32 +2464,33 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-n+[Project name]:name:_default' \
 '--name=[Project name]:name:_default' \
-'-d+[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
-'--description=[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
+'(-f --description-file)-d+[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
+'(-f --description-file)--description=[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
 '-f+[Read project description from file (still subject to the 255-character API limit)]:path:_default' \
 '--description-file=[Read project description from file (still subject to the 255-character API limit)]:path:_default' \
-'--content=[Project overview markdown]:markdown:_default' \
+'(--content-file)--content=[Project overview markdown]:markdown:_default' \
 '--content-file=[Read project overview markdown from a file]:path:_default' \
-'-s+[Status (planned, started, paused, completed, canceled, backlog)]:status:_default' \
-'--status=[Status (planned, started, paused, completed, canceled, backlog)]:status:_default' \
-'-l+[Project lead (username, email, or @me). Use --clear-lead to remove it]:lead:_default' \
-'--lead=[Project lead (username, email, or @me). Use --clear-lead to remove it]:lead:_default' \
-'--start-date=[Start date (YYYY-MM-DD). Use --clear-start-date to remove it]:startDate:_default' \
-'--target-date=[Target date (YYYY-MM-DD). Use --clear-target-date to remove it]:targetDate:_default' \
-'*-t+[Team key, name, or ID; replaces the project'\''s entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.]:team:_default' \
-'*--team=[Team key, name, or ID; replaces the project'\''s entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.]:team:_default' \
+'-s+[Project status]:status:(planned started paused completed canceled backlog)' \
+'--status=[Project status]:status:(planned started paused completed canceled backlog)' \
+'-l+[Project lead (username, email, or @me)]:lead:_default' \
+'--lead=[Project lead (username, email, or @me)]:lead:_default' \
+'--start-date=[Start date (YYYY-MM-DD)]:startDate:_default' \
+'--target-date=[Target completion date (YYYY-MM-DD)]:targetDate:_default' \
+'--priority=[Project priority]:priority:(none urgent high medium low)' \
+'(--add-team --remove-team)*-t+[Team key, name, or ID; replaces the project'\''s entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.]:team:_default' \
+'(--add-team --remove-team)*--team=[Team key, name, or ID; replaces the project'\''s entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.]:team:_default' \
 '*--add-team=[Add a team to the project, keeping its existing teams. May be repeated.]:team:_default' \
 '*--remove-team=[Remove a team from the project, keeping its other teams. May be repeated.]:team:_default' \
-'*--label=[Project label; replaces the project'\''s entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.]:label:_default' \
+'(--add-label --remove-label)*--label=[Project label; replaces the project'\''s entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.]:label:_default' \
 '*--add-label=[Add a label to the project, keeping its existing labels. May be repeated.]:label:_default' \
 '*--remove-label=[Remove a label from the project, keeping its other labels (does not delete the label). May be repeated.]:label:_default' \
-'*--initiative=[Initiative ID, slug, or name; replaces the project'\''s entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.]:initiative:_default' \
+'(--add-initiative --remove-initiative)*--initiative=[Initiative ID, slug, or name; replaces the project'\''s entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.]:initiative:_default' \
 '*--add-initiative=[Add the project to an initiative, keeping its existing initiatives. May be repeated.]:initiative:_default' \
 '*--remove-initiative=[Remove the project from an initiative, keeping its other initiatives (does not delete the initiative). May be repeated.]:initiative:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--clear-lead[Remove the project'\''s lead (cannot be combined with --lead)]' \
-'--clear-start-date[Remove the project'\''s start date (cannot be combined with --start-date)]' \
-'--clear-target-date[Remove the project'\''s target date (cannot be combined with --target-date)]' \
+'(-l --lead)--clear-lead[Remove the project'\''s lead]' \
+'(--start-date)--clear-start-date[Remove the project'\''s start date]' \
+'(--target-date)--clear-target-date[Remove the project'\''s target date]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 ':project_id:_default' \
@@ -2678,7 +2679,7 @@ _arguments "${_arguments_options[@]}" : \
 '--team=[Filter by team key, name, or ID]:team:_default' \
 '--status=[Filter by status name]:status:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--all-teams[Show projects from all teams]' \
+'(--team)--all-teams[Show projects from all teams]' \
 '-w[Open in web browser]' \
 '--web[Open in web browser]' \
 '-a[Open in Linear.app]' \
@@ -2721,23 +2722,23 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (create)
 _arguments "${_arguments_options[@]}" : \
-'-n+[Project name (required)]:name:_default' \
-'--name=[Project name (required)]:name:_default' \
-'-d+[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
-'--description=[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
+'-n+[Project name]:name:_default' \
+'--name=[Project name]:name:_default' \
+'(-f --description-file)-d+[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
+'(-f --description-file)--description=[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
 '-f+[Read project description from file (still subject to the 255-character API limit)]:path:_default' \
 '--description-file=[Read project description from file (still subject to the 255-character API limit)]:path:_default' \
-'--content=[Project overview markdown]:markdown:_default' \
+'(--content-file)--content=[Project overview markdown]:markdown:_default' \
 '--content-file=[Read project overview markdown from a file]:path:_default' \
-'*-t+[Team key, name, or ID (required, can be repeated for multiple teams)]:team:_default' \
-'*--team=[Team key, name, or ID (required, can be repeated for multiple teams)]:team:_default' \
+'-s+[Project status]:status:(planned started paused completed canceled backlog)' \
+'--status=[Project status]:status:(planned started paused completed canceled backlog)' \
 '-l+[Project lead (username, email, or @me)]:lead:_default' \
 '--lead=[Project lead (username, email, or @me)]:lead:_default' \
-'-s+[Project status (planned, started, paused, completed, canceled, backlog)]:status:_default' \
-'--status=[Project status (planned, started, paused, completed, canceled, backlog)]:status:_default' \
 '--start-date=[Start date (YYYY-MM-DD)]:startDate:_default' \
 '--target-date=[Target completion date (YYYY-MM-DD)]:targetDate:_default' \
-'--priority=[Project priority (none, urgent, high, medium, low)]:priority:_default' \
+'--priority=[Project priority]:priority:(none urgent high medium low)' \
+'*-t+[Team key, name, or ID (required, can be repeated for multiple teams)]:team:_default' \
+'*--team=[Team key, name, or ID (required, can be repeated for multiple teams)]:team:_default' \
 '*--label=[Project label associated with the project. May be repeated.]:label:_default' \
 '*--member=[Project member (username, email, display name, or @me). May be repeated.]:user:_default' \
 '--icon=[Project icon]:icon:_default' \
@@ -2757,32 +2758,33 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '-n+[Project name]:name:_default' \
 '--name=[Project name]:name:_default' \
-'-d+[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
-'--description=[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
+'(-f --description-file)-d+[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
+'(-f --description-file)--description=[Project description (max 255 characters, enforced by Linear'\''s API)]:description:_default' \
 '-f+[Read project description from file (still subject to the 255-character API limit)]:path:_default' \
 '--description-file=[Read project description from file (still subject to the 255-character API limit)]:path:_default' \
-'--content=[Project overview markdown]:markdown:_default' \
+'(--content-file)--content=[Project overview markdown]:markdown:_default' \
 '--content-file=[Read project overview markdown from a file]:path:_default' \
-'-s+[Status (planned, started, paused, completed, canceled, backlog)]:status:_default' \
-'--status=[Status (planned, started, paused, completed, canceled, backlog)]:status:_default' \
-'-l+[Project lead (username, email, or @me). Use --clear-lead to remove it]:lead:_default' \
-'--lead=[Project lead (username, email, or @me). Use --clear-lead to remove it]:lead:_default' \
-'--start-date=[Start date (YYYY-MM-DD). Use --clear-start-date to remove it]:startDate:_default' \
-'--target-date=[Target date (YYYY-MM-DD). Use --clear-target-date to remove it]:targetDate:_default' \
-'*-t+[Team key, name, or ID; replaces the project'\''s entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.]:team:_default' \
-'*--team=[Team key, name, or ID; replaces the project'\''s entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.]:team:_default' \
+'-s+[Project status]:status:(planned started paused completed canceled backlog)' \
+'--status=[Project status]:status:(planned started paused completed canceled backlog)' \
+'-l+[Project lead (username, email, or @me)]:lead:_default' \
+'--lead=[Project lead (username, email, or @me)]:lead:_default' \
+'--start-date=[Start date (YYYY-MM-DD)]:startDate:_default' \
+'--target-date=[Target completion date (YYYY-MM-DD)]:targetDate:_default' \
+'--priority=[Project priority]:priority:(none urgent high medium low)' \
+'(--add-team --remove-team)*-t+[Team key, name, or ID; replaces the project'\''s entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.]:team:_default' \
+'(--add-team --remove-team)*--team=[Team key, name, or ID; replaces the project'\''s entire team set. May be repeated. Use --add-team/--remove-team to change teams incrementally.]:team:_default' \
 '*--add-team=[Add a team to the project, keeping its existing teams. May be repeated.]:team:_default' \
 '*--remove-team=[Remove a team from the project, keeping its other teams. May be repeated.]:team:_default' \
-'*--label=[Project label; replaces the project'\''s entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.]:label:_default' \
+'(--add-label --remove-label)*--label=[Project label; replaces the project'\''s entire label set. May be repeated. Use --add-label/--remove-label to change labels incrementally.]:label:_default' \
 '*--add-label=[Add a label to the project, keeping its existing labels. May be repeated.]:label:_default' \
 '*--remove-label=[Remove a label from the project, keeping its other labels (does not delete the label). May be repeated.]:label:_default' \
-'*--initiative=[Initiative ID, slug, or name; replaces the project'\''s entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.]:initiative:_default' \
+'(--add-initiative --remove-initiative)*--initiative=[Initiative ID, slug, or name; replaces the project'\''s entire initiative set. May be repeated. Use --add-initiative/--remove-initiative to change initiatives incrementally.]:initiative:_default' \
 '*--add-initiative=[Add the project to an initiative, keeping its existing initiatives. May be repeated.]:initiative:_default' \
 '*--remove-initiative=[Remove the project from an initiative, keeping its other initiatives (does not delete the initiative). May be repeated.]:initiative:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--clear-lead[Remove the project'\''s lead (cannot be combined with --lead)]' \
-'--clear-start-date[Remove the project'\''s start date (cannot be combined with --start-date)]' \
-'--clear-target-date[Remove the project'\''s target date (cannot be combined with --target-date)]' \
+'(-l --lead)--clear-lead[Remove the project'\''s lead]' \
+'(--start-date)--clear-start-date[Remove the project'\''s start date]' \
+'(--target-date)--clear-target-date[Remove the project'\''s target date]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 ':project_id:_default' \
@@ -2968,9 +2970,9 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (create)
 _arguments "${_arguments_options[@]}" : \
-'--body=[Update content (inline)]:body:_default' \
+'(--body-file)--body=[Update content (markdown)]:body:_default' \
 '--body-file=[Read content from file]:path:_default' \
-'--health=[Project health status (onTrack, atRisk, offTrack)]:health:_default' \
+'--health=[Health status]:health:(onTrack atRisk offTrack)' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-i[Interactive mode with prompts]' \
 '--interactive[Interactive mode with prompts]' \
@@ -2981,9 +2983,9 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (c)
 _arguments "${_arguments_options[@]}" : \
-'--body=[Update content (inline)]:body:_default' \
+'(--body-file)--body=[Update content (markdown)]:body:_default' \
 '--body-file=[Read content from file]:path:_default' \
-'--health=[Project health status (onTrack, atRisk, offTrack)]:health:_default' \
+'--health=[Health status]:health:(onTrack atRisk offTrack)' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-i[Interactive mode with prompts]' \
 '--interactive[Interactive mode with prompts]' \
@@ -3065,9 +3067,9 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (create)
 _arguments "${_arguments_options[@]}" : \
-'--body=[Update content (inline)]:body:_default' \
+'(--body-file)--body=[Update content (markdown)]:body:_default' \
 '--body-file=[Read content from file]:path:_default' \
-'--health=[Project health status (onTrack, atRisk, offTrack)]:health:_default' \
+'--health=[Health status]:health:(onTrack atRisk offTrack)' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-i[Interactive mode with prompts]' \
 '--interactive[Interactive mode with prompts]' \
@@ -3078,9 +3080,9 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (c)
 _arguments "${_arguments_options[@]}" : \
-'--body=[Update content (inline)]:body:_default' \
+'(--body-file)--body=[Update content (markdown)]:body:_default' \
 '--body-file=[Read content from file]:path:_default' \
-'--health=[Project health status (onTrack, atRisk, offTrack)]:health:_default' \
+'--health=[Health status]:health:(onTrack atRisk offTrack)' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-i[Interactive mode with prompts]' \
 '--interactive[Interactive mode with prompts]' \
@@ -4298,9 +4300,9 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (create)
 _arguments "${_arguments_options[@]}" : \
-'--body=[Update content (markdown)]:body:_default' \
+'(--body-file)--body=[Update content (markdown)]:body:_default' \
 '--body-file=[Read content from file]:path:_default' \
-'--health=[Health status (onTrack, atRisk, offTrack)]:health:_default' \
+'--health=[Health status]:health:(onTrack atRisk offTrack)' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-i[Interactive mode with prompts]' \
 '--interactive[Interactive mode with prompts]' \
@@ -4311,9 +4313,9 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (c)
 _arguments "${_arguments_options[@]}" : \
-'--body=[Update content (markdown)]:body:_default' \
+'(--body-file)--body=[Update content (markdown)]:body:_default' \
 '--body-file=[Read content from file]:path:_default' \
-'--health=[Health status (onTrack, atRisk, offTrack)]:health:_default' \
+'--health=[Health status]:health:(onTrack atRisk offTrack)' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-i[Interactive mode with prompts]' \
 '--interactive[Interactive mode with prompts]' \
@@ -4408,9 +4410,9 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (create)
 _arguments "${_arguments_options[@]}" : \
-'--body=[Update content (markdown)]:body:_default' \
+'(--body-file)--body=[Update content (markdown)]:body:_default' \
 '--body-file=[Read content from file]:path:_default' \
-'--health=[Health status (onTrack, atRisk, offTrack)]:health:_default' \
+'--health=[Health status]:health:(onTrack atRisk offTrack)' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-i[Interactive mode with prompts]' \
 '--interactive[Interactive mode with prompts]' \
@@ -4421,9 +4423,9 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (c)
 _arguments "${_arguments_options[@]}" : \
-'--body=[Update content (markdown)]:body:_default' \
+'(--body-file)--body=[Update content (markdown)]:body:_default' \
 '--body-file=[Read content from file]:path:_default' \
-'--health=[Health status (onTrack, atRisk, offTrack)]:health:_default' \
+'--health=[Health status]:health:(onTrack atRisk offTrack)' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-i[Interactive mode with prompts]' \
 '--interactive[Interactive mode with prompts]' \
@@ -4520,8 +4522,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--team=[Filter by team key, name, or ID (e.g., TC). Shows that team'\''s labels plus workspace labels.]:team:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--workspace-only[Show only workspace-level labels (not team-specific)]' \
-'--all[Show all labels (both workspace and team)]' \
+'(--team --all)--workspace-only[Show only workspace-level labels (not team-specific)]' \
+'(--team)--all[Show all labels (both workspace and team)]' \
 '-j[Output as JSON]' \
 '--json[Output as JSON]' \
 '-h[Print help]' \
@@ -4617,8 +4619,8 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 '--team=[Filter by team key, name, or ID (e.g., TC). Shows that team'\''s labels plus workspace labels.]:team:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'--workspace-only[Show only workspace-level labels (not team-specific)]' \
-'--all[Show all labels (both workspace and team)]' \
+'(--team --all)--workspace-only[Show only workspace-level labels (not team-specific)]' \
+'(--team)--all[Show all labels (both workspace and team)]' \
 '-j[Output as JSON]' \
 '--json[Output as JSON]' \
 '-h[Print help]' \
@@ -4794,11 +4796,11 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (list)
 _arguments "${_arguments_options[@]}" : \
-'--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Filter by release (UUID, name, or version)]:release:_default' \
 '--limit=[Limit results]:limit:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
@@ -4809,11 +4811,11 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (l)
 _arguments "${_arguments_options[@]}" : \
-'--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Filter by release (UUID, name, or version)]:release:_default' \
 '--limit=[Limit results]:limit:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
@@ -4856,16 +4858,16 @@ _arguments "${_arguments_options[@]}" : \
 '--content=[Markdown content (inline)]:content:_default' \
 '-f+[Read content from file]:path:_default' \
 '--content-file=[Read content from file]:path:_default' \
-'--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Attach to release (UUID, name, or version)]:release:_default' \
 '--icon=[Document icon (emoji)]:icon:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'-i[Interactive mode with prompts]' \
-'--interactive[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)-i[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)--interactive[Interactive mode with prompts]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
@@ -4878,16 +4880,16 @@ _arguments "${_arguments_options[@]}" : \
 '--content=[Markdown content (inline)]:content:_default' \
 '-f+[Read content from file]:path:_default' \
 '--content-file=[Read content from file]:path:_default' \
-'--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Attach to release (UUID, name, or version)]:release:_default' \
 '--icon=[Document icon (emoji)]:icon:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'-i[Interactive mode with prompts]' \
-'--interactive[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)-i[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)--interactive[Interactive mode with prompts]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
@@ -4901,11 +4903,11 @@ _arguments "${_arguments_options[@]}" : \
 '-f+[Read new content from file]:path:_default' \
 '--content-file=[Read new content from file]:path:_default' \
 '--icon=[New icon (emoji)]:icon:_default' \
-'--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
-'--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
-'--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
-'--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
+'(--team --cycle --release)--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
+'(--release)--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Re-point to release (UUID, name, or version); replaces the current attachment]:release:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-e[Open current content in \$EDITOR for editing]' \
@@ -4925,11 +4927,11 @@ _arguments "${_arguments_options[@]}" : \
 '-f+[Read new content from file]:path:_default' \
 '--content-file=[Read new content from file]:path:_default' \
 '--icon=[New icon (emoji)]:icon:_default' \
-'--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
-'--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
-'--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
-'--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
+'(--team --cycle --release)--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
+'(--release)--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Re-point to release (UUID, name, or version); replaces the current attachment]:release:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-e[Open current content in \$EDITOR for editing]' \
@@ -5136,11 +5138,11 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (list)
 _arguments "${_arguments_options[@]}" : \
-'--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Filter by release (UUID, name, or version)]:release:_default' \
 '--limit=[Limit results]:limit:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
@@ -5151,11 +5153,11 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (l)
 _arguments "${_arguments_options[@]}" : \
-'--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Filter by release (UUID, name, or version)]:release:_default' \
 '--limit=[Limit results]:limit:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
@@ -5198,16 +5200,16 @@ _arguments "${_arguments_options[@]}" : \
 '--content=[Markdown content (inline)]:content:_default' \
 '-f+[Read content from file]:path:_default' \
 '--content-file=[Read content from file]:path:_default' \
-'--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Attach to release (UUID, name, or version)]:release:_default' \
 '--icon=[Document icon (emoji)]:icon:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'-i[Interactive mode with prompts]' \
-'--interactive[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)-i[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)--interactive[Interactive mode with prompts]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
@@ -5220,16 +5222,16 @@ _arguments "${_arguments_options[@]}" : \
 '--content=[Markdown content (inline)]:content:_default' \
 '-f+[Read content from file]:path:_default' \
 '--content-file=[Read content from file]:path:_default' \
-'--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Attach to release (UUID, name, or version)]:release:_default' \
 '--icon=[Document icon (emoji)]:icon:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'-i[Interactive mode with prompts]' \
-'--interactive[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)-i[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)--interactive[Interactive mode with prompts]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
@@ -5243,11 +5245,11 @@ _arguments "${_arguments_options[@]}" : \
 '-f+[Read new content from file]:path:_default' \
 '--content-file=[Read new content from file]:path:_default' \
 '--icon=[New icon (emoji)]:icon:_default' \
-'--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
-'--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
-'--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
-'--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
+'(--team --cycle --release)--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
+'(--release)--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Re-point to release (UUID, name, or version); replaces the current attachment]:release:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-e[Open current content in \$EDITOR for editing]' \
@@ -5267,11 +5269,11 @@ _arguments "${_arguments_options[@]}" : \
 '-f+[Read new content from file]:path:_default' \
 '--content-file=[Read new content from file]:path:_default' \
 '--icon=[New icon (emoji)]:icon:_default' \
-'--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
-'--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
-'--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
-'--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
+'(--team --cycle --release)--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
+'(--release)--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Re-point to release (UUID, name, or version); replaces the current attachment]:release:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-e[Open current content in \$EDITOR for editing]' \
@@ -5478,11 +5480,11 @@ _arguments "${_arguments_options[@]}" : \
         case $line[1] in
             (list)
 _arguments "${_arguments_options[@]}" : \
-'--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Filter by release (UUID, name, or version)]:release:_default' \
 '--limit=[Limit results]:limit:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
@@ -5493,11 +5495,11 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (l)
 _arguments "${_arguments_options[@]}" : \
-'--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Filter by project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Filter by issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Filter by initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Filter by team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Filter by cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Filter by release (UUID, name, or version)]:release:_default' \
 '--limit=[Limit results]:limit:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
@@ -5540,16 +5542,16 @@ _arguments "${_arguments_options[@]}" : \
 '--content=[Markdown content (inline)]:content:_default' \
 '-f+[Read content from file]:path:_default' \
 '--content-file=[Read content from file]:path:_default' \
-'--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Attach to release (UUID, name, or version)]:release:_default' \
 '--icon=[Document icon (emoji)]:icon:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'-i[Interactive mode with prompts]' \
-'--interactive[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)-i[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)--interactive[Interactive mode with prompts]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
@@ -5562,16 +5564,16 @@ _arguments "${_arguments_options[@]}" : \
 '--content=[Markdown content (inline)]:content:_default' \
 '-f+[Read content from file]:path:_default' \
 '--content-file=[Read content from file]:path:_default' \
-'--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
-'--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
-'--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
-'--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Attach to project (UUID, slug ID, or name)]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Attach to issue (identifier like TC-123)]:issue:_default' \
+'(--team --cycle --release)--initiative=[Attach to initiative (UUID, slug ID, or name)]:initiative:_default' \
+'(--release)--team=[Attach to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Attach to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Attach to release (UUID, name, or version)]:release:_default' \
 '--icon=[Document icon (emoji)]:icon:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
-'-i[Interactive mode with prompts]' \
-'--interactive[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)-i[Interactive mode with prompts]' \
+'(--project --issue --initiative --team --cycle --release)--interactive[Interactive mode with prompts]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
@@ -5585,11 +5587,11 @@ _arguments "${_arguments_options[@]}" : \
 '-f+[Read new content from file]:path:_default' \
 '--content-file=[Read new content from file]:path:_default' \
 '--icon=[New icon (emoji)]:icon:_default' \
-'--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
-'--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
-'--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
-'--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
+'(--team --cycle --release)--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
+'(--release)--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Re-point to release (UUID, name, or version); replaces the current attachment]:release:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-e[Open current content in \$EDITOR for editing]' \
@@ -5609,11 +5611,11 @@ _arguments "${_arguments_options[@]}" : \
 '-f+[Read new content from file]:path:_default' \
 '--content-file=[Read new content from file]:path:_default' \
 '--icon=[New icon (emoji)]:icon:_default' \
-'--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
-'--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
-'--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
-'--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
-'--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
+'(--issue --initiative --team --cycle --release)--project=[Re-point to project (UUID, slug ID, or name); replaces the current attachment]:project:_default' \
+'(--initiative --team --cycle --release)--issue=[Re-point to issue (identifier like TC-123); replaces the current attachment]:issue:_default' \
+'(--team --cycle --release)--initiative=[Re-point to initiative (UUID, slug ID, or name); replaces the current attachment]:initiative:_default' \
+'(--release)--team=[Re-point to team (key, name, or ID); with --cycle, scopes the cycle lookup instead]:team:_default' \
+'(--release)--cycle=[Re-point to cycle\: name, number, '\''active'\''/'\''now'\'', '\''next'\'', '\''previous'\'', or a relative offset like +1 (team from --team or config)]:cycle:_default' \
 '--release=[Re-point to release (UUID, name, or version); replaces the current attachment]:release:_default' \
 '--workspace=[Target workspace (uses credentials)]:slug:_default' \
 '-e[Open current content in \$EDITOR for editing]' \

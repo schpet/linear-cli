@@ -4525,7 +4525,7 @@ _linear() {
                     return 0
                     ;;
                 --health)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                    COMPREPLY=($(compgen -W "onTrack atRisk offTrack" -- "${cur}"))
                     return 0
                     ;;
                 --workspace)
@@ -7615,7 +7615,7 @@ _linear() {
                     return 0
                     ;;
                 --health)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                    COMPREPLY=($(compgen -W "onTrack atRisk offTrack" -- "${cur}"))
                     return 0
                     ;;
                 --workspace)
@@ -7874,7 +7874,7 @@ _linear() {
             return 0
             ;;
         linear__subcmd__project__subcmd__create)
-            opts="-n -d -f -t -l -s -i -j -h --name --description --description-file --content --content-file --team --lead --status --start-date --target-date --priority --label --member --icon --color --initiative --template --interactive --json --workspace --help"
+            opts="-n -d -f -s -l -t -i -j -h --name --description --description-file --content --content-file --status --lead --start-date --target-date --priority --team --label --member --icon --color --initiative --template --interactive --json --workspace --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -7912,12 +7912,12 @@ _linear() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
-                --team)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                --status)
+                    COMPREPLY=($(compgen -W "planned started paused completed canceled backlog" -- "${cur}"))
                     return 0
                     ;;
-                -t)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                -s)
+                    COMPREPLY=($(compgen -W "planned started paused completed canceled backlog" -- "${cur}"))
                     return 0
                     ;;
                 --lead)
@@ -7925,14 +7925,6 @@ _linear() {
                     return 0
                     ;;
                 -l)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --status)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -s)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -7945,6 +7937,14 @@ _linear() {
                     return 0
                     ;;
                 --priority)
+                    COMPREPLY=($(compgen -W "none urgent high medium low" -- "${cur}"))
+                    return 0
+                    ;;
+                --team)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -t)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
@@ -8208,7 +8208,7 @@ _linear() {
             return 0
             ;;
         linear__subcmd__project__subcmd__update)
-            opts="-n -d -f -s -l -t -h --name --description --description-file --content --content-file --status --lead --clear-lead --start-date --clear-start-date --target-date --clear-target-date --team --add-team --remove-team --label --add-label --remove-label --initiative --add-initiative --remove-initiative --workspace --help"
+            opts="-n -d -f -s -l -t -h --name --description --description-file --content --content-file --status --lead --start-date --target-date --priority --clear-lead --clear-start-date --clear-target-date --team --add-team --remove-team --label --add-label --remove-label --initiative --add-initiative --remove-initiative --workspace --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -8247,11 +8247,11 @@ _linear() {
                     return 0
                     ;;
                 --status)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                    COMPREPLY=($(compgen -W "planned started paused completed canceled backlog" -- "${cur}"))
                     return 0
                     ;;
                 -s)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                    COMPREPLY=($(compgen -W "planned started paused completed canceled backlog" -- "${cur}"))
                     return 0
                     ;;
                 --lead)
@@ -8268,6 +8268,10 @@ _linear() {
                     ;;
                 --target-date)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --priority)
+                    COMPREPLY=($(compgen -W "none urgent high medium low" -- "${cur}"))
                     return 0
                     ;;
                 --team)
