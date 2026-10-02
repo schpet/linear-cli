@@ -4,7 +4,7 @@ Updated 2026-10-02. This is the pickup point for the public `rust-port` candidat
 
 ## Current status
 
-- **Latest documentation-head CI retry required:** `b4614c9d` full Mac run records951 passes/1 failure/1 ignored (nested filtered child helper excluded). Its sole failure asserts Connect where reqwest reports Request in the dropped-loopback-listener redaction fixture. The test-only closure accepts exactly those two phases and their corresponding origin-only diagnostics, retaining every token/signature/path redaction, source-chain and AppError assertion; production unchanged. Focused local checks qualify the correction; root push/required CI confirmation remains pending.
+- **Latest CI retry required:** `9e141` Mac commands target records512 passes/1 failure/1 ignored: the initiative-unarchive mock response write resets, then resolution fails because its sequential worker exits. The oversized fixture advertises70000 bytes against a65536 cap, which production rejects before body reads; the exact failed variant was not printed. Test-only closure advertises the oversized length without racing the expected close, preserves normal write errors and all seven fallback/two strict-shape cases, and strengthens exact slug→name request variables. Focused checks qualify this correction; root push/required CI confirmation remains pending. Production unchanged; prior transport-phase closure/failures remain recorded.
 
 - **Prior required CI GREEN on public `rust-port` commit `fb5d3a4f7b542eb9de49338e1163d1b185b29951`.** [Native CI](https://github.com/schpet/linear-cli/actions/runs/37051334494)/[source CI](https://github.com/schpet/linear-cli/actions/runs/37051334806) succeeded in all nine required jobs: Linux992/0/1ignored, Mac952/0/1ignored (nested helper excluded), reader/keyring checks on three OSes and source check. Prescribed Claude closure was root-confirmed; earlier evidence remains historical. Optional Windows full101 failures/five targets remains nonrequired; no universal OS/release claim.
 
@@ -18,6 +18,8 @@ Updated 2026-10-02. This is the pickup point for the public `rust-port` candidat
 - **Policy:** sole tracked writer/shared target/heavy flock--close/Cargo1.93/default2CPU/jobs2; invocation-only incremental0/dev-test debug0. Referenced immutable artifacts retained, disk~8.8GiB free. No repeated full Rust/Deno/main corpus, no new source cohort, worker VCS/workspaces/delegation/credential inspection or unauthorized writes.
 
 ## Progress log
+
+2026-10-02 — Latest9e141 Mac commands512/1/1ignored: unarchive fixture write reset/fallback worker exit; bounded header-only declared-oversize protocol closure retains normal write failures/seven fallback variants/two strict shapes and adds exact slug→name variables. Focused tests/Clippy/fmt only; no production/harness/full replay change, root CI retry pending.
 
 2026-10-02 — Latest b4614c9d Mac CI951/1/1ignored fails only transport redaction fixture Connect-vs-Request expectation; test-only Connect|Request + matching origin diagnostic preserves complete secret/path/source-chain/AppError guards. Focused closure only, no product/harness/full replay change; root retry CI pending and earlier fb5d3a4f all-required-GREEN proof remains historical.
 

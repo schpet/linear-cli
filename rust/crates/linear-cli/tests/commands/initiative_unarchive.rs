@@ -14,6 +14,8 @@ use std::{
     time::Duration,
 };
 
+const RESPONSE_LIMIT: usize = 65536;
+
 fn server(replies: Vec<(u16, String)>) -> (GraphQlTransport, thread::JoinHandle<Vec<Value>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = format!("http://{}/graphql", listener.local_addr().unwrap());
@@ -50,7 +52,13 @@ fn server(replies: Vec<(u16, String)>) -> (GraphQlTransport, thread::JoinHandle<
             if status == 0 {
                 continue;
             }
-            write!(stream,"HTTP/1.1 {status} OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+            write!(stream,"HTTP/1.1 {status} OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n",body.len()).unwrap();
+            // The client rejects an oversized declared length before reading
+            // the body. Do not race its expected close by writing that body;
+            // the sequential server must still serve the fallback request.
+            if body.len() <= RESPONSE_LIMIT {
+                stream.write_all(body.as_bytes()).unwrap();
+            }
         }
         requests
     });
@@ -61,7 +69,7 @@ fn server(replies: Vec<(u16, String)>) -> (GraphQlTransport, thread::JoinHandle<
             proxy: ProxyMode::Direct,
             ca: CaMode::PublicRoots,
             deadline: Deadline::new(Duration::from_secs(2)).unwrap(),
-            max_response_bytes: ResponseCap::new(65536).unwrap(),
+            max_response_bytes: ResponseCap::new(RESPONSE_LIMIT).unwrap(),
         },
     )
     .unwrap();
@@ -188,7 +196,10 @@ async fn real_exchange_failures_fall_back_but_shapes_do_not() {
                 .unwrap(),
             "id"
         );
-        assert_eq!(worker.join().unwrap().len(), 2);
+        let requests = worker.join().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(requests[0]["variables"], json!({"slugId":"Name"}));
+        assert_eq!(requests[1]["variables"], json!({"name":"Name"}));
     }
     for body in [
         json!([]),
