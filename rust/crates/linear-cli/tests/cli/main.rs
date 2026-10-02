@@ -11,6 +11,7 @@ mod harness;
 mod issue_attach;
 mod issue_comment;
 mod issue_read;
+mod issue_vcs;
 mod issue_write;
 mod project;
 mod team;
