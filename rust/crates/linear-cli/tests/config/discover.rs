@@ -1,115 +1,87 @@
-use std::cell::Cell;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use linear_cli::config::{
-    ConfigInputs, GitProbeResult, GitRootProbe, OsFamily, discover_config_paths,
+    ConfigInputs, OsFamily, RealFileSource, discover_config_paths, repo_root,
 };
 
-pub(super) struct Probe {
-    pub result: GitProbeResult,
-    pub count: Cell<usize>,
-}
+use super::TempTree;
 
-impl Probe {
-    pub fn new(result: GitProbeResult) -> Self {
-        Self {
-            result,
-            count: Cell::new(0),
-        }
-    }
-}
-
-impl GitRootProbe for Probe {
-    fn probe(&self) -> GitProbeResult {
-        self.count.set(self.count.get() + 1);
-        self.result.clone()
-    }
-}
-
-pub(super) fn inputs() -> ConfigInputs {
+fn inputs() -> ConfigInputs {
     ConfigInputs {
-        cwd: PathBuf::from("/tmp/riir-project/sub"),
+        cwd: PathBuf::from("/tmp/project/sub"),
         os: OsFamily::Unix,
         process_env: BTreeMap::new(),
     }
 }
 
 #[test]
-fn config_probe_accepts_empty_stdout_after_nonzero_git() {
-    let probe = Probe::new(GitProbeResult::Completed {
-        success: false,
-        stdout: String::new(),
-    });
-    let paths = discover_config_paths(&inputs(), &probe).unwrap();
-    assert_eq!(probe.count.get(), 1);
-    assert_eq!(paths.project.len(), 5);
+fn project_candidates_are_cwd_then_repo_root() {
+    let paths = discover_config_paths(&inputs(), Some(Path::new("/tmp/project")));
+    let project = paths
+        .project
+        .iter()
+        .map(|candidate| candidate.path.clone())
+        .collect::<Vec<_>>();
     assert_eq!(
-        paths.project[4].path,
-        PathBuf::from("/tmp/riir-project/sub/.config/linear.toml")
+        project,
+        [
+            "/tmp/project/sub/linear.toml",
+            "/tmp/project/sub/.linear.toml",
+            "/tmp/project/linear.toml",
+            "/tmp/project/.linear.toml",
+            "/tmp/project/.config/linear.toml",
+        ]
+        .map(PathBuf::from)
     );
 }
 
 #[test]
-fn config_probe_omits_git_candidates_only_on_spawn_failure() {
-    let probe = Probe::new(GitProbeResult::SpawnFailure);
-    let paths = discover_config_paths(&inputs(), &probe).unwrap();
+fn without_a_repository_only_cwd_candidates_are_used() {
+    let paths = discover_config_paths(&inputs(), None);
     assert_eq!(paths.project.len(), 2);
-    assert_eq!(probe.count.get(), 1);
 }
 
 #[test]
-fn root_and_global_candidate_order() {
-    let mut inputs = inputs();
-    inputs
-        .process_env
-        .insert("XDG_CONFIG_HOME".to_owned(), "/tmp/xdg".to_owned());
-    inputs
-        .process_env
-        .insert("HOME".to_owned(), "/tmp/home".to_owned());
-    let probe = Probe::new(GitProbeResult::Completed {
-        success: true,
-        stdout: "/tmp/riir-project\n".to_owned(),
-    });
-    let paths = discover_config_paths(&inputs, &probe).unwrap();
-    assert_eq!(
-        paths.global[0].path,
-        PathBuf::from("/tmp/xdg/linear/linear.toml")
-    );
-    assert_eq!(
-        paths.project[0].path,
-        PathBuf::from("/tmp/riir-project/sub/linear.toml")
-    );
+fn cwd_at_the_repo_root_lists_each_candidate_once() {
+    let paths = discover_config_paths(&inputs(), Some(Path::new("/tmp/project/sub")));
+    assert_eq!(paths.project.len(), 3);
     assert_eq!(
         paths.project[2].path,
-        PathBuf::from("/tmp/riir-project/linear.toml")
-    );
-    assert_eq!(
-        paths.project[4].path,
-        PathBuf::from("/tmp/riir-project/.config/linear.toml")
+        PathBuf::from("/tmp/project/sub/.config/linear.toml")
     );
 }
 
 #[test]
-fn falsey_xdg_falls_back_to_home_and_windows_uses_appdata() {
+fn global_config_uses_xdg_then_home_and_appdata_on_windows() {
     let mut inputs = inputs();
-    inputs
-        .process_env
-        .insert("XDG_CONFIG_HOME".to_owned(), String::new());
     inputs
         .process_env
         .insert("HOME".to_owned(), "/tmp/home".to_owned());
     inputs
         .process_env
         .insert("APPDATA".to_owned(), "/tmp/roaming".to_owned());
-    let probe = Probe::new(GitProbeResult::SpawnFailure);
     assert_eq!(
-        discover_config_paths(&inputs, &probe).unwrap().global[0].path,
+        discover_config_paths(&inputs, None).global[0].path,
+        PathBuf::from("/tmp/home/.config/linear/linear.toml")
+    );
+    inputs
+        .process_env
+        .insert("XDG_CONFIG_HOME".to_owned(), "/tmp/xdg".to_owned());
+    assert_eq!(
+        discover_config_paths(&inputs, None).global[0].path,
+        PathBuf::from("/tmp/xdg/linear/linear.toml")
+    );
+    inputs
+        .process_env
+        .insert("XDG_CONFIG_HOME".to_owned(), String::new());
+    assert_eq!(
+        discover_config_paths(&inputs, None).global[0].path,
         PathBuf::from("/tmp/home/.config/linear/linear.toml")
     );
     inputs.os = OsFamily::Windows;
     assert_eq!(
-        discover_config_paths(&inputs, &probe).unwrap().global[0].path,
+        discover_config_paths(&inputs, None).global[0].path,
         PathBuf::from("/tmp/roaming/linear/linear.toml")
     );
 }
@@ -117,44 +89,39 @@ fn falsey_xdg_falls_back_to_home_and_windows_uses_appdata() {
 #[test]
 fn absent_global_bases_produce_no_global_candidate() {
     let mut inputs = inputs();
-    let probe = Probe::new(GitProbeResult::SpawnFailure);
-    assert!(
-        discover_config_paths(&inputs, &probe)
-            .unwrap()
-            .global
-            .is_empty()
-    );
+    assert!(discover_config_paths(&inputs, None).global.is_empty());
     inputs.os = OsFamily::Windows;
-    assert!(
-        discover_config_paths(&inputs, &probe)
-            .unwrap()
-            .global
-            .is_empty()
-    );
     inputs
         .process_env
         .insert("APPDATA".to_owned(), String::new());
-    assert!(
-        discover_config_paths(&inputs, &probe)
-            .unwrap()
-            .global
-            .is_empty()
-    );
+    assert!(discover_config_paths(&inputs, None).global.is_empty());
 }
 
 #[test]
-fn global_config_paths_clamp_at_root_and_preserve_leading_parents() {
-    let mut inputs = inputs();
-    let probe = Probe::new(GitProbeResult::SpawnFailure);
-    for (base, expected) in [
-        ("/..", "/linear/linear.toml"),
-        ("../../", "../../linear/linear.toml"),
-    ] {
-        inputs
-            .process_env
-            .insert("XDG_CONFIG_HOME".to_owned(), base.to_owned());
-        let paths = discover_config_paths(&inputs, &probe).unwrap();
-        assert_eq!(paths.global.len(), 1);
-        assert_eq!(paths.global[0].path, PathBuf::from(expected));
-    }
+fn repo_root_is_the_nearest_git_or_jj_ancestor() {
+    let tree = TempTree::new();
+    tree.mkdir("plain/sub");
+    assert_eq!(repo_root(&tree.0.join("plain/sub"), &RealFileSource), None);
+
+    tree.mkdir("git/.git");
+    tree.mkdir("git/a/b");
+    assert_eq!(
+        repo_root(&tree.0.join("git/a/b"), &RealFileSource),
+        Some(tree.0.join("git"))
+    );
+
+    // A worktree's `.git` is a file.
+    tree.write("worktree/.git", b"gitdir: /elsewhere\n");
+    tree.mkdir("worktree/src");
+    assert_eq!(
+        repo_root(&tree.0.join("worktree/src"), &RealFileSource),
+        Some(tree.0.join("worktree"))
+    );
+
+    tree.mkdir("jj/.jj");
+    tree.mkdir("jj/nested/.jj-not");
+    assert_eq!(
+        repo_root(&tree.0.join("jj/nested"), &RealFileSource),
+        Some(tree.0.join("jj"))
+    );
 }

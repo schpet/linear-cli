@@ -1,13 +1,21 @@
-//! Eagerly validated, source-aware config options. No process state is read here.
+//! Config options merged from the command line, process environment, `.env`,
+//! project config and global config, in that order of precedence.
+//!
+//! Every tier that sets an option is validated, even when a higher tier
+//! overrides it, so a typo never lies dormant. No process state is read here.
 use std::error::Error;
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
+
+use serde::Deserialize;
+use serde::de::value::{Error as ValueError, StrDeserializer};
+use serde::de::{DeserializeOwned, IntoDeserializer};
 
 use crate::graphql::transport::EndpointUrl;
 use crate::text::js_space;
 
 use super::dotenv::SelectedEnv;
-use super::parse::{ConfigTier, ConfigValue};
+use super::parse::ConfigTier;
 use super::source::{ConfigInputs, OsFamily};
 
 const DEFAULT_ENDPOINT: &str = "https://api.linear.app/graphql";
@@ -76,7 +84,8 @@ pub enum OptionSource {
 }
 
 impl OptionSource {
-    /// Base for config-sourced template paths only. Other path options retain raw text.
+    /// The directory config-file paths are relative to. Paths from the
+    /// command line and environment are used as given.
     pub fn config_dir(&self) -> Option<&Path> {
         match self {
             Self::ProjectConfig { path } | Self::GlobalConfig { path } => path.parent(),
@@ -90,6 +99,16 @@ impl OptionSource {
             | Self::ProjectConfig { path }
             | Self::GlobalConfig { path } => Some(path),
             Self::Cli | Self::Env => None,
+        }
+    }
+
+    fn label(&self) -> String {
+        match self {
+            Self::Cli => "command line".to_owned(),
+            Self::Env => "process environment".to_owned(),
+            Self::ProjectEnv { path } => format!(".env file {}", path.display()),
+            Self::ProjectConfig { path } => format!("project config {}", path.display()),
+            Self::GlobalConfig { path } => format!("global config {}", path.display()),
         }
     }
 }
@@ -118,11 +137,11 @@ impl<T> fmt::Debug for Resolved<T> {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Deserialize)]
+#[serde(transparent)]
 pub struct ConfigSecret(String);
 
 impl ConfigSecret {
-    /// Construct an owned, redacted secret from an injected credential source.
     pub fn new(value: String) -> Self {
         Self(value)
     }
@@ -138,28 +157,66 @@ impl fmt::Debug for ConfigSecret {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
+#[serde(rename_all = "lowercase", expecting = "manual or priority")]
 pub enum IssueSort {
     Manual,
     Priority,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
+#[serde(rename_all = "lowercase", expecting = "always, auto or never")]
 pub enum AssignSelf {
     Always,
     Auto,
     Never,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize)]
+#[serde(rename_all = "lowercase", expecting = "git or jj")]
 pub enum Vcs {
     Git,
     Jj,
 }
 
+/// A boolean option: a TOML boolean, or one of the usual words in a string
+/// (`true`/`false`, `yes`/`no`, `on`/`off`, `1`/`0`, ...), ignoring case.
+#[derive(Clone, Copy)]
+struct Flag(bool);
+
+impl<'de> Deserialize<'de> for Flag {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct FlagVisitor;
+        impl serde::de::Visitor<'_> for FlagVisitor {
+            type Value = Flag;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a boolean")
+            }
+
+            fn visit_bool<E: serde::de::Error>(self, value: bool) -> Result<Flag, E> {
+                Ok(Flag(value))
+            }
+
+            fn visit_str<E: serde::de::Error>(self, text: &str) -> Result<Flag, E> {
+                let is = |words: &[&str]| words.iter().any(|word| text.eq_ignore_ascii_case(word));
+                if is(&["true", "yes", "y", "on", "1", "t"]) {
+                    Ok(Flag(true))
+                } else if is(&["false", "no", "n", "off", "0", "f"]) {
+                    Ok(Flag(false))
+                } else {
+                    Err(E::invalid_value(serde::de::Unexpected::Str(text), &self))
+                }
+            }
+        }
+        deserializer.deserialize_any(FlagVisitor)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OptionErrorReason {
-    WrongType,
-    InvalidBoolean,
-    InvalidChoice,
+    /// The value has the wrong type or is not one of the allowed values.
+    Invalid(String),
     EmptyTemplate,
     InvalidEndpoint,
     MissingDotenvPath,
@@ -175,18 +232,77 @@ pub struct ConfigOptionError {
 
 impl fmt::Display for ConfigOptionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.reason == OptionErrorReason::InvalidCwd {
-            return f.write_str("config working directory must be absolute");
+        let source = self.source.label();
+        match (&self.reason, self.key) {
+            (OptionErrorReason::InvalidCwd, _) => {
+                f.write_str("config working directory must be absolute")
+            }
+            (OptionErrorReason::MissingDotenvPath, _) => {
+                f.write_str("selected dotenv value has no source path")
+            }
+            (OptionErrorReason::InvalidEndpoint, _) | (_, None) => write!(
+                f,
+                "invalid LINEAR_GRAPHQL_ENDPOINT from {source}: expected an http(s) URL without credentials or fragment"
+            ),
+            (OptionErrorReason::Invalid(detail), Some(key)) => write!(
+                f,
+                "invalid config option {} from {source}: {detail}",
+                self.option_name(key)
+            ),
+            (OptionErrorReason::EmptyTemplate, Some(key)) => write!(
+                f,
+                "invalid config option {} from {source}: expected a nonempty template path",
+                self.option_name(key)
+            ),
         }
-        let name = self.key.map_or("LINEAR_GRAPHQL_ENDPOINT", OptionKey::name);
-        write!(
-            f,
-            "invalid config option {name} from {:?}: {:?}",
-            self.source, self.reason
-        )
     }
 }
+
 impl Error for ConfigOptionError {}
+
+impl ConfigOptionError {
+    /// The spelling the user wrote: `LINEAR_FOO` in the environment,
+    /// `foo` in a config file or flag.
+    fn option_name(&self, key: OptionKey) -> String {
+        match self.source {
+            OptionSource::Env | OptionSource::ProjectEnv { .. } => key.env_name(),
+            OptionSource::Cli
+            | OptionSource::ProjectConfig { .. }
+            | OptionSource::GlobalConfig { .. } => key.name().to_owned(),
+        }
+    }
+
+    pub fn suggestion(&self) -> Option<String> {
+        match (&self.reason, self.key) {
+            (OptionErrorReason::InvalidCwd | OptionErrorReason::MissingDotenvPath, _) => None,
+            (OptionErrorReason::InvalidEndpoint, _) | (_, None) => {
+                Some("Set a valid LINEAR_GRAPHQL_ENDPOINT or remove it.".to_owned())
+            }
+            (OptionErrorReason::Invalid(_) | OptionErrorReason::EmptyTemplate, Some(key)) => Some(
+                format!("Fix {} in {}.", self.option_name(key), self.source.label()),
+            ),
+        }
+    }
+}
+
+impl From<ConfigOptionError> for crate::error::AppError {
+    fn from(error: ConfigOptionError) -> Self {
+        use crate::error::{AppError, AppErrorKind};
+        let kind = match error.reason {
+            OptionErrorReason::InvalidCwd | OptionErrorReason::MissingDotenvPath => {
+                AppErrorKind::Invariant
+            }
+            OptionErrorReason::Invalid(_)
+            | OptionErrorReason::EmptyTemplate
+            | OptionErrorReason::InvalidEndpoint => AppErrorKind::Validation,
+        };
+        let app = AppError::new(kind, error.to_string());
+        match error.suggestion() {
+            Some(suggestion) => app.with_suggestion(suggestion),
+            None => app,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EndpointSource {
@@ -200,6 +316,7 @@ pub struct ResolvedEndpoint {
     value: EndpointUrl,
     source: EndpointSource,
 }
+
 impl ResolvedEndpoint {
     pub fn value(&self) -> &EndpointUrl {
         &self.value
@@ -208,6 +325,7 @@ impl ResolvedEndpoint {
         &self.source
     }
 }
+
 impl fmt::Debug for ResolvedEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ResolvedEndpoint")
@@ -224,10 +342,43 @@ pub struct OptionInputs<'a> {
     pub global: Option<&'a ConfigTier>,
 }
 
-#[derive(Clone, Copy)]
+/// One tier's raw value for an option.
 enum Raw<'a> {
     Text(&'a str),
-    Toml(&'a ConfigValue),
+    Toml(&'a toml::Value),
+}
+
+impl Raw<'_> {
+    fn parse<T: DeserializeOwned>(&self) -> Result<T, OptionErrorReason> {
+        fn run<'de, T: serde::Deserialize<'de>, D: serde::Deserializer<'de>>(
+            deserializer: D,
+        ) -> Result<T, OptionErrorReason>
+        where
+            D::Error: fmt::Display,
+        {
+            T::deserialize(deserializer).map_err(|error| {
+                OptionErrorReason::Invalid(error.to_string().trim_end().to_owned())
+            })
+        }
+        // Scalars go through serde's plain deserializers so a wrong type reads
+        // "invalid type: integer `1`, expected ..." for every target type.
+        match self {
+            Self::Text(text) => run::<T, StrDeserializer<'_, ValueError>>(text.into_deserializer()),
+            Self::Toml(toml::Value::String(text)) => {
+                run::<T, StrDeserializer<'_, ValueError>>(text.as_str().into_deserializer())
+            }
+            Self::Toml(toml::Value::Integer(value)) => {
+                run::<T, _>(IntoDeserializer::<ValueError>::into_deserializer(*value))
+            }
+            Self::Toml(toml::Value::Float(value)) => {
+                run::<T, _>(IntoDeserializer::<ValueError>::into_deserializer(*value))
+            }
+            Self::Toml(toml::Value::Boolean(value)) => {
+                run::<T, _>(IntoDeserializer::<ValueError>::into_deserializer(*value))
+            }
+            Self::Toml(value) => run::<T, _>((*value).clone()),
+        }
+    }
 }
 
 fn error(
@@ -242,162 +393,91 @@ fn error(
     }
 }
 
-fn toml_key(tier: Option<&ConfigTier>, key: OptionKey) -> Option<(&ConfigValue, PathBuf)> {
-    let tier = tier?;
-    tier.entries
-        .iter()
-        .find(|(name, _)| name == key.name())
-        .map(|(_, value)| (value, tier.path.clone()))
-}
-
-fn dotenv_key<'a>(inputs: &'a OptionInputs<'_>, name: &str) -> Option<&'a str> {
-    // The B1 applied map is case-sensitive; Windows process variables are not.
-    // A differently-cased dotenv duplicate did not apply and must not be parsed.
-    if inputs.env.os == OsFamily::Windows && inputs.env.process_env.contains_key(name) {
-        return None;
+/// A `.env` value that was applied (the process environment did not set it).
+/// Windows variable names are case-insensitive.
+fn dotenv_value<'a>(inputs: &'a OptionInputs<'_>, name: &str) -> Option<&'a str> {
+    match inputs.env.os {
+        OsFamily::Windows => {
+            if inputs.env.process_env.contains_key(name) {
+                return None;
+            }
+            inputs
+                .dotenv
+                .applied
+                .iter()
+                .find(|(key, _)| key.eq_ignore_ascii_case(name))
+                .map(|(_, value)| value.as_str())
+        }
+        OsFamily::Unix => inputs.dotenv.applied.get(name).map(String::as_str),
     }
-    let pair = if inputs.env.os == OsFamily::Windows {
-        inputs
-            .dotenv
-            .applied
-            .iter()
-            .find(|(key, _)| key.eq_ignore_ascii_case(name))
-    } else {
-        inputs.dotenv.applied.get_key_value(name)
-    };
-    pair.map(|(_, value)| value.as_str())
 }
 
+fn dotenv_source(
+    inputs: &OptionInputs<'_>,
+    key: Option<OptionKey>,
+) -> Result<OptionSource, ConfigOptionError> {
+    match &inputs.dotenv.source_path {
+        Some(path) => Ok(OptionSource::ProjectEnv { path: path.clone() }),
+        None => Err(error(
+            key,
+            OptionSource::Env,
+            OptionErrorReason::MissingDotenvPath,
+        )),
+    }
+}
+
+/// Every tier's raw value for `key`, highest precedence first.
+fn tiers<'a>(
+    inputs: &'a OptionInputs<'_>,
+    key: OptionKey,
+) -> Result<Vec<(Raw<'a>, OptionSource)>, ConfigOptionError> {
+    let name = key.env_name();
+    let mut found = Vec::new();
+    if let Some(value) = inputs.env.process_env.get(&name) {
+        found.push((Raw::Text(value), OptionSource::Env));
+    }
+    if let Some(value) = dotenv_value(inputs, &name) {
+        found.push((Raw::Text(value), dotenv_source(inputs, Some(key))?));
+    }
+    if let Some(tier) = inputs.project
+        && let Some(value) = tier.table.get(key.name())
+    {
+        let path = tier.path.clone();
+        found.push((Raw::Toml(value), OptionSource::ProjectConfig { path }));
+    }
+    if let Some(tier) = inputs.global
+        && let Some(value) = tier.table.get(key.name())
+    {
+        let path = tier.path.clone();
+        found.push((Raw::Toml(value), OptionSource::GlobalConfig { path }));
+    }
+    Ok(found)
+}
+
+/// Validates every tier's value and returns the highest-precedence one.
 fn select<T>(
     inputs: &OptionInputs<'_>,
     key: OptionKey,
-    parse: impl Fn(Raw<'_>) -> Result<T, OptionErrorReason>,
+    parse: impl Fn(&Raw<'_>) -> Result<T, OptionErrorReason>,
 ) -> Result<Option<Resolved<T>>, ConfigOptionError> {
-    let name = key.env_name();
     let mut selected = None;
-    // Report the first bad value in a fixed order, while parsing all present tiers.
-    if let Some(value) = inputs.env.process_env.get(&name) {
-        selected = Some(Resolved {
-            value: parse(Raw::Text(value))
-                .map_err(|reason| error(Some(key), OptionSource::Env, reason))?,
-            source: OptionSource::Env,
-        });
-    }
-    if let Some(value) = dotenv_key(inputs, &name) {
-        let source = match &inputs.dotenv.source_path {
-            Some(path) => OptionSource::ProjectEnv { path: path.clone() },
-            None => {
-                return Err(error(
-                    Some(key),
-                    OptionSource::Env,
-                    OptionErrorReason::MissingDotenvPath,
-                ));
-            }
-        };
-        let parsed =
-            parse(Raw::Text(value)).map_err(|reason| error(Some(key), source.clone(), reason))?;
-        if selected.is_none() {
-            selected = Some(Resolved {
-                value: parsed,
-                source,
-            });
-        }
-    }
-    if let Some((value, path)) = toml_key(inputs.project, key) {
-        let source = OptionSource::ProjectConfig { path };
-        let parsed =
-            parse(Raw::Toml(value)).map_err(|reason| error(Some(key), source.clone(), reason))?;
-        if selected.is_none() {
-            selected = Some(Resolved {
-                value: parsed,
-                source,
-            });
-        }
-    }
-    if let Some((value, path)) = toml_key(inputs.global, key) {
-        let source = OptionSource::GlobalConfig { path };
-        let parsed =
-            parse(Raw::Toml(value)).map_err(|reason| error(Some(key), source.clone(), reason))?;
-        if selected.is_none() {
-            selected = Some(Resolved {
-                value: parsed,
-                source,
-            });
-        }
+    for (raw, source) in tiers(inputs, key)? {
+        let value = parse(&raw).map_err(|reason| error(Some(key), source.clone(), reason))?;
+        selected.get_or_insert(Resolved { value, source });
     }
     Ok(selected)
 }
 
-fn text(raw: Raw<'_>) -> Result<String, OptionErrorReason> {
-    match raw {
-        Raw::Text(value) => Ok(value.to_owned()),
-        Raw::Toml(ConfigValue::String(value)) => Ok(value.clone()),
-        Raw::Toml(_) => Err(OptionErrorReason::WrongType),
-    }
+fn parsed<T: DeserializeOwned>(raw: &Raw<'_>) -> Result<T, OptionErrorReason> {
+    raw.parse()
 }
 
-fn boolean(raw: Raw<'_>) -> Result<bool, OptionErrorReason> {
-    match raw {
-        Raw::Toml(ConfigValue::Boolean(value)) => Ok(*value),
-        Raw::Text(value) => boolean_word(value),
-        Raw::Toml(ConfigValue::String(value)) => boolean_word(value),
-        Raw::Toml(_) => Err(OptionErrorReason::WrongType),
-    }
+fn flag(raw: &Raw<'_>) -> Result<bool, OptionErrorReason> {
+    raw.parse::<Flag>().map(|Flag(value)| value)
 }
 
-fn boolean_word(value: &str) -> Result<bool, OptionErrorReason> {
-    if ["true", "yes", "y", "on", "1", "t"]
-        .iter()
-        .any(|word| value.eq_ignore_ascii_case(word))
-    {
-        Ok(true)
-    } else if ["false", "no", "n", "off", "0", "f"]
-        .iter()
-        .any(|word| value.eq_ignore_ascii_case(word))
-    {
-        Ok(false)
-    } else {
-        Err(OptionErrorReason::InvalidBoolean)
-    }
-}
-
-fn choice<T>(raw: Raw<'_>, choices: &[(&str, T)]) -> Result<T, OptionErrorReason>
-where
-    T: Copy,
-{
-    let value = text(raw)?;
-    choices
-        .iter()
-        .find(|(name, _)| value == *name)
-        .map(|(_, result)| *result)
-        .ok_or(OptionErrorReason::InvalidChoice)
-}
-
-fn issue_sort(raw: Raw<'_>) -> Result<IssueSort, OptionErrorReason> {
-    choice(
-        raw,
-        &[
-            ("manual", IssueSort::Manual),
-            ("priority", IssueSort::Priority),
-        ],
-    )
-}
-fn assign_self(raw: Raw<'_>) -> Result<AssignSelf, OptionErrorReason> {
-    choice(
-        raw,
-        &[
-            ("always", AssignSelf::Always),
-            ("auto", AssignSelf::Auto),
-            ("never", AssignSelf::Never),
-        ],
-    )
-}
-fn vcs(raw: Raw<'_>) -> Result<Vcs, OptionErrorReason> {
-    choice(raw, &[("git", Vcs::Git), ("jj", Vcs::Jj)])
-}
-
-fn template(raw: Raw<'_>) -> Result<String, OptionErrorReason> {
-    let value = text(raw)?;
+fn template(raw: &Raw<'_>) -> Result<String, OptionErrorReason> {
+    let value = raw.parse::<String>()?;
     let trimmed = value.trim_matches(js_space);
     if trimmed.is_empty() {
         Err(OptionErrorReason::EmptyTemplate)
@@ -406,16 +486,14 @@ fn template(raw: Raw<'_>) -> Result<String, OptionErrorReason> {
     }
 }
 
+/// Lexically resolves `.` and `..` without touching the filesystem.
 fn normalized_config_path(path: &Path) -> PathBuf {
     let mut result = PathBuf::new();
     for component in path.components() {
         match component {
             Component::CurDir => {}
             Component::ParentDir => {
-                if result.has_root() && result.parent().is_none() {
-                    continue;
-                }
-                let _ = result.pop();
+                result.pop();
             }
             Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
                 result.push(component.as_os_str());
@@ -432,7 +510,6 @@ pub struct ConfigOptions {
     api_key: Option<Resolved<ConfigSecret>>,
     workspace: Option<Resolved<String>>,
     issue_sort: Option<Resolved<IssueSort>>,
-    deferred_issue_sort: Option<Resolved<DeferredIssueSort>>,
     issue_create_ask_project: Option<Resolved<bool>>,
     issue_create_assign_self: Option<Resolved<AssignSelf>>,
     vcs: Option<Resolved<Vcs>>,
@@ -441,7 +518,6 @@ pub struct ConfigOptions {
     attachment_dir: Option<Resolved<String>>,
     auto_download_attachments: Option<Resolved<bool>>,
     pr_template: Option<Resolved<String>>,
-    deferred_pr_template: Option<Resolved<DeferredPrTemplate>>,
     endpoint: ResolvedEndpoint,
 }
 
@@ -465,6 +541,7 @@ pub struct PrTemplatePath {
     path: PathBuf,
     source: OptionSource,
 }
+
 impl PrTemplatePath {
     pub fn path(&self) -> &Path {
         &self.path
@@ -473,6 +550,7 @@ impl PrTemplatePath {
         &self.source
     }
 }
+
 impl fmt::Debug for PrTemplatePath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PrTemplatePath")
@@ -482,117 +560,8 @@ impl fmt::Debug for PrTemplatePath {
     }
 }
 
-// Only mine/query select this policy; other commands retain startup validation.
-#[derive(Clone, Debug)]
-enum DeferredIssueSort {
-    Parsed(IssueSort),
-    Invalid(serde_json::Value),
-}
-fn sort_raw_value(raw: Raw<'_>) -> serde_json::Value {
-    fn value(v: &ConfigValue) -> serde_json::Value {
-        match v {
-            ConfigValue::String(v) | ConfigValue::Datetime(v) => {
-                serde_json::Value::String(v.clone())
-            }
-            ConfigValue::Integer(v) => serde_json::Value::Number((*v).into()),
-            ConfigValue::Float(v) => serde_json::Number::from_f64(*v)
-                .map_or(serde_json::Value::Null, serde_json::Value::Number),
-            ConfigValue::Boolean(v) => serde_json::Value::Bool(*v),
-            ConfigValue::Array(v) => serde_json::Value::Array(v.iter().map(value).collect()),
-            ConfigValue::Table(v) => {
-                serde_json::Value::Object(v.iter().map(|(k, v)| (k.clone(), value(v))).collect())
-            }
-        }
-    }
-    match raw {
-        Raw::Text(v) => serde_json::Value::String(v.to_owned()),
-        Raw::Toml(v) => value(v),
-    }
-}
-/// Explicit command-local startup exceptions; unrelated callers remain eager.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StartupOptionPolicy {
-    Eager,
-    IssueSort,
-    PullRequestTemplate,
-}
-#[derive(Clone, Debug)]
-struct DeferredPrTemplate {
-    raw: serde_json::Value,
-    text: Option<String>,
-}
-fn deferred_template(raw: Raw<'_>) -> DeferredPrTemplate {
-    let text = match raw {
-        Raw::Text(value) => Some(value.to_owned()),
-        Raw::Toml(ConfigValue::String(value)) => Some(value.clone()),
-        Raw::Toml(_) => None,
-    };
-    DeferredPrTemplate {
-        raw: sort_raw_value(raw),
-        text,
-    }
-}
-/// Presence wins, including an empty environment value. Never parse shadowed tiers.
-fn highest_pr_template(
-    inputs: &OptionInputs<'_>,
-) -> Result<Option<Resolved<DeferredPrTemplate>>, ConfigOptionError> {
-    let name = OptionKey::PrTemplate.env_name();
-    if let Some(value) = inputs.env.process_env.get(&name) {
-        return Ok(Some(Resolved {
-            value: deferred_template(Raw::Text(value)),
-            source: OptionSource::Env,
-        }));
-    }
-    if let Some(value) = dotenv_key(inputs, &name) {
-        let path = inputs.dotenv.source_path.clone().ok_or_else(|| {
-            error(
-                Some(OptionKey::PrTemplate),
-                OptionSource::Env,
-                OptionErrorReason::MissingDotenvPath,
-            )
-        })?;
-        return Ok(Some(Resolved {
-            value: deferred_template(Raw::Text(value)),
-            source: OptionSource::ProjectEnv { path },
-        }));
-    }
-    if let Some((value, path)) = toml_key(inputs.project, OptionKey::PrTemplate) {
-        return Ok(Some(Resolved {
-            value: deferred_template(Raw::Toml(value)),
-            source: OptionSource::ProjectConfig { path },
-        }));
-    }
-    if let Some((value, path)) = toml_key(inputs.global, OptionKey::PrTemplate) {
-        return Ok(Some(Resolved {
-            value: deferred_template(Raw::Toml(value)),
-            source: OptionSource::GlobalConfig { path },
-        }));
-    }
-    Ok(None)
-}
-
 impl ConfigOptions {
     pub fn from_inputs(inputs: OptionInputs<'_>) -> Result<Self, ConfigOptionError> {
-        Self::from_inputs_with_issue_read_sort(inputs, false)
-    }
-    /// Explicit command policy: defer only the sort value consumed by mine/query.
-    pub(crate) fn from_inputs_with_issue_read_sort(
-        inputs: OptionInputs<'_>,
-        defer: bool,
-    ) -> Result<Self, ConfigOptionError> {
-        Self::from_inputs_with_startup_policy(
-            inputs,
-            if defer {
-                StartupOptionPolicy::IssueSort
-            } else {
-                StartupOptionPolicy::Eager
-            },
-        )
-    }
-    pub fn from_inputs_with_startup_policy(
-        inputs: OptionInputs<'_>,
-        policy: StartupOptionPolicy,
-    ) -> Result<Self, ConfigOptionError> {
         if !inputs.env.cwd.is_absolute() {
             return Err(error(
                 None,
@@ -600,56 +569,21 @@ impl ConfigOptions {
                 OptionErrorReason::InvalidCwd,
             ));
         }
-        // Keep OptionSchemas order as the error order. `select` validates every tier.
-        let team_id = select(&inputs, OptionKey::TeamId, text)?;
-        let api_key = select(&inputs, OptionKey::ApiKey, |raw| {
-            text(raw).map(ConfigSecret)
-        })?;
-        let workspace = select(&inputs, OptionKey::Workspace, text)?;
-        let (issue_sort, deferred_issue_sort) = if policy == StartupOptionPolicy::IssueSort {
-            let selected = select(&inputs, OptionKey::IssueSort, |raw| {
-                Ok(match issue_sort(raw) {
-                    Ok(value) => DeferredIssueSort::Parsed(value),
-                    Err(_) => DeferredIssueSort::Invalid(sort_raw_value(raw)),
-                })
-            })?;
-            (None, selected)
-        } else {
-            (select(&inputs, OptionKey::IssueSort, issue_sort)?, None)
-        };
-        let issue_create_ask_project = select(&inputs, OptionKey::IssueCreateAskProject, boolean)?;
-        let issue_create_assign_self =
-            select(&inputs, OptionKey::IssueCreateAssignSelf, assign_self)?;
-        let vcs = select(&inputs, OptionKey::Vcs, vcs)?;
-        let download_images = select(&inputs, OptionKey::DownloadImages, boolean)?;
-        let hyperlink_format = select(&inputs, OptionKey::HyperlinkFormat, text)?;
-        let attachment_dir = select(&inputs, OptionKey::AttachmentDir, text)?;
-        let auto_download_attachments =
-            select(&inputs, OptionKey::AutoDownloadAttachments, boolean)?;
-        let (pr_template, deferred_pr_template) =
-            if policy == StartupOptionPolicy::PullRequestTemplate {
-                (None, highest_pr_template(&inputs)?)
-            } else {
-                (select(&inputs, OptionKey::PrTemplate, template)?, None)
-            };
-        let endpoint = endpoint(&inputs)?;
         Ok(Self {
             cwd: inputs.env.cwd.clone(),
-            team_id,
-            api_key,
-            workspace,
-            issue_sort,
-            deferred_issue_sort,
-            issue_create_ask_project,
-            issue_create_assign_self,
-            vcs,
-            download_images,
-            hyperlink_format,
-            attachment_dir,
-            auto_download_attachments,
-            pr_template,
-            deferred_pr_template,
-            endpoint,
+            team_id: select(&inputs, OptionKey::TeamId, parsed)?,
+            api_key: select(&inputs, OptionKey::ApiKey, parsed)?,
+            workspace: select(&inputs, OptionKey::Workspace, parsed)?,
+            issue_sort: select(&inputs, OptionKey::IssueSort, parsed)?,
+            issue_create_ask_project: select(&inputs, OptionKey::IssueCreateAskProject, flag)?,
+            issue_create_assign_self: select(&inputs, OptionKey::IssueCreateAssignSelf, parsed)?,
+            vcs: select(&inputs, OptionKey::Vcs, parsed)?,
+            download_images: select(&inputs, OptionKey::DownloadImages, flag)?,
+            hyperlink_format: select(&inputs, OptionKey::HyperlinkFormat, parsed)?,
+            attachment_dir: select(&inputs, OptionKey::AttachmentDir, parsed)?,
+            auto_download_attachments: select(&inputs, OptionKey::AutoDownloadAttachments, flag)?,
+            pr_template: select(&inputs, OptionKey::PrTemplate, template)?,
+            endpoint: endpoint(&inputs)?,
         })
     }
 
@@ -693,31 +627,7 @@ impl ConfigOptions {
         &self.endpoint
     }
 
-    /// Only commands with a registered `--sort` can supply this typed override.
-    /// Source failure stage is the command's filter pipeline, never startup.
-    pub fn issue_read_sort(
-        &self,
-        cli: Option<IssueSort>,
-    ) -> Result<IssueSort, crate::error::AppError> {
-        if let Some(cli) = cli {
-            return Ok(cli);
-        }
-        match self.deferred_issue_sort.as_ref().map(|v| v.value()) {
-            Some(DeferredIssueSort::Parsed(value)) => Ok(*value),
-            Some(DeferredIssueSort::Invalid(raw)) => {
-                let text = serde_json::to_string(&crate::graphql::bulk_error::JsValue(raw))
-                    .map_err(|e| {
-                        crate::error::AppError::new(
-                            crate::error::AppErrorKind::Invariant,
-                            "could not format issue sort input",
-                        )
-                        .with_source(e)
-                    })?;
-                Err(crate::error::AppError::new(crate::error::AppErrorKind::Validation,format!("Invalid issue sort: {text}")).with_suggestion("Use one of: manual, priority (via --sort, the issue_sort config option, or the LINEAR_ISSUE_SORT environment variable)"))
-            }
-            None => Ok(self.issue_sort(None).0),
-        }
-    }
+    /// The issue sort order: the `--sort` flag, then config, then priority.
     pub fn issue_sort(&self, cli: Option<IssueSort>) -> (IssueSort, Option<OptionSource>) {
         match cli {
             Some(value) => (value, Some(OptionSource::Cli)),
@@ -728,86 +638,25 @@ impl ConfigOptions {
         }
     }
 
-    /// Only the PR creation command supplies `--template` or `--no-template`.
-    /// PR action-only resolution: disabled/explicit overrides bypass unusable defaults.
-    pub fn pull_request_template(
-        &self,
-        cli: PrTemplateCli<'_>,
-    ) -> Result<Option<PrTemplatePath>, crate::error::AppError> {
-        use crate::error::{AppError, AppErrorKind};
-        let selected = match cli {
-            PrTemplateCli::Disabled => return Ok(None),
-            PrTemplateCli::Path(raw) => Some(Resolved {
-                value: deferred_template(Raw::Text(raw)),
-                source: OptionSource::Cli,
-            }),
-            PrTemplateCli::Unset => self.deferred_pr_template.clone().or_else(|| {
-                self.pr_template.as_ref().map(|value| Resolved {
-                    value: deferred_template(Raw::Text(value.value())),
-                    source: value.source().clone(),
-                })
-            }),
-        };
-        let Some(selected) = selected else {
-            return Ok(None);
-        };
-        let raw_json =
-            serde_json::to_string(&crate::graphql::bulk_error::JsValue(&selected.value.raw))
-                .map_err(|error| {
-                    AppError::new(
-                        AppErrorKind::Invariant,
-                        "could not render pull request template value",
-                    )
-                    .with_source(error)
-                })?;
-        let value = selected.value.text.as_deref().map(crate::text::js_trim).filter(|value| !value.is_empty()).ok_or_else(|| {
-            AppError::new(AppErrorKind::Validation, format!("Invalid pull request template: {raw_json}"))
-                .with_suggestion("Set a non-empty file path via --template, the pr_template config option, or LINEAR_PR_TEMPLATE; use --no-template to skip the template.")
-        })?;
-        let path = match selected.source.config_dir() {
-            Some(base) => {
-                let base = if base.is_absolute() {
-                    base.to_owned()
-                } else {
-                    self.cwd.join(base)
-                };
-                normalized_config_path(&base.join(value))
-            }
-            None => PathBuf::from(value),
-        };
-        Ok(Some(PrTemplatePath {
-            path,
-            source: selected.source,
-        }))
-    }
-
+    /// The pull request template path. Paths from config files are relative
+    /// to the file's directory.
     pub fn pr_template(
         &self,
         cli: PrTemplateCli<'_>,
     ) -> Result<Option<PrTemplatePath>, ConfigOptionError> {
         let selected = match cli {
             PrTemplateCli::Disabled => return Ok(None),
-            PrTemplateCli::Path(raw) => {
-                let value = template(Raw::Text(raw)).map_err(|reason| {
+            PrTemplateCli::Path(raw) => Some(Resolved {
+                value: template(&Raw::Text(raw)).map_err(|reason| {
                     error(Some(OptionKey::PrTemplate), OptionSource::Cli, reason)
-                })?;
-                Some(Resolved {
-                    value,
-                    source: OptionSource::Cli,
-                })
-            }
+                })?,
+                source: OptionSource::Cli,
+            }),
             PrTemplateCli::Unset => self.pr_template.clone(),
         };
         Ok(selected.map(|selected| {
             let path = match selected.source.config_dir() {
-                Some(base) => {
-                    let base = if base.is_absolute() {
-                        base.to_owned()
-                    } else {
-                        self.cwd.join(base)
-                    };
-                    normalized_config_path(&base.join(&selected.value))
-                }
+                Some(base) => normalized_config_path(&self.cwd.join(base).join(&selected.value)),
                 None => PathBuf::from(&selected.value),
             };
             PrTemplatePath {
@@ -822,19 +671,19 @@ fn endpoint(inputs: &OptionInputs<'_>) -> Result<ResolvedEndpoint, ConfigOptionE
     let name = "LINEAR_GRAPHQL_ENDPOINT";
     let (value, source, origin) = if let Some(value) = inputs.env.process_env.get(name) {
         (value.as_str(), EndpointSource::Env, OptionSource::Env)
-    } else if let Some(value) = dotenv_key(inputs, name) {
-        let Some(path) = &inputs.dotenv.source_path else {
+    } else if let Some(value) = dotenv_value(inputs, name) {
+        let origin = dotenv_source(inputs, None)?;
+        let Some(path) = origin.path() else {
             return Err(error(
                 None,
                 OptionSource::Env,
                 OptionErrorReason::MissingDotenvPath,
             ));
         };
-        (
-            value,
-            EndpointSource::ProjectEnv { path: path.clone() },
-            OptionSource::ProjectEnv { path: path.clone() },
-        )
+        let source = EndpointSource::ProjectEnv {
+            path: path.to_owned(),
+        };
+        (value, source, origin)
     } else {
         (DEFAULT_ENDPOINT, EndpointSource::Default, OptionSource::Env)
     };

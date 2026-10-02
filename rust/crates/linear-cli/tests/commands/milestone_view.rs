@@ -16,9 +16,7 @@ use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
 use linear_cli::auth::keyring::UnsupportedKeyringReader;
 use linear_cli::cli::{self, RootCommand};
 use linear_cli::commands::milestone_view::{detail_request, fetch_with, json, markdown};
-use linear_cli::config::{
-    FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot,
-};
+use linear_cli::config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot};
 use linear_cli::error::{AppError, AppErrorKind};
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::milestone_view::{
@@ -39,12 +37,6 @@ impl FileSource for EmptyFiles {
         Err(io::Error::from(io::ErrorKind::NotFound))
     }
 }
-struct NoGit;
-impl GitRootProbe for NoGit {
-    fn probe(&self) -> GitProbeResult {
-        GitProbeResult::SpawnFailure
-    }
-}
 struct EmptyCredentials;
 impl CredentialFileSource for EmptyCredentials {
     fn read_credentials(&self, _path: &Path) -> Result<Option<Vec<u8>>, CredentialReadFailure> {
@@ -62,7 +54,6 @@ fn startup(env: &[(&str, &str)]) -> AppStartupReport {
     let report = startup::load(
         &snapshot,
         &EmptyFiles,
-        &NoGit,
         &EmptyCredentials,
         &UnsupportedKeyringReader,
     );

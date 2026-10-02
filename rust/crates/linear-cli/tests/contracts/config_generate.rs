@@ -458,9 +458,7 @@ async fn config_fetch_preserves_handled_raw_fallback_and_full_required_decode_wi
 #[cfg(unix)]
 #[tokio::test]
 async fn fresh_late_git_uses_dotenv_overlay_lossy_js_trim_ignored_exit_and_bounded_reap() {
-    use linear_cli::config::{
-        FileKind, FileSource, GitProbeResult, GitRootProbe, ProcessEnvSnapshot,
-    };
+    use linear_cli::config::{FileKind, FileSource, ProcessEnvSnapshot};
     use std::{ffi::OsString, io, os::unix::fs::PermissionsExt};
     struct Dotenv {
         bytes: Vec<u8>,
@@ -474,12 +472,6 @@ async fn fresh_late_git_uses_dotenv_overlay_lossy_js_trim_ignored_exit_and_bound
             assert_eq!(path.file_name().unwrap(), ".env");
             assert!(u64::try_from(self.bytes.len()).unwrap() <= max);
             Ok(self.bytes.clone())
-        }
-    }
-    struct NoGit;
-    impl GitRootProbe for NoGit {
-        fn probe(&self) -> GitProbeResult {
-            GitProbeResult::SpawnFailure
         }
     }
     let root = std::env::temp_dir().join(format!(
@@ -504,7 +496,6 @@ async fn fresh_late_git_uses_dotenv_overlay_lossy_js_trim_ignored_exit_and_bound
         &Dotenv {
             bytes: b"LINEAR_GIT_FIXTURE=qualified-overlay\n".to_vec(),
         },
-        &NoGit,
     )
     .result
     .unwrap();

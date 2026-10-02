@@ -2,10 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use super::source::{
-    ConfigInputs, FileKind, FileSource, GitProbeError, GitProbeResult, GitRootProbe,
-    MAX_CONFIG_BYTES, absent, lexical,
-};
+use super::source::{ConfigInputs, FileKind, FileSource, MAX_CONFIG_BYTES, absent, lexical};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DiagnosticReason {
@@ -25,7 +22,6 @@ pub enum ConfigFailure {
     Oversize { path: PathBuf },
     InvalidUtf8 { path: PathBuf },
     InvalidInput(String),
-    GitProbe(GitProbeError),
 }
 
 impl fmt::Display for ConfigFailure {
@@ -36,19 +32,11 @@ impl fmt::Display for ConfigFailure {
             }
             Self::InvalidUtf8 { path } => write!(f, "{} is not valid UTF-8", path.display()),
             Self::InvalidInput(reason) => f.write_str(reason),
-            Self::GitProbe(error) => error.fmt(f),
         }
     }
 }
 
-impl std::error::Error for ConfigFailure {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::GitProbe(error) => Some(error),
-            Self::Oversize { .. } | Self::InvalidUtf8 { .. } | Self::InvalidInput(_) => None,
-        }
-    }
-}
+impl std::error::Error for ConfigFailure {}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LoadEnvError {
@@ -106,22 +94,16 @@ fn read_env(files: &impl FileSource, path: &Path) -> Result<EnvFile, ConfigFailu
     }
 }
 
+/// Splits `KEY=value` (optionally prefixed with `export`) and keeps only the
+/// keys this program reads.
 fn assignment(line: &str) -> Option<(&str, &str)> {
-    // The source filter uses a JS regular expression whose dot cannot cross
-    // these line terminators, even though it splits only on LF/CRLF first.
-    if line.contains(['\r', '\u{2028}', '\u{2029}']) {
-        return None;
-    }
-    let line = line.trim_start_matches([' ', '\t']);
-    let line = if let Some(rest) = line.strip_prefix("export ") {
-        rest.trim_start_matches([' ', '\t'])
-    } else if let Some(rest) = line.strip_prefix("export\t") {
-        rest.trim_start_matches([' ', '\t'])
-    } else {
-        line
-    };
+    let line = line.trim_start();
+    let line = line
+        .strip_prefix("export")
+        .filter(|rest| rest.starts_with([' ', '\t']))
+        .map_or(line, str::trim_start);
     let (key, raw) = line.split_once('=')?;
-    let key = key.trim_end_matches([' ', '\t']);
+    let key = key.trim_end();
     let mut chars = key.chars();
     let first = chars.next()?;
     if !(first.is_ascii_alphabetic() || first == '_')
@@ -138,24 +120,24 @@ fn assignment(line: &str) -> Option<(&str, &str)> {
     Some((key, raw))
 }
 
-fn unquoted_reference(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    for (index, byte) in bytes.iter().enumerate() {
-        if *byte != b'$' {
-            continue;
-        }
-        let after = bytes.get(index + 1);
-        if after == Some(&b'{') {
-            if bytes
-                .get(index + 3..)
-                .is_some_and(|tail| tail.contains(&b'}'))
-            {
-                return true;
+/// Whether `value` contains `$NAME` or `${...}`, which this parser does not
+/// expand. `\$` is a literal dollar sign.
+fn references_variable(value: &str) -> bool {
+    let mut chars = value.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\\' => {
+                chars.next();
             }
-        } else if index > 0 && bytes.get(index - 1) == Some(&b'\\') {
-            continue;
-        } else if after.is_some_and(|value| value.is_ascii_alphanumeric() || *value == b'_') {
-            return true;
+            '$' => {
+                if chars
+                    .peek()
+                    .is_some_and(|next| *next == '{' || *next == '_' || next.is_ascii_alphabetic())
+                {
+                    return true;
+                }
+            }
+            _ => {}
         }
     }
     false
@@ -168,64 +150,48 @@ enum Value {
 }
 
 fn parse_value(raw: &str) -> Value {
-    let value = raw.trim_start();
-    let Some(quote) = value.chars().next().filter(|ch| *ch == '\'' || *ch == '"') else {
-        let unquoted = value
-            .split_once('#')
-            .map_or(value, |(before, _)| before)
-            .trim_end();
-        return if unquoted_reference(unquoted) {
-            Value::Expansion
-        } else {
-            Value::Parsed(unquoted.to_owned())
+    let value = raw.trim();
+    if let Some(rest) = value.strip_prefix('\'') {
+        return match rest.split_once('\'') {
+            Some((literal, _)) => Value::Parsed(literal.to_owned()),
+            None => Value::Unterminated,
         };
-    };
-    let mut escaped = false;
-    let mut terminated = false;
-    for ch in value.chars().skip(1) {
-        if quote == '"' && escaped {
-            escaped = false;
-        } else if quote == '"' && ch == '\\' {
-            escaped = true;
-        } else if ch == quote {
-            terminated = true;
-            break;
-        }
     }
-    if !terminated {
-        return Value::Unterminated;
-    }
-    // The source filter checks escapes before accepting a closing quote, but
-    // pinned @std/dotenv 0.225.6 then captures through the first quote even
-    // when escaped. Keep these two stages separate.
-    let Some((content, _)) = value
-        .strip_prefix(quote)
-        .and_then(|rest| rest.split_once(quote))
-    else {
-        return Value::Unterminated;
-    };
-    if quote == '\'' {
-        return Value::Parsed(content.to_owned());
-    }
-    let mut expanded = String::new();
-    let mut chars = content.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            let mapped = match chars.peek() {
-                Some('n') => Some('\n'),
-                Some('r') => Some('\r'),
-                Some('t') => Some('\t'),
-                Some(_) | None => None,
-            };
-            if let Some(mapped) = mapped {
-                chars.next();
-                expanded.push(mapped);
-                continue;
+    if let Some(rest) = value.strip_prefix('"') {
+        let mut parsed = String::new();
+        let mut chars = rest.chars();
+        while let Some(ch) = chars.next() {
+            match ch {
+                '"' => {
+                    return if references_variable(rest) {
+                        Value::Expansion
+                    } else {
+                        Value::Parsed(parsed)
+                    };
+                }
+                '\\' => match chars.next() {
+                    Some('n') => parsed.push('\n'),
+                    Some('r') => parsed.push('\r'),
+                    Some('t') => parsed.push('\t'),
+                    Some(other) => parsed.push(other),
+                    None => return Value::Unterminated,
+                },
+                other => parsed.push(other),
             }
         }
-        expanded.push(ch);
+        return Value::Unterminated;
     }
-    Value::Parsed(expanded)
+    // An unquoted value ends at a ` #` comment.
+    let unquoted = value
+        .find(" #")
+        .or_else(|| value.find("\t#"))
+        .map_or(value, |end| value.get(..end).unwrap_or(value))
+        .trim_end();
+    if references_variable(unquoted) {
+        Value::Expansion
+    } else {
+        Value::Parsed(unquoted.to_owned())
+    }
 }
 
 fn parse_selected(
@@ -236,7 +202,11 @@ fn parse_selected(
     let mut parsed = BTreeMap::new();
     let mut expansion = Vec::new();
     let mut unterminated = Vec::new();
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     for line in text.lines() {
+        if line.trim_start().starts_with('#') {
+            continue;
+        }
         let Some((key, raw)) = assignment(line) else {
             continue;
         };
@@ -271,10 +241,12 @@ fn parse_selected(
     (applied, diagnostics)
 }
 
+/// Loads `.env` from the working directory, or else from the repository
+/// root. Process environment values always win over the file.
 pub fn load_env(
     inputs: &ConfigInputs,
     files: &impl FileSource,
-    git: &impl GitRootProbe,
+    repo_root: Option<&Path>,
 ) -> Result<SelectedEnv, LoadEnvError> {
     if !inputs.cwd.is_absolute() {
         return Err(LoadEnvError {
@@ -291,55 +263,30 @@ pub fn load_env(
         return Ok(result);
     }
     let cwd_path = lexical(&inputs.cwd.join(".env"));
-    let mut selected_path = cwd_path.clone();
-    let mut file = read_env(files, &cwd_path).map_err(|failure| LoadEnvError {
-        diagnostics: result.diagnostics.clone(),
-        failure,
-    })?;
-    if let EnvFile::Unusable(reason) = &file {
-        result.diagnostics.push(ConfigDiagnostic {
-            path: cwd_path.clone(),
-            reason: DiagnosticReason::Unusable(reason.clone()),
-        });
-    }
-    if !matches!(file, EnvFile::Loaded(_)) {
-        match git.probe() {
-            GitProbeResult::Completed {
-                success: true,
-                stdout,
-            } => {
-                let root = stdout.trim();
-                if !root.is_empty() {
-                    let root_path = lexical(&PathBuf::from(root).join(".env"));
-                    if root_path != cwd_path {
-                        selected_path = root_path.clone();
-                        file = read_env(files, &root_path).map_err(|failure| LoadEnvError {
-                            diagnostics: result.diagnostics.clone(),
-                            failure,
-                        })?;
-                        if let EnvFile::Unusable(reason) = &file {
-                            result.diagnostics.push(ConfigDiagnostic {
-                                path: root_path,
-                                reason: DiagnosticReason::Unusable(reason.clone()),
-                            });
-                        }
-                    }
-                }
-            }
-            GitProbeResult::Failed(error) => {
+    let root_path = repo_root
+        .map(|root| lexical(&root.join(".env")))
+        .filter(|path| *path != cwd_path);
+    for path in std::iter::once(cwd_path).chain(root_path) {
+        match read_env(files, &path) {
+            Err(failure) => {
                 return Err(LoadEnvError {
                     diagnostics: result.diagnostics,
-                    failure: ConfigFailure::GitProbe(error),
+                    failure,
                 });
             }
-            GitProbeResult::SpawnFailure | GitProbeResult::Completed { success: false, .. } => {}
+            Ok(EnvFile::Absent) => {}
+            Ok(EnvFile::Unusable(reason)) => result.diagnostics.push(ConfigDiagnostic {
+                path,
+                reason: DiagnosticReason::Unusable(reason),
+            }),
+            Ok(EnvFile::Loaded(text)) => {
+                let (applied, diagnostics) = parse_selected(&text, &inputs.process_env, &path);
+                result.applied = applied;
+                result.source_path = Some(path);
+                result.diagnostics.extend(diagnostics);
+                break;
+            }
         }
-    }
-    if let EnvFile::Loaded(text) = file {
-        let (applied, diagnostics) = parse_selected(&text, &inputs.process_env, &selected_path);
-        result.applied = applied;
-        result.source_path = Some(selected_path);
-        result.diagnostics.extend(diagnostics);
     }
     Ok(result)
 }

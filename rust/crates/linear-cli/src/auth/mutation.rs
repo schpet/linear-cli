@@ -134,12 +134,18 @@ impl CredentialMutationState {
         writer: &impl CredentialMutationFileWriter,
     ) -> Result<(), MutationFailure> {
         let path = self.prepare_path(path, writer)?;
-        // Prepare AFTER mkdir; missing old keys still leave source directory effects.
-        let contents = if inline {
-            crate::auth::write::mutation_inline_text(self.default(), &self.workspaces, &self.keys)?
+        let format = if inline {
+            CredentialFormat::Inline
         } else {
-            crate::auth::write::mutation_metadata_text(self.default(), &self.workspaces)?
+            CredentialFormat::Metadata
         };
+        let contents = crate::auth::write::credentials_text(
+            format,
+            self.default(),
+            &self.workspaces,
+            &self.keys,
+        )
+        .map_err(MutationFailure::Typed)?;
         writer
             .write_file(path, contents.as_bytes())
             .map_err(|error| MutationFailure::Ordinary(error.to_string()))

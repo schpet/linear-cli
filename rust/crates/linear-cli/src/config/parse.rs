@@ -1,4 +1,4 @@
-//! Strict, owned TOML parsing for an already selected bounded config file.
+//! TOML parsing for an already selected, size-bounded config or credentials file.
 
 use std::error::Error;
 use std::fmt;
@@ -6,91 +6,56 @@ use std::path::PathBuf;
 
 use super::source::{MAX_CONFIG_BYTES, RawConfigFile};
 
-pub const MAX_CONFIG_DEPTH: usize = 64;
-
-/// A selected config file with all TOML values retained in source order.
-///
-/// Values may include credentials. Deliberately has no value-bearing formatter.
+/// A parsed TOML file. Values may include credentials, so it has no
+/// value-bearing formatter.
 pub struct ConfigTier {
     pub path: PathBuf,
-    pub entries: Vec<(String, ConfigValue)>,
+    pub table: toml::Table,
 }
 
-/// Owned value tree; parser-specific types never cross the config boundary.
-///
-/// Deliberately has no value-bearing Debug or Display implementation.
-pub enum ConfigValue {
-    String(String),
-    Integer(i64),
-    Float(f64),
-    Boolean(bool),
-    Datetime(String),
-    Array(Vec<ConfigValue>),
-    Table(Vec<(String, ConfigValue)>),
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConfigParseErrorKind {
     TooLarge,
     InvalidUtf8,
     ByteOrderMark,
-    InvalidToml,
-    TooDeep,
+    /// The parser's message and 1-based position. The message never quotes
+    /// the surrounding source text, which may hold an API key.
+    InvalidToml {
+        line: usize,
+        column: usize,
+        message: String,
+    },
 }
 
-/// A path and fixed category only. No source text or parser error is retained.
+impl fmt::Display for ConfigParseErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TooLarge => write!(f, "larger than {MAX_CONFIG_BYTES} bytes"),
+            Self::InvalidUtf8 => f.write_str("invalid UTF-8"),
+            Self::ByteOrderMark => f.write_str("starts with a byte-order mark"),
+            Self::InvalidToml {
+                line,
+                column,
+                message,
+            } => write!(f, "invalid TOML at line {line}, column {column}: {message}"),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ConfigParseError {
     pub path: PathBuf,
     pub kind: ConfigParseErrorKind,
 }
 
-impl fmt::Debug for ConfigParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("ConfigParseError")
-            .field("path", &self.path)
-            .field("kind", &self.kind)
-            .finish()
-    }
-}
-
 impl fmt::Display for ConfigParseError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "config parse error {:?} at {}",
-            self.kind,
-            self.path.display()
-        )
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.path.display(), self.kind)
     }
 }
 
 impl Error for ConfigParseError {}
 
-fn convert(value: toml::Value, depth: usize) -> Result<ConfigValue, ConfigParseErrorKind> {
-    if depth > MAX_CONFIG_DEPTH {
-        return Err(ConfigParseErrorKind::TooDeep);
-    }
-    match value {
-        toml::Value::String(value) => Ok(ConfigValue::String(value)),
-        toml::Value::Integer(value) => Ok(ConfigValue::Integer(value)),
-        toml::Value::Float(value) => Ok(ConfigValue::Float(value)),
-        toml::Value::Boolean(value) => Ok(ConfigValue::Boolean(value)),
-        toml::Value::Datetime(value) => Ok(ConfigValue::Datetime(value.to_string())),
-        toml::Value::Array(values) => values
-            .into_iter()
-            .map(|value| convert(value, depth + 1))
-            .collect::<Result<Vec<_>, _>>()
-            .map(ConfigValue::Array),
-        toml::Value::Table(entries) => entries
-            .into_iter()
-            .map(|(key, value)| Ok((key, convert(value, depth + 1)?)))
-            .collect::<Result<Vec<_>, _>>()
-            .map(ConfigValue::Table),
-    }
-}
-
-/// Parse only an A1 `ReadCandidate::Contents` payload; discovery remains separate.
 pub fn parse_config_tier(raw: RawConfigFile) -> Result<ConfigTier, ConfigParseError> {
     let RawConfigFile { path, bytes } = raw;
     let fail = |kind| ConfigParseError {
@@ -104,13 +69,26 @@ pub fn parse_config_tier(raw: RawConfigFile) -> Result<ConfigTier, ConfigParseEr
     if text.starts_with('\u{feff}') {
         return Err(fail(ConfigParseErrorKind::ByteOrderMark));
     }
-    // The TOML error owns source snippets; drop it immediately and never chain it.
-    let table: toml::Table = text
-        .parse()
-        .map_err(|_| fail(ConfigParseErrorKind::InvalidToml))?;
-    let entries = table
-        .into_iter()
-        .map(|(key, value)| Ok((key, convert(value, 1).map_err(&fail)?)))
-        .collect::<Result<Vec<_>, ConfigParseError>>()?;
-    Ok(ConfigTier { path, entries })
+    let table = text.parse::<toml::Table>().map_err(|error| {
+        let offset = error.span().map_or(0, |span| span.start);
+        let (line, column) = line_column(&text, offset);
+        fail(ConfigParseErrorKind::InvalidToml {
+            line,
+            column,
+            message: error.message().trim_end().to_owned(),
+        })
+    })?;
+    Ok(ConfigTier { path, table })
+}
+
+/// 1-based line and character column of a byte offset.
+fn line_column(text: &str, offset: usize) -> (usize, usize) {
+    let before = text.get(..offset).unwrap_or(text);
+    let line = before.matches('\n').count() + 1;
+    let line_start = before.rfind('\n').map_or(0, |index| index + 1);
+    let column = before
+        .get(line_start..)
+        .map_or(0, |rest| rest.chars().count())
+        + 1;
+    (line, column)
 }

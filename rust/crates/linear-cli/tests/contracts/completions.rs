@@ -884,7 +884,7 @@ fn with_credentials(fixture: &str, args: &[&str]) -> (Output, PathBuf) {
 
 fn credentials_error(config: &Path) -> String {
     format!(
-        "✗ invalid credentials file {}/linear/credentials.toml: invalid TOML\n  Fix or remove the credentials file, then run `linear auth login`.\n",
+        "✗ invalid credentials file {}/linear/credentials.toml: invalid TOML at line 1, column 15: unclosed array, expected `]`\n  Fix or remove the credentials file, then run `linear auth login`.\n",
         config.display()
     )
 }

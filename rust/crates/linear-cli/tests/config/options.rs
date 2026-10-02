@@ -170,7 +170,11 @@ fn precedence_and_shadowed_poison_are_strict() {
             path: PathBuf::from("/global/linear.toml")
         }
     );
-    assert_eq!(err.reason, OptionErrorReason::InvalidChoice);
+    assert!(matches!(err.reason, OptionErrorReason::Invalid(_)), "{err}");
+    assert!(
+        err.to_string().contains("unknown variant `INVALID`"),
+        "{err}"
+    );
 }
 
 #[test]
@@ -180,7 +184,8 @@ fn every_known_key_is_eagerly_checked_and_unknown_keys_are_inert() {
         let project = tier("/repo/linear.toml", &content);
         let err = snapshot(&env(&[]), &dotenv(&[]), Some(&project), None).expect_err("wrong type");
         assert_eq!(err.key, Some(key));
-        assert_eq!(err.reason, OptionErrorReason::WrongType);
+        assert!(matches!(err.reason, OptionErrorReason::Invalid(_)), "{err}");
+        assert!(err.to_string().contains("integer `42`"), "{err}");
     }
     let unknown = tier("/repo/linear.toml", "new_future_key = 42");
     snapshot(&env(&[]), &dotenv(&[]), Some(&unknown), None).expect("unknown inert");
@@ -212,12 +217,9 @@ fn booleans_and_enums_reject_invalid_strings_without_trimming() {
     }
     for word in ["", " true", "1 ", "maybe"] {
         let inputs = env(&[("LINEAR_DOWNLOAD_IMAGES", word)]);
-        assert_eq!(
-            snapshot(&inputs, &dotenv(&[]), None, None)
-                .expect_err("invalid bool")
-                .reason,
-            OptionErrorReason::InvalidBoolean
-        );
+        let err = snapshot(&inputs, &dotenv(&[]), None, None).expect_err("invalid bool");
+        assert!(matches!(err.reason, OptionErrorReason::Invalid(_)), "{err}");
+        assert!(err.to_string().ends_with("expected a boolean"), "{err}");
     }
     for (name, value) in [
         ("LINEAR_ISSUE_SORT", "Manual"),
@@ -225,12 +227,8 @@ fn booleans_and_enums_reject_invalid_strings_without_trimming() {
         ("LINEAR_VCS", "GIT"),
     ] {
         let inputs = env(&[(name, value)]);
-        assert_eq!(
-            snapshot(&inputs, &dotenv(&[]), None, None)
-                .expect_err("case sensitive")
-                .reason,
-            OptionErrorReason::InvalidChoice
-        );
+        let err = snapshot(&inputs, &dotenv(&[]), None, None).expect_err("case sensitive");
+        assert!(matches!(err.reason, OptionErrorReason::Invalid(_)), "{err}");
     }
 }
 
@@ -270,7 +268,7 @@ fn empty_strings_are_present_and_cli_overrides_are_closed() {
 }
 
 #[test]
-fn path_bases_and_js_trim_match_frozen_behavior() {
+fn template_paths_resolve_against_their_config_file() {
     let global = tier(
         "/global/linear.toml",
         "pr_template = '../../x'\nattachment_dir = 'files'",
@@ -325,7 +323,7 @@ fn path_bases_and_js_trim_match_frozen_behavior() {
         Path::new("dotenv.md")
     );
     let inputs = env(&[("LINEAR_PR_TEMPLATE", "\u{feff}x\u{feff}")]);
-    let options = snapshot(&inputs, &dotenv(&[]), None, None).expect("JS trim");
+    let options = snapshot(&inputs, &dotenv(&[]), None, None).expect("trimmed");
     assert_eq!(
         options.sourced_pr_template().expect("template").value(),
         "x"

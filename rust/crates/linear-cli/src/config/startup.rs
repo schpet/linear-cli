@@ -1,23 +1,16 @@
-//! One owned, injectable config startup result for all routes, including help.
+//! Loads `.env` and config files into one startup result.
 use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::fmt;
-use std::sync::OnceLock;
 
 use crate::error::{AppError, AppErrorKind};
 
-use super::discover::ConfigCandidate;
-use super::discover::discover_config_paths;
+use super::discover::{ConfigCandidate, discover_config_paths};
 use super::dotenv::{ConfigDiagnostic, ConfigFailure, DiagnosticReason, SelectedEnv, load_env};
-use super::options::{
-    ConfigOptionError, ConfigOptions, OptionErrorReason, OptionInputs, OptionKey, OptionSource,
-};
-use super::parse::{ConfigParseError, ConfigParseErrorKind, ConfigTier, parse_config_tier};
+use super::options::{ConfigOptionError, ConfigOptions, OptionInputs};
+use super::parse::{ConfigParseError, ConfigTier, parse_config_tier};
 use super::runtime::ProcessEnvSnapshot;
-use super::source::{
-    FileSource, GitProbeError, GitProbeResult, GitRootProbe, OsFamily, ReadCandidate,
-    read_config_candidate,
-};
+use super::source::{FileSource, OsFamily, ReadCandidate, read_config_candidate, repo_root};
 use super::transport::TransportEnvInputs;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -79,11 +72,11 @@ pub struct StartupConfig {
     pub options: ConfigOptions,
     pub child_env: ChildEnvOverlay,
     pub transport_env: TransportEnvInputs,
-    /// Process CI value; the source dotenv loader does not admit CI entries.
+    /// The process `CI` value; `.env` files cannot set it.
     pub ci: Option<String>,
     /// Process PAGER value; dotenv files cannot set it either.
     pub pager: Option<OsString>,
-    /// Snapshot of the source POSIX image-cache temp precedence.
+    /// Where downloaded Markdown images are cached.
     pub image_cache_root: std::path::PathBuf,
 }
 
@@ -134,17 +127,6 @@ impl fmt::Debug for StartupReport {
     }
 }
 
-struct MemoGit<'a, G> {
-    git: &'a G,
-    cache: OnceLock<GitProbeResult>,
-}
-
-impl<G: GitRootProbe> GitRootProbe for MemoGit<'_, G> {
-    fn probe(&self) -> GitProbeResult {
-        self.cache.get_or_init(|| self.git.probe()).clone()
-    }
-}
-
 fn effective<'a>(
     process: &'a ProcessEnvSnapshot,
     dotenv: &'a SelectedEnv,
@@ -181,101 +163,15 @@ fn settings(process: &ProcessEnvSnapshot, dotenv: Option<&SelectedEnv>) -> Displ
     DisplaySettings { debug, no_color }
 }
 
-fn source_label(source: &OptionSource) -> String {
-    match source {
-        OptionSource::Cli => "command line".to_owned(),
-        OptionSource::Env => "process environment".to_owned(),
-        OptionSource::ProjectEnv { path } => format!(".env file {}", path.display()),
-        OptionSource::ProjectConfig { path } => format!("project config {}", path.display()),
-        OptionSource::GlobalConfig { path } => format!("global config {}", path.display()),
-    }
-}
-
-fn option_name(key: OptionKey, source: &OptionSource) -> String {
-    match source {
-        OptionSource::Env | OptionSource::ProjectEnv { .. } => key.env_name(),
-        OptionSource::Cli
-        | OptionSource::ProjectConfig { .. }
-        | OptionSource::GlobalConfig { .. } => key.name().to_owned(),
-    }
-}
-
-fn option_reason(key: OptionKey, reason: &OptionErrorReason) -> &'static str {
-    match reason {
-        OptionErrorReason::WrongType => match key {
-            OptionKey::IssueCreateAskProject
-            | OptionKey::DownloadImages
-            | OptionKey::AutoDownloadAttachments => "expected a boolean",
-            _ => "expected a string",
-        },
-        OptionErrorReason::InvalidBoolean => "expected a boolean",
-        OptionErrorReason::InvalidChoice => match key {
-            OptionKey::IssueSort => "expected manual or priority",
-            OptionKey::IssueCreateAssignSelf => "expected always, auto or never",
-            OptionKey::Vcs => "expected git or jj",
-            _ => "invalid choice",
-        },
-        OptionErrorReason::EmptyTemplate => "expected a nonempty template path",
-        OptionErrorReason::InvalidEndpoint
-        | OptionErrorReason::MissingDotenvPath
-        | OptionErrorReason::InvalidCwd => "invalid value",
-    }
-}
-
 fn option_error(error: ConfigOptionError) -> StartupError {
-    if error.reason == OptionErrorReason::InvalidCwd {
-        return StartupError::new(
-            AppErrorKind::Invariant,
-            "config working directory must be absolute",
-            None,
-        );
-    }
-    if error.reason == OptionErrorReason::MissingDotenvPath {
-        return StartupError::new(
-            AppErrorKind::Invariant,
-            "selected dotenv value has no source path",
-            None,
-        );
-    }
-    let source = source_label(&error.source);
-    if error.reason == OptionErrorReason::InvalidEndpoint {
-        return StartupError::new(
-            AppErrorKind::Validation,
-            format!(
-                "invalid LINEAR_GRAPHQL_ENDPOINT from {source}: expected an http(s) URL without credentials or fragment"
-            ),
-            Some("Set a valid LINEAR_GRAPHQL_ENDPOINT or remove it.".to_owned()),
-        );
-    }
-    let Some(key) = error.key else {
-        return StartupError::new(
-            AppErrorKind::Invariant,
-            "config option key is missing",
-            None,
-        );
-    };
-    let name = option_name(key, &error.source);
-    StartupError::new(
-        AppErrorKind::Validation,
-        format!(
-            "invalid config option {name} from {source}: {}",
-            option_reason(key, &error.reason)
-        ),
-        Some(format!("Fix {name} in {source}.")),
-    )
+    let app = AppError::from(error);
+    StartupError::new(app.kind, app.message, app.suggestion)
 }
 
 fn parse_error(error: ConfigParseError) -> StartupError {
-    let reason = match error.kind {
-        ConfigParseErrorKind::TooLarge => "too large",
-        ConfigParseErrorKind::InvalidUtf8 => "invalid UTF-8",
-        ConfigParseErrorKind::ByteOrderMark => "byte-order mark",
-        ConfigParseErrorKind::InvalidToml => "invalid TOML",
-        ConfigParseErrorKind::TooDeep => "nesting too deep",
-    };
     StartupError::new(
         AppErrorKind::Validation,
-        format!("invalid config file {}: {reason}", error.path.display()),
+        format!("invalid config file {error}"),
         Some("Fix or remove the config file.".to_owned()),
     )
 }
@@ -297,19 +193,6 @@ fn config_failure(error: ConfigFailure) -> StartupError {
             "config working directory must be absolute",
             None,
         ),
-        ConfigFailure::GitProbe(error) => {
-            let reason = match error {
-                GitProbeError::Timeout => "timed out",
-                GitProbeError::Oversize => "output too large",
-                GitProbeError::InvalidUtf8 | GitProbeError::MalformedStdout => "invalid output",
-                GitProbeError::Io { .. } => "I/O failure",
-            };
-            StartupError::new(
-                AppErrorKind::IoProcess,
-                format!("failed to determine Git root: {reason}"),
-                None,
-            )
-        }
     }
 }
 
@@ -354,43 +237,12 @@ fn fail(
     }
 }
 
-/// Read and parse all config tiers once, retaining warnings even on failure.
-pub fn load_startup(
-    process: &ProcessEnvSnapshot,
-    files: &impl FileSource,
-    git: &impl GitRootProbe,
-) -> StartupReport {
-    load_startup_with_issue_read_sort(process, files, git, false)
-}
-pub(crate) fn load_startup_with_issue_read_sort(
-    process: &ProcessEnvSnapshot,
-    files: &impl FileSource,
-    git: &impl GitRootProbe,
-    defer: bool,
-) -> StartupReport {
-    load_startup_with_policy(
-        process,
-        files,
-        git,
-        if defer {
-            super::StartupOptionPolicy::IssueSort
-        } else {
-            super::StartupOptionPolicy::Eager
-        },
-    )
-}
-pub(crate) fn load_startup_with_policy(
-    process: &ProcessEnvSnapshot,
-    files: &impl FileSource,
-    git: &impl GitRootProbe,
-    policy: super::StartupOptionPolicy,
-) -> StartupReport {
+/// Reads and validates `.env` and all config tiers once, keeping warnings
+/// even on failure.
+pub fn load_startup(process: &ProcessEnvSnapshot, files: &impl FileSource) -> StartupReport {
     let initial_settings = settings(process, None);
-    let git = MemoGit {
-        git,
-        cache: OnceLock::new(),
-    };
-    let dotenv = match load_env(&process.inputs, files, &git) {
+    let root = repo_root(&process.inputs.cwd, files);
+    let dotenv = match load_env(&process.inputs, files, root.as_deref()) {
         Ok(dotenv) => dotenv,
         Err(error) => {
             return fail(
@@ -402,10 +254,7 @@ pub(crate) fn load_startup_with_policy(
     };
     let display = settings(process, Some(&dotenv));
     let diagnostics = dotenv.diagnostics.clone();
-    let paths = match discover_config_paths(&process.inputs, &git) {
-        Ok(paths) => paths,
-        Err(error) => return fail(display, diagnostics, config_failure(error)),
-    };
+    let paths = discover_config_paths(&process.inputs, root.as_deref());
     let global = match read_tier(&paths.global, files) {
         Ok(global) => global,
         Err(error) => return fail(display, diagnostics, error),
@@ -414,15 +263,12 @@ pub(crate) fn load_startup_with_policy(
         Ok(project) => project,
         Err(error) => return fail(display, diagnostics, error),
     };
-    let options = match ConfigOptions::from_inputs_with_startup_policy(
-        OptionInputs {
-            env: &process.inputs,
-            dotenv: &dotenv,
-            project: project.as_ref(),
-            global: global.as_ref(),
-        },
-        policy,
-    ) {
+    let options = match ConfigOptions::from_inputs(OptionInputs {
+        env: &process.inputs,
+        dotenv: &dotenv,
+        project: project.as_ref(),
+        global: global.as_ref(),
+    }) {
         Ok(options) => options,
         Err(error) => return fail(display, diagnostics, option_error(error)),
     };

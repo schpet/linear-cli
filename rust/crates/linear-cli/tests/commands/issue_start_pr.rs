@@ -1,10 +1,7 @@
 //! Public source command contracts; all processes, paths and responses are fake.
 use linear_cli::{
     commands::{issue_pull_request as pr, issue_start as start},
-    config::{
-        ChildEnvOverlay, FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily,
-        ProcessEnvSnapshot,
-    },
+    config::{ChildEnvOverlay, FileKind, FileSource, OsFamily, ProcessEnvSnapshot},
     error::AppError,
     graphql::{
         bulk_error::{ObservedExchangeFailure, SourceException, SourceExceptionKind},
@@ -29,12 +26,6 @@ impl FileSource for EmptyFiles {
         Err(io::ErrorKind::NotFound.into())
     }
 }
-struct NoGit;
-impl GitRootProbe for NoGit {
-    fn probe(&self) -> GitProbeResult {
-        GitProbeResult::SpawnFailure
-    }
-}
 fn overlay() -> ChildEnvOverlay {
     let env = ProcessEnvSnapshot::from_vars_os(
         PathBuf::from("/fake-start-pr"),
@@ -42,7 +33,7 @@ fn overlay() -> ChildEnvOverlay {
         std::iter::empty(),
     )
     .unwrap();
-    linear_cli::config::load_startup(&env, &EmptyFiles, &NoGit)
+    linear_cli::config::load_startup(&env, &EmptyFiles)
         .result
         .unwrap()
         .child_env

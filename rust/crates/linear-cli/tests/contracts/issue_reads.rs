@@ -164,58 +164,7 @@ fn invoke(server: &Server, args: &[&str], sort: Option<&str>) -> std::process::O
     command.args(args).output().unwrap()
 }
 #[test]
-fn query_invalid_configured_sort_is_deferred_after_exact_resolver_prefix() {
-    let server = Server::new(vec![scope(), state(), project(), cycle(), milestone()]);
-    let output = invoke(
-        &server,
-        &[
-            "issue",
-            "query",
-            "--team",
-            "eng",
-            "--state",
-            "Ready",
-            "--project",
-            "Plan",
-            "--cycle",
-            "active",
-            "--milestone",
-            "M1",
-            "--assignee",
-            "dummy",
-            "--created-after",
-            "yesterday",
-            "--json",
-        ],
-        Some("invalid"),
-    );
-    assert_eq!(output.status.code(), Some(1));
-    assert!(output.stdout.is_empty());
-    assert_eq!(
-        String::from_utf8(output.stderr).unwrap(),
-        "✗ Failed to query issues: Invalid issue sort: \"invalid\"\n  Use one of: manual, priority (via --sort, the issue_sort config option, or the LINEAR_ISSUE_SORT environment variable)\n"
-    );
-    let requests = server.finish();
-    assert_eq!(
-        requests
-            .iter()
-            .map(|r| r["operationName"].as_str().unwrap())
-            .collect::<Vec<_>>(),
-        [
-            "ResolveTeam",
-            "GetWorkflowStatesInScope",
-            "GetProjectIdByName",
-            "GetTeamCyclesForLookup",
-            "GetProjectMilestonesForLookup"
-        ]
-    );
-    assert_eq!(
-        requests[3]["variables"],
-        json!({"teamId":"team-id","after":null})
-    );
-}
-#[test]
-fn mine_configured_sort_fails_before_explicit_team_but_other_routes_stay_eager() {
+fn invalid_configured_sort_fails_at_startup() {
     let server = Server::new(vec![]);
     let output = invoke(
         &server,
@@ -226,7 +175,7 @@ fn mine_configured_sort_fails_before_explicit_team_but_other_routes_stay_eager()
     assert!(
         String::from_utf8(output.stderr)
             .unwrap()
-            .starts_with("✗ Failed to list issues: Invalid issue sort: \"invalid\"\n")
+            .starts_with("✗ invalid config option LINEAR_ISSUE_SORT")
     );
     assert!(server.finish().is_empty());
     let sandbox = super::startup::BinarySandbox::new();
@@ -294,7 +243,7 @@ fn date_failures_drop_only_final_issue_read_after_source_resolvers() {
     }
 }
 #[test]
-fn earlier_resolver_failure_precedes_dates_and_query_search_sort_override() {
+fn earlier_resolver_failure_precedes_date_validation() {
     let server = Server::new(vec![Reply {
         operation: "ResolveTeam",
         status: 200,
@@ -320,25 +269,6 @@ fn earlier_resolver_failure_precedes_dates_and_query_search_sort_override() {
         "✗ Failed to query issues: resolver failed\n"
     );
     assert_eq!(server.finish().len(), 1);
-    let server = Server::new(vec![Reply::data(
-        "SearchIssues",
-        json!({"searchIssues":{"nodes":[],"pageInfo":{"hasNextPage":false,"endCursor":null},"totalCount":0}}),
-    )]);
-    let output = invoke(
-        &server,
-        &[
-            "issue",
-            "query",
-            "--all-teams",
-            "--search",
-            " term ",
-            "--json",
-        ],
-        Some("invalid"),
-    );
-    assert!(output.status.success());
-    let requests = server.finish();
-    assert_eq!(requests[0]["variables"], json!({"term":"term","first":50}));
 }
 #[test]
 fn handled_raw_error_fallback_keeps_empty_first_and_nonjson_body_without_class_prefix() {

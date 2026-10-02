@@ -47,7 +47,7 @@ fn saved(text: &str, target: &str) -> Vec<u8> {
     calls.into_iter().next().unwrap().1
 }
 #[test]
-fn inline_and_metadata_emit_exact_source_bytes_without_requiring_metadata_keys() {
+fn inline_and_metadata_files_are_sorted_with_the_default_first() {
     assert_eq!(
         saved(
             "default='zeta'\nzeta='lin_api_fake_zeta'\nalpha=''\n",
@@ -57,24 +57,25 @@ fn inline_and_metadata_emit_exact_source_bytes_without_requiring_metadata_keys()
     );
     assert_eq!(
         saved("default='zeta'\nworkspaces=['zeta','alpha']\n", "alpha"),
-        b"default = \"alpha\"\nworkspaces = [\"alpha\",\"zeta\"]\n"
+        b"default = \"alpha\"\nworkspaces = [\"alpha\", \"zeta\"]\n"
     );
 }
 #[test]
-fn utf16_sort_and_numeric_property_enumeration_are_not_utf8_or_lexical_numeric() {
-    let bytes = saved(
-        "default='zeta'\n\"10\"='lin_api_fake_ten'\n\"2\"='lin_api_fake_two'\n\"01\"='lin_api_fake_leading'\nzeta='lin_api_fake_zeta'\n\"😀\"='lin_api_fake_astral'\n\"\"='lin_api_fake_bmp'\n",
-        "zeta",
-    );
-    assert_eq!(
-        String::from_utf8(bytes).unwrap(),
-        "2 = \"lin_api_fake_two\"\n10 = \"lin_api_fake_ten\"\ndefault = \"zeta\"\n01 = \"lin_api_fake_leading\"\nzeta = \"lin_api_fake_zeta\"\n\"😀\" = \"lin_api_fake_astral\"\n\"\" = \"lin_api_fake_bmp\"\n"
-    );
-}
-#[test]
-fn json_escaping_keys_and_constructor_are_preserved_but_source_omitted_property_is_not_created() {
-    let text = "default='alpha'\n\"__proto__\"='lin_api_fake_proto'\nconstructor='lin_api_fake_constructor'\nalpha='lin_api_fake_alpha'\n\"space ws\"=\"lin_api_fake_quote\\\"slash\\\\new\\n\"\n";
-    assert_eq!(saved(text,"constructor"), b"default = \"constructor\"\nalpha = \"lin_api_fake_alpha\"\nconstructor = \"lin_api_fake_constructor\"\n\"space ws\" = \"lin_api_fake_quote\\\"slash\\\\new\\n\"\n");
+fn written_files_read_back_identically() {
+    let text = "default='alpha'\n\"__proto__\"='lin_api_fake_proto'\n\"10\"='lin_api_fake_ten'\nalpha='lin_api_fake_alpha'\n\"space ws\"=\"lin_api_fake_quote\\\"slash\\\\new\\n\"\n\"😀\"='lin_api_fake_astral'\n";
+    let original = store(text);
+    let bytes = saved(text, "10");
+    let reread = store(std::str::from_utf8(&bytes).unwrap());
+    assert_eq!(reread.default(), Some("10"));
+    let mut names = original.workspaces().to_vec();
+    names.sort();
+    assert_eq!(reread.workspaces(), names);
+    for name in original.workspaces() {
+        assert_eq!(
+            reread.key(name).unwrap().expose(),
+            original.key(name).unwrap().expose()
+        );
+    }
 }
 #[test]
 fn prepared_bytes_are_redacted_and_explicit_path_and_writer_errors_are_typed() {

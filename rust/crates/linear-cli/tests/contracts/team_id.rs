@@ -134,6 +134,17 @@ fn prepared_command(case: &Value, sandbox: &BinarySandbox) -> Command {
     command
 }
 
+/// Drops the parser position and message that follow "invalid TOML".
+fn without_toml_position(text: &str) -> String {
+    match text.split_once(": invalid TOML at line ") {
+        Some((before, after)) => {
+            let rest = after.split_once('\n').map_or("", |(_, rest)| rest);
+            format!("{before}: invalid TOML\n{rest}")
+        }
+        None => text.to_owned(),
+    }
+}
+
 #[test]
 fn public_binary_matches_frozen_team_id_cases() {
     for id in CASE_IDS {
@@ -165,13 +176,22 @@ fn public_binary_matches_frozen_team_id_cases() {
             .as_bytes(),
             "{id} stdout"
         );
+        // Config errors now describe the offending value or TOML position.
+        let expected_stderr = substituted(
+            expected["stderr"]["utf8"].as_str().expect("stderr"),
+            &sandbox,
+        )
+        .replace(
+            ": expected a string\n",
+            if *id == "c009-invalid-unrelated-option" {
+                ": invalid type: integer `123`, expected manual or priority\n"
+            } else {
+                ": invalid type: integer `123`, expected a string\n"
+            },
+        );
         assert_eq!(
-            output.stderr,
-            substituted(
-                expected["stderr"]["utf8"].as_str().expect("stderr"),
-                &sandbox
-            )
-            .as_bytes(),
+            without_toml_position(&String::from_utf8_lossy(&output.stderr)),
+            expected_stderr,
             "{id} stderr"
         );
     }

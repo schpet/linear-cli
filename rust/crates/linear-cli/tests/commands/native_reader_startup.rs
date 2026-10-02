@@ -13,10 +13,7 @@ use linear_cli::{
         auth_default::{self, DefaultAction},
         auth_token,
     },
-    config::{
-        ConfigSecret, FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily,
-        ProcessEnvSnapshot,
-    },
+    config::{ConfigSecret, FileKind, FileSource, OsFamily, ProcessEnvSnapshot},
     error::ExitStatus,
     startup::{load, render_startup_diagnostic},
 };
@@ -51,12 +48,6 @@ impl FileSource for MemoryFiles {
         self.bytes(path)
             .map(|text| text.as_bytes().to_vec())
             .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
-    }
-}
-struct NoGit;
-impl GitRootProbe for NoGit {
-    fn probe(&self) -> GitProbeResult {
-        GitProbeResult::SpawnFailure
     }
 }
 struct Metadata;
@@ -144,7 +135,6 @@ fn metadata_for_both_adapters_hydrates_token_and_default_without_extra_lookup() 
                 dotenv: None,
                 project: None,
             },
-            &NoGit,
             &Metadata,
             &reader,
         )
@@ -177,7 +167,6 @@ fn raw_and_project_keys_keep_eager_metadata_failure_warning_and_no_postresolutio
                 dotenv: None,
                 project: project.then_some("api_key='dummy_project'\n"),
             },
-            &NoGit,
             &Metadata,
             &reader,
         );
@@ -208,7 +197,6 @@ fn raw_and_project_keys_keep_eager_metadata_failure_warning_and_no_postresolutio
             dotenv: None,
             project: None,
         },
-        &NoGit,
         &Metadata,
         &missing,
     );
@@ -228,7 +216,6 @@ fn process_empty_suppresses_dotenv_and_backend_stays_selectable() {
             dotenv: Some("LINEAR_API_KEY=dummy_dotenv\n"),
             project: None,
         },
-        &NoGit,
         &Metadata,
         &reader,
     )
@@ -307,7 +294,6 @@ fn ordinary_user_read_sends_one_dummy_header_after_global_metadata_hydration() {
                 dotenv: None,
                 project: None,
             },
-            &NoGit,
             &Metadata,
             &reader,
         );

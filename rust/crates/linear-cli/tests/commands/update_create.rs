@@ -296,27 +296,16 @@ async fn initiative_specific_slug_name_first_match_and_display_fallback_are_orde
 #[ignore = "requires private physical editor/signal driver"]
 fn editor_signal_process_probe() {
     use linear_cli::{
-        config::{
-            GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot, RealFileSource,
-            load_startup,
-        },
+        config::{OsFamily, ProcessEnvSnapshot, RealFileSource, load_startup},
         platform::editor,
     };
     use std::io::Write;
-    struct NoGit;
-    impl GitRootProbe for NoGit {
-        fn probe(&self) -> GitProbeResult {
-            GitProbeResult::SpawnFailure
-        }
-    }
     let root = std::path::PathBuf::from(
         std::env::var_os("QA_EDITOR_PROBE_TMP").expect("private probe root required"),
     );
     let process =
         ProcessEnvSnapshot::capture(std::env::current_dir().unwrap(), OsFamily::Unix).unwrap();
-    let startup = load_startup(&process, &RealFileSource, &NoGit)
-        .result
-        .unwrap();
+    let startup = load_startup(&process, &RealFileSource).result.unwrap();
     let outcome = editor::open_update(&startup.child_env, &root).unwrap();
     match outcome {
         editor::UpdateEditorOutcome::Content(body) => {

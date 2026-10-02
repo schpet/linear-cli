@@ -3,9 +3,7 @@ use linear_cli::{
     auth::file::{CredentialFileSource, CredentialReadFailure},
     auth::keyring::UnsupportedKeyringReader,
     commands::issue_commits,
-    config::{
-        FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot, Vcs,
-    },
+    config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot, Vcs},
     error::AppError,
     platform::vcs_script::{
         self, Captured, ChildControl, ChildOutcome, CommandSpec, ProcessRunner, Program,
@@ -33,12 +31,6 @@ impl FileSource for EmptyFiles {
         Err(io::Error::from(io::ErrorKind::NotFound))
     }
 }
-struct NoGit;
-impl GitRootProbe for NoGit {
-    fn probe(&self) -> GitProbeResult {
-        GitProbeResult::SpawnFailure
-    }
-}
 struct EmptyCredentials;
 impl CredentialFileSource for EmptyCredentials {
     fn read_credentials(&self, _path: &Path) -> Result<Option<Vec<u8>>, CredentialReadFailure> {
@@ -56,7 +48,6 @@ fn startup(env: &[(&str, &str)]) -> AppStartupReport {
     let report = startup::load(
         &snapshot,
         &EmptyFiles,
-        &NoGit,
         &EmptyCredentials,
         &UnsupportedKeyringReader,
     );

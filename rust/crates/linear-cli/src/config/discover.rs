@@ -1,7 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use super::dotenv::ConfigFailure;
-use super::source::{ConfigInputs, GitProbeResult, GitRootProbe, OsFamily, lexical};
+use super::source::{ConfigInputs, OsFamily, lexical};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CandidateTier {
@@ -15,58 +14,55 @@ pub struct ConfigCandidate {
     pub path: PathBuf,
 }
 
+/// Candidate config files per tier, in lookup order. The first one that
+/// exists is used.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConfigPaths {
     pub global: Vec<ConfigCandidate>,
     pub project: Vec<ConfigCandidate>,
 }
 
-fn truthy(value: Option<&str>) -> Option<&str> {
+fn nonempty(value: Option<&str>) -> Option<&str> {
     value.filter(|value| !value.is_empty())
 }
 
-pub fn discover_config_paths(
-    inputs: &ConfigInputs,
-    git: &impl GitRootProbe,
-) -> Result<ConfigPaths, ConfigFailure> {
-    let mut global = Vec::new();
+/// The global config lives under `$XDG_CONFIG_HOME` (or `~/.config`), or
+/// `%APPDATA%` on Windows. Project config is looked up in the working
+/// directory, then at the repository root.
+pub fn discover_config_paths(inputs: &ConfigInputs, repo_root: Option<&Path>) -> ConfigPaths {
     let base = match inputs.os {
-        OsFamily::Unix => truthy(inputs.env("XDG_CONFIG_HOME"))
+        OsFamily::Unix => nonempty(inputs.env("XDG_CONFIG_HOME"))
             .map(PathBuf::from)
-            .or_else(|| truthy(inputs.env("HOME")).map(|home| PathBuf::from(home).join(".config"))),
-        OsFamily::Windows => truthy(inputs.env("APPDATA")).map(PathBuf::from),
+            .or_else(|| {
+                nonempty(inputs.env("HOME")).map(|home| PathBuf::from(home).join(".config"))
+            }),
+        OsFamily::Windows => nonempty(inputs.env("APPDATA")).map(PathBuf::from),
     };
-    if let Some(base) = base {
-        global.push(ConfigCandidate {
+    let global = base
+        .map(|base| ConfigCandidate {
             tier: CandidateTier::Global,
             path: lexical(&base.join("linear").join("linear.toml")),
-        });
-    }
-    let mut project = ["linear.toml", ".linear.toml"]
-        .into_iter()
-        .map(|name| ConfigCandidate {
-            tier: CandidateTier::Project,
-            path: lexical(&inputs.cwd.join(name)),
         })
+        .into_iter()
+        .collect();
+    let project = |path: PathBuf| ConfigCandidate {
+        tier: CandidateTier::Project,
+        path: lexical(&path),
+    };
+    let mut candidates = ["linear.toml", ".linear.toml"]
+        .into_iter()
+        .map(|name| project(inputs.cwd.join(name)))
         .collect::<Vec<_>>();
-    // Unlike dotenv's probe, the source config loader ignores process success.
-    match git.probe() {
-        GitProbeResult::Completed { stdout, .. } => {
-            let root = stdout.trim();
-            for suffix in ["linear.toml", ".linear.toml", ".config/linear.toml"] {
-                let path = if root.is_empty() {
-                    inputs.cwd.join(suffix)
-                } else {
-                    PathBuf::from(root).join(suffix)
-                };
-                project.push(ConfigCandidate {
-                    tier: CandidateTier::Project,
-                    path: lexical(&path),
-                });
+    if let Some(root) = repo_root {
+        for name in ["linear.toml", ".linear.toml", ".config/linear.toml"] {
+            let candidate = project(root.join(name));
+            if !candidates.contains(&candidate) {
+                candidates.push(candidate);
             }
         }
-        GitProbeResult::Failed(error) => return Err(ConfigFailure::GitProbe(error)),
-        GitProbeResult::SpawnFailure => {}
     }
-    Ok(ConfigPaths { global, project })
+    ConfigPaths {
+        global,
+        project: candidates,
+    }
 }

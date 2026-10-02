@@ -18,9 +18,7 @@ use std::process::ExitCode;
 use linear_cli::app::{AppContext, finalize, report_bootstrap_error, run};
 use linear_cli::auth::file::RealCredentialFileSource;
 use linear_cli::auth::keyring::NativeKeyringReader;
-use linear_cli::config::{
-    OsFamily, ProcessEnvError, ProcessEnvSnapshot, RealFileSource, RealGitRootProbe,
-};
+use linear_cli::config::{OsFamily, ProcessEnvError, ProcessEnvSnapshot, RealFileSource};
 use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
 use linear_cli::startup::load;
 
@@ -85,41 +83,10 @@ fn main() -> ExitCode {
         }
     };
     let cwd = environment.inputs.cwd.clone();
-    let git = RealGitRootProbe::new(cwd.clone());
-    // Parse only for existing command-local startup sort/template timing policies.
-    let parsed = linear_cli::cli::parse(&argv.iter().map(OsString::from).collect::<Vec<_>>());
     let keyring = NativeKeyringReader;
-    let defer_sort = matches!(
-        parsed.as_ref().ok().and_then(|cli| cli.command.as_ref()),
-        Some(linear_cli::cli::RootCommand::Issue(
-            linear_cli::cli::issue::Issue {
-                command: Some(
-                    linear_cli::cli::issue::IssueCommand::Mine(_)
-                        | linear_cli::cli::issue::IssueCommand::Query(_)
-                        | linear_cli::cli::issue::IssueCommand::Start(_)
-                )
-            }
-        ))
-    );
-    let defer_template = matches!(
-        parsed.as_ref().ok().and_then(|cli| cli.command.as_ref()),
-        Some(linear_cli::cli::RootCommand::Issue(
-            linear_cli::cli::issue::Issue {
-                command: Some(linear_cli::cli::issue::IssueCommand::PullRequest(_))
-            }
-        ))
-    );
-    let startup_loader = if defer_template {
-        linear_cli::startup::load_for_pull_request
-    } else if defer_sort {
-        linear_cli::startup::load_for_issue_reads
-    } else {
-        load
-    };
-    let startup = startup_loader(
+    let startup = load(
         &environment,
         &RealFileSource,
-        &git,
         &RealCredentialFileSource,
         &keyring,
     );

@@ -12,9 +12,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use linear_cli::app::{AppContext, block_on_network, write_final_error};
 use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
 use linear_cli::auth::keyring::UnsupportedKeyringReader;
-use linear_cli::config::{
-    FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot,
-};
+use linear_cli::config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot};
 use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
 use linear_cli::graphql::transport::{
     ApiKey, Deadline, EndpointUrl, GraphQlTransport, RawHttpResponse, ResponseCap, TransportConfig,
@@ -327,12 +325,6 @@ impl FileSource for EmptyFiles {
         Err(std::io::Error::from(std::io::ErrorKind::NotFound))
     }
 }
-struct NoGit;
-impl GitRootProbe for NoGit {
-    fn probe(&self) -> GitProbeResult {
-        GitProbeResult::SpawnFailure
-    }
-}
 
 struct EmptyCredentials;
 impl CredentialFileSource for EmptyCredentials {
@@ -345,7 +337,6 @@ fn empty_startup(snapshot: &ProcessEnvSnapshot) -> AppStartupReport {
     load(
         snapshot,
         &EmptyFiles,
-        &NoGit,
         &EmptyCredentials,
         &UnsupportedKeyringReader,
     )

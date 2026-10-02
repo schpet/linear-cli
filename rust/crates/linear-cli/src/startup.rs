@@ -12,8 +12,8 @@ use crate::auth::{
     LookupFailureCategory, LookupReply, LookupResult, credentials_path, hydrate, parse_credentials,
 };
 use crate::config::{
-    ConfigDiagnostic, ConfigParseErrorKind, FileSource, GitRootProbe, ProcessEnvSnapshot,
-    RawConfigFile, StartupConfig, StartupError, parse_config_tier, render_diagnostic,
+    ConfigDiagnostic, ConfigParseErrorKind, FileSource, ProcessEnvSnapshot, RawConfigFile,
+    StartupConfig, StartupError, parse_config_tier, render_diagnostic,
 };
 use crate::error::{AppError, AppErrorKind};
 
@@ -91,16 +91,7 @@ impl AppStartupError {
                 };
                 (path, detail)
             }
-            Self::CredentialParse { path, reason } => {
-                let detail = match reason {
-                    ConfigParseErrorKind::TooLarge => "too large",
-                    ConfigParseErrorKind::InvalidUtf8 => "invalid UTF-8",
-                    ConfigParseErrorKind::ByteOrderMark => "byte-order mark",
-                    ConfigParseErrorKind::InvalidToml => "invalid TOML",
-                    ConfigParseErrorKind::TooDeep => "nesting too deep",
-                };
-                (path, detail.to_owned())
-            }
+            Self::CredentialParse { path, reason } => (path, reason.to_string()),
             Self::CredentialFormat { path, reason } => {
                 let detail = match reason {
                     CredentialFormatErrorKind::MixedFormat => "mixed credential formats",
@@ -179,14 +170,12 @@ pub fn render_startup_diagnostic(diagnostic: &AppStartupDiagnostic, color: bool)
 pub fn load(
     process: &ProcessEnvSnapshot,
     files: &impl FileSource,
-    git: &impl GitRootProbe,
     credential_files: &impl CredentialFileSource,
     keyring: &impl KeyringReader,
 ) -> AppStartupReport {
     load_with_phase_timeout(
         process,
         files,
-        git,
         credential_files,
         keyring,
         DEFAULT_PHASE_TIMEOUT,
@@ -198,67 +187,11 @@ pub fn load(
 pub fn load_with_phase_timeout(
     process: &ProcessEnvSnapshot,
     files: &impl FileSource,
-    git: &impl GitRootProbe,
     credential_files: &impl CredentialFileSource,
     keyring: &impl KeyringReader,
     phase_timeout: Duration,
 ) -> AppStartupReport {
-    load_with_policy(
-        process,
-        files,
-        git,
-        credential_files,
-        keyring,
-        phase_timeout,
-        crate::config::StartupOptionPolicy::Eager,
-    )
-}
-/// Source mine/query defer sort until the resolver pipeline reaches it.
-pub fn load_for_issue_reads(
-    process: &ProcessEnvSnapshot,
-    files: &impl FileSource,
-    git: &impl GitRootProbe,
-    credential_files: &impl CredentialFileSource,
-    keyring: &impl KeyringReader,
-) -> AppStartupReport {
-    load_with_policy(
-        process,
-        files,
-        git,
-        credential_files,
-        keyring,
-        DEFAULT_PHASE_TIMEOUT,
-        crate::config::StartupOptionPolicy::IssueSort,
-    )
-}
-/// Pull-request alone defers all template-option validation until action priority.
-pub fn load_for_pull_request(
-    process: &ProcessEnvSnapshot,
-    files: &impl FileSource,
-    git: &impl GitRootProbe,
-    credential_files: &impl CredentialFileSource,
-    keyring: &impl KeyringReader,
-) -> AppStartupReport {
-    load_with_policy(
-        process,
-        files,
-        git,
-        credential_files,
-        keyring,
-        DEFAULT_PHASE_TIMEOUT,
-        crate::config::StartupOptionPolicy::PullRequestTemplate,
-    )
-}
-fn load_with_policy(
-    process: &ProcessEnvSnapshot,
-    files: &impl FileSource,
-    git: &impl GitRootProbe,
-    credential_files: &impl CredentialFileSource,
-    keyring: &impl KeyringReader,
-    phase_timeout: Duration,
-    policy: crate::config::StartupOptionPolicy,
-) -> AppStartupReport {
-    let config_report = crate::config::load_startup_with_policy(process, files, git, policy);
+    let config_report = crate::config::load_startup(process, files);
     let mut diagnostics = config_report
         .diagnostics
         .into_iter()

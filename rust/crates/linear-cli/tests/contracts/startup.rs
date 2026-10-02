@@ -7,9 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
 use linear_cli::auth::keyring::UnsupportedKeyringReader;
-use linear_cli::config::{
-    FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot,
-};
+use linear_cli::config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot};
 use linear_cli::startup::{AppStartupReport, load};
 
 struct EmptyFiles;
@@ -21,14 +19,6 @@ impl FileSource for EmptyFiles {
 
     fn read_bounded(&self, _path: &Path, _max_bytes: u64) -> io::Result<Vec<u8>> {
         Err(io::Error::from(io::ErrorKind::NotFound))
-    }
-}
-
-struct NoGit;
-
-impl GitRootProbe for NoGit {
-    fn probe(&self) -> GitProbeResult {
-        GitProbeResult::SpawnFailure
     }
 }
 
@@ -54,7 +44,6 @@ pub fn empty_startup(cwd: PathBuf, env: &[(&str, &str)]) -> AppStartupReport {
     let startup = load(
         &process,
         &EmptyFiles,
-        &NoGit,
         &EmptyCredentials,
         &UnsupportedKeyringReader,
     );

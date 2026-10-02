@@ -318,19 +318,11 @@ fn windows_owned_layout_and_decoder_bind_safe_library_boundary_without_os_calls(
     );
 }
 #[tokio::test(flavor = "current_thread")]
-async fn inline_reserved_numeric_unicode_names_use_exact_source_own_key_order() {
+async fn inline_names_are_sorted_quoted_when_needed_and_reserved_names_rejected() {
     let mut store = state("z='dummy_z'", &[]);
     let backend = FakeBackend::new();
     let file = FakeFile::new();
-    for (name, value) in [
-        ("10", "dummy10"),
-        ("2", "dummy2"),
-        ("__proto__", "dummy_proto"),
-        ("constructor", "dummy_constructor"),
-        ("default", "dummy_default"),
-        ("workspaces", "dummy_workspaces"),
-        ("中", "dummy_unicode"),
-    ] {
+    for (name, value) in [("10", "dummy10"), ("2", "dummy2"), ("中", "dummy_unicode")] {
         store
             .add(name, secret(value), None, path(), &backend, &file)
             .await
@@ -338,7 +330,16 @@ async fn inline_reserved_numeric_unicode_names_use_exact_source_own_key_order() 
     }
     assert_eq!(
         std::str::from_utf8(&file.contents.borrow()).unwrap(),
-        "2 = \"dummy2\"\n10 = \"dummy10\"\nconstructor = \"dummy_constructor\"\ndefault = \"dummy_default\"\nworkspaces = \"dummy_workspaces\"\nz = \"dummy_z\"\n\"中\" = \"dummy_unicode\"\n"
+        "10 = \"dummy10\"\n2 = \"dummy2\"\nz = \"dummy_z\"\n\"中\" = \"dummy_unicode\"\n"
     );
+    for reserved in ["default", "workspaces"] {
+        let Err(MutationFailure::Typed(error)) = store
+            .add(reserved, secret("dummy"), None, path(), &backend, &file)
+            .await
+        else {
+            panic!("{reserved} must be rejected");
+        };
+        assert_eq!(error.kind, AppErrorKind::Validation);
+    }
     assert!(backend.events.borrow().is_empty());
 }

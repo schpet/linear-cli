@@ -1,9 +1,7 @@
 use linear_cli::app::{self, AppContext};
 use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
 use linear_cli::auth::keyring::UnsupportedKeyringReader;
-use linear_cli::config::{
-    FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot,
-};
+use linear_cli::config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot};
 use linear_cli::error::{AppError, AppErrorKind, ExitStatus};
 use linear_cli::startup::{self, AppStartupReport};
 use serde_json::{Value, json};
@@ -20,12 +18,6 @@ impl FileSource for EmptyFiles {
     }
     fn read_bounded(&self, _path: &Path, _limit: u64) -> io::Result<Vec<u8>> {
         Err(io::Error::from(io::ErrorKind::NotFound))
-    }
-}
-struct NoGit;
-impl GitRootProbe for NoGit {
-    fn probe(&self) -> GitProbeResult {
-        GitProbeResult::SpawnFailure
     }
 }
 struct EmptyCredentials;
@@ -45,7 +37,6 @@ fn startup(env: &[(&str, &str)]) -> AppStartupReport {
     let report = startup::load(
         &snapshot,
         &EmptyFiles,
-        &NoGit,
         &EmptyCredentials,
         &UnsupportedKeyringReader,
     );

@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
@@ -23,60 +22,6 @@ impl ConfigInputs {
     pub fn env(&self, name: &str) -> Option<&str> {
         self.process_env.get(name).map(String::as_str)
     }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum GitProbeResult {
-    SpawnFailure,
-    Completed { success: bool, stdout: String },
-    Failed(GitProbeError),
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum GitIoStage {
-    Poll,
-    ReadStdout,
-    Reap,
-}
-
-impl fmt::Display for GitIoStage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::Poll => "status check",
-            Self::ReadStdout => "stdout read",
-            Self::Reap => "child cleanup",
-        })
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum GitProbeError {
-    Timeout,
-    Oversize,
-    InvalidUtf8,
-    MalformedStdout,
-    Io {
-        stage: GitIoStage,
-        kind: io::ErrorKind,
-    },
-}
-
-impl fmt::Display for GitProbeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Timeout => f.write_str("Git root lookup timed out"),
-            Self::Oversize => f.write_str("Git root lookup output exceeded 65536 bytes"),
-            Self::InvalidUtf8 => f.write_str("Git root lookup output is not UTF-8"),
-            Self::MalformedStdout => f.write_str("Git root lookup returned an invalid path"),
-            Self::Io { stage, kind } => write!(f, "Git root lookup {stage} failed: {kind}"),
-        }
-    }
-}
-
-impl std::error::Error for GitProbeError {}
-
-pub trait GitRootProbe {
-    fn probe(&self) -> GitProbeResult;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -155,6 +100,18 @@ pub fn read_config_candidate(files: &impl FileSource, path: &Path) -> ReadCandid
             reason: error.kind().to_string(),
         },
     }
+}
+
+/// The nearest directory at or above `cwd` that holds a `.git` entry (a
+/// directory, or a file for worktrees) or a `.jj` directory. Unreadable
+/// paths count as "not a repository".
+pub fn repo_root(cwd: &Path, files: &impl FileSource) -> Option<PathBuf> {
+    cwd.ancestors()
+        .find(|dir| {
+            matches!(files.kind(&dir.join(".git")), Ok(Some(_)))
+                || matches!(files.kind(&dir.join(".jj")), Ok(Some(FileKind::Directory)))
+        })
+        .map(Path::to_path_buf)
 }
 
 pub(crate) fn absent(error: &io::Error) -> bool {

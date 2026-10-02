@@ -18,12 +18,12 @@ fn parse_manifest(
 }
 
 #[test]
-fn inline_numeric_order_and_metadata_dedup() {
+fn inline_file_order_and_metadata_dedup() {
     let inline =
         parse_manifest("\"10\"='k10'\n\"2\"='k2'\n\"01\"='k01'\n\"-1\"='km'\na='ka'\ndefault='a'")
             .expect("inline");
     assert_eq!(inline.format(), CredentialFormat::Inline);
-    assert_eq!(inline.workspaces(), ["2", "10", "01", "-1", "a"]);
+    assert_eq!(inline.workspaces(), ["10", "2", "01", "-1", "a"]);
     assert!(inline.lookup_requests().is_empty());
     let store = hydrate(inline, vec![]).expect("inline needs no replies");
     assert_eq!(store.default(), Some("a"));
@@ -39,7 +39,6 @@ fn shape_errors_have_fixed_priority_and_no_secret_text() {
     for text in [
         "a='lin_api_fake'\nworkspaces=['a']",
         "workspaces=['a']\na='lin_api_fake'",
-        "a='k'\nworkspaces=1\nx=1",
     ] {
         let err = parse_manifest(text).expect_err("mixed");
         assert_eq!(err.kind, CredentialFormatErrorKind::MixedFormat);
@@ -53,6 +52,7 @@ fn shape_errors_have_fixed_priority_and_no_secret_text() {
         "a='key'\ndefault=1",
         "workspaces=['a']\n[t]\nx=1",
         "workspaces=['',1]",
+        "a='k'\nworkspaces=1\nx=1",
     ] {
         assert_eq!(
             parse_manifest(text).expect_err("wrong type").kind,

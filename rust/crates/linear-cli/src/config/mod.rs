@@ -1,4 +1,4 @@
-//! Typed config and credential boundaries for startup and command actions.
+//! Config files, `.env`, environment variables and transport settings.
 mod discover;
 mod dotenv;
 mod options;
@@ -15,23 +15,18 @@ pub use dotenv::{
 pub use options::{
     AssignSelf, ConfigOptionError, ConfigOptions, ConfigSecret, EndpointSource, IssueSort,
     OptionErrorReason, OptionInputs, OptionKey, OptionSource, PrTemplateCli, PrTemplatePath,
-    Resolved, ResolvedEndpoint, StartupOptionPolicy, Vcs,
+    Resolved, ResolvedEndpoint, Vcs,
 };
-pub use parse::{
-    ConfigParseError, ConfigParseErrorKind, ConfigTier, ConfigValue, parse_config_tier,
-};
-pub use runtime::{ProcessEnvError, ProcessEnvSnapshot, RealGitRootProbe};
+pub use parse::{ConfigParseError, ConfigParseErrorKind, ConfigTier, parse_config_tier};
+pub use runtime::{ProcessEnvError, ProcessEnvSnapshot};
 /// Crate-internal lexical path normalization shared with credential discovery.
 pub(crate) use source::lexical as lexical_config_path;
 pub use source::{
-    ConfigInputs, FileKind, FileSource, GitIoStage, GitProbeError, GitProbeResult, GitRootProbe,
-    MAX_CONFIG_BYTES, OsFamily, RawConfigFile, ReadCandidate, RealFileSource,
-    read_config_candidate,
+    ConfigInputs, FileKind, FileSource, MAX_CONFIG_BYTES, OsFamily, RawConfigFile, ReadCandidate,
+    RealFileSource, read_config_candidate, repo_root,
 };
 pub use startup::{
     ChildEnvOverlay, DisplaySettings, NoColor, StartupConfig, StartupError, StartupReport,
     load_startup, render_diagnostic,
 };
 pub use transport::TransportEnvInputs;
-
-pub(crate) use startup::load_startup_with_policy;

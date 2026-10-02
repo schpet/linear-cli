@@ -6629,7 +6629,7 @@ fn issue_read_sort(context: &AppContext<'_>, sort: Option<cli::Sort>) -> Result<
         cli::Sort::Manual => IssueSort::Manual,
         cli::Sort::Priority => IssueSort::Priority,
     });
-    Ok(context.config()?.options.issue_read_sort(value)? == IssueSort::Priority)
+    Ok(context.config()?.options.issue_sort(value).0 == IssueSort::Priority)
 }
 fn issue_read_output(
     context: &mut AppContext<'_>,
@@ -8014,7 +8014,7 @@ fn dispatch_issue_start(
                 Some(identifier) => identifier,
                 None => {
                     let priority =
-                        config.options.issue_read_sort(None)? == crate::config::IssueSort::Priority;
+                        config.options.issue_sort(None).0 == crate::config::IssueSort::Priority;
                     // Sort validation precedes transport construction, after team/conflict.
                     let transport = client::prepare_transport(
                         &config.options,
@@ -8099,7 +8099,7 @@ fn dispatch_issue_pull_request(
         } else {
             crate::config::PrTemplateCli::Unset
         };
-        let path = config.options.pull_request_template(selected)?;
+        let path = config.options.pr_template(selected)?;
         let contents = path
             .as_ref()
             .map(|path| command::read_template(path.path()))

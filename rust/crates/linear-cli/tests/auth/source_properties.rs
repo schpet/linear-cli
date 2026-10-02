@@ -12,21 +12,7 @@ fn tier(text: &str) -> linear_cli::config::ConfigTier {
     .unwrap()
 }
 #[test]
-fn shared_parse_omits_proto_property_before_format_and_counts_but_keeps_constructor() {
-    let manifest=parse_credentials(tier("default='constructor'\n__proto__='lin_api_fake_proto'\nconstructor='lin_api_fake_constructor'\nalpha='lin_api_fake_alpha'\n")).unwrap();
-    assert_eq!(manifest.workspaces(), ["constructor", "alpha"]);
-    let store = hydrate(manifest, vec![]).unwrap();
-    assert!(store.key("__proto__").is_none());
-    assert_eq!(
-        store.key("constructor").unwrap().expose(),
-        "lin_api_fake_constructor"
-    );
-    let empty = parse_credentials(tier("__proto__='lin_api_fake_proto'\n")).unwrap();
-    assert!(empty.workspaces().is_empty());
-    assert!(empty.lookup_requests().is_empty());
-}
-#[test]
-fn metadata_proto_is_a_legal_value_and_ordinary_wrong_type_rejection_is_unchanged() {
+fn unusual_workspace_names_are_ordinary_values() {
     let manifest = parse_credentials(tier(
         "default='__proto__'\nworkspaces=['__proto__','constructor']\n",
     ))

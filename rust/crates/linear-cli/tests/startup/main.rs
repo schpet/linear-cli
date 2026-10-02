@@ -14,9 +14,7 @@ use std::time::Duration;
 use linear_cli::auth::file::{CredentialFileSource, CredentialReadFailure};
 use linear_cli::auth::keyring::KeyringReader;
 use linear_cli::auth::{CredentialWarning, LookupFailureCategory, LookupResult};
-use linear_cli::config::{
-    FileKind, FileSource, GitProbeResult, GitRootProbe, OsFamily, ProcessEnvSnapshot,
-};
+use linear_cli::config::{FileKind, FileSource, OsFamily, ProcessEnvSnapshot};
 use linear_cli::startup::{AppStartupDiagnostic, AppStartupError, load, load_with_phase_timeout};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -97,12 +95,6 @@ impl FileSource for InvalidEnv {
     }
     fn read_bounded(&self, _path: &Path, _max_bytes: u64) -> io::Result<Vec<u8>> {
         Ok(vec![0xff])
-    }
-}
-struct NoGit;
-impl GitRootProbe for NoGit {
-    fn probe(&self) -> GitProbeResult {
-        GitProbeResult::SpawnFailure
     }
 }
 
@@ -194,13 +186,7 @@ fn config_failure_precedes_credentials_read() {
     let sandbox = Sandbox::new();
     let process = sandbox.process(&[("LINEAR_IGNORE_ENV_FILE", "0")]);
     let credentials = FakeCredentials::new(Some("broken = ["));
-    let report = load(
-        &process,
-        &InvalidEnv,
-        &NoGit,
-        &credentials,
-        &FakeKeyring::default(),
-    );
+    let report = load(&process, &InvalidEnv, &credentials, &FakeKeyring::default());
     assert!(matches!(report.result, Err(AppStartupError::Config(_))));
     assert_eq!(credentials.reads.load(Ordering::Relaxed), 0);
 }
@@ -210,13 +196,7 @@ fn inline_credentials_skip_keyring_and_are_available_to_commands() {
     let sandbox = Sandbox::new();
     let credentials = FakeCredentials::new(Some("default = 'demo'\ndemo = 'lin_api_fake_demo'\n"));
     let keyring = FakeKeyring::default();
-    let report = load(
-        &sandbox.process(&[]),
-        &EmptyConfig,
-        &NoGit,
-        &credentials,
-        &keyring,
-    );
+    let report = load(&sandbox.process(&[]), &EmptyConfig, &credentials, &keyring);
     let loaded = report.result.unwrap();
     assert_eq!(loaded.credentials.default(), Some("demo"));
     assert_eq!(
@@ -236,13 +216,7 @@ fn metadata_warning_order_is_manifest_order_despite_completion_order() {
         gate: Some(Gate::new(2)),
         ..FakeKeyring::default()
     };
-    let report = load(
-        &sandbox.process(&[]),
-        &EmptyConfig,
-        &NoGit,
-        &credentials,
-        &keyring,
-    );
+    let report = load(&sandbox.process(&[]), &EmptyConfig, &credentials, &keyring);
     assert!(report.result.is_ok());
     let warnings = report
         .diagnostics
@@ -289,7 +263,6 @@ fn at_most_eight_lookup_workers_and_phase_timeout_marks_unstarted() {
     let report = load_with_phase_timeout(
         &sandbox.process(&[]),
         &EmptyConfig,
-        &NoGit,
         &credentials,
         &keyring,
         Duration::from_millis(1),
@@ -328,13 +301,7 @@ fn bounded_pool_requests_every_workspace_once_and_returns_ordered_warnings() {
         gate: Some(Gate::new(8)),
         ..FakeKeyring::default()
     };
-    let report = load(
-        &sandbox.process(&[]),
-        &EmptyConfig,
-        &NoGit,
-        &credentials,
-        &keyring,
-    );
+    let report = load(&sandbox.process(&[]), &EmptyConfig, &credentials, &keyring);
     assert!(report.result.is_ok());
     let mut calls = keyring.calls.lock().unwrap().clone();
     calls.sort();

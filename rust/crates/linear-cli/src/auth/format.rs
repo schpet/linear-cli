@@ -3,7 +3,9 @@ use std::error::Error;
 use std::fmt;
 use std::path::PathBuf;
 
-use crate::config::{ConfigSecret, ConfigTier, ConfigValue};
+use serde::Deserialize;
+
+use crate::config::{ConfigSecret, ConfigTier};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CredentialFormat {
@@ -107,91 +109,69 @@ impl CredentialManifest {
     }
 }
 
-pub(crate) fn js_index(name: &str) -> Option<u32> {
-    if name.is_empty()
-        || (name.len() > 1 && name.starts_with('0'))
-        || !name.bytes().all(|byte| byte.is_ascii_digit())
-    {
-        return None;
-    }
-    let index = name.parse::<u32>().ok()?;
-    (index < u32::MAX).then_some(index)
-}
+/// The most workspaces a metadata credentials file may list.
+const MAX_WORKSPACES: usize = 256;
 
-fn js_entry_order(entries: Vec<(String, ConfigValue)>) -> Vec<(String, ConfigValue)> {
-    let (mut numeric, ordinary): (Vec<_>, Vec<_>) = entries
-        .into_iter()
-        .partition(|(name, _)| js_index(name).is_some());
-    numeric.sort_by_key(|(name, _)| js_index(name));
-    numeric.into_iter().chain(ordinary).collect()
-}
-
-/// Parse the already bounded, owned TOML tree. No keyring lookup occurs.
+/// Reads a parsed credentials file. Two layouts exist:
+///
+/// - inline: `<workspace> = "<api key>"` entries, plus an optional
+///   `default = "<workspace>"`;
+/// - metadata: `default = "<workspace>"` and `workspaces = [...]`, with the
+///   keys stored in the system keyring.
+///
+/// No keyring lookup happens here.
 pub fn parse_credentials(tier: ConfigTier) -> Result<CredentialManifest, CredentialFormatError> {
-    let ConfigTier { path, entries } = tier;
-    // Original TOML block parsing deepMerge omits this own property before
-    // credential format detection. Metadata array values remain untouched.
-    let entries = js_entry_order(
-        entries
-            .into_iter()
-            .filter(|(name, _)| name != "__proto__")
-            .collect(),
-    );
+    let ConfigTier { path, mut table } = tier;
     let fail = |kind| CredentialFormatError {
         path: path.clone(),
         kind,
     };
-    let has_workspaces = entries.iter().any(|(name, _)| name == "workspaces");
-    let has_inline_string = entries.iter().any(|(name, value)| {
-        name != "default" && name != "workspaces" && matches!(value, ConfigValue::String(_))
-    });
-    if has_workspaces && has_inline_string {
-        return Err(fail(CredentialFormatErrorKind::MixedFormat));
-    }
-    let format = if has_inline_string {
-        CredentialFormat::Inline
-    } else {
-        CredentialFormat::Metadata
+    let mut default = match table.remove("default") {
+        None => None,
+        Some(toml::Value::String(workspace)) => Some(workspace),
+        Some(_) => return Err(fail(CredentialFormatErrorKind::WrongType)),
     };
-    let mut default = None;
-    let mut workspaces = Vec::new();
-    let mut inline_keys = Vec::new();
-    let mut metadata_values = None;
-    for (name, value) in entries {
-        match (format, name.as_str(), value) {
-            (_, "default", ConfigValue::String(value)) => default = Some(value),
-            (_, "default", _) => return Err(fail(CredentialFormatErrorKind::WrongType)),
-            (CredentialFormat::Metadata, "workspaces", ConfigValue::Array(values)) => {
-                metadata_values = Some(values)
-            }
-            (CredentialFormat::Metadata, "workspaces", _) => {
-                return Err(fail(CredentialFormatErrorKind::WrongType));
-            }
-            (CredentialFormat::Inline, _, ConfigValue::String(value)) => {
-                workspaces.push(name.clone());
-                inline_keys.push((name, ConfigSecret::new(value)));
-            }
-            _ => return Err(fail(CredentialFormatErrorKind::WrongType)),
+    let listed = table
+        .remove("workspaces")
+        .map(|value| {
+            Vec::<String>::deserialize(value)
+                .map_err(|_| fail(CredentialFormatErrorKind::WrongType))
+        })
+        .transpose()?;
+    let inline_keys = table
+        .into_iter()
+        .map(|(workspace, value)| match value {
+            toml::Value::String(key) => Ok((workspace, ConfigSecret::new(key))),
+            _ => Err(fail(CredentialFormatErrorKind::WrongType)),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let (format, workspaces) = match listed {
+        Some(_) if !inline_keys.is_empty() => {
+            return Err(fail(CredentialFormatErrorKind::MixedFormat));
         }
-    }
-    let mut raw_count = 0;
-    if let Some(values) = metadata_values {
-        raw_count = values.len();
-        let mut seen = BTreeSet::new();
-        for value in values {
-            let ConfigValue::String(workspace) = value else {
-                return Err(fail(CredentialFormatErrorKind::WrongType));
-            };
-            if seen.insert(workspace.clone()) {
-                workspaces.push(workspace);
+        Some(listed) => {
+            if listed.iter().any(String::is_empty) {
+                return Err(fail(CredentialFormatErrorKind::EmptyWorkspace));
             }
+            if listed.len() > MAX_WORKSPACES {
+                return Err(fail(CredentialFormatErrorKind::TooManyWorkspaces));
+            }
+            let mut workspaces = Vec::new();
+            for workspace in listed {
+                if !workspaces.contains(&workspace) {
+                    workspaces.push(workspace);
+                }
+            }
+            (CredentialFormat::Metadata, workspaces)
         }
-    }
+        None if inline_keys.is_empty() => (CredentialFormat::Metadata, Vec::new()),
+        None => (
+            CredentialFormat::Inline,
+            inline_keys.iter().map(|(name, _)| name.clone()).collect(),
+        ),
+    };
     if workspaces.iter().any(String::is_empty) {
         return Err(fail(CredentialFormatErrorKind::EmptyWorkspace));
-    }
-    if format == CredentialFormat::Metadata && raw_count > 256 {
-        return Err(fail(CredentialFormatErrorKind::TooManyWorkspaces));
     }
     let mut warnings = Vec::new();
     if format == CredentialFormat::Metadata
