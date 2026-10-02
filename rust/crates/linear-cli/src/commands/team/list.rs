@@ -1,99 +1,49 @@
-//! `team list`: complete typed pagination and the two output formats.
-use std::future::Future;
+//! `team list`: every team that is not archived, by name, as a table or JSON.
 use std::time::SystemTime;
 
 use cynic::QueryBuilder;
 use serde::Serialize;
 
+use crate::cli::team::TeamList;
 use crate::commands::display::{display_width, fit, flexible_width, pad};
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::table::{terminal_color, underlined_header};
-use crate::config::ConfigOptions;
-use crate::error::{Error, ResultExt};
+use crate::commands::table;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::teams::{self, GetTeams, GetTeamsVariables};
 use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
-use crate::platform::{collation, opener};
+use crate::platform::{collation, style};
 
-const CONTEXT: &str = "Failed to fetch teams";
-
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct Options {
-    pub json: bool,
-    pub web: bool,
-    pub app: bool,
+pub fn run(ctx: &Ctx, args: &TeamList) -> Result<()> {
+    list(ctx, args).context("Failed to list teams")
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonConnection<'a> {
-    nodes: &'a [teams::Team],
-    page_info: &'a teams::PageInfo,
+fn list(ctx: &Ctx, args: &TeamList) -> Result<()> {
+    if args.web || args.app {
+        return ctx.open_in_linear("settings/teams", args.app);
+    }
+    let client = ctx.client()?;
+    let (teams, page_info) = ctx.spin(!args.json, fetch(client))?;
+    if args.json {
+        ctx.print(render_json(&teams, &page_info))
+    } else {
+        let columns = table::stdout_columns(ctx.stdout_tty());
+        ctx.print(render_text(&teams, SystemTime::now(), columns, ctx.color()))
+    }
 }
 
-/// The team settings URL for `--workspace`, or else the configured workspace.
-pub fn web_opening(
-    cli_workspace: Option<&str>,
-    options: &ConfigOptions,
-    app: bool,
-) -> Result<(String, Vec<u8>), Error> {
-    let workspace = cli_workspace
-        .or_else(|| {
-            options
-                .workspace()
-                .map(|resolved| resolved.value().as_str())
-        })
-        .filter(|workspace| !workspace.is_empty())
-        .ok_or_else(|| {
-            Error::new("workspace is not set via command line, configuration file, or environment")
-                .context(CONTEXT)
-        })?;
-    let url = format!("https://linear.app/{workspace}/settings/teams");
-    let destination = if app { "Linear.app" } else { "web browser" };
-    let line = format!("Opening {url} in {destination}\n").into_bytes();
-    Ok((url, line))
-}
-
-pub fn open(url: &str, app: bool) -> Result<(), Error> {
-    opener::open(url, app).context(CONTEXT)
-}
-
-pub async fn run_with<F, Fut, Now>(
-    mut fetch: F,
-    json: bool,
-    now: Now,
-    columns: usize,
-) -> Result<Vec<u8>, Error>
-where
-    F: FnMut(GraphQlRequest<GetTeamsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeams, Error>>,
-    Now: FnOnce() -> SystemTime,
-{
-    run_with_style(&mut fetch, json, now, columns, false).await
-}
-
-async fn run_with_style<F, Fut, Now>(
-    mut fetch: F,
-    json: bool,
-    now: Now,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error>
-where
-    F: FnMut(GraphQlRequest<GetTeamsVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeams, Error>>,
-    Now: FnOnce() -> SystemTime,
-{
+/// Every team that is not archived, sorted by name.
+async fn fetch(client: &GraphQlTransport) -> Result<(Vec<teams::Team>, teams::PageInfo)> {
     let result = pagination::paginate(|after| {
         let request = GraphQlRequest::with_variables(GetTeams::build(GetTeamsVariables {
             filter: None,
             first: Some(100),
             after,
         }));
-        let future = fetch(request);
         async move {
-            let data = future.await?;
+            let data: GetTeams = client.execute(&request).await?;
             Ok::<Page<teams::Team>, Error>(Page {
                 nodes: data.teams.nodes,
                 page_info: data.teams.page_info.into(),
@@ -102,19 +52,16 @@ where
     })
     .await
     .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
+        PaginationError::Fetch { source, .. } => source,
         PaginationError::MissingCursor { .. } => {
             Error::new("Linear reported more teams but returned no pagination cursor")
                 .with_hint("Retry the command.")
-                .context(CONTEXT)
         }
         PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
             "Linear repeated a team pagination cursor on page {page}"
         ))
-        .with_hint("Retry the command.")
-        .context(CONTEXT),
+        .with_hint("Retry the command."),
     })?;
-
     let mut teams: Vec<_> = result
         .nodes
         .into_iter()
@@ -125,43 +72,31 @@ where
         })
         .collect();
     teams.sort_by(|left, right| collation::compare(&left.name, &right.name));
-    if json {
-        let page_info = teams::PageInfo {
-            has_next_page: result.page_info.has_next_page,
-            end_cursor: result.page_info.end_cursor,
-        };
-        let mut output = serde_json::to_vec_pretty(&JsonConnection {
-            nodes: &teams,
-            page_info: &page_info,
-        })
-        .map_err(|error| {
-            Error::new("could not serialize teams")
-                .with_source(error)
-                .context(CONTEXT)
-        })?;
-        output.push(b'\n');
-        return Ok(output);
-    }
-    Ok(render_text(&teams, now(), columns, color).into_bytes())
+    let page_info = teams::PageInfo {
+        has_next_page: result.page_info.has_next_page,
+        end_cursor: result.page_info.end_cursor,
+    };
+    Ok((teams, page_info))
 }
 
-pub async fn run(
-    transport: &GraphQlTransport,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error> {
-    run_with_style(
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        json,
-        SystemTime::now,
-        columns,
-        color,
-    )
-    .await
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonConnection<'a> {
+    nodes: &'a [teams::Team],
+    page_info: &'a teams::PageInfo,
 }
 
-pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color: bool) -> String {
+fn render_json(teams: &[teams::Team], page_info: &teams::PageInfo) -> Vec<u8> {
+    let mut output = serde_json::to_vec_pretty(&JsonConnection {
+        nodes: teams,
+        page_info,
+    })
+    .expect("team JSON always serializes");
+    output.push(b'\n');
+    output
+}
+
+fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color: bool) -> String {
     if teams.is_empty() {
         return "No teams found.\n".to_owned();
     }
@@ -202,54 +137,41 @@ pub fn render_text(teams: &[teams::Team], now: SystemTime, columns: usize, color
         pad("CYCLES", cycles_width),
         pad("UPDATED", updated_width),
         pad("ID", id_width),
-    ];
-    let mut output = underlined_header(&header, color);
+    ]
+    .join(" ");
+    let mut output = format!(
+        "{}\n",
+        style::bold(&style::underline(&header, color), color)
+    );
     for (team, updated) in teams.iter().zip(updated) {
         let cycles = if team.cycles_enabled { "Yes" } else { "No" };
-        let key = pad(&team.key, key_width);
-        let name = fit(&team.name, name_width);
-        let cycles = pad(cycles, cycles_width);
-        let updated = pad(&updated, updated_width);
-        let id = pad(team.id.inner(), id_width);
-        if color {
-            let key_color = terminal_color(
-                team.color
-                    .as_deref()
-                    .filter(|value| !value.is_empty())
-                    .unwrap_or("#ffffff"),
-            );
-            if let Some(key_color) = &key_color {
-                output.push_str(key_color);
-            }
-            output.push_str(&key);
-            if key_color.is_some() {
-                output.push_str("\x1b[39m");
-            }
-            output.push_str(&format!(
-                " {name} {cycles} \x1b[38;2;128;128;128m{updated}\x1b[39m \x1b[38;2;128;128;128m{id}\x1b[39m\x1b[0m\n"
-            ));
-        } else {
-            output.push_str(&format!("{key} {name} {cycles} {updated} {id}\n"));
-        }
+        output.push_str(&format!(
+            "{} {} {} {} {}\n",
+            team_color(&pad(&team.key, key_width), team.color.as_deref(), color),
+            fit(&team.name, name_width),
+            pad(cycles, cycles_width),
+            style::gray(&pad(&updated, updated_width), color),
+            style::gray(&pad(team.id.inner(), id_width), color),
+        ));
     }
     output
 }
 
-#[cfg(test)]
-mod tests {
-    use super::display_width;
-
-    #[test]
-    fn display_width_counts_terminal_columns() {
-        for (name, expected) in [
-            ("漢", 2),
-            ("e\u{301}", 1),
-            ("👩‍💻", 4),
-            ("❤️", 1),
-            ("🇺🇸", 2),
-            ("\u{7}", 0),
-        ] {
-            assert_eq!(display_width(name), expected, "{name:?}");
+/// `text` in the team's `#rrggbb` color; plain when the color is missing or malformed.
+fn team_color(text: &str, hex: Option<&str>, color: bool) -> String {
+    let rgb = hex
+        .and_then(|hex| hex.strip_prefix('#'))
+        .filter(|hex| hex.len() == 6 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .and_then(|hex| u32::from_str_radix(hex, 16).ok());
+    match rgb {
+        Some(rgb) if color => {
+            let [_, red, green, blue] = rgb.to_be_bytes();
+            console::Style::new()
+                .true_color(red, green, blue)
+                .force_styling(true)
+                .apply_to(text)
+                .to_string()
         }
+        Some(_) | None => text.to_owned(),
     }
 }

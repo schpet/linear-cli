@@ -1,98 +1,67 @@
-//! `team create`: prompts only when no create flag was given, otherwise
-//! requires a name; either way it prints its progress line before building
-//! the client and sends one typed mutation.
+//! `team create`: from flags, or from prompts when run in a terminal without
+//! any field flag.
 use std::io::{Read, Write};
 
 use cynic::MutationBuilder;
 
-use crate::error::Error;
+use crate::cli::team::TeamCreate;
+use crate::commands::milestone::create::outcome_unknown;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_create::{
-    CreateTeam, CreateTeamPayload, CreateTeamVariables, TeamCreateInput,
+    CreateTeam, CreateTeamVariables, CreatedTeam, TeamCreateInput,
 };
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession};
 
-/// Prefix for every `team create` failure.
-pub const CONTEXT: &str = "Failed to create team";
-
-/// Printed before the prompts.
-pub const PROMPT_HEADER: &[u8] = b"Creating a new team...\n\n";
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Options {
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub key: Option<String>,
-    pub private: bool,
+pub fn run(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
+    create(ctx, args).context("Failed to create team")
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Mode {
-    /// No create flag and an interactive terminal: prompt for every field.
-    Prompt,
-    /// Anything else, including `--private` alone or a redirected stdout.
-    Flags,
-}
-
-/// `--no-interactive` and a redirected stdout both disable prompts and the
-/// flag-mode spinner.
-pub fn interactive(no_interactive: bool, stdout_tty: bool) -> bool {
-    !no_interactive && stdout_tty
-}
-
-/// `--no-interactive` is not a create flag; `--private` is.
-pub fn mode(options: &Options, interactive: bool) -> Mode {
-    let no_flags = options.name.is_none()
-        && options.description.is_none()
-        && options.key.is_none()
-        && !options.private;
-    if no_flags && interactive {
-        Mode::Prompt
+fn create(ctx: &Ctx, args: &TeamCreate) -> Result<()> {
+    let no_fields =
+        args.name.is_none() && args.description.is_none() && args.key.is_none() && !args.private;
+    let input = if no_fields && !args.no_interactive && ctx.stdin_tty() && ctx.stdout_tty() {
+        prompt(ctx)?
     } else {
-        Mode::Flags
-    }
+        TeamCreateInput {
+            name: args.name.clone().ok_or_else(|| {
+                Error::new("Team name is required")
+                    .with_hint("Pass --name, or run without flags in a terminal to be prompted.")
+            })?,
+            description: args.description.clone(),
+            key: args.key.clone(),
+            private: args.private.then_some(true),
+        }
+    };
+    let client = ctx.client()?;
+    let team = ctx.spin(true, submit(client, input))?;
+    ctx.print(format!("✓ Created team {}: {}\n", team.key, team.name))
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PromptResult {
-    Complete,
-    Interrupted,
-    EndOfInput,
+fn prompt(ctx: &Ctx) -> Result<TeamCreateInput> {
+    let mut session = ctx.prompts()?;
+    let input = ask(&mut session);
+    session.close()?;
+    input
 }
 
-/// Ask for every field. Empty optional answers are left out, and the
-/// visibility choice only ever turns `private` on.
-pub fn prompt<R: Read, W: Write>(
-    options: &mut Options,
-    session: &mut PromptSession<R, W>,
-) -> Result<PromptResult, Error> {
-    macro_rules! answer {
-        ($call:expr) => {
-            match $call? {
-                PromptOutcome::Submitted(value) => value,
-                PromptOutcome::Interrupted => return Ok(PromptResult::Interrupted),
-                PromptOutcome::EndOfInput => return Ok(PromptResult::EndOfInput),
-            }
-        };
-    }
-    options.name = Some(answer!(session.text("Team name:", 0, |raw| {
+/// Asks for every field; empty optional answers are left out.
+fn ask<R: Read, W: Write>(session: &mut PromptSession<R, W>) -> Result<TeamCreateInput> {
+    let name = answer(session.text("Team name:", 0, |raw| {
         if raw.trim().is_empty() {
             Err("Team name is required".to_owned())
         } else {
             Ok(())
         }
-    })));
-    options.description = optional(answer!(session.text(
-        "Team description (optional):",
+    }))?;
+    let description = answer(session.text("Team description (optional):", 0, |_| Ok(())))?;
+    let key = answer(session.text(
+        "Team key (optional, generated from the name if empty):",
         0,
-        |_| Ok(())
-    )));
-    options.key = optional(answer!(session.text(
-        "Team key (optional, will be generated from name if not provided):",
-        0,
-        |_| Ok(())
-    )));
+        |_| Ok(()),
+    ))?;
     let visibility = [
         PlainOption {
             label: "Public".to_owned(),
@@ -105,90 +74,53 @@ pub fn prompt<R: Read, W: Write>(
             script_token: "private".to_owned(),
         },
     ];
-    let choice = answer!(session.select(&PlainSelect {
+    let private = match answer(session.select(&PlainSelect {
         message: "Team visibility:",
         options: &visibility,
         default_index: 0,
-        // The hint shows the default option's label, not its value.
         default_hint: Some("Public"),
-    }));
-    options.private = match choice.as_str() {
+    }))?
+    .as_str()
+    {
         "private" => true,
         "public" => false,
-        other => {
-            return Err(Error::new(format!(
-                "unexpected team visibility choice {other:?}"
-            )));
-        }
+        other => unreachable!("the visibility prompt only offers its options, got {other:?}"),
     };
-    Ok(PromptResult::Complete)
+    Ok(TeamCreateInput {
+        name,
+        description: Some(description).filter(|value| !value.is_empty()),
+        key: Some(key).filter(|value| !value.is_empty()),
+        private: private.then_some(true),
+    })
 }
 
-fn optional(value: String) -> Option<String> {
-    if value.is_empty() { None } else { Some(value) }
-}
-
-/// The name the progress line and mutation use. Flag mode requires one;
-/// prompt mode always has one after a completed prompt.
-pub fn required_name(options: &Options) -> Result<&str, Error> {
-    match options.name.as_deref() {
-        Some(name) if !name.is_empty() => Ok(name),
-        _ => Err(
-            Error::new("Team name is required when not using interactive mode")
-                .with_hint("Use --name or run without any flags for interactive mode."),
-        ),
+fn answer<T>(outcome: Result<PromptOutcome<T>>) -> Result<T> {
+    match outcome? {
+        PromptOutcome::Submitted(value) => Ok(value),
+        PromptOutcome::Interrupted => Err(Error::cancelled()),
+        PromptOutcome::EndOfInput => Err(Error::new(
+            "Input ended before the team prompts were answered",
+        )),
     }
 }
 
-/// The line printed before the client is built. The prompt path adds a
-/// leading blank line and an ellipsis.
-pub fn announcement(name: &str, mode: Mode) -> Vec<u8> {
-    match mode {
-        Mode::Prompt => format!("\nCreating team \"{name}\"...\n"),
-        Mode::Flags => format!("Creating team \"{name}\"\n"),
-    }
-    .into_bytes()
-}
-
-pub fn request(options: &Options) -> Result<GraphQlRequest<CreateTeamVariables>, Error> {
-    let name = required_name(options)?.to_owned();
-    Ok(GraphQlRequest::with_variables(CreateTeam::build(
-        CreateTeamVariables {
-            input: TeamCreateInput {
-                name,
-                description: options
-                    .description
-                    .clone()
-                    .filter(|value| !value.is_empty()),
-                key: options.key.clone().filter(|value| !value.is_empty()),
-                private: options.private.then_some(true),
-            },
-        },
-    )))
-}
-
-/// Sends the mutation once. Failures after the request may have reached
-/// Linear say the team may already exist; nothing is retried.
-pub async fn submit(transport: &GraphQlTransport, options: &Options) -> Result<Vec<u8>, Error> {
-    let request = request(options)?;
-    let result: CreateTeam = transport.execute(&request).await.map_err(|failure| {
-        let uncertain = crate::commands::milestone::create::outcome_unknown(&failure);
+/// Sends the mutation once. A failure after the request may have reached
+/// Linear says the team may already exist; nothing is retried.
+async fn submit(client: &GraphQlTransport, input: TeamCreateInput) -> Result<CreatedTeam> {
+    let request = GraphQlRequest::with_variables(CreateTeam::build(CreateTeamVariables { input }));
+    let result: CreateTeam = client.execute(&request).await.map_err(|failure| {
+        let uncertain = outcome_unknown(&failure);
         let mut error = Error::from(failure);
         if uncertain {
             error.push_message("; team may already exist");
         }
         error
     })?;
-    render(&result.team_create)
-}
-
-/// `success: false` is reported before a missing team.
-pub fn render(payload: &CreateTeamPayload) -> Result<Vec<u8>, Error> {
+    let payload = result.team_create;
     if !payload.success {
-        return Err(Error::new("Team creation failed"));
+        return Err(Error::new("Linear did not create the team"));
     }
-    let Some(team) = &payload.team else {
-        return Err(Error::new("Team creation failed - no team returned"));
-    };
-    Ok(format!("✓ Created team {}: {}\n", team.key, team.name).into_bytes())
+    payload
+        .team
+        .ok_or_else(|| Error::new("Linear reported success but returned no team"))
 }

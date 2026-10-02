@@ -1,12 +1,16 @@
+//! `team id`: print the configured team key.
+use crate::cli::team::TeamId;
 use crate::commands::team_key::configured_team_key;
 use crate::ctx::Ctx;
-use crate::error::{Error, Result};
+use crate::error::{Error, Result, ResultExt};
 
-pub fn render(ctx: &Ctx) -> Result<String> {
-    match configured_team_key(ctx.options()) {
-        Some(key) => Ok(format!("{key}\n")),
-        None => Err(Error::new("No team id configured")
-            .context("Failed to get team id")
-            .with_hint("Run `linear config` to set a team.")),
-    }
+pub fn run(ctx: &Ctx, _args: &TeamId) -> Result<()> {
+    id(ctx).context("Failed to get team id")
+}
+
+fn id(ctx: &Ctx) -> Result<()> {
+    let key = configured_team_key(ctx.options()).ok_or_else(|| {
+        Error::new("No team id configured").with_hint("Run `linear config` to set a team.")
+    })?;
+    ctx.print(format!("{key}\n"))
 }

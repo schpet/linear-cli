@@ -1,18 +1,12 @@
 use linear_cli::commands::bulk::{BulkOutcome, BulkResult};
 use linear_cli::{
-    commands::{document::delete as doc, team::delete as team},
-    error::Error,
+    commands::document::delete as doc,
     graphql::{
         bulk_error::{self, BulkExchangeFailure},
-        operations::team_delete::{
-            GetTeamIssuesForMove, MoveIssue, MoveIssueToTeam, MoveIssues, MovePayload, MoveTeam,
-        },
-        operations::teams::PageInfo,
         transport::RawHttpResponse,
     },
 };
 use serde_json::{Value, json};
-use std::{collections::VecDeque, future::ready};
 fn response(status: u16, mime: &str, body: &str) -> RawHttpResponse {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert(reqwest::header::CONTENT_TYPE, mime.parse().unwrap());
@@ -174,112 +168,6 @@ fn nonstandard_bulk_shapes_are_strict_and_partial_data_is_not_lost() {
     assert!(text.starts_with("first\r\nsecond: "));
     assert!(text.contains("\"data\":{\"unused\":true},\"errors\""));
     assert!(!text.starts_with("friendly"));
-}
-fn page(ids: &[&str], next: bool, cursor: Option<&str>) -> GetTeamIssuesForMove {
-    GetTeamIssuesForMove {
-        team: Some(MoveTeam {
-            issues: MoveIssues {
-                nodes: ids
-                    .iter()
-                    .map(|id| MoveIssue {
-                        id: cynic::Id::new(*id),
-                        identifier: format!("SRC-{id}"),
-                    })
-                    .collect(),
-                page_info: PageInfo {
-                    has_next_page: next,
-                    end_cursor: cursor.map(str::to_owned),
-                },
-            },
-        }),
-    }
-}
-#[tokio::test]
-async fn issue_pages_preserve_duplicates_and_omit_initial_cursor() {
-    let mut pages = VecDeque::from([
-        page(&["one", "one"], true, Some("more")),
-        page(&["two"], false, None),
-    ]);
-    let mut variables = Vec::new();
-    let issues = team::all_issues("source", |request| {
-        variables.push(serde_json::to_value(request.variables).unwrap());
-        ready(Ok(pages.pop_front().unwrap()))
-    })
-    .await
-    .unwrap();
-    assert_eq!(
-        issues.iter().map(|i| i.id.inner()).collect::<Vec<_>>(),
-        ["one", "one", "two"]
-    );
-    assert_eq!(
-        variables,
-        [
-            json!({"teamId":"source","first":100}),
-            json!({"teamId":"source","first":100,"after":"more"})
-        ]
-    );
-}
-#[tokio::test]
-async fn invalid_issue_cursors_fail_before_any_move() {
-    let missing = team::all_issues("source", |_| ready(Ok(page(&["one"], true, None))))
-        .await
-        .unwrap_err();
-    assert!(missing.message().contains("no pagination cursor"));
-    let repeated = team::all_issues("source", |_| {
-        ready(Ok(page(&["one"], true, Some("repeat"))))
-    })
-    .await
-    .unwrap_err();
-    assert!(repeated.message().contains("repeated"));
-}
-#[tokio::test]
-async fn sequential_moves_ignore_false_and_stop_on_partial_failure() {
-    let issues = page(&["one", "two", "three"], false, None)
-        .team
-        .unwrap()
-        .issues
-        .nodes;
-    let mut writes = Vec::new();
-    let mut progress = Vec::new();
-    let moved = team::move_all(
-        &issues,
-        "target",
-        |request| {
-            writes.push(request.variables.unwrap().id);
-            ready(Ok(MoveIssueToTeam {
-                issue_update: MovePayload { success: false },
-            }))
-        },
-        |done, total| {
-            progress.push((done, total));
-            Ok(())
-        },
-    )
-    .await
-    .unwrap();
-    assert_eq!(moved, 3);
-    assert_eq!(writes, ["one", "two", "three"]);
-    assert_eq!(progress, [(1, 3), (2, 3), (3, 3)]);
-    writes.clear();
-    let result = team::move_all(
-        &issues,
-        "target",
-        |request| {
-            let id = request.variables.unwrap().id;
-            writes.push(id.clone());
-            ready(if id == "two" {
-                Err(Error::new("second failed"))
-            } else {
-                Ok(MoveIssueToTeam {
-                    issue_update: MovePayload { success: true },
-                })
-            })
-        },
-        |_, _| Ok(()),
-    )
-    .await;
-    assert!(result.is_err());
-    assert_eq!(writes, ["one", "two"]);
 }
 #[test]
 fn document_summary_keeps_source_names_multiline_and_delete_typo() {

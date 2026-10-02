@@ -50,7 +50,7 @@ pub struct TeamCreate {
 
 #[derive(Debug, Args)]
 pub struct TeamDelete {
-    #[arg(value_name = "team")]
+    #[arg(value_name = "team", value_parser = super::nonempty_string)]
     pub team: String,
     #[arg(long = "move-issues", help = "Move all issues to another team (key, name, or ID) before deletion", value_name = "targetTeam", value_parser = super::nonempty_string)]
     pub move_issues: Option<String>,
@@ -60,9 +60,14 @@ pub struct TeamDelete {
 
 #[derive(Debug, Args)]
 pub struct TeamList {
-    #[arg(long = "web", short = 'w', help = "Open in web browser")]
+    #[arg(long = "web", short = 'w', help = "Open in web browser", conflicts_with_all = ["app", "json"])]
     pub web: bool,
-    #[arg(long = "app", short = 'a', help = "Open in Linear.app")]
+    #[arg(
+        long = "app",
+        short = 'a',
+        help = "Open in Linear.app",
+        conflicts_with = "json"
+    )]
     pub app: bool,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
@@ -76,7 +81,7 @@ pub struct TeamAutolinks {}
 
 #[derive(Debug, Args)]
 pub struct TeamMembers {
-    #[arg(value_name = "team")]
+    #[arg(value_name = "team", value_parser = super::nonempty_string)]
     pub team: Option<String>,
     #[arg(long = "all", short = 'a', help = "Include inactive members")]
     pub all: bool,
@@ -90,7 +95,7 @@ pub struct TeamMembers {
 
 #[derive(Debug, Args)]
 pub struct TeamStates {
-    #[arg(value_name = "team")]
+    #[arg(value_name = "team", value_parser = super::nonempty_string)]
     pub team: Option<String>,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,

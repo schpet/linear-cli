@@ -1,57 +1,62 @@
-//! `team members`: typed pages, local active filter, and member display.
-use std::future::Future;
-
+//! `team members`: a team's members, active ones only unless `--all`.
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::error::Error;
+use super::TeamArg;
+use crate::cli::team::TeamMembers;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::team_members::{self, GetTeamMembers, GetTeamMembersVariables};
 use crate::graphql::operations::teams::PageInfo;
-use crate::graphql::pagination::{self, EmptyCursorPolicy, Page, PaginationError};
+use crate::graphql::pagination::{self, Page, PaginationError};
 use crate::graphql::transport::GraphQlTransport;
 use crate::platform::collation;
 
-pub const CONTEXT: &str = "Failed to fetch team members";
-const CURSOR_ERROR: &str = "Linear reported more team members but did not advance the page cursor";
-
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct Options {
-    pub all: bool,
-    pub json: bool,
+pub fn run(ctx: &Ctx, args: &TeamMembers) -> Result<()> {
+    members(ctx, args).context("Failed to list team members")
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct JsonConnection<'a> {
-    nodes: &'a [team_members::Member],
-    page_info: &'a PageInfo,
+fn members(ctx: &Ctx, args: &TeamMembers) -> Result<()> {
+    let team = TeamArg::prepare(ctx, args.team.as_deref())?;
+    let client = ctx.client()?;
+    let (mut members, page_info) = ctx.spin(!args.json, async {
+        let key = team.key(client).await?;
+        fetch(client, &key, args.all).await
+    })?;
+    members.sort_by(|left, right| {
+        collation::compare(
+            &left.display_name.to_lowercase(),
+            &right.display_name.to_lowercase(),
+        )
+    });
+    let fetched = members.len();
+    if !args.all {
+        members.retain(|member| member.active);
+    }
+    if args.json {
+        ctx.print(render_json(&members, &page_info))
+    } else {
+        ctx.print(render_text(&members, fetched))
+    }
 }
 
-fn cursor_error() -> Error {
-    Error::new(CURSOR_ERROR)
-}
-
-pub async fn run_with<F, Fut>(
-    mut fetch: F,
+/// Every member of the team, including disabled users with `all`.
+async fn fetch(
+    client: &GraphQlTransport,
     team_key: &str,
-    options: Options,
-) -> Result<Vec<u8>, Error>
-where
-    F: FnMut(GraphQlRequest<GetTeamMembersVariables>) -> Fut,
-    Fut: Future<Output = Result<GetTeamMembers, Error>>,
-{
-    let result = pagination::paginate_with_policy(EmptyCursorPolicy::Allow, |after| {
+    all: bool,
+) -> Result<(Vec<team_members::Member>, PageInfo)> {
+    let result = pagination::paginate(|after| {
         let request =
             GraphQlRequest::with_variables(GetTeamMembers::build(GetTeamMembersVariables {
                 team_key: team_key.to_owned(),
-                include_disabled: options.all,
+                include_disabled: all,
                 first: Some(100),
                 after,
             }));
-        let future = fetch(request);
         async move {
-            let data = future.await?;
+            let data: GetTeamMembers = client.execute(&request).await?;
             let page = data.team.members;
             Ok::<Page<team_members::Member>, Error>(Page {
                 nodes: page.nodes,
@@ -61,58 +66,44 @@ where
     })
     .await
     .map_err(|error| match error {
-        PaginationError::Fetch { source, .. } => source.context(CONTEXT),
-        PaginationError::MissingCursor { .. } | PaginationError::RepeatedCursor { .. } => {
-            cursor_error().context(CONTEXT)
+        PaginationError::Fetch { source, .. } => source,
+        PaginationError::MissingCursor { .. } => {
+            Error::new("Linear reported more team members but returned no pagination cursor")
+                .with_hint("Retry the command.")
         }
+        PaginationError::RepeatedCursor { page, .. } => Error::new(format!(
+            "Linear repeated a team member pagination cursor on page {page}"
+        ))
+        .with_hint("Retry the command."),
     })?;
-    let mut nodes = result.nodes;
     let page_info = PageInfo {
         has_next_page: result.page_info.has_next_page,
         end_cursor: result.page_info.end_cursor,
     };
-
-    nodes.sort_by(|left, right| {
-        collation::compare(
-            &left.display_name.to_lowercase(),
-            &right.display_name.to_lowercase(),
-        )
-    });
-    let source_count = nodes.len();
-    if !options.all {
-        nodes.retain(|member| member.active);
-    }
-    if options.json {
-        let mut output = serde_json::to_vec_pretty(&JsonConnection {
-            nodes: &nodes,
-            page_info: &page_info,
-        })
-        .map_err(|error| {
-            Error::new("could not serialize team members")
-                .with_source(error)
-                .context(CONTEXT)
-        })?;
-        output.push(b'\n');
-        return Ok(output);
-    }
-    Ok(render_text(&nodes, source_count).into_bytes())
+    Ok((result.nodes, page_info))
 }
 
-pub async fn run(
-    transport: &GraphQlTransport,
-    team_key: &str,
-    options: Options,
-) -> Result<Vec<u8>, Error> {
-    run_with(
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        team_key,
-        options,
-    )
-    .await
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonConnection<'a> {
+    nodes: &'a [team_members::Member],
+    page_info: &'a PageInfo,
 }
 
-pub fn render_text(members: &[team_members::Member], source_count: usize) -> String {
-    if source_count == 0 {
+fn render_json(members: &[team_members::Member], page_info: &PageInfo) -> Vec<u8> {
+    let mut output = serde_json::to_vec_pretty(&JsonConnection {
+        nodes: members,
+        page_info,
+    })
+    .expect("team member JSON always serializes");
+    output.push(b'\n');
+    output
+}
+
+/// `fetched` counts members before the active filter, to tell an empty team
+/// from one with only inactive members.
+fn render_text(members: &[team_members::Member], fetched: usize) -> String {
+    if fetched == 0 {
         return "No members found for this team.\n".to_owned();
     }
     if members.is_empty() {

@@ -1,42 +1,25 @@
-//! The GitHub autolink action delegates to a waited, shell-free `gh` process.
-use std::path::Path;
+//! `team autolinks`: register a GitHub autolink so `ENG-123` in the current
+//! repository links to the Linear issue, using the `gh` CLI.
+use std::io::ErrorKind;
+use std::num::NonZeroU8;
 use std::process::{Command, Stdio};
 
+use crate::cli::team::TeamAutolinks;
 use crate::commands::team_key::configured_team_key;
-use crate::config::StartupConfig;
-use crate::error::{Error, ResultExt};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 
-const CONTEXT: &str = "Failed to configure autolinks";
-
-pub fn execute(
-    config: &StartupConfig,
-    cli_workspace: Option<&str>,
-    cwd: &Path,
-) -> Result<(), Error> {
-    execute_inner(config, cli_workspace, cwd).context(CONTEXT)
+pub fn run(ctx: &Ctx, _args: &TeamAutolinks) -> Result<()> {
+    autolinks(ctx).context("Failed to configure autolinks")
 }
 
-fn execute_inner(
-    config: &StartupConfig,
-    cli_workspace: Option<&str>,
-    cwd: &Path,
-) -> Result<(), Error> {
-    let team = configured_team_key(&config.options).ok_or_else(|| {
-        Error::new("Could not determine team id from directory name")
-            .with_hint("Run `linear config` to set a team.")
+fn autolinks(ctx: &Ctx) -> Result<()> {
+    let team = configured_team_key(ctx.options()).ok_or_else(|| {
+        Error::new("No team is configured").with_hint("Run `linear config` to set a team.")
     })?;
-    let workspace = cli_workspace
-        .or_else(|| {
-            config
-                .options
-                .workspace()
-                .map(|resolved| resolved.value().as_str())
-        })
-        .filter(|workspace| !workspace.is_empty())
-        .ok_or_else(|| {
-            Error::new("workspace is not set via command line, configuration file, or environment")
-        })?;
-    let mut child = Command::new("gh")
+    let workspace = ctx.workspace_url_key()?;
+    ctx.flush()?;
+    let status = Command::new("gh")
         .args([
             "api".to_owned(),
             "repos/{owner}/{repo}/autolinks".to_owned(),
@@ -45,26 +28,28 @@ fn execute_inner(
             "-f".to_owned(),
             format!("url_template=https://linear.app/{workspace}/issue/{team}-<num>"),
         ])
-        .current_dir(cwd)
-        .envs(config.child_env.iter())
+        .current_dir(ctx.cwd())
+        .envs(ctx.config().child_env.iter())
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .spawn()
+        .status()
         .map_err(|error| {
-            let message = if error.kind() == std::io::ErrorKind::NotFound {
-                "Failed to spawn 'gh': entity not found".to_owned()
-            } else {
-                format!("Failed to spawn 'gh': {error}")
-            };
-            Error::new(message).with_source(error)
+            match error.kind() {
+                ErrorKind::NotFound => Error::new("The GitHub CLI (`gh`) was not found")
+                    .with_hint("Install it from https://cli.github.com."),
+                _ => Error::new(format!("Failed to run `gh`: {error}")),
+            }
+            .with_source(error)
         })?;
-    let status = child
-        .wait()
-        .map_err(|error| Error::new("Failed to wait for 'gh'").with_source(error))?;
     if status.success() {
-        Ok(())
-    } else {
-        Err(Error::new(CONTEXT))
+        return Ok(());
     }
+    // `gh` has already reported why it failed; exit with its status.
+    let code = status
+        .code()
+        .and_then(|code| u8::try_from(code).ok())
+        .and_then(NonZeroU8::new)
+        .unwrap_or(NonZeroU8::MIN);
+    Err(Error::exit(code))
 }
