@@ -1,4 +1,4 @@
-//! Exact status-update mutations and command-local initiative lookup documents.
+//! Project and initiative status-update mutations.
 use crate::graphql::operations::{
     initiatives::InitiativeUpdateHealthType, projects::ProjectUpdateHealthType,
 };
@@ -116,57 +116,4 @@ pub struct InitiativeUpdate {
 pub struct InitiativeParent {
     pub name: String,
     pub slug_id: String,
-}
-
-#[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct SlugVariables {
-    pub slug_id: String,
-}
-#[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct NameVariables {
-    pub name: String,
-}
-#[derive(cynic::QueryVariables, Clone, Debug)]
-pub struct IdVariables {
-    pub id: String,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "SlugVariables")]
-pub struct GetInitiativeBySlugForStatusUpdate {
-    #[arguments(filter: { slugId: { eq: $slug_id } })]
-    pub initiatives: SlugConnection,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "InitiativeConnection")]
-pub struct SlugConnection {
-    pub nodes: Vec<SlugNode>,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Initiative")]
-pub struct SlugNode {
-    pub id: cynic::Id,
-    pub slug_id: String,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "NameVariables")]
-pub struct GetInitiativeByNameForStatusUpdate {
-    #[arguments(filter: { name: { eqIgnoreCase: $name } })]
-    pub initiatives: NameConnection,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "InitiativeConnection")]
-pub struct NameConnection {
-    pub nodes: Vec<NameNode>,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Initiative")]
-pub struct NameNode {
-    pub id: cynic::Id,
-    pub name: String,
-}
-#[derive(cynic::QueryFragment, Clone, Debug)]
-#[cynic(schema = "linear", graphql_type = "Query", variables = "IdVariables")]
-pub struct GetInitiativeNameForStatusUpdate {
-    #[arguments(id: $id)]
-    pub initiative: Option<InitiativeParent>,
 }

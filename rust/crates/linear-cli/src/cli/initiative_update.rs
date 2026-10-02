@@ -19,18 +19,8 @@ pub enum InitiativeUpdateCommand {
 pub struct InitiativeUpdateCreate {
     #[arg(value_name = "initiativeId")]
     pub initiative_id: String,
-    #[arg(long = "body", help = "Update content (markdown)", value_name = "body", value_parser = super::nonempty_string)]
-    pub body: Option<String>,
-    #[arg(long = "body-file", help = "Read content from file", value_name = "path", value_parser = super::nonempty_string)]
-    pub body_file: Option<String>,
-    #[arg(long = "health", help = "Health status (onTrack, atRisk, offTrack)", value_name = "health", value_parser = super::nonempty_string)]
-    pub health: Option<String>,
-    #[arg(
-        long = "interactive",
-        short = 'i',
-        help = "Interactive mode with prompts"
-    )]
-    pub interactive: bool,
+    #[command(flatten)]
+    pub update: super::project_update::StatusUpdateArgs,
 }
 
 #[derive(Debug, Args)]
@@ -39,6 +29,6 @@ pub struct InitiativeUpdateList {
     pub initiative_id: String,
     #[arg(long = "json", short = 'j', help = "Output as JSON")]
     pub json: bool,
-    #[arg(long = "limit", help = "Limit results", value_name = "limit", value_parser = super::numeric::positive_u32, default_value = "10")]
-    pub limit: std::num::NonZeroU32,
+    #[arg(long = "limit", help = "Limit results", value_name = "limit", value_parser = clap::value_parser!(i32).range(1..), default_value = "10")]
+    pub limit: i32,
 }

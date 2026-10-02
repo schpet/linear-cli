@@ -88,7 +88,3 @@ pub fn hydrate(
 ) -> Result<CredentialStore, std::convert::Infallible> {
     Ok(CredentialStore::new(manifest, Box::new(Replies(replies))))
 }
-
-mod initiative_update_list;
-mod project_update_list;
-mod update_create;

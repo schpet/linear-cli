@@ -14,10 +14,6 @@ fn listed(run: &Run, connection: &str) -> Value {
     Value::Array(nodes(list))
 }
 
-fn initiative_name() -> Value {
-    json!({ "initiative": { "name": "Roadmap", "slugId": "1a2b3c4d5e6f" } })
-}
-
 fn initiative_created(health: Value) -> Value {
     json!({
         "initiativeUpdateCreate": {
@@ -49,11 +45,10 @@ fn project_created(health: Value) -> Value {
 #[test]
 fn initiative_create_posts_body_and_health() {
     let api = MockLinear::start();
-    api.on("GetInitiativeNameForStatusUpdate", initiative_name())
-        .on(
-            "CreateInitiativeUpdate",
-            initiative_created(json!("atRisk")),
-        );
+    api.on(
+        "CreateInitiativeUpdate",
+        initiative_created(json!("atRisk")),
+    );
     Cli::for_api(&api)
         .run(&[
             "initiative-update",
@@ -67,10 +62,7 @@ fn initiative_create_posts_body_and_health() {
         .success()
         .stdout_has("Roadmap")
         .stdout_has("https://linear.app/acme/initiative/roadmap/updates#update-1");
-    assert_eq!(
-        api.variables("GetInitiativeNameForStatusUpdate"),
-        json!({ "id": INITIATIVE_ID })
-    );
+    assert_eq!(api.operations(), ["CreateInitiativeUpdate"]);
     assert_eq!(
         api.variables("CreateInitiativeUpdate"),
         json!({ "input": { "initiativeId": INITIATIVE_ID, "body": "Shipped", "health": "atRisk" } })
@@ -81,14 +73,15 @@ fn initiative_create_posts_body_and_health() {
 fn initiative_create_resolves_names_and_reads_body_files() {
     let api = MockLinear::start();
     api.on(
-        "GetInitiativeBySlugForStatusUpdate",
+        "ResolveInitiativeBySlug",
         json!({ "initiatives": { "nodes": [] } }),
     )
     .on(
-        "GetInitiativeByNameForStatusUpdate",
-        json!({ "initiatives": { "nodes": [{ "id": INITIATIVE_ID, "name": "Roadmap" }] } }),
+        "ResolveInitiativeByName",
+        json!({ "initiatives": { "nodes": [
+            { "id": INITIATIVE_ID, "name": "Roadmap", "slugId": "1a2b3c4d5e6f" }
+        ] } }),
     )
-    .on("GetInitiativeNameForStatusUpdate", initiative_name())
     .on("CreateInitiativeUpdate", initiative_created(Value::Null));
     Cli::for_api(&api)
         .file("cwd/update.md", "## Progress\n\n- shipped, finally\n")
@@ -101,7 +94,11 @@ fn initiative_create_resolves_names_and_reads_body_files() {
         ])
         .success();
     assert_eq!(
-        api.variables("GetInitiativeByNameForStatusUpdate"),
+        api.variables("ResolveInitiativeBySlug"),
+        json!({ "slugId": "Roadmap", "includeArchived": false })
+    );
+    assert_eq!(
+        api.variables("ResolveInitiativeByName"),
         json!({ "name": "Roadmap" })
     );
     let input = &api.variables("CreateInitiativeUpdate")["input"];
@@ -113,10 +110,8 @@ fn initiative_create_resolves_names_and_reads_body_files() {
 }
 
 #[test]
-fn initiative_create_rejects_unknown_health() {
+fn initiative_create_rejects_unknown_health_before_any_request() {
     let api = MockLinear::start();
-    // The initiative is looked up before the health value is checked.
-    api.on("GetInitiativeNameForStatusUpdate", initiative_name());
     Cli::for_api(&api)
         .run(&[
             "initiative-update",
@@ -127,12 +122,9 @@ fn initiative_create_rejects_unknown_health() {
             "--health",
             "great",
         ])
-        .failure()
+        .usage_error()
         .stderr_has("great");
-    assert!(
-        !api.operations()
-            .contains(&"CreateInitiativeUpdate".to_owned())
-    );
+    assert!(api.requests().is_empty());
 }
 
 #[test]
@@ -148,7 +140,7 @@ fn project_create_rejects_unknown_health_before_any_request() {
             "--health",
             "great",
         ])
-        .failure()
+        .usage_error()
         .stderr_has("great");
     assert!(api.requests().is_empty());
 }
@@ -353,4 +345,73 @@ fn project_list_unknown_project_fails() {
         .run(&["project-update", "list", PROJECT_ID])
         .failure()
         .stderr_has(PROJECT_ID);
+}
+
+#[test]
+fn both_lists_render_the_same_table() {
+    let api = MockLinear::start();
+    api.on("ListInitiativeUpdates", initiative_updates())
+        .on("ListProjectUpdates", project_updates(false));
+    let cli = Cli::for_api(&api);
+    let initiative = cli.run(&["initiative-update", "list", INITIATIVE_ID]);
+    let project = cli.run(&["project-update", "list", PROJECT_ID]);
+    let lines = |run: &Run| -> Vec<String> {
+        run.success()
+            .stdout
+            .lines()
+            .map(|line| line.trim_end().to_owned())
+            .collect()
+    };
+    let initiative = lines(&initiative);
+    let project = lines(&project);
+    assert_eq!(initiative[0], "Status updates for Roadmap");
+    assert!(
+        initiative[2].starts_with("ID       HEALTH"),
+        "{initiative:?}"
+    );
+    assert!(
+        initiative[3].starts_with("update-1 On Track"),
+        "{initiative:?}"
+    );
+    assert!(initiative[3].ends_with(" Ada"), "{initiative:?}");
+    assert_eq!(initiative[4], "  Shipped the beta");
+    assert!(
+        initiative[5].starts_with("update-0 At Risk "),
+        "{initiative:?}"
+    );
+    assert!(initiative[5].ends_with(" -"), "{initiative:?}");
+    assert_eq!(project[0], "Status updates for Mobile");
+    assert!(project[3].starts_with("update-2 On Track"), "{project:?}");
+    assert!(project[3].ends_with(" ada"), "{project:?}");
+    assert_eq!(project[4], "  Beta is out");
+}
+
+#[test]
+fn create_reads_a_missing_body_file_as_an_error_before_any_request() {
+    let api = MockLinear::start();
+    Cli::for_api(&api)
+        .run(&[
+            "project-update",
+            "create",
+            PROJECT_ID,
+            "--body-file",
+            "missing.md",
+        ])
+        .failure()
+        .stderr_has("missing.md");
+    assert!(api.requests().is_empty());
+}
+
+#[test]
+fn initiative_create_reports_lookup_failures() {
+    let api = MockLinear::start();
+    api.on_error("ResolveInitiativeBySlug", "Rate limited");
+    Cli::for_api(&api)
+        .run(&["initiative-update", "create", "Roadmap", "--body", "x"])
+        .failure()
+        .stderr_has("Rate limited");
+    assert!(
+        !api.operations()
+            .contains(&"CreateInitiativeUpdate".to_owned())
+    );
 }

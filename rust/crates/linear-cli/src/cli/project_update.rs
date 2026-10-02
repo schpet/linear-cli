@@ -1,4 +1,4 @@
-use clap::{Args, Subcommand};
+use clap::{Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Args)]
 #[command(arg_required_else_help = true)]
@@ -19,12 +19,19 @@ pub enum ProjectUpdateCommand {
 pub struct ProjectUpdateCreate {
     #[arg(value_name = "projectId")]
     pub project_id: String,
-    #[arg(long = "body", help = "Update content (inline)", value_name = "body", value_parser = super::nonempty_string)]
+    #[command(flatten)]
+    pub update: StatusUpdateArgs,
+}
+
+/// The content of a new project or initiative status update.
+#[derive(Debug, Args)]
+pub struct StatusUpdateArgs {
+    #[arg(long = "body", help = "Update content (markdown)", value_name = "body", value_parser = super::nonempty_string, conflicts_with = "body_file")]
     pub body: Option<String>,
     #[arg(long = "body-file", help = "Read content from file", value_name = "path", value_parser = super::nonempty_string)]
     pub body_file: Option<String>,
-    #[arg(long = "health", help = "Project health status (onTrack, atRisk, offTrack)", value_name = "health", value_parser = super::nonempty_string)]
-    pub health: Option<String>,
+    #[arg(long = "health", help = "Health status", value_name = "health")]
+    pub health: Option<Health>,
     #[arg(
         long = "interactive",
         short = 'i',
@@ -33,12 +40,22 @@ pub struct ProjectUpdateCreate {
     pub interactive: bool,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum Health {
+    #[value(name = "onTrack")]
+    OnTrack,
+    #[value(name = "atRisk")]
+    AtRisk,
+    #[value(name = "offTrack")]
+    OffTrack,
+}
+
 #[derive(Debug, Args)]
 pub struct ProjectUpdateList {
     #[arg(value_name = "projectId")]
     pub project_id: String,
     #[arg(long = "json", help = "Output as JSON")]
     pub json: bool,
-    #[arg(long = "limit", help = "Limit results", value_name = "limit", value_parser = super::numeric::positive_u32, default_value = "10")]
-    pub limit: std::num::NonZeroU32,
+    #[arg(long = "limit", help = "Limit results", value_name = "limit", value_parser = clap::value_parser!(i32).range(1..), default_value = "10")]
+    pub limit: i32,
 }

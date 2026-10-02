@@ -1,99 +1,61 @@
-//! `project-update list`: the first page of status updates as a table or JSON.
-
-use std::future::Future;
-use std::num::NonZeroU32;
-use std::time::SystemTime;
-
+//! `project-update list`: a project's latest status updates as a table or JSON.
+use chrono::Utc;
 use cynic::QueryBuilder;
 use serde::Serialize;
 
-use crate::commands::display::{display_width, pad, truncate_text};
-use crate::commands::relative_time::format_relative_time;
-use crate::commands::table::underlined_header;
-use crate::error::{Error, ResultExt};
+use crate::cli::project_update::ProjectUpdateList;
+use crate::commands::status_update::{self, Row, UpdateHealth};
+use crate::commands::table;
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;
 use crate::graphql::operations::project_updates::{
     ListProjectUpdates, ListProjectUpdatesVariables, UpdateNode, UpdateProject,
 };
-use crate::graphql::transport::GraphQlTransport;
-use crate::platform::style;
+use crate::refs::{prepare_project_lookup, resolve_project_with_transport};
 
-pub const CONTEXT: &str = "Failed to fetch project updates";
-
-pub fn output_color(stdout_tty: bool, no_color: bool) -> bool {
-    stdout_tty && !no_color
+pub fn run(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
+    list(ctx, args).context("Failed to list project updates")
 }
 
-/// CLI page sizes are positive u32 values; GraphQL has a signed Int boundary.
-/// Conversion fails before transport or project resolution; nothing truncates.
-pub fn graphql_int(value: NonZeroU32) -> Result<i32, Error> {
-    i32::try_from(value.get()).map_err(|error| {
-        Error::new("--limit must be at most 2147483647 for a GraphQL Int")
-            .with_source(error)
-            .context(CONTEXT)
-    })
-}
-
-#[derive(Clone, Copy)]
-pub struct RenderOptions {
-    pub json: bool,
-    pub columns: usize,
-    pub color: bool,
-    pub now: SystemTime,
-}
-
-pub fn request(id: &str, first: i32) -> GraphQlRequest<ListProjectUpdatesVariables> {
-    GraphQlRequest::with_variables(ListProjectUpdates::build(ListProjectUpdatesVariables {
-        id: id.to_owned(),
-        first: Some(first),
-    }))
-}
-
-pub async fn run_with<F, Fut>(
-    original: &str,
-    id: &str,
-    first: i32,
-    fetch: F,
-    options: RenderOptions,
-) -> Result<Vec<u8>, Error>
-where
-    F: FnOnce(GraphQlRequest<ListProjectUpdatesVariables>) -> Fut,
-    Fut: Future<Output = Result<ListProjectUpdates, Error>>,
-{
-    let project = fetch(request(id, first))
-        .await
-        .context(CONTEXT)?
-        .project
-        .ok_or_else(|| Error::not_found("Project", original).context(CONTEXT))?;
-    if options.json {
-        render_json(&project)
-    } else {
-        Ok(render_text(&project, options.columns, options.color, options.now).into_bytes())
+fn list(ctx: &Ctx, args: &ProjectUpdateList) -> Result<()> {
+    let original = &args.project_id;
+    let reference = prepare_project_lookup(original, &ctx.scope()?)?;
+    let client = ctx.client()?;
+    let project = ctx.spin(!args.json, async {
+        let id = resolve_project_with_transport(&reference, original, client).await?;
+        let request = GraphQlRequest::with_variables(ListProjectUpdates::build(
+            ListProjectUpdatesVariables {
+                id,
+                first: Some(args.limit),
+            },
+        ));
+        let data: ListProjectUpdates = client.execute(&request).await?;
+        data.project
+            .ok_or_else(|| Error::not_found("Project", original))
+    })?;
+    if args.json {
+        return ctx.print(render_json(&project));
     }
-}
-
-pub async fn run(
-    transport: &GraphQlTransport,
-    original: &str,
-    id: &str,
-    first: i32,
-    json: bool,
-    columns: usize,
-    color: bool,
-) -> Result<Vec<u8>, Error> {
-    run_with(
-        original,
-        id,
-        first,
-        |request| async move { transport.execute(&request).await.map_err(Error::from) },
-        RenderOptions {
-            json,
-            columns,
-            color,
-            now: SystemTime::now(),
-        },
-    )
-    .await
+    let rows: Vec<_> = project
+        .project_updates
+        .nodes
+        .iter()
+        .map(|node| Row {
+            id: node.id.inner(),
+            health: node.health.as_ref().map(UpdateHealth::from),
+            created_at: &node.created_at.0,
+            author: author(node),
+            body: &node.body,
+        })
+        .collect();
+    ctx.print(status_update::render_list(
+        &project.name,
+        &rows,
+        table::stdout_columns(ctx.stdout_tty()),
+        ctx.color(),
+        Utc::now(),
+    ))
 }
 
 #[derive(Serialize)]
@@ -129,7 +91,7 @@ struct JsonUser<'a> {
     display_name: &'a str,
 }
 
-pub fn render_json(project: &UpdateProject) -> Result<Vec<u8>, Error> {
+fn render_json(project: &UpdateProject) -> Vec<u8> {
     let nodes = project
         .project_updates
         .nodes
@@ -154,120 +116,18 @@ pub fn render_json(project: &UpdateProject) -> Result<Vec<u8>, Error> {
             page_info: &project.project_updates.page_info,
         },
     };
-    let mut output = serde_json::to_vec_pretty(&value).map_err(|error| {
-        Error::new("could not serialize project updates")
-            .with_source(error)
-            .context(CONTEXT)
-    })?;
+    let mut output =
+        serde_json::to_vec_pretty(&value).expect("project update JSON always serializes");
     output.push(b'\n');
-    Ok(output)
+    output
 }
 
 fn author(node: &UpdateNode) -> &str {
-    node.user
-        .as_ref()
-        .map(|user| {
-            if user.display_name.is_empty() {
-                &user.name
-            } else {
-                &user.display_name
-            }
-        })
-        .filter(|name| !name.is_empty())
-        .map_or("-", String::as_str)
-}
-
-fn short_id(id: &str) -> String {
-    id.chars().take(8).collect()
-}
-
-pub fn render_text(
-    project: &UpdateProject,
-    columns: usize,
-    color: bool,
-    now: SystemTime,
-) -> String {
-    let updates = &project.project_updates.nodes;
-    if updates.is_empty() {
-        return format!("No status updates found for project: {}\n", project.name);
-    }
-    let health_width = updates
-        .iter()
-        .map(|node| {
-            display_width(node.health.as_ref().map_or("-", |health| {
-                let value = health.as_str();
-                if value.is_empty() { "-" } else { value }
-            }))
-        })
-        .max()
-        .unwrap_or(0)
-        .max(6);
-    let date_width = updates
-        .iter()
-        .map(|node| {
-            display_width(&format_relative_time(
-                &node.created_at.0,
-                now.into(),
-                &chrono::Local,
-            ))
-        })
-        .max()
-        .unwrap_or(0)
-        .max(4);
-    let author_width = updates
-        .iter()
-        .map(|node| display_width(author(node)))
-        .max()
-        .unwrap_or(0)
-        .max(6);
-    let available_width = columns
-        .saturating_sub(1 + 8 + health_width + date_width + author_width + 4)
-        .max(10);
-    let mut output = format!("Status updates for: {}\n\n", project.name);
-    output.push_str(&underlined_header(
-        &[
-            pad("ID", 8),
-            pad("HEALTH", health_width),
-            pad("DATE", date_width),
-            pad("AUTHOR", author_width),
-        ],
-        color,
-    ));
-    for node in updates {
-        let health = node.health.as_ref().map_or("-", |health| {
-            let value = health.as_str();
-            if value.is_empty() { "-" } else { value }
-        });
-        let health_cell = pad(health, health_width);
-        let color_code = match health {
-            "onTrack" => Some("\x1b[32m"),
-            "atRisk" => Some("\x1b[33m"),
-            "offTrack" => Some("\x1b[31m"),
-            _ => None,
-        };
-        output.push_str(&pad(&short_id(node.id.inner()), 8));
-        output.push(' ');
-        if color && let Some(code) = color_code {
-            output.push_str(code);
+    node.user.as_ref().map_or("", |user| {
+        if user.display_name.is_empty() {
+            &user.name
+        } else {
+            &user.display_name
         }
-        output.push_str(&health_cell);
-        if color && color_code.is_some() {
-            output.push_str("\x1b[39m");
-        }
-        output.push(' ');
-        output.push_str(&pad(
-            &format_relative_time(&node.created_at.0, now.into(), &chrono::Local),
-            date_width,
-        ));
-        output.push(' ');
-        output.push_str(&pad(author(node), author_width));
-        output.push('\n');
-        if !node.body.is_empty() {
-            let preview = node.body.replace('\n', " ");
-            let preview = truncate_text(preview.trim(), available_width);
-            output.push_str(&style::gray(&format!("   {preview}"), color));
-            output.push('\n');
-        }
-    }
-    output
+    })
 }
