@@ -18,6 +18,7 @@ mod issue_write;
 mod label;
 mod milestone;
 mod project;
+mod status_update;
 mod team;
 mod template;
 mod user;
