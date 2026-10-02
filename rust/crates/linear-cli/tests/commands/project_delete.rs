@@ -1,5 +1,5 @@
 use linear_cli::{
-    commands::project_delete,
+    commands::project::delete as project_delete,
     graphql::{envelope::parse_response, operations::project_delete::DeleteProject},
 };
 use serde_json::{Value, json};

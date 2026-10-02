@@ -3,7 +3,9 @@
 use std::future::Future;
 use std::time::Duration;
 
-use crate::error::{Error, Result};
+use crate::commands::{client, comment_add};
+use crate::ctx::Ctx;
+use crate::error::{Error, Result, ResultExt};
 
 /// Runs one future on a fresh runtime. Migrated commands use `Ctx::block_on`.
 pub fn block_on_network<T, F>(future: F) -> Result<T>
@@ -63,4 +65,73 @@ pub fn relation_transport(
         workspace,
         &ctx.config().transport_env,
     )
+}
+
+/// `createComment` constructs its client before building the input.
+pub fn submit_comment(
+    context: &Ctx,
+    workspace: Option<&str>,
+    target: comment_add::CommentTarget,
+    body: String,
+    parent: Option<&str>,
+) -> Result<crate::graphql::operations::comment_create::CreatedComment, Error> {
+    let config = context.config();
+    let credentials = context.credentials()?;
+    let inputs = client::selection_inputs(&config.options, workspace);
+    let transport = client::prepare_transport_with_inputs(
+        &config.options,
+        credentials,
+        &inputs,
+        &config.transport_env,
+    )?;
+    let input = comment_add::build_input(target, body, parent, None)?;
+    block_on_network(comment_add::create(&transport, input))
+}
+
+pub fn finish_comment_add(context: &Ctx, result: Result<Vec<u8>>) -> Result<()> {
+    context.print(result.context(comment_add::CONTEXT)?)
+}
+
+pub fn document_fetch_with_spinner<T>(
+    context: &Ctx,
+    json: bool,
+    pending: impl std::future::Future<Output = Result<T, Error>>,
+) -> Result<T, Error> {
+    let enabled = spinner::enabled(json, context.stdout_tty(), true);
+    if !enabled {
+        return block_on_network(pending);
+    }
+    context.print(spinner::frame(0).as_bytes())?;
+    let result = block_on_network(async {
+        tokio::pin!(pending);
+        let mut ticks = tokio::time::interval(spinner::TICK_INTERVAL);
+        ticks.tick().await;
+        let mut frame = 1;
+        loop {
+            tokio::select! {
+                biased;
+                result = &mut pending => break result,
+                _ = ticks.tick() => {
+                    context.print(spinner::frame(frame).as_bytes())?;
+                    frame = frame.wrapping_add(1);
+                }
+            }
+        }
+    });
+    context.print(spinner::CLEAR)?;
+    result
+}
+
+pub fn delete_confirmation(
+    context: &Ctx,
+    message: &str,
+    flag: &str,
+) -> Result<crate::platform::prompt::PromptOutcome<bool>, Error> {
+    if !context.stdin_tty() {
+        return Err(Error::new("Interactive confirmation required")
+            .with_hint(format!("Use --{flag} to skip.")));
+    }
+    let mut session = crate::platform::prompt::PromptSession::confirmation_stdio(context.stdout())?;
+    let outcome = session.confirm(message, false);
+    session.finish_result(outcome)
 }

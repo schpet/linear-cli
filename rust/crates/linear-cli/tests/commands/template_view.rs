@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::future::{Ready, ready};
 
 use chrono::{DateTime, FixedOffset, Utc};
-use linear_cli::commands::template_view::{
+use linear_cli::commands::template::view::{
     CONTEXT, TemplateReference, render_text, run_with, template_request,
 };
 use linear_cli::error::Error;

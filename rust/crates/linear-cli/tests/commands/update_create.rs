@@ -1,7 +1,7 @@
 //! Public boundaries with actual captured wire requests and strict post-send outcomes.
 use linear_cli::{
     commands::{
-        initiative_view::Reference,
+        initiative::view::Reference,
         text_input,
         update_create::{self as command, Fields, Health, Mode},
     },

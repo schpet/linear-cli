@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use linear_cli::commands::label_create::{self, Options};
+use linear_cli::commands::label::create::{self as label_create, Options};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::label_create::CreateIssueLabel;
 use linear_cli::graphql::operations::team_resolver::GetAllTeams;

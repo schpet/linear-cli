@@ -10,7 +10,7 @@ use linear_cli::{
         },
         parse_credentials,
     },
-    commands::{auth_login, auth_logout},
+    commands::{auth::login as auth_login, auth::logout as auth_logout},
     config::{ConfigSecret, RawConfigFile, parse_config_tier},
     error::Error,
 };

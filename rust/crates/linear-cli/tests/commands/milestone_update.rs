@@ -1,4 +1,4 @@
-use linear_cli::commands::milestone_update::{self, Options};
+use linear_cli::commands::milestone::update::{self as milestone_update, Options};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::milestone_update::UpdateProjectMilestone;
 use linear_cli::graphql::operations::number::Float;

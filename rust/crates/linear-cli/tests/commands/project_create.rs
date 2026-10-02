@@ -1,7 +1,7 @@
 //! public vectors; no test/candidate claims.
 use cynic::{MutationBuilder, QueryBuilder};
 use linear_cli::{
-    commands::{project_create as create, project_write as shared},
+    commands::{project::create, project::write as shared},
     graphql::{
         envelope::{GraphQlRequest, parse_response},
         operations::project_write::*,

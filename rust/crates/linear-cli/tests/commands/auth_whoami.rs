@@ -1,7 +1,7 @@
 use crate::block_on_network;
 use crate::{LookupReply, hydrate};
 use linear_cli::auth::{CredentialStore, LookupResult, parse_credentials};
-use linear_cli::commands::auth_whoami::{prepare_transport, render, run, run_with};
+use linear_cli::commands::auth::whoami::{prepare_transport, render, run, run_with};
 use linear_cli::config::{
     ConfigInputs, ConfigOptions, ConfigSecret, OptionInputs, OsFamily, ProcessEnvSnapshot,
     RawConfigFile, SelectedEnv, TransportEnvInputs, parse_config_tier,

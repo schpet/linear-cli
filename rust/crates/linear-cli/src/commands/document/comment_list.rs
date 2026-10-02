@@ -75,7 +75,7 @@ where
         }
     })
     .await
-    .map_err(|error| super::comments::pagination_error(error).context(CONTEXT))?;
+    .map_err(|error| crate::commands::comments::pagination_error(error).context(CONTEXT))?;
     let page_info = PageInfo {
         has_next_page: result.page_info.has_next_page,
         end_cursor: result.page_info.end_cursor,
@@ -97,8 +97,8 @@ fn translate_failure(failure: TransportFailure, original: &str) -> Error {
 }
 
 pub fn render_json(nodes: &[CommentNode], page_info: &PageInfo) -> Result<Vec<u8>, Error> {
-    Ok(super::comments::render_json(nodes, page_info))
+    Ok(crate::commands::comments::render_json(nodes, page_info))
 }
 pub fn render_text(nodes: &[CommentNode], now: DateTime<Utc>, color: bool) -> String {
-    super::comments::render_text(nodes, now, color, "No comments found for this document")
+    crate::commands::comments::render_text(nodes, now, color, "No comments found for this document")
 }

@@ -475,7 +475,7 @@ pub async fn assignee_filter(
             })),
         )
         .await?;
-        crate::commands::initiative_list::select_owner(&data.users.nodes, input)
+        crate::commands::initiative::list::select_owner(&data.users.nodes, input)
             .ok_or_else(|| Error::not_found("User", input))?
     };
     Ok(Some(NullableUserFilter {

@@ -1,5 +1,5 @@
 use chrono::Utc;
-use linear_cli::commands::project_view::{json, markdown, picker_options};
+use linear_cli::commands::project::view::{json, markdown, picker_options};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::project_view::{GetProjectDetails, GetProjectsForPicker};
 use serde_json::{Value, json as value};

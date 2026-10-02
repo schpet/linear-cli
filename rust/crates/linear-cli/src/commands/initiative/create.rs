@@ -189,7 +189,7 @@ pub async fn resolve_owner(
     match owner.filter(|value| !value.is_empty()) {
         Some(owner) => {
             crate::refs::reject_linear_url(owner, "an email, username, display name, or @me")?;
-            let id = super::initiative_list::resolve_owner(transport, owner).await?;
+            let id = crate::commands::initiative::list::resolve_owner(transport, owner).await?;
             if id.inner().is_empty() {
                 return Err(Error::not_found("Owner", owner));
             }

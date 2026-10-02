@@ -1,6 +1,6 @@
 //! Input handling shared by `project create` and `project update`.
 use crate::{
-    commands::{project_collections::ResolvedRef, text_input},
+    commands::{project::collections::ResolvedRef, text_input},
     error::Error,
     graphql::{
         envelope::GraphQlRequest,
@@ -370,10 +370,10 @@ pub async fn template(
             }
             Err(error) => return Err(Error::from(error)),
         };
-        super::issue::template_scope::assert_scope(
+        crate::commands::issue::template_scope::assert_scope(
             &data.template,
             team_ids,
-            super::issue::template_scope::TemplateScope::Project,
+            crate::commands::issue::template_scope::TemplateScope::Project,
         )?;
         data.template
     } else {

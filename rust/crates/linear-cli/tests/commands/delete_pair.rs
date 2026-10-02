@@ -1,9 +1,6 @@
+use linear_cli::commands::bulk::{BulkOutcome, BulkResult};
 use linear_cli::{
-    commands::{
-        document_delete as doc,
-        initiative_bulk::{BulkOutcome, BulkResult},
-        team_delete as team,
-    },
+    commands::{document::delete as doc, team::delete as team},
     error::Error,
     graphql::{
         bulk_error::{self, BulkExchangeFailure},

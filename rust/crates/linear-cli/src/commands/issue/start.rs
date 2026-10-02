@@ -1,7 +1,9 @@
 //! `issue start`: create or switch the VCS branch, then move the issue to a started state.
 use crate::{
     cli::issue::IssueStart,
-    commands::{issue::read as issue_read, team_key::configured_team_key, team_states},
+    commands::{
+        issue::read as issue_read, team::states as team_states, team_key::configured_team_key,
+    },
     config::{ChildEnvOverlay, Vcs},
     ctx::Ctx,
     error::{Error, Result, ResultExt},

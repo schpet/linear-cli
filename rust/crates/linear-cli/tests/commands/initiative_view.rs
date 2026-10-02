@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 
 use cynic::QueryBuilder;
-use linear_cli::commands::initiative_view::{markdown, render_json};
+use linear_cli::commands::initiative::view::{markdown, render_json};
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::initiative_view::{
     DetailVariables, GetInitiativeByNameForView, GetInitiativeBySlugForView, GetInitiativeDetails,

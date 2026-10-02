@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, TimeZone, Utc};
 use cynic::QueryBuilder;
 
-use crate::commands::project_list;
+use crate::commands::project::list as project_list;
 use crate::commands::relative_time::format_relative_time;
 use crate::error::Error;
 use crate::graphql::envelope::GraphQlRequest;

@@ -1,7 +1,7 @@
 use crate::block_on_network;
 use crate::{LookupReply, hydrate};
 use linear_cli::auth::{CredentialStore, LookupFailureCategory, LookupResult, parse_credentials};
-use linear_cli::commands::auth_list::{
+use linear_cli::commands::auth::list::{
     EMPTY_OUTPUT, Outcome, Prepared, Row, RowError, StoredKey, classify, fetch, fetch_with,
     prepare_transports, prepare_with, render,
 };

@@ -4,7 +4,7 @@ use std::future::ready;
 use std::rc::Rc;
 
 use chrono::{TimeZone, Utc};
-use linear_cli::commands::document_comment_list::{render_json, request, run_with};
+use linear_cli::commands::document::comment_list::{render_json, request, run_with};
 use linear_cli::error::Error;
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::document_comments::{

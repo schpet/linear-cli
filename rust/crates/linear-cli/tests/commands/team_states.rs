@@ -1,6 +1,6 @@
 use std::future::ready;
 
-use linear_cli::commands::team_states::{render_text, run_with};
+use linear_cli::commands::team::states::{render_text, run_with};
 use linear_cli::graphql::envelope::{ResponseError, parse_response};
 use linear_cli::graphql::operations::workflow_states::GetWorkflowStates;
 use serde_json::json;

@@ -1,9 +1,10 @@
 //! Public contracts; staged only, not compiled or claimed passing.
 use linear_cli::{
     commands::{
-        document_list,
-        document_target::{self, Kind},
-        document_view, release_lookup,
+        document::list as document_list,
+        document::target::{self as document_target, Kind},
+        document::view as document_view,
+        release_lookup,
     },
     graphql::{
         envelope::parse_response,

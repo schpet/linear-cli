@@ -1,6 +1,6 @@
 //! Full project/initiative status-update create with separate attended editor policy.
 use crate::{
-    commands::{initiative_view::Reference, text_input},
+    commands::{initiative::view::Reference, text_input},
     config::ChildEnvOverlay,
     error::Error,
     graphql::{
@@ -389,7 +389,7 @@ pub fn prompt<R: Read, W: Write>(
     let editor = editor::configured(env);
     let label = editor
         .as_deref()
-        .and_then(crate::commands::document_write::editor_label);
+        .and_then(crate::commands::document::write::editor_label);
     let mut methods = vec![
         choice("Skip (no content)", "skip"),
         choice("Enter inline", "inline"),
@@ -490,4 +490,126 @@ pub fn prompt_health<R: Read, W: Write>(
         value => Health::parse(Some(value), mode)?,
     };
     Ok(PromptOutcome::Submitted(health))
+}
+
+use crate::app::legacy::{block_on_network, document_fetch_with_spinner, relation_transport};
+use crate::commands::client;
+use crate::commands::initiative::view as initiative_view;
+use crate::ctx::Ctx;
+use crate::error::{Result, ResultExt};
+use crate::refs::{WorkspaceScope, prepare_project_lookup, resolve_project_with_transport};
+
+pub(crate) struct UpdateCreateAction<'a> {
+    pub(crate) original: &'a str,
+    pub(crate) body: Option<&'a str>,
+    pub(crate) file: Option<&'a str>,
+    pub(crate) health: Option<&'a str>,
+    pub(crate) interactive: bool,
+}
+
+pub(crate) fn dispatch_update_create(
+    context: &Ctx,
+    action: UpdateCreateAction<'_>,
+    mode: crate::commands::update_create::Mode,
+    workspace: Option<&str>,
+) -> Result<()> {
+    use crate::commands::update_create as command;
+    use crate::platform::prompt::PromptOutcome;
+    let result = (|| {
+        let interactive = command::attended(
+            action.interactive,
+            context.stdin_tty(),
+            context.stdout_tty(),
+            action.body,
+            action.file,
+            action.health,
+        )?;
+        // The explicit -i check runs before either client is built.
+        let transport = relation_transport(context, workspace)?;
+        let (id, display) = {
+            let config = context.config();
+            let credentials = context.credentials()?;
+            let inputs = client::selection_inputs(&config.options, workspace);
+            let scope = WorkspaceScope::from_selection(&inputs, credentials);
+            match mode {
+                command::Mode::Project => {
+                    let reference = prepare_project_lookup(action.original, &scope)?;
+                    (
+                        block_on_network(resolve_project_with_transport(
+                            &reference,
+                            action.original,
+                            &transport,
+                        ))?,
+                        None,
+                    )
+                }
+                command::Mode::Initiative => {
+                    let reference = initiative_view::prepare_reference(action.original, &scope)?;
+                    let id = block_on_network(command::initiative_id(
+                        &transport,
+                        &reference,
+                        action.original,
+                    ))?;
+                    let name = block_on_network(async {
+                        Ok(command::initiative_name(&transport, &id, action.original).await)
+                    })?;
+                    (id, Some(name))
+                }
+            }
+        };
+        let env = context.config().child_env.clone();
+        let fields = if interactive {
+            if let Some(name) = display {
+                context.print(format!("\nCreating status update for: {name}\n\n").as_bytes())?;
+            }
+            let mut session = crate::platform::prompt::PromptSession::stdio(context.stdout())?;
+            let prompted = command::prompt(&mut session, &mut std::io::stderr(), &env, mode);
+            match session.finish_result(prompted)? {
+                PromptOutcome::Submitted(fields) => fields,
+                PromptOutcome::Interrupted => return Err(Error::cancelled()),
+                PromptOutcome::EndOfInput => {
+                    return Err(Error::new(
+                        "unexpected EOF while prompting for status update",
+                    ));
+                }
+            }
+        } else {
+            let body = if let Some(body) = action.body.filter(|value| !value.is_empty()) {
+                Some(body.to_owned())
+            } else if let Some(path) = action.file.filter(|value| !value.is_empty()) {
+                Some(command::file(path, mode, false)?)
+            } else if !context.stdin_tty() {
+                crate::commands::text_input::read_stdin(std::io::stdin().lock())?
+            } else if context.stdout_tty() {
+                context.print(format!("{}\n", mode.opening()).as_bytes())?;
+                match command::edit(&env, &mut std::io::stderr())? {
+                    PromptOutcome::Submitted(body) => {
+                        if body.is_none() {
+                            context.print(b"No content entered.\n")?;
+                        }
+                        body
+                    }
+                    PromptOutcome::Interrupted => return Err(Error::cancelled()),
+                    PromptOutcome::EndOfInput => {
+                        return Err(Error::new("editor cannot return input EOF"));
+                    }
+                }
+            } else {
+                None
+            };
+            command::Fields {
+                body,
+                health: command::Health::parse(action.health, mode)?,
+            }
+        };
+        let pending = command::create(&transport, &id, fields, mode);
+        let output = if mode == command::Mode::Project && interactive {
+            block_on_network(pending)
+        } else {
+            document_fetch_with_spinner(context, false, pending)
+        }?;
+        context.print(&output)?;
+        Ok(())
+    })();
+    result.context(mode.context())
 }

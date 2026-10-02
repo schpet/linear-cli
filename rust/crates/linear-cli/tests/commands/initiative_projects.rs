@@ -1,5 +1,5 @@
 use cynic::MutationBuilder;
-use linear_cli::commands::initiative_projects::{self as command, Entity, Mode};
+use linear_cli::commands::initiative::projects::{self as command, Entity, Mode};
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::initiative_projects::*;
 use linear_cli::graphql::transport::{

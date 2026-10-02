@@ -172,7 +172,7 @@ pub fn request(options: &Options) -> Result<GraphQlRequest<CreateTeamVariables>,
 pub async fn submit(transport: &GraphQlTransport, options: &Options) -> Result<Vec<u8>, Error> {
     let request = request(options)?;
     let result: CreateTeam = transport.execute(&request).await.map_err(|failure| {
-        let uncertain = super::milestone_create::outcome_unknown(&failure);
+        let uncertain = crate::commands::milestone::create::outcome_unknown(&failure);
         let mut error = Error::from(failure);
         if uncertain {
             error.push_message("; team may already exist");

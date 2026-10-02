@@ -19,7 +19,7 @@ use crate::platform::style;
 pub const CONTEXT: &str = "Failed to fetch initiative updates";
 
 pub fn graphql_int(value: std::num::NonZeroU32) -> Result<i32, Error> {
-    crate::commands::project_update_list::graphql_int(value).context(CONTEXT)
+    crate::commands::project_update::list::graphql_int(value).context(CONTEXT)
 }
 
 pub fn request(id: &str, first: i32) -> GraphQlRequest<ListInitiativeUpdatesVariables> {

@@ -3,7 +3,7 @@ use std::future::ready;
 use std::rc::Rc;
 use std::time::{Duration, UNIX_EPOCH};
 
-use linear_cli::commands::project_update_list::{
+use linear_cli::commands::project_update::list::{
     RenderOptions, graphql_int, output_color, render_json, render_text, request, run_with,
 };
 use linear_cli::graphql::envelope::parse_response;

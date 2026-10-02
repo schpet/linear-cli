@@ -3,7 +3,7 @@ use std::net::TcpListener;
 use std::thread;
 use std::time::Duration;
 
-use linear_cli::commands::team_create::{self, Mode, Options, PromptResult};
+use linear_cli::commands::team::create::{self as team_create, Mode, Options, PromptResult};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::team_create::CreateTeam;
 use linear_cli::graphql::transport::{

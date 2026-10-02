@@ -5,7 +5,7 @@ use std::thread;
 use std::time::Duration;
 
 use cynic::MutationBuilder;
-use linear_cli::commands::initiative_create::{self, Options, PromptResult};
+use linear_cli::commands::initiative::create::{self as initiative_create, Options, PromptResult};
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::initiative_create::{
     CreateInitiative, CreateInitiativeVariables, InitiativeCreateInput,

@@ -4,7 +4,7 @@ use std::future::ready;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use linear_cli::commands::team_list::{render_text, run_with};
+use linear_cli::commands::team::list::{render_text, run_with};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::teams::GetTeams;
 use serde_json::{Value, json};

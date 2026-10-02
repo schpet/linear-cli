@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use linear_cli::commands::label_delete::{self, Lookup};
+use linear_cli::commands::label::delete::{self as label_delete, Lookup};
 use linear_cli::graphql::envelope::{ResponseError, parse_response};
 use linear_cli::graphql::operations::label_delete::{
     DeleteIssueLabel, GetLabelById, GetLabelByName, Label, LabelTeam,

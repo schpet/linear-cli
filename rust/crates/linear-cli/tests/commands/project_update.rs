@@ -1,8 +1,11 @@
 //! public update/file/collection/write-barrier vectors.
 use linear_cli::{
     commands::{
-        project_collections::{self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef},
-        project_update as update, project_write as shared,
+        project::collections::{
+            self as project_collections, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef,
+        },
+        project::update,
+        project::write as shared,
     },
     graphql::{edit::Edit, operations::project_write::ProjectUpdateInput},
 };

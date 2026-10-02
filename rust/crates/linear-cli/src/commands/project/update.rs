@@ -1,8 +1,10 @@
 //! `project update`: resolve every reference first, then apply the writes in order.
 use crate::{
     commands::{
-        project_collections::{self, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef},
-        project_write as shared,
+        project::collections::{
+            self as project_collections, FailedWrite, InitiativeChange, InitiativeLink, ResolvedRef,
+        },
+        project::write as shared,
     },
     error::Error,
     graphql::{

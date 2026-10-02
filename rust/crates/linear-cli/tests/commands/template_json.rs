@@ -1,4 +1,4 @@
-use linear_cli::commands::template_json::{render_list, render_one};
+use linear_cli::commands::template::json::{render_list, render_one};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::templates::{GetTemplates, Template};
 use serde_json::{Value, json};

@@ -4,7 +4,7 @@ use std::future::ready;
 use std::rc::Rc;
 
 use linear_cli::auth::ApiKeyInput;
-use linear_cli::commands::label_list::{Options, Selection, render_text, run_with, select};
+use linear_cli::commands::label::list::{Options, Selection, render_text, run_with, select};
 use linear_cli::error::Error;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::issue_labels::{GetIssueLabels, IssueLabel, Team};

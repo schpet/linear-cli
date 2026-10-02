@@ -370,7 +370,7 @@ fn special_properties_match_shared_source_parse_and_constructor_successful_rewri
 #[test]
 fn menu_data_is_typed_before_session_but_explicit_whitespace_save_remains_exact() {
     use linear_cli::auth::parse_credentials;
-    use linear_cli::commands::auth_default::{DefaultAction, prepare};
+    use linear_cli::commands::auth::default::{DefaultAction, prepare};
     use linear_cli::config::{RawConfigFile, parse_config_tier};
     for name in [" ", "\t"] {
         let text = format!(
@@ -431,7 +431,7 @@ fn native_help_extra_positionals_and_unsupported_json_preserve_usage_boundaries(
 #[test]
 fn prepared_menu_keeps_first_row_highlight_and_current_label_and_matches_arrow_choice() {
     use linear_cli::auth::parse_credentials;
-    use linear_cli::commands::auth_default::{DefaultAction, prepare};
+    use linear_cli::commands::auth::default::{DefaultAction, prepare};
     use linear_cli::config::{RawConfigFile, parse_config_tier};
     use linear_cli::platform::prompt::{PlainSelect, PromptKey, PromptOutcome, PromptSession};
     let text = "default='alpha'\nzeta='lin_api_fake_zeta'\nalpha='lin_api_fake_alpha'\n";

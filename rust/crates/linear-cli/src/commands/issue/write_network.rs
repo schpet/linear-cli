@@ -157,7 +157,7 @@ impl Backend for NetworkBackend {
             })),
         )
         .await?;
-        crate::commands::initiative_list::select_owner(&data.users.nodes, &reference)
+        crate::commands::initiative::list::select_owner(&data.users.nodes, &reference)
             .map(cynic::Id::into_inner)
             .ok_or_else(|| Error::not_found("User", &reference))
     }

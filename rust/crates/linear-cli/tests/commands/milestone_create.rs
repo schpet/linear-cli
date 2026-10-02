@@ -4,7 +4,7 @@ use std::thread;
 use std::time::Duration;
 
 use cynic::MutationBuilder;
-use linear_cli::commands::milestone_create::{self, Options};
+use linear_cli::commands::milestone::create::{self as milestone_create, Options};
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::milestone_create::{
     CreateProjectMilestone, CreateProjectMilestoneVariables, ProjectMilestoneCreateInput,

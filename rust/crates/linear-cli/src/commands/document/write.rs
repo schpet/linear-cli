@@ -1,7 +1,7 @@
 //! `document create` and `document update`: fields from flags, stdin, an editor or prompts.
 use crate::{
     commands::{
-        document_target::{Kind, TargetOptions},
+        document::target::{Kind, TargetOptions},
         text_input,
     },
     config::ChildEnvOverlay,

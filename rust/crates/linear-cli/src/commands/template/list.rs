@@ -13,7 +13,7 @@ use cynic::QueryBuilder;
 use crate::auth::CredentialStore;
 use crate::commands::client;
 use crate::commands::display::{display_width, pad, truncate_text};
-use crate::commands::template_json;
+use crate::commands::template::json as template_json;
 use crate::config::{ConfigOptions, TransportEnvInputs};
 use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;

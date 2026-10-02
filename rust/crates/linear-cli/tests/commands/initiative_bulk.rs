@@ -1,8 +1,9 @@
+use linear_cli::commands::bulk::{BulkInput, BulkOutcome};
 use linear_cli::{
     auth::ApiKeyInput,
     commands::{
-        initiative_bulk::{self as command, BulkInput, BulkOutcome, Mode, Target},
-        initiative_view::Reference,
+        initiative::bulk::{self as command, Mode, Target},
+        initiative::view::Reference,
     },
     graphql::transport::{
         ApiKey, Deadline, EndpointUrl, GraphQlTransport, ResponseCap, TransportConfig,
@@ -171,7 +172,11 @@ fn bulk_ids_split_on_commas_and_whitespace_with_ordered_dedupe() {
         stdin: true,
     };
     assert_eq!(
-        command::collect_ids(&input, &mut "B Stdin\u{3000}Joined,A\nC".as_bytes()).unwrap(),
+        linear_cli::commands::bulk::collect_ids(
+            &input,
+            &mut "B Stdin\u{3000}Joined,A\nC".as_bytes()
+        )
+        .unwrap(),
         vec!["A", " Raw, argv ", "File", "Joined", "B", "Stdin", "C"]
     );
     assert!(input.requested());
@@ -191,7 +196,7 @@ fn each_invalid_input_rejects_valid_neighbors_before_any_ids_are_returned() {
     let file = dir.join("ids.bin");
     std::fs::write(&file, [uuid(1).as_bytes(), b",\xff"].concat()).unwrap();
     let argv = vec![uuid(2)];
-    let error = command::collect_ids(
+    let error = linear_cli::commands::bulk::collect_ids(
         &BulkInput {
             argv: Some(&argv),
             file: Some(&file),
@@ -202,7 +207,7 @@ fn each_invalid_input_rejects_valid_neighbors_before_any_ids_are_returned() {
     .unwrap_err();
     assert!(error.message().contains("Bulk file must be valid UTF-8"));
     let stdin = [uuid(1).as_bytes(), b",\xfe"].concat();
-    let error = command::collect_ids(
+    let error = linear_cli::commands::bulk::collect_ids(
         &BulkInput {
             argv: Some(&argv),
             file: None,
@@ -214,7 +219,7 @@ fn each_invalid_input_rejects_valid_neighbors_before_any_ids_are_returned() {
     assert_eq!(error.message(), "Bulk stdin must be valid UTF-8");
     let missing = dir.join("missing");
     assert_eq!(
-        command::collect_ids(
+        linear_cli::commands::bulk::collect_ids(
             &BulkInput {
                 argv: None,
                 file: Some(&missing),

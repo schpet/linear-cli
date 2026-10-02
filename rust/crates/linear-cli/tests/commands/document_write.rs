@@ -1,7 +1,7 @@
 use linear_cli::{
     commands::{
-        document_target::{Kind, TargetOptions},
-        document_write as command,
+        document::target::{Kind, TargetOptions},
+        document::write as command,
     },
     platform::{
         prompt::{PromptKey, PromptOutcome, PromptSession},

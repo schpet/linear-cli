@@ -1,6 +1,6 @@
 //! Response MIME failures preserve each source catch and already-sent effect stage.
 use linear_cli::commands::{
-    initiative_bulk as bulk, initiative_view::Reference, issue::update as issue_update,
+    initiative::bulk, initiative::view::Reference, issue::update as issue_update,
 };
 use serde_json::{Value, json};
 const ID: &str = "00000000-0000-4000-8000-000000000001";
@@ -70,7 +70,7 @@ async fn bulk_mutation_text_failure_retains_sent_unknown_effect_and_continues_ot
     assert_eq!(rows[0].name, None);
     assert!(!rows[0].succeeded());
     assert!(rows[1].succeeded());
-    let bulk::BulkOutcome::Failed(message) = &rows[0].outcome else {
+    let linear_cli::commands::bulk::BulkOutcome::Failed(message) = &rows[0].outcome else {
         panic!("failed row required")
     };
     assert_eq!(

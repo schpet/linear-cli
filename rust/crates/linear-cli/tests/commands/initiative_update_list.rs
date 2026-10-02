@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use linear_cli::commands::initiative_update_list::{
+use linear_cli::commands::initiative_update::list::{
     graphql_int, render_json, render_text, request,
 };
 use linear_cli::graphql::envelope::parse_response;

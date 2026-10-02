@@ -5,7 +5,7 @@ use std::future::ready;
 use std::rc::Rc;
 
 use linear_cli::cli::{Cli, RootCommand};
-use linear_cli::commands::milestone_list::{CONTEXT, render_text, request, run_with};
+use linear_cli::commands::milestone::list::{CONTEXT, render_text, request, run_with};
 use linear_cli::error::Error;
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::milestones::{

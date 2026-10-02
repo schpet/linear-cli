@@ -4,7 +4,7 @@ use std::net::TcpListener;
 use std::thread;
 use std::time::Duration;
 
-use linear_cli::commands::initiative_list::{
+use linear_cli::commands::initiative::list::{
     opening, render_json, render_text, run, status_filter, validate_owner,
 };
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};

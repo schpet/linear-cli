@@ -1,6 +1,6 @@
 //! Concurrent app integration and raw-error gate remain explicit.
 use crate::{
-    commands::initiative_bulk::{BulkOutcome, BulkResult},
+    commands::bulk::{BulkOutcome, BulkResult},
     graphql::{envelope::GraphQlRequest, operations::document_delete::*},
 };
 use cynic::{MutationBuilder, QueryBuilder};
@@ -66,7 +66,7 @@ pub fn summary(results: &[BulkResult]) -> (Vec<u8>, bool) {
     (out.into_bytes(), failed > 0)
 }
 
-use crate::commands::initiative_bulk::Progress;
+use crate::commands::bulk::Progress;
 use crate::{
     error::Error,
     graphql::{bulk_error, transport::GraphQlTransport},

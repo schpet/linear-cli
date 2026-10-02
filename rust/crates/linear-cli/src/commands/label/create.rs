@@ -189,7 +189,7 @@ pub async fn submit(
         .execute(&request(options, team_id)?)
         .await
         .map_err(|failure| {
-            let uncertain = super::milestone_create::outcome_unknown(&failure);
+            let uncertain = crate::commands::milestone::create::outcome_unknown(&failure);
             let mut error = Error::from(failure);
             if uncertain {
                 error.push_message("; label may already exist");

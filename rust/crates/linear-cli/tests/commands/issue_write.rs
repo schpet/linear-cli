@@ -601,7 +601,7 @@ fn issue_and_project_templates_share_scope_rules_with_exact_project_regression()
     use linear_cli::{
         commands::{
             issue::template_scope::{self as issue_template_scope, TemplateScope},
-            project_write,
+            project::write as project_write,
         },
         graphql::operations::templates::Template,
     };

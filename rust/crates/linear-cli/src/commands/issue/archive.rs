@@ -1,7 +1,7 @@
 //! `issue archive`/`delete`, single or bulk.
 use crate::{
     cli::issue::{IssueArchive, IssueDelete},
-    commands::initiative_bulk::{self, BulkInput, BulkOutcome, BulkResult, Progress},
+    commands::bulk::{BulkInput, BulkOutcome, BulkResult, Progress},
     commands::team_key::configured_team_key,
     ctx::Ctx,
     error::{Error, Result, ResultExt},
@@ -87,7 +87,7 @@ fn run(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
 }
 
 fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
-    let ids = initiative_bulk::collect_ids(&request.bulk, &mut std::io::stdin().lock())?;
+    let ids = crate::commands::bulk::collect_ids(&request.bulk, &mut std::io::stdin().lock())?;
     if ids.is_empty() {
         return Err(Error::new(format!(
             "No issue identifiers provided for bulk {}",
@@ -118,7 +118,7 @@ fn run_bulk(ctx: &Ctx, mode: Mode, request: &Request<'_>) -> Result<()> {
         Ok(())
     }))?;
     if show_progress {
-        ctx.eprint(initiative_bulk::PROGRESS_CLEAR)?;
+        ctx.eprint(crate::commands::bulk::PROGRESS_CLEAR)?;
     }
     let (output, failed) = summary(&results, mode);
     ctx.print(output)?;

@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::future::ready;
 use std::rc::Rc;
 
-use linear_cli::commands::user_list::run_with;
+use linear_cli::commands::user::list::run_with;
 use linear_cli::graphql::envelope::parse_response;
 use linear_cli::graphql::operations::organization_members::GetOrganizationMembers;
 use serde_json::{Value, json};

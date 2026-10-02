@@ -1,6 +1,6 @@
 //! `initiative update`: resolve the initiative, apply flag or prompted fields, one mutation.
 use crate::{
-    commands::{initiative_list::select_owner, initiative_view::Reference},
+    commands::{initiative::list::select_owner, initiative::view::Reference},
     error::Error,
     graphql::{
         bulk_error,

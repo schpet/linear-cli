@@ -6,7 +6,7 @@ use std::future::{Ready, ready};
 use std::path::PathBuf;
 
 use linear_cli::auth::{ApiKeyInput, CredentialStore, parse_credentials};
-use linear_cli::commands::template_list::{
+use linear_cli::commands::template::list::{
     Options, TemplateType, prepare, render_text, request, run_with,
 };
 use linear_cli::config::{

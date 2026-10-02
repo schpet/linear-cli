@@ -1,10 +1,8 @@
 //! Public command boundaries with captured local wire requests; no real API writes.
+use linear_cli::commands::bulk::{BulkInput, BulkOutcome};
 use linear_cli::{
     auth::ApiKeyInput,
-    commands::{
-        initiative_bulk::{self, BulkInput, BulkOutcome},
-        issue::archive::{self as command, Mode, Target},
-    },
+    commands::issue::archive::{self as command, Mode, Target},
     graphql::{
         bulk_error,
         transport::{
@@ -129,7 +127,7 @@ fn mutation(mode: Mode, success: Value) -> Reply {
         Mode::Delete => json!({"data":{"issueDelete":{"success":success}}}),
     })
 }
-fn failure(row: &initiative_bulk::BulkResult) -> &str {
+fn failure(row: &linear_cli::commands::bulk::BulkResult) -> &str {
     match &row.outcome {
         BulkOutcome::Failed(message) => message,
         BulkOutcome::Succeeded => panic!("expected failure"),
@@ -213,14 +211,14 @@ fn bulk_ids_reject_invalid_utf8_and_split_on_commas_and_whitespace() {
         stdin: true,
     };
     assert!(
-        initiative_bulk::collect_ids(&input, &mut &b"ENG-2,\xff"[..])
+        linear_cli::commands::bulk::collect_ids(&input, &mut &b"ENG-2,\xff"[..])
             .unwrap_err()
             .message()
             .starts_with("Bulk file must be valid UTF-8")
     );
     std::fs::write(&file, "\u{feff}ENG-1,ENG-2\n ENG-1\tjoined\n").unwrap();
     assert_eq!(
-        initiative_bulk::collect_ids(
+        linear_cli::commands::bulk::collect_ids(
             &BulkInput {
                 argv: None,
                 file: Some(&file),
@@ -237,7 +235,7 @@ fn bulk_ids_reject_invalid_utf8_and_split_on_commas_and_whitespace() {
         stdin: true,
     };
     assert_eq!(
-        initiative_bulk::collect_ids(&strict_stdin, &mut &b"\xff"[..])
+        linear_cli::commands::bulk::collect_ids(&strict_stdin, &mut &b"\xff"[..])
             .unwrap_err()
             .message(),
         "Bulk stdin must be valid UTF-8"
@@ -432,7 +430,7 @@ async fn single_paths_preserve_source_display_false_errors_and_resolved_mutation
 }
 #[test]
 fn failed_summary_preserves_multiline_raw_messages_and_source_verbs() {
-    let row = initiative_bulk::BulkResult {
+    let row = linear_cli::commands::bulk::BulkResult {
         id: "Original".to_owned(),
         name: None,
         outcome: BulkOutcome::Failed("raw\r\nSDK metadata".to_owned()),

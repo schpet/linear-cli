@@ -21,7 +21,7 @@ use crate::auth::CredentialStore;
 use crate::commands::client;
 use crate::commands::prosemirror;
 use crate::commands::relative_time::format_relative_time;
-use crate::commands::{template_json, template_list};
+use crate::commands::template::{json as template_json, list as template_list};
 use crate::config::{ConfigOptions, TransportEnvInputs};
 use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::GraphQlRequest;

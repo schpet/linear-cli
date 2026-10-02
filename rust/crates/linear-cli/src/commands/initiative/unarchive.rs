@@ -1,5 +1,5 @@
 //! `initiative unarchive`: find the archived initiative by id, slug or name, then restore it.
-use crate::commands::initiative_view::{FETCH_CONTEXT, RESOLVE_CONTEXT, Reference};
+use crate::commands::initiative::view::{FETCH_CONTEXT, RESOLVE_CONTEXT, Reference};
 use crate::error::{Error, ResultExt};
 use crate::graphql::envelope::{GraphQlRequest, ResponseError};
 use crate::graphql::operations::initiative_unarchive::{

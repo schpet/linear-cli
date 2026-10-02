@@ -1,6 +1,6 @@
 //! `project create`: fields from flags or prompts, then one mutation.
 use crate::{
-    commands::project_write as shared,
+    commands::project::write as shared,
     error::Error,
     graphql::{
         bulk_error,

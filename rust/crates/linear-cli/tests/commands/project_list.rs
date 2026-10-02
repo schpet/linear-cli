@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::time::UNIX_EPOCH;
 
 use cynic::QueryBuilder;
-use linear_cli::commands::project_list::{
+use linear_cli::commands::project::list::{
     Options, check_conflicting_flags, filter, opening, render_text, run_with,
 };
 use linear_cli::graphql::envelope::{GraphQlRequest, ResponseError, parse_response};

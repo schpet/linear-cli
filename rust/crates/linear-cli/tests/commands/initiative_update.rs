@@ -1,5 +1,5 @@
 use linear_cli::{
-    commands::initiative_update::{self as command, Fields},
+    commands::initiative::update::{self as command, Fields},
     graphql::operations::initiative_update::CurrentInitiative,
     platform::{
         prompt::{PlainOption, PlainSelect, PromptOutcome, PromptSession},
@@ -192,7 +192,7 @@ fn cr_submission_never_peeks_before_printing_next_text_or_select() {
 
 #[tokio::test]
 async fn ordered_lookups_details_and_owner_selection_preserve_requests() {
-    use linear_cli::commands::initiative_view::Reference;
+    use linear_cli::commands::initiative::view::Reference;
     let (transport,worker)=super::project_write_server::serve(vec![json!({"errors":[{"message":"slug unavailable"}]}).to_string(),json!({"data":{"initiatives":{"nodes":[{"id":"first","name":"First"},{"id":"second","name":"Second"}]}}}).to_string(),json!({"data":{"initiative":json!({"id":"other","slugId":"slug","name":" raw 界 ","description":null,"status":"planned","targetDate":null,"color":null,"icon":null,"owner":null})}}).to_string(),json!({"data":{"users":{"nodes":[{"id":"display","email":"other","displayName":"Owner","name":"First"},{"id":"email","email":"OWNER","displayName":"Different","name":"Second"}]}}}).to_string()]);
     let id = command::resolve(
         &transport,
@@ -320,7 +320,9 @@ async fn full_decode_before_false_and_only_boolean_true_confirms_mutation() {
 
 #[tokio::test]
 async fn shared_owner_list_and_create_keep_selection_and_friendly_error_policy() {
-    use linear_cli::commands::{initiative_create, initiative_list};
+    use linear_cli::commands::{
+        initiative::create as initiative_create, initiative::list as initiative_list,
+    };
     let reply = json!({"data":{"users":{"nodes":[
         {"id":"first","email":"other","displayName":"Owner","name":"First"},
         {"id":"winner","email":"OWNER","displayName":"Different","name":"Later"}

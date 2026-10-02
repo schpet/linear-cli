@@ -1,5 +1,5 @@
 use cynic::{MutationBuilder, QueryBuilder};
-use linear_cli::commands::{initiative_unarchive as command, initiative_view::Reference};
+use linear_cli::commands::{initiative::unarchive as command, initiative::view::Reference};
 use linear_cli::graphql::envelope::{GraphQlRequest, parse_response};
 use linear_cli::graphql::operations::initiative_unarchive::*;
 use linear_cli::graphql::transport::{
