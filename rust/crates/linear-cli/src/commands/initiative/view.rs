@@ -14,7 +14,6 @@ use crate::graphql::operations::initiative_view::{
 use crate::graphql::operations::initiatives::{InitiativeStatus, InitiativeUpdateHealthType};
 use crate::graphql::operations::projects::ProjectStatusType;
 use crate::graphql::transport::GraphQlTransport;
-use crate::refs::{self, WorkspaceScope};
 
 pub fn run(ctx: &Ctx, args: &InitiativeView) -> Result<()> {
     view(ctx, args).context("Failed to view initiative")
@@ -256,21 +255,4 @@ fn markdown(detail: &InitiativeDetails, now: DateTime<Utc>, terminal: bool) -> S
         }
     }
     lines.join("\n")
-}
-
-// The `initiative-update` commands resolve initiatives through these.
-pub use crate::refs::InitiativeReference as Reference;
-
-/// Kept for the `initiative-update` commands until they use `refs` directly.
-pub fn prepare_reference(input: &str, scope: &WorkspaceScope<'_>) -> Result<Reference> {
-    refs::prepare_initiative_lookup(input, scope)
-}
-
-/// Kept for the `initiative-update` commands until they use `refs` directly.
-pub async fn resolve_reference(
-    transport: &GraphQlTransport,
-    reference: &Reference,
-    original: &str,
-) -> Result<String> {
-    refs::resolve_initiative_with_transport(reference, original, transport).await
 }

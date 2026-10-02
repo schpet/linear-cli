@@ -9,14 +9,6 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-pub fn serve(replies: Vec<String>) -> (GraphQlTransport, thread::JoinHandle<Vec<Value>>) {
-    serve_with_content_types(
-        replies
-            .into_iter()
-            .map(|body| (Some("application/json"), body))
-            .collect(),
-    )
-}
 pub fn serve_with_content_types(
     replies: Vec<(Option<&'static str>, String)>,
 ) -> (GraphQlTransport, thread::JoinHandle<Vec<Value>>) {

@@ -15,8 +15,6 @@ use crate::graphql::transport::{GraphQlTransport, TransportFailure};
 use crate::platform::prompt::{PromptOutcome, PromptSession};
 use crate::refs::{reject_comment_url, reject_linear_url};
 
-/// Prefix for every `comment add` failure.
-pub const CONTEXT: &str = "Failed to add comment";
 pub const PROMPT_MESSAGE: &str = "Comment body";
 
 /// Linear requires exactly one target even for replies.

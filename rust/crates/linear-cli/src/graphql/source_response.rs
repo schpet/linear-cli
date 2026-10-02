@@ -41,16 +41,15 @@ impl SourceResponse {
         }
     }
     pub(crate) fn invalid_execution_message(&self) -> String {
-        invalid_execution(&self.text)
+        format!(
+            "Invalid execution result: result is not object or array. \nGot:\n{}",
+            self.text
+        )
     }
 }
 
-pub(crate) fn invalid_execution(text: &str) -> String {
-    format!("Invalid execution result: result is not object or array. \nGot:\n{text}")
-}
-
-/// Single source MIME predicate, including the caught project-join class helper.
-pub(crate) fn has_json_mime(headers: &reqwest::header::HeaderMap) -> bool {
+/// Whether any Content-Type header names a JSON media type.
+fn has_json_mime(headers: &reqwest::header::HeaderMap) -> bool {
     headers
         .get_all(reqwest::header::CONTENT_TYPE)
         .iter()

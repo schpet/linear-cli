@@ -16,13 +16,11 @@ use serde_json::Value;
 
 pub enum BulkExchangeFailure {
     Strict(Error),
-    Ordinary(String),
 }
 impl BulkExchangeFailure {
     pub fn into_error(self) -> Error {
         match self {
             Self::Strict(error) => error,
-            Self::Ordinary(message) => Error::new(message),
         }
     }
 }
@@ -94,14 +92,6 @@ struct RequestMetadata<'a> {
 struct Metadata<'a> {
     response: ResponseMetadata<'a>,
     request: RequestMetadata<'a>,
-}
-/// Observe the same captured response; never repeat an exchange or change its limits.
-pub fn source_error<V: Serialize>(
-    response: &RawHttpResponse,
-    request: &GraphQlRequest<V>,
-) -> Result<Option<String>, BulkExchangeFailure> {
-    let source = super::source_response::SourceResponse::classify(response);
-    source_error_classified(response, request, &source)
 }
 fn source_error_classified<V: Serialize>(
     response: &RawHttpResponse,
@@ -195,27 +185,6 @@ fn source_error_classified<V: Serialize>(
         )
     })?;
     Ok(Some(format!("{first}: {serialized}")))
-}
-pub async fn execute<T: DeserializeOwned, V: Serialize>(
-    transport: &GraphQlTransport,
-    request: &GraphQlRequest<V>,
-) -> Result<T, BulkExchangeFailure> {
-    let response = transport
-        .send_request(request)
-        .await
-        .map_err(|e| BulkExchangeFailure::Ordinary(Error::from(e).to_string()))?;
-    let source = super::source_response::SourceResponse::classify(&response);
-    let message = source_error_classified(&response, request, &source)?;
-    let result = super::transport::classify_typed(response);
-    if let Some(message) = message {
-        return Err(BulkExchangeFailure::Ordinary(message));
-    }
-    result.map_err(|error| match error {
-        TransportFailure::Response(_) | TransportFailure::RequestBody(_) => {
-            BulkExchangeFailure::Strict(Error::from(error))
-        }
-        other => BulkExchangeFailure::Ordinary(Error::from(other).to_string()),
-    })
 }
 
 /// Opt-in source exception class; ordinary transport and old callers stay unchanged.
@@ -322,19 +291,8 @@ pub async fn execute_observed<T: DeserializeOwned, V: Serialize>(
         })
     })?;
     let source = super::source_response::SourceResponse::classify(&response);
-    let observation =
-        observe_source_error_classified(&response, request, &source).map_err(|failure| {
-            match failure {
-                BulkExchangeFailure::Strict(error) => ObservedExchangeFailure::Strict(error),
-                BulkExchangeFailure::Ordinary(message) => {
-                    ObservedExchangeFailure::Ordinary(SourceException {
-                        kind: SourceExceptionKind::Plain,
-                        message,
-                        preferred_message: None,
-                    })
-                }
-            }
-        })?;
+    let observation = observe_source_error_classified(&response, request, &source)
+        .map_err(|BulkExchangeFailure::Strict(error)| ObservedExchangeFailure::Strict(error))?;
     if let Some(error) = observation {
         return Err(ObservedExchangeFailure::Ordinary(error));
     }

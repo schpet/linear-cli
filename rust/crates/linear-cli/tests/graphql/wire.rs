@@ -199,12 +199,12 @@ fn edit_refuses_deserialization_so_a_missing_field_can_never_become_clear() {
 }
 
 #[test]
-fn edit_helpers_map_option_and_default_to_unchanged() {
+fn edit_helpers_convert_options_and_default_to_unchanged() {
     assert_eq!(Edit::<i32>::default(), Edit::Unchanged);
     assert_eq!(Edit::set_or_clear(None::<i32>), Edit::Clear);
     assert_eq!(Edit::set_or_clear(Some(1)), Edit::Set(1));
     assert_eq!(Edit::set_or_unchanged(None::<i32>), Edit::Unchanged);
-    assert_eq!(Edit::from(2).map(|value| value + 1), Edit::Set(3));
+    assert_eq!(Edit::from(2), Edit::Set(2));
     assert!(Edit::<i32>::Unchanged.is_unchanged());
     assert!(!Edit::<i32>::Clear.is_unchanged());
 }

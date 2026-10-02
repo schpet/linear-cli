@@ -67,15 +67,6 @@ impl<T> Edit<T> {
             None => Self::Unchanged,
         }
     }
-
-    /// Maps the set value, preserving the other two states.
-    pub fn map<U>(self, map: impl FnOnce(T) -> U) -> Edit<U> {
-        match self {
-            Self::Unchanged => Edit::Unchanged,
-            Self::Clear => Edit::Clear,
-            Self::Set(value) => Edit::Set(map(value)),
-        }
-    }
 }
 
 // A derived `Default` would add a `T: Default` bound, which scalar newtypes

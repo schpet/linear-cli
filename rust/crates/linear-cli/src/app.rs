@@ -1,6 +1,5 @@
 //! The process entry point: load configuration, build the [`Ctx`], run the
 //! selected command and report its error.
-pub(crate) mod legacy;
 
 use std::error::Error as StdError;
 
@@ -59,7 +58,6 @@ fn run(cli: Cli, settings: &mut DisplaySettings) -> Result<()> {
     let env = |name| process.inputs.env(name);
     let ctx = Ctx::new(CtxInit {
         config,
-        debug: report.settings.debug,
         workspace,
         cwd,
         terminal,

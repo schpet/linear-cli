@@ -24,16 +24,6 @@ pub struct PreparedTeamLookup {
     lookup: String,
 }
 
-impl PreparedTeamLookup {
-    pub fn original(&self) -> &str {
-        &self.original
-    }
-
-    pub fn lookup(&self) -> &str {
-        &self.lookup
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedTeam {
     pub id: String,

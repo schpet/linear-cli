@@ -106,10 +106,6 @@ impl Error {
         self.debug_detail.as_deref()
     }
 
-    pub fn has_context(&self) -> bool {
-        !self.context.is_empty()
-    }
-
     /// Prefix the message with `context`, outermost last added.
     pub fn context(mut self, context: impl Into<String>) -> Self {
         self.context.insert(0, context.into());

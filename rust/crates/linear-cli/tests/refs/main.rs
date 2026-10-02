@@ -1,7 +1,4 @@
-use linear_cli::auth::keyring::UnsupportedKeyringReader;
-use linear_cli::auth::{
-    ApiKeyInput, CredentialManifest, CredentialSelectionInputs, CredentialStore,
-};
+use linear_cli::auth::{ApiKeyInput, CredentialSelectionInputs};
 use linear_cli::config::{ConfigSecret, OptionSource};
 use linear_cli::refs::{
     CycleSelector, LinearUrlParse, LinearUrlRef, WorkspaceScope, expect_team_url, parse_linear_url,
@@ -62,7 +59,7 @@ fn assert_url_error(name: &str, scope: &WorkspaceScope<'_>) {
     let (message, suggestion) = expected_error(&spec);
     assert_eq!(error.message(), message, "{}", spec["id"]);
     assert_eq!(error.hint(), suggestion, "{}", spec["id"]);
-    assert!(!error.has_context(), "{}", spec["id"]);
+    assert_eq!(error.to_string(), error.message(), "{}", spec["id"]);
 }
 
 fn assert_url_prepared(name: &str, scope: &WorkspaceScope<'_>) {
@@ -336,17 +333,13 @@ fn workspace_names_are_trimmed_and_case_folded() {
 }
 
 #[test]
-fn scope_borrows_existing_credential_selection_inputs() {
-    let store = CredentialStore::new(
-        CredentialManifest::empty(),
-        Box::new(UnsupportedKeyringReader),
-    );
+fn scope_uses_the_sourced_workspace() {
     let inputs = CredentialSelectionInputs {
         api_key: ApiKeyInput::Absent,
         cli_workspace: None,
         sourced_workspace: Some(("acme", OptionSource::Env)),
     };
-    let scope = WorkspaceScope::from_selection(&inputs, &store);
+    let scope = WorkspaceScope::new(inputs, None);
     let error = expect_team_url("https://linear.app/foreign/team/eng", &scope)
         .err()
         .unwrap_or_else(|| panic!("sourced workspace mismatch"));

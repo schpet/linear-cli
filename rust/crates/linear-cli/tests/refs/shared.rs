@@ -15,7 +15,7 @@ fn url_guard_rejects_known_and_unsupported_urls_without_workspace_selection() {
             format!("\"{input}\" is a Linear URL, and this command does not take one.")
         );
         assert_eq!(error.hint(), Some("Pass a template name or UUID."));
-        assert!(!error.has_context());
+        assert_eq!(error.to_string(), error.message());
     }
     for input in [
         "A template",

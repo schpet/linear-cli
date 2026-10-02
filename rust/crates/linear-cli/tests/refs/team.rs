@@ -54,7 +54,7 @@ fn assert_error(spec: &Value, error: &Error, kind: ErrorKind) {
     assert_eq!(error.kind(), kind, "{}", spec["id"]);
     assert_eq!(error.message(), message, "{}", spec["id"]);
     assert_eq!(error.hint(), suggestion, "{}", spec["id"]);
-    assert!(!error.has_context(), "{}", spec["id"]);
+    assert_eq!(error.to_string(), error.message(), "{}", spec["id"]);
 }
 
 fn unexpected_all(
@@ -338,7 +338,7 @@ async fn repeated_cursor_fails_without_partial_result() {
             "Linear repeated a team pagination cursor on page 2"
         );
         assert_eq!(error.hint(), Some("Retry the command."));
-        assert!(!error.has_context());
+        assert_eq!(error.to_string(), error.message());
     }
 }
 
@@ -384,7 +384,7 @@ async fn later_page_failure_passes_through_without_partial_result() {
     .unwrap_or_else(|| panic!("later page should fail"));
     assert_eq!(calls, 2);
     assert_eq!(error.message(), "later page failed");
-    assert!(!error.has_context());
+    assert_eq!(error.to_string(), error.message());
 }
 
 #[tokio::test]
@@ -396,7 +396,7 @@ async fn malformed_team_decode_fails_strictly_without_context() {
         .err()
         .unwrap_or_else(|| panic!("Cynic should reject null key"));
     let app = Error::from(failure);
-    assert!(!app.has_context());
+    assert_eq!(app.to_string(), app.message());
 
     for (label, body) in [
         (
@@ -429,5 +429,5 @@ async fn malformed_team_decode_fails_strictly_without_context() {
         .err()
         .unwrap_or_else(|| panic!("decode failure should pass through"));
     assert_eq!(error.message(), original_message);
-    assert!(!error.has_context());
+    assert_eq!(error.to_string(), error.message());
 }

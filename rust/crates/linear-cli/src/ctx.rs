@@ -51,7 +51,6 @@ impl Terminal {
 
 pub struct Ctx {
     config: StartupConfig,
-    debug: bool,
     workspace: Option<String>,
     cwd: PathBuf,
     terminal: Terminal,
@@ -64,7 +63,6 @@ pub struct Ctx {
 
 pub struct CtxInit {
     pub config: StartupConfig,
-    pub debug: bool,
     /// The global `--workspace` flag.
     pub workspace: Option<String>,
     pub cwd: PathBuf,
@@ -82,7 +80,6 @@ impl Ctx {
             })?;
         Ok(Self {
             config: init.config,
-            debug: init.debug,
             workspace: init.workspace,
             cwd: init.cwd,
             terminal: init.terminal,
@@ -109,10 +106,6 @@ impl Ctx {
 
     pub fn cwd(&self) -> &Path {
         &self.cwd
-    }
-
-    pub fn debug(&self) -> bool {
-        self.debug
     }
 
     pub fn terminal(&self) -> Terminal {

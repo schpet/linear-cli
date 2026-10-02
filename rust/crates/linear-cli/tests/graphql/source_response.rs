@@ -44,7 +44,8 @@ fn source_json_substring_domain_and_fetch_text_are_shared_by_all_three_consumers
             )
         };
         assert!(
-            bulk_error::source_error(&raw(), &request())
+            bulk_error::observe_source_error(&raw(), &request())
+                .map(|observed| observed.map(|error| error.message))
                 .map_err(BulkExchangeFailure::into_error)
                 .unwrap()
                 .is_none()
@@ -81,7 +82,8 @@ fn non_json_mime_never_extracts_errors_from_json_looking_text() {
             Err(TransportFailure::GraphQl { .. })
         ));
         assert_eq!(
-            bulk_error::source_error(&raw(), &request())
+            bulk_error::observe_source_error(&raw(), &request())
+                .map(|observed| observed.map(|error| error.message))
                 .map_err(BulkExchangeFailure::into_error)
                 .unwrap(),
             Some(want.clone())
@@ -128,7 +130,8 @@ fn malformed_json_success_remains_strict_and_non_success_retains_client_body() {
                     Err(TransportFailure::Response(ResponseError::MalformedJson(_)))
                 ));
                 assert!(matches!(
-                    bulk_error::source_error(&raw(), &request()),
+                    bulk_error::observe_source_error(&raw(), &request())
+                        .map(|observed| observed.map(|error| error.message)),
                     Err(BulkExchangeFailure::Strict(_))
                 ));
                 assert!(matches!(
@@ -178,7 +181,8 @@ fn graphql_client_metadata_keeps_raw_prefix_body_order_numbers_and_handled_prefe
             }
         ));
         assert_eq!(ordinary.to_string(), "Friendly");
-        let original = bulk_error::source_error(&raw(), &request())
+        let original = bulk_error::observe_source_error(&raw(), &request())
+            .map(|observed| observed.map(|error| error.message))
             .map_err(BulkExchangeFailure::into_error)
             .unwrap()
             .unwrap();

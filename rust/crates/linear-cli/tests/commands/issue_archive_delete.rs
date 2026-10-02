@@ -184,11 +184,6 @@ fn observer_classifies_only_client_errors_and_first_preferred_message() {
             .unwrap()
             .unwrap();
         assert_eq!(observed.is_not_found(), expected, "{status} {mime} {body}");
-        assert_eq!(
-            Some(observed.message),
-            bulk_error::source_error(&response, &request).ok().unwrap(),
-            "opt-in observer must preserve SDK bytes"
-        );
     }
 }
 #[test]
@@ -461,7 +456,8 @@ async fn single_client_errors_preserve_empty_first_and_non_json_raw_sdk_fallback
                 headers,
                 body: body.as_bytes().to_vec(),
             };
-            let expected = bulk_error::source_error(&response, &request)
+            let expected = bulk_error::observe_source_error(&response, &request)
+                .map(|observed| observed.map(|error| error.message))
                 .ok()
                 .unwrap()
                 .unwrap();

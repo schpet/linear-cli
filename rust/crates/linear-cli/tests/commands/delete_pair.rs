@@ -1,9 +1,7 @@
-use linear_cli::{
-    graphql::{
-        bulk_error::{self, BulkExchangeFailure},
-        envelope::GraphQlRequest,
-        transport::RawHttpResponse,
-    },
+use linear_cli::graphql::{
+    bulk_error::{self, BulkExchangeFailure},
+    envelope::GraphQlRequest,
+    transport::RawHttpResponse,
 };
 use serde_json::{Value, json};
 fn response(status: u16, mime: &str, body: &str) -> RawHttpResponse {
@@ -24,10 +22,11 @@ fn bulk_delete_request(id: &str) -> GraphQlRequest<Value> {
     }
 }
 fn message(status: u16, mime: &str, body: &str) -> Result<Option<String>, BulkExchangeFailure> {
-    bulk_error::source_error(
+    bulk_error::observe_source_error(
         &response(status, mime, body),
         &bulk_delete_request("error-uuid"),
     )
+    .map(|observed| observed.map(|error| error.message))
 }
 #[test]
 fn compiled_bulk_request_and_full_source_error_are_byte_exact() {
@@ -123,7 +122,8 @@ fn raw_bulk_error_body_matches_source_fetch_utf8_replacement_and_bom_removal() {
     ] {
         let mut raw = response(200, "application/json", "");
         raw.body = body;
-        let actual = bulk_error::source_error(&raw, &request)
+        let actual = bulk_error::observe_source_error(&raw, &request)
+            .map(|observed| observed.map(|error| error.message))
             .ok()
             .unwrap()
             .unwrap();

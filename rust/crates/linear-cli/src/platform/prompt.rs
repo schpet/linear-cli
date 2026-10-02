@@ -959,16 +959,6 @@ impl<R: Read, W: Write> PromptSession<R, W> {
 }
 
 impl<W: Write> PromptSession<io::Stdin, W> {
-    /// Confirmation is gated by stdin alone. Use a terminal whose attended
-    /// check follows stdin, even when both output streams are redirected.
-    pub fn confirmation_stdio(writer: W) -> Result<Self, Error> {
-        if !io::stdin().is_terminal() {
-            return Err(Error::new("Interactive confirmation required")
-                .with_hint("Use --force to skip confirmation."));
-        }
-        Self::attended(writer, attended_key)
-    }
-
     /// Choose attended keys or the script protocol from stdin alone. The caller
     /// controls prompt eligibility; stdout and CI do not affect this constructor.
     pub fn stdin_stdio(writer: W) -> Result<Self, Error> {
@@ -979,8 +969,8 @@ impl<W: Write> PromptSession<io::Stdin, W> {
         }
     }
 
-    /// Ungated stdin-owned prompts with CR-or-LF script framing. Output topology
-    /// does not select the attended decoder; older constructors are unchanged.
+    /// Like [`Self::stdin_stdio`], but a scripted CR submits immediately and a
+    /// following LF is skipped.
     pub fn stdin_stdio_cr_or_lf(writer: W) -> Result<Self, Error> {
         let mut session = Self::stdin_stdio(writer)?;
         session.framing = ScriptFraming::CrOrLf;
@@ -997,54 +987,12 @@ impl<W: Write> PromptSession<io::Stdin, W> {
             })
             .unwrap_or((80, 24));
         let mut session = Self::keys(writer, columns, rows, next_key)?;
-        session.raw = Some(RawPrompt::enter_attended()?);
-        Ok(session)
-    }
-
-    /// A terminal session where CR submits; the caller decides whether stdout permits prompting.
-    pub fn stdio_cr_or_lf(writer: W) -> Result<Self, Error> {
-        let mut session = Self::stdio(writer)?;
-        session.framing = ScriptFraming::CrOrLf;
-        Ok(session)
-    }
-
-    /// A terminal session without the search selector's CI or
-    /// stdin-TTY gate. The command must decide whether stdout permits prompts.
-    pub fn stdio(writer: W) -> Result<Self, Error> {
-        if !io::stdin().is_terminal() {
-            return Ok(Self::script(io::stdin(), writer));
-        }
-        let term = console::Term::stdout();
-        let (columns, rows) = terminal_size::terminal_size_of(io::stdout())
-            .map(|(terminal_size::Width(w), terminal_size::Height(h))| {
-                (usize::from(w), usize::from(h))
-            })
-            .unwrap_or((80, 24));
-        let mut session = Self::keys(writer, columns, rows, move || match term.read_key_raw() {
-            Ok(console::Key::Char(character)) => Ok(PromptKey::Character(character)),
-            Ok(console::Key::Backspace) => Ok(PromptKey::Backspace),
-            Ok(console::Key::Del) => Ok(PromptKey::Delete),
-            Ok(console::Key::ArrowLeft) => Ok(PromptKey::Left),
-            Ok(console::Key::ArrowRight) => Ok(PromptKey::Right),
-            Ok(console::Key::ArrowUp) => Ok(PromptKey::Up),
-            Ok(console::Key::ArrowDown) => Ok(PromptKey::Down),
-            Ok(console::Key::PageUp) => Ok(PromptKey::PageUp),
-            Ok(console::Key::PageDown) => Ok(PromptKey::PageDown),
-            Ok(console::Key::Home) => Ok(PromptKey::Home),
-            Ok(console::Key::End) => Ok(PromptKey::End),
-            Ok(console::Key::Enter) => Ok(PromptKey::Enter),
-            Ok(console::Key::CtrlC) => Ok(PromptKey::Interrupt),
-            Ok(_) => Ok(PromptKey::Other),
-            Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => Ok(PromptKey::EndOfInput),
-            Err(error) => Err(error),
-        })?;
         session.raw = Some(RawPrompt::enter()?);
         Ok(session)
     }
 }
 
 /// Read input independently of output using the maintained platform decoder.
-/// The existing stdio constructor keeps its console key source.
 fn attended_key() -> io::Result<PromptKey> {
     use crossterm::event::Event;
     loop {
@@ -1277,10 +1225,6 @@ struct RawPrompt {
 
 #[cfg(unix)]
 impl RawPrompt {
-    fn enter_attended() -> Result<Self, Error> {
-        Self::enter()
-    }
-
     fn enter() -> Result<Self, Error> {
         use rustix::termios::{OptionalActions, tcgetattr, tcsetattr};
         let input = io::stdin();
@@ -1347,33 +1291,20 @@ pub fn escaped_display(value: &str) -> String {
 
 #[cfg(not(unix))]
 struct RawPrompt {
-    confirmation: bool,
     active: bool,
 }
 
 #[cfg(not(unix))]
 impl RawPrompt {
     fn enter() -> Result<Self, Error> {
-        Ok(Self {
-            confirmation: false,
-            active: false,
-        })
-    }
-    fn enter_attended() -> Result<Self, Error> {
         crossterm::terminal::enable_raw_mode()
             .map_err(|error| Error::new("failed to enable terminal input").with_source(error))?;
-        Ok(Self {
-            confirmation: true,
-            active: true,
-        })
+        Ok(Self { active: true })
     }
     fn resume(&mut self) -> Result<(), Error> {
-        if self.confirmation {
-            crossterm::terminal::enable_raw_mode().map_err(|error| {
-                Error::new("failed to enable terminal input").with_source(error)
-            })?;
-            self.active = true;
-        }
+        crossterm::terminal::enable_raw_mode()
+            .map_err(|error| Error::new("failed to enable terminal input").with_source(error))?;
+        self.active = true;
         Ok(())
     }
     fn restore(&mut self) -> Result<(), Error> {

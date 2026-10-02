@@ -1,4 +1,4 @@
-use crate::auth::{ApiKeyInput, CredentialSelectionInputs, CredentialStore};
+use crate::auth::{ApiKeyInput, CredentialSelectionInputs};
 use crate::error::Error;
 
 use super::url::{LinearUrlKind, LinearUrlParse, LinearUrlRef, parse_linear_url};
@@ -18,18 +18,6 @@ impl<'a> WorkspaceScope<'a> {
             sourced_workspace: inputs.sourced_workspace.map(|(value, _)| value),
             default_workspace,
             api_key: inputs.api_key,
-        }
-    }
-
-    pub fn from_selection(
-        inputs: &CredentialSelectionInputs<'a>,
-        store: &'a CredentialStore,
-    ) -> Self {
-        Self {
-            cli_workspace: inputs.cli_workspace,
-            sourced_workspace: inputs.sourced_workspace.as_ref().map(|(value, _)| *value),
-            default_workspace: store.default(),
-            api_key: inputs.api_key.clone(),
         }
     }
 
