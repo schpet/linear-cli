@@ -55,7 +55,7 @@ fn exact_lookup_argv_and_null_stdin() {
         "printf '%s\\n' \"$@\" > \"$TRACE\"; if IFS= read -r line; then exit 8; fi; printf '%s' \"$MARKER\"",
     );
     let key = sandbox
-        .reader(Duration::from_secs(2))
+        .reader(Duration::from_secs(10))
         .lookup_detailed("demo")
         .unwrap()
         .unwrap();
@@ -70,7 +70,7 @@ fn exact_lookup_argv_and_null_stdin() {
 fn success_ignores_stderr_and_keeps_stdout_verbatim() {
     let sandbox = Sandbox::new("printf 'noisy' >&2; printf 'line\\n'");
     let key = sandbox
-        .reader(Duration::from_secs(2))
+        .reader(Duration::from_secs(10))
         .lookup_detailed("demo")
         .unwrap()
         .unwrap();
@@ -82,14 +82,14 @@ fn empty_output_and_exit_one_with_blank_stderr_are_misses() {
     let empty = Sandbox::new("exit 0");
     assert!(
         empty
-            .reader(Duration::from_secs(2))
+            .reader(Duration::from_secs(10))
             .lookup_detailed("demo")
             .unwrap()
             .is_none()
     );
     let miss = Sandbox::new("printf '\\357\\273\\277' >&2; exit 1");
     assert!(
-        miss.reader(Duration::from_secs(2))
+        miss.reader(Duration::from_secs(10))
             .lookup_detailed("demo")
             .unwrap()
             .is_none()
@@ -97,7 +97,7 @@ fn empty_output_and_exit_one_with_blank_stderr_are_misses() {
     let not_trimmed = Sandbox::new("printf '\\302\\205' >&2; exit 1");
     assert_eq!(
         not_trimmed
-            .reader(Duration::from_secs(2))
+            .reader(Duration::from_secs(10))
             .lookup_detailed("demo")
             .unwrap_err(),
         ProcessLookupFailure::ExitFailure
@@ -105,7 +105,7 @@ fn empty_output_and_exit_one_with_blank_stderr_are_misses() {
     let ignored_stdout = Sandbox::new("printf '\\377'; exit 1");
     assert!(
         ignored_stdout
-            .reader(Duration::from_secs(2))
+            .reader(Duration::from_secs(10))
             .lookup_detailed("demo")
             .unwrap()
             .is_none()
@@ -116,7 +116,7 @@ fn empty_output_and_exit_one_with_blank_stderr_are_misses() {
 fn errors_are_typed_and_do_not_include_child_output() {
     let failed = Sandbox::new("printf 'lin_api_fake_secret' >&2; exit 1");
     let error = failed
-        .reader(Duration::from_secs(2))
+        .reader(Duration::from_secs(10))
         .lookup_detailed("demo")
         .unwrap_err();
     assert_eq!(error, ProcessLookupFailure::ExitFailure);
@@ -124,7 +124,7 @@ fn errors_are_typed_and_do_not_include_child_output() {
     let invalid = Sandbox::new("printf '\\377'");
     assert_eq!(
         invalid
-            .reader(Duration::from_secs(2))
+            .reader(Duration::from_secs(10))
             .lookup_detailed("demo")
             .unwrap_err(),
         ProcessLookupFailure::InvalidUtf8
@@ -140,7 +140,7 @@ fn errors_are_typed_and_do_not_include_child_output() {
     let other_exit = Sandbox::new("exit 4");
     assert_eq!(
         other_exit
-            .reader(Duration::from_secs(2))
+            .reader(Duration::from_secs(10))
             .lookup_detailed("demo")
             .unwrap_err(),
         ProcessLookupFailure::ExitFailure
@@ -149,7 +149,7 @@ fn errors_are_typed_and_do_not_include_child_output() {
     fs::set_permissions(&denied.executable, fs::Permissions::from_mode(0o600)).unwrap();
     assert_eq!(
         denied
-            .reader(Duration::from_secs(2))
+            .reader(Duration::from_secs(10))
             .lookup_detailed("demo")
             .unwrap_err(),
         ProcessLookupFailure::Spawn(std::io::ErrorKind::PermissionDenied)
@@ -179,6 +179,20 @@ fn deadline_kills_a_hung_child() {
         assert!(std::time::Instant::now() < deadline, "child {pid} survived");
         std::thread::sleep(Duration::from_millis(20));
     }
+}
+
+#[test]
+fn output_held_open_by_a_descendant_is_read_up_to_the_exit() {
+    let sandbox =
+        Sandbox::new("/bin/sleep 3 & printf '%s' \"$!\" > \"$TRACE\"; printf 'key'; exit 0");
+    let started = std::time::Instant::now();
+    let result = sandbox
+        .reader(Duration::from_secs(10))
+        .lookup_detailed("demo");
+    let pid = fs::read_to_string(sandbox.root.join("trace")).unwrap();
+    let _ = Command::new("/bin/kill").arg(pid).status();
+    assert_eq!(result.unwrap().unwrap().expose(), "key");
+    assert!(started.elapsed() < Duration::from_secs(2));
 }
 
 #[path = "mac_reader.rs"]

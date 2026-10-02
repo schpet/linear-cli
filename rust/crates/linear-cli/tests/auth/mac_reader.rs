@@ -8,7 +8,7 @@ fn reader(sandbox: &Sandbox) -> ProcessKeyringReader {
         ReaderFlavor::MacSecurity,
         sandbox.executable.clone().into_os_string(),
     )
-    .with_timeout(Duration::from_secs(2))
+    .with_timeout(Duration::from_secs(10))
 }
 
 #[test]

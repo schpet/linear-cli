@@ -20,6 +20,11 @@ use crate::text::{js_space, js_trim};
 /// How long one keyring command may run before it is killed.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// How long output may keep arriving after the tool exits. A pipe stays open
+/// past that only when another process inherited it, and that process never
+/// writes the tool's output.
+const PIPE_GRACE: Duration = Duration::from_millis(500);
+
 /// `security` exits with this status when no matching item exists.
 const MAC_NOT_FOUND: i32 = 44;
 
@@ -55,13 +60,35 @@ async fn run(
         if let (Some(input), Some(mut stdin)) = (input, stdin) {
             stdin.write_all(input).await.map_err(RunError::Io)?;
         }
-        let (status, stdout, stderr) =
-            tokio::try_join!(child.wait(), read_all(stdout), read_all(stderr))
-                .map_err(RunError::Io)?;
+        let mut stdout_bytes = Vec::new();
+        let mut stderr_bytes = Vec::new();
+        let status = {
+            let reads = async {
+                tokio::try_join!(
+                    read_into(stdout, &mut stdout_bytes),
+                    read_into(stderr, &mut stderr_bytes)
+                )
+            };
+            tokio::pin!(reads);
+            let mut drained = false;
+            let status = tokio::select! {
+                status = child.wait() => status,
+                output = &mut reads => {
+                    output.map_err(RunError::Io)?;
+                    drained = true;
+                    child.wait().await
+                }
+            }
+            .map_err(RunError::Io)?;
+            if !drained && let Ok(output) = tokio::time::timeout(PIPE_GRACE, reads).await {
+                output.map_err(RunError::Io)?;
+            }
+            status
+        };
         Ok(Output {
             status,
-            stdout,
-            stderr,
+            stdout: stdout_bytes,
+            stderr: stderr_bytes,
         })
     };
     match tokio::time::timeout(timeout, exchange).await {
@@ -75,12 +102,20 @@ async fn run(
     }
 }
 
-async fn read_all(pipe: Option<impl AsyncRead + Unpin>) -> io::Result<Vec<u8>> {
-    let mut bytes = Vec::new();
-    if let Some(mut pipe) = pipe {
-        pipe.read_to_end(&mut bytes).await?;
+/// Appends everything read from `pipe` to `bytes`, which keeps whatever
+/// arrived if this future is dropped early.
+async fn read_into(pipe: Option<impl AsyncRead + Unpin>, bytes: &mut Vec<u8>) -> io::Result<()> {
+    let Some(mut pipe) = pipe else {
+        return Ok(());
+    };
+    let mut chunk = [0_u8; 4096];
+    loop {
+        let count = pipe.read(&mut chunk).await?;
+        if count == 0 {
+            return Ok(());
+        }
+        bytes.extend_from_slice(chunk.get(..count).unwrap_or_default());
     }
-    Ok(bytes)
 }
 
 /// Why a keyring lookup failed. Never carries the tool's output, which may
