@@ -24,3 +24,4 @@ mod status_update;
 mod team;
 mod template;
 mod user;
+mod web;

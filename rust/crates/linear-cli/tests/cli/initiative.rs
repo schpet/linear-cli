@@ -2,6 +2,7 @@
 use serde_json::{Value, json};
 
 use crate::support::{Cli, MockLinear, assert_json};
+use crate::web::{open_stubs, opened};
 
 const ID: &str = "6a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 const OTHER_ID: &str = "7b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e";
@@ -64,21 +65,6 @@ fn users() -> Value {
         { "id": "user-x", "email": "x@example.com", "displayName": "x", "name": "Alice X" },
         { "id": "user-alice", "email": "alice@example.com", "displayName": "alice", "name": "Alice" }
     ] } })
-}
-
-fn open_stubs(cli: Cli) -> Cli {
-    cli.stub_bin("open", "exit 0")
-        .stub_bin("xdg-open", "exit 0")
-}
-
-/// The URL handed to the platform opener (`open` on macOS, `xdg-open` elsewhere).
-fn opened(cli: &Cli) -> Vec<String> {
-    let mut calls = cli.calls("open");
-    calls.extend(cli.calls("xdg-open"));
-    calls
-        .into_iter()
-        .map(|argv| argv.last().cloned().expect("opener got a URL"))
-        .collect()
 }
 
 #[test]
