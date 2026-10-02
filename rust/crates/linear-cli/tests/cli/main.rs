@@ -9,6 +9,7 @@ mod config;
 mod cycle;
 mod document;
 mod harness;
+mod initiative;
 mod issue_attach;
 mod issue_comment;
 mod issue_read;
