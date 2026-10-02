@@ -3,7 +3,9 @@
 //!
 //! Each [`GraphQlTransport`] owns one `reqwest` client. Proxies come from the
 //! standard `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY`/`NO_PROXY` variables, which
-//! reqwest reads itself. Extra trusted roots come from [`TransportConfig`].
+//! reqwest reads itself. Certificates are verified against the operating
+//! system's roots and the bundled Mozilla roots, plus any bundle named in
+//! [`TransportConfig`].
 //!
 //! GraphQL responses are captured whole (status, headers, body up to a cap)
 //! and then classified: GraphQL `errors` win over the HTTP status, and a
@@ -413,10 +415,9 @@ fn load_pem_bundle(path: &Path) -> Result<Vec<Certificate>, TransportBuildError>
 }
 
 /// Builds the transport's client: HTTP/1.1, bounded redirects, no retries,
-/// proxies from the environment, built-in roots plus the optional bundle.
-///
-/// The built-in roots are whichever set the reqwest TLS feature in
-/// `Cargo.toml` provides.
+/// gzip/brotli/deflate responses, proxies from the environment, and trusted
+/// roots from the operating system, the bundled Mozilla set and the optional
+/// bundle.
 fn build_client(config: &TransportConfig) -> Result<Client, TransportBuildError> {
     let mut builder = Client::builder()
         .user_agent(USER_AGENT_VALUE)

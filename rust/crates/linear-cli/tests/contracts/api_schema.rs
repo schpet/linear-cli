@@ -183,9 +183,9 @@ fn api_wire_is_verbatim_ordered_and_response_errors_do_not_erase_envelope() {
         r#"{"query":" mutation M { anything } ","variables":{"1":null,"2":"two","z":2}}"#
     );
     assert!(
-        !requests[0]
+        requests[0]
             .to_ascii_lowercase()
-            .contains("accept-encoding:")
+            .contains("accept-encoding: gzip")
     );
 }
 #[test]
@@ -420,12 +420,17 @@ fn stdin_query_consumes_stream_before_stdin_variable_and_input_failures_send_zer
     }
 }
 #[test]
-fn raw_fetch_redirects_post_to_get_and_strips_cross_origin_auth() {
+fn raw_fetch_redirects_post_to_get_strips_cross_origin_auth_and_decodes_gzip() {
+    // `{"data":true}`, gzip-compressed.
+    const GZIP_BODY: [u8; 33] = [
+        31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 171, 86, 74, 73, 44, 73, 84, 178, 42, 41, 42, 77, 173,
+        5, 0, 116, 98, 198, 157, 13, 0, 0, 0,
+    ];
     let home = Home::new();
     let target = Server::new(vec![Reply {
         status: 200,
-        headers: String::new(),
-        bytes: b"{\"data\":true}".to_vec(),
+        headers: "Content-Encoding: gzip\r\n".into(),
+        bytes: GZIP_BODY.to_vec(),
     }]);
     let first = Server::new(vec![Reply {
         status: 302,

@@ -63,7 +63,7 @@ async fn image_download_has_no_deadline_or_cap_and_sends_no_api_key() {
     let headers = server.join().unwrap().to_ascii_lowercase();
     assert!(headers.starts_with("get /image http/1.1\r\n"));
     assert!(headers.contains(&format!("user-agent: {USER_AGENT_VALUE}")));
-    assert!(!headers.contains("accept-encoding:"));
+    assert!(headers.contains("accept-encoding: gzip"));
     assert!(!headers.contains("authorization:"));
 }
 
@@ -150,7 +150,7 @@ async fn issue_attachment_download_uses_its_own_error_prefix() {
         [0, 255, 7]
     );
     let request = server.join().unwrap().to_ascii_lowercase();
-    assert!(!request.contains("accept-encoding:") && !request.contains("authorization:"));
+    assert!(!request.contains("authorization:"));
     let (url, server) = serve("500 Fixture download failed", vec![], Duration::ZERO);
     assert_eq!(
         transport(&url)
