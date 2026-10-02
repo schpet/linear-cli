@@ -9,5 +9,6 @@ mod config;
 mod cycle;
 mod harness;
 mod issue_read;
+mod issue_write;
 mod project;
 mod team;
